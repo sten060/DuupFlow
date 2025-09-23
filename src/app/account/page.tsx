@@ -1,26 +1,31 @@
-// Server Component (pas de "use client")
+// src/app/account/page.tsx
 import { redirect } from "next/navigation";
 import { createClientServer } from "@/lib/supabaseServer";
 
-export const dynamic = "force-dynamic"; // évite la mise en cache Vercel sur cette page
+export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
-  const supabase = createClientServer();
-  const { data, error } = await supabase.auth.getUser();
+  // ⚠️ La fonction serveur est maintenant async → on l'attend
+  const supabase = await createClientServer();
 
-  // Pas connecté → on renvoie au login
-  if (error || !data?.user) {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    // Optionnel : log côté serveur
+    console.error("[account] getUser error:", error.message);
+  }
+
+  if (!user) {
     redirect("/login");
   }
 
   return (
-    <main style={{ maxWidth: 720, margin: "40px auto", padding: 16 }}>
-      <h1>Mon compte</h1>
-      <p>Bienvenue, {data.user.email}</p>
-
-      <form action="/logout" method="post">
-        <button type="submit">Se déconnecter</button>
-      </form>
+    <main className="p-6">
+      <h1 className="text-xl font-semibold">Mon compte</h1>
+      <p className="mt-2 text-sm text-gray-500">Connecté en tant que {user?.email}</p>
     </main>
   );
 }

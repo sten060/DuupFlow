@@ -1,11 +1,10 @@
 // src/lib/supabaseServer.ts
-// Client Supabase côté SERVEUR (Route handlers, Server Components)
-
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export function createClientServer() {
-  const cookieStore = cookies();
+// ⚠️ ICI on rend la fonction async et on fait `await cookies()`
+export async function createClientServer() {
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,10 +15,10 @@ export function createClientServer() {
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options?: CookieOptions) {
-          cookieStore.set(name, value, options);
+          cookieStore.set({ name, value, ...options });
         },
         remove(name: string, options?: CookieOptions) {
-          cookieStore.set(name, "", { ...options, maxAge: 0 });
+          cookieStore.set({ name, value: "", ...options, maxAge: 0 });
         },
       },
     }
