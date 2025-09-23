@@ -1,80 +1,166 @@
 "use server";
 
-import fs from "fs";
 import path from "path";
-import { exec } from "child_process";
-import util from "util";
+import fs from "fs/promises";
+import { v4 as uuidv4 } from "uuid";
 import sharp from "sharp";
-import ffmpeg from "fluent-ffmpeg";
+import { exiftool } from "exiftool-vendored";
 
-const execPromise = util.promisify(exec);
+// ⚠️ on importe NOTRE wrapper (qui pointe fluent-ffmpeg vers le binaire de ffmpeg-static)
+import ffmpeg from "@/lib/ffmpeg";
 
-// 👉 Dossier temporaire si on est sur Vercel, sinon dossier local
-const OUT_DIR = process.env.VERCEL ? "/tmp/out" : path.join(process.cwd(), "public", "out");
+// === Constantes ===
+const OUT_DIR = path.join(process.cwd(), "public", "out");
 
-// Fonction pour vider le dossier
-export async function clearOutput() {
-  if (fs.existsSync(OUT_DIR)) {
-    fs.rmSync(OUT_DIR, { recursive: true, force: true });
-  }
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  return { success: true };
+// Petite utilité
+async function ensureOutDir() {
+  await fs.mkdir(OUT_DIR, { recursive: true });
+}
+function isImage(filename: string) {
+  const low = filename.toLowerCase();
+  return low.endsWith(".png") || low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".webp");
+}
+function isVideo(filename: string) {
+  const low = filename.toLowerCase();
+  return low.endsWith(".mp4") || low.endsWith(".mov") || low.endsWith(".m4v");
 }
 
-// Fonction de duplication (images + vidéos)
-export async function duplicateFile(filePath: string, count: number) {
-  if (!fs.existsSync(OUT_DIR)) {
-    fs.mkdirSync(OUT_DIR, { recursive: true });
+function randomBetween(min: number, max: number) {
+  return Math.random() * (max - min) + min;
+}
+
+// ============ SERVER ACTIONS ============
+
+/**
+ * Duplique un fichier image OU vidéo N fois.
+ * Attend dans formData:
+ * - "file": File (obligatoire)
+ * - "count": nombre (optionnel, défaut 3)
+ */
+export async function duplicate(formData: FormData) {
+  await ensureOutDir();
+
+  const file = formData.get("file") as File | null;
+  const countStr = (formData.get("count") as string | null) ?? "3";
+  const count = Math.max(1, Number.parseInt(countStr || "3", 10));
+
+  if (!file) {
+    throw new Error("Aucun fichier reçu.");
   }
 
-  const ext = path.extname(filePath).toLowerCase();
-  const base = path.basename(filePath, ext);
+  // On sauvegarde temporairement l’upload sur le disque
+  const arrBuf = await file.arrayBuffer();
+  const tmpName = `tmp_${uuidv4()}.${(file.name.split(".").pop() || "").toLowerCase()}`;
+  const tmpIn = path.join(OUT_DIR, tmpName);
+  await fs.writeFile(tmpIn, Buffer.from(arrBuf));
+
+  const base = path.parse(file.name).name;
 
   const results: string[] = [];
 
-  for (let i = 0; i < count; i++) {
-    const outputName = `${base}_copy${i + 1}${ext}`;
-    const outputPath = path.join(OUT_DIR, outputName);
+  try {
+    if (isImage(file.name)) {
+      // ======== TRAITEMENT IMAGES ========
+      // On génère N variantes très légèrement différentes
+      for (let i = 1; i <= count; i++) {
+        const id = uuidv4();
+        const outName = `dup_${i}_${id}.jpg`;
+        const outPath = path.join(OUT_DIR, outName);
 
-    if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
-      // Duplication d'images avec variations
-      await sharp(filePath)
-        .rotate(Math.floor(Math.random() * 360)) // orientation aléatoire
-        .modulate({
-          brightness: 0.98 + Math.random() * 0.04, // luminosité légèrement différente
-          saturation: 0.98 + Math.random() * 0.04, // saturation différente
-        })
-        .resize({
-          width: 1000 + Math.floor(Math.random() * 10), // légère variation largeur
-          height: 1000 + Math.floor(Math.random() * 10), // légère variation hauteur
-        })
-        .jpeg({ quality: 80 + Math.floor(Math.random() * 10) }) // recompression
-        .toFile(outputPath);
+        // 1) ajustements visuels minimes
+        const brightness = 1 + randomBetween(-0.02, 0.02); // +/-2%
+        const contrast = 1 + randomBetween(-0.02, 0.02);   // +/-2%
+        const noiseSigma = randomBetween(0.2, 0.5);        // bruit très léger
 
-    } else if ([".mp4", ".mov", ".avi", ".mkv"].includes(ext)) {
-      // Duplication de vidéos avec FFmpeg
-      await new Promise((resolve, reject) => {
-        ffmpeg(filePath)
-          .outputOptions([
-            "-c:v libx264",
-            "-preset veryfast",
-            `-crf ${20 + Math.floor(Math.random() * 6)}`, // qualité variable
-            `-b:v ${4000 + Math.floor(Math.random() * 500)}k`, // débit variable
-            "-c:a aac",
-            "-b:a 128k",
-            "-movflags faststart"
-          ])
-          .save(outputPath)
-          .on("end", resolve)
-          .on("error", reject);
-      });
+        let img = sharp(tmpIn).jpeg({ quality: 90, mozjpeg: true });
+        // "contrast" se simule via modulate(saturation, brightness), puis un sharpen léger
+        img = img
+          .modulate({ brightness, saturation: 1 })
+          .sharpen(contrast > 1 ? 0.5 : 0.2);
+
+        // ajout d’un léger bruit via convolution très douce (approx)
+        // (sharp n’a pas d’ajout de bruit direct; on reste minimaliste)
+        if (noiseSigma > 0.25) {
+          img = img.blur(0.15);
+        }
+
+        await img.toFile(outPath);
+
+        // 2) métadonnées EXIF — variations sûres
+        try {
+          await exiftool.write(outPath, {
+            // Renomme les champs simples
+            Title: `${base} - v${i}`,
+            Comment: "Generated by ContentDuplicator",
+            // Date aléatoire légère pour casser la répétition
+            CreateDate: new Date(Date.now() - Math.floor(Math.random() * 3_600_000)).toISOString(),
+          }, { ignoreMinorErrors: true });
+        } catch {
+          // on ignore silencieusement si la plate-forme ne supporte pas l’écriture EXIF
+        }
+
+        results.push(`/out/${outName}`);
+      }
+    } else if (isVideo(file.name)) {
+      // ======== TRAITEMENT VIDÉOS ========
+      // On encode en H.264 + métadonnées standard
+      for (let i = 1; i <= count; i++) {
+        const id = uuidv4();
+        const outName = `dup_${i}_${id}.mp4`;
+        const outPath = path.join(OUT_DIR, outName);
+
+        await new Promise<void>((resolve, reject) => {
+          let lastStdErr = "";
+
+          ffmpeg(tmpIn)
+            .outputOptions([
+              "-c:v libx264",
+              "-preset veryfast",
+              "-crf 22",
+              "-maxrate 4500k",
+              "-bufsize 9000k",
+              "-movflags +faststart",
+              "-c:a aac",
+              "-b:a 192k",
+              // métadonnées correctes (syntaxe ffmpeg)
+              `-metadata`, `title=${base}_${i}`,
+              `-metadata`, `comment=Generated by ContentDuplicator`,
+            ])
+            .on("start", (cmd) => {
+              console.log("[ffmpeg] start:", cmd);
+            })
+            .on("stderr", (line) => {
+              lastStdErr = line;
+            })
+            .on("end", () => resolve())
+            .on("error", (err) => {
+              reject(new Error(`ffmpeg failed: ${err.message}\n${lastStdErr || ""}`));
+            })
+            .save(outPath);
+        });
+
+        results.push(`/out/${outName}`);
+      }
     } else {
-      // Autres fichiers : simple copie
-      fs.copyFileSync(filePath, outputPath);
+      throw new Error("Format non supporté (image .png/.jpg/.jpeg/.webp ou vidéo .mp4/.mov/.m4v).");
     }
-
-    results.push(outputPath);
+  } finally {
+    // Nettoyage du temporaire
+    try { await fs.unlink(tmpIn); } catch {}
   }
 
-  return results;
+  // On renvoie la liste des fichiers créés (chemins publics)
+  return { files: results };
+}
+
+/**
+ * Supprime tous les fichiers générés dans /public/out
+ */
+export async function deleteAll() {
+  await ensureOutDir();
+  const entries = await fs.readdir(OUT_DIR);
+  await Promise.all(
+    entries.map((name) => fs.unlink(path.join(OUT_DIR, name)).catch(() => {}))
+  );
+  return { ok: true };
 }
