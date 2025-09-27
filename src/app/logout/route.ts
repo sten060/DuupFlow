@@ -1,11 +1,12 @@
-// src/app/logout/route.ts
 import { NextResponse } from "next/server";
-import { createClientAction } from "@/lib/supabaseServer";
 
-export async function POST(request: Request) {
-  const supabase = createClientAction();
-  await supabase.auth.signOut();
+export async function GET() {
+  // on efface les cookies d'auth Supabase côté navigateur
+  const res = NextResponse.redirect(new URL("/login", process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"));
 
-  const { origin } = new URL(request.url);
-  return NextResponse.redirect(`${origin}/login`);
+  // cookies utilisés par Supabase Auth
+  res.cookies.set("sb-access-token", "", { path: "/", maxAge: 0 });
+  res.cookies.set("sb-refresh-token", "", { path: "/", maxAge: 0 });
+
+  return res;
 }

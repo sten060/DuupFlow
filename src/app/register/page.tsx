@@ -3,13 +3,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClientBrowser } from "@/lib/supabaseClient";
+import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function RegisterPage() {
-  const supabase = createClientBrowser();
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [pwd, setPwd] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -20,62 +20,65 @@ export default function RegisterPage() {
 
     const { error } = await supabase.auth.signUp({
       email,
-      password,
-      // emailRedirectTo: `${window.location.origin}/auth/callback`, // si tu configures l’email confirm
+      password: pwd,
     });
 
     setLoading(false);
-
     if (error) {
       setErr(error.message);
       return;
     }
-
-    // Si la confirmation email est activée, tu peux afficher un message.
-    // Ici, on redirige vers le dashboard si l’auto-login est actif.
-    router.replace("/dashboard");
+    // si "email confirmation" est activée dans Supabase, l'utilisateur devra confirmer.
+    // sinon, il est déjà connecté et on peut pousser vers le dashboard :
+    router.push("/dashboard");
   }
 
   return (
-    <main className="max-w-md mx-auto py-10 px-6">
-      <h1 className="text-2xl font-semibold mb-6">Créer un compte</h1>
+    <main className="min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-sm space-y-6">
+        <h1 className="text-2xl font-bold text-white">Créer un compte</h1>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm text-gray-300">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-md bg-zinc-900 border border-zinc-700 px-3 py-2 text-white outline-none"
+              placeholder="ton@email.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-gray-300">Mot de passe</label>
+            <input
+              type="password"
+              required
+              value={pwd}
+              onChange={(e) => setPwd(e.target.value)}
+              className="w-full rounded-md bg-zinc-900 border border-zinc-700 px-3 py-2 text-white outline-none"
+              placeholder="••••••••"
+            />
+          </div>
 
-      <form onSubmit={onSubmit} className="space-y-4">
-        <input
-          type="email"
-          placeholder="Email"
-          className="w-full rounded border bg-black/10 px-3 py-2"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+          {err && <p className="text-sm text-red-400">{err}</p>}
 
-        <input
-          type="password"
-          placeholder="Mot de passe"
-          className="w-full rounded border bg-black/10 px-3 py-2"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-md bg-indigo-600 hover:bg-indigo-500 px-4 py-2 font-semibold text-white"
+          >
+            {loading ? "Création…" : "Créer mon compte"}
+          </button>
+        </form>
 
-        {err && <p className="text-red-500 text-sm">{err}</p>}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded bg-green-600 px-4 py-2 text-white hover:bg-green-500 disabled:opacity-50"
-        >
-          {loading ? "Création..." : "Créer le compte"}
-        </button>
-      </form>
-
-      <p className="mt-4 text-sm">
-        Déjà inscrit ?{" "}
-        <a className="text-blue-400 underline" href="/login">
-          Se connecter
-        </a>
-      </p>
+        <p className="text-sm text-gray-400">
+          Déjà un compte ?{" "}
+          <Link href="/login" className="text-indigo-300 underline">
+            Se connecter
+          </Link>
+        </p>
+      </div>
     </main>
   );
 }

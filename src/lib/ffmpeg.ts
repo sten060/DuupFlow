@@ -1,20 +1,14 @@
 // src/lib/ffmpeg.ts
-// Petit wrapper serveur pour configurer fluent-ffmpeg avec le binaire de ffmpeg-static
-
 import ffmpegPath from "ffmpeg-static";
 import ffmpeg from "fluent-ffmpeg";
 
-// Sécurité : s'assurer qu'on a bien un chemin binaire
+// On exige que ffmpeg-static ait bien résolu un binaire local
 if (!ffmpegPath) {
-  throw new Error(
-    "ffmpeg-static n'a pas renvoyé de chemin binaire. Vérifie que le paquet est bien installé."
-  );
+  throw new Error("ffmpeg-static n'a pas retourné de chemin binaire");
 }
 
-// On injecte le binaire dans fluent-ffmpeg
+// On injecte ce binaire dans fluent-ffmpeg (et dispo via process si besoin)
 ffmpeg.setFfmpegPath(ffmpegPath);
-
-// (Optionnel) exposer le chemin via process.env si besoin de spawn manuel
 process.env.FFMPEG_PATH = ffmpegPath as string;
 
 export const FFMPEG_PATH = ffmpegPath as string;

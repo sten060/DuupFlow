@@ -1,54 +1,71 @@
 // src/app/api/out/zip/route.ts
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import archiver from "archiver";
-import { createClientServer } from "@/lib/supabaseServer";
+import fs from "fs/promises";
+import path from "path";
+import { getOutDirForCurrentUser } from "@/app/dashboard/utils"; // adapte si ton fichier s'appelle différemment
 
-export const dynamic = "force-dynamic";
-export async function GET() {
-  const supabase = createClientServer();
-  const bucket = process.env.SUPABASE_BUCKET!;
+const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
+const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
 
-  // Liste des objets
-  const { data: list, error } = await supabase.storage.from(bucket).list("", { limit: 500 });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+function extOf(n: string) {
+  const p = n.lastIndexOf(".");
+  return p >= 0 ? n.slice(p).toLowerCase() : "";
+}
 
-  // Crée un stream ZIP
-  const { readable, writable } = new TransformStream();
-  const writer = writable.getWriter();
+export async function GET(req: Request) {
+  // 1) Dossier perso de l'utilisateur connecté
+  const { dir } = await getOutDirForCurrentUser();
 
-  const archive = archiver("zip", { zlib: { level: 9 } });
-  archive.on("error", (err) => {
-    try { writer.abort(err); } catch {}
-  });
-  // Pipe archive → writer
-  const stream = archive as unknown as NodeJS.ReadableStream;
-  (async () => {
-    const reader = stream as any;
-    const encoder = new TextEncoder();
+  // 2) Filtre optionnel: ?type=videos | images (sinon tout)
+  const url = new URL(req.url);
+  const type = url.searchParams.get("type"); // "videos" | "images" | null
 
-    // @ts-ignore – web stream adapter
-    for await (const chunk of reader) {
-      await writer.write(chunk as Uint8Array);
+  // 3) Liste des fichiers finaux (pas les temporaires)
+  const names = await fs.readdir(dir).catch(() => []);
+  const files = names.filter((n) => {
+    if (n.startsWith(".") || n.startsWith("tmp_") || n.includes("__in__") || n.endsWith(".part")) {
+      return false;
     }
-    await writer.close();
-  })();
+    const ext = extOf(n);
+    if (type === "videos") return VIDEO_EXTS.includes(ext);
+    if (type === "images") return IMAGE_EXTS.includes(ext);
+    return true; // pas de type ⇒ tout
+  });
 
-  // Ajoute chaque fichier au zip via son URL publique
-  for (const item of list ?? []) {
-    if (!item.name) continue;
-    const { data } = supabase.storage.from(bucket).getPublicUrl(item.name);
-    const url = data.publicUrl;
-    const res = await fetch(url);
-    if (!res.ok) continue;
-    archive.append(Buffer.from(await res.arrayBuffer()), { name: item.name });
+  if (files.length === 0) {
+    return new NextResponse("Aucun fichier à zipper pour ce filtre.", { status: 404 });
   }
 
-  await archive.finalize();
+  // 4) Crée un zip en streaming
+  const archive = archiver("zip", { zlib: { level: 9 } });
 
-  return new NextResponse(readable as any, {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      archive.on("data", (chunk) => controller.enqueue(chunk as Uint8Array));
+      archive.on("end", () => controller.close());
+      archive.on("error", (err) => controller.error(err));
+
+      for (const name of files) {
+        archive.file(path.join(dir, name), { name });
+      }
+      archive.finalize().catch((e) => controller.error(e));
+    },
+  });
+
+  const filename =
+    type === "videos" ? "videos.zip" :
+    type === "images" ? "images.zip" :
+    "generated_files.zip";
+
+  return new NextResponse(stream as any, {
+    status: 200,
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="outputs.zip"`,
+      "Content-Disposition": `attachment; filename=${filename}`,
     },
   });
 }

@@ -1,55 +1,56 @@
+// src/app/(auth)/signup/page.tsx
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClientBrowser } from "@/lib/supabaseClient";
+import { signUp } from "../actions";
 
-export default function LoginPage() {
-  const supabase = createClientBrowser();
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export default function SignupPage() {
   const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return setErr(error.message);
-    router.replace("/dashboard");
-  }
 
   return (
-    <main className="mx-auto max-w-md p-6">
-      <h1 className="text-2xl font-bold mb-4">Connexion</h1>
-      <form onSubmit={onSubmit} className="grid gap-3">
-        <input
-          className="border rounded p-2"
-          type="email" placeholder="Email"
-          value={email} onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          className="border rounded p-2"
-          type="password" placeholder="Mot de passe"
-          value={password} onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        {err && <p className="text-red-500 text-sm">{err}</p>}
+    <main className="max-w-sm mx-auto p-6 space-y-6">
+      <h1 className="text-2xl font-bold">Créer un compte</h1>
+
+      <form
+        action={async (formData) => {
+          setErr(null);
+          const res = await signUp(formData);
+          if (res?.ok === false) setErr(res.message);
+        }}
+        className="space-y-4"
+      >
+        <div>
+          <label className="block text-sm mb-1">Email</label>
+          <input
+            name="email"
+            type="email"
+            required
+            className="w-full rounded-md bg-zinc-800 text-white px-3 py-2 border border-zinc-700"
+          />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Mot de passe</label>
+          <input
+            name="password"
+            type="password"
+            required
+            className="w-full rounded-md bg-zinc-800 text-white px-3 py-2 border border-zinc-700"
+          />
+        </div>
+
+        {err && <p className="text-red-400 text-sm">{err}</p>}
+
         <button
           type="submit"
-          className="bg-black text-white rounded py-2"
-          disabled={loading}
+          className="w-full rounded-md bg-indigo-600 px-4 py-2 font-semibold"
         >
-          {loading ? "Connexion..." : "Se connecter"}
+          S’inscrire
         </button>
-        <a className="text-sm underline" href="/register">
-          Pas de compte ? Créer un compte
-        </a>
       </form>
+
+      <p className="text-sm opacity-80">
+        Déjà un compte ? <a className="underline" href="/login">Se connecter</a>
+      </p>
     </main>
   );
 }

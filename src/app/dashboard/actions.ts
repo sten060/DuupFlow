@@ -1,67 +1,448 @@
-// src/app/dashboard/actions.ts
 "use server";
 
-import fs from "fs/promises";
 import path from "path";
-import { ensureOutDir, OUT_DIR } from "@/lib/dupConfig";
+import fs from "fs/promises";
+import crypto from "crypto";
+import sharp from "sharp";
+import { exiftool } from "exiftool-vendored";
+import { execa } from "execa";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import os from "os";
+import { createClient as createSbServer } from "@/lib/supabase/server";
+import { getOutDirForCurrentUser, getOutDirForCurrentUserRSC } from "./utils";
 
-/**
- * NE RIEN EXPORTER D’AUTRE QUE DES FONCTIONS ASYNC ICI
- * (pas de const exportées, pas de types exportés)
- */
+// Dossier global de base
+const BASE_OUT_DIR = path.join(process.cwd(), "public", "out");
 
-export async function duplicate(formData: FormData): Promise<{ files: string[] }> {
-  await ensureOutDir();
 
-  // ---- récupère les champs du form
-  const file = formData.get("file") as File | null;
-  const countRaw = formData.get("count");
-  const count = Math.max(1, Number(countRaw ?? 1) || 1);
+// Suffixe aléatoire déjà utilisé
+const randSuffix = () => crypto.randomBytes(2).toString("hex");
 
-  if (!file) {
-    throw new Error("Aucun fichier reçu");
-  }
 
-  // Sauvegarde le fichier temporairement (Buffer depuis File)
-  const arrayBuffer = await file.arrayBuffer();
-  const inputBuf = Buffer.from(arrayBuffer);
-  const tmpIn = path.join(OUT_DIR, `tmp_${Date.now()}.${(file.name.split(".").pop() || "bin")}`);
-
-  await fs.writeFile(tmpIn, inputBuf);
-
-  const outputs: string[] = [];
-
-  // ------ ICI: TON PIPELINE EXISTANT (ffmpeg/sharp/exiftool…)
-  // Lis à partir de `tmpIn`, génère N fichiers et pousse leur chemin public dans `outputs`.
-  // Par exemple (vidéo) tu finissais par écrire `dup_*.mp4` dans OUT_DIR.
-  // PSEUDO-EXEMPLE:
-  //
-  // for (let i = 1; i <= count; i++) {
-  //   const out = path.join(OUT_DIR, `dup_${i}_${crypto.randomUUID()}.mp4`);
-  //   await runFfmpeg(tmpIn, out, {...tes options...});
-  //   outputs.push(`/out/${path.basename(out)}`);
-  // }
-  //
-  // pour les images, même idée avec sharp/exiftool, et push aussi `/out/xxx.jpg`
-
-  // ------ FIN TON PIPELINE
-
-  // Nettoyage du tmp
-  try { await fs.unlink(tmpIn); } catch {}
-
-  return { files: outputs };
+/* ============================================
+ *               VIDÉO — variations
+ * ============================================ */
+function rnd(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+function coin(p = 0.5) {
+  return Math.random() < p;
 }
 
-export async function deleteAll(): Promise<{ ok: true }> {
-  await ensureOutDir();
+function randomVideoParams(i: number, filters: string[] = []) {
+  const brightness = +rnd(-0.03, 0.03).toFixed(3);
+  const contrast   = +rnd(0.97, 1.03).toFixed(3);
+  const sat        = +rnd(0.97, 1.03).toFixed(3);
+  const hue        = +rnd(-0.03, 0.03).toFixed(3);
+  const noiseLevel = Math.floor(rnd(1, 5));
+  const shiftX = coin() ? 1 : 0;
+  const shiftY = shiftX ? 0 : 1;
+  const speed = +rnd(0.985, 1.015).toFixed(3);
+  const volDb = +rnd(-1.0, 1.0).toFixed(2);
 
-  const files = await fs.readdir(OUT_DIR);
-  await Promise.all(
-    files.map(async (name) => {
-      const p = path.join(OUT_DIR, name);
-      await fs.unlink(p).catch(() => {});
-    })
-  );
+  let vfParts: string[] = ["scale=trunc(iw/2)*2:trunc(ih/2)*2"];
+  let afParts: string[] = [];
+  let extraParams: string[] = []; // <== pour bitrate, gop, profil etc.
 
-  return { ok: true };
+  // === Application des filtres cochés ===
+  if (filters.includes("crop")) {
+    vfParts.push(`crop=in_w-${shiftX?1:0}:in_h-${shiftY?1:0}:${shiftX?1:0}:${shiftY?1:0},pad=iw+${shiftX?1:0}:ih+${shiftY?1:0}:${shiftX?1:0}:${shiftY?1:0}:color=black`);
+  }
+
+  if (filters.includes("noise")) {
+    vfParts.push(`noise=alls=${noiseLevel}:allf=t+u`);
+  }
+
+  if (filters.includes("eq")) {
+    vfParts.push(`eq=brightness=${brightness}:contrast=${contrast}:saturation=${sat}`);
+  }
+
+  if (filters.includes("hue")) {
+    vfParts.push(`hue=h=${hue}*PI:s=${sat}`);
+  }
+
+  if (filters.includes("unsharp") && coin(0.4)) {
+    vfParts.push("unsharp=lx=3:ly=3:la=0.8:cx=3:cy=3:ca=0.8");
+  }
+
+  if (filters.includes("volume")) {
+    afParts.push(`volume=${volDb}dB`);
+  }
+
+  if (filters.includes("speed")) {
+    afParts.push(`atempo=${speed}`);
+  }
+
+  // === Nouveaux filtres ===
+  if (filters.includes("bitrate")) {
+    const br = Math.floor(rnd(100, 2000)); // kb/s
+    extraParams.push("-b:v", `${br}k`);
+  }
+
+  if (filters.includes("gop")) {
+    const gop = Math.floor(rnd(50, 100));
+    extraParams.push("-g", `${gop}`);
+  }
+
+  if (filters.includes("fps")) {
+    const fps = +(rnd(24.1, 25.9).toFixed(3));
+    vfParts.push(`fps=${fps}`);
+  }
+
+  if (filters.includes("profile")) {
+    const profiles = ["baseline", "main", "high"];
+    const levels = ["4.0", "4.1", "5.0", "5.1"];
+    const profile = profiles[Math.floor(Math.random() * profiles.length)];
+    const level = levels[Math.floor(Math.random() * levels.length)];
+    extraParams.push("-profile:v", profile, "-level", level);
+  }
+
+  // === Résultats ===
+  const vf = `${vfParts.join(",")},setpts=${(1/speed).toFixed(6)}*PTS`;
+  const af = afParts.join(",");
+
+  const metaTitle = `Duplicate_${i}`;
+  const metaComment = `Generated by ContentDuplicator (n=${i}, spd=${speed}, hue=${hue}, sat=${sat}, br=${brightness}, ct=${contrast}, nz=${noiseLevel})`;
+
+  return { vf, af, metaTitle, metaComment, extraParams };
+}
+
+// --- VIDEO: duplication avec variations légères ---
+async function getSourceFps(filePath: string): Promise<number | null> {
+  try {
+    const { execa } = await import("execa");
+    const { stdout } = await execa("ffprobe", [
+      "-v", "error",
+      "-select_streams", "v:0",
+      "-show_entries", "stream=avg_frame_rate",
+      "-of", "default=nw=1:nk=1",
+      filePath,
+    ]);
+    // ffprobe renvoie par ex "30000/1001" ou "25/1"
+    const [numStr, denStr] = stdout.trim().split("/");
+    const num = Number(numStr);
+    const den = Number(denStr || 1);
+    if (!num || !den) return null;
+    return num / den;
+  } catch {
+    return null;
+  }
+}
+
+async function processVideo(
+  buffer: Buffer,
+  outPath: string,
+  i: number,
+  ext: string,
+  selectedFilters: string[] = []
+) {
+  
+  // 1bis) Récupère le nom du fichier de sortie (sans l’extension)
+const originalName = path.parse(outPath).name;
+
+
+  // 1) Ext de sortie
+  const safeExt = (ext || "mp4").toLowerCase();
+
+  // 2) IMPORTANT : génère les fichiers temporaires dans le MÊME dossier que le fichier final
+  const baseDir = path.dirname(outPath);
+  const base = path.join(baseDir, `${originalName}_copy${i}`);
+  const tmpIn  = `${base}_in.${safeExt}`;
+  const tmpOut = `${base}_out.${safeExt}`;
+
+  // 3) On écrit la vidéo originale dans un fichier temporaire
+  await fs.writeFile(tmpIn, buffer);
+
+// 4) Params aléatoires (filters + metadata)
+const { vf, af, metaTitle, metaComment, extraParams } = randomVideoParams(i, selectedFilters);
+
+// 5) FFmpeg — construire les args proprement
+const args: string[] = [
+  "-y",
+  "-i", tmpIn,
+  "-vf", vf,
+];
+
+// n’ajouter -af que si on a des filtres audio
+if (af && af.trim().length > 0) {
+  args.push("-af", af);
+}
+
+// ajouter les extraParams (bitrate, gop, profile, etc.)
+args.push(...extraParams);
+
+args.push(
+  "-c:v", "libx264",
+  "-preset", "veryfast",
+  "-crf", "23",
+  "-c:a", "aac",
+  "-b:a", "128k",
+  "-metadata", `title=${metaTitle}`,
+  "-metadata", `comment=${metaComment}`,
+  tmpOut,
+);
+
+// lancer FFmpeg (avec logs explicites si ça échoue)
+try {
+  await execa("ffmpeg", args);
+} catch (e: any) {
+  console.error("[ffmpeg] failed:", e?.shortMessage || e?.message);
+  if (e?.stderr) console.error("[ffmpeg] stderr:", e.stderr);
+  if (e?.stdout) console.error("[ffmpeg] stdout:", e.stdout);
+  throw e; // on remonte l'erreur pour la voir en dev
+}
+
+  // 6) Déplace proprement + nettoie les temporaires
+  await fs.copyFile(tmpOut, outPath);
+  await fs.unlink(tmpIn).catch(() => {});
+  await fs.unlink(tmpOut).catch(() => {});
+}
+
+// --- IMAGE: variations pixels + métadonnées (Width/Height/EXIF/qualité) ---
+async function processImage(buffer: Buffer, outPath: string, i: number) {
+  // 1) Métadonnées d’origine (pour connaître la taille)
+  const meta = await sharp(buffer).metadata();
+  const baseW = meta.width  || 0;
+  const baseH = meta.height || 0;
+
+  // 2) Variation légère des dimensions (modifie Width/Height à chaque copie)
+  const scale = 0.992 + Math.random() * 0.016;         // 0.992–1.008
+  const newW  = Math.max(16, Math.round(baseW * scale));
+  const newH  = Math.max(16, Math.round(baseH * scale));
+
+  // 3) Variations visuelles très légères
+  const brightness = 0.97 + Math.random() * 0.06;       // 0.97–1.03
+  const saturation = 0.97 + Math.random() * 0.06;       // 0.97–1.03
+  const gamma      = 1.00 + Math.random() * 0.03;       // 1.00–1.03
+
+  // 4) Pipeline image — impose EXACTEMENT newW x newH (évite tout mismatch)
+  let pipeline = sharp(buffer, { failOn: "none" })
+    .rotate()                                           // applique l’orientation EXIF
+    .resize(newW, newH, { fit: "fill" })                // 🔒 taille EXACTE
+    .modulate({ brightness, saturation })
+    .gamma(gamma);
+
+  // 5) Bruit minuscule : on fabrique un calque 1 canal et on le met à newW/newH
+  const seedW = 32, seedH = 32;
+  const seed = Buffer.allocUnsafe(seedW * seedH);
+  for (let k = 0; k < seed.length; k++) seed[k] = Math.floor(Math.random() * 4); // 0..3
+
+  const noisePng = await sharp(seed, { raw: { width: seedW, height: seedH, channels: 1 } })
+    .resize(newW, newH, { fit: "fill" })                // 🔒 même taille que l’image
+    .blur(0.4)                                          // adouci (quasi invisible)
+    .png()
+    .toBuffer();
+
+  pipeline = pipeline
+    .composite([{ input: noisePng, blend: "overlay", opacity: 0.05 }])
+    .removeAlpha();
+
+  // 6) Recompression (modifie la taille du fichier)
+  const lower = outPath.toLowerCase();
+  if (lower.endsWith(".png")) {
+    const level = 5 + Math.floor(Math.random() * 5);    // 5–9
+    await pipeline.png({ compressionLevel: level }).toFile(outPath);
+  } else if (lower.endsWith(".webp")) {
+    const q = 80 + Math.floor(Math.random() * 15);      // 80–94
+    await pipeline.webp({ quality: q }).toFile(outPath);
+  } else {
+    const q = 84 + Math.floor(Math.random() * 12);      // 84–95
+    await pipeline.jpeg({
+      quality: q,
+      mozjpeg: true,
+      chromaSubsampling: "4:2:0",
+    }).toFile(outPath);
+  }
+
+  // 7) Métadonnées EXIF/IPTC/XMP simples
+  const now = new Date();
+  const exifDate =
+    `${now.getFullYear()}:` +
+    `${String(now.getMonth()+1).padStart(2,"0")}:` +
+    `${String(now.getDate()).padStart(2,"0")} ` +
+    `${String(now.getHours()).padStart(2,"0")}:` +
+    `${String(now.getMinutes()).padStart(2,"0")}:` +
+    `${String(now.getSeconds()).padStart(2,"0")}`;
+
+  try {
+ await exiftool.write(
+   outPath,
+   {
+      AllDates: exifDate,                                 // DateTimeOriginal/Modify/Create
+      Software: "ContentDuplicator",
+      XPTitle:   `Duplicate_${i}`,
+      XPComment: `scale=${scale.toFixed(4)}; b=${brightness.toFixed(3)}; s=${saturation.toFixed(3)}; g=${gamma.toFixed(3)}`,
+      XResolution: 300,
+      YResolution: 300,
+      ResolutionUnit: "inches",
+      Caption: "Generated by ContentDuplicator",
+      "XMP-dc:Title":       `Duplicate_${i}`,
+      "XMP-dc:Description": "Generated by ContentDuplicator",
+        },
+  ["-overwrite_original"] // <= empêche la création du fichier *_original
+);
+  } catch {
+    // ok si le format ne supporte pas l’écriture
+  }
+}
+
+
+// ============ ACTIONS ============
+export async function duplicate(formData: FormData) {
+  
+
+  const file = formData.get("file") as File | null;
+  const count = Math.max(1, Number(formData.get("count") ?? 1));
+  if (!file) return;
+  const { dir } = await getOutDirForCurrentUser();
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const baseName = file.name.replace(/\.[^.]+$/, "") || "file";
+  const ext = (file.name.split(".").pop() || "png").toLowerCase();
+
+  const mime = file.type || "";
+  const isImage = mime.startsWith("image/");
+  const isVideo = mime.startsWith("video/") || ["mp4", "mov", "mkv", "webm"].includes(ext);
+
+  for (let i = 1; i <= count; i++) {
+    const outName = `${baseName}_${i}_${randSuffix()}.${ext}`;
+    const { dir } = await getOutDirForCurrentUser();
+    const outPath = path.join(dir, outName);
+
+
+    if (isImage) {
+      await processImage(buffer, outPath, i);
+    } else if (isVideo) {
+      await processVideo(buffer, outPath, i, ext);
+    } else {
+      // fallback: simple copie (octet ajouté pour différencier)
+      const changed = Buffer.concat([buffer, Buffer.from([i & 0xff])]);
+      await fs.writeFile(outPath, changed);
+    }
+  }
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
+export async function clearOut() {
+  try {
+    const { dir } = await getOutDirForCurrentUser();
+    const names = await fs.readdir(dir);
+
+    await Promise.all(
+      names.map(async (n) => {
+        try {
+          await fs.unlink(path.join(dir, n));
+        } catch {}
+      })
+    );
+  } catch {}
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
+export async function listOut(): Promise<string[]> {
+  try {
+    const { dir, userId } = await getOutDirForCurrentUserRSC();
+    const names = await fs.readdir(dir);
+
+    const finals = names.filter(
+      (n) =>
+        !n.startsWith(".") &&
+        !n.startsWith("tmp_") &&
+        !n.startsWith("__in__") &&
+        !n.endsWith(".part")
+    );
+
+    return finals.map((n) => `/out/${userId}/${encodeURIComponent(path.basename(n))}`);
+  } catch {
+    return [];
+  }
+}
+
+/* ---------- Helpers pour filtrer par type ---------- */
+const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
+const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+
+function extOf(name: string) {
+  const p = name.lastIndexOf(".");
+  return p >= 0 ? name.slice(p).toLowerCase() : "";
+}
+
+export async function listOutVideos(): Promise<string[]> {
+  const all = await listOut();
+  return all.filter((n) => VIDEO_EXTS.includes(extOf(n)));
+}
+
+export async function listOutImages(): Promise<string[]> {
+  const all = await listOut();
+  return all.filter((n) => IMAGE_EXTS.includes(extOf(n)));
+}
+
+/* ---------- Duplication vidéo ---------- */
+export async function duplicateVideo(formData: FormData) {
+  "use server";
+
+  // (A) lecture formulaire
+const count = Math.max(1, Number(formData.get("count") ?? 1));
+const selectedFilters = formData.getAll("filters") as string[]; // <= récupère les filtres
+
+  // (B) vérifs + buffer
+  const file = formData.get("file") as File | null;
+  if (!file) throw new Error("Aucun fichier reçu.");
+  if (!file.type?.startsWith("video/")) {
+    throw new Error("Veuillez envoyer une vidéo.");
+  }
+  const { dir: outDir } = await getOutDirForCurrentUser();
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  // (C) nom de base + extension
+  const dot = file.name.lastIndexOf(".");
+  const ext = dot >= 0 ? file.name.slice(dot) : ".mp4";            // ex: ".mp4"
+  const baseName = dot >= 0 ? file.name.slice(0, dot) : file.name; // nom sans ext
+  const cleanBase = baseName.replace(/[^a-zA-Z0-9_-]/g, "");
+
+  // (D) boucle
+for (let i = 1; i <= count; i++) {
+  const name = `${cleanBase}_${i}_${randSuffix()}${ext}`;
+  const outPath = path.join(outDir, name);
+
+  // IMPORTANT: passer les filtres à processVideo
+  await processVideo(buffer, outPath, i, ext.replace(".", ""), selectedFilters);
+}
+
+// (E) forcer l’actualisation de la page vidéos AVANT le redirect
+revalidatePath("/dashboard/videos");
+redirect("/dashboard/videos");
+}
+
+/* ----------- Duplication image ----------- */
+export async function duplicateImage(formData: FormData) {
+  "use server";
+
+  const file = formData.get("file") as File | null;
+  const count = Math.max(1, Number(formData.get("count") ?? 1));
+  if (!file) throw new Error("Aucun fichier reçu.");
+  if (!file.type?.startsWith("image/")) {
+    throw new Error("Veuillez envoyer une image.");
+  }
+
+  const { dir: outDir } = await getOutDirForCurrentUser();
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const dot = file.name.lastIndexOf(".");
+  const ext = dot >= 0 ? file.name.slice(dot) : ".png";
+  const baseName = dot >= 0 ? file.name.slice(0, dot) : file.name;
+
+  for (let i = 1; i <= count; i++) {
+    const name = `${baseName}_${i}_${randSuffix()}${ext}`;
+    const outPath = path.join(outDir, name);
+    await processImage(buffer, outPath, i);
+  }
+
+  revalidatePath("/dashboard/images");
+  redirect("/dashboard/images");
 }
