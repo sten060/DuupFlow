@@ -28,28 +28,28 @@ export async function mutateImage(inputFile: string, outDir: string, index: numb
   // contraste approximé via 'linear': factor ~ contrast
   const contrast = randomFloat(0.985, 1.015);
 
-  // 3) Calque de bruit très léger (grayscale) et opacity faible
-  const noise = await makeNoiseBuffer(newW, newH); // Uint8Array aléatoire
-  const noiseImg = sharp(noise, {
-    raw: { width: newW, height: newH, channels: 1 },
-  }).toColourspace("b-w"); // calque mono
+// 3) Bruit (calque mono)
+const noise = await makeNoiseBuffer(newW, newH); // <- OK: Buffer
+const noiseImg = sharp(noise, {
+  raw: { width: newW, height: newH, channels: 1 },
+}).toColourspace("b-w");
 
-  // 4) Qualité de recompression (change légèrement la taille)
-  const quality = Math.max(70, Math.min(95, Math.round(randomFloat(80, 92))));
+// 4) Qualité de recompression (change légèrement la taille)
+const quality = Math.max(70, Math.min(95, Math.round(randomFloat(80, 92))));
 
-  // 5) Pipeline sharp
-  let pipeline = sharp(inputFile)
-    .resize(newW, newH, { fit: "fill" })
-    .modulate({ brightness })                // luminosité
-    .linear(contrast, 0)                     // contraste
-    .composite([{                           // bruit très léger
-      input: await noiseImg
-        .ensureAlpha()
-        .png()
-        .toBuffer(),
-      blend: "overlay",
-      opacity: 0.03, // quasi imperceptible
-    }]);
+// 5) Pipeline sharp
+let pipeline = sharp(inputFile)
+  .resize(newW, newH, { fit: "fill" })   // impose exactement la taille
+  .modulate({ brightness })              // luminosité
+  .linear(contrast, 0);                  // contraste
+
+// On “cuit” l’opacité (~3%) dans l’image d’overlay
+const noiseImgAlpha = await noiseImg.ensureAlpha(0.03).toBuffer();
+
+// Puis on compose (pas de propriété `opacity` ici)
+pipeline = pipeline.composite([
+  { input: noiseImgAlpha, blend: "overlay" },
+]);
 
   // Encoder selon format d’origine
   const ext = (meta.format ?? "jpeg").toLowerCase();

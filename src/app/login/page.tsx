@@ -1,27 +1,34 @@
-// src/app/login/page.tsx
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
-import { useActionState } from "react";
-import { loginAction } from "./actions";
+import { loginAction } from "./actions"; // ton action côté serveur
 
 export default function LoginPage() {
-  // champs contrôlés (pour garder ton UI telle quelle)
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
 
-  // branche la Server Action (écrit les cookies côté serveur)
-  const [state, formAction] = useActionState(loginAction, undefined);
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    // On crée un FormData depuis le formulaire
+    const fd = new FormData(e.currentTarget);
+    fd.set("email", email);
+    fd.set("password", pwd); // <-- doit correspondre au champ que ton action attend
+
+    // On appelle l’action serveur avec (undefined, formData)
+    await loginAction(undefined as any, fd);
+
+    // Si ton action fait un redirect, Next.js s’en occupera tout seul
+  }
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-6">
         <h1 className="text-2xl font-bold text-white">Connexion</h1>
 
-        {/* IMPORTANT: on n’utilise plus onSubmit, mais action={formAction} */}
-        <form action={formAction} className="space-y-4">
-          <div className="space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
             <label className="text-sm text-gray-300">Email</label>
             <input
               type="email"
@@ -34,7 +41,7 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="space-y-2">
+          <div>
             <label className="text-sm text-gray-300">Mot de passe</label>
             <input
               type="password"
@@ -47,24 +54,16 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Erreur renvoyée par la Server Action */}
-          {state?.error && (
-            <p className="text-sm text-red-400">{state.error}</p>
-          )}
-
           <button
             type="submit"
-            className="w-full rounded-md bg-indigo-600 hover:bg-indigo-500 px-4 py-2"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-md"
           >
             Se connecter
           </button>
         </form>
 
         <p className="text-sm text-gray-400">
-          Pas de compte ?{" "}
-          <Link href="/register" className="text-indigo-300 underline">
-            Créer un compte
-          </Link>
+          Pas encore de compte ? <Link href="/signup">Inscription</Link>
         </p>
       </div>
     </main>

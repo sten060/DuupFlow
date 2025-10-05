@@ -1,71 +1,71 @@
 // src/app/api/out/zip/route.ts
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
 import { NextResponse } from "next/server";
-import archiver from "archiver";
-import fs from "fs/promises";
 import path from "path";
-import { getOutDirForCurrentUser } from "@/app/dashboard/utils"; // adapte si ton fichier s'appelle différemment
+import fs from "fs/promises";
+import archiver from "archiver";
+import { getOutDirForCurrentUserRSC } from "@/app/dashboard/utils";
 
-const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
 
-function extOf(n: string) {
-  const p = n.lastIndexOf(".");
-  return p >= 0 ? n.slice(p).toLowerCase() : "";
+function extOf(name: string) {
+  const p = name.lastIndexOf(".");
+  return p >= 0 ? name.slice(p).toLowerCase() : "";
 }
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
-  // 1) Dossier perso de l'utilisateur connecté
-  const { dir } = await getOutDirForCurrentUser();
-
-  // 2) Filtre optionnel: ?type=videos | images (sinon tout)
+  const { dir, userId } = await getOutDirForCurrentUserRSC();
   const url = new URL(req.url);
-  const type = url.searchParams.get("type"); // "videos" | "images" | null
+  const scope = (url.searchParams.get("scope") || "all") as
+    | "all" | "images" | "videos";
 
-  // 3) Liste des fichiers finaux (pas les temporaires)
-  const names = await fs.readdir(dir).catch(() => []);
-  const files = names.filter((n) => {
-    if (n.startsWith(".") || n.startsWith("tmp_") || n.includes("__in__") || n.endsWith(".part")) {
-      return false;
-    }
-    const ext = extOf(n);
-    if (type === "videos") return VIDEO_EXTS.includes(ext);
-    if (type === "images") return IMAGE_EXTS.includes(ext);
-    return true; // pas de type ⇒ tout
-  });
+  const entries = await fs.readdir(dir, { withFileTypes: true });
 
-  if (files.length === 0) {
-    return new NextResponse("Aucun fichier à zipper pour ce filtre.", { status: 404 });
-  }
+  const files = entries
+    .filter((d) => d.isFile())
+    .map((d) => d.name)
+    // on enlève les temporaires/partiels
+    .filter((n) =>
+      !n.startsWith(".") &&
+      !n.startsWith("tmp_") &&
+      !n.startsWith("__in__") &&
+      !n.startsWith("__progress_") &&
+      !n.endsWith(".part")
+    )
+    // filtre par scope
+    .filter((n) => {
+      if (scope === "images") return IMAGE_EXTS.includes(extOf(n));
+      if (scope === "videos") return VIDEO_EXTS.includes(extOf(n));
+      return true; // "all"
+    });
 
-  // 4) Crée un zip en streaming
+  // Prépare un flux ZIP en réponse
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+
   const archive = archiver("zip", { zlib: { level: 9 } });
+  archive.on("warning", () => {});
+  archive.on("error", (err) => { throw err; });
+  archive.on("data", (chunk) => writer.write(chunk));
+  archive.on("end", () => writer.close());
 
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      archive.on("data", (chunk) => controller.enqueue(chunk as Uint8Array));
-      archive.on("end", () => controller.close());
-      archive.on("error", (err) => controller.error(err));
+  // Ajoute les fichiers
+  for (const name of files) {
+    archive.file(path.join(dir, name), { name });
+  }
+  archive.finalize();
 
-      for (const name of files) {
-        archive.file(path.join(dir, name), { name });
-      }
-      archive.finalize().catch((e) => controller.error(e));
-    },
-  });
+  const fileName =
+    scope === "images" ? `images_${userId}.zip`
+    : scope === "videos" ? `videos_${userId}.zip`
+    : `out_${userId}.zip`;
 
-  const filename =
-    type === "videos" ? "videos.zip" :
-    type === "images" ? "images.zip" :
-    "generated_files.zip";
-
-  return new NextResponse(stream as any, {
-    status: 200,
+  return new NextResponse(readable as any, {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename=${filename}`,
+      "Content-Disposition": `attachment; filename="${fileName}"`,
     },
   });
 }

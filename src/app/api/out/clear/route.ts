@@ -1,10 +1,10 @@
 // src/app/api/out/clear/route.ts
 import { NextResponse } from "next/server";
-import { createClientServer } from "@/lib/supabaseServer";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export async function GET() {
-  const supabase = createClientServer();
+  const supabase = createClient();
   const bucket = process.env.SUPABASE_BUCKET!;
 
   const { data: list, error } = await supabase.storage.from(bucket).list("", { limit: 500 });

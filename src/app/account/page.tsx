@@ -1,12 +1,12 @@
 // src/app/account/page.tsx
 import { redirect } from "next/navigation";
-import { createClientServer } from "@/lib/supabaseServer";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   // ⚠️ La fonction serveur est maintenant async → on l'attend
-  const supabase = await createClientServer();
+  const supabase = await createClient();
 
   const {
     data: { user },

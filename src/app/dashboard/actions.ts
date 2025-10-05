@@ -8,17 +8,32 @@ import { exiftool } from "exiftool-vendored";
 import { execa } from "execa";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect";
 import os from "os";
 import { createClient as createSbServer } from "@/lib/supabase/server";
 import { getOutDirForCurrentUser, getOutDirForCurrentUserRSC } from "./utils";
+import type { OverlayOptions } from "sharp";
+
+// --- exposer userId à la page vidéos (RSC) ---
+export async function currentUserOutInfo() {
+  return await getOutDirForCurrentUserRSC(); // { dir, userId }
+}
 
 // Dossier global de base
 const BASE_OUT_DIR = path.join(process.cwd(), "public", "out");
 
-
 // Suffixe aléatoire déjà utilisé
 const randSuffix = () => crypto.randomBytes(2).toString("hex");
 
+// Détecte l'erreur spéciale lancée par next/navigation.redirect()
+function isNextRedirect(e: unknown): boolean {
+  return !!(
+    e &&
+    typeof e === "object" &&
+    "digest" in (e as any) &&
+    String((e as any).digest).startsWith("NEXT_REDIRECT")
+  );
+}
 
 /* ============================================
  *               VIDÉO — variations
@@ -200,54 +215,65 @@ try {
 }
 
 // --- IMAGE: variations pixels + métadonnées (Width/Height/EXIF/qualité) ---
-async function processImage(buffer: Buffer, outPath: string, i: number) {
+async function processImage(
+  buffer: Buffer,
+  outPath: string,
+  i: number,
+  opts: { fundamentals: boolean; visuals: boolean } = { fundamentals: true, visuals: true }
+) {
   // 1) Métadonnées d’origine (pour connaître la taille)
   const meta = await sharp(buffer).metadata();
   const baseW = meta.width  || 0;
   const baseH = meta.height || 0;
 
-  // 2) Variation légère des dimensions (modifie Width/Height à chaque copie)
-  const scale = 0.992 + Math.random() * 0.016;         // 0.992–1.008
+  // 2) Variation légère des dimensions (FONDAMENTAUX)
+  const scale = opts.fundamentals ? (0.992 + Math.random() * 0.016) : 1; // 0.992–1.008 sinon 1
   const newW  = Math.max(16, Math.round(baseW * scale));
   const newH  = Math.max(16, Math.round(baseH * scale));
 
-  // 3) Variations visuelles très légères
-  const brightness = 0.97 + Math.random() * 0.06;       // 0.97–1.03
-  const saturation = 0.97 + Math.random() * 0.06;       // 0.97–1.03
-  const gamma      = 1.00 + Math.random() * 0.03;       // 1.00–1.03
+  // 3) Variations visuelles (VISUELS)
+  const brightness = opts.visuals ? (0.97 + Math.random() * 0.06) : 1.0;
+  const saturation = opts.visuals ? (0.97 + Math.random() * 0.06) : 1.0;
+  const gamma      = opts.visuals ? (1.00 + Math.random() * 0.03) : 1.0;
 
   // 4) Pipeline image — impose EXACTEMENT newW x newH (évite tout mismatch)
   let pipeline = sharp(buffer, { failOn: "none" })
-    .rotate()                                           // applique l’orientation EXIF
-    .resize(newW, newH, { fit: "fill" })                // 🔒 taille EXACTE
+    .rotate()
+    .resize(newW, newH, { fit: "fill" })
     .modulate({ brightness, saturation })
     .gamma(gamma);
 
-  // 5) Bruit minuscule : on fabrique un calque 1 canal et on le met à newW/newH
-  const seedW = 32, seedH = 32;
-  const seed = Buffer.allocUnsafe(seedW * seedH);
-  for (let k = 0; k < seed.length; k++) seed[k] = Math.floor(Math.random() * 4); // 0..3
+  // 5) Bruit minuscule (VISUELS uniquement)
+  if (opts.visuals) {
+    const seedW = 32, seedH = 32;
+    const seed = Buffer.allocUnsafe(seedW * seedH);
+    for (let k = 0; k < seed.length; k++) seed[k] = Math.floor(Math.random() * 4);
 
-  const noisePng = await sharp(seed, { raw: { width: seedW, height: seedH, channels: 1 } })
-    .resize(newW, newH, { fit: "fill" })                // 🔒 même taille que l’image
-    .blur(0.4)                                          // adouci (quasi invisible)
-    .png()
-    .toBuffer();
+    const noisePng = await sharp(seed, { raw: { width: seedW, height: seedH, channels: 1 } })
+      .resize(newW, newH, { fit: "fill" })
+      .blur(0.4)
+      .png()
+      .toBuffer();
 
-  pipeline = pipeline
-    .composite([{ input: noisePng, blend: "overlay", opacity: 0.05 }])
-    .removeAlpha();
+ const overlay: OverlayOptions & { opacity?: number } = {
+  input: noisePng,
+  blend: "overlay",
+  opacity: 0.05,
+};
 
-  // 6) Recompression (modifie la taille du fichier)
+pipeline = pipeline.composite([overlay]).removeAlpha();
+}
+
+  // 6) Recompression (FONDAMENTAUX)
   const lower = outPath.toLowerCase();
   if (lower.endsWith(".png")) {
-    const level = 5 + Math.floor(Math.random() * 5);    // 5–9
+    const level = opts.fundamentals ? (5 + Math.floor(Math.random() * 5)) : 6;
     await pipeline.png({ compressionLevel: level }).toFile(outPath);
   } else if (lower.endsWith(".webp")) {
-    const q = 80 + Math.floor(Math.random() * 15);      // 80–94
+    const q = opts.fundamentals ? (80 + Math.floor(Math.random() * 15)) : 90;
     await pipeline.webp({ quality: q }).toFile(outPath);
   } else {
-    const q = 84 + Math.floor(Math.random() * 12);      // 84–95
+    const q = opts.fundamentals ? (84 + Math.floor(Math.random() * 12)) : 90;
     await pipeline.jpeg({
       quality: q,
       mozjpeg: true,
@@ -255,38 +281,33 @@ async function processImage(buffer: Buffer, outPath: string, i: number) {
     }).toFile(outPath);
   }
 
-  // 7) Métadonnées EXIF/IPTC/XMP simples
-  const now = new Date();
-  const exifDate =
-    `${now.getFullYear()}:` +
-    `${String(now.getMonth()+1).padStart(2,"0")}:` +
-    `${String(now.getDate()).padStart(2,"0")} ` +
-    `${String(now.getHours()).padStart(2,"0")}:` +
-    `${String(now.getMinutes()).padStart(2,"0")}:` +
-    `${String(now.getSeconds()).padStart(2,"0")}`;
+  // 7) Métadonnées EXIF (FONDAMENTAUX)
+  if (opts.fundamentals) {
+    const now = new Date();
+    const exifDate =
+      `${now.getFullYear()}:` +
+      `${String(now.getMonth()+1).padStart(2,"0")}:` +
+      `${String(now.getDate()).padStart(2,"0")} ` +
+      `${String(now.getHours()).padStart(2,"0")}:` +
+      `${String(now.getMinutes()).padStart(2,"0")}:` +
+      `${String(now.getSeconds()).padStart(2,"0")}`;
 
-  try {
- await exiftool.write(
-   outPath,
-   {
-      AllDates: exifDate,                                 // DateTimeOriginal/Modify/Create
-      Software: "ContentDuplicator",
-      XPTitle:   `Duplicate_${i}`,
-      XPComment: `scale=${scale.toFixed(4)}; b=${brightness.toFixed(3)}; s=${saturation.toFixed(3)}; g=${gamma.toFixed(3)}`,
-      XResolution: 300,
-      YResolution: 300,
-      ResolutionUnit: "inches",
-      Caption: "Generated by ContentDuplicator",
-      "XMP-dc:Title":       `Duplicate_${i}`,
-      "XMP-dc:Description": "Generated by ContentDuplicator",
+    try {
+      await exiftool.write(
+        outPath,
+        {
+          AllDates: exifDate,
+          Software: "ContentDuplicator",
+          XPTitle:   `Duplicate_${i}`,
+          XPComment: `scale=${scale.toFixed(4)}; b=${brightness.toFixed(3)}; s=${saturation.toFixed(3)}; g=${gamma.toFixed(3)}`
         },
-  ["-overwrite_original"] // <= empêche la création du fichier *_original
-);
-  } catch {
-    // ok si le format ne supporte pas l’écriture
+        ["-overwrite_original"]
+      );
+    } catch {
+      // ok si le format ne supporte pas l’écriture
+    }
   }
 }
-
 
 // ============ ACTIONS ============
 export async function duplicate(formData: FormData) {
@@ -326,22 +347,45 @@ export async function duplicate(formData: FormData) {
   redirect("/dashboard");
 }
 
-export async function clearOut() {
+// Remplace l'ancien header de clearOut par celui-ci :
+export async function clearOut(formData: FormData) {
+  "use server";
+
+  // lit la portée envoyée par le formulaire
+  const raw = formData.get("scope");
+  const scope =
+    raw === "images" || raw === "videos" ? (raw as "images" | "videos") : "all";
+
   try {
     const { dir } = await getOutDirForCurrentUser();
-    const names = await fs.readdir(dir);
+    const names = await fs.readdir(dir, { withFileTypes: true });
+
+    const toDelete = names
+      .filter((d) => d.isFile())
+      .map((d) => d.name)
+      .filter(
+        (n) =>
+          !n.startsWith(".") &&
+          !n.startsWith("tmp_") &&
+          !n.startsWith("__in__") &&
+          !n.endsWith(".part") &&
+          !n.startsWith("__progress_")
+      )
+      .filter((n) => {
+        if (scope === "images") return IMAGE_EXTS.includes(extOf(n));
+        if (scope === "videos") return VIDEO_EXTS.includes(extOf(n));
+        return true; // all
+      });
 
     await Promise.all(
-      names.map(async (n) => {
-        try {
-          await fs.unlink(path.join(dir, n));
-        } catch {}
-      })
+      toDelete.map((n) => fs.unlink(path.join(dir, n)).catch(() => {}))
     );
   } catch {}
 
   revalidatePath("/dashboard");
-  redirect("/dashboard");
+  revalidatePath("/dashboard/images");
+  revalidatePath("/dashboard/videos");
+  return { ok: true };
 }
 
 export async function listOut(): Promise<string[]> {
@@ -350,12 +394,13 @@ export async function listOut(): Promise<string[]> {
     const names = await fs.readdir(dir);
 
     const finals = names.filter(
-      (n) =>
-        !n.startsWith(".") &&
-        !n.startsWith("tmp_") &&
-        !n.startsWith("__in__") &&
-        !n.endsWith(".part")
-    );
+  (n) =>
+    !n.startsWith(".") &&
+    !n.startsWith("tmp_") &&
+    !n.startsWith("__in__") &&
+    !n.endsWith(".part") &&
+    !n.startsWith("__progress_") // NEW: on ne liste pas les fichiers de progression
+);
 
     return finals.map((n) => `/out/${userId}/${encodeURIComponent(path.basename(n))}`);
   } catch {
@@ -383,66 +428,487 @@ export async function listOutImages(): Promise<string[]> {
 }
 
 /* ---------- Duplication vidéo ---------- */
-export async function duplicateVideo(formData: FormData) {
+export async function duplicateVideos(formData: FormData) {
   "use server";
 
-  // (A) lecture formulaire
-const count = Math.max(1, Number(formData.get("count") ?? 1));
-const selectedFilters = formData.getAll("filters") as string[]; // <= récupère les filtres
+  // ---- lecture données du formulaire ----
+  const filesAll = formData.getAll("files") as File[];
+  if (!filesAll || filesAll.length === 0) throw new Error("Aucun fichier vidéo reçu.");
+  const files = filesAll.slice(0, 25);
 
-  // (B) vérifs + buffer
-  const file = formData.get("file") as File | null;
-  if (!file) throw new Error("Aucun fichier reçu.");
-  if (!file.type?.startsWith("video/")) {
-    throw new Error("Veuillez envoyer une vidéo.");
-  }
-  const { dir: outDir } = await getOutDirForCurrentUser();
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  // (C) nom de base + extension
-  const dot = file.name.lastIndexOf(".");
-  const ext = dot >= 0 ? file.name.slice(dot) : ".mp4";            // ex: ".mp4"
-  const baseName = dot >= 0 ? file.name.slice(0, dot) : file.name; // nom sans ext
-  const cleanBase = baseName.replace(/[^a-zA-Z0-9_-]/g, "");
-
-  // (D) boucle
-for (let i = 1; i <= count; i++) {
-  const name = `${cleanBase}_${i}_${randSuffix()}${ext}`;
-  const outPath = path.join(outDir, name);
-
-  // IMPORTANT: passer les filtres à processVideo
-  await processVideo(buffer, outPath, i, ext.replace(".", ""), selectedFilters);
-}
-
-// (E) forcer l’actualisation de la page vidéos AVANT le redirect
-revalidatePath("/dashboard/videos");
-redirect("/dashboard/videos");
-}
-
-/* ----------- Duplication image ----------- */
-export async function duplicateImage(formData: FormData) {
-  "use server";
-
-  const file = formData.get("file") as File | null;
   const count = Math.max(1, Number(formData.get("count") ?? 1));
-  if (!file) throw new Error("Aucun fichier reçu.");
-  if (!file.type?.startsWith("image/")) {
-    throw new Error("Veuillez envoyer une image.");
+  const selectedFilters = formData.getAll("filters") as string[];
+
+  // ---- dossier de sortie utilisateur ----
+  const { dir: outDir } = await getOutDirForCurrentUser();
+
+  // ---- PROGRESSION (même logique que les images) ----
+  const jobId = crypto.randomUUID();
+  const progressPath = path.join(outDir, `__progress_${jobId}.json`);
+
+  async function writeProgress(percent: number, msg: string) {
+    try {
+      await fs.writeFile(
+        progressPath,
+        JSON.stringify({ percent, msg, at: Date.now() })
+      );
+    } catch {}
   }
 
-  const { dir: outDir } = await getOutDirForCurrentUser();
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const total = files.length * count;
+  let done = 0;
 
-  const dot = file.name.lastIndexOf(".");
-  const ext = dot >= 0 ? file.name.slice(dot) : ".png";
-  const baseName = dot >= 0 ? file.name.slice(0, dot) : file.name;
+  // on crée le fichier de progression tout de suite (0%)
+  await writeProgress(0, "Préparation...");
 
-  for (let i = 1; i <= count; i++) {
-    const name = `${baseName}_${i}_${randSuffix()}${ext}`;
-    const outPath = path.join(outDir, name);
-    await processImage(buffer, outPath, i);
+  // ---- duplication ----
+  for (const f of files) {
+    if (!f.type?.startsWith("video/")) continue;
+
+    const buffer = Buffer.from(await f.arrayBuffer());
+    const dot = f.name.lastIndexOf(".");
+    const ext = dot >= 0 ? f.name.slice(dot) : ".mp4";
+    const baseName = dot >= 0 ? f.name.slice(0, dot) : f.name;
+    const cleanBase = baseName.replace(/[^a-zA-Z0-9_-]/g, "");
+
+    for (let i = 1; i <= count; i++) {
+      const name = `${cleanBase}_${i}_${crypto.randomBytes(2).toString("hex")}${ext}`;
+      const outPath = path.join(outDir, name);
+
+      // message en cours
+      await writeProgress(
+        Math.min(99, Math.round((done / total) * 100)),
+        `Encodage ${done + 1}/${total}…`
+      );
+
+      await processVideo(
+        buffer,
+        outPath,
+        i,
+        ext.replace(".", ""),
+        selectedFilters
+      );
+
+      done++;
+      await writeProgress(
+        Math.min(99, Math.round((done / total) * 100)),
+        `Encodage ${done}/${total}…`
+      );
+    }
+  }
+
+  // fin : 100% + nettoyage du fichier de progression
+  await writeProgress(100, "Terminé ✔");
+  setTimeout(() => fs.unlink(progressPath).catch(() => {}), 1500);
+
+  // revalide & reste sur /dashboard/videos (avec jobId pour la barre)
+  revalidatePath("/dashboard/videos");
+  redirect(`/dashboard/videos?ok=1&job=${jobId}`);
+}
+/* ----------- Duplication vidéos (multi-fichiers) ----------- */
+export async function duplicateImages(formData: FormData) {
+  "use server";
+
+  // fichiers (drag&drop → name="files")
+  const filesAll = formData.getAll("files") as File[];
+  if (!filesAll || filesAll.length === 0) {
+    throw new Error("Aucune image reçue.");
+  }
+  if (filesAll.length > 25) {
+    throw new Error("Vous pouvez envoyer 25 fichiers maximum.");
+  }
+  const files = filesAll.slice(0, 25);
+
+  // options (cases à cocher)
+  const fundamentals =
+    formData.get("fundamentals") !== null ||
+    (formData.getAll("filters") as string[]).includes("fundamentals");
+
+  const visuals =
+    formData.get("visuals") !== null ||
+    (formData.getAll("filters") as string[]).includes("visuals");
+
+    const count = Math.max(1, Number(formData.get("count") ?? 1));
+    const { dir: outDir } = await getOutDirForCurrentUser();
+
+  for (const f of files) {
+    if (!f.type?.startsWith("image/")) continue;
+
+    const buffer = Buffer.from(await f.arrayBuffer());
+    const dot = f.name.lastIndexOf(".");
+    const ext = dot >= 0 ? f.name.slice(dot) : ".png";
+    const baseName = dot >= 0 ? f.name.slice(0, dot) : f.name;
+    const cleanBase = baseName.replace(/[^a-zA-Z0-9_-]/g, "");
+
+    for (let i = 1; i <= count; i++) {
+      const name = `${cleanBase}_${i}_${randSuffix()}${ext}`;
+      const outPath = path.join(outDir, name);
+      await processImage(buffer, outPath, i, { fundamentals, visuals });
+    }
   }
 
   revalidatePath("/dashboard/images");
-  redirect("/dashboard/images");
+  redirect("/dashboard/images?ok=1");
+}
+
+/* ========= Détecteur de contenu similaire (précis) ========= */
+
+type Hash64 = bigint;
+
+/** aHash 8x8 (64 bits) */
+async function imageAHash64(buf: Buffer): Promise<Hash64> {
+  const s = (await import("sharp")).default;
+  const arr = await s(buf).grayscale().resize(8, 8, { fit: "fill" }).raw().toBuffer(); // 64
+  let sum = 0;
+  for (let i = 0; i < 64; i++) sum += arr[i];
+  const avg = sum / 64;
+  let bits = 0n;
+  for (let i = 0; i < 64; i++) {
+    bits <<= 1n;
+    if (arr[i] >= avg) bits |= 1n;
+  }
+  return bits;
+}
+
+/** pHash 64 bits (DCT 32x32 -> 8x8) */
+async function imagePHash64(buf: Buffer): Promise<Hash64> {
+  const s = (await import("sharp")).default;
+  const N = 32;
+  const raw = await s(buf).grayscale().resize(N, N, { fit: "fill" }).raw().toBuffer();
+
+  // DCT 8x8 (basse fréquence)
+  const block: number[] = [];
+  for (let u = 0; u < 8; u++) {
+    for (let v = 0; v < 8; v++) {
+      let sum = 0;
+      for (let x = 0; x < N; x++) {
+        const cx = Math.cos(((2 * x + 1) * u * Math.PI) / (2 * N));
+        for (let y = 0; y < N; y++) {
+          const cy = Math.cos(((2 * y + 1) * v * Math.PI) / (2 * N));
+          sum += raw[x * N + y] * cx * cy;
+        }
+      }
+      block.push(sum);
+    }
+  }
+  // médiane (on ignore DC pour le seuil)
+  const vals = block.slice();
+  const median = vals.sort((a, b) => a - b)[Math.floor(vals.length / 2)];
+
+  let bits = 0n;
+  for (let i = 0; i < 64; i++) {
+    bits <<= 1n;
+    if (block[i] > median) bits |= 1n;
+  }
+  return bits;
+}
+
+function hamming64(a: Hash64, b: Hash64): number {
+  let x = a ^ b;
+  let c = 0;
+  while (x !== 0n) {         // <— IMPORTANT: comparer à 0n
+    x &= (x - 1n);
+    c++;
+  }
+  return c;
+}
+
+function similarityFromHamming(h: number): number {
+  // 64 bits → 0..64
+  return Math.max(0, Math.min(100, Math.round((1 - h / 64) * 100)));
+}
+
+/** extrait une frame à t secondes (PNG) */
+async function extractFrame(videoPath: string, t: number): Promise<Buffer> {
+  const tmp = path.join(path.dirname(videoPath), `__frame_${t}_${crypto.randomBytes(2).toString("hex")}.png`);
+  await execa("ffmpeg", ["-y", "-ss", String(t), "-i", videoPath, "-frames:v", "1", "-vf", "scale=256:-2", tmp]);
+  const buf = await fs.readFile(tmp);
+  await fs.unlink(tmp).catch(() => {});
+  return buf;
+}
+
+/** pHash par frame (signature) */
+async function videoPHashSignature(buf: Buffer): Promise<Hash64[]> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sim-"));
+  const src = path.join(dir, `in_${crypto.randomBytes(2).toString("hex")}.mp4`);
+  await fs.writeFile(src, buf);
+
+  // durée
+  let duration = 1;
+  try {
+    const { stdout } = await execa("ffprobe", [
+      "-v", "error",
+      "-select_streams", "v:0",
+      "-show_entries", "format=duration",
+      "-of", "default=nw=1:nk=1",
+      src,
+    ]);
+    duration = Math.max(1, Math.floor(Number(stdout.trim()) || 1));
+  } catch {}
+
+  // 8 points (≈ 5%, 15%, …, 85%, 95%)
+  const pts = Array.from({ length: 8 }, (_, i) =>
+    Math.max(1, Math.floor(((i + 1) / 9) * duration))
+  );
+
+  const sig: Hash64[] = [];
+  for (const t of pts) {
+    const frame = await extractFrame(src, t);
+    sig.push(await imagePHash64(frame));
+  }
+  await fs.rm(dir, { recursive: true, force: true });
+  return sig;
+}
+
+/** distance médiane entre 2 signatures vidéo */
+function medianHamming(sigA: Hash64[], sigB: Hash64[]): number {
+  const m = Math.min(sigA.length, sigB.length);
+  const dists = Array.from({ length: m }, (_, i) => hamming64(sigA[i], sigB[i]));
+  dists.sort((a, b) => a - b);
+  return dists[Math.floor(m / 2)];
+}
+
+//** Action: compare deux contenus et redirige avec ?score=xx (précis + META) */
+export async function compareSimilarity(formData: FormData) {
+  "use server";
+
+  const a = formData.get("fileA") as File | null;
+  const b = formData.get("fileB") as File | null;
+  if (!a || !b) {
+    return redirect(
+      "/dashboard/similarity?err=" + encodeURIComponent("Deux fichiers sont requis.")
+    );
+  }
+
+  const bufA = Buffer.from(await a.arrayBuffer());
+  const bufB = Buffer.from(await b.arrayBuffer());
+
+  // 0) Raccourci : fichiers strictement identiques (octet à octet) → 100.00 %
+  if (bufA.length === bufB.length) {
+    const [ha, hb] = await Promise.all([
+      crypto.createHash("sha256").update(bufA).digest("hex"),
+      crypto.createHash("sha256").update(bufB).digest("hex"),
+    ]);
+    if (ha === hb) {
+      return redirect("/dashboard/similarity?score=100.00");
+    }
+  }
+
+  const typeA = (a.type || "").split("/")[0]; // "image" | "video"
+  const typeB = (b.type || "").split("/")[0];
+
+  try {
+    let score = 0;
+
+    if (typeA === "image" && typeB === "image") {
+      // --- VISUEL (hash)
+      const [pA, pB, aA, aB] = await Promise.all([
+        imagePHash64(bufA), imagePHash64(bufB),
+        imageAHash64(bufA), imageAHash64(bufB),
+      ]);
+      const pSim  = similarityFromHamming(hamming64(pA, pB)); // %
+      const aSim  = similarityFromHamming(hamming64(aA, aB)); // %
+
+      // --- META (EXIF/ICC/taille/soft…)
+      const dir   = await fs.mkdtemp(path.join(os.tmpdir(), "meta-"));
+      const aPath = path.join(dir, `a_${randSuffix()}`);
+      const bPath = path.join(dir, `b_${randSuffix()}`);
+      await fs.writeFile(aPath, bufA);
+      await fs.writeFile(bPath, bufB);
+      const [mA, mB] = await Promise.all([
+        imageMetaSignature(aPath),
+        imageMetaSignature(bPath),
+      ]);
+      await fs.rm(dir, { recursive: true, force: true });
+      const metaSim = metaSimilarity(mA, mB); // %
+
+      // Pondération images (somme = 1.00)
+      const W = { p: 0.70, a: 0.20, meta: 0.10 };
+      score = pSim * W.p + aSim * W.a + metaSim * W.meta;
+
+    } else if (typeA === "video" && typeB === "video") {
+      // --- VISUEL (signature pHash multi-frames)
+      const [sigA, sigB] = await Promise.all([
+        videoPHashSignature(bufA),
+        videoPHashSignature(bufB),
+      ]);
+      const h         = medianHamming(sigA, sigB);
+      const framesSim = similarityFromHamming(h); // %
+
+      // --- META (codec/profile/level/fps/bitrate…)
+      const vdir = await fs.mkdtemp(path.join(os.tmpdir(), "vmeta-"));
+      const va   = path.join(vdir, `a_${randSuffix()}.mp4`);
+      const vb   = path.join(vdir, `b_${randSuffix()}.mp4`);
+      await fs.writeFile(va, bufA);
+      await fs.writeFile(vb, bufB);
+      const [mvA, mvB] = await Promise.all([
+        videoMetaSignature(va),
+        videoMetaSignature(vb),
+      ]);
+      await fs.rm(vdir, { recursive: true, force: true });
+      const metaSimV = metaSimilarity(mvA, mvB); // %
+
+      // Pondération vidéos (somme = 1.00)
+      const WV = { frames: 0.90, meta: 0.10 };
+      score = framesSim * WV.frames + metaSimV * WV.meta;
+
+    } else {
+      return redirect(
+        "/dashboard/similarity?err=" +
+          encodeURIComponent("Compare image↔image ou vidéo↔vidéo.")
+      );
+    }
+
+    // 2 décimales (ex: 54.30)
+    return redirect(`/dashboard/similarity?score=${score.toFixed(2)}`);
+
+  } catch (e: any) {
+    // ⬇️ très important : laisser passer les redirects Next.js
+    if (isNextRedirect(e)) throw e;
+    return redirect(
+      "/dashboard/similarity?err=" +
+        encodeURIComponent(e?.message || "Erreur comparaison")
+    );
+  }
+}
+
+/* ===================== META HELPERS ===================== */
+
+type MetaDict = Record<string, string | number | boolean | null | undefined>;
+
+function pctSimilarity(a: number, b: number, tolerance: number): number {
+  // 100% si égal, décroît linéairement jusqu’à 0% à tolérance
+  const d = Math.abs(a - b);
+  if (d <= 0) return 100;
+  if (d >= tolerance) return 0;
+  return Math.max(0, 100 * (1 - d / tolerance));
+}
+
+/** Normalise et garde uniquement les clés utiles pour comparer des images */
+async function imageMetaSignature(tmpPath: string): Promise<MetaDict> {
+  try {
+    const m = await exiftool.read(tmpPath as any);
+
+    const out: MetaDict = {
+      FileType: m.FileType,
+      MIMEType: m.MIMEType,
+      Make: m.Make,
+      Model: m.Model,
+      Orientation: m.Orientation,
+      Software: m.Software,
+      ColorSpace: m.ColorSpace || m.ICCProfileName,
+      XResolution: Number(m.XResolution) || null,
+      YResolution: Number(m.YResolution) || null,
+      BitsPerSample: Number((m as any).BitsPerSample) || null,
+      // largeurs/hauteurs “visibles”
+      ImageWidth: Number(m.ImageWidth) || null,
+      ImageHeight: Number(m.ImageHeight) || null,
+      // dates écrites par tes “filtres fondamentaux”
+      CreateDate: (m as any).CreateDate || (m as any).DateTimeOriginal || null,
+    };
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Récupère un “profil” vidéo pertinent via ffprobe */
+async function videoMetaSignature(tmpPath: string): Promise<MetaDict> {
+  try {
+    const { stdout } = await execa("ffprobe", [
+      "-v","error",
+      "-select_streams","v:0",
+      "-show_entries",
+      "stream=codec_name,profile,level,pix_fmt,color_range,color_space,color_transfer,width,height,bit_rate,avg_frame_rate:format=bit_rate,duration",
+      "-of","json",
+      tmpPath,
+    ]);
+    const j = JSON.parse(stdout);
+    const s = j.streams?.[0] || {};
+    const f = j.format || {};
+    // fps num/den
+    let fps = 0;
+    if (typeof s.avg_frame_rate === "string" && s.avg_frame_rate.includes("/")) {
+      const [n, d] = s.avg_frame_rate.split("/").map(Number);
+      if (n && d) fps = n / d;
+    }
+    const out: MetaDict = {
+      codec: s.codec_name,
+      profile: s.profile,
+      level: typeof s.level === "number" ? s.level : null,
+      pix_fmt: s.pix_fmt,
+      color_range: s.color_range,
+      color_space: s.color_space,
+      color_transfer: s.color_transfer,
+      width: s.width,
+      height: s.height,
+      bit_rate_stream: typeof s.bit_rate === "number" ? s.bit_rate : null,
+      bit_rate_container: typeof f.bit_rate === "number" ? f.bit_rate : null,
+      fps,
+      duration: typeof f.duration === "string" ? Number(f.duration) : null,
+    };
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Compare deux dictionnaires de meta → 0..100 */
+function metaSimilarity(a: MetaDict, b: MetaDict): number {
+  // Règles : exact match pour les strings importantes,
+  // tolérance pour nombres (fps, bitrates, dimensions…)
+  let score = 0;
+  let wsum = 0;
+
+  const add = (val: number, w: number) => { score += val * w; wsum += w; };
+
+  // Images / Vidéos communs
+  if (a.FileType !== undefined || b.FileType !== undefined)
+    add(a.FileType === b.FileType ? 100 : 0, 3);
+
+  if (a.MIMEType !== undefined || b.MIMEType !== undefined)
+    add(a.MIMEType === b.MIMEType ? 100 : 0, 3);
+
+  if (a.Software !== undefined || b.Software !== undefined)
+    add(a.Software === b.Software ? 100 : 0, 2);
+
+  if (a.ColorSpace !== undefined || b.ColorSpace !== undefined)
+    add(a.ColorSpace === b.ColorSpace ? 100 : 0, 3);
+
+  // Dimensions (tolérance 2 px)
+  if (typeof a.ImageWidth === "number" && typeof b.ImageWidth === "number")
+    add(pctSimilarity(a.ImageWidth, b.ImageWidth, 2), 4);
+  if (typeof a.ImageHeight === "number" && typeof b.ImageHeight === "number")
+    add(pctSimilarity(a.ImageHeight, b.ImageHeight, 2), 4);
+
+  // Résolution/DPI (tolérance 10)
+  if (typeof a.XResolution === "number" && typeof b.XResolution === "number")
+    add(pctSimilarity(a.XResolution, b.XResolution, 10), 2);
+  if (typeof a.YResolution === "number" && typeof b.YResolution === "number")
+    add(pctSimilarity(a.YResolution, b.YResolution, 10), 2);
+
+  // Vidéo spécifiques
+  if (a.codec !== undefined || b.codec !== undefined) add(a.codec === b.codec ? 100 : 0, 6);
+  if (a.profile !== undefined || b.profile !== undefined) add(a.profile === b.profile ? 100 : 0, 4);
+  if (typeof a.level === "number" && typeof b.level === "number") add(pctSimilarity(a.level, b.level, 1), 3);
+  if (a.pix_fmt !== undefined || b.pix_fmt !== undefined) add(a.pix_fmt === b.pix_fmt ? 100 : 0, 3);
+
+  if (typeof a.fps === "number" && typeof b.fps === "number")
+    add(pctSimilarity(a.fps, b.fps, 0.3), 5); // ~0.3 i/s de tolérance
+
+  if (typeof a.width === "number" && typeof b.width === "number")
+    add(pctSimilarity(a.width, b.width, 2), 4);
+  if (typeof a.height === "number" && typeof b.height === "number")
+    add(pctSimilarity(a.height, b.height, 2), 4);
+
+  // bitrates : tolérance 10%
+  const brA = (a.bit_rate_stream as number) || (a.bit_rate_container as number) || null;
+  const brB = (b.bit_rate_stream as number) || (b.bit_rate_container as number) || null;
+  if (typeof brA === "number" && typeof brB === "number") {
+    const tol = 0.10 * Math.max(brA, brB);
+    add(pctSimilarity(brA, brB, tol), 4);
+  }
+
+  if (!wsum) return 0;
+  return +(score / wsum).toFixed(2);
 }

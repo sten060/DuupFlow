@@ -1,60 +1,48 @@
+// src/app/dashboard/sidebar.tsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import * as React from "react";
+import { cn } from "../../lib/cn";
 
-function NavLink({
-  href,
-  label,
-}: { href: string; label: string }) {
-  const pathname = usePathname();
-  const active = pathname === href;
-  return (
-    <Link
-      href={href}
-      className={[
-        "block rounded-md px-3 py-2 text-sm",
-        active
-          ? "bg-indigo-600 text-white"
-          : "text-gray-300 hover:bg-zinc-800 hover:text-white",
-      ].join(" ")}
-    >
-      {label}
-    </Link>
-  );
-}
+const items = [
+  { href: "/dashboard", label: "Accueil" },
+  { href: "/dashboard/images", label: "Duplication Images" },
+  { href: "/dashboard/videos", label: "Duplication Vidéos" },
+  { href: "/dashboard/similarity", label: "Détecteur (vert)", accent: "green" },
+];
 
 export default function Sidebar() {
-  const [openDup, setOpenDup] = React.useState(true);
+  const pathname = usePathname();
 
   return (
-    <aside className="w-64 shrink-0 border-r border-zinc-800 bg-zinc-900/40">
-      <div className="p-4">
-        <div className="mb-4 text-xs uppercase tracking-wide text-gray-400">
-          Navigation
-        </div>
-
-        <nav className="space-y-1">
-          <NavLink href="/dashboard" label="Dashboard" />
-
-          {/* Groupe Duplication (collapsable) */}
-          <button
-            onClick={() => setOpenDup((v) => !v)}
-            className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-gray-300 hover:bg-zinc-800 hover:text-white"
-          >
-            <span>Duplication</span>
-            <span className="text-xs opacity-70">{openDup ? "▾" : "▸"}</span>
-          </button>
-
-          {openDup && (
-            <div className="ml-2 space-y-1">
-              <NavLink href="/dashboard/videos" label="Vidéos" />
-              <NavLink href="/dashboard/images" label="Images" />
-            </div>
-          )}
-        </nav>
-      </div>
+    <aside className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-md">
+      <div className="mb-3 text-xs uppercase tracking-wider text-white/50">Menu</div>
+      <nav className="space-y-2">
+        {items.map((it) => {
+          const active = pathname === it.href;
+          const ring =
+            it.accent === "green"
+              ? "ring-emerald-400/40 hover:ring-emerald-400/60"
+              : "ring-indigo-400/40 hover:ring-indigo-400/60";
+          return (
+            <Link
+              key={it.href}
+              href={it.href}
+              prefetch={false}
+              className={[
+                "block rounded-xl px-3 py-2 border border-white/10 bg-white/[0.02]",
+                "transition shadow-sm hover:bg-white/[0.04]",
+                "ring-1 ring-inset",
+                ring,
+                active ? "bg-white/[0.06]" : "",
+              ].join(" ")}
+            >
+              <span className="text-sm">{it.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </aside>
   );
 }

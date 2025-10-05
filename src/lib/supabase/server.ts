@@ -1,30 +1,33 @@
 // src/lib/supabase/server.ts
-import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+export function createClient() {
+  const cookieStore = cookies();
 
-// ⚠️ NOTE: fonction ASYNC
-export async function createClient() {
-  const cookieStore = await cookies(); // << OBLIGATOIRE en Next 15
-
-  return createServerClient(url, key, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch {
+            // ignore si en dehors du serveur
+          }
+        },
+        remove(name: string, options: any) {
+          try {
+            cookieStore.set({ name, value: "", ...options });
+          } catch {
+            // ignore si en dehors du serveur
+          }
+        },
       },
-      // En RSC, l’écriture est interdite → on NO-OP ou on encapsule dans try/catch
-      set(name: string, value: string, options?: any) {
-        try {
-          cookieStore.set(name, value, options);
-        } catch {}
-      },
-      remove(name: string, options?: any) {
-        try {
-          cookieStore.set(name, "", { ...options, maxAge: 0 });
-        } catch {}
-      },
-    },
-  });
+    }
+  );
 }

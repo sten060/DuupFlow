@@ -1,35 +1,35 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import * as React from 'react';
 
-export default function Toasts() {
-  const sp = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-  const ok = sp.get("ok");
-  const err = sp.get("err");
+export default function Toasts({ ok, err }: { ok?: boolean; err?: string }) {
+  const [show, setShow] = React.useState<boolean>(!!ok || !!err);
 
-  // on nettoie l'URL après affichage
-  useEffect(() => {
-    if (!ok && !err) return;
-    const t = setTimeout(() => {
-      router.replace(pathname); // supprime les query params
-    }, 3500);
-    return () => clearTimeout(t);
-  }, [ok, err, pathname, router]);
+  React.useEffect(() => {
+    if (ok || err) {
+      setShow(true);
+      const t = setTimeout(() => setShow(false), 3500);
+      return () => clearTimeout(t);
+    }
+  }, [ok, err]);
 
-  if (!ok && !err) return null;
+  if (!show) return null;
 
-  const isErr = Boolean(err);
-  const msg = isErr ? decodeURIComponent(err as string) : "Fichiers générés avec succès.";
+  const isError = !!err;
+  const msg = err ? decodeURIComponent(err) : 'Duplication terminée ✔️';
 
   return (
-    <div className={`mb-4 rounded-md border px-3 py-2 text-sm
-                    ${isErr
-                      ? "border-red-500/30 bg-red-500/10 text-red-100"
-                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"}`}>
-      {msg}
+    <div className="fixed right-4 top-4 z-[9999]">
+      <div
+        className={
+          'rounded-lg px-4 py-3 text-sm shadow-xl ' +
+          (isError
+            ? 'bg-rose-600/90 text-white'
+            : 'bg-emerald-600/90 text-white')
+        }
+      >
+        {msg}
+      </div>
     </div>
   );
 }

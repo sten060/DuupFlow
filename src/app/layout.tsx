@@ -1,20 +1,17 @@
-// src/app/layout.tsx
 import "./globals.css";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Content Duplicator",
-  description: "My SaaS",
+  title: "Ton SaaS — Metadata & Duplication",
+  description: "Outil OFM pour dupliquer et réécrire les métadonnées.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fr">
-      <body className="bg-gray-900 text-white">
+      <body className="min-h-screen">
+        <div className="fixed inset-0 -z-10 pointer-events-none blur-3xl opacity-40 glow" />
         {children}
       </body>
     </html>
