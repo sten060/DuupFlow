@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import UserHeader from "./UserHeader";
 
 export const metadata: Metadata = {
   title: "Ton SaaS — Metadata & Duplication",
