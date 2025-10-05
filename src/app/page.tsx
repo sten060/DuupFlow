@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { getSession } from "@/lib/supabase/server";
+import { getSessionRSC } from "@/lib/supabase/server-rsc";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function Home() {
-  const session = await getSession(); // null si non connecté
+  const session = await getSessionRSC(); // null si non connecté
   return (
     <main className="relative min-h-screen bg-[#0B0F1A] text-white overflow-hidden">
       {/* --- Fond futuriste (halos + bruit très léger) --- */}

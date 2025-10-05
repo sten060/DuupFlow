@@ -11,8 +11,9 @@ export function createClientRSC() {
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        set() {},      // <- pas d’écriture en RSC
-        remove() {},   // <- pas d’écriture en RSC
+        // 🚫 AUCUNE écriture côté RSC :
+        set() {},
+        remove() {},
       },
     }
   );

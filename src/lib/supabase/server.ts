@@ -3,7 +3,6 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 export function createClient() {
   const cookieStore = cookies();
-
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -24,7 +23,7 @@ export function createClient() {
 }
 
 export async function getSession() {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const sb = createClient();
+  const { data: { session } } = await sb.auth.getSession();
   return session ?? null;
 }
