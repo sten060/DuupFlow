@@ -19,9 +19,6 @@ export async function currentUserOutInfo() {
   return await getOutDirForCurrentUserRSC(); // { dir, userId }
 }
 
-// Dossier global de base
-const BASE_OUT_DIR = path.join(process.cwd(), "public", "out");
-
 // Suffixe aléatoire déjà utilisé
 const randSuffix = () => crypto.randomBytes(2).toString("hex");
 
@@ -348,61 +345,42 @@ export async function duplicate(formData: FormData) {
 }
 
 // Remplace l'ancien header de clearOut par celui-ci :
-export async function clearOut(formData: FormData) {
+export async function clearOut(formData?: FormData) {
   "use server";
 
-  // lit la portée envoyée par le formulaire
-  const raw = formData.get("scope");
+  const raw = formData?.get("scope");
   const scope =
-    raw === "images" || raw === "videos" ? (raw as "images" | "videos") : "all";
+    raw === "images" || raw === "videos" ? (raw as "images" | "videos") : undefined;
 
-  try {
-    const { dir } = await getOutDirForCurrentUser();
-    const names = await fs.readdir(dir, { withFileTypes: true });
+  // chaque utilisateur a son propre dossier
+  const base = await getOutDirForCurrentUser();
+  const dir = scope ? path.join(base.dir, scope) : base.dir;
 
-    const toDelete = names
-      .filter((d) => d.isFile())
-      .map((d) => d.name)
-      .filter(
-        (n) =>
-          !n.startsWith(".") &&
-          !n.startsWith("tmp_") &&
-          !n.startsWith("__in__") &&
-          !n.endsWith(".part") &&
-          !n.startsWith("__progress_")
-      )
-      .filter((n) => {
-        if (scope === "images") return IMAGE_EXTS.includes(extOf(n));
-        if (scope === "videos") return VIDEO_EXTS.includes(extOf(n));
-        return true; // all
-      });
-
-    await Promise.all(
-      toDelete.map((n) => fs.unlink(path.join(dir, n)).catch(() => {}))
-    );
-  } catch {}
+  const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => [] as any[]);
+  await Promise.all(
+    entries
+      .filter((e: any) => e.isFile?.())
+      .map((e: any) => fs.rm(path.join(dir, e.name)).catch(() => {}))
+  );
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/images");
   revalidatePath("/dashboard/videos");
-  return { ok: true };
 }
 
 export async function listOut(): Promise<string[]> {
   try {
     const { dir, userId } = await getOutDirForCurrentUserRSC();
     const names = await fs.readdir(dir);
-
     const finals = names.filter(
-  (n) =>
-    !n.startsWith(".") &&
-    !n.startsWith("tmp_") &&
-    !n.startsWith("__in__") &&
-    !n.endsWith(".part") &&
-    !n.startsWith("__progress_") // NEW: on ne liste pas les fichiers de progression
-);
+      (n) =>
+        !n.startsWith(".") &&
+        !n.startsWith("__in__") &&
+        !n.endsWith(".part") &&
+        !n.startsWith("__progress_")
+    );
 
-    return finals.map((n) => `/out/${userId}/${encodeURIComponent(path.basename(n))}`);
+    return finals.map((n) => `/out/${userId}/${encodeURIComponent(n)}`);
   } catch {
     return [];
   }
@@ -417,14 +395,20 @@ function extOf(name: string) {
   return p >= 0 ? name.slice(p).toLowerCase() : "";
 }
 
-export async function listOutVideos(): Promise<string[]> {
-  const all = await listOut();
-  return all.filter((n) => VIDEO_EXTS.includes(extOf(n)));
+export async function listOutImages(): Promise<string[]> {
+  const { dir, userId } = await getOutDirForCurrentUserRSC();
+  const names = await fs.readdir(dir).catch(() => [] as string[]);
+  return names
+    .filter((n) => IMAGE_EXTS.includes(extOf(n)))
+    .map((n) => `/out/${userId}/${encodeURIComponent(n)}`);
 }
 
-export async function listOutImages(): Promise<string[]> {
-  const all = await listOut();
-  return all.filter((n) => IMAGE_EXTS.includes(extOf(n)));
+export async function listOutVideos(): Promise<string[]> {
+  const { dir, userId } = await getOutDirForCurrentUserRSC();
+  const names = await fs.readdir(dir).catch(() => [] as string[]);
+  return names
+    .filter((n) => VIDEO_EXTS.includes(extOf(n)))
+    .map((n) => `/out/${userId}/${encodeURIComponent(n)}`);
 }
 
 /* ---------- Duplication vidéo ---------- */
