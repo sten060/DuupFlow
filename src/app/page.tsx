@@ -1,4 +1,8 @@
-export default function Home() {
+import Link from "next/link";
+import { getSession } from "@/lib/supabase/server";
+
+export default async function Home() {
+  const session = await getSession(); // null si non connecté
   return (
     <main className="relative min-h-screen bg-[#0B0F1A] text-white overflow-hidden">
       {/* --- Fond futuriste (halos + bruit très léger) --- */}
@@ -21,12 +25,29 @@ export default function Home() {
             <a href="/product" className="hover:text-white transition">Produit</a>
             <a href="/pricing" className="hover:text-white hidden transition">Pricing</a>
             <a href="/legal" className="hover:text-white transition">Termes légaux</a>
-            <a
-              href="/product"
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-400 hover:to-fuchsia-400 text-sm font-semibold shadow-[0_10px_30px_rgba(99,102,241,0.35)] transition"
-            >
-              Commencer
-            </a>
+            {session ? (
+  <Link
+    href="/dashboard"
+    className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-400 hover:to-fuchsia-400 text-sm font-semibold shadow-[0_10px_30px_rgba(99,102,241,0.35)] transition"
+  >
+    Aller au dashboard
+  </Link>
+) : (
+  <div className="flex items-center gap-3">
+    <Link
+      href="/login"
+      className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-400 hover:to-fuchsia-400 text-sm font-semibold shadow-[0_10px_30px_rgba(99,102,241,0.35)] transition"
+    >
+      Se connecter
+    </Link>
+    <Link
+      href="/register"
+      className="px-4 py-2 rounded-lg border border-white/15 text-sm font-semibold hover:bg-white/10 transition"
+    >
+      S’inscrire
+    </Link>
+  </div>
+)}
           </nav>
         </div>
       </header>

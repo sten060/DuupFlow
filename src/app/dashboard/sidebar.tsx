@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "../../lib/cn";
+import SignOutButton from "@/components/SignOutButton";
 
 const items = [
   { href: "/dashboard", label: "Accueil" },
@@ -43,6 +44,9 @@ export default function Sidebar() {
           );
         })}
       </nav>
+      <div className="mt-4 border-t border-white/10 pt-2">
+  <SignOutButton />
+</div>
     </aside>
   );
 }

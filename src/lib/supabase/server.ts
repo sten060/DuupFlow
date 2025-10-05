@@ -1,6 +1,5 @@
-// src/lib/supabase/server.ts
-import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 export function createClient() {
   const cookieStore = cookies();
@@ -13,21 +12,19 @@ export function createClient() {
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        set(name: string, value: string, options: any) {
-          try {
-            cookieStore.set({ name, value, ...options });
-          } catch {
-            // ignore si en dehors du serveur
-          }
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options });
         },
-        remove(name: string, options: any) {
-          try {
-            cookieStore.set({ name, value: "", ...options });
-          } catch {
-            // ignore si en dehors du serveur
-          }
+        remove(name: string, options: CookieOptions) {
+          cookieStore.set({ name, value: "", ...options, maxAge: 0 });
         },
       },
     }
   );
+}
+
+export async function getSession() {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  return session ?? null;
 }
