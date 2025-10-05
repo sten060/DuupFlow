@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========= Variables de thème ========= */
 :root{
   --bg-start:#0A0A12;
   --bg-end:#101022;
@@ -16,7 +17,7 @@ body{
     linear-gradient(180deg, var(--bg-start), var(--bg-end));
 }
 
-/* utilitaires thème */
+/* ========= Utilitaires design ========= */
 .glass { @apply bg-brand-glass backdrop-blur-md border border-brand-stroke rounded-2xl shadow-glass; }
 .glow  { @apply shadow-glow; }
 .btn { @apply px-4 py-2 rounded-xl font-medium transition hover:scale-[1.02] active:scale-95; }
@@ -26,7 +27,7 @@ body{
 .h2 { @apply text-2xl md:text-3xl font-semibold; }
 .muted { @apply text-white/70; }
 
-/* borders dégradées */
+/* ========= Bordures dégradées ========= */
 .border-gradient {
   position: relative;
 }
@@ -36,19 +37,20 @@ body{
   border-radius: inherit;
   padding: 1px;
   background: linear-gradient(135deg, #5B5BEA 0%, #FF3FD1 100%);
-  -webkit-mask: 
-    linear-gradient(#000 0 0) content-box, 
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
           mask-composite: exclude;
   pointer-events: none;
 }
-/* ---- Glows colorés pour les cartes modules ---- */
+
+/* Glows colorés pour les cartes modules */
 .glow-pink  { box-shadow: 0 0 40px rgba(255,63,209,.28); }
 .glow-blue  { box-shadow: 0 0 40px rgba(91,91,234,.28); }
 .glow-green { box-shadow: 0 0 40px rgba(34,197,94,.28); }
 
-/* ---- Bordure dégradée colorée (variante) ---- */
+/* Bordure dégradée – variantes directionnelles */
 .border-gradient-pink::before,
 .border-gradient-blue::before,
 .border-gradient-green::before {
@@ -59,3 +61,22 @@ body{
 .border-gradient-pink::before  { background: linear-gradient(135deg, #FF3FD1 0%, transparent 60%); }
 .border-gradient-blue::before  { background: linear-gradient(135deg, #5B5BEA 0%, transparent 60%); }
 .border-gradient-green::before { background: linear-gradient(135deg, #22C55E 0%, transparent 60%); }
+
+/* ========= Animations (email badge / titres) ========= */
+@keyframes glow {
+  0%   { background-position: 0% 50%;   }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%;   }
+}
+.animate-glow {
+  animation: glow 5s ease infinite;
+  background-size: 200% 200%;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1;   }
+  50%      { opacity: .7;  }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
