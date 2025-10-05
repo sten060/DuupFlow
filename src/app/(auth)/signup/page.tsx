@@ -14,8 +14,11 @@ export default function SignupPage() {
       <form
         action={async (formData) => {
           setErr(null);
-          const res = await signUp(formData);
-          if (res?.ok === false) setErr(res.message);
+          try {
+  await signUp(formData);
+} catch (e: any) {
+  setErr(e.message ?? "Erreur inattendue");
+}
         }}
         className="space-y-4"
       >
