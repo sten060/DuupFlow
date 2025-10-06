@@ -80,28 +80,17 @@ export async function generateAction(formData: FormData) {
     throw new Error("Aucune image générée par le modèle.");
   }
 
-  // 4) on télécharge les sorties et on les stocke dans le dossier user
-const savedRelative: string[] = [];
-let idx = 1;
-
-for (const url of outputs) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.error("✖ Erreur fetch :", res.status, res.statusText);
-      continue;
-    }
-    const ab = await res.arrayBuffer();
-    const buf = Buffer.from(ab);
-    const name = `gen_${Date.now()}_${idx}_${randSuffix()}.jpg`;
-    await fs.writeFile(path.join(outDir, name), buf);
-    savedRelative.push(`/out/${userId}/${encodeURIComponent(name)}`);
-    idx++;
-  } catch (err) {
-    console.error("⚠️ Erreur pendant le téléchargement :", err);
-    // on ignore les ratés individuels
-  }
+  if (!outputs || outputs.length === 0) {
+  throw new Error("Aucune image générée par le modèle.");
 }
+
+// ---- TEMP : on ne télécharge pas les images ici car Cloudflare bloque Render ----
+console.log("✅ Images générées par Replicate :", outputs);
+// ------------------------------------------------------------
+
+// 5) rafraîchit l’onglet images et redirige
+revalidatePath("/dashboard/images");
+redirect("/dashboard/images?generated=1");
 
 // 5) rafraîchit l’onglet images et redirige
 revalidatePath("/dashboard/images");
