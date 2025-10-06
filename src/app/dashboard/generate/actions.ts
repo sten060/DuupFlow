@@ -52,7 +52,8 @@ export async function generateAction(formData: FormData) {
 
   // URL publique du site (pour exposer la source à Replicate)
   const site =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "http://localhost:3000";
+  (process.env.NEXT_PUBLIC_SITE_URL || process.env.RENDER_EXTERNAL_URL || "")
+    .replace(/\/+$/, "") || "http://localhost:3000";
 
   // 1) si l’utilisateur a donné une image, on la sauve pour obtenir une URL publique
   let imageUrl: string | undefined = undefined;
@@ -83,15 +84,33 @@ export async function generateAction(formData: FormData) {
   const savedRelative: string[] = [];
   let idx = 1;
   for (const url of outputs) {
-    try {
-      const res = await fetch(url);
-      const ab = await res.arrayBuffer();
-      const buf = Buffer.from(ab);
-      const name = `gen_${Date.now()}_${idx}_${randSuffix()}.jpg`;
-      await fs.writeFile(path.join(outDir, name), buf);
-      savedRelative.push(`/out/${userId}/${encodeURIComponent(name)}`);
-      idx++;
-    } catch {
+      try {
+    console.log("📥 Téléchargement de :", url);
+
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+      },
+    });
+
+    if (!res.ok) {
+      console.error("❌ Erreur fetch :", res.status, res.statusText);
+      continue;
+    }
+
+    const ab = await res.arrayBuffer();
+    const buf = Buffer.from(ab);
+    const name = `gen_${Date.now()}_${idx}_${randSuffix()}.jpg`;
+
+    await fs.writeFile(path.join(outDir, name), buf);
+    savedRelative.push(`/out/${userId}/${encodeURIComponent(name)}`);
+    console.log("✅ Image sauvegardée :", name);
+
+    idx++;
+  } catch (err) {
+    console.error("⚠️ Erreur pendant le téléchargement :", err);
+  }
       // on ignore les ratés individuels
     }
   }
