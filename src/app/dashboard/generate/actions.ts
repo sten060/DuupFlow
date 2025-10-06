@@ -81,41 +81,29 @@ export async function generateAction(formData: FormData) {
   }
 
   // 4) on télécharge les sorties et on les stocke dans le dossier user
-  const savedRelative: string[] = [];
-  let idx = 1;
-  for (const url of outputs) {
-      try {
-    console.log("📥 Téléchargement de :", url);
+const savedRelative: string[] = [];
+let idx = 1;
 
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
-      },
-    });
-
+for (const url of outputs) {
+  try {
+    const res = await fetch(url);
     if (!res.ok) {
-      console.error("❌ Erreur fetch :", res.status, res.statusText);
+      console.error("✖ Erreur fetch :", res.status, res.statusText);
       continue;
     }
-
     const ab = await res.arrayBuffer();
     const buf = Buffer.from(ab);
     const name = `gen_${Date.now()}_${idx}_${randSuffix()}.jpg`;
-
     await fs.writeFile(path.join(outDir, name), buf);
     savedRelative.push(`/out/${userId}/${encodeURIComponent(name)}`);
-    console.log("✅ Image sauvegardée :", name);
-
     idx++;
   } catch (err) {
     console.error("⚠️ Erreur pendant le téléchargement :", err);
+    // on ignore les ratés individuels
   }
-      // on ignore les ratés individuels
-    }
-  }
+}
 
-  // 5) rafraîchit l’onglet images et redirige
-  revalidatePath("/dashboard/images");
-  redirect("/dashboard/images?generated=1");
+// 5) rafraîchit l’onglet images et redirige
+revalidatePath("/dashboard/images");
+redirect("/dashboard/images?generated=1");
 }
