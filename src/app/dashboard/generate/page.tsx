@@ -26,7 +26,7 @@ export default async function GeneratePage() {
       </header>
 
       {/* on passe l’action serveur au composant client */}
-      <GenerateFormClient action={generateAction} />
+      <GenerateFormClient />
     </main>
   );
 }
