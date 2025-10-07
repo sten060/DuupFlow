@@ -38,7 +38,7 @@ function buildPrompt({
 }
 
 export async function generateAction(formData: FormData) {
-  // lecture des champs
+  // 1) lecture des champs
   const n = Math.max(1, Math.min(8, Number(formData.get("n") ?? 3))); // 1..8
   const decor = String(formData.get("decor") || "").trim() || undefined;
   const tenue = String(formData.get("tenue") || "").trim() || undefined;
@@ -47,15 +47,15 @@ export async function generateAction(formData: FormData) {
 
   const file = formData.get("image") as File | null;
 
-  // dossier utilisateur (public/out/<userId>)
+  // 2) dossier utilisateur (public/out/<userId>)
   const { dir: outDir, userId } = await getOutDirForCurrentUser();
 
-  // URL publique du site (pour exposer la source à Replicate)
+  // 3) URL publique du site (pour exposer la source à Replicate)
   const site =
-  (process.env.NEXT_PUBLIC_SITE_URL || process.env.RENDER_EXTERNAL_URL || "")
-    .replace(/\/+$/, "") || "http://localhost:3000";
+    (process.env.NEXT_PUBLIC_SITE_URL || process.env.RENDER_EXTERNAL_URL || "")
+      .replace(/\/+$/, "") || "http://localhost:3000";
 
-  // 1) si l’utilisateur a donné une image, on la sauve pour obtenir une URL publique
+  // 4) si l’utilisateur a donné une image, on la sauve pour obtenir une URL publique
   let imageUrl: string | undefined = undefined;
   if (file && file.size > 0) {
     const buf = Buffer.from(await file.arrayBuffer());
@@ -66,33 +66,58 @@ export async function generateAction(formData: FormData) {
     imageUrl = `${site}/out/${userId}/${encodeURIComponent(name)}`;
   }
 
-  // 2) prompt consolidé
+  // 5) prompt consolidé
   const prompt = buildPrompt({ decor, tenue, accessoires, style });
 
-  // 3) appel Replicate (renvoie des URLs d’images)
+  // 6) appel Replicate (renvoie des URLs d’images)
   const outputs = (await generateImage({
     prompt,
     imageUrl,
     numOutputs: n,
-  })) as string[]; // Replicate renvoie généralement string[] d’URLs
+  })) as string[]; // la plupart des modèles renvoient un string[] d’URLs
 
   if (!outputs || outputs.length === 0) {
     throw new Error("Aucune image générée par le modèle.");
   }
 
-  if (!outputs || outputs.length === 0) {
-  throw new Error("Aucune image générée par le modèle.");
-}
+  // 7) Télécharger les sorties -> stocker dans /public/out/<userId>
+  //    (en-têtes 'navigateur' pour contourner les blocages Cloudflare)
+  const savedRelative: string[] = [];
+  let idx = 1;
 
-// ---- TEMP : on ne télécharge pas les images ici car Cloudflare bloque Render ----
-console.log("✅ Images générées par Replicate :", outputs);
-// ------------------------------------------------------------
+  for (const url of outputs) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
+          "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Referer": "https://replicate.com/",
+          "Cache-Control": "no-cache",
+        },
+        redirect: "follow",
+      });
 
-// 5) rafraîchit l’onglet images et redirige
-revalidatePath("/dashboard/images");
-redirect("/dashboard/images?generated=1");
+      if (!res.ok) {
+        console.error("× Erreur fetch :", res.status, res.statusText, "pour", url);
+        continue;
+      }
 
-// 5) rafraîchit l’onglet images et redirige
-revalidatePath("/dashboard/images");
-redirect("/dashboard/images?generated=1");
+      const ab = await res.arrayBuffer();
+      const buf = Buffer.from(ab);
+      const name = `gen_${Date.now()}_${idx}_${randSuffix()}.jpg`;
+      await fs.writeFile(path.join(outDir, name), buf);
+
+      savedRelative.push(`/out/${userId}/${encodeURIComponent(name)}`);
+      idx++;
+    } catch (err) {
+      console.error("⚠️ Erreur pendant le téléchargement :", err);
+      // on ignore les ratés individuels
+    }
+  }
+
+  // 8) rafraîchir la page images et rediriger
+  revalidatePath("/dashboard/images");
+  redirect("/dashboard/images?generated=1");
 }
