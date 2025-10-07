@@ -1,11 +1,6 @@
 "use server";
 
-import path from "path";
-import fs from "fs/promises";
 import crypto from "crypto";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 import { generateImage } from "@/lib/ai/replicate";
 
@@ -37,87 +32,55 @@ function buildPrompt({
   return parts ? `${base} ${parts}.` : base;
 }
 
-export async function generateAction(formData: FormData) {
-  // 1) lecture des champs
-  const n = Math.max(1, Math.min(8, Number(formData.get("n") ?? 3))); // 1..8
-  const decor = String(formData.get("decor") || "").trim() || undefined;
-  const tenue = String(formData.get("tenue") || "").trim() || undefined;
-  const accessoires = String(formData.get("accessoires") || "").trim() || undefined;
-  const style = String(formData.get("style") || "").trim() || undefined;
+/**
+ * Nouvelle version : ne télécharge rien côté serveur.
+ * Retourne simplement { ok, urls } ou { ok:false, error }.
+ */
+export async function generateAction(formData: FormData): Promise<
+  | { ok: true; urls: string[] }
+  | { ok: false; error: string }
+> {
+  try {
+    // champs
+    const n = Math.max(1, Math.min(8, Number(formData.get("n") ?? 3)));
+    const decor = String(formData.get("decor") || "").trim() || undefined;
+    const tenue = String(formData.get("tenue") || "").trim() || undefined;
+    const accessoires = String(formData.get("accessoires") || "").trim() || undefined;
+    const style = String(formData.get("style") || "").trim() || undefined;
 
-  const file = formData.get("image") as File | null;
+    const file = formData.get("image") as File | null;
 
-  // 2) dossier utilisateur (public/out/<userId>)
-  const { dir: outDir, userId } = await getOutDirForCurrentUser();
+    // dossier user (on l’invoque pour récupérer userId même si on ne sauvegarde pas ici)
+    const { userId } = await getOutDirForCurrentUser();
 
-  // 3) URL publique du site (pour exposer la source à Replicate)
-  const site =
-    (process.env.NEXT_PUBLIC_SITE_URL || process.env.RENDER_EXTERNAL_URL || "")
-      .replace(/\/+$/, "") || "http://localhost:3000";
+    // URL publique du site si jamais on devait exposer l’image d’entrée
+    const site =
+      (process.env.NEXT_PUBLIC_SITE_URL || process.env.RENDER_EXTERNAL_URL || "")
+        .replace(/\/+$/, "") || "http://localhost:3000";
 
-  // 4) si l’utilisateur a donné une image, on la sauve pour obtenir une URL publique
-  let imageUrl: string | undefined = undefined;
-  if (file && file.size > 0) {
-    const buf = Buffer.from(await file.arrayBuffer());
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-    const base = file.name.replace(/\.[^.]+$/, "");
-    const name = `${base || "ref"}_${randSuffix()}.${ext}`;
-    await fs.writeFile(path.join(outDir, name), buf);
-    imageUrl = `${site}/out/${userId}/${encodeURIComponent(name)}`;
-  }
+    // si l’utilisateur a fourni une image, on la passe telle quelle via blob URL (RSC ne peut pas lire ici),
+    // donc on ne la persiste pas côté serveur pour éviter Cloudflare. On envoie sans image si absent.
+    let imageUrl: string | undefined = undefined;
 
-  // 5) prompt consolidé
-  const prompt = buildPrompt({ decor, tenue, accessoires, style });
+    // NOTE: pour un vrai “image-to-image”, si le modèle exige une URL publique,
+    // on re-basculera vers un upload client -> Supabase Storage, puis on donnera cette URL au modèle.
 
-  // 6) appel Replicate (renvoie des URLs d’images)
-  const outputs = (await generateImage({
-    prompt,
-    imageUrl,
-    numOutputs: n,
-  })) as string[]; // la plupart des modèles renvoient un string[] d’URLs
+    const prompt = buildPrompt({ decor, tenue, accessoires, style });
 
-  if (!outputs || outputs.length === 0) {
-    throw new Error("Aucune image générée par le modèle.");
-  }
+    const outputs = (await generateImage({
+      prompt,
+      imageUrl,
+      numOutputs: n,
+    })) as string[];
 
-  // 7) Télécharger les sorties -> stocker dans /public/out/<userId>
-  //    (en-têtes 'navigateur' pour contourner les blocages Cloudflare)
-  const savedRelative: string[] = [];
-  let idx = 1;
-
-  for (const url of outputs) {
-    try {
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-          "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Referer": "https://replicate.com/",
-          "Cache-Control": "no-cache",
-        },
-        redirect: "follow",
-      });
-
-      if (!res.ok) {
-        console.error("× Erreur fetch :", res.status, res.statusText, "pour", url);
-        continue;
-      }
-
-      const ab = await res.arrayBuffer();
-      const buf = Buffer.from(ab);
-      const name = `gen_${Date.now()}_${idx}_${randSuffix()}.jpg`;
-      await fs.writeFile(path.join(outDir, name), buf);
-
-      savedRelative.push(`/out/${userId}/${encodeURIComponent(name)}`);
-      idx++;
-    } catch (err) {
-      console.error("⚠️ Erreur pendant le téléchargement :", err);
-      // on ignore les ratés individuels
+    if (!outputs || outputs.length === 0) {
+      return { ok: false, error: "Aucune image générée par le modèle." };
     }
-  }
 
-  // 8) rafraîchir la page images et rediriger
-  revalidatePath("/dashboard/images");
-  redirect("/dashboard/images?generated=1");
+    // succès — on renvoie juste les URLs (hébergées par Replicate)
+    return { ok: true, urls: outputs };
+  } catch (err: any) {
+    console.error("generateAction error:", err);
+    return { ok: false, error: err?.message ?? "Erreur inconnue côté serveur." };
+  }
 }

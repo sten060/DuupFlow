@@ -1,24 +1,20 @@
-// src/app/dashboard/generate/GenerateFormClient.tsx
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { generateAction } from "./actions";
 
 type Status = "idle" | "submitting" | "error";
 
-type Props = {
-  action: (formData: FormData) => Promise<void>;
-};
-
-export default function GenerateFormClient({ action }: Props) {
+export default function GenerateFormClient() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [n, setN] = useState(4);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<string[]>([]); // <— NEW
   const formRef = useRef<HTMLFormElement>(null);
   const dropRef = useRef<HTMLLabelElement>(null);
 
-  // preview image
   useEffect(() => {
     if (!file) return void setPreview(null);
     const url = URL.createObjectURL(file);
@@ -26,7 +22,6 @@ export default function GenerateFormClient({ action }: Props) {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  // drag & drop
   useEffect(() => {
     const el = dropRef.current;
     if (!el) return;
@@ -61,18 +56,26 @@ export default function GenerateFormClient({ action }: Props) {
     e.preventDefault();
     setStatus("submitting");
     setError(null);
+    setResults([]);
+
     try {
       const fd = new FormData(formRef.current!);
       if (file) fd.set("image", file);
       fd.set("n", String(n));
-      await action(fd); // ← utilise la prop action
-      // la server action redirige vers /dashboard/images
+      const res = await generateAction(fd);
+
+      if (!res.ok) {
+        setStatus("error");
+        setError(res.error);
+        return;
+      }
+
+      setResults(res.urls);
+      setStatus("idle");
     } catch (err: any) {
       setStatus("error");
       setError(err?.message ?? "Une erreur est survenue.");
-      return;
     }
-    setStatus("idle");
   };
 
   return (
@@ -101,7 +104,6 @@ export default function GenerateFormClient({ action }: Props) {
               </div>
             </label>
 
-            {/* Compteur d’images */}
             <div className="flex items-center justify-between p-4">
               <div className="text-sm text-white/70">Nombre d’images</div>
               <div className="flex items-center gap-2">
@@ -130,9 +132,7 @@ export default function GenerateFormClient({ action }: Props) {
             <Field label="Style global / Éclairage" name="style" placeholder="Ex. photographie éditoriale, 50mm, bokeh léger, peau naturelle" />
 
             <div className="flex items-center justify-between pt-2">
-              <p className="text-xs text-white/60">
-                Astuce : sois descriptif mais concis. L’identité du modèle est automatiquement conservée.
-              </p>
+              <p className="text-xs text-white/60">Astuce : sois descriptif mais concis. L’identité du modèle est automatiquement conservée.</p>
               <button type="submit" disabled={status === "submitting"} className="btn btn-primary px-5 py-2">
                 {status === "submitting" ? "Génération…" : "Générer"}
               </button>
@@ -146,6 +146,20 @@ export default function GenerateFormClient({ action }: Props) {
           </div>
         </div>
       </form>
+
+      {/* Résultats */}
+      {results.length > 0 && (
+        <div className="glass p-4">
+          <div className="mb-2 text-sm text-white/70">Résultats du lot</div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            {results.map((u, i) => (
+              <a key={u + i} href={u} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                <img src={u} alt={`result-${i}`} className="h-56 w-full object-cover" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Aide rapide */}
       <div className="glass p-4">
