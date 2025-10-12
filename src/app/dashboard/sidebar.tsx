@@ -141,7 +141,7 @@ export default function Sidebar() {
           />
           <Item
             href="/dashboard/generate"
-            label="Génération IA"
+            label="Variation IA (BETA)"
             icon={
               <svg
                 viewBox="0 0 24 24"
