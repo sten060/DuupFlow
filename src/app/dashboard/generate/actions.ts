@@ -1,72 +1,103 @@
 "use server";
 
-import path from "path";
-import fs from "fs/promises";
-import crypto from "crypto";
-import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
-import { generateImage } from "@/lib/ai/replicate";
-import { buildPrompt } from "@/lib/ai/prompt";
+const REPLICATE_API = "https://api.replicate.com/v1";
+const VERSION = process.env.INSTANT_ID_VERSION!;
+const AUTH = { Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}` };
 
-function randSuffix() {
-  return crypto.randomBytes(2).toString("hex");
-}
+type GenResult =
+  | { ok: true; urls: string[] }
+  | { ok: false; error: string };
 
-export async function generateAction(formData: FormData) {
+export async function generateAction(formData: FormData): Promise<GenResult> {
   try {
-    const n = Math.max(1, Math.min(4, Number(formData.get("n") ?? 1)));
-    const decor = String(formData.get("decor") || "").trim();
-    const tenue = String(formData.get("tenue") || "").trim();
-    const accessoires = String(formData.get("accessoires") || "").trim();
-    const style = String(formData.get("style") || "").trim();
-const keepPose = formData.get("keepPose") === "on";
-const keepFace = formData.get("keepFace") === "on";
+    const file = formData.get("image") as unknown as File | null;
+    const prompt = (formData.get("prompt") || "").toString().trim();
+    const variants = Number(formData.get("variants") || 4) || 4;
+    const seedStr = (formData.get("seed") || "").toString().trim();
+    const seed = seedStr ? Number(seedStr) : undefined;
+    // slider 0..1 où 0 = très fidèle, 1 = plus libre
+    const fidelity = Number(formData.get("strength") || 0.6); 
 
-// Valeurs par défaut
-let strength = 0.6;
-let ipAdapterScale = 0.8;
+    if (!file || file.size === 0) return { ok: false, error: "Aucune image reçue." };
 
-// Ajuste selon les cases cochées
-if (keepPose) strength = 0.5;
-if (keepFace) ipAdapterScale = 0.9;
+    // 1) Upload du fichier sur Replicate pour obtenir une URL publique
+    const fd = new FormData();
+    fd.append("file", file, (file as any).name ?? "image.jpg");
 
-    // 1) récupérer le fichier du champ name="image"
-    const file = formData.get("image") as File | null;
-    if (!file || file.size === 0) {
-      return { ok: false as const, error: "Ajoute une image de référence." };
+    const upRes = await fetch(`${REPLICATE_API}/files`, {
+      method: "POST",
+      headers: AUTH as any,
+      body: fd,
+    });
+
+    if (!upRes.ok) {
+      const err = await upRes.text();
+      return { ok: false, error: `Échec upload: ${err}` };
+    }
+    const uploaded = (await upRes.json()) as { url: string };
+    const imgUrl = uploaded.url;
+
+    // 2) Créer la prédiction (JSON, pas multipart)
+    // NB: Instant-ID demande 2 entrées: 
+    //  - id_image = image d’identité (visage de référence)
+    //  - image    = image à modifier/garder la compo
+    // Pour ton use-case "varier à partir de l’original", on passe la même URL aux 2.
+    const input: Record<string, any> = {
+      prompt,
+      id_image: imgUrl,
+      image: imgUrl,
+      // mapping fidélité (0 = très fidèle -> control fort)
+      // beaucoup de builds Instant-ID exposent "control_strength" ou "style_strength".
+      // On inverse pour que "fidelity" 0 = fort contrôle.
+      control_strength: 1 - fidelity,
+      num_samples: variants,
+      // options usuelles, tolérées par la plupart des versions
+      guidance_scale: 3.5,
+      // seed facultative si fournie
+      ...(seed !== undefined ? { seed } : {}),
+      // safety
+      safety_checker: false,
+    };
+
+    const predRes = await fetch(
+      `${REPLICATE_API}/models/instant-id/versions/${VERSION}/predictions`,
+      {
+        method: "POST",
+        headers: {
+          ...AUTH,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ input }),
+      }
+    );
+
+    if (!predRes.ok) {
+      const err = await predRes.text();
+      return { ok: false, error: `Création prédiction: ${err}` };
     }
 
-    // 2) on sauvegarde localement et on fabrique une URL publique vers /out/...
-    const site =
-      (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/+$/, "") ||
-      "http://localhost:3000";
+    const pred = await predRes.json();
 
-    const buf = Buffer.from(await file.arrayBuffer());
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-    const safeBase = file.name.replace(/\.[^.]+$/, "");
-    const name = `${safeBase || "ref"}.${ext}`;
+    // 3) Polling jusqu’au résultat
+    let prediction = pred;
+    const id = pred.id as string;
 
-    const { dir, userId } = await getOutDirForCurrentUser(); // <- ta fonction existante
-    await fs.writeFile(path.join(dir, name), buf);
-
-    const imageUrl = `${site}/out/${userId}/${encodeURIComponent(name)}`;
-    console.log("➡ imageUrl envoyée à Replicate:", imageUrl);
-
-    // 3) construire le prompt
-const prompt = buildPrompt({ decor, tenue, accessoires, style });
-
-    // 4) appeler Replicate avec imageUrl
-    const urls = await generateImage({
-      imageUrl,
-  prompt,
-  numOutputs: n,
-});
-    if (!urls?.length) {
-      return { ok: false as const, error: "Aucune image générée." };
+    for (let i = 0; i < 60; i++) { // ~60s max
+      const r = await fetch(`${REPLICATE_API}/predictions/${id}`, { headers: AUTH as any });
+      prediction = await r.json();
+      if (prediction.status === "succeeded") break;
+      if (prediction.status === "failed" || prediction.status === "canceled") {
+        const e = prediction.error ? JSON.stringify(prediction.error) : "échec modèle";
+        return { ok: false, error: e };
+      }
+      await new Promise((res) => setTimeout(res, 1000));
     }
 
-    return { ok: true as const, urls };
+    const output = (prediction.output ?? []) as string[];
+    if (!output.length) return { ok: false, error: "Aucun résultat renvoyé par le modèle." };
+
+    return { ok: true, urls: output };
   } catch (e: any) {
-    console.error("generateAction error:", e);
-    return { ok: false as const, error: e?.message || "Erreur inconnue." };
+    return { ok: false, error: e?.message || "Erreur inconnue." };
   }
 }

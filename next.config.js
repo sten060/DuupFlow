@@ -1,11 +1,11 @@
 // next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '100mb', // ← autorise jusqu’à 100 MB
-    },
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "replicate.delivery" },
+      { protocol: "https", hostname: "pbxt.replicate.delivery" }, // parfois utilisé
+    ],
   },
 };
-
 module.exports = nextConfig;

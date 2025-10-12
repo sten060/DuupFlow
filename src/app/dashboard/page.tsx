@@ -22,7 +22,7 @@ export default function DashboardPage() {
       href: "/dashboard/similarity",
     },
     {
-      title: "Génération IA",
+      title: "Variation IA (BETA)",
       desc: "Crée des variations automatiques grâce à l’intelligence artificielle.",
       color: "from-fuchsia-500 to-indigo-500",
       href: "/dashboard/generate",
