@@ -132,7 +132,7 @@ function removeLine(
 
     setBusy(true);
     try {
-      const r = await fetch("/api/generate", { method: "POST", body: fd });
+      await fetch("/api/generate", { method: "POST", body: fd })
       const j = await r.json();
       if (!r.ok || !j.ok) throw new Error(j?.error || "Erreur");
       setResults(j.urls || []);

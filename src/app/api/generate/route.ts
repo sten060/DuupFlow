@@ -36,6 +36,7 @@ export async function POST(req: Request) {
     console.log("HIT /api/generate"); // <- visible dans les logs Render
 
     const form = await req.formData();
+    console.log("🧾 FormData keys:", Array.from(form.keys()));
     const file = form.get("image") as File | null;
     const promptRaw = (form.get("prompt") || "").toString().trim();
 
