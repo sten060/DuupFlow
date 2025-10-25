@@ -1,11 +1,9 @@
-// next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "replicate.delivery" },
-      { protocol: "https", hostname: "pbxt.replicate.delivery" }, // parfois utilisé
-    ],
+  reactStrictMode: true,
+  experimental: {
+    esmExternals: true, // permet d'importer des modules ESM externes
   },
 };
-module.exports = nextConfig;
+
+export default nextConfig;

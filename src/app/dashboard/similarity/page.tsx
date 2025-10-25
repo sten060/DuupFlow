@@ -1,6 +1,6 @@
 // src/app/dashboard/similarity/page.tsx
 import Link from "next/link";
-import { compareSimilarity } from "../actions";
+import { compareSimilarity } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

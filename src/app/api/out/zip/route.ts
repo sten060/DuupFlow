@@ -18,30 +18,40 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const { dir, userId } = await getOutDirForCurrentUserRSC();
   const url = new URL(req.url);
+
+  // Nouveau : récupère le channel
+  const channel = url.searchParams.get("channel") || "all"; // simple / advanced / all
   const scope = (url.searchParams.get("scope") || "all") as
-    | "all" | "images" | "videos";
+    | "all"
+    | "images"
+    | "videos";
 
   const entries = await fs.readdir(dir, { withFileTypes: true });
 
   const files = entries
     .filter((d) => d.isFile())
     .map((d) => d.name)
-    // on enlève les temporaires/partiels
-    .filter((n) =>
-      !n.startsWith(".") &&
-      !n.startsWith("tmp_") &&
-      !n.startsWith("__in__") &&
-      !n.startsWith("__progress_") &&
-      !n.endsWith(".part")
+    .filter(
+      (n) =>
+        !n.startsWith(".") &&
+        !n.startsWith("tmp_") &&
+        !n.startsWith("__in__") &&
+        !n.startsWith("__progress_") &&
+        !n.endsWith(".part")
     )
-    // filtre par scope
     .filter((n) => {
       if (scope === "images") return IMAGE_EXTS.includes(extOf(n));
       if (scope === "videos") return VIDEO_EXTS.includes(extOf(n));
-      return true; // "all"
+      return true;
+    })
+    // ✅ filtre par channel ZENO
+    .filter((n) => {
+      if (channel === "simple") return n.startsWith("SIMPLE_Zeno_");
+      if (channel === "advanced") return n.startsWith("ADVANCED_Zeno_");
+      return true;
     });
 
-  // Prépare un flux ZIP en réponse
+  // ZIP stream
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
 
@@ -51,16 +61,17 @@ export async function GET(req: Request) {
   archive.on("data", (chunk) => writer.write(chunk));
   archive.on("end", () => writer.close());
 
-  // Ajoute les fichiers
   for (const name of files) {
     archive.file(path.join(dir, name), { name });
   }
   archive.finalize();
 
   const fileName =
-    scope === "images" ? `images_${userId}.zip`
-    : scope === "videos" ? `videos_${userId}.zip`
-    : `out_${userId}.zip`;
+    channel === "simple"
+      ? `simple_${userId}.zip`
+      : channel === "advanced"
+      ? `advanced_${userId}.zip`
+      : `out_${userId}.zip`;
 
   return new NextResponse(readable as any, {
     headers: {
