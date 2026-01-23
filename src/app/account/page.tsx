@@ -5,8 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
-  // ⚠️ La fonction serveur est maintenant async → on l'attend
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const {
     data: { user },
