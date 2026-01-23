@@ -10,7 +10,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect";
 import os from "os";
-import { createClient as createSbServer } from "@/lib/supabase/server";
 import { getOutDirForCurrentUser, getOutDirForCurrentUserRSC } from "./utils";
 import type { OverlayOptions } from "sharp";
 
