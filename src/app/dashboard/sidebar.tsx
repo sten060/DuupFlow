@@ -2,8 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client"; // ton helper côté client
+import { usePathname } from "next/navigation";
 
 function Item({
   href,
@@ -45,16 +44,6 @@ function Item({
 }
 
 export default function Sidebar() {
-  const router = useRouter();
-  const supabase = createClient();
-
-  const logout = async () => {
-    await supabase.auth.signOut().catch(() => {});
-    // redirection propre vers la home
-    router.push("/");
-    router.refresh();
-  };
-
   return (
     <aside
       className={[
@@ -156,36 +145,6 @@ export default function Sidebar() {
             }
           />
         </div>
-
-        {/* Séparateur */}
-        <div className="my-4 h-px bg-white/10" />
-
-        <button
-          onClick={logout}
-          className={[
-  "w-full flex items-center gap-3 rounded-xl px-3 py-3",
-  "border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 shadow-[0_0_12px_rgba(244,63,94,.5)]",
-  "text-white/80 hover:text-rose-300 transition",
-].join(" ")}
-        >
-          <span
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.06] border border-white/10"
-            aria-hidden
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M10 17l5-5-5-5" />
-              <path d="M15 12H3" />
-              <path d="M21 19V5a2 2 0 0 0-2-2h-6" />
-            </svg>
-          </span>
-          Se déconnecter
-        </button>
       </div>
     </aside>
   );
