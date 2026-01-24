@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import Replicate from "replicate";
 import sharp from "sharp";
+import path from "path";
+import fs from "fs/promises";
+import crypto from "crypto";
+
 export const runtime = "nodejs";
 
 async function fileToDataUrl(file: File) {
@@ -47,8 +51,12 @@ export async function POST(req: Request) {
       auth: process.env.REPLICATE_API_TOKEN,
     });
 
-    // Générer toutes les variantes
-    const allUrls: string[] = [];
+    // Créer le dossier de destination pour les images IA
+    const aiDir = path.join(process.cwd(), "public", "out", "local", "ai-generated");
+    await fs.mkdir(aiDir, { recursive: true });
+
+    // Générer toutes les variantes et les sauvegarder localement
+    const localUrls: string[] = [];
 
     for (let i = 0; i < variants; i++) {
       const currentSeed = seed !== undefined ? seed + i : undefined;
@@ -67,20 +75,47 @@ export async function POST(req: Request) {
         }
       ) as any;
 
-      // Replicate renvoie soit une URL, soit un array d'URLs
+      // Extraire l'URL de l'image générée
+      let imageUrl: string | null = null;
       if (typeof output === "string") {
-        allUrls.push(output);
-      } else if (Array.isArray(output)) {
-        allUrls.push(...output);
+        imageUrl = output;
+      } else if (Array.isArray(output) && output.length > 0) {
+        imageUrl = output[0];
       } else if (output?.url) {
-        allUrls.push(output.url);
-      } else {
-        console.warn("Format de sortie inattendu:", output);
+        imageUrl = output.url;
       }
+
+      if (!imageUrl) {
+        console.warn("Pas d'URL d'image dans la réponse:", output);
+        continue;
+      }
+
+      console.log(`Téléchargement de l'image depuis: ${imageUrl}`);
+
+      // Télécharger l'image depuis Replicate
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        console.error(`Échec du téléchargement de l'image ${i + 1}:`, response.statusText);
+        continue;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      console.log(`Image ${i + 1} téléchargée: ${buffer.length} bytes`);
+
+      // Sauvegarder l'image localement
+      const filename = `ai_${crypto.randomBytes(8).toString("hex")}.png`;
+      const filepath = path.join(aiDir, filename);
+      await fs.writeFile(filepath, buffer);
+
+      // URL locale pour accéder à l'image
+      const localUrl = `/out/local/ai-generated/${filename}`;
+      localUrls.push(localUrl);
+
+      console.log(`Image ${i + 1} sauvegardée: ${localUrl}`);
     }
 
-    console.log(`${allUrls.length} image(s) générée(s)`);
-    return NextResponse.json<Ok>({ ok: true, urls: allUrls });
+    console.log(`${localUrls.length} image(s) générée(s) et sauvegardée(s)`);
+    return NextResponse.json<Ok>({ ok: true, urls: localUrls });
 
   } catch (e: any) {
     console.error("generate fatal:", e);
