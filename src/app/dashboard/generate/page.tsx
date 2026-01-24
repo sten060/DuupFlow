@@ -136,11 +136,8 @@ try {
   const j = await res.json();
   if (!res.ok || !j.ok) throw new Error(j?.error || "Erreur");
 
-  // Convertir les URLs Replicate en URLs proxy locales
-  const proxiedUrls = (j.urls || []).map((url: string) =>
-    `/api/proxy-image?url=${encodeURIComponent(url)}`
-  );
-  setResults(proxiedUrls);
+  // Les URLs sont maintenant déjà locales (sauvegardées sur le serveur)
+  setResults(j.urls || []);
 } catch (e: any) {
   setErr(e?.message || "Erreur réseau.");
 } finally {
