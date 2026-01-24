@@ -135,7 +135,12 @@ try {
   const res = await fetch("/api/generate", { method: "POST", body: fd });
   const j = await res.json();
   if (!res.ok || !j.ok) throw new Error(j?.error || "Erreur");
-  setResults(j.urls || []);
+
+  // Convertir les URLs Replicate en URLs proxy locales
+  const proxiedUrls = (j.urls || []).map((url: string) =>
+    `/api/proxy-image?url=${encodeURIComponent(url)}`
+  );
+  setResults(proxiedUrls);
 } catch (e: any) {
   setErr(e?.message || "Erreur réseau.");
 } finally {
@@ -146,41 +151,63 @@ try {
   // --- ZIP (toutes les variantes) ---
   async function downloadZip() {
     if (!results.length) return;
-    const JSZip = (await import("jszip")).default;
-    const zip = new JSZip();
 
-    let idx = 1;
-    for (const url of results) {
-      const res = await fetch(url, { cache: "no-store" });
-      const blob = await res.blob();
-      const ext =
-        blob.type?.includes("png") ? "png" :
-        blob.type?.includes("webp") ? "webp" :
-        blob.type?.includes("jpeg") ? "jpg" : "img";
-      zip.file(`zeno_generation_${idx}.${ext}`, blob);
-      idx++;
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      let idx = 1;
+      for (const url of results) {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) {
+          console.error(`Échec du téléchargement de l'image ${idx}:`, res.statusText);
+          continue;
+        }
+
+        const blob = await res.blob();
+        const ext =
+          blob.type?.includes("png") ? "png" :
+          blob.type?.includes("webp") ? "webp" :
+          blob.type?.includes("jpeg") || blob.type?.includes("jpg") ? "jpg" : "png";
+        zip.file(`zeno_generation_${idx}.${ext}`, blob);
+        idx++;
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const downloadUrl = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = "zeno_generations.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (e: any) {
+      console.error("Erreur lors de la création du ZIP:", e);
+      setErr(e?.message || "Erreur lors du téléchargement du ZIP");
     }
-
-    const content = await zip.generateAsync({ type: "blob" });
-    const downloadUrl = URL.createObjectURL(content);
-    const a = document.createElement("a");
-    a.href = downloadUrl;
-    a.download = "zeno_generations.zip";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(downloadUrl);
   }
 
   // --- Téléchargement individuel ---
   async function downloadOne(url: string, idx: number) {
     try {
       const res = await fetch(url, { cache: "no-store" });
+
+      if (!res.ok) {
+        throw new Error(`Échec du téléchargement: ${res.statusText}`);
+      }
+
       const blob = await res.blob();
+
+      // Vérifier que le blob contient bien des données
+      if (blob.size === 0) {
+        throw new Error("L'image téléchargée est vide");
+      }
+
       const ext =
         blob.type?.includes("png") ? "png" :
         blob.type?.includes("webp") ? "webp" :
-        blob.type?.includes("jpeg") ? "jpg" : "img";
+        blob.type?.includes("jpeg") || blob.type?.includes("jpg") ? "jpg" : "png";
 
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -190,8 +217,9 @@ try {
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Téléchargement individuel échoué:", e);
+      setErr(e?.message || "Échec du téléchargement de l'image");
     }
   }
 
