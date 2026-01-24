@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       console.log(`Génération variante ${i + 1}/${variants} (seed: ${currentSeed || "auto"})`);
 
       const output = await replicate.run(
-        "qwen/qwen-image-edit:c6b44935661f6941e37eb29dce27d7b10deb82dd9ec49a85dc2f31d51352eba2",
+        "qwen/qwen-image-edit" as any,
         {
           input: {
             image: dataUrl,
