@@ -206,6 +206,9 @@ export default function VideoFormAdvancedClient() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [tplName, setTplName] = useState("");
 
+  // Stealth mode
+  const [stealthMode, setStealthMode] = useState(false);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(TKEY);
@@ -302,6 +305,7 @@ export default function VideoFormAdvancedClient() {
       <input type="hidden" name="channel" value="advanced" />
       <input type="hidden" name="mode" value="advanced" />
       <input type="hidden" name="advancedRanges" value={JSON.stringify(serialRanges)} />
+      <input type="hidden" name="stealthMode" value={stealthMode ? "true" : "false"} />
 
       {/* Dropzone */}
       <Dropzone name="files" accept="video/*" multiple maxFiles={25} />
@@ -318,13 +322,13 @@ export default function VideoFormAdvancedClient() {
           />
         </Card>
 
-        <Card 
+        <Card
         title={
             <span className="inline-flex items-center gap-2">
               Aide rapide
               <InfoTooltip>
                 Active un filtre puis renseigne <b>Min</b> et <b>Max</b>. Une valeur au hasard
-                dans l’intervalle est tirée pour chaque copie. <b>Dimensions</b> s’applique
+                dans l'intervalle est tirée pour chaque copie. <b>Dimensions</b> s'applique
                 en pourcentage (W×H) et reste constant pour toutes les copies.
               </InfoTooltip>
             </span>
@@ -335,6 +339,62 @@ export default function VideoFormAdvancedClient() {
           </p>
         </Card>
       </div>
+
+      {/* Stealth Mode */}
+      <Card
+        title={
+          <span className="inline-flex items-center gap-2">
+            Mode Stealth (Anti-détection)
+            <InfoTooltip>
+              <b>Mode Stealth activé</b> : applique des transformations beaucoup plus agressives
+              pour réduire la similarité à 40-50% (au lieu de 87%). Modifie la structure interne
+              de la vidéo sans changer l'apparence visuelle : noise élevé (5-15), denoise variable,
+              rotation subtile (-0.5 à +0.5°), flip aléatoire, scale variation (98-102%),
+              variations de bitrate (800-3000 kbps), GOP (30-250), FPS (23.5-30.5),
+              format pixel aléatoire, CRF (20-26), ajustements bass/treble.
+              <br/><br/>
+              <b>Idéal pour contourner les détecteurs de plateforme.</b>
+              <br/><br/>
+              ⚠️ En mode Stealth, TOUS les filtres sont appliqués automatiquement,
+              indépendamment des paramètres que vous configurez ci-dessous.
+            </InfoTooltip>
+          </span>
+        }
+      >
+        <label className="inline-flex cursor-pointer select-none items-center gap-3 text-sm">
+          <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/15 transition">
+            <input
+              type="checkbox"
+              checked={stealthMode}
+              onChange={(e) => setStealthMode(e.target.checked)}
+              className="sr-only"
+            />
+            <span
+              className={[
+                "absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition",
+                stealthMode
+                  ? "translate-x-4 bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,.9)]"
+                  : "bg-white/70",
+              ].join(" ")}
+            />
+          </span>
+          <span className="text-white/85">
+            {stealthMode
+              ? "Stealth activé — Similarité cible: 40-50%"
+              : "Stealth désactivé — Similarité: ~87%"}
+          </span>
+        </label>
+        {stealthMode && (
+          <div className="mt-3 rounded-lg border border-amber-300/30 bg-amber-400/10 p-3 text-xs text-amber-300/90">
+            <p className="font-semibold">⚠️ Mode Stealth actif</p>
+            <p className="mt-1">
+              Toutes les transformations agressives seront appliquées automatiquement
+              pour maximiser la différence détectable tout en préservant le visuel.
+              Les filtres configurés manuellement ci-dessous seront ignorés.
+            </p>
+          </div>
+        )}
+      </Card>
 
       {/* Groupes */}
       {groups.map((g) => (

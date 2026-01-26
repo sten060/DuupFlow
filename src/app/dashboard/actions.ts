@@ -41,80 +41,146 @@ function coin(p = 0.5) {
   return Math.random() < p;
 }
 
-function randomVideoParams(i: number, filters: string[] = []) {
-  const brightness = +rnd(-0.03, 0.03).toFixed(3);
-  const contrast   = +rnd(0.97, 1.03).toFixed(3);
-  const sat        = +rnd(0.97, 1.03).toFixed(3);
-  const hue        = +rnd(-0.03, 0.03).toFixed(3);
-  const noiseLevel = Math.floor(rnd(1, 5));
-  const shiftX = coin() ? 1 : 0;
-  const shiftY = shiftX ? 0 : 1;
-  const speed = +rnd(0.985, 1.015).toFixed(3);
-  const volDb = +rnd(-1.0, 1.0).toFixed(2);
+function randomVideoParams(i: number, filters: string[] = [], stealthMode: boolean = false) {
+  // Mode STEALTH: modifications beaucoup plus agressives pour passer sous 50% de similarité
+  const intensity = stealthMode ? 3.0 : 1.0;
+
+  const brightness = +rnd(-0.03 * intensity, 0.03 * intensity).toFixed(3);
+  const contrast   = +rnd(0.97 / intensity, 1.03 * intensity).toFixed(3);
+  const sat        = +rnd(0.95 / intensity, 1.05 * intensity).toFixed(3);
+  const hue        = +rnd(-0.05 * intensity, 0.05 * intensity).toFixed(3);
+  const noiseLevel = Math.floor(rnd(stealthMode ? 5 : 1, stealthMode ? 15 : 5));
+  const shiftX = coin() ? (stealthMode ? Math.floor(rnd(2, 6)) : 1) : 0;
+  const shiftY = shiftX ? 0 : (stealthMode ? Math.floor(rnd(2, 6)) : 1);
+  const speed = +rnd(stealthMode ? 0.97 : 0.985, stealthMode ? 1.03 : 1.015).toFixed(3);
+  const volDb = +rnd(-2.0 * intensity, 2.0 * intensity).toFixed(2);
+
+  // Rotation aléatoire très légère (invisible mais change le hash)
+  const rotate = stealthMode ? +rnd(-0.5, 0.5).toFixed(3) : 0;
+
+  // Flip horizontal aléatoire en mode stealth
+  const flipH = stealthMode && coin(0.3);
 
   let vfParts: string[] = ["scale=trunc(iw/2)*2:trunc(ih/2)*2"];
   let afParts: string[] = [];
-  let extraParams: string[] = []; // <== pour bitrate, gop, profil etc.
+  let extraParams: string[] = [];
 
-  // === Application des filtres cochés ===
-  if (filters.includes("crop")) {
-    vfParts.push(`crop=in_w-${shiftX?1:0}:in_h-${shiftY?1:0}:${shiftX?1:0}:${shiftY?1:0},pad=iw+${shiftX?1:0}:ih+${shiftY?1:0}:${shiftX?1:0}:${shiftY?1:0}:color=black`);
+  // En mode STEALTH, appliquer TOUS les filtres automatiquement
+  const activeFilters = stealthMode ?
+    ["crop", "noise", "eq", "hue", "unsharp", "volume", "speed", "bitrate", "gop", "fps", "profile", "denoise", "sharpen"] :
+    filters;
+
+  // === Application des filtres ===
+  if (activeFilters.includes("crop") || stealthMode) {
+    vfParts.push(`crop=in_w-${shiftX}:in_h-${shiftY}:${shiftX}:${shiftY},pad=iw+${shiftX}:ih+${shiftY}:${shiftX}:${shiftY}:color=black`);
   }
 
-  if (filters.includes("noise")) {
+  if (activeFilters.includes("noise") || stealthMode) {
     vfParts.push(`noise=alls=${noiseLevel}:allf=t+u`);
   }
 
-  if (filters.includes("eq")) {
+  if (activeFilters.includes("eq") || stealthMode) {
     vfParts.push(`eq=brightness=${brightness}:contrast=${contrast}:saturation=${sat}`);
   }
 
-  if (filters.includes("hue")) {
+  if (activeFilters.includes("hue") || stealthMode) {
     vfParts.push(`hue=h=${hue}*PI:s=${sat}`);
   }
 
-  if (filters.includes("unsharp") && coin(0.4)) {
-    vfParts.push("unsharp=lx=3:ly=3:la=0.8:cx=3:cy=3:ca=0.8");
+  if (activeFilters.includes("unsharp") || stealthMode) {
+    const unsharpIntensity = stealthMode ? +rnd(0.5, 1.2).toFixed(2) : 0.8;
+    vfParts.push(`unsharp=lx=3:ly=3:la=${unsharpIntensity}:cx=3:cy=3:ca=${unsharpIntensity}`);
   }
 
-  if (filters.includes("volume")) {
+  // Denoise léger (change le hash sans dégrader)
+  if (activeFilters.includes("denoise") || stealthMode) {
+    const denoiseStr = stealthMode ? +rnd(1, 3).toFixed(1) : 1.5;
+    vfParts.push(`hqdn3d=${denoiseStr}:${denoiseStr}:${denoiseStr}:${denoiseStr}`);
+  }
+
+  // Rotation très légère (invisible à l'œil)
+  if (stealthMode && Math.abs(rotate) > 0.1) {
+    vfParts.push(`rotate=${rotate}*PI/180:fillcolor=black`);
+  }
+
+  // Flip horizontal
+  if (flipH) {
+    vfParts.push("hflip");
+  }
+
+  // Scale léger pour changer la résolution
+  if (stealthMode) {
+    const scaleRatio = +rnd(0.98, 1.02).toFixed(4);
+    vfParts.push(`scale=iw*${scaleRatio}:ih*${scaleRatio}`);
+  }
+
+  if (activeFilters.includes("volume") || stealthMode) {
     afParts.push(`volume=${volDb}dB`);
   }
 
-  if (filters.includes("speed")) {
+  if (activeFilters.includes("speed") || stealthMode) {
     afParts.push(`atempo=${speed}`);
   }
 
-  // === Nouveaux filtres ===
-  if (filters.includes("bitrate")) {
-    const br = Math.floor(rnd(100, 2000)); // kb/s
+  // Audio: ajout de filtres audio supplémentaires
+  if (stealthMode) {
+    // Bass/Treble légèrement modifiés
+    const bass = +rnd(-2, 2).toFixed(1);
+    const treble = +rnd(-2, 2).toFixed(1);
+    afParts.push(`bass=g=${bass},treble=g=${treble}`);
+  }
+
+  // === Paramètres d'encodage ===
+  if (activeFilters.includes("bitrate") || stealthMode) {
+    const br = stealthMode ?
+      Math.floor(rnd(800, 3000)) : // Variation plus large en stealth
+      Math.floor(rnd(100, 2000));
     extraParams.push("-b:v", `${br}k`);
   }
 
-  if (filters.includes("gop")) {
-    const gop = Math.floor(rnd(50, 100));
+  if (activeFilters.includes("gop") || stealthMode) {
+    const gop = stealthMode ?
+      Math.floor(rnd(30, 250)) : // Variation beaucoup plus large
+      Math.floor(rnd(50, 100));
     extraParams.push("-g", `${gop}`);
   }
 
-  if (filters.includes("fps")) {
-    const fps = +(rnd(24.1, 25.9).toFixed(3));
+  if (activeFilters.includes("fps") || stealthMode) {
+    const fps = stealthMode ?
+      +(rnd(23.5, 30.5).toFixed(3)) : // Variation plus large
+      +(rnd(24.1, 25.9).toFixed(3));
     vfParts.push(`fps=${fps}`);
   }
 
-  if (filters.includes("profile")) {
-    const profiles = ["baseline", "main", "high"];
-    const levels = ["4.0", "4.1", "5.0", "5.1"];
+  if (activeFilters.includes("profile") || stealthMode) {
+    const profiles = ["baseline", "main", "high", "high10"];
+    const levels = ["3.0", "3.1", "4.0", "4.1", "4.2", "5.0", "5.1", "5.2"];
     const profile = profiles[Math.floor(Math.random() * profiles.length)];
     const level = levels[Math.floor(Math.random() * levels.length)];
     extraParams.push("-profile:v", profile, "-level", level);
+  }
+
+  // Pixel format aléatoire en mode stealth
+  if (stealthMode) {
+    const pixFmts = ["yuv420p", "yuv422p", "yuv444p", "yuvj420p"];
+    const pixFmt = pixFmts[Math.floor(Math.random() * pixFmts.length)];
+    extraParams.push("-pix_fmt", pixFmt);
+  }
+
+  // CRF variable pour changer la compression
+  if (stealthMode) {
+    const crf = Math.floor(rnd(20, 26));
+    extraParams.push("-crf", String(crf));
+  } else {
+    extraParams.push("-crf", "23");
   }
 
   // === Résultats ===
   const vf = `${vfParts.join(",")},setpts=${(1/speed).toFixed(6)}*PTS`;
   const af = afParts.join(",");
 
-  const metaTitle = `Duplicate_${i}`;
-  const metaComment = `Generated by ContentDuplicator (n=${i}, spd=${speed}, hue=${hue}, sat=${sat}, br=${brightness}, ct=${contrast}, nz=${noiseLevel})`;
+  const metaTitle = `Duplicate_${i}_${crypto.randomBytes(4).toString("hex")}`;
+  const metaComment = `Generated by ContentDuplicator v2.0 (n=${i}, mode=${stealthMode ? 'stealth' : 'normal'})`;
 
   return { vf, af, metaTitle, metaComment, extraParams };
 }
@@ -146,10 +212,11 @@ async function processVideo(
   outPath: string,
   i: number,
   ext: string,
-  selectedFilters: string[] = []
+  selectedFilters: string[] = [],
+  stealthMode: boolean = false
 ) {
-  
-  // 1bis) Récupère le nom du fichier de sortie (sans l’extension)
+
+  // 1bis) Récupère le nom du fichier de sortie (sans l'extension)
 const originalName = path.parse(outPath).name;
 
 
@@ -165,8 +232,8 @@ const originalName = path.parse(outPath).name;
   // 3) On écrit la vidéo originale dans un fichier temporaire
   await fs.writeFile(tmpIn, buffer);
 
-// 4) Params aléatoires (filters + metadata)
-const { vf, af, metaTitle, metaComment, extraParams } = randomVideoParams(i, selectedFilters);
+// 4) Params aléatoires (filters + metadata) avec mode stealth
+const { vf, af, metaTitle, metaComment, extraParams } = randomVideoParams(i, selectedFilters, stealthMode);
 
 // 5) FFmpeg — construire les args proprement
 const args: string[] = [
@@ -175,7 +242,7 @@ const args: string[] = [
   "-vf", vf,
 ];
 
-// n’ajouter -af que si on a des filtres audio
+// n'ajouter -af que si on a des filtres audio
 if (af && af.trim().length > 0) {
   args.push("-af", af);
 }
@@ -186,7 +253,7 @@ args.push(...extraParams);
 args.push(
   "-c:v", "libx264",
   "-preset", "veryfast",
-  "-crf", "23",
+  // CRF est maintenant dans extraParams
   "-c:a", "aac",
   "-b:a", "128k",
   "-metadata", `title=${metaTitle}`,
@@ -421,6 +488,7 @@ export async function duplicateVideos(formData: FormData) {
 
   const count = Math.max(1, Number(formData.get("count") ?? 1));
   const selectedFilters = formData.getAll("filters") as string[];
+  const stealthMode = formData.get("stealthMode") === "true";
 
   // ---- dossier de sortie utilisateur ----
   const { dir: outDir } = await getOutDirForCurrentUser();
