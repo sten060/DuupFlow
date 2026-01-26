@@ -175,6 +175,163 @@ function randomVideoParams(i: number, filters: string[] = [], stealthMode: boole
     extraParams.push("-crf", "23");
   }
 
+  // ============= NOUVELLES TRANSFORMATIONS STEALTH (invisibles mais changent le hash) =============
+  if (stealthMode) {
+    // 1. Paramètres x264 avancés (changent complètement l'encodage interne)
+    const x264Params: string[] = [];
+
+    // Motion estimation method (différentes méthodes de recherche de mouvement)
+    const meMethods = ["dia", "hex", "umh", "esa", "tesa"];
+    x264Params.push(`me=${meMethods[Math.floor(Math.random() * meMethods.length)]}`);
+
+    // Subpixel motion estimation quality (1-11, change la précision)
+    const subme = Math.floor(rnd(6, 11));
+    x264Params.push(`subme=${subme}`);
+
+    // Reference frames (1-16, change la structure de prédiction)
+    const refs = Math.floor(rnd(2, 8));
+    x264Params.push(`ref=${refs}`);
+
+    // B-frames (0-16, change l'ordre des frames)
+    const bframes = Math.floor(rnd(2, 8));
+    x264Params.push(`bframes=${bframes}`);
+
+    // Weighted prediction for B-frames
+    const weightb = coin() ? "1" : "0";
+    x264Params.push(`weightb=${weightb}`);
+
+    // Trellis quantization (0-2, change la quantification)
+    const trellis = Math.floor(rnd(0, 2));
+    x264Params.push(`trellis=${trellis}`);
+
+    // Deblocking filter (change l'apparence des blocks, mais imperceptible)
+    const deblock = `${Math.floor(rnd(-3, 3))}:${Math.floor(rnd(-3, 3))}`;
+    x264Params.push(`deblock=${deblock}`);
+
+    // Adaptive quantization mode (change la distribution de bitrate)
+    const aqMode = Math.floor(rnd(0, 3));
+    x264Params.push(`aq-mode=${aqMode}`);
+
+    // Adaptive quantization strength
+    const aqStrength = +rnd(0.6, 1.4).toFixed(2);
+    x264Params.push(`aq-strength=${aqStrength}`);
+
+    // Psychovisual rate-distortion (change l'optimisation perceptuelle)
+    const psyRd = `${rnd(0.5, 2.0).toFixed(2)}:${rnd(0.0, 2.0).toFixed(2)}`;
+    x264Params.push(`psy-rd=${psyRd}`);
+
+    // CABAC entropy encoding (true/false change complètement l'encodage)
+    const cabac = coin() ? "1" : "0";
+    x264Params.push(`cabac=${cabac}`);
+
+    // Direct MV prediction mode
+    const directModes = ["none", "spatial", "temporal", "auto"];
+    x264Params.push(`direct=${directModes[Math.floor(Math.random() * directModes.length)]}`);
+
+    // Mixed references
+    const mixedRefs = coin() ? "1" : "0";
+    x264Params.push(`mixed-refs=${mixedRefs}`);
+
+    // 8x8 DCT transform
+    const dct8x8 = coin() ? "1" : "0";
+    x264Params.push(`8x8dct=${dct8x8}`);
+
+    extraParams.push("-x264-params", x264Params.join(":"));
+
+    // 2. Color space metadata (invisible mais change les métadonnées du fichier)
+    const colorPrimaries = ["bt709", "bt470m", "bt470bg", "smpte170m", "smpte240m", "film", "bt2020"];
+    const colorTrc = ["bt709", "gamma22", "gamma28", "smpte170m", "smpte240m", "linear", "iec61966-2-1"];
+    const colorSpace = ["bt709", "fcc", "bt470bg", "smpte170m", "smpte240m", "bt2020nc"];
+
+    extraParams.push(
+      "-color_primaries", colorPrimaries[Math.floor(Math.random() * colorPrimaries.length)],
+      "-color_trc", colorTrc[Math.floor(Math.random() * colorTrc.length)],
+      "-colorspace", colorSpace[Math.floor(Math.random() * colorSpace.length)]
+    );
+
+    // 3. Filtres visuels ultra-subtils (imperceptibles mais changent le hash)
+
+    // Dithering imperceptible (bruit au niveau du LSB)
+    if (coin(0.7)) {
+      const ditherType = coin() ? "ordered" : "random";
+      vfParts.push(`dither=${ditherType}`);
+    }
+
+    // Limiter (clamp les valeurs de pixels, change légèrement les extrêmes)
+    if (coin(0.6)) {
+      const limMin = Math.floor(rnd(16, 20));
+      const limMax = Math.floor(rnd(235, 240));
+      vfParts.push(`limiter=min=${limMin}:max=${limMax}`);
+    }
+
+    // LUT sur YUV (lookup table imperceptible)
+    if (coin(0.5)) {
+      const lutyuv = `y=val:u=val:v=val`;
+      vfParts.push(`lutyuv=${lutyuv}`);
+    }
+
+    // Deflicker (remove flickering, change temporal consistency)
+    if (coin(0.4)) {
+      vfParts.push("deflicker=mode=am:size=5");
+    }
+
+    // Removegrain (spatial denoise très léger)
+    if (coin(0.5)) {
+      const rgMode = Math.floor(rnd(1, 24));
+      vfParts.push(`removegrain=m0=${rgMode}`);
+    }
+
+    // ColorSpace filter (conversion aller-retour qui change les coefficients)
+    if (coin(0.6)) {
+      const csFrom = coin() ? "bt709" : "bt601";
+      const csTo = coin() ? "bt709" : "bt601";
+      if (csFrom !== csTo) {
+        vfParts.push(`colorspace=all=${csTo}:iall=${csFrom}`);
+      }
+    }
+
+    // 4. Manipulations audio invisibles
+
+    // Audio resampling (change la fréquence d'échantillonnage)
+    const audioSampleRates = [32000, 44100, 48000];
+    const targetSampleRate = audioSampleRates[Math.floor(Math.random() * audioSampleRates.length)];
+    afParts.push(`aresample=${targetSampleRate}`);
+
+    // Audio bit depth dithering
+    if (coin(0.5)) {
+      afParts.push("aformat=sample_fmts=s16");
+    }
+
+    // High-pass / Low-pass filters (imperceptibles mais changent l'audio)
+    if (coin(0.4)) {
+      const hpFreq = Math.floor(rnd(15, 25)); // Enlève les ultra-basses (inaudible)
+      afParts.push(`highpass=f=${hpFreq}`);
+    }
+
+    if (coin(0.4)) {
+      const lpFreq = Math.floor(rnd(18000, 20000)); // Enlève les ultra-hautes (inaudible)
+      afParts.push(`lowpass=f=${lpFreq}`);
+    }
+
+    // Compressor audio (change la dynamique de manière imperceptible)
+    if (coin(0.3)) {
+      afParts.push("acompressor=threshold=0.001:ratio=2:attack=20:release=250");
+    }
+
+    // 5. Métadonnées supplémentaires aléatoires
+    const randomMeta = crypto.randomBytes(16).toString("hex");
+    extraParams.push(
+      "-metadata", `encoder=ContentDup_${randomMeta.substring(0, 8)}`,
+      "-metadata", `creation_time=${new Date().toISOString()}`,
+      "-metadata", `description=Processed video ${i}`,
+      "-metadata", `copyright=Generated content ${randomMeta.substring(8, 16)}`
+    );
+
+    // 6. Movflags (change la structure du container)
+    const movflags = coin() ? "+faststart" : "+frag_keyframe";
+    extraParams.push("-movflags", movflags);
+  }
+
   // === Résultats ===
   const vf = `${vfParts.join(",")},setpts=${(1/speed).toFixed(6)}*PTS`;
   const af = afParts.join(",");
