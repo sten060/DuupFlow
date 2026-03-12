@@ -12,12 +12,13 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
   const isDashboard = pathname.startsWith("/dashboard");
+  const isAuthPage = pathname.startsWith("/login");
 
   return (
     <html lang="fr">
       <body className="bg-[#0B0F1A] text-white">
-        {/* Affiche le Header seulement en dehors du dashboard */}
-        {!isDashboard && <Header />}
+        {/* Affiche le Header seulement sur les pages publiques */}
+        {!isDashboard && !isAuthPage && <Header />}
         {children}
       </body>
     </html>
