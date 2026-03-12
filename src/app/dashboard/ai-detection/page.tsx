@@ -28,7 +28,7 @@ function FileDropzone({
       className={[
         "relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 cursor-pointer transition",
         drag
-          ? "border-amber-400/60 bg-amber-500/5"
+          ? "border-indigo-400/60 bg-indigo-500/5"
           : "border-white/15 bg-white/[0.025] hover:border-white/25",
       ].join(" ")}
       onClick={() => inputRef.current?.click()}
@@ -66,12 +66,14 @@ function SwitchPanel({
   subtitle,
   accent,
   icon,
+  onFilesProcessed,
 }: {
   mode: "mask" | "inject";
   title: string;
   subtitle: string;
   accent: string;
   icon: React.ReactNode;
+  onFilesProcessed: (files: string[]) => void;
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState<{ ok: boolean; count?: number; error?: string } | null>(null);
@@ -86,7 +88,10 @@ function SwitchPanel({
       setResult(null);
       const res = mode === "mask" ? await maskAiMetadata(fd) : await injectAiMetadata(fd);
       setResult(res);
-      if (res.ok) setFiles([]);
+      if (res.ok) {
+        setFiles([]);
+        if (res.files?.length) onFilesProcessed(res.files);
+      }
     });
   }
 
@@ -113,8 +118,8 @@ function SwitchPanel({
         className="h-11 rounded-xl font-medium text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
           background: mode === "mask"
-            ? "linear-gradient(90deg,#10b981,#22d3ee)"
-            : "linear-gradient(90deg,#f59e0b,#ef4444)",
+            ? "linear-gradient(90deg,#6366F1,#818CF8)"
+            : "linear-gradient(90deg,#818CF8,#6366F1)",
           color: "#fff",
         }}
       >
@@ -126,12 +131,12 @@ function SwitchPanel({
         <div
           className={`rounded-xl px-4 py-3 text-sm ${
             result.ok
-              ? "bg-emerald-500/10 border border-emerald-500/25 text-emerald-300"
+              ? "bg-indigo-500/10 border border-indigo-500/25 text-indigo-200"
               : "bg-red-500/10 border border-red-500/25 text-red-300"
           }`}
         >
           {result.ok
-            ? `✓ ${result.count} fichier${(result.count ?? 0) > 1 ? "s" : ""} traité${(result.count ?? 0) > 1 ? "s" : ""} — fichiers disponibles dans la sortie.`
+            ? `✓ ${result.count} fichier${(result.count ?? 0) > 1 ? "s" : ""} traité${(result.count ?? 0) > 1 ? "s" : ""}.`
             : `✗ ${result.error}`}
         </div>
       )}
@@ -141,6 +146,16 @@ function SwitchPanel({
 
 /* ── page ── */
 export default function AiDetectionPage() {
+  const [sessionFiles, setSessionFiles] = useState<string[]>([]);
+
+  function addFiles(files: string[]) {
+    setSessionFiles((prev) => [...prev, ...files]);
+  }
+
+  const downloadUrl = sessionFiles.length
+    ? `/api/out/zip?files=${sessionFiles.join(",")}`
+    : "/api/out/zip";
+
   return (
     <main className="p-6 space-y-8 max-w-4xl">
       {/* header */}
@@ -171,9 +186,10 @@ export default function AiDetectionPage() {
           mode="mask"
           title="Masquer la signature IA"
           subtitle="Remplace les métadonnées IA par une identité humaine réaliste (appareil photo, logiciel, photographe)."
-          accent="border-emerald-500/20"
+          accent="border-indigo-500/20"
+          onFilesProcessed={addFiles}
           icon={
-            <svg className="h-5 w-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="h-5 w-5 text-indigo-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
               <path d="m15 5 4 4"/>
             </svg>
@@ -184,25 +200,44 @@ export default function AiDetectionPage() {
           mode="inject"
           title="Injecter une signature IA"
           subtitle="Ajoute les métadonnées d'une plateforme IA connue (Midjourney, DALL-E, Runway…) dans ton fichier."
-          accent="border-amber-500/20"
+          accent="border-indigo-500/20"
+          onFilesProcessed={addFiles}
           icon={
-            <svg className="h-5 w-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="h-5 w-5 text-indigo-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/><path d="M18 2v4h4"/>
             </svg>
           }
         />
       </div>
 
-      {/* download link */}
-      <div className="pt-2">
+      {/* download section */}
+      <div className="pt-2 space-y-3">
+        {sessionFiles.length > 0 && (
+          <div className="rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
+            <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Fichiers traités cette session</p>
+            <ul className="space-y-1">
+              {sessionFiles.map((name) => (
+                <li key={name} className="flex items-center gap-2 text-sm text-white/70">
+                  <svg className="h-3.5 w-3.5 text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M20 6 9 17l-5-5"/>
+                  </svg>
+                  <span className="font-mono text-xs">{name}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <a
-          href="/api/out/zip"
+          href={downloadUrl}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] transition"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          Télécharger tous les fichiers (ZIP)
+          {sessionFiles.length > 0
+            ? `Télécharger les fichiers traités (${sessionFiles.length})`
+            : "Télécharger tous les fichiers (ZIP)"}
         </a>
       </div>
     </main>

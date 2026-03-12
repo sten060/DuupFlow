@@ -30,10 +30,8 @@ export default function Header() {
         >
           {/* Logo */}
           <Link href="/" className="text-lg font-extrabold tracking-tight shrink-0">
-            <span className="bg-gradient-to-r from-indigo-400 to-fuchsia-400 bg-clip-text text-transparent">
-              Duup
-            </span>
-            <span className="text-white/70">Flow</span>
+            <span style={{ color: "#818CF8" }}>Duup</span>
+            <span className="text-white/60">Flow</span>
           </Link>
 
           {/* Nav */}
@@ -48,7 +46,7 @@ export default function Header() {
             <Link
               href="/dashboard"
               className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-              style={{ background: "linear-gradient(135deg,#5B5BEA,#FF3FD1)" }}
+              style={{ background: "linear-gradient(135deg,#6366F1,#818CF8)" }}
             >
               Accéder →
             </Link>

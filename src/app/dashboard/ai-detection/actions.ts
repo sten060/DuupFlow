@@ -71,14 +71,15 @@ function todayStamp() {
  * SWITCH 1 — AI → Masquer (appear non-AI)
  * Replace AI metadata with human-like metadata
  * ───────────────────────────────────────────── */
-export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean; count: number; error?: string }> {
+export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean; count: number; files: string[]; error?: string }> {
   const files = formData.getAll("files") as File[];
-  if (!files.length) return { ok: false, count: 0, error: "Aucun fichier reçu." };
+  if (!files.length) return { ok: false, count: 0, files: [], error: "Aucun fichier reçu." };
 
   const { dir } = await getOutDirForCurrentUser();
   await fs.mkdir(dir, { recursive: true });
 
   let count = 0;
+  const outFiles: string[] = [];
   const stamp = todayStamp();
 
   for (const f of files) {
@@ -91,6 +92,7 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
 
     // Write file first
     await fs.writeFile(outPath, buf);
+    outFiles.push(outName);
 
     // Pick random human identity
     const cam = pick(HUMAN_CAMERAS);
@@ -138,21 +140,22 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
     count++;
   }
 
-  return { ok: true, count };
+  return { ok: true, count, files: outFiles };
 }
 
 /* ─────────────────────────────────────────────
  * SWITCH 2 — Normal → Injecter IA (appear AI-generated)
  * Replace metadata with a known AI platform signature
  * ───────────────────────────────────────────── */
-export async function injectAiMetadata(formData: FormData): Promise<{ ok: boolean; count: number; error?: string }> {
+export async function injectAiMetadata(formData: FormData): Promise<{ ok: boolean; count: number; files: string[]; error?: string }> {
   const files = formData.getAll("files") as File[];
-  if (!files.length) return { ok: false, count: 0, error: "Aucun fichier reçu." };
+  if (!files.length) return { ok: false, count: 0, files: [], error: "Aucun fichier reçu." };
 
   const { dir } = await getOutDirForCurrentUser();
   await fs.mkdir(dir, { recursive: true });
 
   let count = 0;
+  const outFiles: string[] = [];
   const stamp = todayStamp();
 
   for (const f of files) {
@@ -165,6 +168,7 @@ export async function injectAiMetadata(formData: FormData): Promise<{ ok: boolea
 
     // Write file first
     await fs.writeFile(outPath, buf);
+    outFiles.push(outName);
 
     // Pick random AI platform
     const platform = pick(AI_PLATFORMS);
@@ -202,5 +206,5 @@ export async function injectAiMetadata(formData: FormData): Promise<{ ok: boolea
     count++;
   }
 
-  return { ok: true, count };
+  return { ok: true, count, files: outFiles };
 }
