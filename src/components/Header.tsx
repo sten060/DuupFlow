@@ -46,7 +46,7 @@ export default function Header() {
             <Link
               href="/dashboard"
               className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-              style={{ background: "linear-gradient(135deg,#6366F1,#818CF8)" }}
+              style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
             >
               Accéder →
             </Link>

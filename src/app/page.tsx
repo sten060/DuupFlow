@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 /* ─── tiny helpers ─── */
-const G = "bg-gradient-to-r from-indigo-400 to-indigo-300 bg-clip-text text-transparent";
+const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
 /* ═══════════════════════════════════════════════════════
  * SECTION 1 — HERO
@@ -16,8 +16,8 @@ function Hero() {
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full opacity-20"
           style={{ background: "radial-gradient(ellipse, #5B5BEA 0%, transparent 70%)" }} />
-        <div className="absolute top-20 right-1/4 w-[400px] h-[300px] rounded-full opacity-8"
-          style={{ background: "radial-gradient(ellipse, #818CF8 0%, transparent 70%)" }} />
+        <div className="absolute top-20 right-1/4 w-[400px] h-[300px] rounded-full opacity-10"
+          style={{ background: "radial-gradient(ellipse, #38BDF8 0%, transparent 70%)" }} />
       </div>
 
       {/* Badge pill */}
@@ -44,7 +44,7 @@ function Hero() {
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
-          style={{ background: "linear-gradient(135deg,#6366F1,#818CF8)" }}
+          style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
         >
           Accéder à DuupFlow →
         </Link>
@@ -536,7 +536,7 @@ function HowItWorks() {
                 {/* Number bubble */}
                 <div
                   className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white mb-5 relative z-10"
-                  style={{ background: "linear-gradient(135deg,#6366F1,#818CF8)" }}
+                  style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
                 >
                   {s.num}
                 </div>
@@ -665,7 +665,7 @@ function CTABanner() {
       <div className="max-w-5xl mx-auto">
         <div
           className="relative rounded-3xl overflow-hidden p-12 text-center"
-          style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(129,140,248,0.08) 100%)" }}
+          style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(56,189,248,0.08) 100%)" }}
         >
           <div className="pointer-events-none absolute inset-0 border border-white/[0.10] rounded-3xl" />
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight">
@@ -677,7 +677,7 @@ function CTABanner() {
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
-            style={{ background: "linear-gradient(135deg,#6366F1,#818CF8)" }}
+            style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
           >
             Accéder à DuupFlow →
           </Link>

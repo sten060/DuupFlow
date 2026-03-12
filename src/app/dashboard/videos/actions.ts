@@ -198,28 +198,29 @@ export async function duplicateVideos(formData: FormData) {
 
         // VISUAL
         if (packs.includes("visual")) {
-          const b  = clamp(Number((Math.random()*0.2 - 0.15).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.9 + Math.random()*0.2).toFixed(3)),   LIMITS.contrast.min,   LIMITS.contrast.max);
-          const st = clamp(Number((0.85 + Math.random()*0.2).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
-          vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}`);
+          const b  = clamp(Number((-0.22 + Math.random()*0.34).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          const ct = clamp(Number((0.78 + Math.random()*0.44).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
+          const st = clamp(Number((0.72 + Math.random()*0.46).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
+          const gm = clamp(Number((0.82 + Math.random()*0.36).toFixed(3)),  0.1, 3.0);
+          vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
 
-          const hue = clamp(Number((Math.random()*0.3 - 0.15).toFixed(3)), -1, 1);
+          const hue = clamp(Number((Math.random()*0.7 - 0.35).toFixed(3)), -1, 1);
           vfParts.push(`hue=h=${hue}`);
 
-          vfParts.push("unsharp=lx=3:ly=3:la=0.8:cx=3:cy=3:ca=0.8");
-          vfParts.push("noise=alls=8:allf=t+u");
+          vfParts.push("unsharp=lx=3:ly=3:la=1.4:cx=3:cy=3:ca=1.4");
+          vfParts.push("noise=alls=18:allf=t+u");
 
           const ang = clamp(Number((0.05 + Math.random()*0.08).toFixed(3)), 0, LIMITS.vignette.max);
           vfParts.push(`vignette=angle=${ang}:mode=forward`);
 
-          const k1 = clamp(Number((Math.random()*0.6 - 0.3).toFixed(5)), -0.3, 0.3);
+          const k1 = clamp(Number((Math.random()*1.0 - 0.5).toFixed(5)), -0.5, 0.5);
           const k2 = -k1/2;
           vfParts.push(`lenscorrection=k1=${k1.toFixed(5)}:k2=${k2.toFixed(5)}`);
         }
 
         // MOTION
         if (packs.includes("motion")) {
-          const zoom = clamp(1 + Math.random()*0.25, LIMITS.zoom.min, LIMITS.zoom.max);
+          const zoom = clamp(1.04 + Math.random()*0.31, LIMITS.zoom.min, LIMITS.zoom.max);
           vfParts.push(`scale=iw*${zoom.toFixed(3)}:ih*${zoom.toFixed(3)}`);
           const offx = (Math.random() * 0.5).toFixed(4);
           const offy = (Math.random() * 0.5).toFixed(4);
@@ -228,23 +229,29 @@ export async function duplicateVideos(formData: FormData) {
           const shift = (Math.random() * 0.02).toFixed(4);
           vfParts.push(`scale=iw*(1+${shift}):ih*(1+${shift}),crop=iw:ih`);
 
-          const sp = clamp(0.9 + Math.random()*0.2, LIMITS.speed.min, LIMITS.speed.max);
+          // Force speed away from neutral: always ±7-14% deviation from 1.0
+          const side = Math.random() > 0.5 ? 1 : -1;
+          const deviation = 0.07 + Math.random()*0.07;
+          const sp = clamp(1.0 + side * deviation, LIMITS.speed.min, LIMITS.speed.max);
           vfParts.push(`setpts=${(1 / sp).toFixed(4)}*PTS`);
           afParts.push(`atempo=${sp.toFixed(3)}`);
         }
 
         // TECHNICAL
         if (packs.includes("technical")) {
-          const vbit = clamp(10000 + Math.floor(Math.random()*2501), LIMITS.vbitrate.min, LIMITS.vbitrate.max);
+          // CRF forces different DCT quantization tables per copy
+          const crf = 14 + Math.floor(Math.random()*15);
+          extraArgs.push("-crf", String(crf));
+          const vbit = clamp(3000 + Math.floor(Math.random()*19001), LIMITS.vbitrate.min, LIMITS.vbitrate.max);
           extraArgs.push("-b:v", `${vbit}k`);
-          const gop = clamp(230 + Math.floor(Math.random()*111), LIMITS.gop.min, LIMITS.gop.max);
+          const gop = clamp(30 + Math.floor(Math.random()*471), LIMITS.gop.min, LIMITS.gop.max);
           extraArgs.push("-g", String(gop));
           const profiles = ["baseline", "main", "high"];
           const levels = ["5.0", "5.1", "5.2", "6.0"];
           const prof = profiles[Math.floor(Math.random()*profiles.length)];
           const lvl  = levels[Math.floor(Math.random()*levels.length)];
           extraArgs.push("-profile:v", prof, "-level:v", lvl);
-          const fpsPool = [23.976, 24, 25, 29.97, 30, 59.94, 60];
+          const fpsPool = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
           const fps = fpsPool[Math.floor(Math.random()*fpsPool.length)];
           extraArgs.push("-r", String(fps));
         }
