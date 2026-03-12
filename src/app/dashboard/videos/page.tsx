@@ -15,7 +15,7 @@ export default async function VideosHub({
       <Toasts ok={ok} err={err} />
 
       <header className="space-y-2">
-        <h1 className="text-4xl font-extrabold tracking-tight">ZENO — Duplication Vidéos</h1>
+        <h1 className="text-4xl font-extrabold tracking-tight">DuupFlow — Duplication Vidéos</h1>
         <p className="text-white/70">Choisis ton mode de travail. Simple pour aller vite. Avancé pour tout régler aux petits oignons.</p>
       </header>
 

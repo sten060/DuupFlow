@@ -198,8 +198,6 @@ export default function VideoFormSimpleClient() {
   const [borderHoriz, setBorderHoriz] = useState(false);
   const [borderLat, setBorderLat] = useState(false);
 
-  const [stealthMode, setStealthMode] = useState(false);
-
   const singlesJSON = JSON.stringify({
     flip,
     reverse,
@@ -213,42 +211,12 @@ export default function VideoFormSimpleClient() {
       <input type="hidden" name="channel" value="simple" />
       <input type="hidden" name="mode" value="simple" />
       <input type="hidden" name="singles" value={singlesJSON} />
-      <input type="hidden" name="stealthMode" value={stealthMode ? "true" : "false"} />
-
       <GlowCard>
         <Dropzone name="files" accept="video/*" multiple maxFiles={25} />
       </GlowCard>
 
       <GlowCard title="Nombre de copies" dense>
         <input type="number" name="count" min={1} defaultValue={1} className="w-full rounded-lg border border-white/10 bg-white/[.04] px-3 py-2 text-sm text-white/90" />
-      </GlowCard>
-
-      <GlowCard
-        title={
-          <span className="inline-flex items-center gap-2">
-            Mode Stealth (Anti-détection)
-            <InfoTooltip>
-              <b>Mode Stealth activé</b> : applique des transformations beaucoup plus agressives
-              pour réduire la similarité à 40-50% (au lieu de 87%). Modifie la structure interne
-              de la vidéo sans changer l'apparence visuelle : noise élevé, denoise, rotation subtile,
-              variations de bitrate/GOP/FPS/CRF, format pixel aléatoire, etc.
-              <br/><br/>
-              <b>Idéal pour contourner les détecteurs de plateforme.</b>
-            </InfoTooltip>
-          </span>
-        }
-      >
-        <Toggle
-          checked={stealthMode}
-          onChange={setStealthMode}
-          label={stealthMode ? "Stealth activé — Similarité cible: 40-50%" : "Stealth désactivé — Similarité: ~87%"}
-        />
-        {stealthMode && (
-          <p className="mt-2 text-xs text-amber-300/90 border-l-2 border-amber-300/50 pl-3">
-            ⚠️ Mode Stealth: toutes les transformations agressives seront appliquées automatiquement
-            pour maximiser la différence détectable tout en préservant le visuel.
-          </p>
-        )}
       </GlowCard>
 
       <GlowCard title="Packs (cumulables)">

@@ -255,7 +255,7 @@ async function extractFrame(videoPath: string, t: number): Promise<Buffer> {
   return buf;
 }
 
-async function videoPHashSignature(buf: Buffer): Promise<Hash64[]> {
+async function videoHashSignature(buf: Buffer): Promise<{ phashes: Hash64[]; dhashes: Hash64[] }> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sig-"));
   const src = path.join(dir, `in_${randHex(2)}.mp4`);
   await fs.writeFile(src, buf);
@@ -270,22 +270,26 @@ async function videoPHashSignature(buf: Buffer): Promise<Hash64[]> {
     duration = Math.max(1, Math.floor(Number(stdout.trim()) || 1));
   } catch {}
 
-  const pts = Array.from({ length: 12 }, (_, i) => Math.max(1, Math.floor(((i + 1) / 13) * duration)));
+  const FRAMES = 20;
+  const pts = Array.from({ length: FRAMES }, (_, i) => Math.max(1, Math.floor(((i + 1) / (FRAMES + 1)) * duration)));
 
-  const sig: Hash64[] = [];
+  const phashes: Hash64[] = [];
+  const dhashes: Hash64[] = [];
   for (const t of pts) {
     const frame = await extractFrame(src, t);
-    sig.push(await imagePHash64(frame));
+    phashes.push(await imagePHash64(frame));
+    dhashes.push(await imageDHash64(frame));
   }
   await fs.rm(dir, { recursive: true, force: true });
-  return sig;
+  return { phashes, dhashes };
 }
 
-function medianHamming(sigA: Hash64[], sigB: Hash64[]): number {
+function averageHamming(sigA: Hash64[], sigB: Hash64[]): number {
   const m = Math.min(sigA.length, sigB.length);
-  const dists = Array.from({ length: m }, (_, i) => hamming64(sigA[i], sigB[i]));
-  dists.sort((a, b) => a - b);
-  return dists[Math.floor(m / 2)];
+  if (m === 0) return 32;
+  const total = Array.from({ length: m }, (_, i) => hamming64(sigA[i], sigB[i]))
+    .reduce((sum, v) => sum + v, 0);
+  return total / m;
 }
 
 async function videoMetaSignature(tmpPath: string): Promise<MetaDict> {
@@ -378,6 +382,10 @@ export async function compareSimilarity(formData: FormData) {
     }
 
     let score = 0;
+    type BreakdownItem = { label: string; value: number; weight: number };
+    const breakdown: BreakdownItem[] = [];
+    let metaA: MetaDict = {};
+    let metaB: MetaDict = {};
 
     if (kindA === "image") {
       // VISUEL (hashs)
@@ -402,11 +410,11 @@ export async function compareSimilarity(formData: FormData) {
       const pathB = path.join(tmpDir, `b_${randHex()}.bin`);
       await fs.writeFile(pathA, bufA);
       await fs.writeFile(pathB, bufB);
-      const [mA, mB] = await Promise.all([imageMetaSignature(pathA), imageMetaSignature(pathB)]);
+      [metaA, metaB] = await Promise.all([imageMetaSignature(pathA), imageMetaSignature(pathB)]);
       await fs.rm(tmpDir, { recursive: true, force: true });
-      const metaSim = metaSimilarityImages(mA, mB);
+      const metaSim = metaSimilarityImages(metaA, metaB);
 
-      // NOUVEAU : couleur & HF (sensibles aux filtres visuels)
+      // couleur & HF (sensibles aux filtres visuels)
       const [colorSim, hfSim] = await Promise.all([
         colorHistogramSimilarity(bufA, bufB),
         highFreqSimilarity(bufA, bufB),
@@ -416,7 +424,15 @@ export async function compareSimilarity(formData: FormData) {
       const W = { p: 0.35, d: 0.20, a: 0.10, color: 0.20, hf: 0.10, meta: 0.05 };
       score = pSim * W.p + dSim * W.d + aSim * W.a + colorSim * W.color + hfSim * W.hf + metaSim * W.meta;
 
-      // Option : pénalité nom différent (−6.43%)
+      breakdown.push(
+        { label: "pHash (perceptuel)", value: Math.round(pSim), weight: W.p },
+        { label: "dHash (gradient)", value: Math.round(dSim), weight: W.d },
+        { label: "aHash (moyenne)", value: Math.round(aSim), weight: W.a },
+        { label: "Histogramme couleur", value: Math.round(colorSim), weight: W.color },
+        { label: "Hautes fréquences", value: Math.round(hfSim), weight: W.hf },
+        { label: "Métadonnées", value: Math.round(metaSim), weight: W.meta },
+      );
+
       if (a.name !== b.name) score = Math.max(0, score - 6.43);
 
     } else {
@@ -424,28 +440,48 @@ export async function compareSimilarity(formData: FormData) {
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), "v-"));
       const va = path.join(dir, `a_${randHex()}.mp4`);
       const vb = path.join(dir, `b_${randHex()}.mp4`);
-      await fs.writeFile(va, Buffer.from(await a.arrayBuffer()));
-      await fs.writeFile(vb, Buffer.from(await b.arrayBuffer()));
+      await fs.writeFile(va, bufA);
+      await fs.writeFile(vb, bufB);
 
       const [sigA, sigB, mvA, mvB] = await Promise.all([
-        videoPHashSignature(Buffer.from(await a.arrayBuffer())),
-        videoPHashSignature(Buffer.from(await b.arrayBuffer())),
+        videoHashSignature(bufA),
+        videoHashSignature(bufB),
         videoMetaSignature(va),
         videoMetaSignature(vb),
       ]);
       await fs.rm(dir, { recursive: true, force: true });
+      metaA = mvA;
+      metaB = mvB;
 
-      const h = medianHamming(sigA, sigB);
-      const framesSim = simFromHamming(h);
+      const pHamming = averageHamming(sigA.phashes, sigB.phashes);
+      const dHamming = averageHamming(sigA.dhashes, sigB.dhashes);
+      const pFrameSim = simFromHamming(pHamming);
+      const dFrameSim = simFromHamming(dHamming);
+      // Combined frame similarity: 70% pHash + 30% dHash
+      const framesSim = pFrameSim * 0.7 + dFrameSim * 0.3;
       const metaSimV = metaSimilarityVideos(mvA, mvB);
 
-      const WV = { frames: 0.90, meta: 0.10 };
+      const WV = { frames: 0.72, meta: 0.28 };
       score = framesSim * WV.frames + metaSimV * WV.meta;
+
+      breakdown.push(
+        { label: `Frames pHash (20 frames)`, value: Math.round(pFrameSim), weight: WV.frames * 0.7 },
+        { label: `Frames dHash (20 frames)`, value: Math.round(dFrameSim), weight: WV.frames * 0.3 },
+        { label: "Métadonnées vidéo", value: Math.round(metaSimV), weight: WV.meta },
+      );
 
       if (a.name !== b.name) score = Math.max(0, score - 6.43);
     }
 
-    return redirect(`/dashboard/similarity?score=${score.toFixed(2)}`);
+    const finalScore = +score.toFixed(2);
+    const details = Buffer.from(JSON.stringify({
+      fileA: { name: a.name, size: bufA.length, kind: kindA, meta: metaA },
+      fileB: { name: b.name, size: bufB.length, kind: kindB, meta: metaB },
+      breakdown,
+      score: finalScore,
+    })).toString("base64url");
+
+    return redirect(`/dashboard/similarity?score=${finalScore}&details=${details}`);
   } catch (e: any) {
     if (isNextRedirect(e)) throw e;
     return redirect("/dashboard/similarity?err=" + encodeURIComponent(e?.message || "Erreur comparaison"));
