@@ -11,19 +11,28 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#0B0F1A] text-white">
-      {/* brand row */}
-      <div className="px-8 pt-6 pb-2">
-        <div className="inline-flex items-center gap-1">
-          <span className="text-xl md:text-2xl font-extrabold tracking-tight" style={{ color: "#818CF8" }}>Duup</span>
-          <span className="text-white/60 text-xl md:text-2xl font-extrabold tracking-tight">Flow</span>
+    <div className="flex h-screen overflow-hidden text-white" style={{ background: "#0D0B2E" }}>
+      {/* ── Colonne gauche : brand + nav (toujours visible) ── */}
+      <div
+        className="w-56 shrink-0 flex flex-col overflow-y-auto"
+        style={{
+          background: "rgba(255,255,255,0.022)",
+          borderRight: "1px solid rgba(255,255,255,0.07)",
+        }}
+      >
+        {/* Brand */}
+        <div className="px-5 pt-6 pb-5 shrink-0">
+          <span className="text-lg font-extrabold tracking-tight" style={{ color: "#818CF8" }}>Duup</span>
+          <span className="text-white/50 text-lg font-extrabold tracking-tight">Flow</span>
         </div>
+
+        {/* Nav */}
+        <Sidebar />
       </div>
 
-      {/* main rail + content */}
-      <div className="flex gap-6 px-6 md:px-8 pb-10">
-        <Sidebar />
-        <main className="flex-1 pt-2">{children}</main>
+      {/* ── Contenu principal scrollable ── */}
+      <div className="flex-1 overflow-y-auto">
+        {children}
       </div>
     </div>
   );

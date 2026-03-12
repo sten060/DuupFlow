@@ -4,24 +4,24 @@
 
 /* ---------- Tokens ---------- */
 :root{
-  /* fonds */
-  --bg-start:#0B0F1A;
-  --bg-end:#101429;
+  /* fonds — indigo profond */
+  --bg-start:#0D0B2E;
+  --bg-end:#130F3A;
 
-  /* accents DuupFlow — palette minimaliste indigo */
+  /* palette DuupFlow : indigo · bleu ciel · blanc */
   --duup-indigo:#6366F1;
-  --duup-light:#818CF8;
-  --duup-pale:#C7D2FE;
+  --duup-sky:#38BDF8;
+  --duup-indigo-light:#818CF8;
 
   /* compat aliases */
   --zeno-indigo: var(--duup-indigo);
-  --zeno-fuchsia: var(--duup-light);
-  --zeno-teal: var(--duup-pale);
+  --zeno-fuchsia: var(--duup-sky);
+  --zeno-teal: var(--duup-sky);
 
   /* couches UI */
   --glass: rgba(255,255,255,0.04);
   --stroke: rgba(255,255,255,0.08);
-  --shadow-glass: 0 8px 40px rgba(0,0,0,0.35);
+  --shadow-glass: 0 8px 40px rgba(0,0,0,0.45);
 }
 
 html, body { height:100%; }
@@ -29,9 +29,40 @@ html, body { height:100%; }
 body{
   @apply text-white antialiased;
   background:
-    radial-gradient(1200px 800px at 10% 0%, rgba(99,102,241,.07), transparent),
-    radial-gradient(800px 600px at 85% 15%, rgba(129,140,248,.04), transparent),
-    linear-gradient(180deg, var(--bg-start), var(--bg-end));
+    radial-gradient(900px 700px at 5% 0%, rgba(99,102,241,.18), transparent),
+    radial-gradient(600px 500px at 95% 90%, rgba(56,189,248,.09), transparent),
+    linear-gradient(160deg, var(--bg-start), var(--bg-end));
+}
+
+/* ---- Effets néon/tech ---- */
+.neon-glow-indigo {
+  box-shadow: 0 0 18px rgba(99,102,241,0.55), 0 0 36px rgba(99,102,241,0.20);
+}
+.neon-glow-sky {
+  box-shadow: 0 0 18px rgba(56,189,248,0.55), 0 0 36px rgba(56,189,248,0.20);
+}
+.neon-text-indigo {
+  color: #818CF8;
+  text-shadow: 0 0 14px rgba(99,102,241,0.85);
+}
+.neon-text-sky {
+  color: #38BDF8;
+  text-shadow: 0 0 14px rgba(56,189,248,0.75);
+}
+.neon-border {
+  border: 1px solid rgba(99,102,241,0.4);
+  box-shadow: 0 0 12px rgba(99,102,241,0.2), inset 0 0 12px rgba(99,102,241,0.05);
+}
+.neon-border-sky {
+  border: 1px solid rgba(56,189,248,0.4);
+  box-shadow: 0 0 12px rgba(56,189,248,0.2), inset 0 0 12px rgba(56,189,248,0.05);
+}
+/* Scanline tech effect (subtle) */
+.tech-grid {
+  background-image:
+    linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
 /* ---------- Utilitaires thème ---------- */
@@ -45,7 +76,7 @@ body{
 }
 
 .grad {
-  background-image: linear-gradient(90deg, var(--zeno-indigo), var(--zeno-fuchsia));
+  background-image: linear-gradient(90deg, var(--duup-indigo), var(--duup-sky));
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 
@@ -64,7 +95,7 @@ body{
 
 .btn-primary{
   @apply text-white shadow;
-  background-image: linear-gradient(90deg, var(--zeno-indigo), var(--zeno-fuchsia));
+  background-image: linear-gradient(90deg, var(--duup-indigo), var(--duup-sky));
 }
 
 .btn-ghost{
@@ -107,8 +138,8 @@ body{
 }
 .module-card::before{
   content:""; position:absolute; inset:-1px; border-radius:16px; z-index:-1; opacity:.0;
-  background: radial-gradient(600px 250px at 20% 0%, rgba(99,102,241,.15), transparent 60%),
-              radial-gradient(500px 250px at 100% 40%, rgba(129,140,248,.10), transparent 60%);
+  background: radial-gradient(600px 250px at 20% 0%, rgba(99,102,241,.18), transparent 60%),
+              radial-gradient(500px 250px at 100% 40%, rgba(56,189,248,.12), transparent 60%);
   transition: opacity .25s ease;
 }
 .module-card:hover{
@@ -165,8 +196,8 @@ body{
 }
 .module-card::before{
   content:""; position:absolute; inset:-1px; border-radius:16px; z-index:-1; opacity:.0;
-  background: radial-gradient(600px 250px at 20% 0%, rgba(99,102,241,.15), transparent 60%),
-              radial-gradient(500px 250px at 100% 40%, rgba(129,140,248,.10), transparent 60%);
+  background: radial-gradient(600px 250px at 20% 0%, rgba(99,102,241,.18), transparent 60%),
+              radial-gradient(500px 250px at 100% 40%, rgba(56,189,248,.12), transparent 60%);
   transition: opacity .25s ease;
 }
 .module-card:hover{
@@ -418,7 +449,7 @@ body{
 /* Brand (Studio pro / Résultat clean) – mauve/rose/indigo */
 .neon-brand,
 .neon-brand::after {
-  background-image: linear-gradient(90deg, #a855f7, #ec4899, #6366f1);
+  background-image: linear-gradient(90deg, #6366F1, #38BDF8);
 }
 
 /* Duplication Images – fuchsia */
