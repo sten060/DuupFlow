@@ -1,42 +1,33 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 
-type Mode = "login" | "signup";
-
 export default function LoginPage() {
   const supabase = createClient();
-  const router = useRouter();
 
-  const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setMessage(null);
+    setError(null);
 
-    if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        setMessage({ type: "error", text: error.message });
-      } else {
-        router.push("/dashboard");
-        router.refresh();
-      }
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setError(error.message);
     } else {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        setMessage({ type: "error", text: error.message });
-      } else {
-        setMessage({ type: "success", text: "Compte créé ! Vérifie ton email pour confirmer ton inscription." });
-      }
+      setSent(true);
     }
 
     setLoading(false);
@@ -64,102 +55,101 @@ export default function LoginPage() {
             <span className="text-2xl font-extrabold tracking-tight text-white/55">Flow</span>
           </Link>
           <p className="text-white/40 text-sm mt-1">
-            {mode === "login" ? "Content de te revoir 👋" : "Crée ton espace DuupFlow"}
+            Connexion sans mot de passe
           </p>
         </div>
 
         {/* Card */}
         <div
-          className="rounded-2xl p-7 space-y-5"
+          className="rounded-2xl p-7"
           style={{
             background: "rgba(255,255,255,0.03)",
             border: "1px solid rgba(255,255,255,0.09)",
             boxShadow: "0 20px 60px rgba(0,0,0,.4)",
           }}
         >
-          {/* Mode tabs */}
-          <div className="flex rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)" }}>
-            {(["login", "signup"] as Mode[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => { setMode(m); setMessage(null); }}
-                className="flex-1 py-2 text-sm font-medium transition-all"
-                style={
-                  mode === m
-                    ? { background: "rgba(99,102,241,0.25)", color: "#fff", boxShadow: "inset 0 0 0 1px rgba(99,102,241,0.3)" }
-                    : { color: "rgba(255,255,255,0.4)" }
-                }
-              >
-                {m === "login" ? "Connexion" : "Inscription"}
-              </button>
-            ))}
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-white/50 mb-1.5">Adresse email</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="toi@exemple.com"
-                className="w-full rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-white/25 outline-none transition"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.10)",
-                }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(99,102,241,0.5)")}
-                onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-white/50 mb-1.5">Mot de passe</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-white/25 outline-none transition"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.10)",
-                }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(99,102,241,0.5)")}
-                onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
-              />
-            </div>
-
-            {/* Message */}
-            {message && (
+          {sent ? (
+            /* ── État : lien envoyé ── */
+            <div className="text-center space-y-4 py-2">
               <div
-                className="rounded-lg px-3.5 py-2.5 text-xs"
-                style={
-                  message.type === "error"
-                    ? { background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", color: "#FCA5A5" }
-                    : { background: "rgba(56,189,248,0.10)", border: "1px solid rgba(56,189,248,0.25)", color: "#7DD3FC" }
-                }
+                className="mx-auto h-14 w-14 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.25)" }}
               >
-                {message.text}
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="#38BDF8" strokeWidth="2">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                  <polyline points="22,6 12,13 2,6" />
+                </svg>
               </div>
-            )}
+              <div>
+                <p className="text-white font-semibold text-base">Vérifie ta boîte mail</p>
+                <p className="text-white/45 text-sm mt-1">
+                  Un lien de connexion a été envoyé à{" "}
+                  <span className="text-white/70 font-medium">{email}</span>
+                </p>
+              </div>
+              <p className="text-white/25 text-xs">
+                Le lien expire dans 1 heure. Vérifie aussi tes spams.
+              </p>
+              <button
+                onClick={() => { setSent(false); setEmail(""); }}
+                className="text-sm text-white/40 hover:text-white/70 transition"
+              >
+                Utiliser une autre adresse
+              </button>
+            </div>
+          ) : (
+            /* ── Formulaire ── */
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <p className="text-white/70 text-sm mb-4 leading-relaxed">
+                  Entre ton adresse email — on t'envoie un lien magique pour te connecter instantanément, sans mot de passe.
+                </p>
+                <label className="block text-xs font-medium text-white/50 mb-1.5">
+                  Adresse email
+                </label>
+                <input
+                  type="email"
+                  required
+                  autoFocus
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="toi@exemple.com"
+                  className="w-full rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-white/25 outline-none transition"
+                  style={{
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.10)",
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(99,102,241,0.5)")}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
+                />
+              </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
-              style={{ background: "linear-gradient(135deg, #6366F1, #38BDF8)", boxShadow: "0 0 20px rgba(99,102,241,0.3)" }}
-            >
-              {loading
-                ? "Chargement…"
-                : mode === "login"
-                ? "Se connecter →"
-                : "Créer mon compte →"}
-            </button>
-          </form>
+              {error && (
+                <div
+                  className="rounded-lg px-3.5 py-2.5 text-xs"
+                  style={{
+                    background: "rgba(239,68,68,0.12)",
+                    border: "1px solid rgba(239,68,68,0.25)",
+                    color: "#FCA5A5",
+                  }}
+                >
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+                style={{
+                  background: "linear-gradient(135deg, #6366F1, #38BDF8)",
+                  boxShadow: "0 0 20px rgba(99,102,241,0.3)",
+                }}
+              >
+                {loading ? "Envoi en cours…" : "Envoyer le lien magique ✦"}
+              </button>
+            </form>
+          )}
         </div>
 
         <p className="text-center text-xs text-white/25">
