@@ -1,17 +1,52 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 /* ─── tiny helpers ─── */
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
+
+/* ─── Scroll Reveal (curtain effect) ─── */
+function useReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.08 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return { ref, visible };
+}
+
+function Reveal({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const { ref, visible } = useReveal();
+  return (
+    <div ref={ref} className={`overflow-hidden ${className}`}>
+      <div
+        style={{
+          transform: visible ? "translateY(0)" : "translateY(72px)",
+          opacity: visible ? 1 : 0,
+          transition: `transform 0.85s cubic-bezier(0.16,1,0.3,1) ${delay}ms, opacity 0.75s ease-out ${delay}ms`,
+          willChange: "transform, opacity",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /* ═══════════════════════════════════════════════════════
  * SECTION 1 — HERO
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-28 pb-24 overflow-hidden">
+    <section className="relative flex flex-col items-center text-center px-6 pt-28 pb-24 overflow-hidden bg-[#0B0F1A]">
       {/* Ambient glows */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full opacity-20"
@@ -20,52 +55,53 @@ function Hero() {
           style={{ background: "radial-gradient(ellipse, #38BDF8 0%, transparent 70%)" }} />
       </div>
 
-      {/* Badge pill */}
-      <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-4 py-1.5 text-sm text-white/70">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-        Nouveau — Module Détection IA disponible
-        <span className="text-white/40">→</span>
-      </div>
+      <Reveal>
+        {/* Badge pill */}
+        <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-4 py-1.5 text-sm text-white/70">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          Nouveau — Module Détection IA disponible
+          <span className="text-white/40">→</span>
+        </div>
 
-      {/* Headline */}
-      <h1 className="max-w-3xl text-5xl md:text-[4rem] font-bold leading-[1.08] tracking-tight text-white mb-5">
-        Le seul outil pour dupliquer ton contenu{" "}
-        <span className={G}>en illimité.</span>
-      </h1>
+        {/* Headline */}
+        <h1 className="max-w-3xl text-5xl md:text-[4rem] font-bold leading-[1.08] tracking-tight text-white mb-5">
+          Le seul outil pour dupliquer ton contenu{" "}
+          <span className={G}>en illimité.</span>
+        </h1>
 
-      {/* Sub headline */}
-      <p className="max-w-xl text-white/55 text-lg mb-9 leading-relaxed">
-        DuupFlow modifie automatiquement les métadonnées de tes images et vidéos.
-        Réutilise le même contenu, encore et encore — chaque fichier est unique aux yeux des plateformes.
-      </p>
+        {/* Single-line sub headline */}
+        <p className="text-white/55 text-lg mb-9">
+          Métadonnées modifiées automatiquement — chaque fichier unique aux yeux des plateformes.
+        </p>
 
-      {/* CTA */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-10">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
-          style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-        >
-          Accéder à DuupFlow →
-        </Link>
-        <a
-          href="#features"
-          className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition"
-        >
-          Voir les fonctionnalités
-        </a>
-      </div>
+        {/* CTA */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-10">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
+            style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+          >
+            Accéder à DuupFlow →
+          </Link>
+          <a
+            href="#features"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition"
+          >
+            Voir les fonctionnalités
+          </a>
+        </div>
 
-      {/* Social proof */}
-      <p className="text-xs text-white/30 tracking-wide uppercase">
-        Utilisé par 500+ agences marketing &amp; créateurs de contenu
-      </p>
+        {/* Social proof */}
+        <p className="text-xs text-white/30 tracking-wide uppercase">
+          Utilisé par 500+ agences marketing &amp; créateurs de contenu
+        </p>
+      </Reveal>
     </section>
   );
 }
 
 /* ═══════════════════════════════════════════════════════
- * SECTION 2 — FEATURE TABS (large dashboard mockup)
+ * SECTION 2 — FEATURE TABS (auto-rotating with progress bar)
  * ═══════════════════════════════════════════════════════ */
 const TABS = [
   { id: "images", label: "Duplication Images" },
@@ -73,6 +109,10 @@ const TABS = [
   { id: "comparator", label: "Comparateur" },
   { id: "ai", label: "Détection IA" },
 ];
+
+const TAB_IDS = TABS.map((t) => t.id);
+const TAB_DURATION = 4000;
+const TICK = 50;
 
 function MockupImages() {
   const files = [
@@ -83,7 +123,6 @@ function MockupImages() {
   ];
   return (
     <div className="space-y-3">
-      {/* top bar */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -91,7 +130,6 @@ function MockupImages() {
         </div>
         <span className="text-xs text-white/30">original.jpg → 4 duplicates</span>
       </div>
-      {/* source file */}
       <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 flex items-center gap-3">
         <div className="h-10 w-10 rounded-lg bg-white/[0.08] flex items-center justify-center text-lg">🖼️</div>
         <div className="flex-1 min-w-0">
@@ -100,11 +138,9 @@ function MockupImages() {
         </div>
         <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/50">Source</span>
       </div>
-      {/* arrow */}
       <div className="flex justify-center py-1">
         <svg className="h-5 w-5 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
       </div>
-      {/* duplicates */}
       {files.map((f) => (
         <div key={f.name} className={`rounded-xl border p-3 flex items-center gap-3 ${f.color}`}>
           <div className="h-10 w-10 rounded-lg bg-white/[0.08] flex items-center justify-center text-sm">📄</div>
@@ -134,7 +170,7 @@ function MockupVideos() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
-        <p className="text-xs text-white/40 uppercase tracking-wider">Pipeline d'encodage</p>
+        <p className="text-xs text-white/40 uppercase tracking-wider">Pipeline d&apos;encodage</p>
         {steps.map((s) => (
           <div key={s.label} className="space-y-1">
             <div className="flex justify-between text-xs text-white/50">
@@ -148,7 +184,7 @@ function MockupVideos() {
         ))}
       </div>
       <div className="space-y-2">
-        {files.map((f, i) => (
+        {files.map((f) => (
           <div key={f} className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3 flex items-center gap-2">
             <span className="text-base">🎬</span>
             <p className="text-xs text-white/50 font-mono flex-1 min-w-0 truncate">{f}</p>
@@ -163,7 +199,6 @@ function MockupVideos() {
 function MockupComparator() {
   return (
     <div className="space-y-4">
-      {/* two file cards */}
       <div className="grid grid-cols-2 gap-3">
         {["contenu_A.mp4", "contenu_B.mp4"].map((name, i) => (
           <div key={name} className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-center">
@@ -174,7 +209,6 @@ function MockupComparator() {
           </div>
         ))}
       </div>
-      {/* result */}
       <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-5 text-center">
         <div className="text-4xl font-bold text-emerald-400 mb-1">18%</div>
         <p className="text-sm text-white/60 mb-3">de similarité détectée</p>
@@ -265,51 +299,87 @@ const TAB_DESCS: Record<string, { title: string; desc: string }> = {
 
 function FeatureTabs() {
   const [active, setActive] = useState("images");
+  const [progress, setProgress] = useState(0);
+  const activeRef = useRef("images");
+  const progressRef = useRef(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      progressRef.current += (TICK / TAB_DURATION) * 100;
+      if (progressRef.current >= 100) {
+        progressRef.current = 0;
+        const idx = TAB_IDS.indexOf(activeRef.current);
+        const next = TAB_IDS[(idx + 1) % TAB_IDS.length];
+        activeRef.current = next;
+        setActive(next);
+      }
+      setProgress(progressRef.current);
+    }, TICK);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleTab = (id: string) => {
+    activeRef.current = id;
+    progressRef.current = 0;
+    setActive(id);
+    setProgress(0);
+  };
+
   const desc = TAB_DESCS[active];
 
   return (
-    <section className="px-6 pb-24">
-      <div className="max-w-5xl mx-auto">
-        {/* Tab bar */}
-        <div className="flex overflow-x-auto gap-1 p-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] mb-8 scrollbar-none">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActive(t.id)}
-              className={[
-                "flex-1 min-w-max rounded-xl px-4 py-2.5 text-sm font-medium transition whitespace-nowrap",
-                active === t.id
-                  ? "bg-white/[0.10] text-white border border-white/15"
-                  : "text-white/45 hover:text-white/70",
-              ].join(" ")}
-            >
-              {t.label}
-              {t.id === "ai" && (
-                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/25 font-semibold">NEW</span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="grid md:grid-cols-[1fr_360px] gap-8 items-start">
-          {/* Left - description */}
-          <div className="py-4">
-            <h3 className="text-2xl font-bold text-white mb-3">{desc.title}</h3>
-            <p className="text-white/55 leading-relaxed mb-6">{desc.desc}</p>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition"
-            >
-              Essayer maintenant →
-            </Link>
+    <section className="px-6 pb-24 bg-[#0E1325]">
+      <div className="max-w-5xl mx-auto pt-16">
+        <Reveal>
+          {/* Tab bar */}
+          <div className="flex overflow-x-auto gap-1 p-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] mb-8 scrollbar-none">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => handleTab(t.id)}
+                className="flex-1 min-w-max rounded-xl px-4 py-2.5 text-sm font-medium transition whitespace-nowrap relative overflow-hidden"
+                style={{
+                  color: active === t.id ? "white" : "rgba(255,255,255,0.45)",
+                  background: active === t.id ? "rgba(255,255,255,0.10)" : "transparent",
+                  border: active === t.id ? "1px solid rgba(255,255,255,0.15)" : "1px solid transparent",
+                }}
+              >
+                {t.label}
+                {t.id === "ai" && (
+                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/25 font-semibold">NEW</span>
+                )}
+                {/* Progress bar under active tab */}
+                {active === t.id && (
+                  <span
+                    className="absolute bottom-0 left-0 h-[2px] rounded-full"
+                    style={{
+                      width: `${progress}%`,
+                      background: "linear-gradient(90deg,#6366F1,#38BDF8)",
+                      transition: "width 50ms linear",
+                    }}
+                  />
+                )}
+              </button>
+            ))}
           </div>
 
-          {/* Right - mockup */}
-          <div className="rounded-2xl border border-white/[0.10] bg-white/[0.025] p-5 backdrop-blur-sm">
-            {MOCKUPS[active]}
+          {/* Content */}
+          <div className="grid md:grid-cols-[1fr_360px] gap-8 items-start">
+            <div className="py-4">
+              <h3 className="text-2xl font-bold text-white mb-3">{desc.title}</h3>
+              <p className="text-white/55 leading-relaxed mb-6">{desc.desc}</p>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition"
+              >
+                Essayer maintenant →
+              </Link>
+            </div>
+            <div className="rounded-2xl border border-white/[0.10] bg-white/[0.025] p-5 backdrop-blur-sm">
+              {MOCKUPS[active]}
+            </div>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -319,25 +389,15 @@ function FeatureTabs() {
  * SECTION 3 — CORE FEATURES GRID
  * ═══════════════════════════════════════════════════════ */
 function FeatureCard({
-  icon,
-  title,
-  desc,
-  mockup,
-  accent,
+  icon, title, desc, mockup, accent,
 }: {
-  icon: string;
-  title: string;
-  desc: string;
-  mockup: React.ReactNode;
-  accent: string;
+  icon: string; title: string; desc: string; mockup: React.ReactNode; accent: string;
 }) {
   return (
     <div className={`rounded-2xl border bg-white/[0.025] overflow-hidden flex flex-col ${accent}`}>
-      {/* Visual mockup area */}
       <div className="p-5 border-b border-white/[0.06] bg-white/[0.02] min-h-[200px] flex items-center justify-center">
         <div className="w-full">{mockup}</div>
       </div>
-      {/* Text */}
       <div className="p-5">
         <div className="h-9 w-9 rounded-xl border border-white/10 bg-white/[0.05] flex items-center justify-center text-lg mb-3">
           {icon}
@@ -444,49 +504,57 @@ function MiniImageDupMockup() {
 
 function CoreFeatures() {
   return (
-    <section id="features" className="px-6 pb-28">
-      <div className="max-w-5xl mx-auto">
-        {/* Label */}
-        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">
-          Fonctionnalités clés
-        </p>
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 tracking-tight">
-          Tout ce dont tu as besoin pour scaler<br className="hidden md:block" /> ton contenu sans jamais être détecté.
-        </h2>
-        <p className="text-white/45 text-base mb-14 max-w-xl">
-          DuupFlow réunit en un seul outil la duplication d'images, de vidéos, la comparaison de similarité et le contrôle des métadonnées IA.
-        </p>
+    <section id="features" className="px-6 pb-28 bg-[#0B0F1A]">
+      <div className="max-w-5xl mx-auto pt-16">
+        <Reveal>
+          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">
+            Fonctionnalités clés
+          </p>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 tracking-tight">
+            Tout ce dont tu as besoin pour scaler<br className="hidden md:block" /> ton contenu sans jamais être détecté.
+          </h2>
+          <p className="text-white/45 text-base mb-14 max-w-xl">
+            DuupFlow réunit en un seul outil la duplication d&apos;images, de vidéos, la comparaison de similarité et le contrôle des métadonnées IA.
+          </p>
+        </Reveal>
 
-        {/* 2×2 grid */}
         <div className="grid md:grid-cols-2 gap-5">
-          <FeatureCard
-            icon="🖼️"
-            title="Duplication d'images illimitée"
-            desc="Charge une image, génère autant de copies que tu veux avec des métadonnées EXIF/XMP uniques, des micro-variations visuelles imperceptibles et un ICC profile différent. Chaque fichier est détecté comme nouveau par les algorithmes."
-            mockup={<MiniImageDupMockup />}
-            accent="border-fuchsia-500/20"
-          />
-          <FeatureCard
-            icon="🎬"
-            title="Duplication vidéo avancée"
-            desc="Ré-encode tes vidéos avec des paramètres différents à chaque copie — FPS, GOP, bitrate, codec, couleur. Le contenu visuel reste identique, mais la signature numérique du fichier est entièrement distincte."
-            mockup={<MiniVideoDupMockup />}
-            accent="border-indigo-500/20"
-          />
-          <FeatureCard
-            icon="🔍"
-            title="Comparateur de similarité"
-            desc="Mesure la distance perceptuelle entre deux fichiers grâce à 5 algorithmes combinés (pHash, dHash, histogramme couleur, texture, métadonnées). Un score proche de 0% signifie deux contenus quasi-indétectables."
-            mockup={<MiniSimilarityMockup />}
-            accent="border-emerald-500/20"
-          />
-          <FeatureCard
-            icon="🤖"
-            title="Détection IA — Métadonnées"
-            desc="Masque la signature d'un contenu généré par IA (Midjourney, Runway, Higgsfield…) en remplaçant ses métadonnées par une identité humaine réaliste. Ou injecte les métadonnées d'une plateforme IA dans n'importe quel fichier."
-            mockup={<MiniMetaMockup />}
-            accent="border-amber-500/20"
-          />
+          <Reveal delay={0}>
+            <FeatureCard
+              icon="🖼️"
+              title="Duplication d'images illimitée"
+              desc="Charge une image, génère autant de copies que tu veux avec des métadonnées EXIF/XMP uniques, des micro-variations visuelles imperceptibles et un ICC profile différent. Chaque fichier est détecté comme nouveau par les algorithmes."
+              mockup={<MiniImageDupMockup />}
+              accent="border-fuchsia-500/20"
+            />
+          </Reveal>
+          <Reveal delay={80}>
+            <FeatureCard
+              icon="🎬"
+              title="Duplication vidéo avancée"
+              desc="Ré-encode tes vidéos avec des paramètres différents à chaque copie — FPS, GOP, bitrate, codec, couleur. Le contenu visuel reste identique, mais la signature numérique du fichier est entièrement distincte."
+              mockup={<MiniVideoDupMockup />}
+              accent="border-indigo-500/20"
+            />
+          </Reveal>
+          <Reveal delay={160}>
+            <FeatureCard
+              icon="🔍"
+              title="Comparateur de similarité"
+              desc="Mesure la distance perceptuelle entre deux fichiers grâce à 5 algorithmes combinés (pHash, dHash, histogramme couleur, texture, métadonnées). Un score proche de 0% signifie deux contenus quasi-indétectables."
+              mockup={<MiniSimilarityMockup />}
+              accent="border-emerald-500/20"
+            />
+          </Reveal>
+          <Reveal delay={240}>
+            <FeatureCard
+              icon="🤖"
+              title="Détection IA — Métadonnées"
+              desc="Masque la signature d'un contenu généré par IA (Midjourney, Runway, Higgsfield…) en remplaçant ses métadonnées par une identité humaine réaliste. Ou injecte les métadonnées d'une plateforme IA dans n'importe quel fichier."
+              mockup={<MiniMetaMockup />}
+              accent="border-amber-500/20"
+            />
+          </Reveal>
         </div>
       </div>
     </section>
@@ -494,65 +562,7 @@ function CoreFeatures() {
 }
 
 /* ═══════════════════════════════════════════════════════
- * SECTION 4 — HOW IT WORKS
- * ═══════════════════════════════════════════════════════ */
-const STEPS = [
-  {
-    num: "01",
-    title: "Importe ton contenu",
-    desc: "Glisse-dépose ton image ou ta vidéo dans DuupFlow. JPG, PNG, WEBP, MP4, MOV, MKV — tous les formats sont acceptés, même en lot.",
-  },
-  {
-    num: "02",
-    title: "Duplique en illimité",
-    desc: "Choisis le nombre de copies et les options (visuel, semi-visuel, métadonnées). DuupFlow modifie chaque fichier pour qu'il soit unique aux yeux des algorithmes de détection.",
-  },
-  {
-    num: "03",
-    title: "Télécharge et publie",
-    desc: "Exporte tes contenus en ZIP ou un par un. Chaque fichier est prêt à être publié sur Instagram, TikTok, YouTube, Twitter/X ou n'importe quelle plateforme.",
-  },
-];
-
-function HowItWorks() {
-  return (
-    <section id="how" className="px-6 pb-28">
-      <div className="max-w-5xl mx-auto">
-        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">
-          Comment ça marche
-        </p>
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-16 tracking-tight">
-          DuupFlow s'intègre dans ton workflow<br className="hidden md:block" /> en 3 étapes.
-        </h2>
-
-        {/* Steps row */}
-        <div className="relative">
-          {/* connector line */}
-          <div className="hidden md:block absolute top-[22px] left-[22px] right-[22px] h-px bg-white/[0.08]" />
-
-          <div className="grid md:grid-cols-3 gap-10">
-            {STEPS.map((s) => (
-              <div key={s.num}>
-                {/* Number bubble */}
-                <div
-                  className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white mb-5 relative z-10"
-                  style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-                >
-                  {s.num}
-                </div>
-                <h3 className="font-semibold text-white mb-2">{s.title}</h3>
-                <p className="text-sm text-white/45 leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
- * SECTION 5 — STATS BANNER
+ * SECTION 4 — STATS BANNER
  * ═══════════════════════════════════════════════════════ */
 const STATS = [
   { val: "∞", label: "Copies par contenu" },
@@ -563,48 +573,50 @@ const STATS = [
 
 function StatsBanner() {
   return (
-    <section className="px-6 pb-28">
-      <div className="max-w-5xl mx-auto">
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          {STATS.map((s) => (
-            <div key={s.label}>
-              <div className={`text-3xl font-extrabold mb-1 ${G}`}>{s.val}</div>
-              <div className="text-xs text-white/40 uppercase tracking-wider">{s.label}</div>
-            </div>
-          ))}
-        </div>
+    <section className="px-6 pb-28 bg-[#0E1325]">
+      <div className="max-w-5xl mx-auto pt-16">
+        <Reveal>
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            {STATS.map((s) => (
+              <div key={s.label}>
+                <div className={`text-3xl font-extrabold mb-1 ${G}`}>{s.val}</div>
+                <div className="text-xs text-white/40 uppercase tracking-wider">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </Reveal>
       </div>
     </section>
   );
 }
 
 /* ═══════════════════════════════════════════════════════
- * SECTION 6 — FAQ
+ * SECTION 5 — FAQ  (Base44 layout: left title + right accordion)
  * ═══════════════════════════════════════════════════════ */
 const FAQS = [
   {
-    q: "Est-ce que DuupFlow modifie la qualité visuelle de mes contenus ?",
-    a: "Non. Par défaut, les transformations sont imperceptibles à l'œil humain. Les modifications légères (micro-zoom, saturation ±2%) sont optionnelles. Le mode 'Métadonnées uniquement' ne touche jamais au contenu visuel.",
+    q: "Est-ce que mes contenus seront vraiment uniques pour les plateformes ?",
+    a: "Oui. DuupFlow modifie les métadonnées EXIF/XMP, les paramètres d'encodage et optionnellement des micro-variations visuelles imperceptibles. Chaque fichier possède une empreinte numérique différente, reconnue comme nouveau fichier par les algorithmes de détection d'Instagram, TikTok, YouTube et autres.",
   },
   {
-    q: "Comment Instagram ou TikTok détectent-ils les doublons ?",
-    a: "Les plateformes utilisent des algorithmes de hachage perceptuel (pHash) et d'empreinte numérique sur les métadonnées du fichier. DuupFlow modifie ces deux couches pour que chaque copie soit reconnue comme un nouveau fichier unique.",
+    q: "Est-ce que DuupFlow modifie la qualité visuelle de mes contenus ?",
+    a: "Non. Par défaut, les transformations sont imperceptibles à l'œil humain. Le mode 'Métadonnées uniquement' ne touche jamais au contenu visuel. Les micro-variations (micro-zoom, saturation ±2%) sont entièrement optionnelles.",
   },
   {
     q: "Combien de copies puis-je créer d'un seul contenu ?",
-    a: "Il n'y a aucune limite technique. Tu peux générer autant de copies que tu veux en une seule opération. Les managers d'agences l'utilisent généralement pour créer 5 à 50 variantes par contenu.",
-  },
-  {
-    q: "Quels formats de fichiers sont supportés ?",
-    a: "Pour les images : JPG, JPEG, PNG, WEBP, HEIC. Pour les vidéos : MP4, MOV, MKV, AVI, WebM. L'export se fait toujours en JPG/PNG pour les images et MP4 pour les vidéos.",
+    a: "Il n'y a aucune limite technique. Tu peux générer autant de copies que tu veux en une seule opération. La plupart des agences l'utilisent pour créer entre 5 et 50 variantes par contenu.",
   },
   {
     q: "Est-ce légal d'utiliser DuupFlow ?",
-    a: "DuupFlow est un outil de modification de métadonnées et de ré-encodage. Il ne crée pas de faux contenus ni ne viole les droits d'auteur — il modifie techniquement les fichiers que tu possèdes déjà. L'utilisation reste sous ta responsabilité selon les conditions des plateformes.",
+    a: "DuupFlow modifie techniquement les fichiers que tu possèdes déjà — il ne crée pas de faux contenus et ne viole pas les droits d'auteur. L'outil est légal ; l'utilisation reste sous ta responsabilité selon les conditions générales de chaque plateforme.",
+  },
+  {
+    q: "Quels formats de fichiers sont supportés ?",
+    a: "Images : JPG, JPEG, PNG, WEBP, HEIC. Vidéos : MP4, MOV, MKV, AVI, WebM. L'export se fait en JPG/PNG pour les images et MP4 pour les vidéos.",
   },
   {
     q: "Le module Détection IA fonctionne-t-il aussi pour les vidéos ?",
-    a: "Oui. Le module Détection IA manipule les métadonnées EXIF/XMP de tous les formats supportés, y compris les vidéos MP4, MOV et MKV.",
+    a: "Oui. Le module Détection IA manipule les métadonnées de tous les formats supportés, y compris MP4, MOV et MKV. Il peut masquer ou injecter des signatures IA dans n'importe quel fichier.",
   },
   {
     q: "DuupFlow fonctionne-t-il sur tous les réseaux sociaux ?",
@@ -616,72 +628,90 @@ function FAQ() {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <section id="faq" className="px-6 pb-28">
-      <div className="max-w-3xl mx-auto">
-        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3 text-center">
-          FAQ
-        </p>
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-12 tracking-tight text-center">
-          Questions fréquentes
-        </h2>
-
-        <div className="space-y-2">
-          {FAQS.map((faq, i) => (
-            <div
-              key={i}
-              className="rounded-2xl border border-white/[0.08] bg-white/[0.025] overflow-hidden"
-            >
-              <button
-                onClick={() => setOpen(open === i ? null : i)}
-                className="w-full flex items-center justify-between gap-4 px-6 py-4 text-left text-sm font-medium text-white/85 hover:text-white transition"
-              >
-                <span>{faq.q}</span>
-                <svg
-                  className={`h-4 w-4 shrink-0 text-white/30 transition-transform ${open === i ? "rotate-180" : ""}`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
-                >
-                  <path d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {open === i && (
-                <div className="px-6 pb-5 text-sm text-white/50 leading-relaxed border-t border-white/[0.06] pt-4">
-                  {faq.a}
-                </div>
-              )}
+    <section id="faq" className="px-6 pb-28 bg-[#0B0F1A]">
+      <div className="max-w-5xl mx-auto pt-16">
+        <Reveal>
+          <div className="grid md:grid-cols-[2fr_3fr] gap-16">
+            {/* Left — title */}
+            <div className="md:sticky md:top-28 self-start">
+              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">FAQ</p>
+              <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight leading-[1.1]">
+                Questions fréquentes
+              </h2>
+              <p className="text-white/40 text-sm mt-4 leading-relaxed">
+                Tu as d&apos;autres questions ? Contacte-nous par email ou via le chat intégré.
+              </p>
             </div>
-          ))}
-        </div>
+
+            {/* Right — accordion */}
+            <div className="divide-y divide-white/[0.08]">
+              {FAQS.map((faq, i) => (
+                <div key={i}>
+                  <button
+                    onClick={() => setOpen(open === i ? null : i)}
+                    className="w-full flex items-center justify-between gap-4 py-5 text-left text-sm font-medium text-white/80 hover:text-white transition"
+                  >
+                    <span>{faq.q}</span>
+                    <span
+                      className="shrink-0 h-6 w-6 rounded-full border border-white/15 flex items-center justify-center text-white/50 transition-transform"
+                      style={{ transform: open === i ? "rotate(45deg)" : "rotate(0deg)" }}
+                    >
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                    </span>
+                  </button>
+                  {open === i && (
+                    <div className="pb-5 text-sm text-white/50 leading-relaxed">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
 }
 
 /* ═══════════════════════════════════════════════════════
- * SECTION 7 — CTA BOTTOM BANNER
+ * SECTION 6 — CTA BOTTOM BANNER
  * ═══════════════════════════════════════════════════════ */
 function CTABanner() {
   return (
-    <section className="px-6 pb-28">
-      <div className="max-w-5xl mx-auto">
-        <div
-          className="relative rounded-3xl overflow-hidden p-12 text-center"
-          style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(56,189,248,0.08) 100%)" }}
-        >
-          <div className="pointer-events-none absolute inset-0 border border-white/[0.10] rounded-3xl" />
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight">
-            Prêt à scaler ton contenu ?
-          </h2>
-          <p className="text-white/50 mb-8 max-w-md mx-auto">
-            Accède à tous les modules DuupFlow et commence à dupliquer en illimité dès maintenant.
-          </p>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
-            style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+    <section className="px-6 pb-28 bg-[#0E1325]">
+      <div className="max-w-5xl mx-auto pt-16">
+        <Reveal>
+          <div
+            className="relative rounded-3xl overflow-hidden p-12 text-center"
+            style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(56,189,248,0.08) 100%)" }}
           >
-            Accéder à DuupFlow →
-          </Link>
-        </div>
+            <div className="pointer-events-none absolute inset-0 border border-white/[0.10] rounded-3xl" />
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight">
+              Prêt à scaler ton contenu ?
+            </h2>
+            <p className="text-white/50 mb-8 max-w-md mx-auto">
+              Accède à tous les modules DuupFlow et commence à dupliquer en illimité dès maintenant.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
+                style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+              >
+                S&apos;inscrire gratuitement →
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-8 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition"
+              >
+                Connexion
+              </Link>
+            </div>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -692,7 +722,7 @@ function CTABanner() {
  * ═══════════════════════════════════════════════════════ */
 function Footer() {
   return (
-    <footer className="px-6 pb-10 border-t border-white/[0.06]">
+    <footer className="px-6 pb-10 border-t border-white/[0.06] bg-[#0B0F1A]">
       <div className="max-w-5xl mx-auto pt-10 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="text-sm font-bold tracking-tight">
           <span style={{ color: "#818CF8" }}>Duup</span>
@@ -716,7 +746,6 @@ export default function LandingPage() {
       <Hero />
       <FeatureTabs />
       <CoreFeatures />
-      <HowItWorks />
       <StatsBanner />
       <FAQ />
       <CTABanner />
