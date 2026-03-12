@@ -39,7 +39,7 @@ export default function DashboardPage() {
     <div className="pt-4">
       {/* En-tête */}
       <div className="mb-10">
-        <h1 className="text-5xl md:text-6xl font-bold mb-3 tracking-tight bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-pink-400 text-transparent bg-clip-text">
+        <h1 className="text-5xl md:text-6xl font-bold mb-3 tracking-tight bg-gradient-to-r from-indigo-400 to-indigo-300 text-transparent bg-clip-text">
           DuupFlow
         </h1>
         <p className="text-white/50 text-sm">

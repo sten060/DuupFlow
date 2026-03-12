@@ -28,6 +28,10 @@ export async function GET(req: Request) {
 
   const entries = await fs.readdir(dir, { withFileTypes: true });
 
+  // Specific file list (used by ai-detection to download only session files)
+  const filesParam = url.searchParams.get("files");
+  const specificFiles = filesParam ? filesParam.split(",").filter(Boolean) : null;
+
   const files = entries
     .filter((d) => d.isFile())
     .map((d) => d.name)
@@ -40,12 +44,17 @@ export async function GET(req: Request) {
         !n.endsWith(".part")
     )
     .filter((n) => {
+      if (specificFiles) return specificFiles.includes(n);
+      return true;
+    })
+    .filter((n) => {
       if (scope === "images") return IMAGE_EXTS.includes(extOf(n));
       if (scope === "videos") return VIDEO_EXTS.includes(extOf(n));
       return true;
     })
     // ✅ filtre par channel DuupFlow
     .filter((n) => {
+      if (specificFiles) return true; // already filtered above
       if (channel === "simple") return n.startsWith("SIMPLE_DuupFlow_");
       if (channel === "advanced") return n.startsWith("ADVANCED_DuupFlow_");
       return true;

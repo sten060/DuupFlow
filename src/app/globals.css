@@ -8,15 +8,15 @@
   --bg-start:#0B0F1A;
   --bg-end:#101429;
 
-  /* accents DuupFlow */
-  --duup-indigo:#5B5BEA;
-  --duup-fuchsia:#FF3FD1;
-  --duup-teal:#21E6C1;
+  /* accents DuupFlow — palette minimaliste indigo */
+  --duup-indigo:#6366F1;
+  --duup-light:#818CF8;
+  --duup-pale:#C7D2FE;
 
   /* compat aliases */
   --zeno-indigo: var(--duup-indigo);
-  --zeno-fuchsia: var(--duup-fuchsia);
-  --zeno-teal: var(--duup-teal);
+  --zeno-fuchsia: var(--duup-light);
+  --zeno-teal: var(--duup-pale);
 
   /* couches UI */
   --glass: rgba(255,255,255,0.04);
@@ -29,8 +29,8 @@ html, body { height:100%; }
 body{
   @apply text-white antialiased;
   background:
-    radial-gradient(1200px 800px at 10% 0%, rgba(91,91,234,.08), transparent),
-    radial-gradient(1000px 700px at 90% 10%, rgba(255,63,209,.08), transparent),
+    radial-gradient(1200px 800px at 10% 0%, rgba(99,102,241,.07), transparent),
+    radial-gradient(800px 600px at 85% 15%, rgba(129,140,248,.04), transparent),
     linear-gradient(180deg, var(--bg-start), var(--bg-end));
 }
 
@@ -107,8 +107,8 @@ body{
 }
 .module-card::before{
   content:""; position:absolute; inset:-1px; border-radius:16px; z-index:-1; opacity:.0;
-  background: radial-gradient(600px 250px at 20% 0%, rgba(91,91,234,.18), transparent 60%),
-              radial-gradient(500px 250px at 100% 40%, rgba(255,63,209,.14), transparent 60%);
+  background: radial-gradient(600px 250px at 20% 0%, rgba(99,102,241,.15), transparent 60%),
+              radial-gradient(500px 250px at 100% 40%, rgba(129,140,248,.10), transparent 60%);
   transition: opacity .25s ease;
 }
 .module-card:hover{
@@ -165,8 +165,8 @@ body{
 }
 .module-card::before{
   content:""; position:absolute; inset:-1px; border-radius:16px; z-index:-1; opacity:.0;
-  background: radial-gradient(600px 250px at 20% 0%, rgba(91,91,234,.18), transparent 60%),
-              radial-gradient(500px 250px at 100% 40%, rgba(255,63,209,.14), transparent 60%);
+  background: radial-gradient(600px 250px at 20% 0%, rgba(99,102,241,.15), transparent 60%),
+              radial-gradient(500px 250px at 100% 40%, rgba(129,140,248,.10), transparent 60%);
   transition: opacity .25s ease;
 }
 .module-card:hover{
@@ -196,22 +196,22 @@ body{
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-/* couleurs spécifiques par module */
+/* couleurs spécifiques par module — palette indigo */
 .side-link-pink:hover {
-  color: #ff3fd1;
-  text-shadow: 0 0 6px rgba(255, 63, 209, 0.7);
+  color: #a5b4fc;
+  text-shadow: 0 0 6px rgba(165, 180, 252, 0.5);
 }
 .side-link-blue:hover {
-  color: #5b5bea;
-  text-shadow: 0 0 6px rgba(91, 91, 234, 0.7);
+  color: #818cf8;
+  text-shadow: 0 0 6px rgba(129, 140, 248, 0.5);
 }
 .side-link-green:hover {
-  color: #21e6c1;
-  text-shadow: 0 0 6px rgba(33, 230, 193, 0.7);
+  color: #c7d2fe;
+  text-shadow: 0 0 6px rgba(199, 210, 254, 0.4);
 }
 .side-link-violet:hover {
-  color: #c084fc;
-  text-shadow: 0 0 6px rgba(192, 132, 252, 0.7);
+  color: #818cf8;
+  text-shadow: 0 0 6px rgba(129, 140, 248, 0.5);
 }
 
 /* déconnexion */
@@ -518,20 +518,20 @@ body{
 }
 .logo-glow {
   animation: logoPulse 5s ease-in-out infinite;
-  filter: drop-shadow(0 0 8px rgba(236,72,153,0.4)) drop-shadow(0 0 20px rgba(99,102,241,0.3));
+  filter: drop-shadow(0 0 8px rgba(99,102,241,0.4)) drop-shadow(0 0 20px rgba(129,140,248,0.3));
 }
 
 @keyframes logoPulse {
-  0%, 100% { opacity: 1; filter: drop-shadow(0 0 8px rgba(236,72,153,0.4)); }
-  50% { opacity: 0.9; filter: drop-shadow(0 0 14px rgba(99,102,241,0.6)); }
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 8px rgba(99,102,241,0.4)); }
+  50% { opacity: 0.9; filter: drop-shadow(0 0 14px rgba(129,140,248,0.5)); }
 }
 /* ---- Zeno — utilitaires page d'accueil/produit ---- */
 .divider { @apply border-t border-white/10 my-12 md:my-16; }
 
-/* Icônes néon (rose) */
+/* Icônes néon (indigo) */
 .neon-icon-pink {
-  color: #FF3FD1;
-  filter: drop-shadow(0 0 10px rgba(255,63,209,.35));
+  color: #818CF8;
+  filter: drop-shadow(0 0 10px rgba(129,140,248,.35));
 }
 
 /* Titre néon dégradé (réutilisable) */

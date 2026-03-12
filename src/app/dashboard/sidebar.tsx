@@ -34,7 +34,7 @@ function Item({
       >
         {icon}
       </span>
-      <span className="font-medium text-white group-hover:text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-indigo-400 transition-colors">
+      <span className="font-medium text-white group-hover:text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-indigo-300 transition-colors">
         {label}
       </span>
       {/* petit point d’état à droite */}
