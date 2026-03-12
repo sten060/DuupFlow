@@ -36,7 +36,7 @@ function channelCaps(channel: Channel) {
   return channel === "advanced" ? "ADVANCED" : "SIMPLE";
 }
 function zenoPrefix(channel: Channel) {
-  return `${channelCaps(channel)}_Zeno_`;
+  return `${channelCaps(channel)}_DuupFlow_`;
 }
 function zenoOutName(opts: {
   channel: Channel;
@@ -48,7 +48,7 @@ function zenoOutName(opts: {
 }) {
   const { channel, date, fileIndex, copyIndex, origName, runTag } = opts;
   const base = safeBase(origName);
-  return `${channelCaps(channel)}_Zeno_${date}_vid${fileIndex}_c${String(
+  return `${channelCaps(channel)}_DuupFlow_${date}_vid${fileIndex}_c${String(
     copyIndex
   ).padStart(2, "0")}_r${runTag}__${base}.mp4`;
 }

@@ -144,6 +144,22 @@ export default function Sidebar() {
               </svg>
             }
           />
+          <Item
+            href="/dashboard/ai-detection"
+            label="Détection IA — Meta"
+            icon={
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4 text-amber-300"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4M12 16h.01" />
+              </svg>
+            }
+          />
         </div>
       </div>
     </aside>

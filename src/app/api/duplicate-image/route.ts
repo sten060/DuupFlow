@@ -192,13 +192,13 @@ img = img.affine(
   if (flags.fundamentals) {
     const now = new Date();
     const exifDate = now.toISOString().replace(/[-:]/g, "").split(".")[0];
-    const artistChoices = ["Zeno", "Studio", "Duplicator", "AIEngine"];
+    const artistChoices = ["DuupFlow", "Studio", "Duplicator", "ContentEngine"];
     const artist = artistChoices[Math.floor(Math.random() * artistChoices.length)];
     const dpi = [72, 96, 150, 300][Math.floor(Math.random() * 4)];
     const history = Array.from({ length: 3 }, (_, idx) => ({
       "stEvt:action": ["created", "edited", "saved"][Math.min(idx, 2)],
       "stEvt:when": new Date(now.getTime() + idx * 1500).toISOString(),
-      "stEvt:softwareAgent": ["ZenoEngine", "ContentDuplicator", "StudioLab"][Math.floor(Math.random() * 3)],
+      "stEvt:softwareAgent": ["DuupFlow", "ContentDuplicator", "StudioLab"][Math.floor(Math.random() * 3)],
       "stEvt:instanceID": `xmp.iid:${crypto.randomUUID()}`,
     }));
     const comments = [
@@ -212,7 +212,7 @@ img = img.affine(
     outPath,
     {
       AllDates: exifDate,
-      Software: `ZenoDup/${randHex(2)}`,
+      Software: `DuupFlow/${randHex(2)}`,
       Artist: artist,
       XPTitle: `Dup_${randHex(2)}`,
       XPComment: `meta=ok`,
@@ -251,7 +251,7 @@ export async function POST(req: Request) {
   reverse: toBool(form.get("reverse")),  // 👈 AJOUT
 };
 
-    const brand = Math.random() < 0.5 ? "Zeno" : "Studio";
+    const brand = Math.random() < 0.5 ? "DuupFlow" : "DuupFlow";
     const now = new Date();
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, "0");

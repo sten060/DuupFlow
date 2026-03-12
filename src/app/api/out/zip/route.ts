@@ -44,10 +44,10 @@ export async function GET(req: Request) {
       if (scope === "videos") return VIDEO_EXTS.includes(extOf(n));
       return true;
     })
-    // ✅ filtre par channel ZENO
+    // ✅ filtre par channel DuupFlow
     .filter((n) => {
-      if (channel === "simple") return n.startsWith("SIMPLE_Zeno_");
-      if (channel === "advanced") return n.startsWith("ADVANCED_Zeno_");
+      if (channel === "simple") return n.startsWith("SIMPLE_DuupFlow_");
+      if (channel === "advanced") return n.startsWith("ADVANCED_DuupFlow_");
       return true;
     });
 

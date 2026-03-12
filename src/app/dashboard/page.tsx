@@ -27,17 +27,23 @@ export default function DashboardPage() {
       color: "from-fuchsia-500 to-indigo-500",
       href: "/dashboard/generate",
     },
+    {
+      title: "Détection IA — Métadonnées",
+      desc: "Masque ou injecte une signature IA dans les métadonnées de n’importe quel contenu.",
+      color: "from-amber-500 to-orange-500",
+      href: "/dashboard/ai-detection",
+    },
   ];
 
   return (
     <div className="pt-4">
       {/* En-tête */}
       <div className="mb-10">
-        <h1 className="text-6xl md:text-7xl font-extrabold mb-3 tracking-tight bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-pink-400 text-transparent bg-clip-text drop-shadow-[0_0_8px_rgba(232,121,249,.4)]">
-  Laboratoire
-</h1>
-        <p className="text-white/60">
-          Choisis un module pour travailler tes contenus dans ton labo.
+        <h1 className="text-5xl md:text-6xl font-bold mb-3 tracking-tight bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-pink-400 text-transparent bg-clip-text">
+          DuupFlow
+        </h1>
+        <p className="text-white/50 text-sm">
+          Choisis un module pour travailler tes contenus.
         </p>
       </div>
 
