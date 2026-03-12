@@ -5,13 +5,18 @@
 /* ---------- Tokens ---------- */
 :root{
   /* fonds */
-  --bg-start:#0B0F1A;   /* zbg */
-  --bg-end:#101429;     /* zbg.soft */
+  --bg-start:#0B0F1A;
+  --bg-end:#101429;
 
-  /* accents Zeno */
-  --zeno-indigo:#5B5BEA;
-  --zeno-fuchsia:#FF3FD1;
-  --zeno-teal:#21E6C1;
+  /* accents DuupFlow */
+  --duup-indigo:#5B5BEA;
+  --duup-fuchsia:#FF3FD1;
+  --duup-teal:#21E6C1;
+
+  /* compat aliases */
+  --zeno-indigo: var(--duup-indigo);
+  --zeno-fuchsia: var(--duup-fuchsia);
+  --zeno-teal: var(--duup-teal);
 
   /* couches UI */
   --glass: rgba(255,255,255,0.04);
