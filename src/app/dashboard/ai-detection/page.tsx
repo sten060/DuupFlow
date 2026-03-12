@@ -185,7 +185,7 @@ export default function AiDetectionPage() {
     : "/api/out/zip";
 
   return (
-    <main className="p-6 space-y-8 max-w-3xl">
+    <main className="p-6 md:p-10 space-y-8 max-w-3xl mx-auto">
       {/* header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-white">

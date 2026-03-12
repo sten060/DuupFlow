@@ -198,27 +198,27 @@ export async function duplicateVideos(formData: FormData) {
 
         // VISUAL
         if (packs.includes("visual")) {
-          // Valeurs très subtiles — imperceptibles visuellement
-          const b  = clamp(Number((-0.05 + Math.random()*0.08).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.95 + Math.random()*0.10).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
-          const st = clamp(Number((0.92 + Math.random()*0.16).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
-          const gm = clamp(Number((0.95 + Math.random()*0.10).toFixed(3)),  0.1, 3.0);
+          // Valeurs subtiles mais suffisantes pour affecter le hash perceptuel
+          const b  = clamp(Number((-0.10 + Math.random()*0.16).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          const ct = clamp(Number((0.87 + Math.random()*0.26).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
+          const st = clamp(Number((0.86 + Math.random()*0.28).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
+          const gm = clamp(Number((0.88 + Math.random()*0.24).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
 
-          // Teinte très légère (quasi-invisible)
-          const hue = clamp(Number((Math.random()*0.12 - 0.06).toFixed(3)), -1, 1);
+          // Teinte légère (très subtile visuellement)
+          const hue = clamp(Number((Math.random()*0.28 - 0.14).toFixed(3)), -1, 1);
           vfParts.push(`hue=h=${hue}`);
 
-          // Netteté légère + grain discret
-          vfParts.push("unsharp=lx=3:ly=3:la=0.5:cx=3:cy=3:ca=0.5");
-          vfParts.push("noise=alls=6:allf=t+u");
+          // Netteté douce + grain léger
+          vfParts.push("unsharp=lx=3:ly=3:la=0.8:cx=3:cy=3:ca=0.8");
+          vfParts.push("noise=alls=10:allf=t+u");
 
           // Vignette très légère (bords imperceptibles)
-          const ang = clamp(Number((0.04 + Math.random()*0.04).toFixed(3)), 0, LIMITS.vignette.max);
+          const ang = clamp(Number((0.04 + Math.random()*0.05).toFixed(3)), 0, LIMITS.vignette.max);
           vfParts.push(`vignette=angle=${ang}:mode=forward`);
 
-          // Déformation optique minime (presque invisible)
-          const k1 = clamp(Number((Math.random()*0.16 - 0.08).toFixed(5)), -0.08, 0.08);
+          // Légère correction optique (déformation invisible)
+          const k1 = clamp(Number((Math.random()*0.28 - 0.14).toFixed(5)), -0.14, 0.14);
           const k2 = -k1/2;
           vfParts.push(`lenscorrection=k1=${k1.toFixed(5)}:k2=${k2.toFixed(5)}`);
         }
