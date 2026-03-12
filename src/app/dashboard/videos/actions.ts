@@ -198,22 +198,27 @@ export async function duplicateVideos(formData: FormData) {
 
         // VISUAL
         if (packs.includes("visual")) {
-          const b  = clamp(Number((-0.22 + Math.random()*0.34).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.78 + Math.random()*0.44).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
-          const st = clamp(Number((0.72 + Math.random()*0.46).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
-          const gm = clamp(Number((0.82 + Math.random()*0.36).toFixed(3)),  0.1, 3.0);
+          // Valeurs très subtiles — imperceptibles visuellement
+          const b  = clamp(Number((-0.05 + Math.random()*0.08).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          const ct = clamp(Number((0.95 + Math.random()*0.10).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
+          const st = clamp(Number((0.92 + Math.random()*0.16).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
+          const gm = clamp(Number((0.95 + Math.random()*0.10).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
 
-          const hue = clamp(Number((Math.random()*0.7 - 0.35).toFixed(3)), -1, 1);
+          // Teinte très légère (quasi-invisible)
+          const hue = clamp(Number((Math.random()*0.12 - 0.06).toFixed(3)), -1, 1);
           vfParts.push(`hue=h=${hue}`);
 
-          vfParts.push("unsharp=lx=3:ly=3:la=1.4:cx=3:cy=3:ca=1.4");
-          vfParts.push("noise=alls=18:allf=t+u");
+          // Netteté légère + grain discret
+          vfParts.push("unsharp=lx=3:ly=3:la=0.5:cx=3:cy=3:ca=0.5");
+          vfParts.push("noise=alls=6:allf=t+u");
 
-          const ang = clamp(Number((0.05 + Math.random()*0.08).toFixed(3)), 0, LIMITS.vignette.max);
+          // Vignette très légère (bords imperceptibles)
+          const ang = clamp(Number((0.04 + Math.random()*0.04).toFixed(3)), 0, LIMITS.vignette.max);
           vfParts.push(`vignette=angle=${ang}:mode=forward`);
 
-          const k1 = clamp(Number((Math.random()*1.0 - 0.5).toFixed(5)), -0.5, 0.5);
+          // Déformation optique minime (presque invisible)
+          const k1 = clamp(Number((Math.random()*0.16 - 0.08).toFixed(5)), -0.08, 0.08);
           const k2 = -k1/2;
           vfParts.push(`lenscorrection=k1=${k1.toFixed(5)}:k2=${k2.toFixed(5)}`);
         }

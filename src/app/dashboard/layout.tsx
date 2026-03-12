@@ -21,10 +21,11 @@ export default function DashboardLayout({
         }}
       >
         {/* Brand */}
-        <div className="px-5 pt-6 pb-5 shrink-0">
+        <div className="px-5 pt-6 pb-4 shrink-0">
           <span className="text-lg font-extrabold tracking-tight" style={{ color: "#818CF8" }}>Duup</span>
           <span className="text-white/50 text-lg font-extrabold tracking-tight">Flow</span>
         </div>
+        <div className="mx-4 mb-3 shrink-0" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
 
         {/* Nav */}
         <Sidebar />

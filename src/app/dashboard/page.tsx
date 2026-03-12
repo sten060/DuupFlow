@@ -1,74 +1,99 @@
 // /src/app/dashboard/page.tsx
 import Link from "next/link";
 
-export default function DashboardPage() {
-  const modules = [
-    {
-      title: "Duplication Images",
-      desc: "Variations fondamentales & visuelles, export en lot.",
-      color: "from-pink-500 to-fuchsia-500",
-      href: "/dashboard/images",
-    },
-    {
-      title: "Duplication Vidéos",
-      desc: "Ré-encodage léger, FPS/GOP/bitrate, variations vidéo.",
-      color: "from-indigo-500 to-blue-500",
-      href: "/dashboard/videos",
-    },
-    {
-      title: "Détecteur de similarité",
-      desc: "Mesure la proximité visuelle + métadonnées.",
-      color: "from-green-500 to-emerald-500",
-      href: "/dashboard/similarity",
-    },
-    {
-      title: "Variation IA (BETA)",
-      desc: "Crée des variations automatiques grâce à l’intelligence artificielle.",
-      color: "from-fuchsia-500 to-indigo-500",
-      href: "/dashboard/generate",
-    },
-    {
-      title: "Détection IA — Métadonnées",
-      desc: "Masque ou injecte une signature IA dans les métadonnées de n’importe quel contenu.",
-      color: "from-amber-500 to-orange-500",
-      href: "/dashboard/ai-detection",
-    },
-  ];
+const modules = [
+  {
+    title: "Duplication Images",
+    desc: "Variations fondamentales & visuelles, export en lot.",
+    href: "/dashboard/images",
+  },
+  {
+    title: "Duplication Vidéos",
+    desc: "Ré-encodage léger, FPS/GOP/bitrate, variations vidéo.",
+    href: "/dashboard/videos",
+  },
+  {
+    title: "Détecteur de similarité",
+    desc: "Mesure la proximité visuelle + métadonnées.",
+    href: "/dashboard/similarity",
+  },
+  {
+    title: "Variation IA",
+    desc: "Crée des variations automatiques grâce à l'intelligence artificielle.",
+    href: "/dashboard/generate",
+    badge: "BETA",
+  },
+  {
+    title: "Détection IA — Métadonnées",
+    desc: "Masque la signature IA dans les métadonnées de n'importe quel contenu.",
+    href: "/dashboard/ai-detection",
+  },
+];
 
+export default function DashboardPage() {
   return (
-    <div className="pt-4">
-      {/* En-tête */}
+    <div className="p-8 max-w-6xl">
+      {/* Header */}
       <div className="mb-10">
-        <h1 className="text-5xl md:text-6xl font-bold mb-3 tracking-tight bg-gradient-to-r from-indigo-400 to-indigo-300 text-transparent bg-clip-text">
+        <h1 className="text-5xl md:text-6xl font-bold mb-3 tracking-tight"
+          style={{ background: "linear-gradient(90deg,#818CF8,#38BDF8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
           DuupFlow
         </h1>
-        <p className="text-white/50 text-sm">
-          Choisis un module pour travailler tes contenus.
-        </p>
+        <p className="text-white/45 text-sm">Choisis un module pour travailler tes contenus.</p>
       </div>
 
-      {/* Grille de modules */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {/* Module grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {modules.map((m) => (
           <div
-            key={m.title}
-            className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-md hover:bg-white/[0.05] transition-all duration-300"
+            key={m.href}
+            className="group rounded-2xl p-5 flex flex-col gap-3 transition-all duration-200"
+            style={{
+              background: "rgba(255,255,255,0.025)",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
           >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] text-emerald-400 font-medium">
-                Module actif
-              </span>
-              <div
-                className={`h-2 w-2 rounded-full bg-gradient-to-r ${m.color} shadow-[0_0_10px_currentColor]`}
-              />
+            {/* Top row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-1.5 w-1.5 rounded-full shrink-0"
+                  style={{ background: "#38BDF8", boxShadow: "0 0 6px rgba(56,189,248,0.8)" }}
+                />
+                <span className="text-[11px] font-semibold text-white tracking-wide uppercase">
+                  Module actif
+                </span>
+              </div>
+              {m.badge && (
+                <span
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                  style={{ background: "rgba(56,189,248,0.12)", color: "#38BDF8", border: "1px solid rgba(56,189,248,0.25)" }}
+                >
+                  {m.badge}
+                </span>
+              )}
             </div>
-            <h2 className="text-lg font-semibold mb-1">{m.title}</h2>
-            <p className="text-sm text-white/60 mb-6">{m.desc}</p>
+
+            {/* Content */}
+            <div className="flex-1">
+              <h2 className="text-base font-semibold text-white mb-1">{m.title}</h2>
+              <p className="text-sm text-white/50 leading-snug">{m.desc}</p>
+            </div>
+
+            {/* CTA */}
             <Link
               href={m.href}
-              className={`px-4 py-2 text-sm font-medium rounded-md text-white bg-gradient-to-r ${m.color} hover:opacity-90 transition`}
+              className="inline-flex items-center gap-1.5 self-start rounded-lg px-3.5 py-1.5 text-sm font-semibold text-white transition-all"
+              style={{
+                background: "rgba(56,189,248,0.15)",
+                border: "1px solid rgba(56,189,248,0.30)",
+                boxShadow: "0 0 10px rgba(56,189,248,0.12)",
+              }}
             >
               Ouvrir
+              <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 8h10M9 4l4 4-4 4" />
+              </svg>
             </Link>
           </div>
         ))}

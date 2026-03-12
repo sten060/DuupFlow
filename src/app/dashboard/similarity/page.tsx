@@ -60,7 +60,7 @@ export default async function SimilarityPage({
   }
 
   return (
-    <main className="p-6 space-y-8">
+    <main className="p-6 md:p-10 max-w-4xl mx-auto space-y-8">
       <h1 className="text-3xl font-extrabold tracking-tight">Détecteur de contenu similaire</h1>
 
       <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-950/40 to-emerald-900/10 p-6 shadow-2xl shadow-emerald-950/20">
