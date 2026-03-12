@@ -1,17 +1,74 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { maskAiMetadata, injectAiMetadata } from "./actions";
+import { useRef, useState, useTransition, useEffect } from "react";
+import { maskAiMetadata, deleteAiFiles } from "./actions";
 
-/* ── small reusable component ── */
+const MAX_FILES = 50;
+
+/* ── Preview grid ── */
+function FilePreviewGrid({ files }: { files: File[] }) {
+  const [previews, setPreviews] = useState<Array<{ url: string; isVideo: boolean; name: string }>>([]);
+
+  useEffect(() => {
+    const urls = files.map((f) => ({
+      url: URL.createObjectURL(f),
+      isVideo: f.type.startsWith("video/"),
+      name: f.name,
+    }));
+    setPreviews(urls);
+    return () => urls.forEach((p) => URL.revokeObjectURL(p.url));
+  }, [files]);
+
+  if (!files.length) return null;
+
+  // Taille des miniatures selon le nombre de fichiers
+  const size =
+    files.length <= 4 ? 120 :
+    files.length <= 9 ? 90 :
+    files.length <= 20 ? 68 : 52;
+
+  return (
+    <div className="flex flex-wrap gap-2 mt-3">
+      {previews.map((p, i) => (
+        <div
+          key={i}
+          className="relative rounded-lg overflow-hidden bg-white/[0.06] border border-white/10 shrink-0 group"
+          style={{ width: size, height: size }}
+          title={p.name}
+        >
+          {p.isVideo ? (
+            <div className="flex items-center justify-center h-full">
+              <svg
+                className="text-white/40"
+                style={{ width: size * 0.38, height: size * 0.38 }}
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+              >
+                <rect x="3" y="5" width="14" height="14" rx="2" />
+                <path d="M17 8l4-2v12l-4-2z" />
+              </svg>
+            </div>
+          ) : (
+            <img src={p.url} alt={p.name} className="w-full h-full object-cover" />
+          )}
+          {/* filename tooltip on hover */}
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-end p-1">
+            <span className="text-white/80 text-[9px] leading-tight font-mono line-clamp-2 break-all">{p.name}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Dropzone ── */
 function FileDropzone({
-  id,
   files,
   onChange,
+  limitError,
 }: {
-  id: string;
   files: File[];
   onChange: (f: File[]) => void;
+  limitError?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
@@ -19,65 +76,84 @@ function FileDropzone({
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDrag(false);
-    const dropped = Array.from(e.dataTransfer.files);
-    onChange(dropped);
+    onChange(Array.from(e.dataTransfer.files));
   }
 
   return (
-    <div
-      className={[
-        "relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 cursor-pointer transition",
-        drag
-          ? "border-indigo-400/60 bg-indigo-500/5"
-          : "border-white/15 bg-white/[0.025] hover:border-white/25",
-      ].join(" ")}
-      onClick={() => inputRef.current?.click()}
-      onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-      onDragLeave={() => setDrag(false)}
-      onDrop={handleDrop}
-    >
-      <input
-        ref={inputRef}
-        id={id}
-        type="file"
-        multiple
-        accept="image/*,video/mp4,video/quicktime,video/x-matroska,video/avi,video/webm"
-        className="hidden"
-        onChange={(e) => onChange(Array.from(e.target.files ?? []))}
-      />
-      <svg className="h-8 w-8 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M4 16l4-4 4 4 4-6 4 6" /><rect x="2" y="3" width="20" height="18" rx="3" />
-      </svg>
-      {files.length === 0 ? (
-        <p className="text-sm text-white/40">Déposer ou cliquer pour sélectionner</p>
-      ) : (
-        <ul className="text-sm text-white/70 space-y-0.5 text-center max-h-24 overflow-auto">
-          {files.map((f) => <li key={f.name}>{f.name}</li>)}
-        </ul>
+    <div className="space-y-0">
+      <div
+        className={[
+          "relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 cursor-pointer transition",
+          drag
+            ? "border-indigo-400/60 bg-indigo-500/5"
+            : limitError
+            ? "border-red-500/40 bg-red-500/[0.02]"
+            : "border-white/15 bg-white/[0.025] hover:border-white/25",
+        ].join(" ")}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={handleDrop}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept="image/*,video/mp4,video/quicktime,video/x-matroska,video/avi,video/webm"
+          className="hidden"
+          onChange={(e) => onChange(Array.from(e.target.files ?? []))}
+        />
+        <svg className="h-8 w-8 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M4 16l4-4 4 4 4-6 4 6" />
+          <rect x="2" y="3" width="20" height="18" rx="3" />
+        </svg>
+        {files.length === 0 ? (
+          <p className="text-sm text-white/40">Déposer ou cliquer pour sélectionner <span className="text-white/25">(max {MAX_FILES})</span></p>
+        ) : (
+          <p className="text-sm text-white/60">
+            {files.length} fichier{files.length > 1 ? "s" : ""} sélectionné{files.length > 1 ? "s" : ""}
+            <span className="text-white/30 ml-2 text-xs">— cliquer pour changer</span>
+          </p>
+        )}
+      </div>
+
+      {/* Limit error */}
+      {limitError && (
+        <div className="mt-2 rounded-xl border border-red-500/25 bg-red-500/[0.06] px-4 py-2.5 text-sm text-red-300 flex items-center gap-2">
+          <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          {limitError}
+        </div>
       )}
+
+      {/* Preview grid */}
+      {files.length > 0 && <FilePreviewGrid files={files} />}
     </div>
   );
 }
 
-/* ── main panel ── */
-function SwitchPanel({
-  mode,
-  title,
-  subtitle,
-  accent,
-  icon,
-  onFilesProcessed,
-}: {
-  mode: "mask" | "inject";
-  title: string;
-  subtitle: string;
-  accent: string;
-  icon: React.ReactNode;
-  onFilesProcessed: (files: string[]) => void;
-}) {
+/* ── Page principale ── */
+export default function AiDetectionPage() {
   const [files, setFiles] = useState<File[]>([]);
+  const [limitError, setLimitError] = useState<string>("");
   const [result, setResult] = useState<{ ok: boolean; count?: number; error?: string } | null>(null);
+  const [sessionFiles, setSessionFiles] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
+  const [deleting, startDeleteTransition] = useTransition();
+
+  function handleFilesChange(newFiles: File[]) {
+    if (newFiles.length > MAX_FILES) {
+      setLimitError(
+        `Limite dépassée — tu as sélectionné ${newFiles.length} fichiers, le maximum est ${MAX_FILES}. Seuls les ${MAX_FILES} premiers ont été conservés.`
+      );
+      setFiles(newFiles.slice(0, MAX_FILES));
+    } else {
+      setLimitError("");
+      setFiles(newFiles);
+    }
+  }
 
   function handleSubmit() {
     if (!files.length) return;
@@ -86,70 +162,22 @@ function SwitchPanel({
 
     startTransition(async () => {
       setResult(null);
-      const res = mode === "mask" ? await maskAiMetadata(fd) : await injectAiMetadata(fd);
+      const res = await maskAiMetadata(fd);
       setResult(res);
       if (res.ok) {
         setFiles([]);
-        if (res.files?.length) onFilesProcessed(res.files);
+        setLimitError("");
+        if (res.files?.length) setSessionFiles((prev) => [...prev, ...res.files]);
       }
     });
   }
 
-  return (
-    <div className={`rounded-2xl border bg-white/[0.03] p-6 flex flex-col gap-5 ${accent}`}>
-      {/* header */}
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center shrink-0">
-          {icon}
-        </div>
-        <div>
-          <h2 className="font-semibold text-white text-base">{title}</h2>
-          <p className="text-sm text-white/50 mt-0.5">{subtitle}</p>
-        </div>
-      </div>
-
-      {/* dropzone */}
-      <FileDropzone id={`drop-${mode}`} files={files} onChange={setFiles} />
-
-      {/* action */}
-      <button
-        onClick={handleSubmit}
-        disabled={pending || !files.length}
-        className="h-11 rounded-xl font-medium text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
-        style={{
-          background: mode === "mask"
-            ? "linear-gradient(90deg,#6366F1,#818CF8)"
-            : "linear-gradient(90deg,#818CF8,#6366F1)",
-          color: "#fff",
-        }}
-      >
-        {pending ? "Traitement…" : mode === "mask" ? "Masquer la signature IA" : "Injecter une signature IA"}
-      </button>
-
-      {/* feedback */}
-      {result && (
-        <div
-          className={`rounded-xl px-4 py-3 text-sm ${
-            result.ok
-              ? "bg-indigo-500/10 border border-indigo-500/25 text-indigo-200"
-              : "bg-red-500/10 border border-red-500/25 text-red-300"
-          }`}
-        >
-          {result.ok
-            ? `✓ ${result.count} fichier${(result.count ?? 0) > 1 ? "s" : ""} traité${(result.count ?? 0) > 1 ? "s" : ""}.`
-            : `✗ ${result.error}`}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── page ── */
-export default function AiDetectionPage() {
-  const [sessionFiles, setSessionFiles] = useState<string[]>([]);
-
-  function addFiles(files: string[]) {
-    setSessionFiles((prev) => [...prev, ...files]);
+  function handleDelete() {
+    if (!sessionFiles.length) return;
+    startDeleteTransition(async () => {
+      await deleteAiFiles(sessionFiles);
+      setSessionFiles([]);
+    });
   }
 
   const downloadUrl = sessionFiles.length
@@ -157,88 +185,143 @@ export default function AiDetectionPage() {
     : "/api/out/zip";
 
   return (
-    <main className="p-6 space-y-8 max-w-4xl">
+    <main className="p-6 space-y-8 max-w-3xl">
       {/* header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-white">
           Détection IA — Métadonnées
         </h1>
         <p className="text-sm text-white/50 mt-1">
-          Manipule les métadonnées de tes fichiers pour contrôler leur signature IA.
-          Aucune modification visuelle — uniquement les informations internes du fichier.
+          Efface intégralement les métadonnées IA (EXIF, XMP, IPTC, C2PA) et les remplace par une identité humaine réaliste.
         </p>
       </div>
 
-      {/* info banner */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.025] px-5 py-4 text-sm text-white/60 flex gap-3 items-start">
-        <svg className="h-4 w-4 mt-0.5 shrink-0 text-white/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+      {/* notice : détection contenu */}
+      <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] px-5 py-4 text-sm text-amber-200/70 flex gap-3 items-start">
+        <svg className="h-4 w-4 mt-0.5 shrink-0 text-amber-400/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        <div>
+          <p className="text-amber-200/80 font-medium mb-0.5">Remarque sur la détection des plateformes</p>
+          <p>
+            Ce module supprime toutes les métadonnées IA — y compris les manifestes C2PA utilisés par Meta/Threads.
+            Certaines plateformes utilisent aussi une <span className="text-amber-200/90">détection basée sur le contenu visuel</span> (pixels, patterns) indépendante des métadonnées.
+            Pour contourner cette couche, utilise le module <strong className="text-amber-200/80">Duplication Images</strong> afin d'appliquer des micro-variations visuelles.
+          </p>
+        </div>
+      </div>
+
+      {/* info */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.025] px-5 py-4 text-sm text-white/55 flex gap-3 items-start">
+        <svg className="h-4 w-4 mt-0.5 shrink-0 text-white/35" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
         </svg>
         <p>
-          Les fichiers traités sont enregistrés dans ton dossier de sortie. Seules les métadonnées sont modifiées —
-          le contenu visuel reste identique à 100%.
+          Processus en 2 étapes : <strong className="text-white/70">1)</strong> suppression totale de toutes les métadonnées (EXIF, XMP, IPTC, C2PA/JUMBF),
+          puis <strong className="text-white/70">2)</strong> injection d'une identité humaine réaliste avec une date photo cohérente. Aucune modification visuelle.
         </p>
       </div>
 
-      {/* 2 switches */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SwitchPanel
-          mode="mask"
-          title="Masquer la signature IA"
-          subtitle="Remplace les métadonnées IA par une identité humaine réaliste (appareil photo, logiciel, photographe)."
-          accent="border-indigo-500/20"
-          onFilesProcessed={addFiles}
-          icon={
+      {/* panel */}
+      <div className="rounded-2xl border border-indigo-500/20 bg-white/[0.03] p-6 flex flex-col gap-5">
+        {/* header du panel */}
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center shrink-0">
             <svg className="h-5 w-5 text-indigo-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-              <path d="m15 5 4 4"/>
+              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+              <path d="m15 5 4 4" />
             </svg>
-          }
-        />
+          </div>
+          <div>
+            <h2 className="font-semibold text-white text-base">Masquer la signature IA</h2>
+            <p className="text-sm text-white/50 mt-0.5">
+              Remplace toutes les métadonnées IA par une identité humaine réaliste — appareil photo, logiciel, photographe, date.
+            </p>
+          </div>
+        </div>
 
-        <SwitchPanel
-          mode="inject"
-          title="Injecter une signature IA"
-          subtitle="Ajoute les métadonnées d'une plateforme IA connue (Midjourney, DALL-E, Runway…) dans ton fichier."
-          accent="border-indigo-500/20"
-          onFilesProcessed={addFiles}
-          icon={
-            <svg className="h-5 w-5 text-indigo-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/><path d="M18 2v4h4"/>
-            </svg>
-          }
-        />
+        {/* dropzone + previews */}
+        <FileDropzone files={files} onChange={handleFilesChange} limitError={limitError} />
+
+        {/* bouton traitement */}
+        <button
+          onClick={handleSubmit}
+          disabled={pending || !files.length}
+          className="h-11 rounded-xl font-medium text-sm transition disabled:opacity-40 disabled:cursor-not-allowed text-white"
+          style={{ background: "linear-gradient(90deg,#6366F1,#818CF8)" }}
+        >
+          {pending ? "Traitement en cours…" : `Masquer la signature IA${files.length ? ` (${files.length} fichier${files.length > 1 ? "s" : ""})` : ""}`}
+        </button>
+
+        {/* feedback */}
+        {result && (
+          <div
+            className={`rounded-xl px-4 py-3 text-sm ${
+              result.ok
+                ? "bg-indigo-500/10 border border-indigo-500/25 text-indigo-200"
+                : "bg-red-500/10 border border-red-500/25 text-red-300"
+            }`}
+          >
+            {result.ok
+              ? `✓ ${result.count} fichier${(result.count ?? 0) > 1 ? "s" : ""} traité${(result.count ?? 0) > 1 ? "s" : ""} — métadonnées effacées et réécrites.`
+              : `✗ ${result.error}`}
+          </div>
+        )}
       </div>
 
-      {/* download section */}
-      <div className="pt-2 space-y-3">
+      {/* section téléchargement + suppression */}
+      <div className="space-y-3">
         {sessionFiles.length > 0 && (
           <div className="rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
-            <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Fichiers traités cette session</p>
+            <p className="text-xs text-white/40 uppercase tracking-wider mb-2">
+              Fichiers traités cette session ({sessionFiles.length})
+            </p>
             <ul className="space-y-1">
               {sessionFiles.map((name) => (
-                <li key={name} className="flex items-center gap-2 text-sm text-white/70">
+                <li key={name} className="flex items-center gap-2">
                   <svg className="h-3.5 w-3.5 text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M20 6 9 17l-5-5"/>
+                    <path d="M20 6 9 17l-5-5" />
                   </svg>
-                  <span className="font-mono text-xs">{name}</span>
+                  <span className="font-mono text-xs text-white/60">{name}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        <a
-          href={downloadUrl}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] transition"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          {sessionFiles.length > 0
-            ? `Télécharger les fichiers traités (${sessionFiles.length})`
-            : "Télécharger tous les fichiers (ZIP)"}
-        </a>
+        <div className="flex gap-3 flex-wrap">
+          {/* télécharger */}
+          <a
+            href={downloadUrl}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] transition"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {sessionFiles.length > 0
+              ? `Télécharger (${sessionFiles.length} fichier${sessionFiles.length > 1 ? "s" : ""})`
+              : "Télécharger tous les fichiers (ZIP)"}
+          </a>
+
+          {/* supprimer */}
+          {sessionFiles.length > 0 && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-red-400 border border-red-500/20 bg-red-500/[0.04] hover:bg-red-500/[0.08] transition disabled:opacity-40"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+              </svg>
+              {deleting ? "Suppression…" : `Supprimer les fichiers (${sessionFiles.length})`}
+            </button>
+          )}
+        </div>
       </div>
     </main>
   );
