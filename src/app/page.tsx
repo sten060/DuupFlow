@@ -46,13 +46,29 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-28 pb-24 overflow-hidden bg-[#0B0F1A]">
-      {/* Ambient glows */}
+    <section className="relative flex flex-col items-center text-center px-6 pt-20 pb-32 overflow-hidden bg-[#0B0F1A]">
+      {/* Texture background — dot grid */}
+      <div
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+        }}
+      />
+      {/* Subtle light rays */}
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full opacity-20"
-          style={{ background: "radial-gradient(ellipse, #5B5BEA 0%, transparent 70%)" }} />
-        <div className="absolute top-20 right-1/4 w-[400px] h-[300px] rounded-full opacity-10"
-          style={{ background: "radial-gradient(ellipse, #38BDF8 0%, transparent 70%)" }} />
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px]"
+          style={{ background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(99,102,241,0.18) 0%, transparent 80%)" }}
+        />
+        <div
+          className="absolute top-1/4 left-1/4 w-[500px] h-[400px]"
+          style={{ background: "radial-gradient(ellipse, rgba(56,189,248,0.07) 0%, transparent 70%)" }}
+        />
+        <div
+          className="absolute top-10 right-1/4 w-[300px] h-[300px]"
+          style={{ background: "radial-gradient(ellipse, rgba(139,92,246,0.08) 0%, transparent 70%)" }}
+        />
       </div>
 
       <Reveal>
@@ -328,8 +344,8 @@ function FeatureTabs() {
   const desc = TAB_DESCS[active];
 
   return (
-    <section className="px-6 pb-24 bg-[#0E1325]">
-      <div className="max-w-5xl mx-auto pt-16">
+    <section className="px-6 pb-36 bg-[#0E1325]">
+      <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           {/* Tab bar */}
           <div className="flex overflow-x-auto gap-1 p-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] mb-8 scrollbar-none">
@@ -369,13 +385,14 @@ function FeatureTabs() {
               <h3 className="text-2xl font-bold text-white mb-3">{desc.title}</h3>
               <p className="text-white/55 leading-relaxed mb-6">{desc.desc}</p>
               <Link
-                href="/dashboard"
+                href="/register"
                 className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition"
               >
                 Essayer maintenant →
               </Link>
             </div>
-            <div className="rounded-2xl border border-white/[0.10] bg-white/[0.025] p-5 backdrop-blur-sm">
+            {/* Fixed-height mockup panel — prevents layout shift on tab change */}
+            <div className="rounded-2xl border border-white/[0.10] bg-white/[0.025] p-5 backdrop-blur-sm overflow-hidden" style={{ minHeight: "480px" }}>
               {MOCKUPS[active]}
             </div>
           </div>
@@ -504,8 +521,8 @@ function MiniImageDupMockup() {
 
 function CoreFeatures() {
   return (
-    <section id="features" className="px-6 pb-28 bg-[#0B0F1A]">
-      <div className="max-w-5xl mx-auto pt-16">
+    <section id="features" className="px-6 pb-36 bg-[#0B0F1A]">
+      <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">
             Fonctionnalités clés
@@ -573,8 +590,8 @@ const STATS = [
 
 function StatsBanner() {
   return (
-    <section className="px-6 pb-28 bg-[#0E1325]">
-      <div className="max-w-5xl mx-auto pt-16">
+    <section className="px-6 pb-36 bg-[#0E1325]">
+      <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {STATS.map((s) => (
@@ -628,8 +645,8 @@ function FAQ() {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <section id="faq" className="px-6 pb-28 bg-[#0B0F1A]">
-      <div className="max-w-5xl mx-auto pt-16">
+    <section id="faq" className="px-6 pb-36 bg-[#0B0F1A]">
+      <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <div className="grid md:grid-cols-[2fr_3fr] gap-16">
             {/* Left — title */}
@@ -681,8 +698,8 @@ function FAQ() {
  * ═══════════════════════════════════════════════════════ */
 function CTABanner() {
   return (
-    <section className="px-6 pb-28 bg-[#0E1325]">
-      <div className="max-w-5xl mx-auto pt-16">
+    <section className="px-6 pb-36 bg-[#0E1325]">
+      <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <div
             className="relative rounded-3xl overflow-hidden p-12 text-center"
