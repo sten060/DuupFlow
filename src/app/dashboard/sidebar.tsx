@@ -2,7 +2,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 const NAV_ITEMS = [
   {
@@ -74,7 +76,6 @@ function Item({
   badge?: string;
 }) {
   const pathname = usePathname();
-  // Active si chemin exact ou sous-chemin (pour /dashboard/videos/simple etc)
   const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 
   return (
@@ -95,18 +96,13 @@ function Item({
           : {}
       }
     >
-      {/* Icon */}
       <span
         className={active ? "text-indigo-300" : "text-white/35"}
         style={active ? { filter: "drop-shadow(0 0 4px rgba(99,102,241,0.7))" } : {}}
       >
         {icon}
       </span>
-
-      {/* Label */}
       <span className="flex-1 leading-tight">{label}</span>
-
-      {/* Badge BETA */}
       {badge && (
         <span
           className="text-[9px] font-bold px-1.5 py-0.5 rounded"
@@ -119,8 +115,6 @@ function Item({
           {badge}
         </span>
       )}
-
-      {/* Active dot */}
       {active && (
         <span
           className="h-1.5 w-1.5 rounded-full shrink-0"
@@ -135,12 +129,74 @@ function Item({
 }
 
 export default function Sidebar() {
+  const router = useRouter();
+  const supabase = createClient();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null);
+    });
+  }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
   return (
-    <nav className="flex-1 px-3 pb-6 space-y-0.5">
-      <p className="text-[10px] tracking-[0.15em] text-white/25 uppercase px-3 mb-3">Menu</p>
-      {NAV_ITEMS.map((item) => (
-        <Item key={item.href} {...item} />
-      ))}
-    </nav>
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Nav items */}
+      <nav className="flex-1 px-3 pb-4 space-y-0.5 overflow-y-auto">
+        <p className="text-[10px] tracking-[0.15em] text-white/25 uppercase px-3 mb-3">Menu</p>
+        {NAV_ITEMS.map((item) => (
+          <Item key={item.href} {...item} />
+        ))}
+      </nav>
+
+      {/* Bottom section */}
+      <div className="px-3 pb-5 shrink-0">
+        <div className="mx-2 mb-3" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
+
+        {/* Paramètres */}
+        <Link
+          href="/dashboard/settings"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/40 hover:text-white/70 hover:bg-white/[0.04] transition-all w-full"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+          <span>Paramètres</span>
+        </Link>
+
+        {/* User email */}
+        {userEmail && (
+          <div className="flex items-center gap-2 px-3 py-2 mt-0.5">
+            <div
+              className="h-6 w-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold"
+              style={{ background: "rgba(99,102,241,0.25)", color: "#818CF8" }}
+            >
+              {userEmail[0].toUpperCase()}
+            </div>
+            <span className="text-xs text-white/30 truncate flex-1">{userEmail}</span>
+          </div>
+        )}
+
+        {/* Déconnexion */}
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/35 hover:text-red-400/80 hover:bg-red-500/[0.06] transition-all w-full mt-0.5"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          <span>Déconnexion</span>
+        </button>
+      </div>
+    </div>
   );
 }
