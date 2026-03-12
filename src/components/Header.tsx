@@ -11,7 +11,7 @@ function NavLink({ href, label }: { href: string; label: string }) {
     <a
       href={href}
       className={[
-        "group relative px-3 py-2 rounded-lg text-sm transition",
+        "px-3 py-2 rounded-lg text-sm transition",
         active ? "text-white" : "text-white/60 hover:text-white/90",
       ].join(" ")}
     >
@@ -23,10 +23,10 @@ function NavLink({ href, label }: { href: string; label: string }) {
 export default function Header() {
   return (
     <div className="sticky top-4 z-40">
-      <div className="max-w-5xl mx-auto px-4">
+      <div className="max-w-6xl mx-auto px-6">
         <div
-          className="flex items-center justify-between px-5 py-3 rounded-2xl border border-white/[0.10] backdrop-blur-md"
-          style={{ background: "rgba(11,15,26,0.80)", boxShadow: "0 8px 30px rgba(0,0,0,.35)" }}
+          className="flex items-center justify-between px-8 py-3 rounded-full border border-white/[0.14] backdrop-blur-xl"
+          style={{ background: "rgba(11,15,26,0.20)" }}
         >
           {/* Logo */}
           <Link href="/" className="text-lg font-extrabold tracking-tight shrink-0">
@@ -35,20 +35,27 @@ export default function Header() {
           </Link>
 
           {/* Nav */}
-          <nav className="hidden md:flex items-center gap-1">
-            <NavLink href="#features" label="Fonctionnalités" />
-            <NavLink href="#how" label="Comment ça marche" />
-            <NavLink href="#faq" label="FAQ" />
+          <nav className="hidden md:flex items-center gap-0.5">
+            <NavLink href="/#features" label="Fonctionnalités" />
+            <NavLink href="/comment-ca-marche" label="Comment ça marche" />
+            <NavLink href="/product" label="Tarifs" />
+            <NavLink href="/#faq" label="FAQ" />
           </nav>
 
           {/* CTA */}
           <div className="flex items-center gap-2">
             <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-medium text-white/70 hover:text-white transition border border-white/[0.12] hover:border-white/25 hover:bg-white/[0.04]"
+            >
+              Connexion
+            </Link>
+            <Link
               href="/dashboard"
-              className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+              className="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90"
               style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
             >
-              Accéder →
+              S&apos;inscrire →
             </Link>
           </div>
         </div>
