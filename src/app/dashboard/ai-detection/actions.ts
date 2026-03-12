@@ -9,25 +9,14 @@ import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 /* ── constants ── */
 const SUPPORTED_EXTS = [".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov", ".mkv", ".avi", ".webm"];
 
-const AI_PLATFORMS = [
-  { software: "Midjourney v6.1", artist: "Midjourney Bot", creator: "midjourney.com" },
-  { software: "DALL-E 3 / OpenAI", artist: "DALL-E", creator: "openai.com" },
-  { software: "Stable Diffusion XL", artist: "Stability AI", creator: "stability.ai" },
-  { software: "Runway Gen-3 Alpha", artist: "Runway ML", creator: "runwayml.com" },
-  { software: "Kling AI v1.5", artist: "Kling AI", creator: "klingai.com" },
-  { software: "Pika 2.0", artist: "Pika Labs", creator: "pika.art" },
-  { software: "Higgsfield AI", artist: "Higgsfield", creator: "higgsfield.ai" },
-  { software: "Adobe Firefly 3", artist: "Adobe Firefly", creator: "firefly.adobe.com" },
-  { software: "Leonardo.ai Phoenix", artist: "Leonardo AI", creator: "leonardo.ai" },
-  { software: "Ideogram v2", artist: "Ideogram AI", creator: "ideogram.ai" },
-];
-
 const HUMAN_CAMERAS = [
   { make: "Canon", model: "EOS R6 Mark II" },
   { make: "Sony", model: "A7 IV" },
   { make: "Nikon", model: "Z8" },
   { make: "Fujifilm", model: "X-T5" },
   { make: "Apple", model: "iPhone 15 Pro" },
+  { make: "Google", model: "Pixel 8 Pro" },
+  { make: "Samsung", model: "Galaxy S24 Ultra" },
 ];
 
 const HUMAN_SOFTWARE = [
@@ -37,12 +26,13 @@ const HUMAN_SOFTWARE = [
   "DaVinci Resolve 19",
   "Final Cut Pro 11.6",
   "Luminar Neo 1.18",
+  "Snapseed 2.21",
 ];
 
 const HUMAN_NAMES = [
   "Alex Martin", "Sophie Renaud", "Jordan Lee", "Emma Dubois",
   "Lucas Bernard", "Camille Thomas", "Noah Petit", "Léa Moreau",
-  "Antoine Durand", "Manon Lefebvre",
+  "Antoine Durand", "Manon Lefebvre", "Hugo Blanc", "Chloé Simon",
 ];
 
 function pick<T>(arr: T[]): T {
@@ -58,18 +48,16 @@ function extOf(name: string) {
   return i >= 0 ? name.slice(i).toLowerCase() : "";
 }
 
-function isSupported(name: string) {
-  return SUPPORTED_EXTS.includes(extOf(name));
-}
-
 function todayStamp() {
   const d = new Date();
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /* ─────────────────────────────────────────────
- * SWITCH 1 — AI → Masquer (appear non-AI)
- * Replace AI metadata with human-like metadata
+ * MASK — Efface TOUTES les métadonnées IA et
+ * réinjecte une identité humaine réaliste.
+ * Étape 1 : -all= pour vider EXIF/XMP/IPTC/C2PA
+ * Étape 2 : réécriture metadata humaine propre
  * ───────────────────────────────────────────── */
 export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean; count: number; files: string[]; error?: string }> {
   const files = formData.getAll("files") as File[];
@@ -90,51 +78,55 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
     const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${ext}`;
     const outPath = path.join(dir, outName);
 
-    // Write file first
     await fs.writeFile(outPath, buf);
     outFiles.push(outName);
 
-    // Pick random human identity
+    /* ── Étape 1 : suppression totale de toutes les métadonnées ── */
+    /* -all= supprime EXIF, XMP, IPTC, MakerNotes, C2PA/JUMBF, etc. */
+    try {
+      await exiftool.write(outPath, {} as any, ["-all=", "-overwrite_original"]);
+    } catch {
+      /* certains formats peuvent refuser la suppression complète, on continue */
+    }
+
+    /* ── Étape 2 : injection d'une identité humaine propre ── */
     const cam = pick(HUMAN_CAMERAS);
     const software = pick(HUMAN_SOFTWARE);
     const artist = pick(HUMAN_NAMES);
     const now = new Date();
-    const exifDate = now.toISOString().replace(/[-:]/g, "").split(".")[0];
+    // Date aléatoire dans les 6 derniers mois pour paraître réaliste
+    const randomDaysAgo = Math.floor(Math.random() * 180);
+    const photoDate = new Date(now.getTime() - randomDaysAgo * 86400000);
+    const exifDate = photoDate.toISOString().replace(/[-:]/g, "").split(".")[0];
 
     try {
       await exiftool.write(
         outPath,
         {
-          // Erase AI traces
           Software: software,
           Artist: artist,
           Creator: artist,
           Author: artist,
           Make: cam.make,
           Model: cam.model,
-          // Reset dates to look like a real camera shoot
-          AllDates: exifDate,
           DateTimeOriginal: exifDate,
           CreateDate: exifDate,
           ModifyDate: exifDate,
-          // Generic metadata
-          XPTitle: `Photo_${randHex(2)}`,
+          XPTitle: `IMG_${randHex(2).toUpperCase()}`,
           XPComment: "original",
           XPAuthor: artist,
-          // Wipe common AI generator fields
           ["XMP-dc:Creator"]: artist,
-          ["XMP-dc:Rights"]: `© ${now.getFullYear()} ${artist}`,
+          ["XMP-dc:Rights"]: `© ${photoDate.getFullYear()} ${artist}`,
           ["XMP-xmp:CreatorTool"]: software,
-          ["XMP-xmp:ModifyDate"]: now.toISOString(),
-          // Clear any AI-specific fields
-          ["XMP-plus:LicensorName"]: undefined as any,
-          ["XMP-iptcExt:DigitalSourceType"]: undefined as any,
-          ["XMP-iptcExt:ArtworkOrObject"]: undefined as any,
+          ["XMP-xmp:CreateDate"]: photoDate.toISOString(),
+          ["XMP-xmp:ModifyDate"]: photoDate.toISOString(),
+          // Champ IPTC crucial que Meta/Threads vérifie
+          ["XMP-iptcExt:DigitalSourceType"]: "http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture",
         } as any,
         ["-overwrite_original"]
       );
     } catch {
-      // exiftool may not support all fields for all formats, continue anyway
+      /* continue si le format ne supporte pas tous les champs */
     }
 
     count++;
@@ -144,67 +136,22 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
 }
 
 /* ─────────────────────────────────────────────
- * SWITCH 2 — Normal → Injecter IA (appear AI-generated)
- * Replace metadata with a known AI platform signature
+ * DELETE — Supprime les fichiers d'une session
  * ───────────────────────────────────────────── */
-export async function injectAiMetadata(formData: FormData): Promise<{ ok: boolean; count: number; files: string[]; error?: string }> {
-  const files = formData.getAll("files") as File[];
-  if (!files.length) return { ok: false, count: 0, files: [], error: "Aucun fichier reçu." };
-
+export async function deleteAiFiles(fileNames: string[]): Promise<{ ok: boolean; deleted: number }> {
   const { dir } = await getOutDirForCurrentUser();
-  await fs.mkdir(dir, { recursive: true });
+  let deleted = 0;
 
-  let count = 0;
-  const outFiles: string[] = [];
-  const stamp = todayStamp();
-
-  for (const f of files) {
-    const ext = extOf(f.name);
-    if (!SUPPORTED_EXTS.includes(ext)) continue;
-
-    const buf = Buffer.from(await f.arrayBuffer());
-    const outName = `DuupFlow_${stamp}_aimark_${randHex(3)}${ext}`;
-    const outPath = path.join(dir, outName);
-
-    // Write file first
-    await fs.writeFile(outPath, buf);
-    outFiles.push(outName);
-
-    // Pick random AI platform
-    const platform = pick(AI_PLATFORMS);
-    const now = new Date();
-    const exifDate = now.toISOString().replace(/[-:]/g, "").split(".")[0];
-
+  for (const name of fileNames) {
+    // Sécurité : interdire les traversées de répertoire
+    if (name.includes("/") || name.includes("\\") || name.includes("..")) continue;
     try {
-      await exiftool.write(
-        outPath,
-        {
-          Software: platform.software,
-          Artist: platform.artist,
-          Creator: platform.creator,
-          Author: platform.artist,
-          Make: platform.creator,
-          Model: platform.software,
-          AllDates: exifDate,
-          CreateDate: exifDate,
-          ModifyDate: exifDate,
-          XPTitle: `AI_${randHex(2)}`,
-          XPComment: "ai-generated",
-          XPAuthor: platform.artist,
-          ["XMP-dc:Creator"]: platform.artist,
-          ["XMP-dc:Rights"]: `AI-generated by ${platform.creator}`,
-          ["XMP-xmp:CreatorTool"]: platform.software,
-          ["XMP-xmp:ModifyDate"]: now.toISOString(),
-          ["XMP-iptcExt:DigitalSourceType"]: "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
-        } as any,
-        ["-overwrite_original"]
-      );
+      await fs.unlink(path.join(dir, name));
+      deleted++;
     } catch {
-      // continue
+      /* fichier déjà supprimé ou inexistant */
     }
-
-    count++;
   }
 
-  return { ok: true, count, files: outFiles };
+  return { ok: true, deleted };
 }
