@@ -7,9 +7,6 @@ import { useState, useRef, useEffect } from "react";
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
 /* Section background — gradient fade in/out (very subtle tint) */
-const BG_ALT: React.CSSProperties = {
-  background: "linear-gradient(180deg, #0B0F1A 0%, #0D1124 10%, #0D1124 90%, #0B0F1A 100%)",
-};
 
 /* ─── Scroll Reveal (curtain effect) ─── */
 function useReveal() {
@@ -51,24 +48,7 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-20 pb-32 overflow-hidden bg-[#0B0F1A]">
-      {/* Texture — dot grid */}
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)",
-          backgroundSize: "32px 32px",
-        }}
-      />
-      {/* Light rays */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px]"
-          style={{ background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(99,102,241,0.18) 0%, transparent 80%)" }} />
-        <div className="absolute top-1/4 left-1/4 w-[500px] h-[400px]"
-          style={{ background: "radial-gradient(ellipse, rgba(56,189,248,0.07) 0%, transparent 70%)" }} />
-        <div className="absolute top-10 right-1/4 w-[300px] h-[300px]"
-          style={{ background: "radial-gradient(ellipse, rgba(139,92,246,0.08) 0%, transparent 70%)" }} />
-      </div>
+    <section className="relative flex flex-col items-center text-center px-6 pt-20 pb-32 overflow-hidden">
 
       <Reveal>
         <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-4 py-1.5 text-sm text-white/70">
@@ -111,7 +91,7 @@ function Hero() {
  * ═══════════════════════════════════════════════════════ */
 function ProblemSolution() {
   return (
-    <section className="px-6 pb-36" style={BG_ALT}>
+    <section className="px-6 pb-36">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           {/* Label */}
@@ -121,7 +101,7 @@ function ProblemSolution() {
             </span>
           </div>
 
-          <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-4 tracking-tight">
+          <h2 className="text-3xl md:text-4xl font-semibold text-white text-center mb-4 tracking-tight">
             Tes meilleurs contenus méritent{" "}
             <span className={G}>d&apos;exister plus longtemps.</span>
           </h2>
@@ -141,7 +121,7 @@ function ProblemSolution() {
                     <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                   </svg>
                 </div>
-                <h3 className="font-bold text-white text-base">Le Problème</h3>
+                <h3 className="font-semibold text-white text-base">Le Problème</h3>
               </div>
               <p className="text-white/55 text-sm leading-relaxed mb-5">
                 Instagram, TikTok, YouTube analysent l&apos;empreinte de chaque upload.
@@ -163,7 +143,7 @@ function ProblemSolution() {
                     <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="font-bold text-white text-base">La Solution DuupFlow</h3>
+                <h3 className="font-semibold text-white text-base">La Solution DuupFlow</h3>
               </div>
               <p className="text-white/55 text-sm leading-relaxed mb-5">
                 DuupFlow régénère l&apos;empreinte numérique de chaque copie — métadonnées EXIF/XMP
@@ -378,7 +358,7 @@ function FeatureTabs() {
   const desc = TAB_DESCS[active];
 
   return (
-    <section className="px-6 pb-36 bg-[#0B0F1A]">
+    <section className="px-6 pb-36">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <div className="flex overflow-x-auto gap-1 p-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] mb-8 scrollbar-none">
@@ -397,7 +377,7 @@ function FeatureTabs() {
           </div>
           <div className="grid md:grid-cols-[1fr_360px] gap-8 items-start">
             <div className="py-4">
-              <h3 className="text-2xl font-bold text-white mb-3">{desc.title}</h3>
+              <h3 className="text-2xl font-semibold text-white mb-3">{desc.title}</h3>
               <p className="text-white/55 leading-relaxed mb-6">{desc.desc}</p>
               <Link href="/register" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">Essayer maintenant →</Link>
             </div>
@@ -656,7 +636,7 @@ function FeatureRow({
           <div className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold mb-5 ${badgeColor}`}>
             {badge}
           </div>
-          <h3 className="text-3xl font-bold text-white mb-4 tracking-tight leading-[1.15]">{title}</h3>
+          <h3 className="text-3xl font-semibold text-white mb-4 tracking-tight leading-[1.15]">{title}</h3>
           <p className="text-white/50 text-base leading-relaxed mb-7">{subtitle}</p>
           <ul className="space-y-3.5">
             {bullets.map((b, i) => (
@@ -681,11 +661,11 @@ function FeatureRow({
 
 function CoreFeaturesAlt() {
   return (
-    <section id="features" className="px-6 pb-20" style={BG_ALT}>
+    <section id="features" className="px-6 pb-20">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3 text-center">Fonctionnalités</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight text-center">
+          <h2 className="text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight text-center">
             Quatre modules. <span className={G}>Un seul objectif.</span>
           </h2>
           <p className="text-white/45 text-base max-w-lg mx-auto text-center">
@@ -763,13 +743,13 @@ const STATS = [
 
 function StatsBanner() {
   return (
-    <section className="px-6 pb-36 bg-[#0B0F1A]">
+    <section className="px-6 pb-36">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {STATS.map((s) => (
               <div key={s.label}>
-                <div className={`text-3xl font-extrabold mb-1 ${G}`}>{s.val}</div>
+                <div className={`text-3xl font-semibold mb-1 ${G}`}>{s.val}</div>
                 <div className="text-xs text-white/40 uppercase tracking-wider">{s.label}</div>
               </div>
             ))}
@@ -796,13 +776,13 @@ const FAQS = [
 function FAQ() {
   const [open, setOpen] = useState<number | null>(null);
   return (
-    <section id="faq" className="px-6 pb-36" style={BG_ALT}>
+    <section id="faq" className="px-6 pb-36">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <div className="grid md:grid-cols-[2fr_3fr] gap-16">
             <div className="md:sticky md:top-28 self-start">
               <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">FAQ</p>
-              <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight leading-[1.1]">Questions fréquentes</h2>
+              <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight leading-[1.1]">Questions fréquentes</h2>
               <p className="text-white/40 text-sm mt-4 leading-relaxed">Tu as d&apos;autres questions ? Contacte-nous par email ou via le chat intégré.</p>
             </div>
             <div className="divide-y divide-white/[0.08]">
@@ -832,7 +812,7 @@ function FAQ() {
  * ═══════════════════════════════════════════════════════ */
 function CTABanner() {
   return (
-    <section className="px-6 pb-36 bg-[#0B0F1A]">
+    <section className="px-6 pb-36">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <div className="relative rounded-3xl overflow-hidden p-14 text-center"
@@ -840,7 +820,7 @@ function CTABanner() {
             <div className="pointer-events-none absolute inset-0 border border-white/[0.10] rounded-3xl" />
             <div className="pointer-events-none absolute inset-0"
               style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight relative">
+            <h2 className="text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight relative">
               Prêt à scaler ton contenu ?
             </h2>
             <p className="text-white/50 mb-8 max-w-md mx-auto relative">
@@ -867,7 +847,7 @@ function CTABanner() {
 /* ─── FOOTER ─── */
 function Footer() {
   return (
-    <footer className="px-6 pb-10 border-t border-white/[0.06] bg-[#0B0F1A]">
+    <footer className="px-6 pb-10 border-t border-white/[0.06]">
       <div className="max-w-5xl mx-auto pt-10 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="text-sm font-bold tracking-tight">
           <span style={{ color: "#818CF8" }}>Duup</span>

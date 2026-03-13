@@ -18,7 +18,24 @@ export default function RootLayout({
 
   return (
     <html lang="fr">
-      <body className="bg-[#0B0F1A] text-white">
+      <body className="text-white antialiased">
+        {/* ── Fixed background: deep blue gradient + white grid ── */}
+        <div
+          className="fixed inset-0 -z-20 pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(180deg, #060c1e 0%, #0c1c80 22%, #1535c0 48%, #2d6ae8 72%, #70b0f8 100%)",
+          }}
+        />
+        <div
+          className="fixed inset-0 -z-20 pointer-events-none"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px)",
+            backgroundSize: "46px 46px",
+          }}
+        />
+
         {showHeader && <Header />}
         {/* Spacer so fixed header doesn't overlap content */}
         {showHeader && <div className="h-20" />}
