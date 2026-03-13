@@ -154,15 +154,15 @@ function TestimonialsCarousel() {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        .marquee-track { animation: marquee 40s linear infinite; }
+        .marquee-track { animation: marquee 80s linear infinite; }
         .marquee-track:hover { animation-play-state: paused; }
       `}</style>
 
       {/* Fade edges */}
-      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-24 z-10"
-        style={{ background: "linear-gradient(90deg, rgba(6,12,30,1) 0%, transparent 100%)" }} />
-      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-24 z-10"
-        style={{ background: "linear-gradient(270deg, rgba(6,12,30,1) 0%, transparent 100%)" }} />
+      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-40 z-10"
+        style={{ background: "linear-gradient(90deg, rgba(6,12,30,1) 0%, rgba(6,12,30,0.9) 60%, transparent 100%)" }} />
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-40 z-10"
+        style={{ background: "linear-gradient(270deg, rgba(6,12,30,1) 0%, rgba(6,12,30,0.9) 60%, transparent 100%)" }} />
 
       <div className="marquee-track flex gap-4" style={{ width: "max-content" }}>
         {/* Render twice for seamless loop */}
