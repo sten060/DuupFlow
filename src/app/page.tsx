@@ -108,9 +108,8 @@ function ProblemSolution() {
                   <h3 className="font-semibold text-white text-base">Le Problème</h3>
                 </div>
                 <p className="text-white/75 text-sm leading-relaxed mb-5">
-                  Instagram, TikTok, YouTube analysent l&apos;empreinte de chaque upload.
-                  Si ton fichier correspond à un contenu déjà indexé — même renommé,
-                  même légèrement compressé — l&apos;algorithme te pénalise en silence.
+                  Les plateformes détectent chaque doublon — même renommé, même recompressé.
+                  Résultat : shadowban silencieux dès la 2e publication.
                 </p>
                 <div className="rounded-xl border border-red-500/15 bg-red-500/[0.06] px-4 py-3">
                   <p className="text-sm font-semibold text-red-300">
@@ -130,9 +129,8 @@ function ProblemSolution() {
                   <h3 className="font-semibold text-white text-base">La Solution DuupFlow</h3>
                 </div>
                 <p className="text-white/75 text-sm leading-relaxed mb-5">
-                  DuupFlow régénère l&apos;empreinte numérique de chaque copie — métadonnées EXIF/XMP
-                  uniques, ré-encodage vidéo, micro-variations imperceptibles. Les algorithmes
-                  analysent un fichier techniquement nouveau à chaque fois.
+                  DuupFlow régénère l&apos;empreinte de chaque copie — métadonnées uniques,
+                  ré-encodage vidéo, micro-variations invisibles. Techniquement nouveau à chaque fois.
                 </p>
                 <div className="rounded-xl border border-indigo-500/15 bg-indigo-500/[0.06] px-4 py-3">
                   <p className="text-sm font-semibold text-indigo-300">
@@ -333,7 +331,7 @@ const TAB_DESCS: Record<string, { title: string; desc: string }> = {
   images: { title: "Duplication d'images sans limite", desc: "Importe n'importe quelle image, choisis le nombre de copies, et DuupFlow génère autant de fichiers uniques que tu veux — avec des métadonnées différentes à chaque fois." },
   videos: { title: "Vidéos ré-encodées, indétectables", desc: "Chaque copie est ré-encodée avec des paramètres légèrement différents (FPS, GOP, bitrate, codec). Aux yeux d'Instagram ou TikTok, c'est un nouveau fichier." },
   comparator: { title: "Mesure la différence entre deux contenus", desc: "Compare deux fichiers et obtiens un score de similarité précis. Plus le % est bas, plus les contenus sont différents — et plus tu es protégé contre les filtres de duplication." },
-  ai: { title: "Contrôle la signature IA de ton contenu", desc: "Masque les traces d'une génération IA pour faire paraître un contenu humain. Ou injecte les métadonnées d'une plateforme IA connue. Uniquement dans les métadonnées — aucune modification visuelle." },
+  ai: { title: "Masque la signature IA de ton contenu", desc: "Remplace les métadonnées d'un contenu généré par IA par une identité humaine réaliste. Aucune modification visuelle — seule l'empreinte numérique change." },
 };
 
 function FeatureTabs() {
@@ -720,11 +718,11 @@ function CoreFeaturesAlt() {
         <FeatureRow
           badge="🤖 Détection IA"
           badgeColor="border border-amber-500/25 bg-amber-500/[0.08] text-amber-300"
-          title={<>Masque ou{" "}<span className={G}>injecte</span>{" "}une signature IA.</>}
-          subtitle="Remplace les métadonnées d'un contenu généré par IA par une identité humaine réaliste. Ou injecte les signatures d'une plateforme IA connue dans n'importe quel fichier. Aucune modification visuelle."
+          title={<>Masque la{" "}<span className={G}>signature IA.</span>{" "}Instantanément.</>}
+          subtitle="Remplace les métadonnées d'un contenu généré par IA par une identité humaine réaliste. Aucune modification visuelle — seule l'empreinte numérique change."
           bullets={[
             "Compatible Midjourney, Runway, Higgsfield, DALL·E",
-            "Remplacement des métadonnées en un clic",
+            "Masquage des métadonnées en un clic",
             "Aucune modification du contenu visuel",
           ]}
           mockup={<AnimAIDet />}
@@ -773,7 +771,7 @@ const FAQS = [
   { q: "Combien de copies puis-je créer d'un seul contenu ?", a: "Il n'y a aucune limite technique. Tu peux générer autant de copies que tu veux en une seule opération. La plupart des agences l'utilisent pour créer entre 5 et 50 variantes par contenu." },
   { q: "Est-ce légal d'utiliser DuupFlow ?", a: "DuupFlow modifie techniquement les fichiers que tu possèdes déjà — il ne crée pas de faux contenus et ne viole pas les droits d'auteur. L'outil est légal ; l'utilisation reste sous ta responsabilité selon les conditions générales de chaque plateforme." },
   { q: "Quels formats de fichiers sont supportés ?", a: "Images : JPG, JPEG, PNG, WEBP, HEIC. Vidéos : MP4, MOV, MKV, AVI, WebM. L'export se fait en JPG/PNG pour les images et MP4 pour les vidéos." },
-  { q: "Le module Détection IA fonctionne-t-il aussi pour les vidéos ?", a: "Oui. Le module Détection IA manipule les métadonnées de tous les formats supportés, y compris MP4, MOV et MKV. Il peut masquer ou injecter des signatures IA dans n'importe quel fichier." },
+  { q: "Le module Détection IA fonctionne-t-il aussi pour les vidéos ?", a: "Oui. Le module Détection IA manipule les métadonnées de tous les formats supportés, y compris MP4, MOV et MKV. Il peut masquer les signatures IA dans n'importe quel fichier." },
   { q: "DuupFlow fonctionne-t-il sur tous les réseaux sociaux ?", a: "Oui — Instagram, TikTok, YouTube, Twitter/X, Threads, Pinterest, Facebook et tout réseau qui analyse les empreintes numériques des fichiers. DuupFlow n'est pas limité à un seul réseau." },
 ];
 
