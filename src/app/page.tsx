@@ -57,17 +57,15 @@ function Hero() {
           <span className="text-white/40">→</span>
         </div>
 
-        <h1 className="max-w-3xl text-5xl md:text-[4rem] font-bold leading-[1.08] tracking-tight text-white mb-5">
-          Le seul outil pour dupliquer
-          <br />
-          ton contenu <span className={G}>en illimité.</span>
+        <h1 className="max-w-5xl text-[2.6rem] md:text-[3.5rem] font-bold leading-[1.08] tracking-tight text-white mb-5">
+          Le seul outil pour dupliquer<br />ton contenu <span className={G}>en illimité.</span>
         </h1>
 
         <p className="text-white/75 text-lg mb-9">
           Métadonnées modifiées automatiquement — chaque fichier unique aux yeux des plateformes.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-10">
+        <div className="flex flex-col sm:flex-row gap-3 mb-10 justify-center">
           <Link href="/register"
             className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
             style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
@@ -95,71 +93,75 @@ function ProblemSolution() {
     <section className="px-6 pb-36">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
-          {/* Label */}
-          <div className="flex justify-center mb-5">
-            <span className="inline-flex items-center gap-2 rounded-full border border-indigo-500/25 bg-indigo-500/[0.08] px-4 py-1.5 text-xs font-semibold text-indigo-400 tracking-wide uppercase">
-              Pourquoi DuupFlow existe
-            </span>
-          </div>
-
-          <h2 className="text-3xl md:text-4xl font-semibold text-white text-center mb-4 tracking-tight">
-            Tes meilleurs contenus méritent{" "}
-            <span className={G}>d&apos;exister plus longtemps.</span>
-          </h2>
-          <p className="text-white/65 text-base text-center max-w-xl mx-auto mb-14">
-            Les plateformes analysent l&apos;empreinte numérique de chaque fichier.
-            Le recyclage de contenu n&apos;est pas une astuce — c&apos;est une stratégie.
-            DuupFlow rend tes copies techniquement indétectables.
-          </p>
-
-          {/* Problem / Solution cards */}
-          <div className="grid md:grid-cols-2 gap-5 mb-6">
-            {/* Problem */}
-            <div className="rounded-2xl border border-red-500/25 p-7" style={{ background: "rgba(30,5,5,0.70)" }}>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="h-9 w-9 rounded-xl bg-red-500/15 border border-red-500/25 flex items-center justify-center">
-                  <svg className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  </svg>
+          {/* Two-column layout: cards left, text right */}
+          <div className="grid md:grid-cols-2 gap-10 mb-6 items-center">
+            {/* LEFT — stacked Problem + Solution cards */}
+            <div className="space-y-4">
+              {/* Problem */}
+              <div className="rounded-2xl border border-red-500/25 p-7" style={{ background: "rgba(30,5,5,0.70)" }}>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="h-9 w-9 rounded-xl bg-red-500/15 border border-red-500/25 flex items-center justify-center">
+                    <svg className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-white text-base">Le Problème</h3>
                 </div>
-                <h3 className="font-semibold text-white text-base">Le Problème</h3>
-              </div>
-              <p className="text-white/75 text-sm leading-relaxed mb-5">
-                Instagram, TikTok, YouTube analysent l&apos;empreinte de chaque upload.
-                Si ton fichier correspond à un contenu déjà indexé — même renommé,
-                même légèrement compressé — l&apos;algorithme te pénalise en silence.
-              </p>
-              <div className="rounded-xl border border-red-500/15 bg-red-500/[0.06] px-4 py-3">
-                <p className="text-sm font-semibold text-red-300">
-                  1 fichier = 1 seule publication. Après ça, shadowban assuré.
+                <p className="text-white/75 text-sm leading-relaxed mb-5">
+                  Instagram, TikTok, YouTube analysent l&apos;empreinte de chaque upload.
+                  Si ton fichier correspond à un contenu déjà indexé — même renommé,
+                  même légèrement compressé — l&apos;algorithme te pénalise en silence.
                 </p>
+                <div className="rounded-xl border border-red-500/15 bg-red-500/[0.06] px-4 py-3">
+                  <p className="text-sm font-semibold text-red-300">
+                    1 fichier = 1 seule publication. Après ça, shadowban assuré.
+                  </p>
+                </div>
+              </div>
+
+              {/* Solution */}
+              <div className="rounded-2xl border border-indigo-500/25 p-7" style={{ background: "rgba(5,8,40,0.75)" }}>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="h-9 w-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
+                    <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-white text-base">La Solution DuupFlow</h3>
+                </div>
+                <p className="text-white/75 text-sm leading-relaxed mb-5">
+                  DuupFlow régénère l&apos;empreinte numérique de chaque copie — métadonnées EXIF/XMP
+                  uniques, ré-encodage vidéo, micro-variations imperceptibles. Les algorithmes
+                  analysent un fichier techniquement nouveau à chaque fois.
+                </p>
+                <div className="rounded-xl border border-indigo-500/15 bg-indigo-500/[0.06] px-4 py-3">
+                  <p className="text-sm font-semibold text-indigo-300">
+                    Scale le même contenu à l&apos;infini. Sans jamais être détecté.
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Solution */}
-            <div className="rounded-2xl border border-indigo-500/25 p-7" style={{ background: "rgba(5,8,40,0.75)" }}>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="h-9 w-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
-                  <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="font-semibold text-white text-base">La Solution DuupFlow</h3>
+            {/* RIGHT — title + description text */}
+            <div>
+              <div className="mb-5">
+                <span className="inline-flex items-center gap-2 rounded-full border border-indigo-500/25 bg-indigo-500/[0.08] px-4 py-1.5 text-xs font-semibold text-indigo-400 tracking-wide uppercase">
+                  Pourquoi DuupFlow existe
+                </span>
               </div>
-              <p className="text-white/75 text-sm leading-relaxed mb-5">
-                DuupFlow régénère l&apos;empreinte numérique de chaque copie — métadonnées EXIF/XMP
-                uniques, ré-encodage vidéo, micro-variations imperceptibles. Les algorithmes
-                analysent un fichier techniquement nouveau à chaque fois.
+              <h2 className="text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
+                Tes meilleurs contenus méritent{" "}
+                <span className={G}>d&apos;exister plus longtemps.</span>
+              </h2>
+              <p className="text-white/65 text-base leading-relaxed">
+                Les plateformes analysent l&apos;empreinte numérique de chaque fichier.
+                Le recyclage de contenu n&apos;est pas une astuce — c&apos;est une stratégie.
+                DuupFlow rend tes copies techniquement indétectables.
               </p>
-              <div className="rounded-xl border border-indigo-500/15 bg-indigo-500/[0.06] px-4 py-3">
-                <p className="text-sm font-semibold text-indigo-300">
-                  Scale le même contenu à l&apos;infini. Sans jamais être détecté.
-                </p>
-              </div>
             </div>
           </div>
 
-          {/* Result banner */}
+          {/* Result banner — full width below */}
           <div
             className="rounded-2xl border border-white/[0.10] p-5 text-center"
             style={{ background: "rgba(8,12,35,0.65)" }}
@@ -884,6 +886,9 @@ export default function LandingPage() {
         <div className="h-px bg-white/[0.12]" />
       </div>
       <ProblemSolution />
+      <div className="max-w-5xl mx-auto px-6">
+        <div className="h-px bg-white/[0.12]" />
+      </div>
       <FeatureTabs />
       <CoreFeaturesAlt />
       <StatsBanner />
