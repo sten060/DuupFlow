@@ -48,7 +48,7 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-20 pb-32 overflow-hidden">
+    <section className="relative flex flex-col items-center text-center px-6 pt-20 pb-48 overflow-hidden">
 
       <Reveal>
         <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-4 py-1.5 text-sm text-white/70">
@@ -91,14 +91,14 @@ function Hero() {
 function ProblemSolution() {
   return (
     <section className="px-6 pb-36">
-      <div className="max-w-5xl mx-auto pt-20">
+      <div className="max-w-6xl mx-auto pt-20">
         <Reveal>
           {/* Two-column layout: cards left, text right */}
-          <div className="grid md:grid-cols-2 gap-10 mb-6 items-center">
+          <div className="grid md:grid-cols-2 gap-16 mb-6 items-center">
             {/* LEFT — stacked Problem + Solution cards */}
             <div className="space-y-4">
               {/* Problem */}
-              <div className="rounded-2xl border border-red-500/25 p-7" style={{ background: "rgba(30,5,5,0.70)" }}>
+              <div className="rounded-2xl border border-red-500/25 p-5" style={{ background: "rgba(30,5,5,0.70)" }}>
                 <div className="flex items-center gap-3 mb-5">
                   <div className="h-9 w-9 rounded-xl bg-red-500/15 border border-red-500/25 flex items-center justify-center">
                     <svg className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -120,7 +120,7 @@ function ProblemSolution() {
               </div>
 
               {/* Solution */}
-              <div className="rounded-2xl border border-indigo-500/25 p-7" style={{ background: "rgba(5,8,40,0.75)" }}>
+              <div className="rounded-2xl border border-indigo-500/25 p-5" style={{ background: "rgba(5,8,40,0.75)" }}>
                 <div className="flex items-center gap-3 mb-5">
                   <div className="h-9 w-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
                     <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -626,14 +626,14 @@ function AnimAIDet() {
 
 /* Feature alternating row */
 function FeatureRow({
-  badge, badgeColor, title, subtitle, bullets, mockup, reverse = false,
+  badge, badgeColor, title, subtitle, bullets, mockup, reverse = false, first = false,
 }: {
   badge: string; badgeColor: string; title: React.ReactNode; subtitle: string;
-  bullets: string[]; mockup: React.ReactNode; reverse?: boolean;
+  bullets: string[]; mockup: React.ReactNode; reverse?: boolean; first?: boolean;
 }) {
   return (
     <Reveal>
-      <div className={`flex flex-col ${reverse ? "md:flex-row-reverse" : "md:flex-row"} gap-12 md:gap-20 items-center py-20 border-t border-white/[0.05]`}>
+      <div className={`flex flex-col ${reverse ? "md:flex-row-reverse" : "md:flex-row"} gap-12 md:gap-20 items-center py-20 ${first ? "" : "border-t border-white/[0.05]"}`}>
         {/* Text */}
         <div className="flex-1">
           <div className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold mb-5 ${badgeColor}`}>
@@ -677,6 +677,7 @@ function CoreFeaturesAlt() {
         </Reveal>
 
         <FeatureRow
+          first
           badge="🖼️ Duplication Images"
           badgeColor="border border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-300"
           title={<>Un fichier source,{" "}<span className={G}>des copies infinies.</span></>}
@@ -890,6 +891,9 @@ export default function LandingPage() {
         <div className="h-px bg-white/[0.12]" />
       </div>
       <FeatureTabs />
+      <div className="max-w-5xl mx-auto px-6">
+        <div className="h-px bg-white/[0.12]" />
+      </div>
       <CoreFeaturesAlt />
       <StatsBanner />
       <FAQ />

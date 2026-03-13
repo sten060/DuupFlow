@@ -8,39 +8,88 @@ const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transpa
 /* ─── Testimonials ─── */
 const TESTIMONIALS = [
   {
-    text: "DuupFlow nous a fait gagner des heures. On réutilise nos meilleurs contenus sans jamais être pénalisés par les algorithmes. Un outil indispensable pour notre agence.",
+    text: "DuupFlow nous a fait gagner des heures. On réutilise nos meilleurs contenus sans jamais être pénalisés par les algorithmes.",
     name: "S.M.",
     role: "Fondateur d'agence marketing",
     initials: "SM",
     color: "#6366F1",
   },
   {
-    text: "J'avais essayé de renommer mes fichiers manuellement. DuupFlow fait ça en quelques secondes et les résultats sont incomparables. Mon reach a explosé.",
+    text: "DuupFlow fait ça en quelques secondes et les résultats sont incomparables. Mon reach a explosé depuis que je l'utilise.",
     name: "J.R.",
     role: "Créatrice de contenu",
     initials: "JR",
     color: "#8B5CF6",
   },
   {
-    text: "Le module Comparateur est incroyable. Je vérifie chaque copie avant de publier — mon taux d'engagement a doublé depuis que j'utilise DuupFlow.",
+    text: "Je vérifie chaque copie avant de publier grâce au Comparateur. Mon taux d'engagement a doublé en un mois.",
     name: "A.K.",
     role: "Growth Marketer",
     initials: "AK",
     color: "#38BDF8",
   },
   {
-    text: "50 copies d'un même Reel, chacune avec une empreinte unique. TikTok ne l'a jamais détecté. C'est exactement ce qu'il nous fallait pour scaler.",
+    text: "50 copies d'un même Reel, chacune unique. TikTok ne l'a jamais détecté. C'est exactement ce qu'il nous fallait.",
     name: "L.B.",
     role: "Responsable Marketing Digital",
     initials: "LB",
     color: "#EC4899",
   },
   {
-    text: "Depuis qu'on utilise DuupFlow, notre portée organique a explosé. On publie le même contenu sur 6 plateformes sans aucune pénalité.",
+    text: "Notre portée organique a explosé. On publie le même contenu sur 6 plateformes sans aucune pénalité algorithmique.",
     name: "P.D.",
     role: "Directeur Créatif",
     initials: "PD",
     color: "#10B981",
+  },
+  {
+    text: "Notre CAC a baissé de 30% depuis qu'on scale avec DuupFlow. La duplication automatique des meilleurs contenus, c'est du génie.",
+    name: "T.M.",
+    role: "Performance Manager",
+    initials: "TM",
+    color: "#F59E0B",
+  },
+  {
+    text: "Avant DuupFlow, chaque post demandait une nouvelle création. Maintenant on réutilise nos top performers à l'infini.",
+    name: "N.V.",
+    role: "Content Strategist",
+    initials: "NV",
+    color: "#6366F1",
+  },
+  {
+    text: "Le module Détection IA est parfait. Je publie des contenus générés par IA sans aucun marqueur détectable.",
+    name: "R.C.",
+    role: "Designer Freelance",
+    initials: "RC",
+    color: "#8B5CF6",
+  },
+  {
+    text: "DuupFlow gère 3 clients en simultané. On génère 100+ copies par semaine sans effort supplémentaire.",
+    name: "F.L.",
+    role: "Fondateur d'agence",
+    initials: "FL",
+    color: "#38BDF8",
+  },
+  {
+    text: "Ce qui me plaît avec DuupFlow, c'est la simplicité. Upload, dupliquer, télécharger. 30 secondes chrono.",
+    name: "C.B.",
+    role: "Créatrice UGC",
+    initials: "CB",
+    color: "#EC4899",
+  },
+  {
+    text: "Mon taux d'impression sur TikTok a triplé en 2 semaines après avoir commencé à utiliser DuupFlow.",
+    name: "K.D.",
+    role: "TikToker",
+    initials: "KD",
+    color: "#10B981",
+  },
+  {
+    text: "DuupFlow est devenu notre outil #1. Pas une seule pénalité depuis 4 mois d'utilisation intensive.",
+    name: "O.M.",
+    role: "Social Media Manager",
+    initials: "OM",
+    color: "#F59E0B",
   },
 ];
 
@@ -72,39 +121,53 @@ const PRICING_FAQS = [
   },
 ];
 
+function TestimonialCard({ t }: { t: typeof TESTIMONIALS[0] }) {
+  return (
+    <div
+      className="shrink-0 w-[260px] rounded-2xl border border-white/[0.10] px-5 py-4 flex flex-col justify-between"
+      style={{ background: "rgba(8,12,35,0.75)" }}
+    >
+      <p className="text-xs text-white/65 leading-relaxed mb-3 line-clamp-2">
+        &ldquo;{t.text}&rdquo;
+      </p>
+      <div className="flex items-center gap-2.5">
+        <div
+          className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+          style={{ background: t.color }}
+        >
+          {t.initials}
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white leading-none mb-0.5">{t.name}</p>
+          <p className="text-[10px] text-white/40">{t.role}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TestimonialsCarousel() {
   return (
-    <div className="relative">
+    <div className="relative overflow-hidden">
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .marquee-track { animation: marquee 40s linear infinite; }
+        .marquee-track:hover { animation-play-state: paused; }
+      `}</style>
+
       {/* Fade edges */}
-      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-20 z-10"
+      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-24 z-10"
         style={{ background: "linear-gradient(90deg, rgba(6,12,30,1) 0%, transparent 100%)" }} />
-      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-20 z-10"
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-24 z-10"
         style={{ background: "linear-gradient(270deg, rgba(6,12,30,1) 0%, transparent 100%)" }} />
 
-      <div className="flex gap-4 overflow-x-auto pb-2 px-6 scrollbar-none"
-        style={{ scrollSnapType: "x mandatory" }}>
-        {TESTIMONIALS.map((t, i) => (
-          <div
-            key={i}
-            className="shrink-0 w-[320px] rounded-2xl border border-white/[0.10] p-6 flex flex-col justify-between"
-            style={{ background: "rgba(8,12,35,0.75)", scrollSnapAlign: "start" }}
-          >
-            <p className="text-sm text-white/70 leading-relaxed mb-5 line-clamp-4">
-              &ldquo;{t.text}&rdquo;
-            </p>
-            <div className="flex items-center gap-3">
-              <div
-                className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                style={{ background: t.color }}
-              >
-                {t.initials}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">{t.name}</p>
-                <p className="text-xs text-white/40">{t.role}</p>
-              </div>
-            </div>
-          </div>
+      <div className="marquee-track flex gap-4" style={{ width: "max-content" }}>
+        {/* Render twice for seamless loop */}
+        {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
+          <TestimonialCard key={i} t={t} />
         ))}
       </div>
     </div>

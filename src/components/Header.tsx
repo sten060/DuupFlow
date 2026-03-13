@@ -41,7 +41,7 @@ export default function Header() {
         <nav className="hidden md:flex items-center gap-0.5">
           <NavLink href="/#features" label="Fonctionnalités" />
           <NavLink href="/comment-ca-marche" label="Comment ça marche" />
-          <NavLink href="/product" label="Tarifs" />
+          <NavLink href="/tarifs" label="Tarifs" />
           <NavLink href="/#faq" label="FAQ" />
         </nav>
 
