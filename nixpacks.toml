@@ -1,0 +1,8 @@
+# Railway build config (Nixpacks)
+# Installs ffmpeg natively on the server — no download at runtime needed.
+
+[phases.setup]
+nixPkgs = ["ffmpeg"]
+
+[start]
+cmd = "npm start"
