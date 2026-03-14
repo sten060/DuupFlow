@@ -66,10 +66,10 @@ function Hero() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-10 justify-center">
-          <Link href="/register"
+          <Link href="/tarifs"
             className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
             style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
-            Commencer gratuitement →
+            Voir les offres →
           </Link>
           <a href="#features"
             className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">

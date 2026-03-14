@@ -82,21 +82,122 @@ const MODULES = [
   },
 ];
 
-function ModuleCard({ mod, index, revealed }: {
-  mod: typeof MODULES[0];
-  index: number;
-  revealed: boolean;
-}) {
+/* ─── Guide steps ─── */
+const GUIDE_STEPS = [
+  {
+    id: "intro",
+    title: "Bienvenue dans DuupFlow 🚀",
+    subtitle: "Guide de démarrage",
+    content:
+      "En 2 minutes, découvre les 5 modules qui vont transformer ta stratégie de contenu. Tu peux revenir sur ce guide à tout moment.",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-7 w-7 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      </svg>
+    ),
+    iconBg: "rgba(99,102,241,0.15)",
+    iconBorder: "rgba(99,102,241,0.30)",
+    moduleIndex: null,
+    cta: { label: "Commencer →", href: null },
+  },
+  {
+    id: "images",
+    title: "Duplication Images",
+    subtitle: "Étape 1 / 5 — Le cœur de DuupFlow",
+    content:
+      "Charge une image et génère autant de copies que tu veux. Chaque copie a des métadonnées EXIF/XMP uniques — invisible pour les plateformes.",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="3" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <polyline points="21 15 16 10 5 21" />
+      </svg>
+    ),
+    iconBg: "rgba(192,38,211,0.15)",
+    iconBorder: "rgba(192,38,211,0.30)",
+    moduleIndex: 0,
+    cta: { label: "Essayer maintenant →", href: "/dashboard/images" },
+  },
+  {
+    id: "videos",
+    title: "Duplication Vidéos",
+    subtitle: "Étape 2 / 5 — Vos vidéos rendues uniques",
+    content:
+      "Ré-encode chaque copie avec des paramètres aléatoires — FPS, GOP, bitrate, codec. Chaque fichier est techniquement différent, indétectable.",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <rect x="2" y="5" width="14" height="14" rx="2" />
+        <path d="M16 9l5-3v12l-5-3V9z" />
+      </svg>
+    ),
+    iconBg: "rgba(99,102,241,0.15)",
+    iconBorder: "rgba(99,102,241,0.30)",
+    moduleIndex: 1,
+    cta: { label: "Essayer maintenant →", href: "/dashboard/videos" },
+  },
+  {
+    id: "comparateur",
+    title: "Comparateur de similarité",
+    subtitle: "Étape 3 / 5 — Valide tes copies",
+    content:
+      "Après duplication, vérifie que tes copies sont bien uniques. Le comparateur donne un score précis de similarité visuelle.",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-7 w-7 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m21 21-4.35-4.35" />
+      </svg>
+    ),
+    iconBg: "rgba(16,185,129,0.15)",
+    iconBorder: "rgba(16,185,129,0.30)",
+    moduleIndex: 2,
+    cta: { label: "Essayer maintenant →", href: "/dashboard/similarity" },
+  },
+  {
+    id: "ia",
+    title: "Variation IA & Détection IA",
+    subtitle: "Étapes 4 & 5 / 5 — La puissance de l'IA",
+    content:
+      "Génère des variantes entières de contenu via l'IA (BETA), ou masque la signature IA dans les métadonnées sans toucher au fichier visuellement.",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
+      </svg>
+    ),
+    iconBg: "rgba(56,189,248,0.15)",
+    iconBorder: "rgba(56,189,248,0.30)",
+    moduleIndex: 3,
+    cta: { label: "Explorer l'IA →", href: "/dashboard/generate" },
+  },
+  {
+    id: "invite",
+    title: "Inviter un collaborateur",
+    subtitle: "Bonus — Travaille en équipe",
+    content:
+      "Depuis les Paramètres, invite jusqu'à 3 collaborateurs dans ton workspace. Ils accèdent à tous les modules sans frais supplémentaires.",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-7 w-7 text-amber-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+    iconBg: "rgba(245,158,11,0.15)",
+    iconBorder: "rgba(245,158,11,0.30)",
+    moduleIndex: null,
+    cta: { label: "Gérer l'équipe →", href: "/dashboard/settings" },
+  },
+];
+
+const GUIDE_KEY = "duupflow_guide_v2";
+
+function ModuleCard({ mod }: { mod: typeof MODULES[0] }) {
   return (
     <div
-      className="group rounded-2xl p-5 flex flex-col gap-4 transition-all duration-300 hover:translate-y-[-2px]"
+      className="group rounded-2xl p-5 flex flex-col gap-4 transition-all duration-200 hover:translate-y-[-2px]"
       style={{
         background: "rgba(10,14,40,0.55)",
         border: "1px solid rgba(255,255,255,0.07)",
-        opacity: revealed ? 1 : 0,
-        transform: revealed ? "translateY(0)" : "translateY(12px)",
-        transitionDelay: `${index * 70}ms`,
-        transitionProperty: "opacity, transform, box-shadow",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.borderColor = mod.colorBorder;
@@ -146,6 +247,125 @@ function ModuleCard({ mod, index, revealed }: {
   );
 }
 
+/* ─── Guide Modal ─── */
+function GuideModal({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState(0);
+  const current = GUIDE_STEPS[step];
+  const isLast = step === GUIDE_STEPS.length - 1;
+  const progress = ((step) / (GUIDE_STEPS.length - 1)) * 100;
+
+  function next() {
+    if (isLast) {
+      onClose();
+    } else {
+      setStep((s) => s + 1);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      style={{ background: "rgba(6,9,24,0.88)", backdropFilter: "blur(10px)" }}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{
+          background: "rgba(10,14,40,0.98)",
+          border: "1px solid rgba(99,102,241,0.25)",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(99,102,241,0.10)",
+        }}
+      >
+        {/* Progress bar */}
+        <div className="h-0.5 w-full" style={{ background: "rgba(255,255,255,0.06)" }}>
+          <div
+            className="h-full transition-all duration-500"
+            style={{
+              width: `${progress}%`,
+              background: "linear-gradient(90deg,#6366F1,#38BDF8)",
+            }}
+          />
+        </div>
+
+        <div className="p-8">
+          {/* Step indicator */}
+          <div className="flex items-center justify-between mb-6">
+            <span className="text-[10px] font-semibold tracking-[0.14em] uppercase text-white/30">
+              {current.subtitle}
+            </span>
+            <button
+              onClick={onClose}
+              className="text-xs text-white/30 hover:text-white/60 transition"
+            >
+              Passer ×
+            </button>
+          </div>
+
+          {/* Icon */}
+          <div
+            className="mb-5 h-14 w-14 rounded-2xl flex items-center justify-center"
+            style={{ background: current.iconBg, border: `1px solid ${current.iconBorder}` }}
+          >
+            {current.icon}
+          </div>
+
+          {/* Content */}
+          <h2 className="text-xl font-semibold text-white mb-3 tracking-tight">
+            {current.title}
+          </h2>
+          <p className="text-sm text-white/55 leading-relaxed mb-7">
+            {current.content}
+          </p>
+
+          {/* Step dots */}
+          <div className="flex items-center gap-1.5 mb-6">
+            {GUIDE_STEPS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setStep(i)}
+                className="rounded-full transition-all duration-200"
+                style={{
+                  width: i === step ? "20px" : "6px",
+                  height: "6px",
+                  background: i === step
+                    ? "linear-gradient(90deg,#6366F1,#38BDF8)"
+                    : i < step
+                    ? "rgba(99,102,241,0.5)"
+                    : "rgba(255,255,255,0.15)",
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            {current.cta.href ? (
+              <Link
+                href={current.cta.href}
+                onClick={onClose}
+                className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white text-center transition hover:opacity-90"
+                style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+              >
+                {current.cta.label}
+              </Link>
+            ) : null}
+            <button
+              onClick={next}
+              className="flex-1 rounded-xl py-2.5 text-sm font-semibold transition"
+              style={{
+                background: current.cta.href ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg,#6366F1,#38BDF8)",
+                border: current.cta.href ? "1px solid rgba(255,255,255,0.10)" : "none",
+                color: current.cta.href ? "rgba(255,255,255,0.65)" : "white",
+              }}
+            >
+              {isLast ? "Terminer ✓" : "Étape suivante →"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardHome({
   firstName,
   agencyName,
@@ -153,34 +373,24 @@ export default function DashboardHome({
   firstName: string | null;
   agencyName: string | null;
 }) {
-  const [revealed, setRevealed] = useState(false);
-  const [showTour, setShowTour] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
-    // Stagger reveal
-    const t = setTimeout(() => setRevealed(true), 80);
-
-    // Show tour overlay only on first visit
-    const key = `duupflow_toured`;
-    if (!localStorage.getItem(key)) {
-      setShowTour(true);
+    if (!localStorage.getItem(GUIDE_KEY)) {
+      setShowGuide(true);
     }
-    return () => clearTimeout(t);
   }, []);
 
-  function dismissTour() {
-    localStorage.setItem("duupflow_toured", "1");
-    setShowTour(false);
+  function closeGuide() {
+    localStorage.setItem(GUIDE_KEY, "1");
+    setShowGuide(false);
   }
 
   return (
     <div className="p-8 max-w-5xl">
 
       {/* Header */}
-      <div
-        className="mb-8 transition-all duration-500"
-        style={{ opacity: revealed ? 1 : 0, transform: revealed ? "none" : "translateY(8px)" }}
-      >
+      <div className="mb-8">
         <p className="text-xs font-medium text-white/30 tracking-[0.14em] uppercase mb-2">
           {agencyName ?? "Dashboard"}
         </p>
@@ -191,83 +401,40 @@ export default function DashboardHome({
             <>Tableau de bord</>
           )}
         </h1>
-        <p className="text-sm text-white/40 mt-1.5">
-          Choisis un module pour travailler tes contenus.
-        </p>
+        <div className="flex items-center justify-between mt-1.5">
+          <p className="text-sm text-white/40">
+            Choisis un module pour travailler tes contenus.
+          </p>
+          <button
+            onClick={() => setShowGuide(true)}
+            className="text-xs text-indigo-400/70 hover:text-indigo-400 transition flex items-center gap-1"
+          >
+            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="8" cy="8" r="6" />
+              <path d="M8 7v4M8 5.5v.5" />
+            </svg>
+            Guide
+          </button>
+        </div>
       </div>
 
       {/* Separator */}
       <div className="mb-7" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
 
       {/* Section label */}
-      <p
-        className="text-[11px] font-semibold tracking-[0.14em] uppercase text-white/25 mb-4 transition-all duration-500"
-        style={{ opacity: revealed ? 1 : 0, transitionDelay: "100ms" }}
-      >
+      <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-white/25 mb-4">
         Modules disponibles
       </p>
 
       {/* Module grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {MODULES.map((mod, i) => (
-          <ModuleCard key={mod.href} mod={mod} index={i} revealed={revealed} />
+        {MODULES.map((mod) => (
+          <ModuleCard key={mod.href} mod={mod} />
         ))}
       </div>
 
-      {/* First-visit tour overlay */}
-      {showTour && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center px-4"
-          style={{ background: "rgba(6,9,24,0.85)", backdropFilter: "blur(8px)" }}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl p-8 text-center"
-            style={{
-              background: "rgba(10,14,40,0.97)",
-              border: "1px solid rgba(99,102,241,0.25)",
-              boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(99,102,241,0.10)",
-            }}
-          >
-            {/* Icon */}
-            <div
-              className="mx-auto mb-5 h-14 w-14 rounded-2xl flex items-center justify-center"
-              style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.30)" }}
-            >
-              <svg viewBox="0 0 24 24" className="h-6 w-6 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-              </svg>
-            </div>
-
-            <h2 className="text-xl font-semibold text-white mb-2 tracking-tight">
-              Bienvenue dans DuupFlow
-            </h2>
-            <p className="text-sm text-white/50 mb-6 leading-relaxed">
-              Tu as accès à <strong className="text-white/70">5 modules</strong> pour dupliquer,
-              analyser et masquer tes contenus. Commence par le module de ton choix.
-            </p>
-
-            {/* Mini module list */}
-            <div className="space-y-2 mb-7 text-left">
-              {MODULES.map((m) => (
-                <div key={m.href} className="flex items-center gap-3 text-xs text-white/55">
-                  <span style={{ color: m.color }}>{m.icon}</span>
-                  <span className="font-medium text-white/70">{m.title}</span>
-                  <span className="text-white/30">—</span>
-                  <span className="truncate">{m.desc.split(".")[0]}</span>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={dismissTour}
-              className="w-full rounded-xl py-3 text-sm font-semibold text-white transition hover:opacity-90"
-              style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-            >
-              C&apos;est parti →
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Guide modal */}
+      {showGuide && <GuideModal onClose={closeGuide} />}
     </div>
   );
 }
