@@ -15,24 +15,20 @@ async function getFFmpegBin(): Promise<string> {
   let bin = process.env.FFMPEG_BIN || "";
 
   if (!bin) {
-    // Strategy 1 — static require of the platform package.
-    // The string literal "@ffmpeg-installer/linux-x64/package.json" is static so
-    // Vercel's NFT file tracer can follow it and deploy the whole package directory.
-    // (@ffmpeg-installer/ffmpeg uses dynamic require(platform+arch) internally so
-    // NFT cannot auto-trace it — we must do it explicitly here.)
+    // Strategy 1 — require('@ffmpeg-installer/linux-x64') via the index.js created
+    // by scripts/setup-ffmpeg.cjs (prebuild). That index.js uses path.join(__dirname,'ffmpeg'),
+    // which @vercel/nft traces statically → binary is deployed with the function bundle.
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pkgPath: string = require.resolve("@ffmpeg-installer/linux-x64/package.json");
-      const candidate = path.join(path.dirname(pkgPath), "ffmpeg");
-      const { existsSync } = await import("fs");
-      if (existsSync(candidate)) bin = candidate;
+      const mod = require("@ffmpeg-installer/linux-x64") as { path: string };
+      if (mod?.path) bin = mod.path;
     } catch (e) {
-      console.error("[ffmpeg] require.resolve(linux-x64/package.json) failed:", e);
+      console.error("[ffmpeg] require(@ffmpeg-installer/linux-x64) failed:", e);
     }
   }
 
   if (!bin) {
-    // Strategy 2 — @ffmpeg-installer/ffmpeg high-level API (may fail if NFT didn't trace).
+    // Strategy 2 — @ffmpeg-installer/ffmpeg high-level wrapper.
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const installer = require("@ffmpeg-installer/ffmpeg") as { path: string };
@@ -43,7 +39,7 @@ async function getFFmpegBin(): Promise<string> {
   }
 
   if (!bin) {
-    // Strategy 3 — derive from process.cwd() (/var/task on Vercel).
+    // Strategy 3 — absolute path via process.cwd() (= /var/task on Vercel).
     const { existsSync } = await import("fs");
     const candidate = path.join(process.cwd(), "node_modules/@ffmpeg-installer/linux-x64/ffmpeg");
     console.log("[ffmpeg] trying cwd path:", candidate, "exists:", existsSync(candidate));

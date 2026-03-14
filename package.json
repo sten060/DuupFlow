@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:webpack": "cross-env NEXT_DISABLE_TURBOPACK=1 next dev",
+    "prebuild": "node scripts/setup-ffmpeg.cjs",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint"
