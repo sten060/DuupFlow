@@ -57,7 +57,8 @@ function OnboardingForm() {
         is_guest: false,
       });
       if (upsertErr) {
-        setError("Erreur lors de la création du profil.");
+        console.error("Profile upsert error:", upsertErr);
+        setError(`Erreur lors de la création du profil: ${upsertErr.message}`);
         setLoading(false);
         return;
       }
