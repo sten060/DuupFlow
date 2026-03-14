@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# user-uploaded files (must never be committed or bundled into Vercel functions)
+/public/out/
+
 # production
 /build
 

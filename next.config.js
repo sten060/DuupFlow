@@ -10,6 +10,11 @@ const nextConfig = {
   // This is the main lever to stay under Vercel's 300MB function size limit.
   outputFileTracingExcludes: {
     "*": [
+      // ⚠️ User-uploaded files — the NFT tracer follows process.cwd()+"/public/out"
+      // and bundles all uploaded videos/images into every serverless function.
+      // These are served as static assets, never as part of a function bundle.
+      "public/**",
+
       // FFmpeg binaries — only spawned as a child process, never imported
       "node_modules/@ffmpeg-installer/**",
       "node_modules/fluent-ffmpeg/**",
