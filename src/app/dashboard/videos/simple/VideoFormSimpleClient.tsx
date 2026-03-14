@@ -228,8 +228,10 @@ export default function VideoFormSimpleClient() {
       });
 
       if (!res.ok || !res.body) {
-        const j = await res.json().catch(() => ({}));
-        setErrorMsg(j?.error || "Erreur serveur");
+        const text = await res.text().catch(() => "");
+        let msg = `HTTP ${res.status}`;
+        try { const j = JSON.parse(text); msg = j?.error || msg; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
+        setErrorMsg(msg);
         setProcessing(false);
         return;
       }
