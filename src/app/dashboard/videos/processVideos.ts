@@ -185,8 +185,8 @@ async function runFFmpegSafe(
 
   args.push(
     "-c:v", "libx264",
-    "-preset", "veryfast",
-    "-crf", "17",
+    "-preset", "ultrafast",
+    "-crf", "18",
     "-pix_fmt", "yuv420p",
     "-movflags", "+faststart",
     "-c:a", "aac",
