@@ -6,14 +6,34 @@ import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 
 // Resolve ffmpeg binary path at runtime (not build time).
 // webpackIgnore prevents webpack from bundling this require, letting Node resolve it.
-function getFFmpegBin(): string {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require(/* webpackIgnore: true */ "@ffmpeg-installer/ffmpeg");
-    return (mod?.path as string) || process.env.FFMPEG_BIN || "ffmpeg";
-  } catch {
-    return process.env.FFMPEG_BIN || "ffmpeg";
+// On Vercel the binary may land without execute permission — chmod it once.
+let _ffmpegBin: string | null = null;
+async function getFFmpegBin(): Promise<string> {
+  if (_ffmpegBin) return _ffmpegBin;
+
+  let bin = process.env.FFMPEG_BIN || "";
+  if (!bin) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const mod = require(/* webpackIgnore: true */ "@ffmpeg-installer/ffmpeg");
+      bin = (mod?.path as string) || "";
+    } catch {
+      bin = "";
+    }
   }
+  if (!bin) bin = "ffmpeg"; // last resort — system PATH
+
+  // Ensure the binary is executable (Vercel deploys without execute bits).
+  if (bin !== "ffmpeg") {
+    try {
+      await fs.chmod(bin, 0o755);
+    } catch {
+      // ignore — might already be executable or path might be wrong
+    }
+  }
+
+  _ffmpegBin = bin;
+  return bin;
 }
 
 /* ------------------ utils ------------------ */
@@ -131,8 +151,9 @@ async function runFFmpegSafe(
 
   args.push(output);
 
+  const ffmpegBin = await getFFmpegBin();
   await new Promise<void>((resolve, reject) => {
-    const p = spawn(getFFmpegBin(), args, { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(ffmpegBin, args, { stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
     p.stderr.on("data", (d) => (stderr += String(d)));
     p.on("error", (err) => {
