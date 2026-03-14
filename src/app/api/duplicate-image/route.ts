@@ -4,7 +4,6 @@ import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
 import sharp from "sharp";
-import { exiftool } from "exiftool-vendored";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 
 /* ============== helpers ============== */
@@ -154,29 +153,46 @@ img = img.affine(
    *   - EXIF + XMP + commentaires internes
    * ========================================================= */
   const lower = outPath.toLowerCase();
-  const withICC = (s: sharp.Sharp) => s.withMetadata({ icc: "sRGB IEC61966-2.1" });
+  const now = new Date();
+  const artistChoices = ["DuupFlow", "Studio", "Duplicator", "ContentEngine"];
+  const artist = flags.fundamentals
+    ? artistChoices[Math.floor(Math.random() * artistChoices.length)]
+    : "DuupFlow";
+  const dpi = flags.fundamentals ? [72, 96, 150, 300][Math.floor(Math.random() * 4)] : 72;
+
+  const exifMeta: sharp.WriteableMetadata = {
+    icc: "sRGB IEC61966-2.1",
+    density: dpi,
+    exif: {
+      IFD0: {
+        Software: `DuupFlow/${randHex(2)}`,
+        Artist: artist,
+        Copyright: `DuupFlow ${now.getFullYear()}`,
+      },
+    },
+  };
 
   if (lower.endsWith(".png")) {
     if (flags.fundamentals) {
-      await withICC(img).png({
+      await img.withMetadata(exifMeta).png({
         compressionLevel: 9,
         palette: true,
         quality: 80,
         adaptiveFiltering: true,
       }).toFile(outPath);
     } else {
-      await withICC(img).png({ compressionLevel: 6 }).toFile(outPath);
+      await img.withMetadata(exifMeta).png({ compressionLevel: 6 }).toFile(outPath);
     }
   } else if (lower.endsWith(".webp")) {
     const quality = flags.fundamentals ? (70 + Math.floor(Math.random() * 11)) : 90;
     const effort  = flags.fundamentals ? (4 + Math.floor(Math.random() * 3)) : 4;
-    await withICC(img).webp({ quality, effort, smartSubsample: true }).toFile(outPath);
+    await img.withMetadata(exifMeta).webp({ quality, effort, smartSubsample: true }).toFile(outPath);
   } else {
     const chroma = flags.fundamentals ? (Math.random() < 0.7 ? "4:2:0" : "4:4:4") : "4:2:0";
     const progressive = flags.fundamentals ? Math.random() < 0.5 : true;
     const quality = flags.fundamentals ? (62 + Math.floor(Math.random() * 10)) : 90;
 
-    await withICC(img).jpeg({
+    await img.withMetadata(exifMeta).jpeg({
       quality,
       progressive,
       chromaSubsampling: chroma as "4:2:0" | "4:4:4",
@@ -186,48 +202,6 @@ img = img.affine(
       overshootDeringing: true,
       quantizationTable: flags.fundamentals ? (1 + Math.floor(Math.random() * 3)) : 0,
     }).toFile(outPath);
-  }
-
-  // Métadonnées fondamentales (écrites après encodage)
-  if (flags.fundamentals) {
-    const now = new Date();
-    const exifDate = now.toISOString().replace(/[-:]/g, "").split(".")[0];
-    const artistChoices = ["DuupFlow", "Studio", "Duplicator", "ContentEngine"];
-    const artist = artistChoices[Math.floor(Math.random() * artistChoices.length)];
-    const dpi = [72, 96, 150, 300][Math.floor(Math.random() * 4)];
-    const history = Array.from({ length: 3 }, (_, idx) => ({
-      "stEvt:action": ["created", "edited", "saved"][Math.min(idx, 2)],
-      "stEvt:when": new Date(now.getTime() + idx * 1500).toISOString(),
-      "stEvt:softwareAgent": ["DuupFlow", "ContentDuplicator", "StudioLab"][Math.floor(Math.random() * 3)],
-      "stEvt:instanceID": `xmp.iid:${crypto.randomUUID()}`,
-    }));
-    const comments = [
-      `Build=${randHex(3)}`,
-      `Seed=${randHex(4)}`,
-      `Copy=${copyIdx}`,
-    ].join("; ");
-
-    try {
-  await exiftool.write(
-    outPath,
-    {
-      AllDates: exifDate,
-      Software: `DuupFlow/${randHex(2)}`,
-      Artist: artist,
-      XPTitle: `Dup_${randHex(2)}`,
-      XPComment: `meta=ok`,
-      // ⛔️ ces clés ne sont pas dans WriteTags → on force le type
-      ["XMP-xmpMM:History"]: history as any,
-      ["PNG:Comment"]: comments as any,
-      ["JPEG:Comment"]: comments as any,
-      ResolutionUnit: "inches",
-      XResolution: dpi,
-      YResolution: dpi,
-      ICCProfileName: "sRGB IEC61966-2.1",
-    } as any,
-    ["-overwrite_original"]
-  );
-} catch {}
   }
 }
 
