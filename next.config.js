@@ -2,8 +2,16 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Keep these packages as external Node.js requires (not bundled by webpack)
-  serverExternalPackages: ["sharp", "heic-convert", "libheif-js"],
+  // Keep these packages as external Node.js requires (not bundled by webpack).
+  // ffmpeg packages MUST be here: webpack leaves them as runtime require() calls so
+  // Vercel's NFT file tracer sees them and includes the binary in the function bundle.
+  serverExternalPackages: [
+    "sharp",
+    "heic-convert",
+    "libheif-js",
+    "@ffmpeg-installer/ffmpeg",
+    "@ffmpeg-installer/linux-x64",
+  ],
 
   // Explicitly include the ffmpeg binary for ALL routes (server actions also use ffmpeg).
   // Keys must be URL route paths, not filesystem paths.
