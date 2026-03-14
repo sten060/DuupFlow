@@ -106,7 +106,7 @@ async function runFFmpegSafe(
 
   args.push(
     "-c:v", "libx264",
-    "-preset", "medium",
+    "-preset", "veryfast",
     "-crf", "17",
     "-pix_fmt", "yuv420p",
     "-movflags", "+faststart",
@@ -135,8 +135,8 @@ async function runFFmpegSafe(
     });
     const timer = setTimeout(() => {
       p.kill("SIGKILL");
-      reject(new Error("FFmpeg timed out after 5 minutes"));
-    }, 5 * 60 * 1000);
+      reject(new Error("FFmpeg timed out after 15 minutes"));
+    }, 15 * 60 * 1000);
   });
 }
 
