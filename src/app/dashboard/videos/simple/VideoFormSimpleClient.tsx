@@ -1,11 +1,10 @@
 // src/app/dashboard/videos/simple/VideoFormSimpleClient.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
-import ProgressWatcher from "@/app/dashboard/ProgressWatcher";
 
 function ProgressBar({ percent, label }: { percent: number; label?: string }) {
   return (
@@ -173,9 +172,10 @@ function PackCard({
 export default function VideoFormSimpleClient() {
   const router = useRouter();
   const [processing, setProcessing] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [jobUserId, setJobUserId] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [progressMsg, setProgressMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({
     metadata: true,
     audio: false,
@@ -214,24 +214,60 @@ export default function VideoFormSimpleClient() {
     e.preventDefault();
     setProcessing(true);
     setErrorMsg(null);
-    setJobId(null);
-    setJobUserId(null);
+    setProgress(0);
+    setProgressMsg("Envoi…");
+
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     try {
       const res = await fetch("/api/duplicate-video", {
         method: "POST",
         body: new FormData(e.currentTarget),
+        signal: ctrl.signal,
       });
-      const j = await res.json().catch(() => ({}));
-      if (res.ok && j.jobId) {
-        setJobId(j.jobId);
-        setJobUserId(j.userId);
-        // processing stays true — ProgressWatcher will call onComplete/onError
-      } else {
-        setErrorMsg(j?.error || "Erreur lors du lancement de la duplication");
+
+      if (!res.ok || !res.body) {
+        const j = await res.json().catch(() => ({}));
+        setErrorMsg(j?.error || "Erreur serveur");
         setProcessing(false);
+        return;
       }
-    } catch (err) {
-      setErrorMsg("Erreur réseau");
+
+      // Read Server-Sent Events stream
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.percent !== undefined) setProgress(evt.percent);
+            if (evt.msg) setProgressMsg(evt.msg);
+            if (evt.error) {
+              setErrorMsg(evt.msg || "Erreur FFmpeg");
+              setProcessing(false);
+              return;
+            }
+            if (evt.done) {
+              router.push("/dashboard/videos/simple?ok=1");
+              return;
+            }
+          } catch {}
+        }
+      }
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        setErrorMsg("Erreur réseau");
+      }
+    } finally {
       setProcessing(false);
     }
   }
@@ -277,21 +313,18 @@ export default function VideoFormSimpleClient() {
         {/* … le reste de tes contrôles (rotation, dimensions, bordures) inchangés … */}
       </GlowCard>
 
-      <SubmitWithProgress pending={processing} hasRealProgress={!!jobId} />
+      <SubmitWithProgress pending={processing} hasRealProgress={processing && progress !== null && progress > 0} />
 
-      {jobId && jobUserId && (
-        <ProgressWatcher
-          userId={jobUserId}
-          jobId={jobId}
-          onComplete={() => {
-            setProcessing(false);
-            router.push("/dashboard/videos/simple?ok=1");
-          }}
-          onError={(msg) => {
-            setProcessing(false);
-            setErrorMsg(msg);
-          }}
-        />
+      {processing && progress !== null && (
+        <div className="mt-2">
+          <div className="h-2 w-full rounded bg-white/10 overflow-hidden">
+            <div
+              className="h-2 bg-indigo-500 transition-[width] duration-200"
+              style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
+            />
+          </div>
+          <p className="mt-1 text-xs text-white/70">{progressMsg || `Progression… ${progress}%`}</p>
+        </div>
       )}
 
       {errorMsg && (
