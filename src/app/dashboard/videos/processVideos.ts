@@ -5,31 +5,40 @@ import { spawn } from "child_process";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 
 // Resolve ffmpeg binary path at runtime (not build time).
-// webpackIgnore prevents webpack from bundling this require, letting Node resolve it.
-// On Vercel the binary may land without execute permission — chmod it once.
+// @ffmpeg-installer/linux-x64 has no index.js — require() would fail.
+// We locate the binary directly from the package directory.
+// On Vercel: process.cwd() === /var/task and the binary is deployed via
+// outputFileTracingIncludes in next.config.js.
 let _ffmpegBin: string | null = null;
 async function getFFmpegBin(): Promise<string> {
   if (_ffmpegBin) return _ffmpegBin;
 
   let bin = process.env.FFMPEG_BIN || "";
+
   if (!bin) {
+    // Strategy 1: use require.resolve to find the package.json, then derive binary path.
+    // webpackIgnore keeps webpack from bundling this; NFT still follows it for deployment.
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const mod = require(/* webpackIgnore: true */ "@ffmpeg-installer/ffmpeg");
-      bin = (mod?.path as string) || "";
-    } catch {
-      bin = "";
-    }
+      const pkgJson = require.resolve(/* webpackIgnore: true */ "@ffmpeg-installer/linux-x64/package.json");
+      const candidate = path.join(path.dirname(pkgJson), "ffmpeg");
+      const { existsSync } = await import("fs");
+      if (existsSync(candidate)) bin = candidate;
+    } catch { /* ignore */ }
   }
+
+  if (!bin) {
+    // Strategy 2: absolute path based on process.cwd() (= /var/task on Vercel).
+    const { existsSync } = await import("fs");
+    const candidate = path.join(process.cwd(), "node_modules/@ffmpeg-installer/linux-x64/ffmpeg");
+    if (existsSync(candidate)) bin = candidate;
+  }
+
   if (!bin) bin = "ffmpeg"; // last resort — system PATH
 
-  // Ensure the binary is executable (Vercel deploys without execute bits).
+  // Ensure the binary is executable (Vercel may deploy without execute bits).
   if (bin !== "ffmpeg") {
-    try {
-      await fs.chmod(bin, 0o755);
-    } catch {
-      // ignore — might already be executable or path might be wrong
-    }
+    try { await fs.chmod(bin, 0o755); } catch { /* ignore */ }
   }
 
   _ffmpegBin = bin;
