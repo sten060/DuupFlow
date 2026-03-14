@@ -14,36 +14,50 @@ async function getFFmpegBin(): Promise<string> {
 
   let bin = process.env.FFMPEG_BIN || "";
 
+  const { existsSync } = await import("fs");
+
   if (!bin) {
-    // Strategy 1 — require('@ffmpeg-installer/linux-x64') via the index.js created
-    // by scripts/setup-ffmpeg.cjs (prebuild). That index.js uses path.join(__dirname,'ffmpeg'),
-    // which @vercel/nft traces statically → binary is deployed with the function bundle.
+    // Strategy 1 — process.cwd() based path.
+    // On Vercel, process.cwd() = /var/task. outputFileTracingIncludes in next.config.js
+    // deploys the binary to node_modules/@ffmpeg-installer/linux-x64/ffmpeg there.
+    const candidate = path.join(process.cwd(), "node_modules/@ffmpeg-installer/linux-x64/ffmpeg");
+    if (existsSync(candidate)) {
+      bin = candidate;
+    } else {
+      console.error("[ffmpeg] not found at cwd path:", candidate);
+    }
+  }
+
+  if (!bin) {
+    // Strategy 2 — require('@ffmpeg-installer/linux-x64') via the index.js created
+    // by scripts/setup-ffmpeg.cjs (prebuild). That file handles both the "external"
+    // case (correct __dirname) and the "bundled by webpack" case (falls back to cwd).
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const mod = require("@ffmpeg-installer/linux-x64") as { path: string };
-      if (mod?.path) bin = mod.path;
+      if (mod?.path && existsSync(mod.path)) {
+        bin = mod.path;
+      } else if (mod?.path) {
+        console.error("[ffmpeg] require() path not found on disk:", mod.path);
+      }
     } catch (e) {
       console.error("[ffmpeg] require(@ffmpeg-installer/linux-x64) failed:", e);
     }
   }
 
   if (!bin) {
-    // Strategy 2 — @ffmpeg-installer/ffmpeg high-level wrapper.
+    // Strategy 3 — @ffmpeg-installer/ffmpeg high-level wrapper.
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const installer = require("@ffmpeg-installer/ffmpeg") as { path: string };
-      if (installer?.path) bin = installer.path;
+      if (installer?.path && existsSync(installer.path)) {
+        bin = installer.path;
+      } else if (installer?.path) {
+        console.error("[ffmpeg] @ffmpeg-installer/ffmpeg path not found:", installer.path);
+      }
     } catch (e) {
       console.error("[ffmpeg] require(@ffmpeg-installer/ffmpeg) failed:", e);
     }
-  }
-
-  if (!bin) {
-    // Strategy 3 — absolute path via process.cwd() (= /var/task on Vercel).
-    const { existsSync } = await import("fs");
-    const candidate = path.join(process.cwd(), "node_modules/@ffmpeg-installer/linux-x64/ffmpeg");
-    console.log("[ffmpeg] trying cwd path:", candidate, "exists:", existsSync(candidate));
-    if (existsSync(candidate)) bin = candidate;
   }
 
   if (!bin) {
