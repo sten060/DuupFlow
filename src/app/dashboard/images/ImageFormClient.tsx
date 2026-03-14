@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import ToggleChip from "../ToggleChip";
 
 type Props = {
@@ -9,8 +9,7 @@ type Props = {
   maxFiles?: number;
 };
 
-function SubmitWithProgress() {
-  const { pending } = useFormStatus();
+function SubmitWithProgress({ pending }: { pending: boolean }) {
   return (
     <>
       <button
@@ -35,6 +34,8 @@ function SubmitWithProgress() {
 }
 
 export default function ImageFormClient({ action, maxFiles = 25 }: Props) {
+  const router = useRouter();
+  const [processing, setProcessing] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dropRef = useRef<HTMLDivElement | null>(null);
@@ -80,8 +81,22 @@ export default function ImageFormClient({ action, maxFiles = 25 }: Props) {
     [files]
   );
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setProcessing(true);
+    try {
+      await action(new FormData(e.currentTarget));
+      router.push("/dashboard/images?ok=1");
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
+      console.error(err);
+    } finally {
+      setProcessing(false);
+    }
+  }
+
   return (
-    <form action={action} encType="multipart/form-data" className="space-y-6" autoComplete="off">
+    <form onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6" autoComplete="off">
       {/* Drop area */}
       <div
         ref={dropRef}
@@ -204,7 +219,7 @@ export default function ImageFormClient({ action, maxFiles = 25 }: Props) {
         />
       </div>
 
-      <SubmitWithProgress />
+      <SubmitWithProgress pending={processing} />
     </form>
   );
 }
