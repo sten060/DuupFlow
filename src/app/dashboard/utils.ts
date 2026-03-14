@@ -2,7 +2,11 @@ import path from "path";
 import fs from "fs/promises";
 import { createClient } from "@/lib/supabase/server";
 
-const OUT_BASE = process.env.OUT_BASE || path.join(process.cwd(), "public", "out");
+// OUT_BASE must be set via env var.
+// Default uses a computed path so the NFT tracer cannot statically resolve
+// it to a real directory and bundle its contents into serverless functions.
+const _out = process.env.OUT_BASE;
+const OUT_BASE = _out ?? path.join(process.cwd(), ["public", "out"].join(path.sep));
 
 async function resolveUserId(): Promise<string> {
   try {
