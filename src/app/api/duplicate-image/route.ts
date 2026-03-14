@@ -76,21 +76,8 @@ const baseH = clampDim(decoded.info.height ?? 1024);
     const cw = clampDim(cur.width  ?? semiW);
     const ch = clampDim(cur.height ?? semiH);
 
-    const scale1 = 0.80 + Math.random() * 0.40; // 0.80–1.20
-    const scale2 = 0.85 + Math.random() * 0.30; // 0.85–1.15
-    const zoom   = 1.05 + Math.random() * 0.05; // 1.05–1.10x
-
-    const w1 = clampDim(cw * scale1);
-    const h1 = clampDim(ch * scale1);
-    const w2 = clampDim(cw * scale2);
-    const h2 = clampDim(ch * scale2);
-    const wz = clampDim(cw * zoom);
-    const hz = clampDim(ch * zoom);
-
-    img = img
-      .resize(w1, h1, { fit: "fill", kernel: sharp.kernel.lanczos3 })
-      .resize(w2, h2, { fit: "fill", kernel: sharp.kernel.cubic })
-      .resize(wz, hz, { fit: "cover", kernel: sharp.kernel.lanczos3 }); // zoom léger visible
+    // Single high-quality resize back to original dimensions to avoid multi-pass degradation
+    img = img.resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.lanczos3 });
 
     // === [#5] Micro-jitter sub-pixel (à appliquer en DERNIER du bloc 1)
 // But : décale l'image de ±0.6 px pour casser l'alignement exact des détecteurs.
@@ -173,24 +160,17 @@ img = img.affine(
   };
 
   if (lower.endsWith(".png")) {
-    if (flags.fundamentals) {
-      await img.withMetadata(exifMeta).png({
-        compressionLevel: 9,
-        palette: true,
-        quality: 80,
-        adaptiveFiltering: true,
-      }).toFile(outPath);
-    } else {
-      await img.withMetadata(exifMeta).png({ compressionLevel: 6 }).toFile(outPath);
-    }
+    // Never use palette mode — it degrades photos to 256 colors
+    const compressionLevel = flags.fundamentals ? (5 + Math.floor(Math.random() * 3)) : 6; // 5–7, vary for uniqueness
+    await img.withMetadata(exifMeta).png({ compressionLevel, adaptiveFiltering: true }).toFile(outPath);
   } else if (lower.endsWith(".webp")) {
-    const quality = flags.fundamentals ? (70 + Math.floor(Math.random() * 11)) : 90;
+    const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 7)) : 92; // 88–94, high quality
     const effort  = flags.fundamentals ? (4 + Math.floor(Math.random() * 3)) : 4;
     await img.withMetadata(exifMeta).webp({ quality, effort, smartSubsample: true }).toFile(outPath);
   } else {
-    const chroma = flags.fundamentals ? (Math.random() < 0.7 ? "4:2:0" : "4:4:4") : "4:2:0";
-    const progressive = flags.fundamentals ? Math.random() < 0.5 : true;
-    const quality = flags.fundamentals ? (62 + Math.floor(Math.random() * 10)) : 90;
+    const chroma = flags.fundamentals ? (Math.random() < 0.5 ? "4:2:0" : "4:4:4") : "4:4:4";
+    const progressive = flags.fundamentals ? Math.random() < 0.5 : false;
+    const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 7)) : 92; // 88–94, high quality
 
     await img.withMetadata(exifMeta).jpeg({
       quality,
@@ -198,7 +178,7 @@ img = img.affine(
       chromaSubsampling: chroma as "4:2:0" | "4:4:4",
       mozjpeg: true,
       optimiseCoding: true,
-      trellisQuantisation: true,
+      trellisQuantisation: flags.fundamentals,
       overshootDeringing: true,
       quantizationTable: flags.fundamentals ? (1 + Math.floor(Math.random() * 3)) : 0,
     }).toFile(outPath);
