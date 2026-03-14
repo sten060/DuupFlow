@@ -157,7 +157,7 @@ const GUIDE_STEPS = [
     title: "Variation IA & Détection IA",
     subtitle: "Étapes 4 & 5 / 5 — La puissance de l'IA",
     content:
-      "Génère des variantes entières de contenu via l'IA (BETA), ou masque la signature IA dans les métadonnées sans toucher au fichier visuellement.",
+      "Masque la signature IA dans les métadonnées sans toucher au fichier visuellement (disponible maintenant). Le module Variation IA — génération de variantes de contenu par IA — sera bientôt disponible, tu seras notifié dès son lancement 🚀",
     icon: (
       <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-400" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />

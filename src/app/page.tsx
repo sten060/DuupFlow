@@ -387,6 +387,12 @@ function FeatureTabs() {
             </div>
           </div>
         </Reveal>
+        <div className="flex justify-center mt-10">
+          <Link href="/demo"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3 font-medium text-sm text-white/75 hover:text-white hover:bg-white/[0.08] transition">
+            Voir la démo →
+          </Link>
+        </div>
       </div>
     </section>
   );
@@ -728,6 +734,19 @@ function CoreFeaturesAlt() {
           mockup={<AnimAIDet />}
           reverse
         />
+        <Reveal>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-6 pb-8">
+            <Link href="/register"
+              className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
+              style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
+              Commencer maintenant →
+            </Link>
+            <Link href="/demo"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">
+              Voir la démo
+            </Link>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -843,11 +862,11 @@ function CTABanner() {
               <Link href="/register"
                 className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
                 style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
-                S&apos;inscrire gratuitement →
+                Commencer maintenant →
               </Link>
-              <Link href="/login"
+              <Link href="/demo"
                 className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-8 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">
-                Connexion
+                Voir la démo
               </Link>
             </div>
           </div>

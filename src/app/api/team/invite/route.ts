@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
   }
 
   // Check if already invited
-  const alreadyInvited = existing?.some((inv) => true); // simplified; check by email below
   const { data: dupCheck } = await adminClient
     .from("team_invitations")
     .select("id")
@@ -69,18 +68,24 @@ export async function POST(req: NextRequest) {
   );
 
   if (inviteErr) {
-    // If user already exists, use generateLink (magic link) instead
-    if (inviteErr.message?.includes("already registered") || inviteErr.code === "email_exists") {
-      const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
+    // Supabase error messages vary by version: "already registered", "has already been registered", etc.
+    const isExisting =
+      inviteErr.message?.toLowerCase().includes("already") ||
+      inviteErr.code === "email_exists";
+
+    if (isExisting) {
+      // User already has an account — send a magic link instead
+      const { error: linkErr } = await adminClient.auth.admin.generateLink({
         type: "magiclink",
         email: guestEmail.toLowerCase(),
         options: { redirectTo: `${appUrl}/auth/callback?invite_token=${token}` },
       });
-      if (linkErr || !linkData) {
+      if (linkErr) {
+        console.error("generateLink error:", JSON.stringify(linkErr));
         return NextResponse.json({ error: "Impossible d'envoyer l'invitation." }, { status: 500 });
       }
-      // Note: generateLink doesn't auto-send, but Supabase does send it via the action_link
     } else {
+      console.error("inviteUserByEmail error:", JSON.stringify(inviteErr));
       return NextResponse.json({ error: "Impossible d'envoyer l'invitation." }, { status: 500 });
     }
   }

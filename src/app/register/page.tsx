@@ -155,7 +155,7 @@ export default function RegisterPage() {
                   className="w-full rounded-xl py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
                   style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
                 >
-                  {loading ? "Envoi…" : "Commencer gratuitement →"}
+                  {loading ? "Envoi…" : "Commencer maintenant →"}
                 </button>
 
                 <p className="text-xs text-white/25 text-center">
