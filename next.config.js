@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
 
   // Keep these packages as external Node.js requires (not bundled by webpack)
-  serverExternalPackages: ["sharp", "heic-convert", "libheif-js", "@ffmpeg-installer/ffmpeg", "@ffmpeg-installer/linux-x64"],
+  serverExternalPackages: ["sharp", "heic-convert", "libheif-js"],
 
   // Explicitly include the ffmpeg binary so Vercel's NFT tracer deploys it.
   // NFT follows JS require() calls but not path.join(__dirname, 'ffmpeg') binary refs.

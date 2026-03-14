@@ -3,10 +3,18 @@ import fs from "fs/promises";
 import path from "path";
 import { spawn } from "child_process";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
-// @ffmpeg-installer/ffmpeg ships the platform ffmpeg binary and exposes its path
-import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 
-const FFMPEG_BIN: string = ffmpegInstaller.path || "ffmpeg";
+// Resolve ffmpeg binary path at runtime (not build time).
+// webpackIgnore prevents webpack from bundling this require, letting Node resolve it.
+function getFFmpegBin(): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require(/* webpackIgnore: true */ "@ffmpeg-installer/ffmpeg");
+    return (mod?.path as string) || process.env.FFMPEG_BIN || "ffmpeg";
+  } catch {
+    return process.env.FFMPEG_BIN || "ffmpeg";
+  }
+}
 
 /* ------------------ utils ------------------ */
 
@@ -124,7 +132,7 @@ async function runFFmpegSafe(
   args.push(output);
 
   await new Promise<void>((resolve, reject) => {
-    const p = spawn(FFMPEG_BIN, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(getFFmpegBin(), args, { stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
     p.stderr.on("data", (d) => (stderr += String(d)));
     p.on("error", (err) => {
