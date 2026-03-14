@@ -83,6 +83,12 @@ export async function POST(req: Request) {
         } catch {}
       };
 
+      // Send an SSE comment every 20 s so Vercel/proxies don't drop the
+      // idle connection before ffmpeg finishes encoding.
+      const keepalive = setInterval(() => {
+        try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch {}
+      }, 20_000);
+
       try {
         const { channel, outputPaths } = await processVideos(
           formData,
@@ -112,6 +118,7 @@ export async function POST(req: Request) {
       } catch (e: any) {
         send({ percent: -1, msg: e?.message || "Erreur FFmpeg", error: true });
       } finally {
+        clearInterval(keepalive);
         // Clean up any temp input files
         for (const p of tmpFilesToClean) {
           await fs.unlink(p).catch(() => {});

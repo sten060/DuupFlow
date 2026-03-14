@@ -292,38 +292,66 @@ export default function VideoFormSimpleClient() {
         return;
       }
 
-      // Read Server-Sent Events stream
+      // Read Server-Sent Events stream.
+      // An inactivity watchdog aborts the fetch if no chunk arrives for 5 minutes —
+      // this unblocks the UI when Vercel kills the function without a clean EOF.
+      const INACTIVITY_MS = 5 * 60 * 1000;
+      let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+      const resetInactivity = () => {
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(() => ctrl.abort("timeout"), INACTIVITY_MS);
+      };
+
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
+      let receivedDone = false;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const evt = JSON.parse(line.slice(6));
-            // Remap 0-100% from server to 30-100% in UI (0-30% was upload)
-            if (evt.percent !== undefined) setProgress(30 + Math.round(evt.percent * 0.7));
-            if (evt.msg) setProgressMsg(evt.msg);
-            if (evt.error) {
-              setErrorMsg(evt.msg || "Erreur FFmpeg");
-              setProcessing(false);
-              return;
-            }
-            if (evt.done) {
-              router.push("/dashboard/videos/simple?ok=1");
-              return;
-            }
-          } catch {}
+      resetInactivity();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          resetInactivity();
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const evt = JSON.parse(line.slice(6));
+              // Remap 0-100% from server to 30-100% in UI (0-30% was upload)
+              if (evt.percent !== undefined) setProgress(30 + Math.round(evt.percent * 0.7));
+              if (evt.msg) setProgressMsg(evt.msg);
+              if (evt.error) {
+                setErrorMsg(evt.msg || "Erreur FFmpeg");
+                setProcessing(false);
+                return;
+              }
+              if (evt.done) {
+                receivedDone = true;
+                router.push("/dashboard/videos/simple?ok=1");
+                return;
+              }
+            } catch {}
+          }
         }
+      } finally {
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+      }
+
+      // Stream closed without a done event — function timed out or crashed.
+      if (!receivedDone) {
+        setErrorMsg("Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.");
       }
     } catch (err: any) {
-      if (err?.name !== "AbortError") {
+      if (err?.name === "AbortError") {
+        // User cancelled or inactivity timeout fired.
+        if (ctrl.signal.reason === "timeout") {
+          setErrorMsg("Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.");
+        }
+        // else: user cancelled intentionally, no error message needed
+      } else {
         setErrorMsg("Erreur réseau");
       }
     } finally {
