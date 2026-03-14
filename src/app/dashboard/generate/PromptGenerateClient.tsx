@@ -170,7 +170,7 @@ export default function PromptGenerateClient() {
     const b = await r.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(b);
-    a.download = `zeno-variant-${i + 1}.webp`;
+    a.download = `duupflow-variant-${i + 1}.webp`;
     document.body.appendChild(a);
     a.click();
     a.remove();

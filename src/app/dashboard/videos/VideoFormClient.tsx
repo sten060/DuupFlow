@@ -104,7 +104,7 @@ const ADVANCED_CONTROLS: {
 
 /* ---------- Templates (localStorage) ---------- */
 type Template = { name: string; ranges: Record<string, { min: number; max: number; enabled: boolean }> };
-const TEMPL_KEY = "zeno_video_templates_v1";
+const TEMPL_KEY = "duupflow_video_templates_v1";
 
 /* ---------- Composants ---------- */
 function PackCard({

@@ -133,10 +133,15 @@ async function runFFmpegSafe(
     let stderr = "";
     p.stderr.on("data", (d) => (stderr += String(d)));
     p.on("close", (code) => {
+      clearTimeout(timer);
       if (code === 0) return resolve();
       console.error("FFmpeg error:", stderr);
       reject(new Error(`FFmpeg failed (${code})\n${stderr}`));
     });
+    const timer = setTimeout(() => {
+      p.kill("SIGKILL");
+      reject(new Error("FFmpeg timed out after 5 minutes"));
+    }, 5 * 60 * 1000);
   });
 }
 

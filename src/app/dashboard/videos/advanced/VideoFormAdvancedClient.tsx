@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import Dropzone from "../../Dropzone";
 import { duplicateVideos } from "../actions";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
@@ -42,8 +42,7 @@ function Card({
   );
 }
 
-function SubmitWithProgress() {
-  const { pending } = useFormStatus();
+function SubmitWithProgress({ pending }: { pending: boolean }) {
   return (
     <div className="sticky bottom-0 left-0 right-0 z-10 mt-6">
       <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[linear-gradient(135deg,_rgba(35,80,180,.22),_rgba(75,140,255,.12))] p-3 backdrop-blur shadow-[0_0_34px_rgba(80,150,255,.22)]">
@@ -117,7 +116,7 @@ const CONTROLS: Ctrl[] = [
 type RangeState = Record<string, { enabled: boolean; min: number; max: number }>;
 type Template = { name: string; ranges: RangeState };
 
-const TKEY = "zeno_video_templates_v5";
+const TKEY = "duupflow_video_templates_v5";
 
 /** ==== Bornes "dures" (FFmpeg safe) pour validation UI ==== */
 const LIMITS: Record<
@@ -193,6 +192,8 @@ const HELP_ADVANCED: Record<Group, React.ReactNode> = {
 
 /* ========================= Page ========================= */
 export default function VideoFormAdvancedClient() {
+  const router = useRouter();
+  const [processing, setProcessing] = useState(false);
   const [ranges, setRanges] = useState<RangeState>(() =>
     Object.fromEntries(CONTROLS.map((c) => [c.key, { enabled: false, min: c.min, max: c.max }]))
   );
@@ -262,6 +263,20 @@ export default function VideoFormAdvancedClient() {
     Object.fromEntries(groups.map((g) => [g, true]))
   );
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setProcessing(true);
+    try {
+      await duplicateVideos(new FormData(e.currentTarget));
+      router.push("/dashboard/videos/advanced?ok=1");
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
+      console.error(err);
+    } finally {
+      setProcessing(false);
+    }
+  }
+
   const serialRanges: RangeState = {
     ...ranges,
     dim_w: { enabled: dimsEnabled, min: dimW, max: dimW },
@@ -301,7 +316,7 @@ export default function VideoFormAdvancedClient() {
     ].join(" ");
 
   return (
-    <form action={duplicateVideos} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="channel" value="advanced" />
       <input type="hidden" name="mode" value="advanced" />
       <input type="hidden" name="advancedRanges" value={JSON.stringify(serialRanges)} />
@@ -590,7 +605,7 @@ export default function VideoFormAdvancedClient() {
         <TemplatesList templates={templates} onLoad={onLoadTpl} onDelete={onDeleteTpl} />
       </Card>
 
-      <SubmitWithProgress />
+      <SubmitWithProgress pending={processing} />
     </form>
   );
 }

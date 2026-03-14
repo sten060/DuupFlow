@@ -43,7 +43,7 @@ export default function GenerateFormClient() {
     const b = await r.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(b);
-    a.download = `zeno-${i + 1}.png`;
+    a.download = `duupflow-${i + 1}.png`;
     document.body.appendChild(a);
     a.click();
     a.remove();
