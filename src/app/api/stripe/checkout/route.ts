@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 
-export async function POST() {
+export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -14,7 +14,8 @@ export async function POST() {
     return NextResponse.json({ error: "STRIPE_PRICE_ID non configuré" }, { status: 500 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const { origin } = new URL(request.url);
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? origin;
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
