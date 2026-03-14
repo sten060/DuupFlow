@@ -5,11 +5,13 @@ const nextConfig = {
   // Keep these packages as external Node.js requires (not bundled by webpack)
   serverExternalPackages: ["sharp", "heic-convert", "libheif-js"],
 
-  // Explicitly include the ffmpeg binary so Vercel's NFT tracer deploys it.
-  // NFT follows JS require() calls but not path.join(__dirname, 'ffmpeg') binary refs.
+  // Explicitly include the ffmpeg binary for ALL routes (server actions also use ffmpeg).
+  // Keys must be URL route paths, not filesystem paths.
+  // "*" covers every serverless function so server actions in /dashboard also get the binary.
   outputFileTracingIncludes: {
-    "src/app/api/duplicate-video/route.ts": [
+    "*": [
       "node_modules/@ffmpeg-installer/linux-x64/**",
+      "node_modules/@ffmpeg-installer/ffmpeg/**",
     ],
   },
 
