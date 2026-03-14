@@ -7,16 +7,22 @@ export default function WelcomePage() {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [visible, setVisible] = useState(false);
+  const [destination, setDestination] = useState("/checkout");
 
   useEffect(() => {
     const name = sessionStorage.getItem("welcome_first_name") ?? "toi";
+    const isGuest = sessionStorage.getItem("welcome_is_guest") === "1";
     setFirstName(name);
+    // Guests → dashboard (host has paid), regular users → paywall
+    const dest = isGuest ? "/dashboard" : "/checkout";
+    setDestination(dest);
     sessionStorage.removeItem("welcome_first_name");
+    sessionStorage.removeItem("welcome_is_guest");
 
     // Fade in
     const t1 = setTimeout(() => setVisible(true), 100);
-    // Auto-redirect after 3s
-    const t2 = setTimeout(() => router.push("/dashboard"), 3200);
+    // Auto-redirect
+    const t2 = setTimeout(() => router.push(dest), 3200);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
@@ -60,9 +66,7 @@ export default function WelcomePage() {
 
         <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
           Bonjour,{" "}
-          <span
-            className="bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent"
-          >
+          <span className="bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent">
             {firstName}
           </span>{" "}
           👋
@@ -73,11 +77,11 @@ export default function WelcomePage() {
         </p>
 
         <button
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push(destination)}
           className="inline-flex items-center gap-2 rounded-xl px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90"
           style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
         >
-          Accéder au dashboard →
+          {destination === "/checkout" ? "Choisir mon offre →" : "Accéder au dashboard →"}
         </button>
 
         <p className="mt-4 text-xs text-white/25">Redirection automatique dans quelques secondes…</p>

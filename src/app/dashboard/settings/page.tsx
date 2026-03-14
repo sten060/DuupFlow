@@ -18,9 +18,9 @@ export default async function SettingsPage() {
   // If guest, settings are read-only for invitations
   const isGuest = profile?.is_guest ?? false;
 
-  // Load invitations (only for hosts)
+  // Load invitations (only for hosts, requires service role key)
   let invitations: { id: string; guest_email: string; status: string; guest_name?: string }[] = [];
-  if (!isGuest) {
+  if (!isGuest && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const adminClient = createAdminClient();
     const { data: invs } = await adminClient
       .from("team_invitations")

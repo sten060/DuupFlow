@@ -64,8 +64,9 @@ function OnboardingForm() {
       }
     }
 
-    // Store firstName in sessionStorage for the welcome page
+    // Store firstName and guest status in sessionStorage for the welcome page
     sessionStorage.setItem("welcome_first_name", firstName.trim());
+    sessionStorage.setItem("welcome_is_guest", isGuest ? "1" : "0");
     router.push("/onboarding/welcome");
   }
 
