@@ -3,16 +3,10 @@ import fs from "fs/promises";
 import path from "path";
 import { spawn } from "child_process";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
+// @ffmpeg-installer/ffmpeg ships the platform ffmpeg binary and exposes its path
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 
-// Prefer the bundled @ffmpeg-installer binary (works on Vercel), fallback to system ffmpeg
-const FFMPEG_BIN: string = (() => {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require("@ffmpeg-installer/ffmpeg").path as string;
-  } catch {
-    return "ffmpeg";
-  }
-})();
+const FFMPEG_BIN: string = ffmpegInstaller.path || "ffmpeg";
 
 /* ------------------ utils ------------------ */
 
