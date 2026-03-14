@@ -2,9 +2,16 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // sharp and heic-convert have native binaries — don't bundle them into JS,
-  // let Node.js require them from node_modules at runtime
-  serverExternalPackages: ["sharp", "heic-convert", "libheif-js"],
+  // Keep these packages as external Node.js requires (not bundled by webpack)
+  serverExternalPackages: ["sharp", "heic-convert", "libheif-js", "@ffmpeg-installer/ffmpeg", "@ffmpeg-installer/linux-x64"],
+
+  // Explicitly include the ffmpeg binary so Vercel's NFT tracer deploys it.
+  // NFT follows JS require() calls but not path.join(__dirname, 'ffmpeg') binary refs.
+  outputFileTracingIncludes: {
+    "src/app/api/duplicate-video/route.ts": [
+      "node_modules/@ffmpeg-installer/linux-x64/**",
+    ],
+  },
 
   // Exclude heavy packages from the serverless function output tracing.
   // This is the main lever to stay under Vercel's 300MB function size limit.
