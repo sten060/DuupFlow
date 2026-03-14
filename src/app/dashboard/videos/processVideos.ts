@@ -123,6 +123,10 @@ async function runFFmpegSafe(
     const p = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
     p.stderr.on("data", (d) => (stderr += String(d)));
+    p.on("error", (err) => {
+      clearTimeout(timer);
+      reject(new Error(`FFmpeg introuvable ou inaccessible : ${err.message}`));
+    });
     p.on("close", (code) => {
       clearTimeout(timer);
       if (code === 0) return resolve();
