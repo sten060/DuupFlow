@@ -1,12 +1,16 @@
+import os from "os";
 import path from "path";
 import fs from "fs/promises";
 import { createClient } from "@/lib/supabase/server";
 
 // OUT_BASE must be set via env var.
-// Default uses a computed path so the NFT tracer cannot statically resolve
-// it to a real directory and bundle its contents into serverless functions.
+// On Vercel the filesystem is read-only except /tmp, so we default to /tmp/duupflow.
+// On a VPS set OUT_BASE to a persistent directory (e.g. /data/out).
 const _out = process.env.OUT_BASE;
-const OUT_BASE = _out ?? path.join(process.cwd(), ["public", "out"].join(path.sep));
+const IS_VERCEL = !!process.env.VERCEL;
+const OUT_BASE = _out ?? (IS_VERCEL
+  ? path.join(os.tmpdir(), "duupflow")
+  : path.join(process.cwd(), ["public", "out"].join(path.sep)));
 
 async function resolveUserId(): Promise<string> {
   try {

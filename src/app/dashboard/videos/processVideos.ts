@@ -4,6 +4,16 @@ import path from "path";
 import { spawn } from "child_process";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 
+// Prefer the bundled @ffmpeg-installer binary (works on Vercel), fallback to system ffmpeg
+const FFMPEG_BIN: string = (() => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("@ffmpeg-installer/ffmpeg").path as string;
+  } catch {
+    return "ffmpeg";
+  }
+})();
+
 /* ------------------ utils ------------------ */
 
 const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
@@ -120,7 +130,7 @@ async function runFFmpegSafe(
   args.push(output);
 
   await new Promise<void>((resolve, reject) => {
-    const p = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(FFMPEG_BIN, args, { stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
     p.stderr.on("data", (d) => (stderr += String(d)));
     p.on("error", (err) => {
@@ -144,15 +154,20 @@ async function runFFmpegSafe(
    Core processing — returns channel for redirect URL
    ========================================================= */
 
+export type PreDownloadedFile = { name: string; tmpPath: string };
+
 export async function processVideos(
   formData: FormData,
   onProgress?: (pct: number, msg: string) => Promise<void>,
-  preResolvedDir?: string
-): Promise<string> {
+  preResolvedDir?: string,
+  preDownloadedFiles?: PreDownloadedFile[]
+): Promise<{ channel: string; outputPaths: string[] }> {
   const channel = (formData.get("channel") as Channel) ?? "simple";
   const mode = (formData.get("mode") as string) ?? "simple";
   const count = Math.max(1, Number(formData.get("count") || 1));
-  const files = (formData.getAll("files") as unknown as File[]).filter(Boolean);
+  const uploadedFiles = (formData.getAll("files") as unknown as File[]).filter(Boolean);
+  // Use pre-downloaded files when provided (bypasses Vercel body limit)
+  const files: Array<File | PreDownloadedFile> = preDownloadedFiles ?? uploadedFiles;
   const runTag = Math.random().toString(36).slice(2, 6);
 
   const { dir } = preResolvedDir
@@ -169,6 +184,7 @@ export async function processVideos(
 
   const totalCopies = files.length * count;
   let doneCopies = 0;
+  const outputPaths: string[] = [];
 
   await onProgress?.(0, "Préparation…");
 
@@ -176,12 +192,21 @@ export async function processVideos(
   for (const f of files) {
     fileIndex += 1;
 
-    const origExt = extOf(f.name) || ".mp4";
-    const tmpIn = path.join(
-      dir,
-      `__in__${Date.now()}_${Math.random().toString(36).slice(2)}${origExt}`
-    );
-    await fs.writeFile(tmpIn, Buffer.from(await f.arrayBuffer()));
+    const fileName = "tmpPath" in f ? f.name : (f as File).name;
+    const origExt = extOf(fileName) || ".mp4";
+    let tmpIn: string;
+    let ownsTmpIn = false;
+    if ("tmpPath" in f) {
+      // Already downloaded to a temp path — use it directly
+      tmpIn = f.tmpPath;
+    } else {
+      tmpIn = path.join(
+        dir,
+        `__in__${Date.now()}_${Math.random().toString(36).slice(2)}${origExt}`
+      );
+      await fs.writeFile(tmpIn, Buffer.from(await (f as File).arrayBuffer()));
+      ownsTmpIn = true;
+    }
 
     for (let c = 1; c <= count; c++) {
       await onProgress?.(
@@ -194,7 +219,7 @@ export async function processVideos(
         date: stamp,
         fileIndex,
         copyIndex: c,
-        origName: f.name,
+        origName: fileName,
         runTag,
       });
       const outPath = path.join(dir, outName);
@@ -422,6 +447,7 @@ export async function processVideos(
       }
 
       await runFFmpegSafe(tmpIn, outPath, vfParts, afParts, extraArgs);
+      outputPaths.push(outPath);
       doneCopies++;
       await onProgress?.(
         Math.min(99, Math.round((doneCopies / totalCopies) * 100)),
@@ -429,8 +455,8 @@ export async function processVideos(
       );
     }
 
-    await fs.unlink(tmpIn).catch(() => {});
+    if (ownsTmpIn) await fs.unlink(tmpIn).catch(() => {});
   }
 
-  return channel;
+  return { channel, outputPaths };
 }
