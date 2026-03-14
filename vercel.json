@@ -1,7 +1,14 @@
 {
   "functions": {
     "src/app/api/duplicate-video/route.ts": {
-      "maxDuration": 300
+      "maxDuration": 300,
+      "includeFiles": "node_modules/@ffmpeg-installer/linux-x64/**"
+    },
+    "src/app/dashboard/videos/actions.ts": {
+      "includeFiles": "node_modules/@ffmpeg-installer/linux-x64/**"
+    },
+    "src/app/dashboard/actions.ts": {
+      "includeFiles": "node_modules/@ffmpeg-installer/linux-x64/**"
     }
   }
 }

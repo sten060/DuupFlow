@@ -13,16 +13,23 @@ const nextConfig = {
     "@ffmpeg-installer/linux-x64",
   ],
 
-  // Explicitly include the ffmpeg binary for ALL routes (server actions also use ffmpeg).
-  // IMPORTANT: key must be "**" (not "*") — micromatch "**" matches paths with slashes
-  // like "/api/duplicate-video". Plain "*" only matches single-segment paths and silently
-  // skips everything else, so the binary never gets deployed.
-  // Values must use "./" prefix and "**/*" suffix as required by Next.js file tracing.
+  // Include the ffmpeg binary in ALL serverless function bundles.
+  // Declared at both top-level and experimental — some Next.js 14.x patch versions
+  // only read one or the other due to a config migration bug.
   outputFileTracingIncludes: {
     "**": [
       "./node_modules/@ffmpeg-installer/linux-x64/**/*",
       "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
     ],
+  },
+
+  experimental: {
+    outputFileTracingIncludes: {
+      "**": [
+        "./node_modules/@ffmpeg-installer/linux-x64/**/*",
+        "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
+      ],
+    },
   },
 
   // Exclude heavy packages from the serverless function output tracing.
