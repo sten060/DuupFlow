@@ -7,7 +7,9 @@ export async function POST(req: Request) {
   try {
     formData = await req.formData();
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Erreur lecture formulaire" }, { status: 400 });
+    const msg = e?.message || String(e) || "Erreur lecture formulaire";
+    console.error("[duplicate-video] formData error:", msg);
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 
   // Resolve user context while request cookies are still available
@@ -16,7 +18,9 @@ export async function POST(req: Request) {
   try {
     ({ dir, userId } = await getOutDirForCurrentUser());
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Erreur authentification" }, { status: 500 });
+    const msg = e?.message || String(e) || "Erreur authentification";
+    console.error("[duplicate-video] getOutDir error:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 
   // Stream progress updates via Server-Sent Events so the frontend
