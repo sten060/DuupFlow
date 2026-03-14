@@ -166,7 +166,7 @@ try {
           blob.type?.includes("png") ? "png" :
           blob.type?.includes("webp") ? "webp" :
           blob.type?.includes("jpeg") || blob.type?.includes("jpg") ? "jpg" : "png";
-        zip.file(`zeno_generation_${idx}.${ext}`, blob);
+        zip.file(`duupflow_generation_${idx}.${ext}`, blob);
         idx++;
       }
 
@@ -174,7 +174,7 @@ try {
       const downloadUrl = URL.createObjectURL(content);
       const a = document.createElement("a");
       a.href = downloadUrl;
-      a.download = "zeno_generations.zip";
+      a.download = "duupflow_generations.zip";
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -209,7 +209,7 @@ try {
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = objectUrl;
-      a.download = `zeno_generation_${idx}.${ext}`;
+      a.download = `duupflow_generation_${idx}.${ext}`;
       document.body.appendChild(a);
       a.click();
       a.remove();

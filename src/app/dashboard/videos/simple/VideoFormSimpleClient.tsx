@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import Dropzone from "../../Dropzone";
 import { duplicateVideos } from "../actions";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
@@ -65,8 +65,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   );
 }
 
-function SubmitWithProgress() {
-  const { pending } = useFormStatus();
+function SubmitWithProgress({ pending }: { pending: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <button
@@ -172,6 +171,8 @@ function PackCard({
 
 /* ---------- Composant principal (SIMPLE) ---------- */
 export default function VideoFormSimpleClient() {
+  const router = useRouter();
+  const [processing, setProcessing] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({
     metadata: true,
     audio: false,
@@ -206,8 +207,23 @@ export default function VideoFormSimpleClient() {
     border: { enabled: borderEnabled, min_pct: borderMin, max_pct: borderMax, horizontal: borderHoriz, lateral: borderLat },
   });
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setProcessing(true);
+    try {
+      await duplicateVideos(new FormData(e.currentTarget));
+      router.push("/dashboard/videos/simple?ok=1");
+    } catch (err: unknown) {
+      // next/navigation redirect throws — let it propagate
+      if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
+      console.error(err);
+    } finally {
+      setProcessing(false);
+    }
+  }
+
   return (
-    <form action={duplicateVideos} method="post" encType="multipart/form-data" className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="channel" value="simple" />
       <input type="hidden" name="mode" value="simple" />
       <input type="hidden" name="singles" value={singlesJSON} />
@@ -247,7 +263,7 @@ export default function VideoFormSimpleClient() {
         {/* … le reste de tes contrôles (rotation, dimensions, bordures) inchangés … */}
       </GlowCard>
 
-      <SubmitWithProgress />
+      <SubmitWithProgress pending={processing} />
     </form>
   );
 }
