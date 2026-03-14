@@ -4,75 +4,53 @@ import path from "path";
 import { spawn } from "child_process";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 
-// Resolve ffmpeg binary path at runtime.
-// @ffmpeg-installer/ffmpeg + linux-x64 are in serverExternalPackages so webpack
-// leaves them as Node.js externals. NFT then traces and deploys them with the function.
-// @ffmpeg-installer/linux-x64 is a direct dep (package.json) so it is always installed.
+// On Vercel, native binaries cannot be included in the serverless function bundle
+// via NFT tracing or outputFileTracingIncludes (Next.js zero-config limitation).
+// Solution: download the binary from the npm CDN into /tmp on first invocation.
+// /tmp persists across warm starts (~512 MB quota), so the download only happens
+// once per Lambda instance (cold start penalty ≈ 3-5 s for a 66 MB binary).
+const FFMPEG_TMP = "/tmp/ffmpeg";
+const FFMPEG_URL =
+  "https://cdn.jsdelivr.net/npm/@ffmpeg-installer/linux-x64@4.1.0/ffmpeg";
+
 let _ffmpegBin: string | null = null;
+let _downloadPromise: Promise<string> | null = null;
+
 async function getFFmpegBin(): Promise<string> {
+  // Env override — useful for local dev or a custom deploy with a real binary.
+  if (process.env.FFMPEG_BIN) return process.env.FFMPEG_BIN;
+
+  // Already resolved this Lambda instance.
   if (_ffmpegBin) return _ffmpegBin;
 
-  let bin = process.env.FFMPEG_BIN || "";
-
+  // Warm start: binary already downloaded in a previous invocation.
   const { existsSync } = await import("fs");
-
-  if (!bin) {
-    // Strategy 1 — process.cwd() based path.
-    // On Vercel, process.cwd() = /var/task. outputFileTracingIncludes in next.config.js
-    // deploys the binary to node_modules/@ffmpeg-installer/linux-x64/ffmpeg there.
-    const candidate = path.join(process.cwd(), "node_modules/@ffmpeg-installer/linux-x64/ffmpeg");
-    if (existsSync(candidate)) {
-      bin = candidate;
-    } else {
-      console.error("[ffmpeg] not found at cwd path:", candidate);
-    }
+  if (existsSync(FFMPEG_TMP)) {
+    _ffmpegBin = FFMPEG_TMP;
+    return _ffmpegBin;
   }
 
-  if (!bin) {
-    // Strategy 2 — require('@ffmpeg-installer/linux-x64') via the index.js created
-    // by scripts/setup-ffmpeg.cjs (prebuild). That file handles both the "external"
-    // case (correct __dirname) and the "bundled by webpack" case (falls back to cwd).
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const mod = require("@ffmpeg-installer/linux-x64") as { path: string };
-      if (mod?.path && existsSync(mod.path)) {
-        bin = mod.path;
-      } else if (mod?.path) {
-        console.error("[ffmpeg] require() path not found on disk:", mod.path);
-      }
-    } catch (e) {
-      console.error("[ffmpeg] require(@ffmpeg-installer/linux-x64) failed:", e);
-    }
+  // Cold start: download from npm CDN (once, deduplicated with a module-level promise).
+  if (!_downloadPromise) {
+    _downloadPromise = (async () => {
+      console.log("[ffmpeg] cold start — downloading binary from CDN…");
+      const tmpPart = FFMPEG_TMP + ".part";
+      const res = await fetch(FFMPEG_URL);
+      if (!res.ok) throw new Error(`[ffmpeg] CDN returned HTTP ${res.status}`);
+      const buf = Buffer.from(await res.arrayBuffer());
+      await fs.writeFile(tmpPart, buf);
+      await fs.chmod(tmpPart, 0o755);
+      await fs.rename(tmpPart, FFMPEG_TMP);
+      console.log(`[ffmpeg] downloaded ${buf.length} bytes → ${FFMPEG_TMP}`);
+      return FFMPEG_TMP;
+    })().catch((err) => {
+      _downloadPromise = null; // allow retry on next request
+      throw err;
+    });
   }
 
-  if (!bin) {
-    // Strategy 3 — @ffmpeg-installer/ffmpeg high-level wrapper.
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const installer = require("@ffmpeg-installer/ffmpeg") as { path: string };
-      if (installer?.path && existsSync(installer.path)) {
-        bin = installer.path;
-      } else if (installer?.path) {
-        console.error("[ffmpeg] @ffmpeg-installer/ffmpeg path not found:", installer.path);
-      }
-    } catch (e) {
-      console.error("[ffmpeg] require(@ffmpeg-installer/ffmpeg) failed:", e);
-    }
-  }
-
-  if (!bin) {
-    console.error("[ffmpeg] binary not found, will try system PATH ('ffmpeg')");
-    bin = "ffmpeg";
-  }
-
-  // Ensure the binary is executable (Vercel may deploy without execute bits).
-  if (bin !== "ffmpeg") {
-    try { await fs.chmod(bin, 0o755); } catch { /* ignore */ }
-  }
-
-  console.log("[ffmpeg] resolved binary:", bin);
-  _ffmpegBin = bin;
-  return bin;
+  _ffmpegBin = await _downloadPromise;
+  return _ffmpegBin;
 }
 
 /* ------------------ utils ------------------ */
