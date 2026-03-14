@@ -15,8 +15,25 @@ async function getFFmpegBin(): Promise<string> {
   let bin = process.env.FFMPEG_BIN || "";
 
   if (!bin) {
+    // Strategy 1 — static require of the platform package.
+    // The string literal "@ffmpeg-installer/linux-x64/package.json" is static so
+    // Vercel's NFT file tracer can follow it and deploy the whole package directory.
+    // (@ffmpeg-installer/ffmpeg uses dynamic require(platform+arch) internally so
+    // NFT cannot auto-trace it — we must do it explicitly here.)
     try {
-      // Normal require — NOT webpackIgnore so NFT traces and deploys the module.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const pkgPath: string = require.resolve("@ffmpeg-installer/linux-x64/package.json");
+      const candidate = path.join(path.dirname(pkgPath), "ffmpeg");
+      const { existsSync } = await import("fs");
+      if (existsSync(candidate)) bin = candidate;
+    } catch (e) {
+      console.error("[ffmpeg] require.resolve(linux-x64/package.json) failed:", e);
+    }
+  }
+
+  if (!bin) {
+    // Strategy 2 — @ffmpeg-installer/ffmpeg high-level API (may fail if NFT didn't trace).
+    try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const installer = require("@ffmpeg-installer/ffmpeg") as { path: string };
       if (installer?.path) bin = installer.path;
@@ -26,10 +43,10 @@ async function getFFmpegBin(): Promise<string> {
   }
 
   if (!bin) {
-    // Fallback: build path from process.cwd() — /var/task on Vercel.
+    // Strategy 3 — derive from process.cwd() (/var/task on Vercel).
     const { existsSync } = await import("fs");
     const candidate = path.join(process.cwd(), "node_modules/@ffmpeg-installer/linux-x64/ffmpeg");
-    console.log("[ffmpeg] trying fallback path:", candidate, "exists:", existsSync(candidate));
+    console.log("[ffmpeg] trying cwd path:", candidate, "exists:", existsSync(candidate));
     if (existsSync(candidate)) bin = candidate;
   }
 
