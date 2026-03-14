@@ -117,13 +117,15 @@ async function runFFmpegSafe(
 
   args.push(
     "-c:v", "libx264",
-    "-preset", "veryfast",
+    "-preset", "medium",
+    "-crf", "17",
     "-pix_fmt", "yuv420p",
     "-movflags", "+faststart",
     "-c:a", "aac",
-    "-b:a", "128k",
+    "-b:a", "256k",
   );
 
+  // extraArgs can override crf/bitrate (e.g. technical pack sets its own values)
   if (extraArgs.length) args.push(...extraArgs);
 
   args.push(output);
