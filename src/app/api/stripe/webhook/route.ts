@@ -3,8 +3,8 @@ import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Stripe from "stripe";
 
-// Désactiver le body parsing par défaut de Next.js (Stripe a besoin du raw body)
-export const config = { api: { bodyParser: false } };
+// App Router lit le raw body via request.text() — pas besoin de config bodyParser
+export const dynamic = "force-dynamic";
 
 async function markUserPaid(userId: string) {
   const admin = createAdminClient();
