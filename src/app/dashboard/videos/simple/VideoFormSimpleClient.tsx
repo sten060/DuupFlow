@@ -4,7 +4,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Dropzone from "../../Dropzone";
-import { duplicateVideos } from "../actions";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 
 function ProgressBar({ percent, label }: { percent: number; label?: string }) {
@@ -211,11 +210,17 @@ export default function VideoFormSimpleClient() {
     e.preventDefault();
     setProcessing(true);
     try {
-      await duplicateVideos(new FormData(e.currentTarget));
-      router.push("/dashboard/videos/simple?ok=1");
-    } catch (err: unknown) {
-      // next/navigation redirect throws — let it propagate
-      if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
+      const res = await fetch("/api/duplicate-video", {
+        method: "POST",
+        body: new FormData(e.currentTarget),
+      });
+      if (res.ok) {
+        router.push("/dashboard/videos/simple?ok=1");
+      } else {
+        const j = await res.json().catch(() => ({}));
+        console.error("Duplication error:", j?.error);
+      }
+    } catch (err) {
       console.error(err);
     } finally {
       setProcessing(false);
