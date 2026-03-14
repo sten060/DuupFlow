@@ -15,8 +15,7 @@ const nextConfig = {
       // These are served as static assets, never as part of a function bundle.
       "public/**",
 
-      // FFmpeg binaries — only spawned as a child process, never imported
-      "node_modules/@ffmpeg-installer/**",
+      // fluent-ffmpeg types only — @ffmpeg-installer binary IS needed at runtime on Vercel
       "node_modules/fluent-ffmpeg/**",
 
       // Dev/build-time only — should never end up in a serverless function

@@ -3,6 +3,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 
@@ -215,15 +216,70 @@ export default function VideoFormSimpleClient() {
     setProcessing(true);
     setErrorMsg(null);
     setProgress(0);
-    setProgressMsg("Envoi…");
+    setProgressMsg("Préparation…");
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
     try {
+      const rawForm = new FormData(e.currentTarget);
+      const uploadedFiles = rawForm.getAll("files") as File[];
+
+      // Upload each file directly to Supabase Storage to bypass Vercel's 4.5 MB body limit
+      let apiForm: FormData;
+      if (uploadedFiles.length > 0 && uploadedFiles[0].size > 0) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+        const userId = user?.id ?? "anon";
+
+        const storagePaths: string[] = [];
+        for (let i = 0; i < uploadedFiles.length; i++) {
+          const file = uploadedFiles[i];
+          setProgressMsg(`Upload ${i + 1}/${uploadedFiles.length}…`);
+          setProgress(Math.round((i / uploadedFiles.length) * 30));
+
+          // Get a signed upload URL from our API
+          const signRes = await fetch("/api/storage/sign-upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileName: file.name, userId }),
+            signal: ctrl.signal,
+          });
+          if (!signRes.ok) {
+            const j = await signRes.json().catch(() => ({}));
+            throw new Error(j?.error || `Erreur sign-upload HTTP ${signRes.status}`);
+          }
+          const { signedUrl, token, path: storagePath } = await signRes.json();
+
+          // Upload directly to Supabase Storage (bypasses Vercel)
+          const uploadRes = await supabase.storage
+            .from("video-uploads")
+            .uploadToSignedUrl(storagePath, token, file);
+          if (uploadRes.error) throw new Error(`Upload storage: ${uploadRes.error.message}`);
+
+          storagePaths.push(storagePath);
+          void signedUrl; // signedUrl not needed after upload
+        }
+
+        setProgress(30);
+        setProgressMsg("Envoi au serveur…");
+
+        // Build form data without the file blobs — just metadata + storage paths
+        apiForm = new FormData();
+        for (const key of ["channel", "mode", "singles", "count", "packs"]) {
+          const v = rawForm.get(key);
+          if (v !== null) apiForm.append(key, v);
+        }
+        for (const sp of storagePaths) apiForm.append("storagePaths", sp);
+        for (const f of uploadedFiles) apiForm.append("fileNames", f.name);
+      } else {
+        // No files or empty — send as-is (fallback / local dev)
+        apiForm = rawForm;
+      }
+
       const res = await fetch("/api/duplicate-video", {
         method: "POST",
-        body: new FormData(e.currentTarget),
+        body: apiForm,
         signal: ctrl.signal,
       });
 
@@ -251,7 +307,8 @@ export default function VideoFormSimpleClient() {
           if (!line.startsWith("data: ")) continue;
           try {
             const evt = JSON.parse(line.slice(6));
-            if (evt.percent !== undefined) setProgress(evt.percent);
+            // Remap 0-100% from server to 30-100% in UI (0-30% was upload)
+            if (evt.percent !== undefined) setProgress(30 + Math.round(evt.percent * 0.7));
             if (evt.msg) setProgressMsg(evt.msg);
             if (evt.error) {
               setErrorMsg(evt.msg || "Erreur FFmpeg");

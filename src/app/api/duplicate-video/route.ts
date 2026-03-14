@@ -1,6 +1,15 @@
+import os from "os";
+import path from "path";
+import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import { processVideos } from "@/app/dashboard/videos/processVideos";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+const INPUT_BUCKET = "video-uploads";
+const OUTPUT_BUCKET = "video-outputs";
+
+export const maxDuration = 300; // seconds — Vercel Pro/Enterprise
 
 export async function POST(req: Request) {
   let formData: FormData;
@@ -23,8 +32,47 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 
-  // Stream progress updates via Server-Sent Events so the frontend
-  // knows what's happening without relying on fire-and-forget background tasks.
+  // Check if files are coming via Supabase Storage paths (Vercel) or direct upload (local)
+  const storagePaths = formData.getAll("storagePaths") as string[];
+  const fileNames = formData.getAll("fileNames") as string[];
+  const hasStoragePaths = storagePaths.length > 0;
+
+  // Download files from Supabase Storage to /tmp when using the storage-based flow
+  type PreDownloaded = { name: string; tmpPath: string };
+  let preDownloadedFiles: PreDownloaded[] | undefined;
+  const tmpFilesToClean: string[] = [];
+
+  if (hasStoragePaths) {
+    const supabase = createAdminClient();
+    preDownloadedFiles = [];
+
+    for (let i = 0; i < storagePaths.length; i++) {
+      const storagePath = storagePaths[i];
+      const fileName = fileNames[i] ?? path.basename(storagePath);
+
+      const { data, error } = await supabase.storage
+        .from(INPUT_BUCKET)
+        .download(storagePath);
+
+      if (error || !data) {
+        return NextResponse.json(
+          { error: `Téléchargement storage échoué: ${error?.message ?? "inconnu"}` },
+          { status: 500 }
+        );
+      }
+
+      const ext = path.extname(fileName) || ".mp4";
+      const tmpPath = path.join(os.tmpdir(), `duup_in_${Date.now()}_${i}${ext}`);
+      await fs.writeFile(tmpPath, Buffer.from(await data.arrayBuffer()));
+      tmpFilesToClean.push(tmpPath);
+      preDownloadedFiles.push({ name: fileName, tmpPath });
+    }
+
+    // Delete input objects from storage now that we have them locally
+    await supabase.storage.from(INPUT_BUCKET).remove(storagePaths).catch(() => {});
+  }
+
+  // Stream progress updates via Server-Sent Events
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -36,15 +84,38 @@ export async function POST(req: Request) {
       };
 
       try {
-        await processVideos(
+        const { channel, outputPaths } = await processVideos(
           formData,
           async (pct, msg) => { send({ percent: pct, msg }); },
-          dir
+          dir,
+          preDownloadedFiles
         );
-        send({ percent: 100, msg: "Terminé ✔", done: true, userId });
+
+        // Upload outputs to Supabase Storage when using storage-based flow
+        if (hasStoragePaths && outputPaths.length > 0) {
+          const supabase = createAdminClient();
+          await supabase.storage.createBucket(OUTPUT_BUCKET, { public: false }).catch(() => {});
+
+          send({ percent: 99, msg: "Sauvegarde…" });
+          for (const outPath of outputPaths) {
+            const outName = path.basename(outPath);
+            const storageKey = `${userId}/${outName}`;
+            const fileBuffer = await fs.readFile(outPath);
+            await supabase.storage
+              .from(OUTPUT_BUCKET)
+              .upload(storageKey, fileBuffer, { contentType: "video/mp4", upsert: true });
+            await fs.unlink(outPath).catch(() => {});
+          }
+        }
+
+        send({ percent: 100, msg: "Terminé ✔", done: true, userId, channel });
       } catch (e: any) {
         send({ percent: -1, msg: e?.message || "Erreur FFmpeg", error: true });
       } finally {
+        // Clean up any temp input files
+        for (const p of tmpFilesToClean) {
+          await fs.unlink(p).catch(() => {});
+        }
         try { controller.close(); } catch {}
       }
     },
