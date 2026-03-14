@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const FEATURES = [
   "Duplication images illimitée (EXIF/XMP)",
@@ -12,6 +14,28 @@ const FEATURES = [
 ];
 
 export default function CheckoutPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleCheckout() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/stripe/checkout", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        setError(data.error ?? "Erreur lors de la création de la session.");
+        setLoading(false);
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setError("Erreur réseau. Réessaie.");
+      setLoading(false);
+    }
+  }
+
   return (
     <main
       className="min-h-screen flex items-center justify-center px-6"
@@ -93,14 +117,21 @@ export default function CheckoutPage() {
             ))}
           </ul>
 
+          {error && (
+            <p className="text-xs text-red-400 bg-red-500/[0.08] border border-red-500/20 rounded-lg px-3 py-2 mb-4">
+              {error}
+            </p>
+          )}
+
           {/* CTA */}
-          <a
-            href="#"
-            className="block w-full rounded-xl py-3.5 text-center text-sm font-bold text-white transition hover:opacity-90"
+          <button
+            onClick={handleCheckout}
+            disabled={loading}
+            className="w-full rounded-xl py-3.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
             style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
           >
-            Continuer vers le paiement sécurisé →
-          </a>
+            {loading ? "Redirection en cours…" : "Souscrire maintenant — 99€/mois →"}
+          </button>
 
           <p className="text-center text-xs text-white/25 mt-4">
             Paiement sécurisé par Stripe · SSL 256-bit
