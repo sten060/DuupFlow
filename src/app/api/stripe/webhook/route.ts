@@ -3,23 +3,23 @@ import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Stripe from "stripe";
 
-// App Router lit le raw body via request.text() — pas besoin de config bodyParser
 export const dynamic = "force-dynamic";
 
 async function markUserPaid(userId: string) {
   const admin = createAdminClient();
-  await admin
-    .from("profiles")
-    .update({ has_paid: true })
-    .eq("id", userId);
+  await admin.from("profiles").update({ has_paid: true }).eq("id", userId);
 }
 
 async function markUserUnpaid(userId: string) {
   const admin = createAdminClient();
-  await admin
-    .from("profiles")
-    .update({ has_paid: false })
-    .eq("id", userId);
+  await admin.from("profiles").update({ has_paid: false }).eq("id", userId);
+}
+
+// Dans l'API Stripe 2025-02-24.acacia, l'ID d'abonnement est dans
+// invoice.parent.subscription_details.subscription (plus invoice.subscription)
+function getSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const parent = (invoice as unknown as { parent?: { subscription_details?: { subscription?: string } } }).parent;
+  return parent?.subscription_details?.subscription ?? null;
 }
 
 export async function POST(request: NextRequest) {
@@ -37,17 +37,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  // Récupérer l'ID utilisateur Supabase depuis les métadonnées
-  function getUserId(obj: { client_reference_id?: string | null; metadata?: Record<string, string> | null }): string | null {
-    return obj.metadata?.supabase_user_id ?? obj.client_reference_id ?? null;
-  }
-
   switch (event.type) {
     // Paiement initial réussi → accès débloqué
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      const userId = getUserId({ client_reference_id: session.client_reference_id, metadata: session.subscription ? undefined : undefined });
-      // Récupérer depuis subscription metadata si nécessaire
       if (session.subscription) {
         const sub = await stripe.subscriptions.retrieve(session.subscription as string);
         const uid = sub.metadata?.supabase_user_id ?? session.client_reference_id;
@@ -58,29 +51,35 @@ export async function POST(request: NextRequest) {
       break;
     }
 
-    // Renouvellement d'abonnement mensuel → s'assurer que l'accès est actif
+    // Renouvellement mensuel → maintenir l'accès actif
     case "invoice.paid": {
       const invoice = event.data.object as Stripe.Invoice;
-      if (invoice.subscription) {
-        const sub = await stripe.subscriptions.retrieve(invoice.subscription as string);
+      const subId = getSubscriptionId(invoice);
+      if (subId) {
+        const sub = await stripe.subscriptions.retrieve(subId);
         const uid = sub.metadata?.supabase_user_id;
         if (uid) await markUserPaid(uid);
       }
       break;
     }
 
-    // Paiement échoué ou abonnement annulé → révoquer l'accès
-    case "invoice.payment_failed":
-    case "customer.subscription.deleted": {
-      const obj = event.data.object as Stripe.Subscription | Stripe.Invoice;
-      const subId = "subscription" in obj && obj.subscription
-        ? (obj.subscription as string)
-        : (obj as Stripe.Subscription).id;
+    // Paiement échoué → révoquer l'accès
+    case "invoice.payment_failed": {
+      const invoice = event.data.object as Stripe.Invoice;
+      const subId = getSubscriptionId(invoice);
       if (subId) {
         const sub = await stripe.subscriptions.retrieve(subId);
         const uid = sub.metadata?.supabase_user_id;
         if (uid) await markUserUnpaid(uid);
       }
+      break;
+    }
+
+    // Abonnement annulé → révoquer l'accès
+    case "customer.subscription.deleted": {
+      const sub = event.data.object as Stripe.Subscription;
+      const uid = sub.metadata?.supabase_user_id;
+      if (uid) await markUserUnpaid(uid);
       break;
     }
   }
