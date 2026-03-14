@@ -2,16 +2,57 @@
 import fs from "fs/promises";
 import path from "path";
 import { spawn } from "child_process";
+import zlib from "zlib";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 
 // On Vercel, native binaries cannot be included in the serverless function bundle
 // via NFT tracing or outputFileTracingIncludes (Next.js zero-config limitation).
-// Solution: download the binary from the npm CDN into /tmp on first invocation.
-// /tmp persists across warm starts (~512 MB quota), so the download only happens
-// once per Lambda instance (cold start penalty ≈ 3-5 s for a 66 MB binary).
+// Solution: download the tarball from the official npm registry, extract the
+// binary in memory, and write it to /tmp on first invocation.
+// /tmp persists across warm starts, so the download only happens on cold starts.
 const FFMPEG_TMP = "/tmp/ffmpeg";
-const FFMPEG_URL =
-  "https://cdn.jsdelivr.net/npm/@ffmpeg-installer/linux-x64@4.1.0/ffmpeg";
+const FFMPEG_TARBALL =
+  "https://registry.npmjs.org/@ffmpeg-installer/linux-x64/-/linux-x64-4.1.0.tgz";
+
+// Extract a named entry from an uncompressed tar buffer.
+function extractTarEntry(tar: Buffer, entryName: string): Buffer | null {
+  let offset = 0;
+  while (offset + 512 <= tar.length) {
+    const name = tar.subarray(offset, offset + 100).toString("utf8").replace(/\0+$/, "");
+    if (!name) break; // end-of-archive
+    const size = parseInt(
+      tar.subarray(offset + 124, offset + 136).toString("utf8").replace(/\0/g, "").trim(),
+      8
+    ) || 0;
+    offset += 512;
+    if (name === entryName) return tar.subarray(offset, offset + size);
+    offset += Math.ceil(size / 512) * 512;
+  }
+  return null;
+}
+
+async function downloadFfmpeg(): Promise<string> {
+  console.log("[ffmpeg] cold start — downloading tarball from npm registry…");
+  const res = await fetch(FFMPEG_TARBALL);
+  if (!res.ok) throw new Error(`[ffmpeg] npm registry returned HTTP ${res.status}`);
+
+  const tgz = Buffer.from(await res.arrayBuffer());
+  console.log(`[ffmpeg] tarball: ${tgz.length} bytes, decompressing…`);
+
+  const tar = await new Promise<Buffer>((resolve, reject) =>
+    zlib.gunzip(tgz, (err, result) => (err ? reject(err) : resolve(result)))
+  );
+
+  const binary = extractTarEntry(tar, "package/ffmpeg");
+  if (!binary) throw new Error("[ffmpeg] entry 'package/ffmpeg' not found in tarball");
+
+  const tmpPart = FFMPEG_TMP + ".part";
+  await fs.writeFile(tmpPart, binary);
+  await fs.chmod(tmpPart, 0o755);
+  await fs.rename(tmpPart, FFMPEG_TMP);
+  console.log(`[ffmpeg] ready — ${binary.length} bytes at ${FFMPEG_TMP}`);
+  return FFMPEG_TMP;
+}
 
 let _ffmpegBin: string | null = null;
 let _downloadPromise: Promise<string> | null = null;
@@ -23,27 +64,16 @@ async function getFFmpegBin(): Promise<string> {
   // Already resolved this Lambda instance.
   if (_ffmpegBin) return _ffmpegBin;
 
-  // Warm start: binary already downloaded in a previous invocation.
+  // Warm start: binary already in /tmp from a previous invocation.
   const { existsSync } = await import("fs");
   if (existsSync(FFMPEG_TMP)) {
     _ffmpegBin = FFMPEG_TMP;
     return _ffmpegBin;
   }
 
-  // Cold start: download from npm CDN (once, deduplicated with a module-level promise).
+  // Cold start: download + extract (deduplicated across concurrent requests).
   if (!_downloadPromise) {
-    _downloadPromise = (async () => {
-      console.log("[ffmpeg] cold start — downloading binary from CDN…");
-      const tmpPart = FFMPEG_TMP + ".part";
-      const res = await fetch(FFMPEG_URL);
-      if (!res.ok) throw new Error(`[ffmpeg] CDN returned HTTP ${res.status}`);
-      const buf = Buffer.from(await res.arrayBuffer());
-      await fs.writeFile(tmpPart, buf);
-      await fs.chmod(tmpPart, 0o755);
-      await fs.rename(tmpPart, FFMPEG_TMP);
-      console.log(`[ffmpeg] downloaded ${buf.length} bytes → ${FFMPEG_TMP}`);
-      return FFMPEG_TMP;
-    })().catch((err) => {
+    _downloadPromise = downloadFfmpeg().catch((err) => {
       _downloadPromise = null; // allow retry on next request
       throw err;
     });
