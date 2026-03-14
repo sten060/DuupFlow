@@ -140,14 +140,20 @@ async function runFFmpegSafe(
    Core processing — returns channel for redirect URL
    ========================================================= */
 
-export async function processVideos(formData: FormData): Promise<string> {
+export async function processVideos(
+  formData: FormData,
+  onProgress?: (pct: number, msg: string) => Promise<void>,
+  preResolvedDir?: string
+): Promise<string> {
   const channel = (formData.get("channel") as Channel) ?? "simple";
   const mode = (formData.get("mode") as string) ?? "simple";
   const count = Math.max(1, Number(formData.get("count") || 1));
   const files = (formData.getAll("files") as unknown as File[]).filter(Boolean);
   const runTag = Math.random().toString(36).slice(2, 6);
 
-  const { dir } = await getOutDirForCurrentUser();
+  const { dir } = preResolvedDir
+    ? { dir: preResolvedDir }
+    : await getOutDirForCurrentUser();
   await fs.mkdir(dir, { recursive: true });
 
   const stamp = todayStamp();
@@ -156,6 +162,11 @@ export async function processVideos(formData: FormData): Promise<string> {
   const rangesRaw = (formData.get("advancedRanges") as string) || "{}";
   const singles = JSON.parse(singlesRaw || "{}");
   const ranges = JSON.parse(rangesRaw || "{}");
+
+  const totalCopies = files.length * count;
+  let doneCopies = 0;
+
+  await onProgress?.(0, "Préparation…");
 
   let fileIndex = 0;
   for (const f of files) {
@@ -169,6 +180,11 @@ export async function processVideos(formData: FormData): Promise<string> {
     await fs.writeFile(tmpIn, Buffer.from(await f.arrayBuffer()));
 
     for (let c = 1; c <= count; c++) {
+      await onProgress?.(
+        Math.min(99, Math.round((doneCopies / totalCopies) * 100)),
+        `Encodage ${doneCopies + 1}/${totalCopies}…`
+      );
+
       const outName = videoOutName({
         channel,
         date: stamp,
@@ -402,6 +418,11 @@ export async function processVideos(formData: FormData): Promise<string> {
       }
 
       await runFFmpegSafe(tmpIn, outPath, vfParts, afParts, extraArgs);
+      doneCopies++;
+      await onProgress?.(
+        Math.min(99, Math.round((doneCopies / totalCopies) * 100)),
+        `Encodage ${doneCopies}/${totalCopies}…`
+      );
     }
 
     await fs.unlink(tmpIn).catch(() => {});

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
+import ProgressWatcher from "@/app/dashboard/ProgressWatcher";
 
 function ProgressBar({ percent, label }: { percent: number; label?: string }) {
   return (
@@ -172,6 +173,9 @@ function PackCard({
 export default function VideoFormSimpleClient() {
   const router = useRouter();
   const [processing, setProcessing] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobUserId, setJobUserId] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({
     metadata: true,
     audio: false,
@@ -209,20 +213,25 @@ export default function VideoFormSimpleClient() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setProcessing(true);
+    setErrorMsg(null);
+    setJobId(null);
+    setJobUserId(null);
     try {
       const res = await fetch("/api/duplicate-video", {
         method: "POST",
         body: new FormData(e.currentTarget),
       });
-      if (res.ok) {
-        router.push("/dashboard/videos/simple?ok=1");
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j.jobId) {
+        setJobId(j.jobId);
+        setJobUserId(j.userId);
+        // processing stays true — ProgressWatcher will call onComplete/onError
       } else {
-        const j = await res.json().catch(() => ({}));
-        console.error("Duplication error:", j?.error);
+        setErrorMsg(j?.error || "Erreur lors du lancement de la duplication");
+        setProcessing(false);
       }
     } catch (err) {
-      console.error(err);
-    } finally {
+      setErrorMsg("Erreur réseau");
       setProcessing(false);
     }
   }
@@ -269,6 +278,27 @@ export default function VideoFormSimpleClient() {
       </GlowCard>
 
       <SubmitWithProgress pending={processing} />
+
+      {jobId && jobUserId && (
+        <ProgressWatcher
+          userId={jobUserId}
+          jobId={jobId}
+          onComplete={() => {
+            setProcessing(false);
+            router.push("/dashboard/videos/simple?ok=1");
+          }}
+          onError={(msg) => {
+            setProcessing(false);
+            setErrorMsg(msg);
+          }}
+        />
+      )}
+
+      {errorMsg && (
+        <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400">
+          {errorMsg}
+        </p>
+      )}
     </form>
   );
 }

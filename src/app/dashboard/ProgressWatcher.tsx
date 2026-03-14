@@ -1,9 +1,9 @@
 "use client";
 import React from "react";
 
-type Props = { userId?: string; jobId?: string };
+type Props = { userId?: string; jobId?: string; onComplete?: () => void; onError?: (msg: string) => void };
 
-export default function ProgressWatcher({ userId, jobId }: Props) {
+export default function ProgressWatcher({ userId, jobId, onComplete, onError }: Props) {
   const [p, setP]   = React.useState<number | null>(null);
   const [msg, setMsg] = React.useState("");
 
@@ -17,13 +17,20 @@ export default function ProgressWatcher({ userId, jobId }: Props) {
           cache: "no-store",
         });
         if (!res.ok) {                // fichier supprimé => terminé
-          if (alive) setP(100);
+          if (alive) { setP(100); onComplete?.(); }
           return;
         }
         const j = await res.json();
         if (!alive) return;
+        if ((j.percent ?? 0) < 0) {  // erreur
+          setP(-1);
+          setMsg(j.msg ?? "Erreur");
+          onError?.(j.msg ?? "Erreur");
+          return;
+        }
         setP(j.percent ?? 0);
         setMsg(j.msg ?? "");
+        if (j.percent >= 100) { onComplete?.(); return; }
         setTimeout(tick, 300);        // poll rapide
       } catch {
         if (alive) setTimeout(tick, 700);
@@ -46,8 +53,8 @@ export default function ProgressWatcher({ userId, jobId }: Props) {
           style={{ width: `${Math.max(0, Math.min(100, p))}%` }}
         />
       </div>
-      <p className="mt-2 text-xs text-white/70">
-        {p >= 100 ? "Terminé ✅" : msg || `Progression… ${p}%`}
+      <p className={["mt-2 text-xs", p < 0 ? "text-red-400" : "text-white/70"].join(" ")}>
+        {p >= 100 ? "Terminé ✅" : p < 0 ? `Erreur : ${msg}` : msg || `Progression… ${p}%`}
       </p>
     </div>
   );
