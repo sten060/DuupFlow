@@ -4,11 +4,10 @@ import path from "path";
 import { spawn } from "child_process";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 
-// Resolve ffmpeg binary path at runtime (not build time).
-// @ffmpeg-installer/linux-x64 has no index.js — require() would fail.
-// We locate the binary directly from the package directory.
-// On Vercel: process.cwd() === /var/task and the binary is deployed via
-// outputFileTracingIncludes in next.config.js.
+// Resolve ffmpeg binary path at runtime.
+// @ffmpeg-installer/ffmpeg + linux-x64 are in serverExternalPackages so webpack
+// leaves them as Node.js externals. NFT then traces and deploys them with the function.
+// @ffmpeg-installer/linux-x64 is a direct dep (package.json) so it is always installed.
 let _ffmpegBin: string | null = null;
 async function getFFmpegBin(): Promise<string> {
   if (_ffmpegBin) return _ffmpegBin;
@@ -16,31 +15,35 @@ async function getFFmpegBin(): Promise<string> {
   let bin = process.env.FFMPEG_BIN || "";
 
   if (!bin) {
-    // Strategy 1: use require.resolve to find the package.json, then derive binary path.
-    // webpackIgnore keeps webpack from bundling this; NFT still follows it for deployment.
     try {
+      // Normal require — NOT webpackIgnore so NFT traces and deploys the module.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pkgJson = require.resolve(/* webpackIgnore: true */ "@ffmpeg-installer/linux-x64/package.json");
-      const candidate = path.join(path.dirname(pkgJson), "ffmpeg");
-      const { existsSync } = await import("fs");
-      if (existsSync(candidate)) bin = candidate;
-    } catch { /* ignore */ }
+      const installer = require("@ffmpeg-installer/ffmpeg") as { path: string };
+      if (installer?.path) bin = installer.path;
+    } catch (e) {
+      console.error("[ffmpeg] require(@ffmpeg-installer/ffmpeg) failed:", e);
+    }
   }
 
   if (!bin) {
-    // Strategy 2: absolute path based on process.cwd() (= /var/task on Vercel).
+    // Fallback: build path from process.cwd() — /var/task on Vercel.
     const { existsSync } = await import("fs");
     const candidate = path.join(process.cwd(), "node_modules/@ffmpeg-installer/linux-x64/ffmpeg");
+    console.log("[ffmpeg] trying fallback path:", candidate, "exists:", existsSync(candidate));
     if (existsSync(candidate)) bin = candidate;
   }
 
-  if (!bin) bin = "ffmpeg"; // last resort — system PATH
+  if (!bin) {
+    console.error("[ffmpeg] binary not found, will try system PATH ('ffmpeg')");
+    bin = "ffmpeg";
+  }
 
   // Ensure the binary is executable (Vercel may deploy without execute bits).
   if (bin !== "ffmpeg") {
     try { await fs.chmod(bin, 0o755); } catch { /* ignore */ }
   }
 
+  console.log("[ffmpeg] resolved binary:", bin);
   _ffmpegBin = bin;
   return bin;
 }
