@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import { processVideos } from "@/app/dashboard/videos/processVideos";
-import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
+import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const INPUT_BUCKET = "video-uploads";
@@ -12,6 +12,9 @@ const OUTPUT_BUCKET = "video-outputs";
 export const maxDuration = 300; // seconds — Vercel Pro/Enterprise
 
 export async function POST(req: Request) {
+  // Fire-and-forget cleanup of files older than 2 h across all users.
+  // Runs in the background while formData is being parsed — zero latency impact.
+  void cleanupOldFiles(2 * 60 * 60 * 1000);
   let formData: FormData;
   try {
     formData = await req.formData();

@@ -34,3 +34,49 @@ export async function getOutDirForCurrentUser() {
 export async function getOutDirForCurrentUserRSC() {
   return getOutDirForCurrentUser();
 }
+
+/** Expose OUT_BASE so cleanup utilities can scan all user dirs */
+export { OUT_BASE };
+
+/**
+ * Delete all output files (images & videos) older than `maxAgeMs` across
+ * every user's subfolder under OUT_BASE.
+ * Safe to call fire-and-forget — never throws.
+ */
+export async function cleanupOldFiles(maxAgeMs = 2 * 60 * 60 * 1000): Promise<number> {
+  let deleted = 0;
+  try {
+    const base = OUT_BASE;
+    let userDirs: import("fs").Dirent[];
+    try {
+      userDirs = await fs.readdir(base, { withFileTypes: true });
+    } catch {
+      return 0; // base dir doesn't exist yet
+    }
+    const now = Date.now();
+    await Promise.all(
+      userDirs
+        .filter((e) => e.isDirectory())
+        .map(async (e) => {
+          const dir = path.join(base, e.name);
+          let files: import("fs").Dirent[];
+          try { files = await fs.readdir(dir, { withFileTypes: true }); } catch { return; }
+          await Promise.all(
+            files
+              .filter((f) => f.isFile() && !f.name.startsWith("__in__") && !f.name.endsWith(".part"))
+              .map(async (f) => {
+                const fp = path.join(dir, f.name);
+                try {
+                  const stat = await fs.stat(fp);
+                  if (now - stat.mtimeMs > maxAgeMs) {
+                    await fs.unlink(fp);
+                    deleted++;
+                  }
+                } catch {}
+              })
+          );
+        })
+    );
+  } catch {}
+  return deleted;
+}
