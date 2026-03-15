@@ -157,6 +157,40 @@ export function filterFinals(names: string[]) {
 }
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
+/* ---- Metadata injection helpers ---- */
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+const VIDEO_HUMAN_NAMES = [
+  "Alex Martin", "Sophie Renaud", "Jordan Lee", "Emma Dubois",
+  "Lucas Bernard", "Camille Thomas", "Noah Petit", "Léa Moreau",
+  "Antoine Durand", "Manon Lefebvre",
+];
+const VIDEO_ENCODERS = [
+  "HandBrake 1.8.0", "DaVinci Resolve 19.1", "Adobe Premiere Pro 24.6",
+  "Final Cut Pro 11.6", "CapCut Desktop 3.2", "iMovie 14.0",
+];
+const VIDEO_COMMENTS = [
+  "Export final", "Client review", "Draft v2", "Social media cut",
+  "Archive copy", "Timeline export", "Delivery package",
+];
+function getVideoMetadataArgs(): string[] {
+  const artist = pickRandom(VIDEO_HUMAN_NAMES);
+  const encoder = pickRandom(VIDEO_ENCODERS);
+  const comment = pickRandom(VIDEO_COMMENTS);
+  const daysAgo = Math.floor(Math.random() * 365);
+  const creationDate = new Date(Date.now() - daysAgo * 86400000);
+  const isoDate = creationDate.toISOString().slice(0, 19) + "Z";
+  return [
+    "-map_metadata", "-1",
+    "-metadata", `artist=${artist}`,
+    "-metadata", `encoder=${encoder}`,
+    "-metadata", `creation_time=${isoDate}`,
+    "-metadata", `comment=${comment}`,
+    "-metadata", `copyright=© ${creationDate.getFullYear()} ${artist}`,
+  ];
+}
+
 const LIMITS: Record<string, { min: number; max: number }> = {
   brightness:   { min: -1.0, max: 1.0 },
   contrast:     { min: 0.0,  max: 3.0 },
@@ -189,25 +223,33 @@ async function runFFmpegSafe(
   output: string,
   vfParts: string[],
   afParts: string[] = [],
-  extraArgs: string[] = []
+  extraArgs: string[] = [],
+  metaArgs: string[] = [],
 ) {
   const args: string[] = ["-y", "-hide_banner", "-loglevel", "error", "-i", input];
 
-  if (vfParts.length) args.push("-vf", vfParts.join(","));
-  if (afParts.length) args.push("-af", afParts.join(","));
+  // Stream copy when no video/audio filters and no encode-level args → near-instant
+  const useStreamCopy = vfParts.length === 0 && afParts.length === 0 && extraArgs.length === 0;
 
-  args.push(
-    "-c:v", "libx264",
-    "-preset", "ultrafast",
-    "-crf", "18",
-    "-pix_fmt", "yuv420p",
-    "-movflags", "+faststart",
-    "-c:a", "aac",
-    "-b:a", "256k",
-  );
+  if (useStreamCopy) {
+    args.push("-c", "copy");
+  } else {
+    if (vfParts.length) args.push("-vf", vfParts.join(","));
+    if (afParts.length) args.push("-af", afParts.join(","));
+    args.push(
+      "-c:v", "libx264",
+      "-preset", "ultrafast",
+      "-crf", "18",
+      "-pix_fmt", "yuv420p",
+      "-c:a", "aac",
+      "-b:a", "256k",
+    );
+    // extraArgs can override crf/bitrate (e.g. technical pack sets its own values)
+    if (extraArgs.length) args.push(...extraArgs);
+  }
 
-  // extraArgs can override crf/bitrate (e.g. technical pack sets its own values)
-  if (extraArgs.length) args.push(...extraArgs);
+  args.push("-movflags", "+faststart");
+  if (metaArgs.length) args.push(...metaArgs);
 
   args.push(output);
 
@@ -319,19 +361,21 @@ export async function processVideos(
           .filter(Boolean);
 
         if (packs.includes("visual")) {
-          const b  = clamp(Number((-0.10 + Math.random() * 0.16).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.87 + Math.random() * 0.26).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
-          const st = clamp(Number((0.86 + Math.random() * 0.28).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
-          const gm = clamp(Number((0.88 + Math.random() * 0.24).toFixed(3)),  0.1, 3.0);
+          // Subtle eq — brightness ±3%, contrast ±5%, saturation ±5%, gamma ±3%
+          const b  = clamp(Number((-0.03 + Math.random() * 0.06).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          const ct = clamp(Number((0.96 + Math.random() * 0.08).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
+          const st = clamp(Number((0.96 + Math.random() * 0.08).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
+          const gm = clamp(Number((0.97 + Math.random() * 0.06).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
-          const hue = clamp(Number((Math.random() * 0.28 - 0.14).toFixed(3)), -1, 1);
+          // Micro hue shift ±3°
+          const hue = clamp(Number((Math.random() * 0.10 - 0.05).toFixed(3)), -1, 1);
           vfParts.push(`hue=h=${hue}`);
-          vfParts.push("unsharp=lx=3:ly=3:la=0.8:cx=3:cy=3:ca=0.8");
-          vfParts.push("noise=alls=10:allf=t+u");
-          const ang = clamp(Number((0.04 + Math.random() * 0.05).toFixed(3)), 0, LIMITS.vignette.max);
-          vfParts.push(`vignette=angle=${ang}:mode=forward`);
-          const k1 = clamp(Number((Math.random() * 0.28 - 0.14).toFixed(5)), -0.14, 0.14);
-          vfParts.push(`lenscorrection=k1=${k1.toFixed(5)}:k2=${(-k1 / 2).toFixed(5)}`);
+          // Very light sharpening — imperceptible
+          vfParts.push("unsharp=lx=3:ly=3:la=0.3:cx=3:cy=3:ca=0.3");
+          // Imperceptible noise (2 vs 10 before)
+          vfParts.push("noise=alls=2:allf=t+u");
+          // Removed: vignette (darkens corners — very visible)
+          // Removed: lenscorrection (distorts/rounds the image — very visible)
         }
 
         if (packs.includes("motion")) {
@@ -403,7 +447,10 @@ export async function processVideos(
           vfParts.push(`pad=iw*(1+${padLeft}+${padRight}):ih*(1+${padTop}+${padBottom}):iw*${padLeft}:ih*${padTop}:color=black`);
         }
 
-        vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
+        // Ensure H.264-compatible dimensions (even pixels) only when re-encoding
+        if (vfParts.length > 0 || extraArgs.length > 0) {
+          vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
+        }
 
       } else {
         /* ----------- MODE ADVANCED ----------- */
@@ -526,10 +573,14 @@ export async function processVideos(
         if (Boolean(ranges?.flip?.enabled))    vfParts.push("vflip");
         if (Boolean(ranges?.reverse?.enabled)) vfParts.push("hflip");
 
-        vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
+        // Ensure H.264-compatible dimensions only when re-encoding
+        if (vfParts.length > 0 || extraArgs.length > 0) {
+          vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
+        }
       }
 
-      await runFFmpegSafe(tmpIn, outPath, vfParts, afParts, extraArgs);
+      const metaArgs = getVideoMetadataArgs();
+      await runFFmpegSafe(tmpIn, outPath, vfParts, afParts, extraArgs, metaArgs);
       outputPaths.push(outPath);
       doneCopies++;
       await onProgress?.(
