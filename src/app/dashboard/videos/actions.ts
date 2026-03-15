@@ -105,18 +105,21 @@ export async function clearVideosAdvanced() {
 export async function listOutVideosSimple(): Promise<string[]> {
   const { dir, userId } = await getOutDirForCurrentUserRSC();
 
-  // Try filesystem first (local/VPS with persistent OUT_BASE)
   const fsNames = filterFinals(await fs.readdir(dir).catch(() => [])).filter((n) =>
     n.startsWith(videoPrefix("simple"))
   );
+
+  // When a persistent volume is mounted, serve files via authenticated API route
+  if (process.env.OUT_BASE && fsNames.length > 0) {
+    return fsNames.map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
+  }
+
   const fsUrls = fsNames.map(
     (n) => `/out/${userId}/${encodeURIComponent(path.basename(n))}`
   );
 
-  // Merge with Supabase Storage results (Vercel)
+  // Fallback: Supabase Storage (no persistent volume)
   const storageUrls = await listFromStorage(userId, videoPrefix("simple"));
-
-  // Return unique results — storage URLs take priority
   return storageUrls.length > 0 ? storageUrls : fsUrls;
 }
 
@@ -126,6 +129,11 @@ export async function listOutVideosAdvanced(): Promise<string[]> {
   const fsNames = filterFinals(await fs.readdir(dir).catch(() => [])).filter((n) =>
     n.startsWith(videoPrefix("advanced"))
   );
+
+  if (process.env.OUT_BASE && fsNames.length > 0) {
+    return fsNames.map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
+  }
+
   const fsUrls = fsNames.map(
     (n) => `/out/${userId}/${encodeURIComponent(path.basename(n))}`
   );

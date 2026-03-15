@@ -97,11 +97,11 @@ export async function POST(req: Request) {
           preDownloadedFiles
         );
 
-        // Upload outputs to Supabase Storage when using storage-based flow
-        if (hasStoragePaths && outputPaths.length > 0) {
+        // Upload outputs to Supabase Storage only when no persistent volume is available
+        const hasVolume = !!process.env.OUT_BASE;
+        if (!hasVolume && hasStoragePaths && outputPaths.length > 0) {
           const supabase = createAdminClient();
           await supabase.storage.createBucket(OUTPUT_BUCKET, { public: false, fileSizeLimit: 524288000 }).catch(() => {});
-          // Ensure existing bucket also has a high size limit (500 MB)
           await supabase.storage.updateBucket(OUTPUT_BUCKET, { fileSizeLimit: 524288000 }).catch(() => {});
 
           send({ percent: 99, msg: "Sauvegarde…" });
@@ -119,6 +119,7 @@ export async function POST(req: Request) {
             await fs.unlink(outPath).catch(() => {});
           }
         }
+        // With a persistent volume (OUT_BASE), files stay on disk — no upload needed
 
         send({ percent: 100, msg: "Terminé ✔", done: true, userId, channel });
       } catch (e: any) {
