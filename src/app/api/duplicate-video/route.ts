@@ -100,7 +100,9 @@ export async function POST(req: Request) {
         // Upload outputs to Supabase Storage when using storage-based flow
         if (hasStoragePaths && outputPaths.length > 0) {
           const supabase = createAdminClient();
-          await supabase.storage.createBucket(OUTPUT_BUCKET, { public: false }).catch(() => {});
+          await supabase.storage.createBucket(OUTPUT_BUCKET, { public: false, fileSizeLimit: 524288000 }).catch(() => {});
+          // Ensure existing bucket also has a high size limit (500 MB)
+          await supabase.storage.updateBucket(OUTPUT_BUCKET, { fileSizeLimit: 524288000 }).catch(() => {});
 
           send({ percent: 99, msg: "Sauvegarde…" });
           for (const outPath of outputPaths) {
