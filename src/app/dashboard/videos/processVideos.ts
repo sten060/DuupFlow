@@ -64,6 +64,19 @@ async function getFFmpegBin(): Promise<string> {
   // Already resolved this Lambda instance.
   if (_ffmpegBin) return _ffmpegBin;
 
+  // Check if ffmpeg is available in PATH (e.g. installed via nixpacks on Railway).
+  try {
+    const { execFileSync } = await import("child_process");
+    const whichPath = execFileSync("which", ["ffmpeg"], { encoding: "utf8" }).trim();
+    if (whichPath) {
+      console.log(`[ffmpeg] found in PATH at ${whichPath}`);
+      _ffmpegBin = whichPath;
+      return _ffmpegBin;
+    }
+  } catch {
+    // not in PATH, continue
+  }
+
   // Warm start: binary already in /tmp from a previous invocation.
   const { existsSync } = await import("fs");
   if (existsSync(FFMPEG_TMP)) {
