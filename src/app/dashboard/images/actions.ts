@@ -38,7 +38,7 @@ export async function listOutImages(): Promise<string[]> {
         IMAGE_EXTS.includes(extOf(n))
     );
 
-    return finals.map((n) => `/out/${userId}/${encodeURIComponent(path.basename(n))}`);
+    return finals.map((n) => `/api/out/${userId}/${encodeURIComponent(path.basename(n))}`);
   } catch {
     return [];
   }

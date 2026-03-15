@@ -388,8 +388,6 @@ function metaSimilarityVideos(a: MetaDict, b: MetaDict): number {
 
 // ---------- ACTION PRINCIPALE ----------
 export async function compareSimilarity(formData: FormData) {
-  "use server";
-
   const a = formData.get("fileA") as File | null;
   const b = formData.get("fileB") as File | null;
 

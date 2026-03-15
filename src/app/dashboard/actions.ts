@@ -588,7 +588,7 @@ export async function listOut(): Promise<string[]> {
         !n.startsWith("__progress_")
     );
 
-    return finals.map((n) => `/out/${userId}/${encodeURIComponent(n)}`);
+    return finals.map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
   } catch {
     return [];
   }
@@ -608,7 +608,7 @@ export async function listOutImages(): Promise<string[]> {
   const names = await fs.readdir(dir).catch(() => [] as string[]);
   return names
     .filter((n) => IMAGE_EXTS.includes(extOf(n)))
-    .map((n) => `/out/${userId}/${encodeURIComponent(n)}`);
+    .map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
 }
 
 export async function listOutVideos(): Promise<string[]> {
@@ -616,7 +616,7 @@ export async function listOutVideos(): Promise<string[]> {
   const names = await fs.readdir(dir).catch(() => [] as string[]);
   return names
     .filter((n) => VIDEO_EXTS.includes(extOf(n)))
-    .map((n) => `/out/${userId}/${encodeURIComponent(n)}`);
+    .map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
 }
 
 /* ---------- Duplication vidéo ---------- */

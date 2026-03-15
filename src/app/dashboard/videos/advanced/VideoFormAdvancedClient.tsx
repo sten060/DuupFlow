@@ -1,8 +1,9 @@
 // src/app/(dashboard)/videos/advanced/VideoFormAdvancedClient.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 
@@ -193,6 +194,10 @@ const HELP_ADVANCED: Record<Group, React.ReactNode> = {
 export default function VideoFormAdvancedClient() {
   const router = useRouter();
   const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [progressMsg, setProgressMsg] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const [ranges, setRanges] = useState<RangeState>(() =>
     Object.fromEntries(CONTROLS.map((c) => [c.key, { enabled: false, min: c.min, max: c.max }]))
   );
@@ -265,19 +270,136 @@ export default function VideoFormAdvancedClient() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setProcessing(true);
+    setSubmitError(null);
+    setProgress(0);
+    setProgressMsg("Préparation…");
+
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     try {
+      const rawForm = new FormData(e.currentTarget);
+      const uploadedFiles = rawForm.getAll("files") as File[];
+
+      const DIRECT_LIMIT = 50 * 1024 * 1024;
+      const canDirect = uploadedFiles.length > 0 && uploadedFiles.every(f => f.size <= DIRECT_LIMIT);
+
+      let apiForm: FormData;
+      if (uploadedFiles.length > 0 && uploadedFiles[0].size > 0 && !canDirect) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+        const userId = user?.id ?? "anon";
+
+        const storagePaths: string[] = [];
+        for (let i = 0; i < uploadedFiles.length; i++) {
+          const file = uploadedFiles[i];
+          setProgressMsg(`Upload ${i + 1}/${uploadedFiles.length}…`);
+          setProgress(Math.round((i / uploadedFiles.length) * 30));
+
+          const signRes = await fetch("/api/storage/sign-upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileName: file.name, userId }),
+            signal: ctrl.signal,
+          });
+          if (!signRes.ok) {
+            const j = await signRes.json().catch(() => ({}));
+            throw new Error(j?.error || `Erreur sign-upload HTTP ${signRes.status}`);
+          }
+          const { token, path: storagePath } = await signRes.json();
+
+          const uploadRes = await supabase.storage
+            .from("video-uploads")
+            .uploadToSignedUrl(storagePath, token, file);
+          if (uploadRes.error) throw new Error(`Upload storage: ${uploadRes.error.message}`);
+
+          storagePaths.push(storagePath);
+        }
+
+        setProgress(30);
+        setProgressMsg("Envoi au serveur…");
+
+        apiForm = new FormData();
+        for (const key of ["channel", "mode", "ranges", "count"]) {
+          const v = rawForm.get(key);
+          if (v !== null) apiForm.append(key, v);
+        }
+        for (const sp of storagePaths) apiForm.append("storagePaths", sp);
+        for (const f of uploadedFiles) apiForm.append("fileNames", f.name);
+      } else {
+        apiForm = rawForm;
+      }
+
       const res = await fetch("/api/duplicate-video", {
         method: "POST",
-        body: new FormData(e.currentTarget),
+        body: apiForm,
+        signal: ctrl.signal,
       });
-      if (res.ok) {
-        router.push("/dashboard/videos/advanced?ok=1");
-      } else {
-        const j = await res.json().catch(() => ({}));
-        console.error("Duplication error:", j?.error);
+
+      if (!res.ok || !res.body) {
+        const text = await res.text().catch(() => "");
+        let msg = `HTTP ${res.status}`;
+        try { const j = JSON.parse(text); msg = j?.error || msg; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
+        setSubmitError(msg);
+        setProcessing(false);
+        return;
       }
-    } catch (err) {
-      console.error(err);
+
+      const INACTIVITY_MS = 5 * 60 * 1000;
+      let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+      const resetInactivity = () => {
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(() => ctrl.abort("timeout"), INACTIVITY_MS);
+      };
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let receivedDone = false;
+
+      resetInactivity();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          resetInactivity();
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const evt = JSON.parse(line.slice(6));
+              if (evt.percent !== undefined) setProgress(30 + Math.round(evt.percent * 0.7));
+              if (evt.msg) setProgressMsg(evt.msg);
+              if (evt.error) {
+                setSubmitError(evt.msg || "Erreur FFmpeg");
+                setProcessing(false);
+                return;
+              }
+              if (evt.done) {
+                receivedDone = true;
+                router.push("/dashboard/videos/advanced?ok=1");
+                return;
+              }
+            } catch {}
+          }
+        }
+      } finally {
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+      }
+
+      if (!receivedDone) {
+        setSubmitError("Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.");
+      }
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        if (ctrl.signal.reason === "timeout") {
+          setSubmitError("Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.");
+        }
+      } else {
+        setSubmitError("Erreur réseau");
+      }
     } finally {
       setProcessing(false);
     }
@@ -612,6 +734,24 @@ export default function VideoFormAdvancedClient() {
       </Card>
 
       <SubmitWithProgress pending={processing} />
+
+      {processing && progress !== null && (
+        <div className="mt-2">
+          <div className="h-2 w-full rounded bg-white/10 overflow-hidden">
+            <div
+              className="h-2 bg-sky-500 transition-[width] duration-200"
+              style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
+            />
+          </div>
+          <p className="mt-1 text-xs text-white/70">{progressMsg || `Progression… ${progress}%`}</p>
+        </div>
+      )}
+
+      {submitError && (
+        <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400">
+          {submitError}
+        </p>
+      )}
     </form>
   );
 }
