@@ -48,7 +48,7 @@ export default async function VideosAdvancedPage({
             {files.map((n) => (
               <li key={n}>
                 <Link href={n} className="underline" prefetch={false}>
-                  {decodeURIComponent(path.basename(n))}
+                  {decodeURIComponent(path.basename(n).split("?")[0])}
                 </Link>
               </li>
             ))}

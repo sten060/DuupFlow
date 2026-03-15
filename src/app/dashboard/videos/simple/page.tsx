@@ -37,7 +37,7 @@ export default async function VideosSimplePage({
         ) : (
           <ul className="list-disc pl-5 space-y-1">
             {files.map((u) => {
-              const n = decodeURIComponent(u.split("/").pop()!);
+              const n = decodeURIComponent(u.split("/").pop()!.split("?")[0]);
               return (
                 <li key={u}>
                   <a className="underline" href={u}>{n}</a>
