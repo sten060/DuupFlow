@@ -107,9 +107,13 @@ export async function POST(req: Request) {
             const outName = path.basename(outPath);
             const storageKey = `${userId}/${outName}`;
             const fileBuffer = await fs.readFile(outPath);
-            await supabase.storage
+            const { error: uploadError } = await supabase.storage
               .from(OUTPUT_BUCKET)
               .upload(storageKey, fileBuffer, { contentType: "video/mp4", upsert: true });
+            if (uploadError) {
+              console.error("[duplicate-video] upload error:", uploadError.message, "file:", outName);
+              throw new Error(`Sauvegarde échouée (${outName}): ${uploadError.message}`);
+            }
             await fs.unlink(outPath).catch(() => {});
           }
         }
