@@ -422,9 +422,6 @@ export async function compareSimilarity(formData: FormData) {
     let metaA: MetaDict = {};
     let metaB: MetaDict = {};
 
-    // Resolve ffmpeg binary once (handles Railway /tmp path and system PATH)
-    const ffmpegBin = await getFFmpegBin().catch(() => "ffmpeg");
-
     if (kindA === "image") {
       // VISUEL (hashs)
       const [pAList, pBList, aA, aB, dA, dB] = await Promise.all([
@@ -474,7 +471,8 @@ export async function compareSimilarity(formData: FormData) {
       if (a.name !== b.name) score = Math.max(0, score - 6.43);
 
     } else {
-      // VIDEO
+      // VIDEO — resolve ffmpeg only when actually needed
+      const ffmpegBin = await getFFmpegBin().catch(() => "ffmpeg");
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), "v-"));
       const va = path.join(dir, `a_${randHex()}.mp4`);
       const vb = path.join(dir, `b_${randHex()}.mp4`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { maskAiMetadata, deleteAiFiles } from "./actions";
 
 const MAX_FILES = 50;
@@ -140,8 +140,9 @@ export default function AiDetectionPage() {
   const [limitError, setLimitError] = useState<string>("");
   const [result, setResult] = useState<{ ok: boolean; count?: number; error?: string } | null>(null);
   const [sessionFiles, setSessionFiles] = useState<string[]>([]);
-  const [pending, startTransition] = useTransition();
-  const [deleting, startDeleteTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const pendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function handleFilesChange(newFiles: File[]) {
     if (newFiles.length > MAX_FILES) {
@@ -156,28 +157,44 @@ export default function AiDetectionPage() {
   }
 
   function handleSubmit() {
-    if (!files.length) return;
+    if (!files.length || pending) return;
     const fd = new FormData();
     files.forEach((f) => fd.append("files", f));
 
-    startTransition(async () => {
-      setResult(null);
-      const res = await maskAiMetadata(fd);
-      setResult(res);
-      if (res.ok) {
-        setFiles([]);
-        setLimitError("");
-        if (res.files?.length) setSessionFiles((prev) => [...prev, ...res.files]);
-      }
-    });
+    setPending(true);
+    setResult(null);
+
+    // Safety timeout: unblock UI after 90s even if server action hangs
+    if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
+    pendingTimeoutRef.current = setTimeout(() => {
+      setPending(false);
+      setResult({ ok: false, error: "Délai dépassé — réessaie avec un fichier plus petit." });
+    }, 90_000);
+
+    maskAiMetadata(fd)
+      .then((res) => {
+        if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
+        setResult(res);
+        if (res.ok) {
+          setFiles([]);
+          setLimitError("");
+          if (res.files?.length) setSessionFiles((prev) => [...prev, ...res.files]);
+        }
+      })
+      .catch((err) => {
+        if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
+        setResult({ ok: false, error: err?.message || "Erreur serveur." });
+      })
+      .finally(() => setPending(false));
   }
 
   function handleDelete() {
-    if (!sessionFiles.length) return;
-    startDeleteTransition(async () => {
-      await deleteAiFiles(sessionFiles);
-      setSessionFiles([]);
-    });
+    if (!sessionFiles.length || deleting) return;
+    setDeleting(true);
+    deleteAiFiles(sessionFiles)
+      .then(() => setSessionFiles([]))
+      .catch(() => {})
+      .finally(() => setDeleting(false));
   }
 
   const downloadUrl = sessionFiles.length
