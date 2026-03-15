@@ -69,9 +69,17 @@ function toExifDate(d: Date) {
  * ───────────────────────────────────────────── */
 export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean; count: number; files: string[]; error?: string }> {
   const files = formData.getAll("files") as File[];
+  console.log(`[ai-detection] maskAiMetadata called — ${files.length} file(s)`);
+
   if (!files.length) return { ok: false, count: 0, files: [], error: "Aucun fichier reçu." };
 
-  const { dir } = await getOutDirForCurrentUser();
+  let dir: string;
+  try {
+    ({ dir } = await getOutDirForCurrentUser());
+  } catch (e: any) {
+    console.error("[ai-detection] getOutDirForCurrentUser failed:", e?.message);
+    return { ok: false, count: 0, files: [], error: "Erreur répertoire utilisateur." };
+  }
   await fs.mkdir(dir, { recursive: true });
 
   let count = 0;
@@ -80,9 +88,20 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
 
   for (const f of files) {
     const ext = extOf(f.name);
-    if (!SUPPORTED_EXTS.includes(ext)) continue;
+    if (!SUPPORTED_EXTS.includes(ext)) {
+      console.log(`[ai-detection] skipped unsupported ext: ${ext}`);
+      continue;
+    }
 
-    const buf = Buffer.from(await f.arrayBuffer());
+    console.log(`[ai-detection] processing: ${f.name} (${f.size} bytes)`);
+    let buf: Buffer;
+    try {
+      buf = Buffer.from(await f.arrayBuffer());
+    } catch (e: any) {
+      console.error(`[ai-detection] failed to read buffer for ${f.name}:`, e?.message);
+      continue;
+    }
+
     const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${ext}`;
     const outPath = path.join(dir, outName);
 
@@ -92,7 +111,8 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
       const software = pick(HUMAN_SOFTWARE);
       const artist = pick(HUMAN_NAMES);
       const randomDaysAgo = Math.floor(Math.random() * 180);
-      const photoDate = new Date(Date.now() - randomDaysAgo * 86400000);
+      const randomHoursAgo = Math.floor(Math.random() * 24);
+      const photoDate = new Date(Date.now() - randomDaysAgo * 86400000 - randomHoursAgo * 3600000);
       const exifDate = toExifDate(photoDate);
 
       const meta: sharp.WriteableMetadata = {
@@ -105,26 +125,45 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
             Artist: artist,
             Copyright: `© ${photoDate.getFullYear()} ${artist}`,
             DateTime: exifDate,
+            DateTimeOriginal: exifDate,
+            DateTimeDigitized: exifDate,
           },
         },
       };
 
       try {
         // sharp strips all existing metadata by default; withMetadata adds only what we specify
-        await sharp(buf, { failOn: "none" }).withMetadata(meta).toFile(outPath);
-      } catch {
-        // fallback: save without metadata manipulation
-        await fs.writeFile(outPath, buf);
+        // Use a race with a 30s timeout to avoid hanging on corrupt files
+        await Promise.race([
+          sharp(buf, { failOn: "none" }).withMetadata(meta).toFile(outPath),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("sharp timeout")), 30_000)),
+        ]);
+        console.log(`[ai-detection] sharp OK: ${outName}`);
+      } catch (e: any) {
+        console.warn(`[ai-detection] sharp failed for ${f.name} (${e?.message}), saving raw`);
+        try {
+          await fs.writeFile(outPath, buf);
+        } catch (we: any) {
+          console.error(`[ai-detection] raw write also failed: ${we?.message}`);
+          continue;
+        }
       }
     } else {
       /* ── Vidéos : copie simple (exiftool non disponible) ── */
-      await fs.writeFile(outPath, buf);
+      try {
+        await fs.writeFile(outPath, buf);
+        console.log(`[ai-detection] video copy OK: ${outName}`);
+      } catch (e: any) {
+        console.error(`[ai-detection] video write failed for ${f.name}:`, e?.message);
+        continue;
+      }
     }
 
     outFiles.push(outName);
     count++;
   }
 
+  console.log(`[ai-detection] done — ${count} file(s) processed`);
   return { ok: true, count, files: outFiles };
 }
 

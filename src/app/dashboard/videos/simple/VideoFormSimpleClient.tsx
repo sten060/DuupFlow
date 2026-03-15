@@ -110,16 +110,17 @@ const PACK_HELP: Record<keyof typeof PACKS, React.ReactNode> = {
   ),
   visual: (
     <div>
-      Variations légères (tirées aléatoirement) :<br />
-      Luminosité −0.15 → +0.05 • Contraste 0.9 → 1.1 • Saturation 0.85 → 1.05 • Hue ±0.15 rad •
-      Vignette légère • Unsharp doux • Grain fin.<br />
-      Idéal pour rester naturel tout en diversifiant.
+      Variations imperceptibles (tirées aléatoirement) :<br />
+      Luminosité ±3% • Contraste ±5% • Saturation ±5% • Gamma ±3% •
+      Hue ±3° • Unsharp très doux (0.3) • Grain fin (alls=2).<br />
+      Aucune modification visible — uniquement des variations sub-perceptuelles.
     </div>
   ),
   motion: (
     <div>
-      Zoom 1.00 → 1.25 + micro panoramique/crop • Vitesse 0.9 → 1.1 (audio synchronisé) •
-      légère rotation aléatoire • pixel shift subtil.
+      Modifications infimes non visuelles :<br />
+      Zoom 1.01×–1.04× • Micro panoramique 0–10% • Vitesse ±1–3% (audio synchronisé).<br />
+      Imperceptible à l&apos;œil, suffisant pour diversifier l&apos;empreinte numérique.
     </div>
   ),
   technical: (

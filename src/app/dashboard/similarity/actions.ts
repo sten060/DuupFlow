@@ -8,6 +8,7 @@ import crypto from "crypto";
 import sharp from "sharp";
 import { execa } from "execa";
 import { redirect } from "next/navigation";
+import { getFFmpegBin } from "@/app/dashboard/videos/processVideos";
 
 // ---------- utils ----------
 function randHex(n = 2) {
@@ -246,37 +247,63 @@ function metaSimilarityImages(a: MetaDict, b: MetaDict): number {
   return wsum ? +(score / wsum).toFixed(2) : 0;
 }
 
-// ---------- VIDEO helpers (inchangés) ----------
-async function extractFrame(videoPath: string, t: number): Promise<Buffer> {
+// ---------- VIDEO helpers ----------
+async function extractFrame(videoPath: string, t: number, ffmpegBin: string): Promise<Buffer | null> {
   const tmp = path.join(path.dirname(videoPath), `__frame_${t}_${randHex(2)}.png`);
-  await execa("ffmpeg", ["-y", "-ss", String(t), "-i", videoPath, "-frames:v", "1", "-vf", "scale=256:-2", tmp]);
-  const buf = await fs.readFile(tmp);
-  await fs.unlink(tmp).catch(() => {});
-  return buf;
+  try {
+    await execa(ffmpegBin, ["-y", "-ss", String(t), "-i", videoPath, "-frames:v", "1", "-vf", "scale=256:-2", tmp], {
+      timeout: 25_000, // 25s per frame max
+    });
+    const buf = await fs.readFile(tmp);
+    await fs.unlink(tmp).catch(() => {});
+    return buf;
+  } catch {
+    await fs.unlink(tmp).catch(() => {});
+    return null;
+  }
 }
 
-async function videoHashSignature(buf: Buffer): Promise<{ phashes: Hash64[]; dhashes: Hash64[] }> {
+async function videoHashSignature(buf: Buffer, ffmpegBin: string): Promise<{ phashes: Hash64[]; dhashes: Hash64[] }> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sig-"));
   const src = path.join(dir, `in_${randHex(2)}.mp4`);
   await fs.writeFile(src, buf);
 
-  let duration = 1;
+  // Try ffprobe to get duration; fall back gracefully if unavailable
+  let duration = 30; // default assumption
   try {
-    const { stdout } = await execa("ffprobe", [
+    // Look for ffprobe next to the resolved ffmpeg binary
+    const ffprobeBin = ffmpegBin.replace(/ffmpeg([^/]*)$/, "ffprobe$1");
+    const { stdout } = await execa(ffprobeBin, [
       "-v", "error", "-select_streams", "v:0",
       "-show_entries", "format=duration",
       "-of", "default=nw=1:nk=1", src,
-    ]);
-    duration = Math.max(1, Math.floor(Number(stdout.trim()) || 1));
-  } catch {}
+    ], { timeout: 10_000 });
+    const parsed = Number(stdout.trim());
+    if (parsed > 0) duration = Math.floor(parsed);
+  } catch {
+    try {
+      // Fallback: use plain "ffprobe" from PATH
+      const { stdout } = await execa("ffprobe", [
+        "-v", "error", "-select_streams", "v:0",
+        "-show_entries", "format=duration",
+        "-of", "default=nw=1:nk=1", src,
+      ], { timeout: 10_000 });
+      const parsed = Number(stdout.trim());
+      if (parsed > 0) duration = Math.floor(parsed);
+    } catch {}
+  }
 
-  const FRAMES = 20;
-  const pts = Array.from({ length: FRAMES }, (_, i) => Math.max(1, Math.floor(((i + 1) / (FRAMES + 1)) * duration)));
+  // Use 8 frames spread across the video (was 20 — much faster)
+  const FRAMES = 8;
+  const pts = Array.from({ length: FRAMES }, (_, i) =>
+    Math.max(0, Math.floor(((i + 0.5) / FRAMES) * duration))
+  );
 
   const phashes: Hash64[] = [];
   const dhashes: Hash64[] = [];
   for (const t of pts) {
-    const frame = await extractFrame(src, t);
+    const frame = await extractFrame(src, t, ffmpegBin);
+    if (!frame) continue; // skip frames that couldn't be extracted
     phashes.push(await imagePHash64(frame));
     dhashes.push(await imageDHash64(frame));
   }
@@ -292,13 +319,21 @@ function averageHamming(sigA: Hash64[], sigB: Hash64[]): number {
   return total / m;
 }
 
-async function videoMetaSignature(tmpPath: string): Promise<MetaDict> {
+async function videoMetaSignature(tmpPath: string, ffmpegBin: string): Promise<MetaDict> {
   try {
-    const { stdout } = await execa("ffprobe", [
+    const ffprobeBin = ffmpegBin.replace(/ffmpeg([^/]*)$/, "ffprobe$1");
+    const probeCmd = await execa(ffprobeBin, [
       "-v","error","-select_streams","v:0",
       "-show_entries","stream=codec_name,profile,level,pix_fmt,color_range,color_space,color_transfer,width,height,bit_rate,avg_frame_rate:format=bit_rate,duration",
       "-of","json", tmpPath,
-    ]);
+    ], { timeout: 10_000 }).catch(() =>
+      execa("ffprobe", [
+        "-v","error","-select_streams","v:0",
+        "-show_entries","stream=codec_name,profile,level,pix_fmt,color_range,color_space,color_transfer,width,height,bit_rate,avg_frame_rate:format=bit_rate,duration",
+        "-of","json", tmpPath,
+      ], { timeout: 10_000 })
+    );
+    const { stdout } = probeCmd;
     const j = JSON.parse(stdout);
     const s = j.streams?.[0] || {};
     const f = j.format || {};
@@ -387,6 +422,9 @@ export async function compareSimilarity(formData: FormData) {
     let metaA: MetaDict = {};
     let metaB: MetaDict = {};
 
+    // Resolve ffmpeg binary once (handles Railway /tmp path and system PATH)
+    const ffmpegBin = await getFFmpegBin().catch(() => "ffmpeg");
+
     if (kindA === "image") {
       // VISUEL (hashs)
       const [pAList, pBList, aA, aB, dA, dB] = await Promise.all([
@@ -444,10 +482,10 @@ export async function compareSimilarity(formData: FormData) {
       await fs.writeFile(vb, bufB);
 
       const [sigA, sigB, mvA, mvB] = await Promise.all([
-        videoHashSignature(bufA),
-        videoHashSignature(bufB),
-        videoMetaSignature(va),
-        videoMetaSignature(vb),
+        videoHashSignature(bufA, ffmpegBin),
+        videoHashSignature(bufB, ffmpegBin),
+        videoMetaSignature(va, ffmpegBin),
+        videoMetaSignature(vb, ffmpegBin),
       ]);
       await fs.rm(dir, { recursive: true, force: true });
       metaA = mvA;
@@ -465,8 +503,8 @@ export async function compareSimilarity(formData: FormData) {
       score = framesSim * WV.frames + metaSimV * WV.meta;
 
       breakdown.push(
-        { label: `Frames pHash (20 frames)`, value: Math.round(pFrameSim), weight: WV.frames * 0.7 },
-        { label: `Frames dHash (20 frames)`, value: Math.round(dFrameSim), weight: WV.frames * 0.3 },
+        { label: `Frames pHash (8 frames)`, value: Math.round(pFrameSim), weight: WV.frames * 0.7 },
+        { label: `Frames dHash (8 frames)`, value: Math.round(dFrameSim), weight: WV.frames * 0.3 },
         { label: "Métadonnées vidéo", value: Math.round(metaSimV), weight: WV.meta },
       );
 

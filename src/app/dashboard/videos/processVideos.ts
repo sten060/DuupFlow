@@ -57,7 +57,7 @@ async function downloadFfmpeg(): Promise<string> {
 let _ffmpegBin: string | null = null;
 let _downloadPromise: Promise<string> | null = null;
 
-async function getFFmpegBin(): Promise<string> {
+export async function getFFmpegBin(): Promise<string> {
   // Env override — useful for local dev or a custom deploy with a real binary.
   if (process.env.FFMPEG_BIN) return process.env.FFMPEG_BIN;
 
@@ -164,30 +164,66 @@ function pickRandom<T>(arr: T[]): T {
 const VIDEO_HUMAN_NAMES = [
   "Alex Martin", "Sophie Renaud", "Jordan Lee", "Emma Dubois",
   "Lucas Bernard", "Camille Thomas", "Noah Petit", "Léa Moreau",
-  "Antoine Durand", "Manon Lefebvre",
+  "Antoine Durand", "Manon Lefebvre", "Théo Garnier", "Inès Fontaine",
+  "Baptiste Morin", "Clara Rousseau", "Maxime Girard", "Julie Chevalier",
 ];
 const VIDEO_ENCODERS = [
   "HandBrake 1.8.0", "DaVinci Resolve 19.1", "Adobe Premiere Pro 24.6",
   "Final Cut Pro 11.6", "CapCut Desktop 3.2", "iMovie 14.0",
+  "Kdenlive 23.08", "Vegas Pro 22", "Shotcut 23.11", "Resolve 18.6",
 ];
 const VIDEO_COMMENTS = [
   "Export final", "Client review", "Draft v2", "Social media cut",
-  "Archive copy", "Timeline export", "Delivery package",
+  "Archive copy", "Timeline export", "Delivery package", "Version approuvée",
+  "Montage court", "Réseaux sociaux", "Post-production", "Rendu final",
 ];
+const VIDEO_TITLES = [
+  "Untitled Project", "My Video", "New Clip", "Export", "Final Cut",
+  "Project Export", "Video Draft", "Timeline Export", "Master",
+];
+const VIDEO_GENRES = [
+  "Documentary", "Short Film", "Vlog", "Tutorial", "Promotional",
+  "Personal", "Entertainment", "Educational", "Social",
+];
+const VIDEO_SERVICE_NAMES = [
+  "Personal Device", "Mobile Upload", "Desktop Export", "Cloud Backup",
+];
+function randMetaHex(n = 8): string {
+  let s = "";
+  for (let i = 0; i < n; i++) s += Math.floor(Math.random() * 16).toString(16);
+  return s;
+}
 function getVideoMetadataArgs(): string[] {
   const artist = pickRandom(VIDEO_HUMAN_NAMES);
   const encoder = pickRandom(VIDEO_ENCODERS);
   const comment = pickRandom(VIDEO_COMMENTS);
+  const title = pickRandom(VIDEO_TITLES);
+  const genre = pickRandom(VIDEO_GENRES);
+  const service = pickRandom(VIDEO_SERVICE_NAMES);
+  const uid = `${randMetaHex(8)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(12)}`;
   const daysAgo = Math.floor(Math.random() * 365);
-  const creationDate = new Date(Date.now() - daysAgo * 86400000);
+  const hoursAgo = Math.floor(Math.random() * 24);
+  const minsAgo = Math.floor(Math.random() * 60);
+  const creationDate = new Date(Date.now() - daysAgo * 86400000 - hoursAgo * 3600000 - minsAgo * 60000);
   const isoDate = creationDate.toISOString().slice(0, 19) + "Z";
   return [
     "-map_metadata", "-1",
+    "-metadata", `title=${title}`,
     "-metadata", `artist=${artist}`,
+    "-metadata", `author=${artist}`,
     "-metadata", `encoder=${encoder}`,
+    "-metadata", `encoded_by=${encoder}`,
     "-metadata", `creation_time=${isoDate}`,
     "-metadata", `comment=${comment}`,
+    "-metadata", `description=${comment}`,
     "-metadata", `copyright=© ${creationDate.getFullYear()} ${artist}`,
+    "-metadata", `genre=${genre}`,
+    "-metadata", `service_name=${service}`,
+    "-metadata", `handler_name=${encoder}`,
+    "-metadata", `major_brand=isom`,
+    "-metadata", `minor_version=512`,
+    "-metadata", `compatible_brands=isomiso2avc1mp41`,
+    "-metadata:g", `uid=${uid}`,
   ];
 }
 
@@ -239,6 +275,7 @@ async function runFFmpegSafe(
     args.push(
       "-c:v", "libx264",
       "-preset", "ultrafast",
+      "-threads", "0",
       "-crf", "18",
       "-pix_fmt", "yuv420p",
       "-c:a", "aac",
@@ -379,18 +416,19 @@ export async function processVideos(
         }
 
         if (packs.includes("motion")) {
-          const zoom = clamp(1.04 + Math.random() * 0.31, LIMITS.zoom.min, LIMITS.zoom.max);
-          vfParts.push(`scale=iw*${zoom.toFixed(3)}:ih*${zoom.toFixed(3)}`);
-          const offx = (Math.random() * 0.5).toFixed(4);
-          const offy = (Math.random() * 0.5).toFixed(4);
+          // Subtle zoom 1.01–1.04× — imperceptible to the eye
+          const zoom = clamp(1.01 + Math.random() * 0.03, LIMITS.zoom.min, LIMITS.zoom.max);
+          vfParts.push(`scale=iw*${zoom.toFixed(4)}:ih*${zoom.toFixed(4)}`);
+          // Crop offset 0–10% of the oversize (very small pan)
+          const offx = (Math.random() * 0.10).toFixed(4);
+          const offy = (Math.random() * 0.10).toFixed(4);
           vfParts.push(`crop=iw:ih:x=(in_w-out_w)*${offx}:y=(in_h-out_h)*${offy}`);
-          const shift = (Math.random() * 0.02).toFixed(4);
-          vfParts.push(`scale=iw*(1+${shift}):ih*(1+${shift}),crop=iw:ih`);
+          // Speed ±1–3% with synchronised audio tempo
           const side = Math.random() > 0.5 ? 1 : -1;
-          const deviation = 0.07 + Math.random() * 0.07;
+          const deviation = 0.01 + Math.random() * 0.02;
           const sp = clamp(1.0 + side * deviation, LIMITS.speed.min, LIMITS.speed.max);
-          vfParts.push(`setpts=${(1 / sp).toFixed(4)}*PTS`);
-          afParts.push(`atempo=${sp.toFixed(3)}`);
+          vfParts.push(`setpts=${(1 / sp).toFixed(6)}*PTS`);
+          afParts.push(`atempo=${sp.toFixed(4)}`);
         }
 
         if (packs.includes("technical")) {
