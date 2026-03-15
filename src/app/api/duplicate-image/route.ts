@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
 import sharp from "sharp";
-import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
+import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 
 /* ============== helpers ============== */
 const randHex = (n = 2) => crypto.randomBytes(n).toString("hex");
@@ -187,6 +187,7 @@ img = img.affine(
 
 /* ============== handler ============== */
 export async function POST(req: Request) {
+  void cleanupOldFiles(2 * 60 * 60 * 1000); // fire-and-forget, zero latency impact
   try {
     const { dir: outDir } = await getOutDirForCurrentUser();
     await fs.mkdir(outDir, { recursive: true });
