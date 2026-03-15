@@ -102,7 +102,7 @@ export async function POST(req: Request) {
         if (!hasVolume && hasStoragePaths && outputPaths.length > 0) {
           const supabase = createAdminClient();
           await supabase.storage.createBucket(OUTPUT_BUCKET, { public: false, fileSizeLimit: 524288000 }).catch(() => {});
-          await supabase.storage.updateBucket(OUTPUT_BUCKET, { fileSizeLimit: 524288000 }).catch(() => {});
+          await supabase.storage.updateBucket(OUTPUT_BUCKET, { public: false, fileSizeLimit: 524288000 }).catch(() => {});
 
           send({ percent: 99, msg: "Sauvegarde…" });
           for (const outPath of outputPaths) {
