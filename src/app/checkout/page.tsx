@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 const FEATURES = [
   "Duplication images illimitée (EXIF/XMP)",
@@ -17,6 +18,20 @@ export default function CheckoutPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null);
+    });
+  }, []);
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
 
   async function handleCheckout() {
     setLoading(true);
@@ -139,10 +154,25 @@ export default function CheckoutPage() {
         </div>
 
         <p className="text-center text-xs text-white/20 mt-6">
-          Tu as déjà un compte actif ?{" "}
-          <Link href="/login" className="text-indigo-400/60 hover:text-indigo-400 underline">
-            Se connecter
-          </Link>
+          {userEmail ? (
+            <>
+              Connecté en tant que <span className="text-white/40">{userEmail}</span>
+              {" · "}
+              <button
+                onClick={handleSignOut}
+                className="text-indigo-400/60 hover:text-indigo-400 underline cursor-pointer"
+              >
+                Changer de compte
+              </button>
+            </>
+          ) : (
+            <>
+              Tu as déjà un compte actif ?{" "}
+              <Link href="/login" className="text-indigo-400/60 hover:text-indigo-400 underline">
+                Se connecter
+              </Link>
+            </>
+          )}
         </p>
       </div>
     </main>
