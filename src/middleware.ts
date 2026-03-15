@@ -39,10 +39,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirige vers /dashboard si déjà connecté et tente d'accéder à /login
+  // Redirige si déjà connecté et tente d'accéder à /login
   if (user && pathname === "/login") {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("has_paid, is_guest")
+      .eq("id", user.id)
+      .single();
+    const hasAccess = profile?.is_guest === true || profile?.has_paid === true;
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = hasAccess ? "/dashboard" : "/checkout";
     return NextResponse.redirect(url);
   }
 
