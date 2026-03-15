@@ -264,11 +264,18 @@ async function runFFmpegSafe(
 ) {
   const args: string[] = ["-y", "-hide_banner", "-loglevel", "error", "-i", input];
 
-  // Stream copy when no video/audio filters and no encode-level args → near-instant
+  // Three tiers:
+  // 1. No filters at all → full stream copy (near-instant, no re-encode)
+  // 2. Audio filters only → copy video track, encode audio (fast: no video decode)
+  // 3. Any video/extra filters → full encode
   const useStreamCopy = vfParts.length === 0 && afParts.length === 0 && extraArgs.length === 0;
+  const audioOnly = vfParts.length === 0 && afParts.length > 0 && extraArgs.length === 0;
 
   if (useStreamCopy) {
     args.push("-c", "copy");
+  } else if (audioOnly) {
+    args.push("-af", afParts.join(","));
+    args.push("-c:v", "copy", "-c:a", "aac", "-b:a", "256k");
   } else {
     if (vfParts.length) args.push("-vf", vfParts.join(","));
     if (afParts.length) args.push("-af", afParts.join(","));
