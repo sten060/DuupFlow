@@ -88,6 +88,20 @@ export async function clearVideosSimple() {
   redirect("/dashboard/videos/simple?ok=1");
 }
 
+/** Same as clearVideosSimple but returns instead of redirecting — for client components */
+export async function clearVideosSimpleAction(): Promise<{ ok: boolean }> {
+  try {
+    const { dir, userId } = await getOutDirForCurrentUserRSC();
+    const names = await fs.readdir(dir).catch(() => []);
+    const finalNames = filterFinals(names).filter((n) => n.startsWith(videoPrefix("simple")));
+    await Promise.all(finalNames.map((n) => fs.unlink(path.join(dir, n)).catch(() => {})));
+    clearFromStorage(userId, videoPrefix("simple")); // fire-and-forget — don't block UI
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export async function clearVideosAdvanced() {
   const { dir, userId } = await getOutDirForCurrentUserRSC();
 
@@ -98,6 +112,20 @@ export async function clearVideosAdvanced() {
   await clearFromStorage(userId, videoPrefix("advanced"));
 
   redirect("/dashboard/videos/advanced?ok=1");
+}
+
+/** Same as clearVideosAdvanced but returns instead of redirecting — for client components */
+export async function clearVideosAdvancedAction(): Promise<{ ok: boolean }> {
+  try {
+    const { dir, userId } = await getOutDirForCurrentUserRSC();
+    const names = await fs.readdir(dir).catch(() => []);
+    const finalNames = filterFinals(names).filter((n) => n.startsWith(videoPrefix("advanced")));
+    await Promise.all(finalNames.map((n) => fs.unlink(path.join(dir, n)).catch(() => {})));
+    clearFromStorage(userId, videoPrefix("advanced")); // fire-and-forget
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
 }
 
 /* ------------------ Listing par canal ------------------ */
@@ -115,7 +143,7 @@ export async function listOutVideosSimple(): Promise<string[]> {
   }
 
   const fsUrls = fsNames.map(
-    (n) => `/out/${userId}/${encodeURIComponent(path.basename(n))}`
+    (n) => `/api/out/${userId}/${encodeURIComponent(path.basename(n))}`
   );
 
   // Fallback: Supabase Storage (no persistent volume)
@@ -135,7 +163,7 @@ export async function listOutVideosAdvanced(): Promise<string[]> {
   }
 
   const fsUrls = fsNames.map(
-    (n) => `/out/${userId}/${encodeURIComponent(path.basename(n))}`
+    (n) => `/api/out/${userId}/${encodeURIComponent(path.basename(n))}`
   );
 
   const storageUrls = await listFromStorage(userId, videoPrefix("advanced"));
