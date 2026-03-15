@@ -5,6 +5,8 @@ import Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
 
+export const dynamic = "force-dynamic";
+
 async function markUserPaid(userId: string) {
   const admin = createAdminClient();
   await admin.from("profiles").update({ has_paid: true }).eq("id", userId);
