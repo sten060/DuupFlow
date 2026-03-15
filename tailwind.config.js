@@ -50,6 +50,16 @@ const config: Config = {
       fontWeight: {
         extra: "900",
       },
+      keyframes: {
+        progress: {
+          "0%":   { marginLeft: "-40%", width: "40%" },
+          "50%":  { marginLeft: "30%",  width: "60%" },
+          "100%": { marginLeft: "100%", width: "40%" },
+        },
+      },
+      animation: {
+        progress: "progress 1.6s ease-in-out infinite",
+      },
     },
   },
   plugins: [],

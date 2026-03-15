@@ -379,7 +379,7 @@ export default function VideoFormAdvancedClient() {
               }
               if (evt.done) {
                 receivedDone = true;
-                router.push("/dashboard/videos/advanced?ok=1");
+                router.refresh(); // re-fetch server component → file list updates instantly
                 return;
               }
             } catch {}
