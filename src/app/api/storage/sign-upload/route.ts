@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
   // Create bucket if it doesn't exist yet
   await supabase.storage.createBucket(BUCKET, { public: false, fileSizeLimit: 524288000 }).catch(() => {});
-  await supabase.storage.updateBucket(BUCKET, { fileSizeLimit: 524288000 }).catch(() => {});
+  await supabase.storage.updateBucket(BUCKET, { public: false, fileSizeLimit: 524288000 }).catch(() => {});
 
   const storagePath = `${userId ?? "anon"}/${Date.now()}-${fileName}`;
   const { data, error } = await supabase.storage
