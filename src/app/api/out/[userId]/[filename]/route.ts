@@ -4,7 +4,11 @@ import fs from "fs/promises";
 import os from "os";
 import { createClient } from "@/lib/supabase/server";
 
-const OUT_BASE = process.env.OUT_BASE ?? path.join(os.tmpdir(), "duupflow");
+// Must match the OUT_BASE logic in src/app/dashboard/utils.ts
+const IS_VERCEL = !!process.env.VERCEL;
+const OUT_BASE = process.env.OUT_BASE ?? (IS_VERCEL
+  ? path.join(os.tmpdir(), "duupflow")
+  : path.join(process.cwd(), "public", "out"));
 
 export const dynamic = "force-dynamic";
 
