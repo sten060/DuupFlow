@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearVideosSimpleAction, clearVideosAdvancedAction } from "./actions";
 
@@ -16,6 +16,11 @@ export default function VideoFilesClient({
   const router = useRouter();
   const [files, setFiles] = useState<string[]>(initialFiles);
   const [clearing, setClearing] = useState(false);
+
+  // Sync displayed list when server component re-fetches (after duplication or clear)
+  useEffect(() => {
+    if (!clearing) setFiles(initialFiles);
+  }, [initialFiles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleClear() {
     if (clearing) return;

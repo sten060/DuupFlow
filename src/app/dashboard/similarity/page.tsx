@@ -1,5 +1,6 @@
 // src/app/dashboard/similarity/page.tsx
 import { compareSimilarity } from "./actions";
+import { SimilaritySubmitButton } from "./SimilaritySubmitButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -90,27 +91,21 @@ export default async function SimilarityPage({
             />
           </div>
 
-          <div className="sm:col-span-2 flex items-center justify-between">
-            <div>
-              {typeof score === "number" && (
-                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-3 py-2 text-sm">
-                  <span className="font-semibold text-emerald-300">Similarité : </span>
-                  <span className={`font-bold text-2xl ${scoreColor(score)}`}>{score}%</span>
-                </div>
-              )}
-              {err && (
-                <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-                  {err}
-                </div>
-              )}
+          <div className="sm:col-span-2 space-y-3">
+            {typeof score === "number" && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-3 py-2 text-sm">
+                <span className="font-semibold text-emerald-300">Similarité : </span>
+                <span className={`font-bold text-2xl ${scoreColor(score)}`}>{score}%</span>
+              </div>
+            )}
+            {err && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                {err}
+              </div>
+            )}
+            <div className="flex justify-end">
+              <SimilaritySubmitButton />
             </div>
-
-            <button
-              type="submit"
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500 transition"
-            >
-              Comparer
-            </button>
           </div>
         </form>
       </section>

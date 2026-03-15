@@ -336,7 +336,7 @@ export default function VideoFormSimpleClient() {
               }
               if (evt.done) {
                 receivedDone = true;
-                router.push("/dashboard/videos/simple?ok=1");
+                router.refresh(); // re-fetch server component → VideoFilesClient gets new initialFiles
                 return;
               }
             } catch {}
