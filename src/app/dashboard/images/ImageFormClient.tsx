@@ -139,7 +139,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
 
           try {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 25_000);
+            const timeout = setTimeout(() => controller.abort(), 55_000);
             let res: Response;
             try {
               res = await fetch("/api/duplicate-image", { method: "POST", body: fd, signal: controller.signal });
