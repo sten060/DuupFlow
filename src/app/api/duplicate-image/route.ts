@@ -219,11 +219,14 @@ export async function POST(req: Request) {
       const dot = f.name.lastIndexOf(".");
       const ext = (dot >= 0 ? f.name.slice(dot) : ".jpg").toLowerCase();
 
-      // Process all copies of this file in parallel for better throughput
+      // Process all copies of this file in parallel for better throughput.
+      // Use randHex(4) = 8-char hex (4 billion values) + ms timestamp to prevent
+      // filename collisions when many files are processed concurrently.
+      const ts = Date.now();
       await Promise.all(
         Array.from({ length: count }, (_, idx) => {
           const i = idx + 1;
-          const rand = String(Math.floor(Math.random() * 90) + 10);
+          const rand = `${ts}${randHex(4)}`;
           const name = `${brand}_${y}${m}${d}_dup${i}_${rand}${ext}`;
           const outPath = path.join(outDir, name);
           return processImage(buf, outPath, i, flags);
