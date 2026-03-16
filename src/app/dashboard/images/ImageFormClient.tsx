@@ -97,16 +97,12 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
 
   const totalSize = useMemo(() => files.reduce((s, f) => s + f.size, 0), [files]);
 
-  function downloadAll() {
-    readyFiles.forEach(({ blobUrl, filename }) => downloadBlob(blobUrl, filename));
-  }
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (files.length === 0) return;
 
     const formData = new FormData(e.currentTarget);
-    const count = String(formData.get("count") ?? "1");
+    const count = Math.max(1, parseInt(String(formData.get("count") ?? "1"), 10));
     const fundamentals = formData.has("fundamentals");
     const visuals = formData.has("visuals");
     const semi = formData.has("semi");
@@ -114,22 +110,28 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
 
     const imageFiles = files.filter((f) => f.type.startsWith("image/"));
 
+    // Build flat task list: each image × count copies
+    // Each API call = 1 image = fast (~1-3s). No timeout, results appear instantly.
+    const tasks = imageFiles.flatMap((file) =>
+      Array.from({ length: count }, () => file)
+    );
+
     setProcessing(true);
     setErrors([]);
     setDone(false);
     setReadyFiles([]);
-    setProgressLabel(`Démarrage — 0 / ${imageFiles.length} images…`);
+    setProgressLabel(`Démarrage — 0 / ${tasks.length} copies…`);
 
     const errs: string[] = [];
 
     try {
       await withConcurrency(
-        imageFiles,
-        1, // 1 at a time — Railway has limited CPU, 2 concurrent = contention + timeouts
+        tasks,
+        1, // strictly sequential — one image processed at a time
         async (file) => {
           const fd = new FormData();
           fd.append("files", file);
-          fd.append("count", count);
+          fd.append("count", "1"); // always 1 per request — fast, no timeout
           if (fundamentals) fd.append("fundamentals", "1");
           if (visuals) fd.append("visuals", "1");
           if (semi) fd.append("semi", "1");
@@ -148,7 +150,6 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
             const filename = extractFilename(res.headers, file.name);
             const blobUrl = URL.createObjectURL(blob);
 
-            // Add to ready list immediately — client downloads when they want
             flushSync(() => {
               setReadyFiles((prev) => [...prev, { blobUrl, filename }]);
             });
@@ -159,7 +160,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
         (doneCount, total) => {
           flushSync(() => {
             setProgress(Math.round((doneCount / total) * 100));
-            setProgressLabel(`${doneCount} / ${total} images traitées…`);
+            setProgressLabel(`${doneCount} / ${total} copies traitées…`);
           });
         }
       );
