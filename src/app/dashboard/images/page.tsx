@@ -20,12 +20,6 @@ export default async function ImagesPage({ searchParams }: { searchParams?: { ok
         <ImageFormClient initialImages={initialImages} />
       </section>
 
-      <a
-        href="/api/out/zip?scope=images"
-        className="inline-block px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold"
-      >
-        Télécharger ZIP (images)
-      </a>
     </main>
   );
 }
