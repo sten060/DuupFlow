@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: Request) {
   const { searchParams, origin: rawOrigin } = new URL(request.url);
@@ -28,7 +29,6 @@ export async function GET(request: Request) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      // Check if user already has a profile
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase
@@ -40,15 +40,39 @@ export async function GET(request: Request) {
         if (!profile) {
           // No profile yet → onboarding
           if (inviteToken) {
-            // Store invite token in a short-lived cookie
             cookieStore.set("invite_token", inviteToken, {
-              maxAge: 60 * 30, // 30 min
+              maxAge: 60 * 30,
               path: "/",
               httpOnly: true,
             });
             return NextResponse.redirect(`${origin}/onboarding?type=guest`);
           }
           return NextResponse.redirect(`${origin}/onboarding`);
+        }
+
+        // User already has a profile but arrived via invitation link
+        if (inviteToken) {
+          const adminClient = createAdminClient();
+          const { data: invitation } = await adminClient
+            .from("team_invitations")
+            .select("id, host_user_id, status")
+            .eq("token", inviteToken)
+            .eq("status", "pending")
+            .single();
+
+          if (invitation) {
+            await Promise.all([
+              adminClient.from("team_invitations").update({
+                status: "accepted",
+                guest_user_id: user.id,
+                accepted_at: new Date().toISOString(),
+              }).eq("token", inviteToken),
+              adminClient.from("profiles").update({
+                is_guest: true,
+                host_user_id: invitation.host_user_id,
+              }).eq("id", user.id),
+            ]);
+          }
         }
       }
 
