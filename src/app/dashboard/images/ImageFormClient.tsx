@@ -6,24 +6,20 @@ import ToggleChip from "../ToggleChip";
 
 const MAX_FILES = 50;
 
-// Trigger a browser file download from a blob
-function triggerDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  // Small delay before revoking so the download has time to start
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 // Extract filename from Content-Disposition header
 function extractFilename(headers: Headers, fallback: string): string {
   const cd = headers.get("Content-Disposition") ?? "";
   const match = cd.match(/filename="([^"]+)"/);
   return match?.[1] ?? fallback;
+}
+
+function downloadBlob(blobUrl: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 // Run `fn` on each item with at most `concurrency` in-flight at once.
@@ -52,6 +48,8 @@ async function withConcurrency<T>(
   );
 }
 
+type ReadyFile = { blobUrl: string; filename: string };
+
 type Props = {
   initialImages: string[];
 };
@@ -62,7 +60,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
-  const [downloaded, setDownloaded] = useState<string[]>([]); // filenames downloaded this session
+  const [readyFiles, setReadyFiles] = useState<ReadyFile[]>([]);
   const [done, setDone] = useState(false);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -91,6 +89,10 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
 
   const totalSize = useMemo(() => files.reduce((s, f) => s + f.size, 0), [files]);
 
+  function downloadAll() {
+    readyFiles.forEach(({ blobUrl, filename }) => downloadBlob(blobUrl, filename));
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (files.length === 0) return;
@@ -107,7 +109,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
     setProcessing(true);
     setErrors([]);
     setDone(false);
-    setDownloaded([]);
+    setReadyFiles([]);
     setProgressLabel(`Démarrage — 0 / ${imageFiles.length} images…`);
 
     const errs: string[] = [];
@@ -115,7 +117,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
     try {
       await withConcurrency(
         imageFiles,
-        2, // 2 concurrent max — sequential processing on server
+        2, // 2 concurrent — sequential processing on server
         async (file) => {
           const fd = new FormData();
           fd.append("files", file);
@@ -134,13 +136,13 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
               return;
             }
 
-            // Download immediately — no need to wait for all images
             const blob = await res.blob();
             const filename = extractFilename(res.headers, file.name);
-            triggerDownload(blob, filename);
+            const blobUrl = URL.createObjectURL(blob);
 
+            // Add to ready list immediately — client downloads when they want
             flushSync(() => {
-              setDownloaded((prev) => [...prev, filename]);
+              setReadyFiles((prev) => [...prev, { blobUrl, filename }]);
             });
           } catch {
             errs.push(`${file.name}: erreur réseau`);
@@ -225,16 +227,6 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
             <span>{files.length} fichier(s)</span>
             <span>•</span>
             <span>{(totalSize / (1024 * 1024)).toFixed(2)} Mo</span>
-            <span>•</span>
-            <span
-              className="underline"
-              onClick={(e) => {
-                e.stopPropagation();
-                inputRef.current?.click();
-              }}
-            >
-              Sélect. fichiers
-            </span>
           </div>
         </div>
 
@@ -287,25 +279,46 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
           </div>
         )}
 
-        {/* Result feedback */}
-        {done && !processing && (
-          <div className={`text-sm rounded-lg px-4 py-2 ${errors.length > 0 ? "bg-red-900/40 text-red-300" : "bg-emerald-900/40 text-emerald-300"}`}>
-            {errors.length === 0
-              ? `✓ ${downloaded.length} image(s) téléchargée(s) directement.`
-              : `Terminé : ${downloaded.length} ok · ${errors.length} erreur(s) : ${errors.join(" · ")}`}
-          </div>
-        )}
-
-        {/* Live download log */}
-        {(processing || (done && downloaded.length > 0)) && downloaded.length > 0 && (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-1 max-h-48 overflow-y-auto">
-            <p className="text-xs font-semibold text-white/60 mb-2">Téléchargements en cours</p>
-            {downloaded.map((name, i) => (
-              <p key={i} className="text-xs text-emerald-400">✓ {name}</p>
-            ))}
+        {/* Errors */}
+        {done && errors.length > 0 && (
+          <div className="text-sm rounded-lg px-4 py-2 bg-red-900/40 text-red-300">
+            {errors.length} erreur(s) : {errors.join(" · ")}
           </div>
         )}
       </form>
+
+      {/* Ready files — shown as they arrive, outside the form */}
+      {readyFiles.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-white/80">
+              Prêts à télécharger ({readyFiles.length})
+            </p>
+            <button
+              type="button"
+              onClick={downloadAll}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition"
+            >
+              Tout télécharger
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/5 divide-y divide-white/5 max-h-80 overflow-y-auto">
+            {readyFiles.map(({ blobUrl, filename }, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <span className="text-xs text-white/70 truncate flex-1">{filename}</span>
+                <a
+                  href={blobUrl}
+                  download={filename}
+                  className="shrink-0 rounded-md px-3 py-1 text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition"
+                >
+                  Télécharger
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
