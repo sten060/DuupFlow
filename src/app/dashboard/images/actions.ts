@@ -55,10 +55,10 @@ export async function duplicateImages(formData: FormData) {
   if (!filesAll || filesAll.length === 0) {
     throw new Error("Aucune image reçue.");
   }
-  if (filesAll.length > 25) {
-    throw new Error("Vous pouvez envoyer 25 fichiers maximum.");
+  if (filesAll.length > 50) {
+    throw new Error("Vous pouvez envoyer 50 fichiers maximum.");
   }
-  const files = filesAll.slice(0, 25);
+  const files = filesAll.slice(0, 50);
 
   const count = Math.max(1, Number(formData.get("count") ?? 1));
 
