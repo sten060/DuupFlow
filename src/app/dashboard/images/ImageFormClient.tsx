@@ -98,20 +98,28 @@ export default function ImageFormClient({ initialImages }: Props) {
     const imageFiles = files.filter((f) => f.type.startsWith("image/"));
 
     setProcessing(true);
-    setProgress(0);
     setErrors([]);
     setDone(false);
     setProgressLabel(`Démarrage — 0 / ${imageFiles.length} images…`);
 
     const errs: string[] = [];
 
+    // Group into batches of 5 to cut HTTP round-trips by 5×
+    const BATCH_SIZE = 5;
+    const batches: File[][] = [];
+    for (let i = 0; i < imageFiles.length; i += BATCH_SIZE) {
+      batches.push(imageFiles.slice(i, i + BATCH_SIZE));
+    }
+    let filesDone = 0;
+    const totalFiles = imageFiles.length;
+
     try {
       await withConcurrency(
-        imageFiles,
-        2, // 2 concurrent — enough for speed without overwhelming the server
-        async (file) => {
+        batches,
+        4, // 4 batches × 5 files = up to 20 files processed concurrently
+        async (batch) => {
           const fd = new FormData();
-          fd.append("files", file);
+          for (const file of batch) fd.append("files", file);
           fd.append("count", count);
           if (fundamentals) fd.append("fundamentals", "1");
           if (visuals) fd.append("visuals", "1");
@@ -122,18 +130,17 @@ export default function ImageFormClient({ initialImages }: Props) {
             const res = await fetch("/api/duplicate-image", { method: "POST", body: fd });
             if (!res.ok) {
               const j = await res.json().catch(() => ({}));
-              errs.push(`${file.name}: ${j?.error ?? "erreur inconnue"}`);
+              errs.push(`lot de ${batch.length}: ${j?.error ?? "erreur inconnue"}`);
             }
           } catch {
-            // Network/timeout error for this file — record and continue
-            errs.push(`${file.name}: erreur réseau`);
+            errs.push(`lot de ${batch.length}: erreur réseau`);
           }
         },
-        (doneCount, total) => {
-          // flushSync forces React to paint immediately instead of batching
+        (doneBatches, totalBatches) => {
+          filesDone = Math.min(doneBatches * BATCH_SIZE, totalFiles);
           flushSync(() => {
-            setProgress(Math.round((doneCount / total) * 100));
-            setProgressLabel(`${doneCount} / ${total} images traitées…`);
+            setProgress(Math.round((filesDone / totalFiles) * 100));
+            setProgressLabel(`${filesDone} / ${totalFiles} images traitées…`);
           });
         }
       );

@@ -212,27 +212,27 @@ export async function POST(req: Request) {
     const m = String(now.getMonth() + 1).padStart(2, "0");
     const d = String(now.getDate()).padStart(2, "0");
 
-    for (const f of files) {
-      if (!f.type?.startsWith("image/")) continue;
+    // Process all files in the batch in parallel (previously sequential).
+    // Each file also processes its N copies in parallel → full parallelism.
+    const imageFiles = files.filter((f) => f.type?.startsWith("image/"));
+    await Promise.all(
+      imageFiles.map(async (f) => {
+        const buf = Buffer.from(await f.arrayBuffer());
+        const dot = f.name.lastIndexOf(".");
+        const ext = (dot >= 0 ? f.name.slice(dot) : ".jpg").toLowerCase();
 
-      const buf = Buffer.from(await f.arrayBuffer());
-      const dot = f.name.lastIndexOf(".");
-      const ext = (dot >= 0 ? f.name.slice(dot) : ".jpg").toLowerCase();
-
-      // Process all copies of this file in parallel for better throughput.
-      // Use randHex(4) = 8-char hex (4 billion values) + ms timestamp to prevent
-      // filename collisions when many files are processed concurrently.
-      const ts = Date.now();
-      await Promise.all(
-        Array.from({ length: count }, (_, idx) => {
-          const i = idx + 1;
-          const rand = `${ts}${randHex(4)}`;
-          const name = `${brand}_${y}${m}${d}_dup${i}_${rand}${ext}`;
-          const outPath = path.join(outDir, name);
-          return processImage(buf, outPath, i, flags);
-        })
-      );
-    }
+        const ts = Date.now();
+        await Promise.all(
+          Array.from({ length: count }, (_, idx) => {
+            const i = idx + 1;
+            const rand = `${ts}${randHex(4)}`;
+            const name = `${brand}_${y}${m}${d}_dup${i}_${rand}${ext}`;
+            const outPath = path.join(outDir, name);
+            return processImage(buf, outPath, i, flags);
+          })
+        );
+      })
+    );
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
