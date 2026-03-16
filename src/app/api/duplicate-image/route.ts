@@ -135,9 +135,6 @@ async function processImage(buffer: Buffer, ext: string, flags: Flags): Promise<
 export async function POST(req: Request) {
   void cleanupOldFiles(2 * 60 * 60 * 1000);
   try {
-    const { dir: outDir } = await getOutDirForCurrentUser();
-    await fs.mkdir(outDir, { recursive: true });
-
     const form = await req.formData();
     const files = form.getAll("files") as File[];
     const imageFile = files.find((f) => f.type?.startsWith("image/"));
@@ -163,6 +160,14 @@ export async function POST(req: Request) {
     const dotIdx = imageFile.name.lastIndexOf(".");
     const ext = (dotIdx >= 0 ? imageFile.name.slice(dotIdx) : ".jpg").toLowerCase();
 
+    // Resolve output directory in background — disk write is optional, never blocks the response
+    const outDirPromise = Promise.race([
+      getOutDirForCurrentUser().then((r) => r.dir),
+      new Promise<string>((resolve) =>
+        setTimeout(() => resolve(path.join(require("os").tmpdir(), "duupflow", "local")), 2000)
+      ),
+    ]);
+
     // Process copies sequentially (one at a time — Railway has limited CPU)
     const results: { filename: string; data: Buffer }[] = [];
     for (let idx = 0; idx < count; idx++) {
@@ -170,8 +175,11 @@ export async function POST(req: Request) {
       const filename = `DuupFlow_${y}${m}${d}_dup${idx + 1}_${rand}${ext}`;
       const data = await processImage(buf, ext, flags);
 
-      // Save to disk (best-effort — don't fail the response if disk write fails)
-      fs.writeFile(path.join(outDir, filename), data).catch(() => {});
+      // Save to disk fire-and-forget — never awaited, never blocks the response
+      outDirPromise.then(async (outDir) => {
+        await fs.mkdir(outDir, { recursive: true }).catch(() => {});
+        fs.writeFile(path.join(outDir, filename), data).catch(() => {});
+      });
 
       results.push({ filename, data });
     }
