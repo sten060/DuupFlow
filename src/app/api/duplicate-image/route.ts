@@ -25,8 +25,12 @@ function getMimeType(ext: string): string {
 /* ============== flags ============== */
 type Flags = { semi: boolean; fundamentals: boolean; visuals: boolean; reverse: boolean };
 
-/* ============== pipeline — returns Buffer ============== */
-async function processImage(buffer: Buffer, ext: string, flags: Flags): Promise<Buffer> {
+/* ============== pipeline — returns Buffer + output extension ============== */
+async function processImage(
+  buffer: Buffer,
+  ext: string,
+  flags: Flags,
+): Promise<{ data: Buffer; outExt: string }> {
   // metadata() reads only the image header — much faster than decoding the full image
   const meta = await sharp(buffer, { failOn: "none" }).metadata();
   let img = sharp(buffer, { failOn: "none" });
@@ -111,25 +115,33 @@ async function processImage(buffer: Buffer, ext: string, flags: Flags): Promise<
     },
   };
 
-  if (lower === ".png") {
-    // compressionLevel 1 = zlib fastest (≈10× faster than level 6, output still valid PNG)
-    // adaptiveFiltering: false = skip row-filter search (another big speedup)
-    const compressionLevel = flags.fundamentals ? (2 + Math.floor(Math.random() * 2)) : 1;
-    return img.withMetadata(exifMeta).png({ compressionLevel, adaptiveFiltering: false }).toBuffer();
-  } else if (lower === ".webp") {
+  if (lower === ".webp") {
     const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 7)) : 92;
-    return img.withMetadata(exifMeta).webp({ quality, smartSubsample: true }).toBuffer();
-  } else {
-    const chroma = flags.fundamentals ? (Math.random() < 0.5 ? "4:2:0" : "4:4:4") : "4:4:4";
-    const progressive = flags.fundamentals ? Math.random() < 0.5 : false;
-    const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 7)) : 92;
+    return {
+      data: await img.withMetadata(exifMeta).webp({ quality, smartSubsample: true }).toBuffer(),
+      outExt: ".webp",
+    };
+  }
 
-    return img.withMetadata(exifMeta).jpeg({
+  // PNG → JPEG: zlib PNG encoding is 15–20× slower than JPEG on large images.
+  // Converting to JPEG eliminates the bottleneck while still changing hash/metadata.
+  const chroma = flags.fundamentals ? (Math.random() < 0.5 ? "4:2:0" : "4:4:4") : "4:4:4";
+  const progressive = flags.fundamentals ? Math.random() < 0.5 : false;
+  const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 7)) : 92;
+
+  // Flatten transparency to white before JPEG (JPEG has no alpha channel)
+  if (lower === ".png") {
+    img = img.flatten({ background: { r: 255, g: 255, b: 255 } });
+  }
+
+  return {
+    data: await img.withMetadata(exifMeta).jpeg({
       quality,
       progressive,
       chromaSubsampling: chroma as "4:2:0" | "4:4:4",
-    }).toBuffer();
-  }
+    }).toBuffer(),
+    outExt: ".jpeg",
+  };
 }
 
 /* ============== handler ============== */
@@ -169,11 +181,11 @@ export async function POST(req: Request) {
     ]);
 
     // Process copies sequentially (one at a time — Railway has limited CPU)
-    const results: { filename: string; data: Buffer }[] = [];
+    const results: { filename: string; data: Buffer; outExt: string }[] = [];
     for (let idx = 0; idx < count; idx++) {
       const rand = `${ts}${randHex(4)}`;
-      const filename = `DuupFlow_${y}${m}${d}_dup${idx + 1}_${rand}${ext}`;
-      const data = await processImage(buf, ext, flags);
+      const { data, outExt } = await processImage(buf, ext, flags);
+      const filename = `DuupFlow_${y}${m}${d}_dup${idx + 1}_${rand}${outExt}`;
 
       // Save to disk fire-and-forget — never awaited, never blocks the response
       outDirPromise.then(async (outDir) => {
@@ -181,14 +193,14 @@ export async function POST(req: Request) {
         fs.writeFile(path.join(outDir, filename), data).catch(() => {});
       });
 
-      results.push({ filename, data });
+      results.push({ filename, data, outExt });
     }
 
     // Return binary immediately so the client can trigger download right away
     if (results.length === 1) {
       return new Response(results[0].data, {
         headers: {
-          "Content-Type": getMimeType(ext),
+          "Content-Type": getMimeType(results[0].outExt),
           "Content-Disposition": `attachment; filename="${results[0].filename}"`,
         },
       });
