@@ -104,22 +104,13 @@ export default function ImageFormClient({ initialImages }: Props) {
 
     const errs: string[] = [];
 
-    // Group into batches of 5 to cut HTTP round-trips by 5×
-    const BATCH_SIZE = 5;
-    const batches: File[][] = [];
-    for (let i = 0; i < imageFiles.length; i += BATCH_SIZE) {
-      batches.push(imageFiles.slice(i, i + BATCH_SIZE));
-    }
-    let filesDone = 0;
-    const totalFiles = imageFiles.length;
-
     try {
       await withConcurrency(
-        batches,
-        4, // 4 batches × 5 files = up to 20 files processed concurrently
-        async (batch) => {
+        imageFiles,
+        2, // 2 concurrent — sequential processing per file on the server
+        async (file) => {
           const fd = new FormData();
-          for (const file of batch) fd.append("files", file);
+          fd.append("files", file);
           fd.append("count", count);
           if (fundamentals) fd.append("fundamentals", "1");
           if (visuals) fd.append("visuals", "1");
@@ -130,17 +121,16 @@ export default function ImageFormClient({ initialImages }: Props) {
             const res = await fetch("/api/duplicate-image", { method: "POST", body: fd });
             if (!res.ok) {
               const j = await res.json().catch(() => ({}));
-              errs.push(`lot de ${batch.length}: ${j?.error ?? "erreur inconnue"}`);
+              errs.push(`${file.name}: ${j?.error ?? "erreur inconnue"}`);
             }
           } catch {
-            errs.push(`lot de ${batch.length}: erreur réseau`);
+            errs.push(`${file.name}: erreur réseau`);
           }
         },
-        (doneBatches, totalBatches) => {
-          filesDone = Math.min(doneBatches * BATCH_SIZE, totalFiles);
+        (doneCount, total) => {
           flushSync(() => {
-            setProgress(Math.round((filesDone / totalFiles) * 100));
-            setProgressLabel(`${filesDone} / ${totalFiles} images traitées…`);
+            setProgress(Math.round((doneCount / total) * 100));
+            setProgressLabel(`${doneCount} / ${total} images traitées…`);
           });
         }
       );
