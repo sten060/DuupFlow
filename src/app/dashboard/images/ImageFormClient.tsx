@@ -104,41 +104,47 @@ export default function ImageFormClient({ initialImages }: Props) {
 
     const errs: string[] = [];
 
-    await withConcurrency(
-      imageFiles,
-      4, // 4 concurrent requests — good balance for CPU+network
-      async (file) => {
-        const fd = new FormData();
-        fd.append("files", file);
-        fd.append("count", count);
-        if (fundamentals) fd.append("fundamentals", "1");
-        if (visuals) fd.append("visuals", "1");
-        if (semi) fd.append("semi", "1");
-        if (reverse) fd.append("reverse", "1");
+    try {
+      await withConcurrency(
+        imageFiles,
+        2, // 2 concurrent — enough for speed without overwhelming the server
+        async (file) => {
+          const fd = new FormData();
+          fd.append("files", file);
+          fd.append("count", count);
+          if (fundamentals) fd.append("fundamentals", "1");
+          if (visuals) fd.append("visuals", "1");
+          if (semi) fd.append("semi", "1");
+          if (reverse) fd.append("reverse", "1");
 
-        const res = await fetch("/api/duplicate-image", { method: "POST", body: fd });
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          errs.push(`${file.name}: ${j?.error ?? "erreur inconnue"}`);
+          try {
+            const res = await fetch("/api/duplicate-image", { method: "POST", body: fd });
+            if (!res.ok) {
+              const j = await res.json().catch(() => ({}));
+              errs.push(`${file.name}: ${j?.error ?? "erreur inconnue"}`);
+            }
+          } catch {
+            // Network/timeout error for this file — record and continue
+            errs.push(`${file.name}: erreur réseau`);
+          }
+        },
+        (doneCount, total) => {
+          const pct = Math.round((doneCount / total) * 100);
+          setProgress(pct);
+          setProgressLabel(`${doneCount} / ${total} images traitées…`);
         }
-      },
-      (doneCount, total) => {
-        const pct = Math.round((doneCount / total) * 100);
-        setProgress(pct);
-        setProgressLabel(`${doneCount} / ${total} images traitées…`);
-      }
-    );
-
-    // Fetch the fresh image list — no page reload needed
-    const listRes = await fetch("/api/images/list");
-    const listData = await listRes.json().catch(() => ({ images: [] }));
-    setImages(listData.images ?? []);
-
-    setErrors(errs);
-    setProcessing(false);
-    setProgress(100);
-    setDone(true);
-    setFiles([]);
+      );
+    } finally {
+      // Always runs — even if withConcurrency somehow throws
+      const listRes = await fetch("/api/images/list").catch(() => null);
+      const listData = await listRes?.json().catch(() => null);
+      setImages(listData?.images ?? []);
+      setErrors(errs);
+      setProcessing(false);
+      setProgress(100);
+      setDone(true);
+      setFiles([]);
+    }
   }
 
   return (
