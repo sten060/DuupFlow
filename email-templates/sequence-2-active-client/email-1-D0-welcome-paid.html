@@ -1,0 +1,74 @@
+<!--
+  SEQUENCE 2 — Active Client
+  Email 1 of 5 — Send: immediately (Day 0, triggered by payment)
+  Subject: You're in — welcome to DuupFlow 🎉
+  Preheader: Your subscription is now active. Here's what to do first.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Welcome to DuupFlow Pro</title></head>
+<body style="margin:0;padding:0;background-color:#f4f6fb;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#6366f1,#38bdf8);padding:36px 40px;text-align:center;">
+            <p style="margin:0 0 8px;font-size:24px;font-weight:800;color:#ffffff;">Duup<span style="opacity:0.6;">Flow</span></p>
+            <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.75);font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Subscription Active ✓</p>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:40px 40px 32px;">
+            <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0f172a;line-height:1.3;">
+              Welcome aboard, {{ contact.FIRSTNAME }}! 🎉
+            </h1>
+            <p style="margin:0 0 20px;font-size:15px;color:#475569;line-height:1.6;">
+              Your payment went through and your workspace is fully unlocked. You now have access to everything DuupFlow has to offer.
+            </p>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4ff;border-radius:10px;padding:20px 24px;margin-bottom:28px;border-left:4px solid #6366f1;">
+              <tr>
+                <td>
+                  <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#0f172a;">Your next step: create your first project</p>
+                  <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">Go to your dashboard, click on a module and start working. It takes less than 5 minutes to get your first result.</p>
+                </td>
+              </tr>
+            </table>
+
+            <!-- CTA -->
+            <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+              <tr>
+                <td style="background:linear-gradient(135deg,#6366f1,#38bdf8);border-radius:8px;text-align:center;">
+                  <a href="https://app.duupflow.com/dashboard"
+                     style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">
+                    Go to my dashboard →
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0;font-size:14px;color:#64748b;line-height:1.6;">
+              Over the next few days, I'll send you tips to help you get the most out of DuupFlow. If you have any questions before then, just reply to this email.
+            </p>
+            <p style="margin:16px 0 0;font-size:14px;color:#0f172a;font-weight:600;">— The DuupFlow team</p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:20px 40px;border-top:1px solid #f1f5f9;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#cbd5e1;">
+              © 2025 DuupFlow · <a href="{{ unsubscribe }}" style="color:#94a3b8;">Unsubscribe</a>
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

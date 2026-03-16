@@ -49,16 +49,15 @@ function OnboardingForm() {
         return;
       }
     } else {
-      // Regular user: create profile directly
-      const { error: upsertErr } = await supabase.from("profiles").upsert({
-        id: user.id,
-        first_name: firstName.trim(),
-        agency_name: agencyName.trim(),
-        is_guest: false,
+      // Regular user: create profile via server (also triggers Brevo free sequence)
+      const res = await fetch("/api/onboarding/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName: firstName.trim(), agencyName: agencyName.trim() }),
       });
-      if (upsertErr) {
-        console.error("Profile upsert error:", upsertErr);
-        setError(`Erreur lors de la création du profil: ${upsertErr.message}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Erreur lors de la création du profil.");
         setLoading(false);
         return;
       }
