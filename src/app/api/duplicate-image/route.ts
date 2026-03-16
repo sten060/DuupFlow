@@ -6,6 +6,8 @@ import sharp from "sharp";
 import JSZip from "jszip";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 
+export const maxDuration = 30; // 30s hard limit on Vercel/Railway
+
 /* ============== helpers ============== */
 const randHex = (n = 2) => crypto.randomBytes(n).toString("hex");
 const toBool = (v: FormDataEntryValue | null) =>
@@ -61,22 +63,8 @@ async function processImage(buffer: Buffer, ext: string, flags: Flags): Promise<
 
     img = img
       .resize(baseW, baseH, { fit: "fill", kernel: kernelA })
-      .extract({ left: safeLeft, top: safeTop, width: safeWidth, height: safeHeight });
-
-    img = img.resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.lanczos3 });
-
-    // Micro-jitter sub-pixel
-    const jx = (Math.random() - 0.5) * 1.2;
-    const jy = (Math.random() - 0.5) * 1.2;
-    img = img.affine(
-      [[1, 0], [0, 1]],
-      {
-        // @ts-ignore
-        translate: [jx, jy],
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-        interpolate: "bicubic",
-      }
-    );
+      .extract({ left: safeLeft, top: safeTop, width: safeWidth, height: safeHeight })
+      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.lanczos3 });
   }
 
   /* =========================================================
@@ -93,18 +81,14 @@ async function processImage(buffer: Buffer, ext: string, flags: Flags): Promise<
     const contrast = 0.85 + Math.random() * 0.30;
     img = img.linear(contrast, 0);
 
-    const vib = 1.00 + Math.random() * 0.06;
-    img = img.modulate({ saturation: vib });
-
     const sigma = 0.6 + Math.random() * 0.4;
-    img = img.sharpen(sigma, 0.7, 0.7);
-    img = img.sharpen(0.8, 0.3, 0.3);
+    img = img.sharpen({ sigma });
 
     if (Math.random() < 0.5) img = img.blur(0.3);
   }
 
   /* =========================================================
-   * 🧱 BLOC 3 — FONDAMENTAUX
+   * 🧱 BLOC 3 — FONDAMENTAUX (métadonnées + qualité)
    * ========================================================= */
   const lower = ext.toLowerCase();
   const now = new Date();
@@ -115,7 +99,6 @@ async function processImage(buffer: Buffer, ext: string, flags: Flags): Promise<
   const dpi = flags.fundamentals ? [72, 96, 150, 300][Math.floor(Math.random() * 4)] : 72;
 
   const exifMeta: sharp.WriteableMetadata = {
-    icc: "sRGB IEC61966-2.1",
     density: dpi,
     exif: {
       IFD0: {
@@ -131,22 +114,19 @@ async function processImage(buffer: Buffer, ext: string, flags: Flags): Promise<
     return img.withMetadata(exifMeta).png({ compressionLevel, adaptiveFiltering: true }).toBuffer();
   } else if (lower === ".webp") {
     const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 7)) : 92;
-    const effort  = flags.fundamentals ? (4 + Math.floor(Math.random() * 3)) : 4;
-    return img.withMetadata(exifMeta).webp({ quality, effort, smartSubsample: true }).toBuffer();
+    return img.withMetadata(exifMeta).webp({ quality, smartSubsample: true }).toBuffer();
   } else {
     const chroma = flags.fundamentals ? (Math.random() < 0.5 ? "4:2:0" : "4:4:4") : "4:4:4";
     const progressive = flags.fundamentals ? Math.random() < 0.5 : false;
     const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 7)) : 92;
 
+    // NOTE: mozjpeg/trellisQuantisation removed — they are 10-100× slower with
+    // no meaningful benefit for duplicate-detection evasion.
     return img.withMetadata(exifMeta).jpeg({
       quality,
       progressive,
       chromaSubsampling: chroma as "4:2:0" | "4:4:4",
-      mozjpeg: true,
       optimiseCoding: true,
-      trellisQuantisation: flags.fundamentals,
-      overshootDeringing: true,
-      quantizationTable: flags.fundamentals ? (1 + Math.floor(Math.random() * 3)) : 0,
     }).toBuffer();
   }
 }

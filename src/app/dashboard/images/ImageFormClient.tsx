@@ -138,7 +138,14 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
           if (reverse) fd.append("reverse", "1");
 
           try {
-            const res = await fetch("/api/duplicate-image", { method: "POST", body: fd });
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 25_000);
+            let res: Response;
+            try {
+              res = await fetch("/api/duplicate-image", { method: "POST", body: fd, signal: controller.signal });
+            } finally {
+              clearTimeout(timeout);
+            }
 
             if (!res.ok) {
               const j = await res.json().catch(() => ({}));
