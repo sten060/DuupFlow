@@ -39,8 +39,18 @@ async function processImage(
     img = img.flop();
   }
 
-  const baseW = clampDim(meta.width  ?? 1024);
-  const baseH = clampDim(meta.height ?? 1024);
+  // Cap to 3000px on the longest side — prevents 60s+ timeouts on large PNGs/raw shots.
+  // 3000px is sufficient for any marketplace (most require ≤2000px).
+  const MAX_DIM = 3000;
+  const rawW = meta.width  ?? 1024;
+  const rawH = meta.height ?? 1024;
+  const scale = Math.min(1, MAX_DIM / Math.max(rawW, rawH));
+  const baseW = clampDim(Math.round(rawW * scale));
+  const baseH = clampDim(Math.round(rawH * scale));
+
+  if (scale < 1) {
+    img = img.resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.lanczos3 });
+  }
 
   /* =========================================================
    * 🧠 BLOC 1 — SEMI-VISUELS
