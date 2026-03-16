@@ -60,12 +60,19 @@ function downloadBlob(blobUrl: string, filename: string) {
   document.body.removeChild(a);
 }
 
-// Browsers block simultaneous programmatic downloads — stagger them with a delay
-async function downloadAllSequentially(files: ReadyFile[]) {
-  for (const { blobUrl, filename } of files) {
-    downloadBlob(blobUrl, filename);
-    await new Promise((r) => setTimeout(r, 400));
-  }
+// Package all files into a single ZIP and trigger one download
+async function downloadAllAsZip(files: ReadyFile[]) {
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+  await Promise.all(
+    files.map(async ({ blobUrl, filename }) => {
+      const res = await fetch(blobUrl);
+      const buf = await res.arrayBuffer();
+      zip.file(filename, buf);
+    }),
+  );
+  const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
+  downloadBlob(URL.createObjectURL(blob), "DuupFlow_images.zip");
 }
 
 // Run `fn` on each item with at most `concurrency` in-flight at once.
@@ -354,7 +361,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
             </p>
             <button
               type="button"
-              onClick={() => downloadAllSequentially(readyFiles)}
+              onClick={() => downloadAllAsZip(readyFiles)}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition"
             >
               Tout télécharger
