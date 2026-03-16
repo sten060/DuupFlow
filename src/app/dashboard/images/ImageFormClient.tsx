@@ -22,6 +22,14 @@ function downloadBlob(blobUrl: string, filename: string) {
   document.body.removeChild(a);
 }
 
+// Browsers block simultaneous programmatic downloads — stagger them with a delay
+async function downloadAllSequentially(files: ReadyFile[]) {
+  for (const { blobUrl, filename } of files) {
+    downloadBlob(blobUrl, filename);
+    await new Promise((r) => setTimeout(r, 400));
+  }
+}
+
 // Run `fn` on each item with at most `concurrency` in-flight at once.
 async function withConcurrency<T>(
   items: T[],
@@ -290,10 +298,17 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
       {/* Ready files — shown as they arrive, outside the form */}
       {readyFiles.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-white/80">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-white/80 mr-auto">
               Prêts à télécharger ({readyFiles.length})
             </p>
+            <button
+              type="button"
+              onClick={() => downloadAllSequentially(readyFiles)}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition"
+            >
+              Tout télécharger
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -302,7 +317,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
               }}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white/70 transition"
             >
-              Vider les fichiers
+              Vider
             </button>
           </div>
 
