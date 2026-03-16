@@ -7,7 +7,7 @@ import sharp from "sharp";
 import JSZip from "jszip";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 
-export const maxDuration = 30; // 30s hard limit on Vercel/Railway
+export const maxDuration = 60; // 60s — images PNG lourdes peuvent prendre >30s
 
 /* ============== helpers ============== */
 const randHex = (n = 2) => crypto.randomBytes(n).toString("hex");
@@ -27,15 +27,16 @@ type Flags = { semi: boolean; fundamentals: boolean; visuals: boolean; reverse: 
 
 /* ============== pipeline — returns Buffer ============== */
 async function processImage(buffer: Buffer, ext: string, flags: Flags): Promise<Buffer> {
-  const decoded = await sharp(buffer, { failOn: "none" }).toBuffer({ resolveWithObject: true });
-  let img = sharp(decoded.data, { failOn: "none" });
+  // metadata() reads only the image header — much faster than decoding the full image
+  const meta = await sharp(buffer, { failOn: "none" }).metadata();
+  let img = sharp(buffer, { failOn: "none" });
 
   if (flags.reverse) {
     img = img.flop();
   }
 
-  const baseW = clampDim(decoded.info.width  ?? 1024);
-  const baseH = clampDim(decoded.info.height ?? 1024);
+  const baseW = clampDim(meta.width  ?? 1024);
+  const baseH = clampDim(meta.height ?? 1024);
 
   /* =========================================================
    * 🧠 BLOC 1 — SEMI-VISUELS
@@ -65,7 +66,7 @@ async function processImage(buffer: Buffer, ext: string, flags: Flags): Promise<
     img = img
       .resize(baseW, baseH, { fit: "fill", kernel: kernelA })
       .extract({ left: safeLeft, top: safeTop, width: safeWidth, height: safeHeight })
-      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.lanczos3 });
+      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic });
   }
 
   /* =========================================================
@@ -111,8 +112,10 @@ async function processImage(buffer: Buffer, ext: string, flags: Flags): Promise<
   };
 
   if (lower === ".png") {
-    const compressionLevel = flags.fundamentals ? (5 + Math.floor(Math.random() * 3)) : 6;
-    return img.withMetadata(exifMeta).png({ compressionLevel, adaptiveFiltering: true }).toBuffer();
+    // compressionLevel 1 = zlib fastest (≈10× faster than level 6, output still valid PNG)
+    // adaptiveFiltering: false = skip row-filter search (another big speedup)
+    const compressionLevel = flags.fundamentals ? (2 + Math.floor(Math.random() * 2)) : 1;
+    return img.withMetadata(exifMeta).png({ compressionLevel, adaptiveFiltering: false }).toBuffer();
   } else if (lower === ".webp") {
     const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 7)) : 92;
     return img.withMetadata(exifMeta).webp({ quality, smartSubsample: true }).toBuffer();
@@ -121,13 +124,10 @@ async function processImage(buffer: Buffer, ext: string, flags: Flags): Promise<
     const progressive = flags.fundamentals ? Math.random() < 0.5 : false;
     const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 7)) : 92;
 
-    // NOTE: mozjpeg/trellisQuantisation removed — they are 10-100× slower with
-    // no meaningful benefit for duplicate-detection evasion.
     return img.withMetadata(exifMeta).jpeg({
       quality,
       progressive,
       chromaSubsampling: chroma as "4:2:0" | "4:4:4",
-      optimiseCoding: true,
     }).toBuffer();
   }
 }
