@@ -117,7 +117,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
     try {
       await withConcurrency(
         imageFiles,
-        2, // 2 concurrent — sequential processing on server
+        1, // 1 at a time — Railway has limited CPU, 2 concurrent = contention + timeouts
         async (file) => {
           const fd = new FormData();
           fd.append("files", file);
