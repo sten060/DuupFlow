@@ -117,7 +117,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
     try {
       await withConcurrency(
         imageFiles,
-        2, // 2 concurrent — sequential processing on server
+        1, // 1 at a time — Railway has limited CPU, 2 concurrent = contention + timeouts
         async (file) => {
           const fd = new FormData();
           fd.append("files", file);
@@ -296,10 +296,13 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
             </p>
             <button
               type="button"
-              onClick={downloadAll}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition"
+              onClick={() => {
+                readyFiles.forEach(({ blobUrl }) => URL.revokeObjectURL(blobUrl));
+                setReadyFiles([]);
+              }}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white/70 transition"
             >
-              Tout télécharger
+              Vider les fichiers
             </button>
           </div>
 
