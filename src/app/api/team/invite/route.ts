@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient as createAnonClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -60,24 +59,64 @@ export async function POST(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? `https://${req.headers.get("host")}`;
   const redirectTo = `${appUrl}/auth/callback?invite_token=${token}`;
 
-  // Send magic link via Supabase — works for new AND existing users
-  const anonClient = createAnonClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  const { error: otpErr } = await anonClient.auth.signInWithOtp({
+  // Generate a magic link via admin (no email sent by Supabase, works for new & existing users)
+  const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
+    type: "magiclink",
     email: guestEmail.toLowerCase(),
-    options: {
-      emailRedirectTo: redirectTo,
-      shouldCreateUser: true,
-    },
+    options: { redirectTo },
   });
 
-  if (otpErr) {
-    // Clean up invitation record if email sending failed
+  if (linkErr || !linkData?.properties?.action_link) {
     await adminClient.from("team_invitations").delete().eq("token", token);
-    console.error("signInWithOtp error:", JSON.stringify(otpErr));
+    console.error("generateLink error:", JSON.stringify(linkErr));
+    return NextResponse.json({ error: "Impossible de générer l'invitation." }, { status: 500 });
+  }
+
+  const magicLink = linkData.properties.action_link;
+
+  // Send the invitation email via Brevo
+  const brevoKey = process.env.BREVO_API_KEY;
+  if (!brevoKey) {
+    await adminClient.from("team_invitations").delete().eq("token", token);
+    return NextResponse.json({ error: "Service email non configuré." }, { status: 500 });
+  }
+
+  const emailPayload = {
+    sender: { name: "DuupFlow", email: "noreply@duupflow.com" },
+    to: [{ email: guestEmail.toLowerCase() }],
+    subject: "Tu as été invité·e à rejoindre un workspace DuupFlow",
+    htmlContent: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0d1117;color:#e6edf3;padding:32px;border-radius:12px">
+        <h2 style="color:#ffffff;margin-bottom:8px">Tu as été invité·e 🎉</h2>
+        <p style="color:#8b949e;margin-bottom:24px">
+          Clique sur le bouton ci-dessous pour rejoindre le workspace et commencer à collaborer.
+          Ce lien est valable une seule fois.
+        </p>
+        <a href="${magicLink}"
+           style="display:inline-block;background:linear-gradient(135deg,#6366f1,#38bdf8);color:#ffffff;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">
+          Rejoindre le workspace
+        </a>
+        <p style="color:#484f58;font-size:12px;margin-top:24px">
+          Si tu n'attendais pas cet email, tu peux l'ignorer.
+        </p>
+      </div>
+    `,
+  };
+
+  const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "api-key": brevoKey,
+    },
+    body: JSON.stringify(emailPayload),
+  });
+
+  if (!brevoRes.ok) {
+    const text = await brevoRes.text().catch(() => "");
+    console.error("Brevo invite error:", brevoRes.status, text);
+    await adminClient.from("team_invitations").delete().eq("token", token);
     return NextResponse.json({ error: "Impossible d'envoyer l'invitation." }, { status: 500 });
   }
 
