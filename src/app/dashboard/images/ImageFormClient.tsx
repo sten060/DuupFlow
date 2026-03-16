@@ -1,13 +1,30 @@
 "use client";
 
-import path from "path";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import ToggleChip from "../ToggleChip";
-import ClearImagesButton from "./ClearImagesButton";
-import Link from "next/link";
 
 const MAX_FILES = 50;
+
+// Trigger a browser file download from a blob
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Small delay before revoking so the download has time to start
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Extract filename from Content-Disposition header
+function extractFilename(headers: Headers, fallback: string): string {
+  const cd = headers.get("Content-Disposition") ?? "";
+  const match = cd.match(/filename="([^"]+)"/);
+  return match?.[1] ?? fallback;
+}
 
 // Run `fn` on each item with at most `concurrency` in-flight at once.
 async function withConcurrency<T>(
@@ -30,35 +47,25 @@ async function withConcurrency<T>(
     }
   }
 
-  const workers = Array.from(
-    { length: Math.min(concurrency, items.length) },
-    () => worker()
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker())
   );
-  await Promise.all(workers);
 }
 
 type Props = {
   initialImages: string[];
 };
 
-export default function ImageFormClient({ initialImages }: Props) {
+export default function ImageFormClient({ initialImages: _ }: Props) {
   const [files, setFiles] = useState<File[]>([]);
-  const [images, setImages] = useState<string[]>(initialImages);
   const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState(0); // 0-100
+  const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
+  const [downloaded, setDownloaded] = useState<string[]>([]); // filenames downloaded this session
   const [done, setDone] = useState(false);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
-
-  // Keep the hidden file input in sync with our state
-  useEffect(() => {
-    if (!inputRef.current) return;
-    const dt = new DataTransfer();
-    for (const f of files.slice(0, MAX_FILES)) dt.items.add(f);
-    inputRef.current.files = dt.files;
-  }, [files]);
 
   const onPick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files || []);
@@ -100,6 +107,7 @@ export default function ImageFormClient({ initialImages }: Props) {
     setProcessing(true);
     setErrors([]);
     setDone(false);
+    setDownloaded([]);
     setProgressLabel(`Démarrage — 0 / ${imageFiles.length} images…`);
 
     const errs: string[] = [];
@@ -107,7 +115,7 @@ export default function ImageFormClient({ initialImages }: Props) {
     try {
       await withConcurrency(
         imageFiles,
-        2, // 2 concurrent — sequential processing per file on the server
+        2, // 2 concurrent max — sequential processing on server
         async (file) => {
           const fd = new FormData();
           fd.append("files", file);
@@ -119,10 +127,21 @@ export default function ImageFormClient({ initialImages }: Props) {
 
           try {
             const res = await fetch("/api/duplicate-image", { method: "POST", body: fd });
+
             if (!res.ok) {
               const j = await res.json().catch(() => ({}));
               errs.push(`${file.name}: ${j?.error ?? "erreur inconnue"}`);
+              return;
             }
+
+            // Download immediately — no need to wait for all images
+            const blob = await res.blob();
+            const filename = extractFilename(res.headers, file.name);
+            triggerDownload(blob, filename);
+
+            flushSync(() => {
+              setDownloaded((prev) => [...prev, filename]);
+            });
           } catch {
             errs.push(`${file.name}: erreur réseau`);
           }
@@ -135,10 +154,6 @@ export default function ImageFormClient({ initialImages }: Props) {
         }
       );
     } finally {
-      // Always runs — even if withConcurrency somehow throws
-      const listRes = await fetch("/api/images/list").catch(() => null);
-      const listData = await listRes?.json().catch(() => null);
-      setImages(listData?.images ?? []);
       setErrors(errs);
       setProcessing(false);
       setProgress(100);
@@ -246,7 +261,7 @@ export default function ImageFormClient({ initialImages }: Props) {
           />
         </div>
 
-        {/* Submit button */}
+        {/* Submit */}
         <button
           type="submit"
           disabled={processing || files.length === 0}
@@ -259,7 +274,7 @@ export default function ImageFormClient({ initialImages }: Props) {
           {processing ? "Duplication en cours…" : "Dupliquer les images"}
         </button>
 
-        {/* Real progress bar */}
+        {/* Progress bar */}
         {processing && (
           <div className="space-y-1">
             <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
@@ -272,36 +287,25 @@ export default function ImageFormClient({ initialImages }: Props) {
           </div>
         )}
 
-        {/* Done feedback */}
+        {/* Result feedback */}
         {done && !processing && (
           <div className={`text-sm rounded-lg px-4 py-2 ${errors.length > 0 ? "bg-red-900/40 text-red-300" : "bg-emerald-900/40 text-emerald-300"}`}>
             {errors.length === 0
-              ? "✓ Duplication terminée. Les images sont disponibles ci-dessous."
-              : `Terminé avec ${errors.length} erreur(s) : ${errors.join(" · ")}`}
+              ? `✓ ${downloaded.length} image(s) téléchargée(s) directement.`
+              : `Terminé : ${downloaded.length} ok · ${errors.length} erreur(s) : ${errors.join(" · ")}`}
+          </div>
+        )}
+
+        {/* Live download log */}
+        {(processing || (done && downloaded.length > 0)) && downloaded.length > 0 && (
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-1 max-h-48 overflow-y-auto">
+            <p className="text-xs font-semibold text-white/60 mb-2">Téléchargements en cours</p>
+            {downloaded.map((name, i) => (
+              <p key={i} className="text-xs text-emerald-400">✓ {name}</p>
+            ))}
           </div>
         )}
       </form>
-
-      {/* Clear button */}
-      <ClearImagesButton onCleared={() => setImages([])} />
-
-      {/* Images list — updates live after duplication */}
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
-        <h2 className="font-semibold mb-3">Images générées</h2>
-        {images.length === 0 ? (
-          <p className="text-sm text-white/50">Aucune image pour l'instant.</p>
-        ) : (
-          <ul className="list-disc pl-6 space-y-1">
-            {images.map((n) => (
-              <li key={n}>
-                <Link href={n} className="underline" prefetch={false}>
-                  {decodeURIComponent(path.basename(n))}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }
