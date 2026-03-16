@@ -127,7 +127,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
     try {
       await withConcurrency(
         tasks,
-        1, // strictly sequential — one image processed at a time
+        3, // 3 parallel requests — faster throughput on multi-core servers
         async (file) => {
           const fd = new FormData();
           fd.append("files", file);
@@ -162,7 +162,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
             });
           } catch (err: unknown) {
             const msg = err instanceof Error
-              ? (err.name === "AbortError" ? "délai dépassé (25s)" : err.message)
+              ? (err.name === "AbortError" ? "délai dépassé (55s)" : err.message)
               : "erreur réseau";
             errs.push(`${file.name}: ${msg}`);
           }
