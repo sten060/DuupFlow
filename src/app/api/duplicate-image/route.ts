@@ -1,4 +1,5 @@
 // src/app/api/duplicate-image/route.ts
+import os from "os";
 import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
@@ -161,11 +162,10 @@ export async function POST(req: Request) {
     const ext = (dotIdx >= 0 ? imageFile.name.slice(dotIdx) : ".jpg").toLowerCase();
 
     // Resolve output directory in background — disk write is optional, never blocks the response
+    const fallbackDir = path.join(os.tmpdir(), "duupflow", "local");
     const outDirPromise = Promise.race([
       getOutDirForCurrentUser().then((r) => r.dir),
-      new Promise<string>((resolve) =>
-        setTimeout(() => resolve(path.join(require("os").tmpdir(), "duupflow", "local")), 2000)
-      ),
+      new Promise<string>((resolve) => setTimeout(() => resolve(fallbackDir), 2000)),
     ]);
 
     // Process copies sequentially (one at a time — Railway has limited CPU)

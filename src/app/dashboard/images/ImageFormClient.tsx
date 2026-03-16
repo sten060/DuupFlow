@@ -160,8 +160,11 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
             flushSync(() => {
               setReadyFiles((prev) => [...prev, { blobUrl, filename }]);
             });
-          } catch {
-            errs.push(`${file.name}: erreur réseau`);
+          } catch (err: unknown) {
+            const msg = err instanceof Error
+              ? (err.name === "AbortError" ? "délai dépassé (25s)" : err.message)
+              : "erreur réseau";
+            errs.push(`${file.name}: ${msg}`);
           }
         },
         (doneCount, total) => {
