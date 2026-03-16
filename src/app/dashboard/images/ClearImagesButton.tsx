@@ -1,11 +1,13 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 
-export default function ClearImagesButton() {
+type Props = {
+  onCleared?: () => void;
+};
+
+export default function ClearImagesButton({ onCleared }: Props) {
   const [pending, start] = useTransition();
-  const router = useRouter();
 
   return (
     <button
@@ -13,7 +15,7 @@ export default function ClearImagesButton() {
       onClick={() =>
         start(async () => {
           await fetch("/api/out/clear?scope=images", { method: "POST" });
-          router.refresh(); // recharge la page sans navigation
+          onCleared?.();
         })
       }
       disabled={pending}
