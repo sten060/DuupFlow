@@ -6,6 +6,44 @@ import ToggleChip from "../ToggleChip";
 
 const MAX_FILES = 50;
 
+// Compress image client-side before upload: PNG/large → JPEG ≤3000px.
+// Reduces a 15MB PNG to ~300KB — 50× smaller upload, instant processing.
+function compressForUpload(file: File): Promise<File> {
+  const MAX_DIM = 3000;
+  const isPng = file.type === "image/png" || file.name.toLowerCase().endsWith(".png");
+  const isLarge = file.size > 1.5 * 1024 * 1024; // >1.5 MB
+  if (!isPng && !isLarge) return Promise.resolve(file);
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { resolve(file); return; }
+          const name = file.name.replace(/\.[^.]+$/, ".jpeg");
+          resolve(new File([blob], name, { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        0.92,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 // Extract filename from Content-Disposition header
 function extractFilename(headers: Headers, fallback: string): string {
   const cd = headers.get("Content-Disposition") ?? "";
@@ -129,8 +167,9 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
         tasks,
         3, // 3 parallel requests — faster throughput on multi-core servers
         async (file) => {
+          const compressed = await compressForUpload(file);
           const fd = new FormData();
-          fd.append("files", file);
+          fd.append("files", compressed);
           fd.append("count", "1"); // always 1 per request — fast, no timeout
           if (fundamentals) fd.append("fundamentals", "1");
           if (visuals) fd.append("visuals", "1");
