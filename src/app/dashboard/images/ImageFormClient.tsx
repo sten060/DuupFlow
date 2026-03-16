@@ -2,6 +2,7 @@
 
 import path from "path";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import ToggleChip from "../ToggleChip";
 import ClearImagesButton from "./ClearImagesButton";
 import Link from "next/link";
@@ -129,9 +130,11 @@ export default function ImageFormClient({ initialImages }: Props) {
           }
         },
         (doneCount, total) => {
-          const pct = Math.round((doneCount / total) * 100);
-          setProgress(pct);
-          setProgressLabel(`${doneCount} / ${total} images traitées…`);
+          // flushSync forces React to paint immediately instead of batching
+          flushSync(() => {
+            setProgress(Math.round((doneCount / total) * 100));
+            setProgressLabel(`${doneCount} / ${total} images traitées…`);
+          });
         }
       );
     } finally {
