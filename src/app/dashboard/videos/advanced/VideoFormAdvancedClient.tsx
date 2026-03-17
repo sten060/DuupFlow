@@ -56,11 +56,6 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
           {pending ? "Duplication…" : "Générer"}
         </button>
 
-        {pending && (
-          <div className="ml-4 h-2.5 w-2/3 overflow-hidden rounded-full bg-white/10">
-            <div className="h-2.5 w-3/4 animate-pulse rounded-full bg-sky-400" />
-          </div>
-        )}
       </div>
     </div>
   );

@@ -254,6 +254,21 @@ const LIMITS: Record<string, { min: number; max: number }> = {
 
 /* ------------------ FFmpeg wrapper ------------------ */
 
+// Run up to `concurrency` async tasks simultaneously.
+async function withConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = [...items];
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (queue.length > 0) {
+      await fn(queue.shift()!);
+    }
+  });
+  await Promise.all(workers);
+}
+
 async function runFFmpegSafe(
   input: string,
   output: string,
@@ -261,8 +276,16 @@ async function runFFmpegSafe(
   afParts: string[] = [],
   extraArgs: string[] = [],
   metaArgs: string[] = [],
+  // Called with the current encoded time (e.g. "00:00:12.34") as FFmpeg progresses.
+  onTick?: (elapsed: string) => void,
+  // Pre-resolved ffmpeg binary path — avoids redundant disk/PATH lookups per copy.
+  binPath?: string,
 ) {
-  const args: string[] = ["-y", "-hide_banner", "-loglevel", "error", "-i", input];
+  const args: string[] = ["-y", "-hide_banner", "-loglevel", "error"];
+  // -stats prints "frame= fps= time=…" to stderr even at loglevel error,
+  // so the UI can show real encoding progress without spamming log output.
+  if (onTick) args.push("-stats");
+  args.push("-i", input);
 
   // Three tiers:
   // 1. No filters at all → full stream copy (near-instant, no re-encode)
@@ -275,18 +298,18 @@ async function runFFmpegSafe(
     args.push("-c", "copy");
   } else if (audioOnly) {
     args.push("-af", afParts.join(","));
-    args.push("-c:v", "copy", "-c:a", "aac", "-b:a", "256k");
+    args.push("-c:v", "copy", "-c:a", "aac", "-b:a", "192k");
   } else {
     if (vfParts.length) args.push("-vf", vfParts.join(","));
     if (afParts.length) args.push("-af", afParts.join(","));
     args.push(
       "-c:v", "libx264",
       "-preset", "ultrafast",
-      "-threads", "0",
-      "-crf", "18",
+      "-threads", "2",   // 2 threads/copy → run 3 copies in parallel without CPU thrashing
+      "-crf", "23",      // default quality — extraArgs (technical pack) may override this
       "-pix_fmt", "yuv420p",
       "-c:a", "aac",
-      "-b:a", "256k",
+      "-b:a", "192k",
     );
     // extraArgs can override crf/bitrate (e.g. technical pack sets its own values)
     if (extraArgs.length) args.push(...extraArgs);
@@ -297,11 +320,19 @@ async function runFFmpegSafe(
 
   args.push(output);
 
-  const ffmpegBin = await getFFmpegBin();
+  const ffmpegBin = binPath ?? await getFFmpegBin();
   await new Promise<void>((resolve, reject) => {
-    const p = spawn(ffmpegBin, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(ffmpegBin, args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
-    p.stderr.on("data", (d) => (stderr += String(d)));
+    p.stderr.on("data", (d) => {
+      const chunk = String(d);
+      stderr += chunk;
+      if (onTick) {
+        // Parse "time=HH:MM:SS.ms" from the -stats progress line
+        const m = chunk.match(/time=(\d+:\d+:\d+\.\d+)/);
+        if (m) onTick(m[1]);
+      }
+    });
     p.on("error", (err) => {
       clearTimeout(timer);
       reject(new Error(`FFmpeg introuvable ou inaccessible : ${err.message}`));
@@ -355,7 +386,11 @@ export async function processVideos(
   let doneCopies = 0;
   const outputPaths: string[] = [];
 
-  await onProgress?.(0, "Préparation…");
+  // Pre-warm FFmpeg binary once — cold start (binary download) can take 10-30 s.
+  // Sending a message lets users know something is happening, not a blank freeze.
+  await onProgress?.(0, "Chargement de FFmpeg…");
+  const ffmpegBin = await getFFmpegBin();
+  await onProgress?.(1, "FFmpeg prêt — démarrage de l'encodage…");
 
   let fileIndex = 0;
   for (const f of files) {
@@ -369,6 +404,7 @@ export async function processVideos(
       // Already downloaded to a temp path — use it directly
       tmpIn = f.tmpPath;
     } else {
+      await onProgress?.(2, `Écriture fichier ${fileIndex}/${files.length}…`);
       tmpIn = path.join(
         dir,
         `__in__${Date.now()}_${Math.random().toString(36).slice(2)}${origExt}`
@@ -377,11 +413,12 @@ export async function processVideos(
       ownsTmpIn = true;
     }
 
-    for (let c = 1; c <= count; c++) {
-      await onProgress?.(
-        Math.min(99, Math.round((doneCopies / totalCopies) * 100)),
-        `Encodage ${doneCopies + 1}/${totalCopies}…`
-      );
+    // Run up to 3 copies simultaneously — each FFmpeg uses 2 threads, so
+    // 3 parallel copies = 6 threads, matching a typical 6-8 core server.
+    const copyIndexes = Array.from({ length: count }, (_, i) => i + 1);
+    await withConcurrency(copyIndexes, 3, async (c) => {
+      const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
+      await onProgress?.(startPct, `Encodage ${doneCopies + 1}/${totalCopies}…`);
 
       const outName = videoOutName({
         channel,
@@ -625,14 +662,22 @@ export async function processVideos(
       }
 
       const metaArgs = getVideoMetadataArgs();
-      await runFFmpegSafe(tmpIn, outPath, vfParts, afParts, extraArgs, metaArgs);
+      await runFFmpegSafe(
+        tmpIn, outPath, vfParts, afParts, extraArgs, metaArgs,
+        // Live progress tick: update message with encoded time so users see activity
+        (elapsed) => void onProgress?.(
+          Math.min(99, Math.round((doneCopies / totalCopies) * 100)),
+          `Encodage ${doneCopies + 1}/${totalCopies}… (${elapsed})`,
+        ),
+        ffmpegBin,
+      );
       outputPaths.push(outPath);
       doneCopies++;
       await onProgress?.(
         Math.min(99, Math.round((doneCopies / totalCopies) * 100)),
-        `Encodage ${doneCopies}/${totalCopies}…`
+        `Encodage ${doneCopies}/${totalCopies} terminé`,
       );
-    }
+    });
 
     if (ownsTmpIn) await fs.unlink(tmpIn).catch(() => {});
   }
