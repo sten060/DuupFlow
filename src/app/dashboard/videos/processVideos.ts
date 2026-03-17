@@ -483,8 +483,8 @@ export async function processVideos(
           vfParts.push(`hue=h=${hue}`);
           // Very light sharpening — imperceptible
           vfParts.push("unsharp=lx=3:ly=3:la=0.3:cx=3:cy=3:ca=0.3");
-          // Imperceptible noise (2 vs 10 before)
-          vfParts.push("noise=alls=2:allf=t+u");
+          // Imperceptible noise — luma-only for speed
+          vfParts.push("noise=c0s=2:c0f=t");
           // Removed: vignette (darkens corners — very visible)
           // Removed: lenscorrection (distorts/rounds the image — very visible)
         }
@@ -598,8 +598,11 @@ export async function processVideos(
         if (vig.enabled) vfParts.push(`vignette=angle=${vig.value.toFixed(3)}:mode=forward`);
 
         const noi = get("noise", 0, 0, 0, 64);
-        if (noi.enabled && noi.value > 0)
-          vfParts.push(`noise=alls=${Math.max(0, Math.round(noi.value))}:allf=t+u`);
+        if (noi.enabled && noi.value > 0) {
+          // c0s = luma-channel noise only; ~3× faster than alls (all channels).
+          // Luma noise is the most visible component in YUV; t = temporal (per-frame).
+          vfParts.push(`noise=c0s=${Math.max(0, Math.round(noi.value))}:c0f=t`);
+        }
 
         const lens = get("lens_k", 0, 0, -0.3, 0.3);
         if (lens.enabled && Math.abs(lens.value) >= 0.0005) {
