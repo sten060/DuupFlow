@@ -112,28 +112,21 @@ async function imagePHash64(buf: Buffer): Promise<Hash64> {
   return bits;
 }
 
-/** pHash multi-crops : centre + 2 décalages légers */
+/** pHash multi-crops : centre + 2 décalages légers (extraits en parallèle) */
 async function multiCropPHashes(buf: Buffer): Promise<Hash64[]> {
-  const crops: { left: number; top: number; width: number; height: number }[] = [];
   const { width = 0, height = 0 } = await sharp(buf).metadata();
   const w = Math.max(32, Math.floor(width * 0.96));
   const h = Math.max(32, Math.floor(height * 0.96));
-
   const cx = Math.max(0, Math.floor((width - w) / 2));
   const cy = Math.max(0, Math.floor((height - h) / 2));
-  crops.push({ left: cx, top: cy, width: w, height: h });
-
   const dx = Math.max(0, Math.floor(width * 0.01));
   const dy = Math.max(0, Math.floor(height * 0.01));
-  crops.push({ left: Math.min(cx + dx, Math.max(0, width - w)), top: cy, width: w, height: h });
-  crops.push({ left: cx, top: Math.min(cy + dy, Math.max(0, height - h)), width: w, height: h });
-
-  const hashes: Hash64[] = [];
-  for (const c of crops) {
-    const part = await sharp(buf).extract(c).toBuffer();
-    hashes.push(await imagePHash64(part));
-  }
-  return hashes;
+  const crops = [
+    { left: cx, top: cy, width: w, height: h },
+    { left: Math.min(cx + dx, Math.max(0, width - w)), top: cy, width: w, height: h },
+    { left: cx, top: Math.min(cy + dy, Math.max(0, height - h)), width: w, height: h },
+  ];
+  return Promise.all(crops.map(async (c) => imagePHash64(await sharp(buf).extract(c).toBuffer())));
 }
 
 /** Histogramme RGB (16 bins par canal) → similarité 0–100 */
@@ -147,8 +140,8 @@ async function colorHistogramSimilarity(a: Buffer, b: Buffer): Promise<number> {
   const binsA = new Array(16 * 3).fill(0);
   const binsB = new Array(16 * 3).fill(0);
 
-  function fill(buf: Buffer, bins: number[]) {
-    const ch = ra.info.channels; // 3 ou 4
+  function fill(buf: Buffer, bins: number[], channels: number) {
+    const ch = channels; // 3 ou 4 — use each buffer's own channel count
     for (let i = 0; i < buf.length; i += ch) {
       const r = buf[i], g = buf[i + 1], b = buf[i + 2];
       bins[(r >> 4) + 0]++;      // R 0..15
@@ -156,8 +149,8 @@ async function colorHistogramSimilarity(a: Buffer, b: Buffer): Promise<number> {
       bins[(b >> 4) + 32]++;     // B 0..15
     }
   }
-  fill(ra.data, binsA);
-  fill(rb.data, binsB);
+  fill(ra.data, binsA, ra.info.channels);
+  fill(rb.data, binsB, rb.info.channels);
 
   let inter = 0, sum = 0;
   for (let i = 0; i < binsA.length; i++) {
@@ -263,11 +256,7 @@ async function extractFrame(videoPath: string, t: number, ffmpegBin: string): Pr
   }
 }
 
-async function videoHashSignature(buf: Buffer, ffmpegBin: string): Promise<{ phashes: Hash64[]; dhashes: Hash64[] }> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sig-"));
-  const src = path.join(dir, `in_${randHex(2)}.mp4`);
-  await fs.writeFile(src, buf);
-
+async function videoHashSignature(videoPath: string, ffmpegBin: string): Promise<{ phashes: Hash64[]; dhashes: Hash64[] }> {
   // Try ffprobe to get duration; fall back gracefully if unavailable
   let duration = 30; // default assumption
   try {
@@ -276,7 +265,7 @@ async function videoHashSignature(buf: Buffer, ffmpegBin: string): Promise<{ pha
     const { stdout } = await execa(ffprobeBin, [
       "-v", "error", "-select_streams", "v:0",
       "-show_entries", "format=duration",
-      "-of", "default=nw=1:nk=1", src,
+      "-of", "default=nw=1:nk=1", videoPath,
     ], { timeout: 10_000 });
     const parsed = Number(stdout.trim());
     if (parsed > 0) duration = Math.floor(parsed);
@@ -286,28 +275,31 @@ async function videoHashSignature(buf: Buffer, ffmpegBin: string): Promise<{ pha
       const { stdout } = await execa("ffprobe", [
         "-v", "error", "-select_streams", "v:0",
         "-show_entries", "format=duration",
-        "-of", "default=nw=1:nk=1", src,
+        "-of", "default=nw=1:nk=1", videoPath,
       ], { timeout: 10_000 });
       const parsed = Number(stdout.trim());
       if (parsed > 0) duration = Math.floor(parsed);
     } catch {}
   }
 
-  // Use 8 frames spread across the video (was 20 — much faster)
+  // Use 8 frames spread across the video — extracted in parallel
   const FRAMES = 8;
   const pts = Array.from({ length: FRAMES }, (_, i) =>
     Math.max(0, Math.floor(((i + 0.5) / FRAMES) * duration))
   );
 
+  const frameResults = await Promise.all(pts.map(async (t) => {
+    const frame = await extractFrame(videoPath, t, ffmpegBin);
+    if (!frame) return null;
+    const [ph, dh] = await Promise.all([imagePHash64(frame), imageDHash64(frame)]);
+    return { ph, dh };
+  }));
+
   const phashes: Hash64[] = [];
   const dhashes: Hash64[] = [];
-  for (const t of pts) {
-    const frame = await extractFrame(src, t, ffmpegBin);
-    if (!frame) continue; // skip frames that couldn't be extracted
-    phashes.push(await imagePHash64(frame));
-    dhashes.push(await imageDHash64(frame));
+  for (const r of frameResults) {
+    if (r) { phashes.push(r.ph); dhashes.push(r.dh); }
   }
-  await fs.rm(dir, { recursive: true, force: true });
   return { phashes, dhashes };
 }
 
@@ -474,12 +466,11 @@ export async function compareSimilarity(formData: FormData) {
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), "v-"));
       const va = path.join(dir, `a_${randHex()}.mp4`);
       const vb = path.join(dir, `b_${randHex()}.mp4`);
-      await fs.writeFile(va, bufA);
-      await fs.writeFile(vb, bufB);
+      await Promise.all([fs.writeFile(va, bufA), fs.writeFile(vb, bufB)]);
 
       const [sigA, sigB, mvA, mvB] = await Promise.all([
-        videoHashSignature(bufA, ffmpegBin),
-        videoHashSignature(bufB, ffmpegBin),
+        videoHashSignature(va, ffmpegBin),
+        videoHashSignature(vb, ffmpegBin),
         videoMetaSignature(va, ffmpegBin),
         videoMetaSignature(vb, ffmpegBin),
       ]);
