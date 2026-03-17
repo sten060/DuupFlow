@@ -221,9 +221,11 @@ export default function VideoFormSimpleClient() {
       const rawForm = new FormData(e.currentTarget);
       const uploadedFiles = rawForm.getAll("files") as File[];
 
-      // For files under 50 MB, send directly to Railway (no Supabase round-trip needed).
-      // Supabase Storage is only needed to bypass Vercel's 4.5 MB body limit.
-      const DIRECT_LIMIT = 50 * 1024 * 1024;
+      // Always route through Supabase Storage so the SSE request carries no
+      // file body — the SSE stream opens immediately and shows progress from
+      // the first instant, instead of making the user wait in silence while
+      // the server buffers the entire video before it can respond.
+      const DIRECT_LIMIT = 0;
       const canDirect = uploadedFiles.length > 0 && uploadedFiles.every(f => f.size <= DIRECT_LIMIT);
 
       // Upload each file directly to Supabase Storage to bypass Vercel's 4.5 MB body limit
