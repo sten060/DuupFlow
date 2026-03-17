@@ -245,7 +245,7 @@ async function extractFrame(videoPath: string, t: number, ffmpegBin: string): Pr
   const tmp = path.join(path.dirname(videoPath), `__frame_${t}_${randHex(2)}.png`);
   try {
     await execa(ffmpegBin, ["-y", "-ss", String(t), "-i", videoPath, "-frames:v", "1", "-vf", "scale=256:-2", tmp], {
-      timeout: 25_000, // 25s per frame max
+      timeout: 10_000,
     });
     const buf = await fs.readFile(tmp);
     await fs.unlink(tmp).catch(() => {});
@@ -257,33 +257,31 @@ async function extractFrame(videoPath: string, t: number, ffmpegBin: string): Pr
 }
 
 async function videoHashSignature(videoPath: string, ffmpegBin: string): Promise<{ phashes: Hash64[]; dhashes: Hash64[] }> {
-  // Try ffprobe to get duration; fall back gracefully if unavailable
+  // Try ffprobe to get duration — short 2 s timeout to avoid blocking the whole action.
   let duration = 30; // default assumption
   try {
-    // Look for ffprobe next to the resolved ffmpeg binary
     const ffprobeBin = ffmpegBin.replace(/ffmpeg([^/]*)$/, "ffprobe$1");
     const { stdout } = await execa(ffprobeBin, [
       "-v", "error", "-select_streams", "v:0",
       "-show_entries", "format=duration",
       "-of", "default=nw=1:nk=1", videoPath,
-    ], { timeout: 10_000 });
+    ], { timeout: 2_000 });
     const parsed = Number(stdout.trim());
     if (parsed > 0) duration = Math.floor(parsed);
   } catch {
     try {
-      // Fallback: use plain "ffprobe" from PATH
       const { stdout } = await execa("ffprobe", [
         "-v", "error", "-select_streams", "v:0",
         "-show_entries", "format=duration",
         "-of", "default=nw=1:nk=1", videoPath,
-      ], { timeout: 10_000 });
+      ], { timeout: 2_000 });
       const parsed = Number(stdout.trim());
       if (parsed > 0) duration = Math.floor(parsed);
     } catch {}
   }
 
-  // Use 8 frames spread across the video — extracted in parallel
-  const FRAMES = 8;
+  // 4 frames is sufficient for a perceptual match — keeps peak ffmpeg count low.
+  const FRAMES = 4;
   const pts = Array.from({ length: FRAMES }, (_, i) =>
     Math.max(0, Math.floor(((i + 0.5) / FRAMES) * duration))
   );
@@ -468,12 +466,10 @@ export async function compareSimilarity(formData: FormData) {
       const vb = path.join(dir, `b_${randHex()}.mp4`);
       await Promise.all([fs.writeFile(va, bufA), fs.writeFile(vb, bufB)]);
 
-      const [sigA, sigB, mvA, mvB] = await Promise.all([
-        videoHashSignature(va, ffmpegBin),
-        videoHashSignature(vb, ffmpegBin),
-        videoMetaSignature(va, ffmpegBin),
-        videoMetaSignature(vb, ffmpegBin),
-      ]);
+      // Run signatures sequentially to cap peak ffmpeg processes at 4 (not 8).
+      // videoMetaSignature only spawns ffprobe so it can overlap safely.
+      const [sigA, mvA] = await Promise.all([videoHashSignature(va, ffmpegBin), videoMetaSignature(va, ffmpegBin)]);
+      const [sigB, mvB] = await Promise.all([videoHashSignature(vb, ffmpegBin), videoMetaSignature(vb, ffmpegBin)]);
       await fs.rm(dir, { recursive: true, force: true });
       metaA = mvA;
       metaB = mvB;
@@ -490,8 +486,8 @@ export async function compareSimilarity(formData: FormData) {
       score = framesSim * WV.frames + metaSimV * WV.meta;
 
       breakdown.push(
-        { label: `Frames pHash (8 frames)`, value: Math.round(pFrameSim), weight: WV.frames * 0.7 },
-        { label: `Frames dHash (8 frames)`, value: Math.round(dFrameSim), weight: WV.frames * 0.3 },
+        { label: `Frames pHash (4 frames)`, value: Math.round(pFrameSim), weight: WV.frames * 0.7 },
+        { label: `Frames dHash (4 frames)`, value: Math.round(dFrameSim), weight: WV.frames * 0.3 },
         { label: "Métadonnées vidéo", value: Math.round(metaSimV), weight: WV.meta },
       );
 
