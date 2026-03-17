@@ -407,42 +407,43 @@ export async function processVideos(
   const ffmpegBin = await getFFmpegBin();
   await onProgress?.(1, "FFmpeg prêt — démarrage de l'encodage…");
 
-  let fileIndex = 0;
-  for (const f of files) {
-    fileIndex += 1;
-
-    const fileName = "tmpPath" in f ? f.name : (f as File).name;
-    const origExt = extOf(fileName) || ".mp4";
-    let tmpIn: string;
-    let ownsTmpIn = false;
-    if ("tmpPath" in f) {
-      // Already downloaded to a temp path — use it directly
-      tmpIn = f.tmpPath;
-    } else {
-      await onProgress?.(2, `Écriture fichier ${fileIndex}/${files.length}…`);
-      tmpIn = path.join(
-        dir,
-        `__in__${Date.now()}_${Math.random().toString(36).slice(2)}${origExt}`
-      );
+  // ── Prepare all input temp-files (parallel for direct uploads) ─────────────
+  type FileEntry = { fileName: string; tmpIn: string; ownsTmpIn: boolean };
+  const fileEntries = await Promise.all(
+    files.map(async (f, idx): Promise<FileEntry> => {
+      const fileName = "tmpPath" in f ? f.name : (f as File).name;
+      const origExt = extOf(fileName) || ".mp4";
+      if ("tmpPath" in f) {
+        return { fileName, tmpIn: f.tmpPath, ownsTmpIn: false };
+      }
+      await onProgress?.(2, `Écriture fichier ${idx + 1}/${files.length}…`);
+      const tmpIn = path.join(dir, `__in__${Date.now()}_${idx}${origExt}`);
       await fs.writeFile(tmpIn, Buffer.from(await (f as File).arrayBuffer()));
-      ownsTmpIn = true;
-    }
+      return { fileName, tmpIn, ownsTmpIn: true };
+    })
+  );
 
-    // Run up to 3 copies simultaneously — each FFmpeg uses 2 threads, so
-    // 3 parallel copies = 6 threads, matching a typical 6-8 core server.
-    const copyIndexes = Array.from({ length: count }, (_, i) => i + 1);
-    await withConcurrency(copyIndexes, 3, async (c) => {
-      const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
-      await onProgress?.(startPct, `Encodage ${doneCopies + 1}/${totalCopies}…`);
+  // ── Flatten all (file × copy) into one pool so every copy of every file
+  // runs concurrently — total time ≈ slowest single copy, not SUM. ───────────
+  type Task = { fileName: string; tmpIn: string; fileIndex: number; copyIndex: number };
+  const allTasks: Task[] = fileEntries.flatMap(({ fileName, tmpIn }, idx) =>
+    Array.from({ length: count }, (_, i) => ({
+      fileName, tmpIn, fileIndex: idx + 1, copyIndex: i + 1,
+    }))
+  );
 
-      const outName = videoOutName({
-        channel,
-        date: stamp,
-        fileIndex,
-        copyIndex: c,
-        origName: fileName,
-        runTag,
-      });
+  await withConcurrency(allTasks, 3, async ({ fileName, tmpIn, fileIndex, copyIndex }) => {
+    const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
+    await onProgress?.(startPct, `Encodage ${doneCopies + 1}/${totalCopies}…`);
+
+    const outName = videoOutName({
+      channel,
+      date: stamp,
+      fileIndex,
+      copyIndex,
+      origName: fileName,
+      runTag,
+    });
       const outPath = path.join(dir, outName);
 
       const vfParts: string[] = [];
@@ -692,8 +693,10 @@ export async function processVideos(
         Math.min(99, Math.round((doneCopies / totalCopies) * 100)),
         `Encodage ${doneCopies}/${totalCopies} terminé`,
       );
-    });
+  });
 
+  // ── Clean up temp input files ─────────────────────────────────────────────
+  for (const { tmpIn, ownsTmpIn } of fileEntries) {
     if (ownsTmpIn) await fs.unlink(tmpIn).catch(() => {});
   }
 
