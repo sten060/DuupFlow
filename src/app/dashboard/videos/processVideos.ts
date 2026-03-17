@@ -325,7 +325,7 @@ async function runFFmpegSafe(
       "-preset", "ultrafast",
       "-tune", "zerolatency",     // disables lookahead → slightly faster, no quality loss
       "-threads", String(threads), // caller allocates threads based on os.cpus()
-      "-crf", "28",               // CRF 28 ≈ CRF 23 on a phone screen; ~25 % faster encode
+      "-crf", "35",               // CRF 35: ~40% faster encode + 3–5× smaller output → much faster Supabase upload
       "-pix_fmt", "yuv420p",
       "-c:a", "aac",
       "-b:a", "192k",
@@ -441,10 +441,12 @@ export async function processVideos(
   // CPU count we cap concurrency at ncpus and let the OS schedule; threads per
   // process stay at 1 to avoid cross-task contention.
   const ncpus = Math.max(1, os.cpus().length);
-  const CONCURRENCY  = Math.min(allTasks.length, Math.max(ncpus, 2)); // ≥2 always
-  const threadsPerTask = allTasks.length <= ncpus
-    ? Math.max(1, Math.floor(ncpus / allTasks.length)) // spare cores → give to task
-    : 1;                                                // oversubscribed → 1 thread each
+  // 1 task per CPU core — avoids over-subscription on single-core servers where
+  // running 2 competing CPU-bound encodes would double the time per copy.
+  const CONCURRENCY  = Math.min(allTasks.length, ncpus);
+  const threadsPerTask = CONCURRENCY > 0
+    ? Math.max(1, Math.floor(ncpus / CONCURRENCY))
+    : 1;
 
   await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex }) => {
     const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
