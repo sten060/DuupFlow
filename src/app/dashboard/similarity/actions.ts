@@ -244,7 +244,7 @@ function metaSimilarityImages(a: MetaDict, b: MetaDict): number {
 async function extractFrame(videoPath: string, t: number, ffmpegBin: string): Promise<Buffer | null> {
   const tmp = path.join(path.dirname(videoPath), `__frame_${t}_${randHex(2)}.png`);
   try {
-    await execa(ffmpegBin, ["-y", "-ss", String(t), "-i", videoPath, "-frames:v", "1", "-vf", "scale=256:-2", tmp], {
+    await execa(ffmpegBin, ["-y", "-ss", String(t), "-i", videoPath, "-frames:v", "1", "-vf", "scale=128:-2", tmp], {
       timeout: 10_000,
     });
     const buf = await fs.readFile(tmp);
@@ -280,8 +280,8 @@ async function videoHashSignature(videoPath: string, ffmpegBin: string): Promise
     } catch {}
   }
 
-  // 4 frames is sufficient for a perceptual match — keeps peak ffmpeg count low.
-  const FRAMES = 4;
+  // 2 frames (1/4 and 3/4 of duration) — sufficient for perceptual matching.
+  const FRAMES = 2;
   const pts = Array.from({ length: FRAMES }, (_, i) =>
     Math.max(0, Math.floor(((i + 0.5) / FRAMES) * duration))
   );
@@ -316,12 +316,12 @@ async function videoMetaSignature(tmpPath: string, ffmpegBin: string): Promise<M
       "-v","error","-select_streams","v:0",
       "-show_entries","stream=codec_name,profile,level,pix_fmt,color_range,color_space,color_transfer,width,height,bit_rate,avg_frame_rate:format=bit_rate,duration",
       "-of","json", tmpPath,
-    ], { timeout: 10_000 }).catch(() =>
+    ], { timeout: 2_000 }).catch(() =>
       execa("ffprobe", [
         "-v","error","-select_streams","v:0",
         "-show_entries","stream=codec_name,profile,level,pix_fmt,color_range,color_space,color_transfer,width,height,bit_rate,avg_frame_rate:format=bit_rate,duration",
         "-of","json", tmpPath,
-      ], { timeout: 10_000 })
+      ], { timeout: 2_000 })
     );
     const { stdout } = probeCmd;
     const j = JSON.parse(stdout);
@@ -466,10 +466,11 @@ export async function compareSimilarity(formData: FormData) {
       const vb = path.join(dir, `b_${randHex()}.mp4`);
       await Promise.all([fs.writeFile(va, bufA), fs.writeFile(vb, bufB)]);
 
-      // Run signatures sequentially to cap peak ffmpeg processes at 4 (not 8).
-      // videoMetaSignature only spawns ffprobe so it can overlap safely.
-      const [sigA, mvA] = await Promise.all([videoHashSignature(va, ffmpegBin), videoMetaSignature(va, ffmpegBin)]);
-      const [sigB, mvB] = await Promise.all([videoHashSignature(vb, ffmpegBin), videoMetaSignature(vb, ffmpegBin)]);
+      // Run all 4 in parallel: 2 frames × 2 videos = 4 concurrent ffmpeg + 2 ffprobe.
+      const [[sigA, mvA], [sigB, mvB]] = await Promise.all([
+        Promise.all([videoHashSignature(va, ffmpegBin), videoMetaSignature(va, ffmpegBin)]),
+        Promise.all([videoHashSignature(vb, ffmpegBin), videoMetaSignature(vb, ffmpegBin)]),
+      ]);
       await fs.rm(dir, { recursive: true, force: true });
       metaA = mvA;
       metaB = mvB;
@@ -486,8 +487,8 @@ export async function compareSimilarity(formData: FormData) {
       score = framesSim * WV.frames + metaSimV * WV.meta;
 
       breakdown.push(
-        { label: `Frames pHash (4 frames)`, value: Math.round(pFrameSim), weight: WV.frames * 0.7 },
-        { label: `Frames dHash (4 frames)`, value: Math.round(dFrameSim), weight: WV.frames * 0.3 },
+        { label: `Frames pHash (2 frames)`, value: Math.round(pFrameSim), weight: WV.frames * 0.7 },
+        { label: `Frames dHash (2 frames)`, value: Math.round(dFrameSim), weight: WV.frames * 0.3 },
         { label: "Métadonnées vidéo", value: Math.round(metaSimV), weight: WV.meta },
       );
 
