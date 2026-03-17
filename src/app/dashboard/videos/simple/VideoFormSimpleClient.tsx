@@ -65,7 +65,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   );
 }
 
-function SubmitWithProgress({ pending, hasRealProgress }: { pending: boolean; hasRealProgress?: boolean }) {
+function SubmitWithProgress({ pending }: { pending: boolean }) {
   return (
     <div className="flex items-center gap-4">
       <button
@@ -81,11 +81,6 @@ function SubmitWithProgress({ pending, hasRealProgress }: { pending: boolean; ha
         {pending ? "Duplication en cours…" : "Dupliquer les vidéos"}
         <span className="absolute inset-0 rounded-lg ring-1 ring-white/10" />
       </button>
-      {pending && !hasRealProgress && (
-        <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/10">
-          <div className="h-2.5 w-8 animate-pulse rounded-full bg-gradient-to-r from-indigo-400 to-sky-400" />
-        </div>
-      )}
     </div>
   );
 }
@@ -406,7 +401,7 @@ export default function VideoFormSimpleClient() {
         {/* … le reste de tes contrôles (rotation, dimensions, bordures) inchangés … */}
       </GlowCard>
 
-      <SubmitWithProgress pending={processing} hasRealProgress={processing && progress !== null && progress > 0} />
+      <SubmitWithProgress pending={processing} />
 
       {processing && progress !== null && (
         <div className="mt-2">
