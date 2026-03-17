@@ -63,15 +63,13 @@ export async function POST(req: Request) {
 
         if (hasStoragePaths) {
           const supabase = createAdminClient();
-          preDownloadedFiles = [];
+          preDownloadedFiles = new Array(storagePaths.length);
+          send({ percent: 0, msg: `Récupération ${storagePaths.length} fichier${storagePaths.length > 1 ? "s" : ""}…` });
 
-          for (let i = 0; i < storagePaths.length; i++) {
-            const storagePath = storagePaths[i];
-            const fileName    = fileNames[i] ?? path.basename(storagePath);
-            send({
-              percent: Math.round((i / storagePaths.length) * 8),
-              msg: `Récupération fichier ${i + 1}/${storagePaths.length}…`,
-            });
+          // Download all files in parallel — total time ≈ slowest single download.
+          let doneDl = 0;
+          await Promise.all(storagePaths.map(async (storagePath, i) => {
+            const fileName = fileNames[i] ?? path.basename(storagePath);
 
             const { data, error } = await supabase.storage
               .from(INPUT_BUCKET)
@@ -85,8 +83,11 @@ export async function POST(req: Request) {
             const tmpPath = path.join(os.tmpdir(), `duup_in_${Date.now()}_${i}${ext}`);
             await fs.writeFile(tmpPath, Buffer.from(await data.arrayBuffer()));
             tmpFilesToClean.push(tmpPath);
-            preDownloadedFiles.push({ name: fileName, tmpPath });
-          }
+            preDownloadedFiles![i] = { name: fileName, tmpPath };
+
+            doneDl++;
+            send({ percent: Math.round((doneDl / storagePaths.length) * 8), msg: `Récupération ${doneDl}/${storagePaths.length}…` });
+          }));
 
           // Delete input objects from storage now that we have them locally
           await supabase.storage.from(INPUT_BUCKET).remove(storagePaths).catch(() => {});
@@ -108,7 +109,7 @@ export async function POST(req: Request) {
           await supabase.storage.updateBucket(OUTPUT_BUCKET, { public: false, fileSizeLimit: 524288000 }).catch(() => {});
 
           send({ percent: 99, msg: "Sauvegarde…" });
-          for (const outPath of outputPaths) {
+          await Promise.all(outputPaths.map(async (outPath) => {
             const outName    = path.basename(outPath);
             const storageKey = `${userId}/${outName}`;
             const fileBuffer = await fs.readFile(outPath);
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
               throw new Error(`Sauvegarde échouée (${outName}) : ${uploadError.message}`);
             }
             await fs.unlink(outPath).catch(() => {});
-          }
+          }));
         }
 
         send({ percent: 100, msg: "Terminé ✔", done: true, userId, channel });
