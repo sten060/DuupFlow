@@ -1,5 +1,6 @@
 // Shared video duplication logic — no "use server", importable from both server actions and API routes
 import fs from "fs/promises";
+import os from "os";
 import path from "path";
 import { spawn } from "child_process";
 import zlib from "zlib";
@@ -295,6 +296,8 @@ async function runFFmpegSafe(
   onTick?: (elapsed: string) => void,
   // Pre-resolved ffmpeg binary path — avoids redundant disk/PATH lookups per copy.
   binPath?: string,
+  // Threads to allocate to this FFmpeg process (computed by caller from os.cpus()).
+  threads = 1,
 ) {
   const args: string[] = ["-y", "-hide_banner", "-loglevel", "error"];
   // -stats prints "frame= fps= time=…" to stderr even at loglevel error,
@@ -320,8 +323,9 @@ async function runFFmpegSafe(
     args.push(
       "-c:v", "libx264",
       "-preset", "ultrafast",
-      "-threads", "2",   // 2 threads/copy → run 3 copies in parallel without CPU thrashing
-      "-crf", "23",      // default quality — extraArgs (technical pack) may override this
+      "-tune", "zerolatency",     // disables lookahead → slightly faster, no quality loss
+      "-threads", String(threads), // caller allocates threads based on os.cpus()
+      "-crf", "28",               // CRF 28 ≈ CRF 23 on a phone screen; ~25 % faster encode
       "-pix_fmt", "yuv420p",
       "-c:a", "aac",
       "-b:a", "192k",
@@ -432,7 +436,17 @@ export async function processVideos(
     }))
   );
 
-  await withConcurrency(allTasks, 3, async ({ fileName, tmpIn, fileIndex, copyIndex }) => {
+  // ── CPU-aware concurrency and thread allocation ───────────────────────────
+  // Give each parallel task its own core(s).  When the task count exceeds the
+  // CPU count we cap concurrency at ncpus and let the OS schedule; threads per
+  // process stay at 1 to avoid cross-task contention.
+  const ncpus = Math.max(1, os.cpus().length);
+  const CONCURRENCY  = Math.min(allTasks.length, Math.max(ncpus, 2)); // ≥2 always
+  const threadsPerTask = allTasks.length <= ncpus
+    ? Math.max(1, Math.floor(ncpus / allTasks.length)) // spare cores → give to task
+    : 1;                                                // oversubscribed → 1 thread each
+
+  await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex }) => {
     const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
     await onProgress?.(startPct, `Encodage ${doneCopies + 1}/${totalCopies}…`);
 
@@ -686,6 +700,7 @@ export async function processVideos(
           `Encodage ${doneCopies + 1}/${totalCopies}… (${elapsed})`,
         ),
         ffmpegBin,
+        threadsPerTask,
       );
       outputPaths.push(outPath);
       doneCopies++;
