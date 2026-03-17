@@ -61,24 +61,39 @@ export async function getFFmpegBin(): Promise<string> {
   // Env override — useful for local dev or a custom deploy with a real binary.
   if (process.env.FFMPEG_BIN) return process.env.FFMPEG_BIN;
 
-  // Already resolved this Lambda instance.
+  // Already resolved this process instance.
   if (_ffmpegBin) return _ffmpegBin;
 
-  // Check if ffmpeg is available in PATH (e.g. installed via nixpacks on Railway).
+  const { existsSync } = await import("fs");
+
+  // ── 1. PATH lookup via shell built-in (works even if `which` is absent) ──
   try {
-    const { execFileSync } = await import("child_process");
-    const whichPath = execFileSync("which", ["ffmpeg"], { encoding: "utf8" }).trim();
-    if (whichPath) {
-      console.log(`[ffmpeg] found in PATH at ${whichPath}`);
-      _ffmpegBin = whichPath;
+    const { execSync } = await import("child_process");
+    const found = execSync("command -v ffmpeg", { encoding: "utf8", shell: "/bin/sh" }).trim();
+    if (found && existsSync(found)) {
+      console.log(`[ffmpeg] found via PATH at ${found}`);
+      _ffmpegBin = found;
       return _ffmpegBin;
     }
   } catch {
     // not in PATH, continue
   }
 
-  // Warm start: binary already in /tmp from a previous invocation.
-  const { existsSync } = await import("fs");
+  // ── 2. Explicit well-known paths (nixpacks, apt, Nix store symlink) ──
+  const CANDIDATES = [
+    "/usr/bin/ffmpeg",
+    "/usr/local/bin/ffmpeg",
+    "/nix/var/nix/profiles/default/bin/ffmpeg",
+  ];
+  for (const p of CANDIDATES) {
+    if (existsSync(p)) {
+      console.log(`[ffmpeg] found at known path ${p}`);
+      _ffmpegBin = p;
+      return _ffmpegBin;
+    }
+  }
+
+  // ── 3. Warm start: binary already in /tmp from a previous invocation ──
   if (existsSync(FFMPEG_TMP)) {
     _ffmpegBin = FFMPEG_TMP;
     return _ffmpegBin;
