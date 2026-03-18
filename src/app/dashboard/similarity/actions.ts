@@ -49,37 +49,46 @@ function simFromHamming(h: number, bits = 64): number {
   return Math.max(0, Math.min(100, Math.round((1 - h / bits) * 100)));
 }
 
-// pHash 64 bits (grayscale, DCT 32x32 → 8x8)
-async function imagePHash64(buf: Buffer): Promise<bigint> {
-  const N = 32;
-  const raw = await sharp(buf).grayscale().resize(N, N, { fit: "fill" }).raw().toBuffer();
-  const block: number[] = [];
-  for (let u = 0; u < 8; u++) {
-    for (let v = 0; v < 8; v++) {
-      let sum = 0;
-      for (let x = 0; x < N; x++) {
-        const cx = Math.cos(((2 * x + 1) * u * Math.PI) / (2 * N));
-        for (let y = 0; y < N; y++) {
-          sum += raw[x * N + y] * cx * Math.cos(((2 * y + 1) * v * Math.PI) / (2 * N));
-        }
-      }
-      block.push(sum);
-    }
-  }
-  const sorted = [...block.slice(1)].sort((a, b) => a - b);
-  const median = sorted[Math.floor(sorted.length / 2)];
+// aHash: resize 8×8 grayscale, compare each pixel to mean — O(64), near-instant
+async function aHash(buf: Buffer): Promise<bigint> {
+  const arr = await sharp(buf).grayscale().resize(8, 8, { fit: "fill" }).raw().toBuffer();
+  let sum = 0;
+  for (let i = 0; i < 64; i++) sum += arr[i];
+  const avg = sum / 64;
   let bits = 0n;
   for (let i = 0; i < 64; i++) {
-    const v = i === 0 ? 0 : block[i];
-    bits = (bits << 1n) | (v > median ? 1n : 0n);
+    bits = (bits << 1n) | (arr[i] >= avg ? 1n : 0n);
   }
   return bits;
 }
 
+// dHash: resize 9×8 grayscale, compare adjacent pixels — O(64), near-instant
+async function dHash(buf: Buffer): Promise<bigint> {
+  const arr = await sharp(buf).grayscale().resize(9, 8, { fit: "fill" }).raw().toBuffer();
+  let bits = 0n;
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      bits = (bits << 1n) | (arr[y * 9 + x] < arr[y * 9 + x + 1] ? 1n : 0n);
+    }
+  }
+  return bits;
+}
+
+async function imageScore(bufA: Buffer, bufB: Buffer): Promise<number> {
+  const [ahA, ahB, dhA, dhB] = await Promise.all([aHash(bufA), aHash(bufB), dHash(bufA), dHash(bufB)]);
+  const aSim = simFromHamming(hamming64(ahA, ahB));
+  const dSim = simFromHamming(hamming64(dhA, dhB));
+  return aSim * 0.5 + dSim * 0.5;
+}
+
+// Extract 1 frame from a video at timestamp t (fast input-seek)
 async function extractFrame(videoPath: string, t: number, ffmpegBin: string): Promise<Buffer | null> {
-  const tmp = path.join(path.dirname(videoPath), `__frame_${t}_${randHex()}.png`);
+  const tmp = path.join(path.dirname(videoPath), `__f_${randHex()}.png`);
   try {
-    await execa(ffmpegBin, ["-y", "-ss", String(t), "-i", videoPath, "-frames:v", "1", "-vf", "scale=128:-2", tmp], { timeout: 8_000 });
+    await execa(ffmpegBin, [
+      "-y", "-ss", String(t), "-i", videoPath,
+      "-frames:v", "1", "-vf", "scale=64:-2", tmp,
+    ], { timeout: 6_000 });
     const buf = await fs.readFile(tmp);
     await fs.unlink(tmp).catch(() => {});
     return buf;
@@ -111,46 +120,26 @@ async function runComparisonAndRedirect(
   let score: number;
 
   if (kindA === "image") {
-    const [phA, phB] = await Promise.all([imagePHash64(bufA), imagePHash64(bufB)]);
-    score = simFromHamming(hamming64(phA, phB));
+    score = await imageScore(bufA, bufB);
   } else {
     const ffmpegBin = await getFFmpegBin().catch(() => "ffmpeg");
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "v-"));
     const va = path.join(dir, `a_${randHex()}.mp4`);
     const vb = path.join(dir, `b_${randHex()}.mp4`);
+    // Write both files in parallel
     await Promise.all([fs.writeFile(va, bufA), fs.writeFile(vb, bufB)]);
 
-    // Get duration for frame timestamps
-    let duration = 30;
-    try {
-      const ffprobeBin = ffmpegBin.replace(/ffmpeg([^/]*)$/, "ffprobe$1");
-      const { stdout } = await execa(ffprobeBin, [
-        "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", va,
-      ], { timeout: 2_000 });
-      const parsed = Number(stdout.trim());
-      if (parsed > 0) duration = Math.floor(parsed);
-    } catch {}
-
-    // Extract 2 frames (1/4 and 3/4) from both videos in parallel
-    const pts = [Math.max(0, Math.floor(duration * 0.25)), Math.max(0, Math.floor(duration * 0.75))];
-    const [fA0, fA1, fB0, fB1] = await Promise.all([
-      extractFrame(va, pts[0], ffmpegBin),
-      extractFrame(va, pts[1], ffmpegBin),
-      extractFrame(vb, pts[0], ffmpegBin),
-      extractFrame(vb, pts[1], ffmpegBin),
+    // Extract 1 frame per video at t=1s — no ffprobe needed, fast input-seek
+    const [fA, fB] = await Promise.all([
+      extractFrame(va, 1, ffmpegBin),
+      extractFrame(vb, 1, ffmpegBin),
     ]);
     await fs.rm(dir, { recursive: true, force: true });
 
-    const pairs = [[fA0, fB0], [fA1, fB1]].filter(([a, b]) => a && b) as [Buffer, Buffer][];
-    if (!pairs.length) {
-      return redirect("/dashboard/similarity?err=" + encodeURIComponent("[SIM-003] Extraction de frames impossible."));
+    if (!fA || !fB) {
+      return redirect("/dashboard/similarity?err=" + encodeURIComponent("[SIM-003] Extraction de frame impossible."));
     }
-
-    const sims = await Promise.all(pairs.map(async ([a, b]) => {
-      const [phA, phB] = await Promise.all([imagePHash64(a), imagePHash64(b)]);
-      return simFromHamming(hamming64(phA, phB));
-    }));
-    score = sims.reduce((s, v) => s + v, 0) / sims.length;
+    score = await imageScore(fA, fB);
   }
 
   return redirect(`/dashboard/similarity?score=${score.toFixed(2)}`);
@@ -183,7 +172,7 @@ export async function compareSimilarityByPaths(
   }
 }
 
-// ---------- ACTION DIRECTE (backward compat pour images petites) ----------
+// ---------- ACTION DIRECTE (backward compat) ----------
 export async function compareSimilarity(formData: FormData) {
   const a = formData.get("fileA") as File | null;
   const b = formData.get("fileB") as File | null;
