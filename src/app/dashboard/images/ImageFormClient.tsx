@@ -76,24 +76,35 @@ async function downloadAllAsZip(files: ReadyFile[]) {
 }
 
 // Retry a fetch up to `maxAttempts` times on network errors, with exponential backoff.
+// Returns the AbortController so the caller can clear the timeout on success.
 async function fetchWithRetry(
   url: string,
-  options: RequestInit,
-  maxAttempts = 4,
+  init: Omit<RequestInit, "signal">,
+  timeoutMs: number,
+  maxAttempts = 3,
 ): Promise<Response> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (attempt > 0) {
-      // Exponential backoff: 1s, 2s, 4s
-      await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+      // Exponential backoff: 2s, 4s
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
     }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, options);
+      const res = await fetch(url, { ...init, signal: controller.signal });
+      clearTimeout(timer);
       return res;
     } catch (err) {
+      clearTimeout(timer);
       lastErr = err;
-      // Only retry on network errors (Failed to fetch), not on logic errors
-      if (err instanceof Error && err.name === "AbortError") throw err;
+      // Retry on network errors AND timeouts — a new controller is created each attempt
+      if (err instanceof Error && err.name === "AbortError") {
+        // timeout — retry unless this is the last attempt
+        if (attempt === maxAttempts - 1) throw err;
+        continue;
+      }
+      // Non-abort network error — retry
     }
   }
   throw lastErr;
@@ -196,7 +207,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
     try {
       await withConcurrency(
         tasks,
-        2, // 2 parallel requests — avoids overloading single-core servers
+        1, // 1 requête à la fois — évite la contention CPU sur Railway (single-core)
         async (file) => {
           const compressed = await compressForUpload(file);
           const fd = new FormData();
@@ -208,13 +219,18 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
           if (reverse) fd.append("reverse", "1");
 
           try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 55_000);
+            // 120s timeout — Railway has no serverless cap unlike Vercel's 60s limit.
+            // Sequential processing (concurrency=1) keeps CPU free, but heavy images
+            // can still take 30-60s; 120s gives a comfortable margin with 3 attempts.
             let res: Response;
             try {
-              res = await fetchWithRetry("/api/duplicate-image", { method: "POST", body: fd, signal: controller.signal });
-            } finally {
-              clearTimeout(timeout);
+              res = await fetchWithRetry("/api/duplicate-image", { method: "POST", body: fd }, 120_000);
+            } catch (err: unknown) {
+              const msg = err instanceof Error && err.name === "AbortError"
+                ? "délai dépassé (120s après 3 tentatives)"
+                : (err instanceof Error ? err.message : "erreur réseau");
+              errs.push(`${file.name}: ${msg}`);
+              return;
             }
 
             if (!res.ok) {
@@ -231,9 +247,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
               setReadyFiles((prev) => [...prev, { blobUrl, filename }]);
             });
           } catch (err: unknown) {
-            const msg = err instanceof Error
-              ? (err.name === "AbortError" ? "délai dépassé (55s)" : err.message)
-              : "erreur réseau";
+            const msg = err instanceof Error ? err.message : "erreur réseau";
             errs.push(`${file.name}: ${msg}`);
           }
         },
