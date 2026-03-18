@@ -339,8 +339,9 @@ export default function VideoFormAdvancedClient() {
       if (!res.ok || !res.body) {
         const text = await res.text().catch(() => "");
         let msg = `HTTP ${res.status}`;
-        try { const j = JSON.parse(text); msg = j?.error || msg; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
-        setSubmitError(msg);
+        let code = res.status >= 500 ? "VID-002" : "VID-001";
+        try { const j = JSON.parse(text); msg = j?.error || msg; code = j?.code || code; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
+        setSubmitError(`[${code}] ${msg}`);
         setProcessing(false);
         return;
       }
@@ -373,7 +374,8 @@ export default function VideoFormAdvancedClient() {
               if (evt.percent !== undefined) setProgress(30 + Math.round(evt.percent * 0.7));
               if (evt.msg) setProgressMsg(evt.msg);
               if (evt.error) {
-                setSubmitError(evt.msg || "Erreur FFmpeg");
+                const code = evt.code || "VID-004";
+                setSubmitError(`[${code}] ${evt.msg || "Erreur FFmpeg"}`);
                 setProcessing(false);
                 return;
               }
@@ -390,15 +392,15 @@ export default function VideoFormAdvancedClient() {
       }
 
       if (!receivedDone) {
-        setSubmitError("Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.");
+        setSubmitError("[CLT-004] Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.");
       }
     } catch (err: any) {
       if (err?.name === "AbortError") {
         if (ctrl.signal.reason === "timeout") {
-          setSubmitError("Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.");
+          setSubmitError("[CLT-003] Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.");
         }
       } else {
-        setSubmitError("Erreur réseau");
+        setSubmitError("[CLT-005] Erreur réseau");
       }
     } finally {
       setProcessing(false);

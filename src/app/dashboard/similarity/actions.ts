@@ -383,7 +383,7 @@ export async function compareSimilarity(formData: FormData) {
 
   try {
     if (!a || !b) {
-      return redirect("/dashboard/similarity?err=" + encodeURIComponent("Deux fichiers sont requis."));
+      return redirect("/dashboard/similarity?err=" + encodeURIComponent("[SIM-001] Deux fichiers sont requis."));
     }
 
     const bufA = Buffer.from(await a.arrayBuffer());
@@ -401,7 +401,7 @@ export async function compareSimilarity(formData: FormData) {
     const kindA = kindFromMimeOrExt(a.type || "", a.name);
     const kindB = kindFromMimeOrExt(b.type || "", b.name);
     if (kindA === "unknown" || kindB === "unknown" || kindA !== kindB) {
-      return redirect("/dashboard/similarity?err=" + encodeURIComponent("Compare image↔image ou vidéo↔vidéo."));
+      return redirect("/dashboard/similarity?err=" + encodeURIComponent("[SIM-002] Compare image↔image ou vidéo↔vidéo."));
     }
 
     let score = 0;
@@ -506,6 +506,6 @@ export async function compareSimilarity(formData: FormData) {
     return redirect(`/dashboard/similarity?score=${finalScore}&details=${details}`);
   } catch (e: any) {
     if (isNextRedirect(e)) throw e;
-    return redirect("/dashboard/similarity?err=" + encodeURIComponent(e?.message || "Erreur comparaison"));
+    return redirect("/dashboard/similarity?err=" + encodeURIComponent("[SIM-003] " + (e?.message || "Erreur comparaison")));
   }
 }

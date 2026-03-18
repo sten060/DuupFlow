@@ -71,14 +71,14 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
   const files = formData.getAll("files") as File[];
   console.log(`[ai-detection] maskAiMetadata called — ${files.length} file(s)`);
 
-  if (!files.length) return { ok: false, count: 0, files: [], error: "Aucun fichier reçu." };
+  if (!files.length) return { ok: false, count: 0, files: [], error: "[AI-001] Aucun fichier reçu." };
 
   let dir: string;
   try {
     ({ dir } = await getOutDirForCurrentUser());
   } catch (e: any) {
     console.error("[ai-detection] getOutDirForCurrentUser failed:", e?.message);
-    return { ok: false, count: 0, files: [], error: "Erreur répertoire utilisateur." };
+    return { ok: false, count: 0, files: [], error: "[AI-002] Erreur répertoire utilisateur." };
   }
   await fs.mkdir(dir, { recursive: true });
 

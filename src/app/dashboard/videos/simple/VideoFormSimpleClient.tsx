@@ -294,8 +294,9 @@ export default function VideoFormSimpleClient() {
       if (!res.ok || !res.body) {
         const text = await res.text().catch(() => "");
         let msg = `HTTP ${res.status}`;
-        try { const j = JSON.parse(text); msg = j?.error || msg; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
-        setErrorMsg(msg);
+        let code = res.status >= 500 ? "VID-002" : "VID-001";
+        try { const j = JSON.parse(text); msg = j?.error || msg; code = j?.code || code; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
+        setErrorMsg(`[${code}] ${msg}`);
         setProcessing(false);
         return;
       }
@@ -332,7 +333,8 @@ export default function VideoFormSimpleClient() {
               if (evt.percent !== undefined) setProgress(30 + Math.round(evt.percent * 0.7));
               if (evt.msg) setProgressMsg(evt.msg);
               if (evt.error) {
-                setErrorMsg(evt.msg || "Erreur FFmpeg");
+                const code = evt.code || "VID-004";
+                setErrorMsg(`[${code}] ${evt.msg || "Erreur FFmpeg"}`);
                 setProcessing(false);
                 return;
               }
@@ -350,17 +352,17 @@ export default function VideoFormSimpleClient() {
 
       // Stream closed without a done event — function timed out or crashed.
       if (!receivedDone) {
-        setErrorMsg("Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.");
+        setErrorMsg("[CLT-004] Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.");
       }
     } catch (err: any) {
       if (err?.name === "AbortError") {
         // User cancelled or inactivity timeout fired.
         if (ctrl.signal.reason === "timeout") {
-          setErrorMsg("Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.");
+          setErrorMsg("[CLT-003] Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.");
         }
         // else: user cancelled intentionally, no error message needed
       } else {
-        setErrorMsg("Erreur réseau");
+        setErrorMsg("[CLT-005] Erreur réseau");
       }
     } finally {
       setProcessing(false);

@@ -168,7 +168,7 @@ export default function AiDetectionPage() {
     if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
     pendingTimeoutRef.current = setTimeout(() => {
       setPending(false);
-      setResult({ ok: false, error: "Délai dépassé — réessaie avec un fichier plus petit." });
+      setResult({ ok: false, error: "[CLT-006] Délai dépassé — réessaie avec un fichier plus petit." });
     }, 90_000);
 
     maskAiMetadata(fd)
@@ -183,7 +183,7 @@ export default function AiDetectionPage() {
       })
       .catch((err) => {
         if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
-        setResult({ ok: false, error: err?.message || "Erreur serveur." });
+        setResult({ ok: false, error: `[CLT-007] ${err?.message || "Erreur serveur."}` });
       })
       .finally(() => setPending(false));
   }

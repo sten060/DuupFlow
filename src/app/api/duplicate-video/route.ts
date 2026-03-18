@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   } catch (e: any) {
     const msg = e?.message || String(e) || "Erreur lecture formulaire";
     console.error("[duplicate-video] formData error:", msg);
-    return NextResponse.json({ error: msg }, { status: 400 });
+    return NextResponse.json({ error: msg, code: "VID-001" }, { status: 400 });
   }
 
   // Resolve user context while request cookies are still available
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   } catch (e: any) {
     const msg = e?.message || String(e) || "Erreur authentification";
     console.error("[duplicate-video] getOutDir error:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: msg, code: "VID-002" }, { status: 500 });
   }
 
   const storagePaths = formData.getAll("storagePaths") as string[];
@@ -56,12 +56,15 @@ export async function POST(req: Request) {
         try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch {}
       }, 20_000);
 
+      // Tracks which stage is running so the catch block can attach the right code.
+      let errorCode = "VID-004"; // default: FFmpeg error
       try {
         // ── Supabase download (inside SSE so the user sees progress) ──────────
         type PreDownloaded = { name: string; tmpPath: string };
         let preDownloadedFiles: PreDownloaded[] | undefined;
 
         if (hasStoragePaths) {
+          errorCode = "VID-003";
           const supabase = createAdminClient();
           preDownloadedFiles = new Array(storagePaths.length);
           send({ percent: 0, msg: `Récupération ${storagePaths.length} fichier${storagePaths.length > 1 ? "s" : ""}…` });
@@ -94,6 +97,7 @@ export async function POST(req: Request) {
         }
 
         // ── FFmpeg processing ─────────────────────────────────────────────────
+        errorCode = "VID-004";
         const { channel, outputPaths } = await processVideos(
           formData,
           async (pct, msg) => { send({ percent: 8 + Math.round(pct * 0.91), msg }); },
@@ -102,6 +106,7 @@ export async function POST(req: Request) {
         );
 
         // ── Upload outputs to Supabase (no persistent volume) ─────────────────
+        errorCode = "VID-005";
         const hasVolume = !!process.env.OUT_BASE;
         if (!hasVolume && hasStoragePaths && outputPaths.length > 0) {
           const supabase = createAdminClient();
@@ -126,7 +131,7 @@ export async function POST(req: Request) {
 
         send({ percent: 100, msg: "Terminé ✔", done: true, userId, channel });
       } catch (e: any) {
-        send({ percent: -1, msg: e?.message || "Erreur FFmpeg", error: true });
+        send({ percent: -1, msg: e?.message || "Erreur FFmpeg", error: true, code: errorCode });
       } finally {
         clearInterval(keepalive);
         for (const p of tmpFilesToClean) {
