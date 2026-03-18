@@ -1,13 +1,69 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { compareSimilarityByPaths } from "./actions";
+import { useState } from "react";
+import { compareFiles } from "./actions";
+
+const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"];
+
+function extOf(name: string) {
+  const p = name.lastIndexOf(".");
+  return p >= 0 ? name.slice(p).toLowerCase() : "";
+}
 
 function scoreColor(v: number): string {
   if (v >= 80) return "text-red-300";
   if (v >= 55) return "text-yellow-300";
   return "text-emerald-300";
+}
+
+// Extract a 64×64 thumbnail from a file entirely in the browser — no upload needed
+async function getThumbnail(file: File): Promise<string> {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d")!;
+
+  const isVideo = file.type.startsWith("video/") || VIDEO_EXTS.includes(extOf(file.name));
+
+  if (isVideo) {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement("video");
+      video.muted = true;
+      video.preload = "metadata";
+      const url = URL.createObjectURL(file);
+      video.src = url;
+
+      video.addEventListener("seeked", () => {
+        ctx.drawImage(video, 0, 0, 64, 64);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL("image/jpeg", 0.85).split(",")[1]);
+      }, { once: true });
+
+      video.addEventListener("loadedmetadata", () => {
+        video.currentTime = Math.min(1, (video.duration || 10) * 0.1);
+      });
+
+      video.addEventListener("error", () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Lecture vidéo impossible dans le navigateur"));
+      });
+    });
+  } else {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, 64, 64);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL("image/jpeg", 0.85).split(",")[1]);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Chargement image impossible"));
+      };
+      img.src = url;
+    });
+  }
 }
 
 export default function SimilarityClient({
@@ -20,10 +76,8 @@ export default function SimilarityClient({
   const [fileA, setFileA] = useState<File | null>(null);
   const [fileB, setFileB] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressMsg, setProgressMsg] = useState("");
+  const [score, setScore] = useState<number | undefined>(initialScore);
   const [error, setError] = useState<string | null>(initialErr ?? null);
-  const abortRef = useRef<AbortController | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,59 +85,23 @@ export default function SimilarityClient({
 
     setProcessing(true);
     setError(null);
-    setProgress(0);
-    setProgressMsg("Préparation…");
-
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
+    setScore(undefined);
 
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      const userId = user?.id ?? "anon";
+      // Extract thumbnails client-side (video already in browser memory — instant)
+      const [thumbA, thumbB] = await Promise.all([getThumbnail(fileA), getThumbnail(fileB)]);
 
-      // Upload both files to Supabase in parallel — avoids sending large videos through Next.js
-      let doneUploads = 0;
-      const uploadFile = async (file: File): Promise<string> => {
-        const signRes = await fetch("/api/storage/sign-upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileName: file.name, userId }),
-          signal: ctrl.signal,
-        });
-        if (!signRes.ok) {
-          const j = await signRes.json().catch(() => ({}));
-          throw new Error(`[SIM-004] Upload échoué : ${j?.error ?? signRes.status}`);
-        }
-        const { token, path: storagePath } = await signRes.json();
+      // Send ~4KB of thumbnail data to server — no large upload
+      const result = await compareFiles(thumbA, thumbB);
 
-        const { error: uploadError } = await supabase.storage
-          .from("video-uploads")
-          .uploadToSignedUrl(storagePath, token, file);
-        if (uploadError) throw new Error(`[SIM-004] Upload stockage : ${uploadError.message}`);
-
-        doneUploads++;
-        setProgress(Math.round((doneUploads / 2) * 60));
-        setProgressMsg(`Envoi ${doneUploads}/2 fichier(s)…`);
-        return storagePath;
-      };
-
-      const [pathA, pathB] = await Promise.all([uploadFile(fileA), uploadFile(fileB)]);
-
-      setProgress(65);
-      setProgressMsg("Analyse en cours…");
-
-      // Server action: downloads from Supabase + runs comparison + redirects
-      await compareSimilarityByPaths(pathA, fileA.name, fileA.type, pathB, fileB.name, fileB.type);
-
-    } catch (err: any) {
-      if (err?.name === "AbortError") return; // user cancelled
-      // If Next.js redirect throws, reset processing state then propagate (it navigates the user)
-      if (err?.digest?.startsWith?.("NEXT_REDIRECT")) {
-        setProcessing(false);
-        throw err;
+      if ("error" in result) {
+        setError(result.error);
+      } else {
+        setScore(result.score);
       }
-      setError(err?.message || "[SIM-003] Erreur comparaison");
+    } catch (err: any) {
+      setError(err?.message || "Erreur comparaison");
+    } finally {
       setProcessing(false);
     }
   }
@@ -98,7 +116,7 @@ export default function SimilarityClient({
           accept="image/*,video/*"
           required
           disabled={processing}
-          onChange={(e) => setFileA(e.target.files?.[0] ?? null)}
+          onChange={(e) => { setFileA(e.target.files?.[0] ?? null); setScore(undefined); }}
           className="block w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-white/90 disabled:opacity-50"
         />
         {fileA && (
@@ -114,7 +132,7 @@ export default function SimilarityClient({
           accept="image/*,video/*"
           required
           disabled={processing}
-          onChange={(e) => setFileB(e.target.files?.[0] ?? null)}
+          onChange={(e) => { setFileB(e.target.files?.[0] ?? null); setScore(undefined); }}
           className="block w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-white/90 disabled:opacity-50"
         />
         {fileB && (
@@ -122,33 +140,24 @@ export default function SimilarityClient({
         )}
       </div>
 
-      {/* Actions + résultat */}
+      {/* Résultat + actions */}
       <div className="sm:col-span-2 space-y-3">
-        {/* Score (rafraîchi depuis URL params après redirect) */}
-        {typeof initialScore === "number" && !processing && (
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-3 py-2 text-sm">
-            <span className="font-semibold text-emerald-300">Similarité : </span>
-            <span className={`font-bold text-2xl ${scoreColor(initialScore)}`}>{initialScore}%</span>
+        {typeof score === "number" && (
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-4 py-3">
+            <span className="text-sm font-semibold text-emerald-300">Similarité : </span>
+            <span className={`font-bold text-2xl ${scoreColor(score)}`}>{score}%</span>
           </div>
         )}
 
-        {/* Erreur */}
-        {error && !processing && (
+        {error && (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
             {error}
           </div>
         )}
 
-        {/* Progress */}
         {processing && (
-          <div className="space-y-1.5">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.6)] transition-[width] duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="text-center text-xs text-white/55">{progressMsg || "Analyse…"}</p>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.6)] animate-pulse w-full" />
           </div>
         )}
 
