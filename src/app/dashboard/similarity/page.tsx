@@ -1,6 +1,5 @@
 // src/app/dashboard/similarity/page.tsx
-import { compareSimilarity } from "./actions";
-import { SimilaritySubmitButton } from "./SimilaritySubmitButton";
+import SimilarityClient from "./SimilarityClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -69,45 +68,8 @@ export default async function SimilarityPage({
           Comparez deux images (ou deux vidéos). Le score indique à quel point les contenus se ressemblent.
         </p>
 
-        {/* FORM */}
-        <form action={compareSimilarity} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div className="rounded-xl border border-white/15 bg-white/5 p-4">
-            <label className="block text-sm font-medium mb-2 text-white/85">Fichier A</label>
-            <input
-              type="file"
-              name="fileA"
-              className="block w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-white/90"
-              required
-            />
-          </div>
-
-          <div className="rounded-xl border border-white/15 bg-white/5 p-4">
-            <label className="block text-sm font-medium mb-2 text-white/85">Fichier B</label>
-            <input
-              type="file"
-              name="fileB"
-              className="block w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-white/90"
-              required
-            />
-          </div>
-
-          <div className="sm:col-span-2 space-y-3">
-            {typeof score === "number" && (
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-3 py-2 text-sm">
-                <span className="font-semibold text-emerald-300">Similarité : </span>
-                <span className={`font-bold text-2xl ${scoreColor(score)}`}>{score}%</span>
-              </div>
-            )}
-            {err && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-                {err}
-              </div>
-            )}
-            <div className="flex justify-end">
-              <SimilaritySubmitButton />
-            </div>
-          </div>
-        </form>
+        {/* FORM — client component : upload Supabase d'abord, puis serveur compare */}
+        <SimilarityClient initialScore={score} initialErr={err} />
       </section>
 
       {/* DESCRIPTIVE CARD */}

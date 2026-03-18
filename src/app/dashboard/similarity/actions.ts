@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { execa } from "execa";
 import { redirect } from "next/navigation";
 import { getFFmpegBin } from "@/app/dashboard/videos/processVideos";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // ---------- utils ----------
 function randHex(n = 2) {
@@ -376,7 +377,153 @@ function metaSimilarityVideos(a: MetaDict, b: MetaDict): number {
   return wsum ? +(score / wsum).toFixed(2) : 0;
 }
 
-// ---------- ACTION PRINCIPALE ----------
+// ---------- LOGIQUE DE COMPARAISON (partagée) ----------
+// Accepte des buffers bruts + métadonnées — indépendant de la source (upload direct ou Supabase).
+async function runComparisonAndRedirect(
+  bufA: Buffer, nameA: string, mimeA: string,
+  bufB: Buffer, nameB: string, mimeB: string,
+): Promise<never> {
+  // Cas octet-à-octet identiques
+  if (bufA.length === bufB.length) {
+    const [ha, hb] = await Promise.all([
+      crypto.createHash("sha256").update(bufA).digest("hex"),
+      crypto.createHash("sha256").update(bufB).digest("hex"),
+    ]);
+    if (ha === hb) return redirect("/dashboard/similarity?score=100.00");
+  }
+
+  const kindA = kindFromMimeOrExt(mimeA, nameA);
+  const kindB = kindFromMimeOrExt(mimeB, nameB);
+  if (kindA === "unknown" || kindB === "unknown" || kindA !== kindB) {
+    return redirect("/dashboard/similarity?err=" + encodeURIComponent("[SIM-002] Compare image↔image ou vidéo↔vidéo."));
+  }
+
+  let score = 0;
+  type BreakdownItem = { label: string; value: number; weight: number };
+  const breakdown: BreakdownItem[] = [];
+  let metaA: MetaDict = {};
+  let metaB: MetaDict = {};
+
+  if (kindA === "image") {
+    const [pAList, pBList, aA, aB, dA, dB] = await Promise.all([
+      multiCropPHashes(bufA),
+      multiCropPHashes(bufB),
+      imageAHash64(bufA), imageAHash64(bufB),
+      imageDHash64(bufA), imageDHash64(bufB),
+    ]);
+
+    let bestH = 64;
+    for (const pa of pAList) for (const pb of pBList) bestH = Math.min(bestH, hamming64(pa, pb));
+    const pSim = simFromHamming(bestH);
+    const aSim = simFromHamming(hamming64(aA, aB));
+    const dSim = simFromHamming(hamming64(dA, dB));
+
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "im-"));
+    const tmpA = path.join(tmpDir, `a_${randHex()}.bin`);
+    const tmpB = path.join(tmpDir, `b_${randHex()}.bin`);
+    await Promise.all([fs.writeFile(tmpA, bufA), fs.writeFile(tmpB, bufB)]);
+    [metaA, metaB] = await Promise.all([imageMetaSignature(tmpA), imageMetaSignature(tmpB)]);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+    const metaSim = metaSimilarityImages(metaA, metaB);
+
+    const [colorSim, hfSim] = await Promise.all([
+      colorHistogramSimilarity(bufA, bufB),
+      highFreqSimilarity(bufA, bufB),
+    ]);
+
+    const W = { p: 0.35, d: 0.20, a: 0.10, color: 0.20, hf: 0.10, meta: 0.05 };
+    score = pSim * W.p + dSim * W.d + aSim * W.a + colorSim * W.color + hfSim * W.hf + metaSim * W.meta;
+
+    breakdown.push(
+      { label: "pHash (perceptuel)", value: Math.round(pSim), weight: W.p },
+      { label: "dHash (gradient)", value: Math.round(dSim), weight: W.d },
+      { label: "aHash (moyenne)", value: Math.round(aSim), weight: W.a },
+      { label: "Histogramme couleur", value: Math.round(colorSim), weight: W.color },
+      { label: "Hautes fréquences", value: Math.round(hfSim), weight: W.hf },
+      { label: "Métadonnées", value: Math.round(metaSim), weight: W.meta },
+    );
+
+    if (nameA !== nameB) score = Math.max(0, score - 6.43);
+
+  } else {
+    // VIDEO — résout ffmpeg seulement quand nécessaire
+    const ffmpegBin = await getFFmpegBin().catch(() => "ffmpeg");
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "v-"));
+    const va = path.join(dir, `a_${randHex()}.mp4`);
+    const vb = path.join(dir, `b_${randHex()}.mp4`);
+    // Write both videos to disk in parallel — after download from Supabase the buffers are in memory
+    await Promise.all([fs.writeFile(va, bufA), fs.writeFile(vb, bufB)]);
+
+    // 4 opérations en parallèle : 2 signatures vidéo + 2 méta ffprobe
+    const [[sigA, mvA], [sigB, mvB]] = await Promise.all([
+      Promise.all([videoHashSignature(va, ffmpegBin), videoMetaSignature(va, ffmpegBin)]),
+      Promise.all([videoHashSignature(vb, ffmpegBin), videoMetaSignature(vb, ffmpegBin)]),
+    ]);
+    await fs.rm(dir, { recursive: true, force: true });
+    metaA = mvA;
+    metaB = mvB;
+
+    const pHamming = averageHamming(sigA.phashes, sigB.phashes);
+    const dHamming = averageHamming(sigA.dhashes, sigB.dhashes);
+    const pFrameSim = simFromHamming(pHamming);
+    const dFrameSim = simFromHamming(dHamming);
+    const framesSim = pFrameSim * 0.7 + dFrameSim * 0.3;
+    const metaSimV = metaSimilarityVideos(mvA, mvB);
+
+    const WV = { frames: 0.72, meta: 0.28 };
+    score = framesSim * WV.frames + metaSimV * WV.meta;
+
+    breakdown.push(
+      { label: "Frames pHash (2 frames)", value: Math.round(pFrameSim), weight: WV.frames * 0.7 },
+      { label: "Frames dHash (2 frames)", value: Math.round(dFrameSim), weight: WV.frames * 0.3 },
+      { label: "Métadonnées vidéo", value: Math.round(metaSimV), weight: WV.meta },
+    );
+
+    if (nameA !== nameB) score = Math.max(0, score - 6.43);
+  }
+
+  const finalScore = +score.toFixed(2);
+  const details = Buffer.from(JSON.stringify({
+    fileA: { name: nameA, size: bufA.length, kind: kindA, meta: metaA },
+    fileB: { name: nameB, size: bufB.length, kind: kindB, meta: metaB },
+    breakdown,
+    score: finalScore,
+  })).toString("base64url");
+
+  return redirect(`/dashboard/similarity?score=${finalScore}&details=${details}`);
+}
+
+// ---------- ACTION VIA SUPABASE STORAGE (chemin principal pour les vidéos) ----------
+// Le client uploade d'abord vers Supabase, passe ensuite les chemins au serveur.
+// Le serveur télécharge directement depuis Supabase — ultra-rapide (pas de browser→serveur pour le gros fichier).
+export async function compareSimilarityByPaths(
+  pathA: string, nameA: string, mimeA: string,
+  pathB: string, nameB: string, mimeB: string,
+) {
+  try {
+    const supabase = createAdminClient();
+    const [dlA, dlB] = await Promise.all([
+      supabase.storage.from("video-uploads").download(pathA),
+      supabase.storage.from("video-uploads").download(pathB),
+    ]);
+    // Supprime les fichiers du stockage après téléchargement (fire-and-forget)
+    supabase.storage.from("video-uploads").remove([pathA, pathB]).catch(() => {});
+
+    if (!dlA.data || !dlB.data) {
+      return redirect("/dashboard/similarity?err=" + encodeURIComponent("[SIM-003] Téléchargement depuis le stockage échoué."));
+    }
+
+    const bufA = Buffer.from(await dlA.data.arrayBuffer());
+    const bufB = Buffer.from(await dlB.data.arrayBuffer());
+
+    await runComparisonAndRedirect(bufA, nameA, mimeA, bufB, nameB, mimeB);
+  } catch (e: any) {
+    if (isNextRedirect(e)) throw e;
+    return redirect("/dashboard/similarity?err=" + encodeURIComponent("[SIM-003] " + (e?.message || "Erreur comparaison")));
+  }
+}
+
+// ---------- ACTION DIRECTE (garde-fou pour images petites, backward compat) ----------
 export async function compareSimilarity(formData: FormData) {
   const a = formData.get("fileA") as File | null;
   const b = formData.get("fileB") as File | null;
@@ -385,125 +532,9 @@ export async function compareSimilarity(formData: FormData) {
     if (!a || !b) {
       return redirect("/dashboard/similarity?err=" + encodeURIComponent("[SIM-001] Deux fichiers sont requis."));
     }
-
     const bufA = Buffer.from(await a.arrayBuffer());
     const bufB = Buffer.from(await b.arrayBuffer());
-
-    // Cas octet-à-octet identiques
-    if (bufA.length === bufB.length) {
-      const [ha, hb] = await Promise.all([
-        crypto.createHash("sha256").update(bufA).digest("hex"),
-        crypto.createHash("sha256").update(bufB).digest("hex"),
-      ]);
-      if (ha === hb) return redirect("/dashboard/similarity?score=100.00");
-    }
-
-    const kindA = kindFromMimeOrExt(a.type || "", a.name);
-    const kindB = kindFromMimeOrExt(b.type || "", b.name);
-    if (kindA === "unknown" || kindB === "unknown" || kindA !== kindB) {
-      return redirect("/dashboard/similarity?err=" + encodeURIComponent("[SIM-002] Compare image↔image ou vidéo↔vidéo."));
-    }
-
-    let score = 0;
-    type BreakdownItem = { label: string; value: number; weight: number };
-    const breakdown: BreakdownItem[] = [];
-    let metaA: MetaDict = {};
-    let metaB: MetaDict = {};
-
-    if (kindA === "image") {
-      // VISUEL (hashs)
-      const [pAList, pBList, aA, aB, dA, dB] = await Promise.all([
-        multiCropPHashes(bufA),
-        multiCropPHashes(bufB),
-        imageAHash64(bufA), imageAHash64(bufB),
-        imageDHash64(bufA), imageDHash64(bufB),
-      ]);
-
-      // meilleur appariement pHash multi-crops (min hamming)
-      let bestH = 64;
-      for (const pa of pAList) for (const pb of pBList) bestH = Math.min(bestH, hamming64(pa, pb));
-      const pSim = simFromHamming(bestH);
-
-      const aSim = simFromHamming(hamming64(aA, aB));
-      const dSim = simFromHamming(hamming64(dA, dB));
-
-      // META (base)
-      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "im-"));
-      const pathA = path.join(tmpDir, `a_${randHex()}.bin`);
-      const pathB = path.join(tmpDir, `b_${randHex()}.bin`);
-      await fs.writeFile(pathA, bufA);
-      await fs.writeFile(pathB, bufB);
-      [metaA, metaB] = await Promise.all([imageMetaSignature(pathA), imageMetaSignature(pathB)]);
-      await fs.rm(tmpDir, { recursive: true, force: true });
-      const metaSim = metaSimilarityImages(metaA, metaB);
-
-      // couleur & HF (sensibles aux filtres visuels)
-      const [colorSim, hfSim] = await Promise.all([
-        colorHistogramSimilarity(bufA, bufB),
-        highFreqSimilarity(bufA, bufB),
-      ]);
-
-      // Pondération (somme ≈ 1)
-      const W = { p: 0.35, d: 0.20, a: 0.10, color: 0.20, hf: 0.10, meta: 0.05 };
-      score = pSim * W.p + dSim * W.d + aSim * W.a + colorSim * W.color + hfSim * W.hf + metaSim * W.meta;
-
-      breakdown.push(
-        { label: "pHash (perceptuel)", value: Math.round(pSim), weight: W.p },
-        { label: "dHash (gradient)", value: Math.round(dSim), weight: W.d },
-        { label: "aHash (moyenne)", value: Math.round(aSim), weight: W.a },
-        { label: "Histogramme couleur", value: Math.round(colorSim), weight: W.color },
-        { label: "Hautes fréquences", value: Math.round(hfSim), weight: W.hf },
-        { label: "Métadonnées", value: Math.round(metaSim), weight: W.meta },
-      );
-
-      if (a.name !== b.name) score = Math.max(0, score - 6.43);
-
-    } else {
-      // VIDEO — resolve ffmpeg only when actually needed
-      const ffmpegBin = await getFFmpegBin().catch(() => "ffmpeg");
-      const dir = await fs.mkdtemp(path.join(os.tmpdir(), "v-"));
-      const va = path.join(dir, `a_${randHex()}.mp4`);
-      const vb = path.join(dir, `b_${randHex()}.mp4`);
-      await Promise.all([fs.writeFile(va, bufA), fs.writeFile(vb, bufB)]);
-
-      // Run all 4 in parallel: 2 frames × 2 videos = 4 concurrent ffmpeg + 2 ffprobe.
-      const [[sigA, mvA], [sigB, mvB]] = await Promise.all([
-        Promise.all([videoHashSignature(va, ffmpegBin), videoMetaSignature(va, ffmpegBin)]),
-        Promise.all([videoHashSignature(vb, ffmpegBin), videoMetaSignature(vb, ffmpegBin)]),
-      ]);
-      await fs.rm(dir, { recursive: true, force: true });
-      metaA = mvA;
-      metaB = mvB;
-
-      const pHamming = averageHamming(sigA.phashes, sigB.phashes);
-      const dHamming = averageHamming(sigA.dhashes, sigB.dhashes);
-      const pFrameSim = simFromHamming(pHamming);
-      const dFrameSim = simFromHamming(dHamming);
-      // Combined frame similarity: 70% pHash + 30% dHash
-      const framesSim = pFrameSim * 0.7 + dFrameSim * 0.3;
-      const metaSimV = metaSimilarityVideos(mvA, mvB);
-
-      const WV = { frames: 0.72, meta: 0.28 };
-      score = framesSim * WV.frames + metaSimV * WV.meta;
-
-      breakdown.push(
-        { label: `Frames pHash (2 frames)`, value: Math.round(pFrameSim), weight: WV.frames * 0.7 },
-        { label: `Frames dHash (2 frames)`, value: Math.round(dFrameSim), weight: WV.frames * 0.3 },
-        { label: "Métadonnées vidéo", value: Math.round(metaSimV), weight: WV.meta },
-      );
-
-      if (a.name !== b.name) score = Math.max(0, score - 6.43);
-    }
-
-    const finalScore = +score.toFixed(2);
-    const details = Buffer.from(JSON.stringify({
-      fileA: { name: a.name, size: bufA.length, kind: kindA, meta: metaA },
-      fileB: { name: b.name, size: bufB.length, kind: kindB, meta: metaB },
-      breakdown,
-      score: finalScore,
-    })).toString("base64url");
-
-    return redirect(`/dashboard/similarity?score=${finalScore}&details=${details}`);
+    await runComparisonAndRedirect(bufA, a.name, a.type, bufB, b.name, b.type);
   } catch (e: any) {
     if (isNextRedirect(e)) throw e;
     return redirect("/dashboard/similarity?err=" + encodeURIComponent("[SIM-003] " + (e?.message || "Erreur comparaison")));
