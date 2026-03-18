@@ -75,8 +75,9 @@ async function downloadAllAsZip(files: ReadyFile[]) {
   downloadBlob(URL.createObjectURL(blob), "DuupFlow_images.zip");
 }
 
-// Retry a fetch up to `maxAttempts` times on network errors, with exponential backoff.
-// Returns the AbortController so the caller can clear the timeout on success.
+// Retry a fetch up to `maxAttempts` times on network errors, timeouts, AND HTTP 5xx.
+// HTTP 4xx (client errors) are returned immediately without retry — the payload is wrong.
+// A new AbortController is created each attempt so the signal is never reused.
 async function fetchWithRetry(
   url: string,
   init: Omit<RequestInit, "signal">,
@@ -84,6 +85,7 @@ async function fetchWithRetry(
   maxAttempts = 3,
 ): Promise<Response> {
   let lastErr: unknown;
+  let lastServerErrRes: Response | undefined;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (attempt > 0) {
       // Exponential backoff: 2s, 4s
@@ -94,6 +96,12 @@ async function fetchWithRetry(
     try {
       const res = await fetch(url, { ...init, signal: controller.signal });
       clearTimeout(timer);
+      // Retry on 5xx server errors — the server may be momentarily overloaded.
+      // Return 4xx immediately: the request itself is wrong, retrying won't help.
+      if (res.status >= 500 && attempt < maxAttempts - 1) {
+        lastServerErrRes = res;
+        continue;
+      }
       return res;
     } catch (err) {
       clearTimeout(timer);
@@ -107,6 +115,8 @@ async function fetchWithRetry(
       // Non-abort network error — retry
     }
   }
+  // All attempts exhausted: return last 5xx response if available, otherwise throw
+  if (lastServerErrRes) return lastServerErrRes;
   throw lastErr;
 }
 
@@ -227,15 +237,16 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
               res = await fetchWithRetry("/api/duplicate-image", { method: "POST", body: fd }, 120_000);
             } catch (err: unknown) {
               const msg = err instanceof Error && err.name === "AbortError"
-                ? "délai dépassé (120s après 3 tentatives)"
-                : (err instanceof Error ? err.message : "erreur réseau");
+                ? "[CLT-001] délai dépassé (120s après 3 tentatives)"
+                : `[CLT-002] ${err instanceof Error ? err.message : "erreur réseau"}`;
               errs.push(`${file.name}: ${msg}`);
               return;
             }
 
             if (!res.ok) {
               const j = await res.json().catch(() => ({}));
-              errs.push(`${file.name}: ${j?.error ?? "erreur inconnue"}`);
+              const code = j?.code ?? (res.status >= 500 ? "IMG-002" : "IMG-001");
+              errs.push(`${file.name}: [${code}] ${j?.error ?? "erreur inconnue"}`);
               return;
             }
 
@@ -247,7 +258,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
               setReadyFiles((prev) => [...prev, { blobUrl, filename }]);
             });
           } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : "erreur réseau";
+            const msg = `[CLT-002] ${err instanceof Error ? err.message : "erreur réseau"}`;
             errs.push(`${file.name}: ${msg}`);
           }
         },

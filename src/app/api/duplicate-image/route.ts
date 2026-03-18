@@ -162,7 +162,7 @@ export async function POST(req: Request) {
     const files = form.getAll("files") as File[];
     const imageFile = files.find((f) => f.type?.startsWith("image/"));
     if (!imageFile) {
-      return Response.json({ ok: false, error: "Aucune image reçue." }, { status: 400 });
+      return Response.json({ ok: false, error: "Aucune image reçue.", code: "IMG-001" }, { status: 400 });
     }
 
     const count = Math.max(1, Number(form.get("count") ?? 1));
@@ -231,6 +231,6 @@ export async function POST(req: Request) {
       },
     });
   } catch (e: any) {
-    return Response.json({ ok: false, error: e?.message || "Erreur API" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Erreur API", code: "IMG-002" }, { status: 500 });
   }
 }
