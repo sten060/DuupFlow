@@ -75,6 +75,30 @@ async function downloadAllAsZip(files: ReadyFile[]) {
   downloadBlob(URL.createObjectURL(blob), "DuupFlow_images.zip");
 }
 
+// Retry a fetch up to `maxAttempts` times on network errors, with exponential backoff.
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxAttempts = 4,
+): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (attempt > 0) {
+      // Exponential backoff: 1s, 2s, 4s
+      await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+    }
+    try {
+      const res = await fetch(url, options);
+      return res;
+    } catch (err) {
+      lastErr = err;
+      // Only retry on network errors (Failed to fetch), not on logic errors
+      if (err instanceof Error && err.name === "AbortError") throw err;
+    }
+  }
+  throw lastErr;
+}
+
 // Run `fn` on each item with at most `concurrency` in-flight at once.
 async function withConcurrency<T>(
   items: T[],
@@ -172,7 +196,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
     try {
       await withConcurrency(
         tasks,
-        3, // 3 parallel requests — faster throughput on multi-core servers
+        2, // 2 parallel requests — avoids overloading single-core servers
         async (file) => {
           const compressed = await compressForUpload(file);
           const fd = new FormData();
@@ -188,7 +212,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
             const timeout = setTimeout(() => controller.abort(), 55_000);
             let res: Response;
             try {
-              res = await fetch("/api/duplicate-image", { method: "POST", body: fd, signal: controller.signal });
+              res = await fetchWithRetry("/api/duplicate-image", { method: "POST", body: fd, signal: controller.signal });
             } finally {
               clearTimeout(timeout);
             }
