@@ -78,8 +78,11 @@ export default function SimilarityClient({
 
     } catch (err: any) {
       if (err?.name === "AbortError") return; // user cancelled
-      // If Next.js redirect throws, let it propagate (it navigates the user)
-      if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
+      // If Next.js redirect throws, reset processing state then propagate (it navigates the user)
+      if (err?.digest?.startsWith?.("NEXT_REDIRECT")) {
+        setProcessing(false);
+        throw err;
+      }
       setError(err?.message || "[SIM-003] Erreur comparaison");
       setProcessing(false);
     }
