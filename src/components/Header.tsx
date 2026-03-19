@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 function NavLink({ href, label }: { href: string; label: string }) {
@@ -32,9 +33,8 @@ export default function Header() {
         }}
       >
         {/* Logo */}
-        <Link href="/" className="text-lg font-extrabold tracking-tight shrink-0">
-          <span style={{ color: "#818CF8" }}>Duup</span>
-          <span className="text-white/60">Flow</span>
+        <Link href="/" className="shrink-0">
+          <Image src="/icon.png" alt="DuupFlow" width={120} height={40} className="h-10 w-auto" />
         </Link>
 
         {/* Nav */}
