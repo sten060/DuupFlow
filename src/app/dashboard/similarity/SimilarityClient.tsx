@@ -105,16 +105,20 @@ async function getFrames(file: File): Promise<string[]> {
 }
 
 type Breakdown = {
+  ssim: number;
+  mse: number;
+  spatial: number;
+  chroma: number;
+  color: number;
+  luma: number;
+  colorMom: number;
   phash: number;
   dhash: number;
-  ahash: number;
-  color: number;
-  mse: number;
-  texture: number;
-  chroma: number;
-  luma: number;
-  spatial: number;
+  edgeOr: number;
   gradient: number;
+  proj: number;
+  texture: number;
+  ahash: number;
   mirrored: boolean;
 };
 
@@ -168,7 +172,7 @@ export default function SimilarityClient({
   const [fileB, setFileB] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<Result | undefined>(
-    initialScore !== undefined ? { score: initialScore, breakdown: { phash: 0, dhash: 0, ahash: 0, color: 0, mse: 0, texture: 0, chroma: 0, luma: 0, spatial: 0, gradient: 0, mirrored: false } } : undefined
+    initialScore !== undefined ? { score: initialScore, breakdown: { ssim: 0, mse: 0, spatial: 0, chroma: 0, color: 0, luma: 0, colorMom: 0, phash: 0, dhash: 0, edgeOr: 0, gradient: 0, proj: 0, texture: 0, ahash: 0, mirrored: false } } : undefined
   );
   const [error, setError] = useState<string | null>(initialErr ?? null);
 
@@ -251,16 +255,20 @@ export default function SimilarityClient({
           {result && (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-4">
               <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Détail des métriques</p>
-              <MetricBar label="Pixels (MSE)" value={result.breakdown.mse} weight="×15%" hint="Comparaison pixel par pixel (96×96) — sensible à tout changement de valeur, CRF, décalage spatial" />
-              <MetricBar label="Luminance (histogramme)" value={result.breakdown.luma} weight="×12%" hint="Histogramme 64 bins niveaux de gris (128×128) — sensible à luminosité ±3%, contraste, gamma" />
-              <MetricBar label="Grille spatiale" value={result.breakdown.spatial} weight="×11%" hint="Moyenne par cellule 8×8 — sensible au zoom, recadrage, vignette, décalage spatial" />
-              <MetricBar label="Chroma Cb/Cr" value={result.breakdown.chroma} weight="×12%" hint="Canaux couleur Cb et Cr — sensible au bruit chroma, teinte, saturation, colorchannelmixer" />
-              <MetricBar label="Couleurs RGB" value={result.breakdown.color} weight="×12%" hint="Distribution RGB (32 bins/canal) — sensible aux filtres visuels : saturation, luminosité, gamma" />
-              <MetricBar label="Structure (pHash)" value={result.breakdown.phash} weight="×10%" hint="Empreinte structurelle DCT — sensible aux transformations : crop, zoom, rotation, flip" />
-              <MetricBar label="Contours (dHash)" value={result.breakdown.dhash} weight="×10%" hint="Gradients de bords — sensible à la netteté, unsharp, décalage de pixels" />
-              <MetricBar label="Gradients (magnitude)" value={result.breakdown.gradient} weight="×7%" hint="Histogramme de magnitude des gradients — sensible au grain, bruit, netteté, unsharp" />
-              <MetricBar label="Texture (variance)" value={result.breakdown.texture} weight="×8%" hint="Variance locale — sensible au grain, bruit, contraste, filtres semi-visuels" />
-              <MetricBar label="Luminosité (aHash)" value={result.breakdown.ahash} weight="×3%" hint="Luminosité globale — sensible aux variations de luminosité générale" />
+              <MetricBar label="SSIM" value={result.breakdown.ssim} weight="×12%" hint="Structural Similarity Index — standard industrie YouTube/Netflix — mesure luminance × contraste × structure" />
+              <MetricBar label="Pixels (MSE)" value={result.breakdown.mse} weight="×10%" hint="Erreur quadratique pixel par pixel (96×96) — détecte tout changement de valeur, CRF, décalage spatial" />
+              <MetricBar label="Grille spatiale" value={result.breakdown.spatial} weight="×9%" hint="Moyenne luminance par cellule 8×8 — détecte zoom, recadrage, vignette, décalage de position" />
+              <MetricBar label="Chroma Cb/Cr" value={result.breakdown.chroma} weight="×9%" hint="Canaux Cb et Cr (BT.601) — très sensible au bruit chroma, teinte, saturation, colorchannelmixer" />
+              <MetricBar label="Couleurs RGB" value={result.breakdown.color} weight="×8%" hint="Histogramme RGB 32 bins/canal — sensible à la saturation, luminosité, filtres visuels" />
+              <MetricBar label="Luminance (histogramme)" value={result.breakdown.luma} weight="×8%" hint="Histogramme luminance 64 bins (128×128) — sensible à luminosité ±3%, contraste, gamma" />
+              <MetricBar label="Moments couleurs" value={result.breakdown.colorMom} weight="×7%" hint="Moyenne/écart-type/asymétrie par canal RGB — statistiques d'ordre supérieur : teinte, saturation, EQ" />
+              <MetricBar label="Structure (pHash)" value={result.breakdown.phash} weight="×7%" hint="Empreinte DCT perceptuelle — standard de toutes les plateformes : crop, zoom, rotation, flip" />
+              <MetricBar label="Contours (dHash)" value={result.breakdown.dhash} weight="×7%" hint="Empreinte gradient de bords — utilisée par les grandes plateformes : netteté, zoom, décalage pixels" />
+              <MetricBar label="Orientation bords" value={result.breakdown.edgeOr} weight="×6%" hint="Histogramme directionnel 8 axes — empreinte structurelle : rotation, flip, distorsion lentille" />
+              <MetricBar label="Gradients (magnitude)" value={result.breakdown.gradient} weight="×5%" hint="Distribution des magnitudes de gradient — grain, bruit, unsharp, tout changement de netteté" />
+              <MetricBar label="Profils projection" value={result.breakdown.proj} weight="×5%" hint="Sommes lignes + colonnes — très sensible au décalage spatial, zoom offset, vignette" />
+              <MetricBar label="Texture (variance)" value={result.breakdown.texture} weight="×4%" hint="Variance locale par bloc — grain, bruit, contraste, filtres semi-visuels" />
+              <MetricBar label="Luminosité (aHash)" value={result.breakdown.ahash} weight="×3%" hint="Luminosité globale moyenne — indicateur de base, poids réduit car redondant avec luma" />
             </div>
           )}
 
@@ -275,7 +283,7 @@ export default function SimilarityClient({
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                 <div className="h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.6)] animate-pulse w-full" />
               </div>
-              <p className="text-xs text-white/40 text-center">Analyse en cours — 10 algorithmes…</p>
+              <p className="text-xs text-white/40 text-center">Analyse en cours — 14 algorithmes…</p>
             </div>
           )}
 
