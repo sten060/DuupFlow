@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     console.error("[support/contact] Brevo error:", res.status, text);
-    return NextResponse.json({ error: "Erreur lors de l'envoi." }, { status: 500 });
+    return NextResponse.json({ error: `Brevo ${res.status}: ${text}` }, { status: 500 });
   }
 
   console.log(`[support/contact] Email sent via Brevo from ${senderEmail}`);
