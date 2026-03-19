@@ -53,6 +53,7 @@ export default async function SettingsPage() {
       initialAgencyName={profile?.agency_name ?? ""}
       isGuest={isGuest}
       invitations={invitations}
+      userEmail={user.email ?? ""}
     />
   );
 }
