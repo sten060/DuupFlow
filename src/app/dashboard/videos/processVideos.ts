@@ -322,10 +322,9 @@ async function runFFmpegSafe(
     if (afParts.length) args.push("-af", afParts.join(","));
     args.push(
       "-c:v", "libx264",
-      "-preset", "ultrafast",
-      "-tune", "zerolatency",     // disables lookahead → slightly faster, no quality loss
+      "-preset", "fast",          // fast: good quality/speed tradeoff (was ultrafast which sacrificed quality)
       "-threads", String(threads), // caller allocates threads based on os.cpus()
-      "-crf", "35",               // CRF 35: ~40% faster encode + 3–5× smaller output → much faster Supabase upload
+      "-crf", "20",               // CRF 20: near-original visual quality (was CRF 35 which was too lossy)
       "-pix_fmt", "yuv420p",
       "-c:a", "aac",
       "-b:a", "192k",
@@ -525,10 +524,9 @@ export async function processVideos(
           const k1 = lensSign * (0.05 + Math.random() * 0.07); // ±0.05–0.12
           vfParts.push(`lenscorrection=k1=${k1.toFixed(5)}:k2=${(-k1 / 2).toFixed(5)}`);
 
-          // Speed ±12–20% — larger temporal shift so fixed-timestamp frame comparisons
-          // see very different content vs. the original (was 5–8%, now 12–20%).
+          // Speed ±1–3% — invisible to the viewer, sufficient to shift the file fingerprint
           const side = Math.random() > 0.5 ? 1 : -1;
-          const deviation = 0.12 + Math.random() * 0.08;  // 12–20%
+          const deviation = 0.01 + Math.random() * 0.02;  // 1–3%
           const sp = clamp(1.0 + side * deviation, LIMITS.speed.min, LIMITS.speed.max);
           vfParts.push(`setpts=${(1 / sp).toFixed(6)}*PTS`);
           afParts.push(`atempo=${sp.toFixed(4)}`);
@@ -565,7 +563,8 @@ export async function processVideos(
           b = clamp(b, LIMITS.rotation_deg.min, LIMITS.rotation_deg.max);
           const deg = a + Math.random() * (b - a);
           const rad = (deg * Math.PI) / 180;
-          vfParts.push(`rotate=${rad.toFixed(6)}:c=black@0:ow=rotw(iw):oh=roth(ih),scale=iw*1.04:ih*1.04,crop=in_w:in_h:(ow-in_w)/2:(oh-in_h)/2`);
+          // c=black (opaque) — black@0 would be alpha=0 which H.264 encodes as bright green
+          vfParts.push(`rotate=${rad.toFixed(6)}:c=black:ow=rotw(iw):oh=roth(ih),scale=iw*1.04:ih*1.04,crop=in_w:in_h:(ow-in_w)/2:(oh-in_h)/2`);
         }
 
         if (singles?.dims?.enabled) {
