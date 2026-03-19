@@ -111,6 +111,7 @@ type Breakdown = {
   color: number;
   mse: number;
   texture: number;
+  chroma: number;
   mirrored: boolean;
 };
 
@@ -164,7 +165,7 @@ export default function SimilarityClient({
   const [fileB, setFileB] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<Result | undefined>(
-    initialScore !== undefined ? { score: initialScore, breakdown: { phash: 0, dhash: 0, ahash: 0, color: 0, mse: 0, texture: 0, mirrored: false } } : undefined
+    initialScore !== undefined ? { score: initialScore, breakdown: { phash: 0, dhash: 0, ahash: 0, color: 0, mse: 0, texture: 0, chroma: 0, mirrored: false } } : undefined
   );
   const [error, setError] = useState<string | null>(initialErr ?? null);
 
@@ -247,12 +248,13 @@ export default function SimilarityClient({
           {result && (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-4">
               <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Détail des métriques</p>
-              <MetricBar label="Structure (pHash)" value={result.breakdown.phash} weight="×30%" hint="Sensible aux transformations structurelles : crop, zoom, rotation, miroir" />
-              <MetricBar label="Contours (dHash)" value={result.breakdown.dhash} weight="×20%" hint="Sensible aux changements de bords : netteté, unsharp, kernel aléatoire" />
-              <MetricBar label="Couleurs (histogramme)" value={result.breakdown.color} weight="×20%" hint="Sensible aux filtres visuels : saturation, teinte, gamma, luminosité" />
-              <MetricBar label="Pixels (MSE)" value={result.breakdown.mse} weight="×15%" hint="Comparaison pixel par pixel — détecte tout changement de valeur, même subtil" />
-              <MetricBar label="Texture (variance)" value={result.breakdown.texture} weight="×10%" hint="Sensible aux changements de grain : bruit, contraste, filtres semi-visuels" />
-              <MetricBar label="Luminosité (aHash)" value={result.breakdown.ahash} weight="×5%" hint="Sensible aux variations globales de luminosité" />
+              <MetricBar label="Pixels (MSE)" value={result.breakdown.mse} weight="×20%" hint="Comparaison pixel par pixel (96×96) — sensible à tout changement de valeur, CRF, décalage spatial" />
+              <MetricBar label="Chroma Cb/Cr" value={result.breakdown.chroma} weight="×17%" hint="Canaux couleur Cb et Cr — sensible au bruit chroma, teinte, saturation, colorchannelmixer" />
+              <MetricBar label="Couleurs RGB" value={result.breakdown.color} weight="×18%" hint="Distribution RGB (32 bins/canal) — sensible aux filtres visuels : saturation, luminosité, gamma" />
+              <MetricBar label="Structure (pHash)" value={result.breakdown.phash} weight="×15%" hint="Empreinte structurelle DCT — sensible aux transformations : crop, zoom, rotation, flip" />
+              <MetricBar label="Contours (dHash)" value={result.breakdown.dhash} weight="×15%" hint="Gradients de bords — sensible à la netteté, unsharp, décalage de pixels" />
+              <MetricBar label="Texture (variance)" value={result.breakdown.texture} weight="×10%" hint="Variance locale — sensible au grain, bruit, contraste, filtres semi-visuels" />
+              <MetricBar label="Luminosité (aHash)" value={result.breakdown.ahash} weight="×5%" hint="Luminosité globale — sensible aux variations de luminosité générale" />
             </div>
           )}
 
