@@ -45,7 +45,7 @@ export default function PrivacyPage() {
               Le service DuupFlow est édité et exploité par <strong className="text-white">DuupFlow</strong> (ci-après «&nbsp;nous&nbsp;», «&nbsp;notre&nbsp;» ou «&nbsp;la Société&nbsp;»).
             </p>
             <p>
-              Pour toute question relative à vos données personnelles, vous pouvez nous contacter à l&apos;adresse : <a href="mailto:privacy@duupflow.com" className="text-indigo-400 hover:text-indigo-300">privacy@duupflow.com</a>
+              Pour toute question relative à vos données personnelles, vous pouvez nous contacter à l&apos;adresse : <a href="mailto:hello@duupflow.com" className="text-indigo-400 hover:text-indigo-300">hello@duupflow.com</a>
             </p>
           </Section>
 
@@ -104,7 +104,7 @@ export default function PrivacyPage() {
                 ["Brevo (Sendinblue)", "Envoi d'e-mails transactionnels et marketing", "France / UE", "Conformité RGPD, DPA disponible"],
                 ["Stripe", "Traitement des paiements", "États-Unis", "Clauses contractuelles types (SCCs)"],
                 ["Replicate", "Traitement IA des médias", "États-Unis", "Clauses contractuelles types (SCCs)"],
-                ["Vercel", "Hébergement de l'application", "États-Unis / UE", "Clauses contractuelles types (SCCs)"],
+                ["Railway", "Hébergement de l'application", "États-Unis", "Clauses contractuelles types (SCCs)"],
               ]}
             />
             <p>
@@ -135,7 +135,7 @@ export default function PrivacyPage() {
             </ul>
             <p className="mt-3">
               Pour exercer ces droits, contactez-nous à{" "}
-              <a href="mailto:privacy@duupflow.com" className="text-indigo-400 hover:text-indigo-300">privacy@duupflow.com</a>.
+              <a href="mailto:hello@duupflow.com" className="text-indigo-400 hover:text-indigo-300">hello@duupflow.com</a>.
               Nous répondrons dans un délai de 30 jours. Vous disposez également du droit d&apos;introduire une réclamation auprès de la{" "}
               <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300">CNIL</a>.
             </p>
@@ -188,7 +188,7 @@ export default function PrivacyPage() {
           <Section title="11. Contact">
             <p>
               Pour toute question relative à la présente politique ou à vos données personnelles :<br />
-              <a href="mailto:privacy@duupflow.com" className="text-indigo-400 hover:text-indigo-300">privacy@duupflow.com</a>
+              <a href="mailto:hello@duupflow.com" className="text-indigo-400 hover:text-indigo-300">hello@duupflow.com</a>
             </p>
           </Section>
         </div>

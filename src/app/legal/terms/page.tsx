@@ -47,7 +47,7 @@ export default function TermsPage() {
             </p>
             <p>
               Le service est édité et exploité par <strong className="text-white">DuupFlow</strong>.
-              Contact : <a href="mailto:contact@duupflow.com" className="text-indigo-400 hover:text-indigo-300">contact@duupflow.com</a>
+              Contact : <a href="mailto:hello@duupflow.com" className="text-indigo-400 hover:text-indigo-300">hello@duupflow.com</a>
             </p>
           </Section>
 
@@ -214,7 +214,7 @@ export default function TermsPage() {
           <Section title="15. Contact">
             <p>
               Pour toute question relative aux présentes CGU :<br />
-              <a href="mailto:contact@duupflow.com" className="text-indigo-400 hover:text-indigo-300">contact@duupflow.com</a>
+              <a href="mailto:hello@duupflow.com" className="text-indigo-400 hover:text-indigo-300">hello@duupflow.com</a>
             </p>
           </Section>
         </div>
