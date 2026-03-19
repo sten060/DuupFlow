@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendMail } from "@/lib/mailer";
+import { createClient as createAnonClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -57,60 +57,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Erreur lors de la création de l'invitation." }, { status: 500 });
   }
 
-  // Generate a Supabase auth link (works for new and existing users)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? `https://${req.headers.get("host")}`;
   const redirectTo = `${appUrl}/auth/callback?invite_token=${token}`;
 
-  // Try invite link first (new user); fall back to magic link (existing user)
-  let inviteLink: string | null = null;
+  // Try inviteUserByEmail (new user). If user already exists, fall back to OTP magic link.
+  const { error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(
+    guestEmail.toLowerCase(),
+    { redirectTo }
+  );
 
-  const { data: inviteData, error: inviteGenErr } = await adminClient.auth.admin.generateLink({
-    type: "invite",
-    email: guestEmail.toLowerCase(),
-    options: { redirectTo },
-  });
-  if (!inviteGenErr && inviteData?.properties?.action_link) {
-    inviteLink = inviteData.properties.action_link;
-  } else {
-    const { data: mlData, error: mlErr } = await adminClient.auth.admin.generateLink({
-      type: "magiclink",
+  if (inviteErr) {
+    // User already exists in Supabase auth → send a magic link OTP instead
+    const anonClient = createAnonClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const { error: otpErr } = await anonClient.auth.signInWithOtp({
       email: guestEmail.toLowerCase(),
-      options: { redirectTo },
+      options: { emailRedirectTo: redirectTo },
     });
-    if (!mlErr && mlData?.properties?.action_link) {
-      inviteLink = mlData.properties.action_link;
+    if (otpErr) {
+      console.error("[team/invite] signInWithOtp error:", otpErr.message);
+      return NextResponse.json({ error: "Impossible d'envoyer l'invitation." }, { status: 500 });
     }
-  }
-
-  if (!inviteLink) {
-    console.error("[team/invite] failed to generate auth link");
-    return NextResponse.json({ error: "Impossible de générer le lien d'invitation." }, { status: 500 });
-  }
-
-  // Send via project SMTP (nodemailer)
-  try {
-    await sendMail({
-      to: guestEmail.toLowerCase(),
-      subject: "Tu as été invité·e sur DuupFlow",
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0B0F1A;color:#fff;border-radius:12px;">
-          <h2 style="margin:0 0 8px;font-size:22px;color:#fff;">Tu as été invité·e 🎉</h2>
-          <p style="margin:0 0 24px;color:rgba(255,255,255,0.6);font-size:15px;">
-            Tu as reçu une invitation pour rejoindre un workspace DuupFlow.
-          </p>
-          <a href="${inviteLink}"
-             style="display:inline-block;background:linear-gradient(135deg,#6366F1,#38BDF8);color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 28px;border-radius:10px;">
-            Rejoindre le workspace →
-          </a>
-          <p style="margin:24px 0 0;color:rgba(255,255,255,0.3);font-size:12px;">
-            Ce lien expire dans 24h. Si tu n'attendais pas cette invitation, ignore cet email.
-          </p>
-        </div>
-      `,
-    });
-  } catch (mailErr) {
-    console.error("[team/invite] sendMail error:", mailErr);
-    return NextResponse.json({ error: "Invitation créée mais l'email n'a pas pu être envoyé. Vérifiez la configuration SMTP." }, { status: 500 });
   }
 
   console.log(`[team/invite] invitation sent to ${guestEmail}`);
