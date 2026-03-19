@@ -172,6 +172,73 @@ function textureSimilarity(varA: number[], varB: number[]): number {
   return Math.max(0, Math.min(100, Math.round((dot / Math.sqrt(magA * magB)) * 100)));
 }
 
+// Luminance histogram — 64 fine-grained bins on 128×128 grayscale.
+// More sensitive than aHash to subtle brightness/contrast/gamma shifts.
+// A ±3% brightness change shifts the distribution visibly across bins.
+async function lumaHistogram(buf: Buffer): Promise<number[]> {
+  const { data, info } = await sharp(buf)
+    .grayscale()
+    .resize(128, 128, { fit: "fill" })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const bins = new Array(64).fill(0);
+  for (let i = 0; i < data.length; i++) {
+    bins[data[i] >> 2]++; // 64 bins: each covers 4 luminance levels (0-255 → bins 0-63)
+  }
+  const pixels = info.width * info.height;
+  return bins.map(v => v / pixels);
+}
+
+// Spatial grid — 8×8 = 64 cells, mean luminance per cell on a 64×64 image.
+// Sensitive to zoom, crop offsets, vignette, lens distortion, and any spatial transformation.
+async function spatialGrid(buf: Buffer): Promise<number[]> {
+  const SIZE = 64;
+  const CELLS = 8;
+  const CELL = SIZE / CELLS; // 8 pixels per cell side
+  const arr = await sharp(buf).grayscale().resize(SIZE, SIZE, { fit: "fill" }).raw().toBuffer();
+  const means: number[] = [];
+  for (let cy = 0; cy < CELLS; cy++) {
+    for (let cx = 0; cx < CELLS; cx++) {
+      let sum = 0;
+      for (let y = cy * CELL; y < (cy + 1) * CELL; y++) {
+        for (let x = cx * CELL; x < (cx + 1) * CELL; x++) {
+          sum += arr[y * SIZE + x];
+        }
+      }
+      means.push(sum / (CELL * CELL * 255)); // normalized 0-1
+    }
+  }
+  return means;
+}
+
+function spatialGridSimilarity(gA: number[], gB: number[]): number {
+  let sum = 0;
+  for (let i = 0; i < gA.length; i++) sum += Math.abs(gA[i] - gB[i]);
+  const avgDiff = sum / gA.length; // 0-1 range
+  return Math.max(0, Math.min(100, Math.round((1 - avgDiff * 5) * 100)));
+}
+
+// Gradient magnitude histogram — 32 bins of pixel gradient magnitudes on 64×64.
+// Captures the distribution of local edge strengths: sensitive to noise, grain,
+// unsharp, sharpness filters, and any change in local contrast.
+async function gradientHistogram(buf: Buffer): Promise<number[]> {
+  const SIZE = 64;
+  const arr = await sharp(buf).grayscale().resize(SIZE, SIZE, { fit: "fill" }).raw().toBuffer();
+  const BINS = 32;
+  const bins = new Array(BINS).fill(0);
+  let count = 0;
+  for (let y = 0; y < SIZE - 1; y++) {
+    for (let x = 0; x < SIZE - 1; x++) {
+      const gx = Math.abs(arr[y * SIZE + x + 1] - arr[y * SIZE + x]);
+      const gy = Math.abs(arr[(y + 1) * SIZE + x] - arr[y * SIZE + x]);
+      const mag = Math.min(255, gx + gy);
+      bins[Math.floor(mag * BINS / 256)]++;
+      count++;
+    }
+  }
+  return bins.map(v => v / count);
+}
+
 // Horizontal flip of a buffer image — for mirror (reverse filter) detection
 async function flippedBuffer(buf: Buffer): Promise<Buffer> {
   return sharp(buf).flop().toBuffer();
@@ -187,11 +254,14 @@ export type PairScore = {
     mse: number;      // pixel-level fidelity (96×96)
     texture: number;  // sharpness / local variance
     chroma: number;   // Cb/Cr chroma channels — sensitive to noise/hue/saturation
+    luma: number;     // luminance histogram (64 bins) — sensitive to brightness/contrast/gamma
+    spatial: number;  // spatial grid (8×8 cells) — sensitive to zoom/crop/vignette
+    gradient: number; // gradient magnitude histogram — sensitive to noise/grain/sharpness
     mirrored: boolean;
   };
 };
 
-// Score a single pair of thumbnails using all 7 algorithms
+// Score a single pair of thumbnails using all 10 algorithms
 async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   const [
     phA, phB,
@@ -200,6 +270,9 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
     histA, histB,
     chromaA, chromaB,
     varA, varB,
+    lumaA, lumaB,
+    gridA, gridB,
+    gradA, gradB,
     mse,
     flippedA,
   ] = await Promise.all([
@@ -209,6 +282,9 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
     colorHistogram(bufA), colorHistogram(bufB),
     chromaHistogram(bufA), chromaHistogram(bufB),
     textureVariance(bufA), textureVariance(bufB),
+    lumaHistogram(bufA), lumaHistogram(bufB),
+    spatialGrid(bufA), spatialGrid(bufB),
+    gradientHistogram(bufA), gradientHistogram(bufB),
     mseSimilarity(bufA, bufB),
     flippedBuffer(bufA),
   ]);
@@ -226,6 +302,9 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   const ch = histogramSimilarity(histA, histB);
   const chroma = histogramSimilarity(chromaA, chromaB);
   const tx = textureSimilarity(varA, varB);
+  const luma = histogramSimilarity(lumaA, lumaB);
+  const spatial = spatialGridSimilarity(gridA, gridB);
+  const gradient = histogramSimilarity(gradA, gradB);
 
   const phMirror = simFromHamming(hamming64(phFlipA, phB));
   const dhMirror = simFromHamming(hamming64(dhFlipA, dhB));
@@ -234,26 +313,25 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   const normalStructScore = ph * 0.6 + dh * 0.3 + ah * 0.1;
   const mirrored = mirrorStructScore > normalStructScore + 10 && mirrorStructScore > 60;
 
-  // Weights (sum = 1.0):
-  // Perceptual hashes (pHash, dHash) are intentionally robust — less sensitive to small
-  // changes by design. We reduce their weight and boost pixel-level metrics (MSE, chroma)
-  // so that the subtle changes from duplication filters (chroma noise, pixel shift, CRF
-  // variation, speed change) register in the final score.
-  //
-  // pHash    15% — structural fingerprint (strong changes: crop, rotation, flip)
-  // dHash    15% — edge gradient (sharpness, zoom, pixel shift)
-  // aHash     5% — global luminosity
-  // color    18% — RGB distribution (32 bins: saturation, brightness, hue)
-  // MSE      20% — pixel-level (most sensitive: CRF variation, any pixel change)
-  // texture  10% — local variance (grain, unsharp, contrast)
-  // chroma   17% — Cb/Cr channels (chroma noise, hue, saturation, colorchannelmixer)
+  // Weights (sum = 1.0) — 10 algorithms:
+  // pHash     10% — structural fingerprint (strong changes: crop, rotation, flip)
+  // dHash     10% — edge gradient (sharpness, zoom, pixel shift)
+  // aHash      3% — global luminosity (low weight: redundant with luma)
+  // color     12% — RGB distribution (32 bins: saturation, brightness, hue)
+  // MSE       15% — pixel-level (most sensitive: CRF variation, any pixel change)
+  // texture    8% — local variance (grain, unsharp, contrast)
+  // chroma    12% — Cb/Cr channels (chroma noise, hue, saturation, colorchannelmixer)
+  // luma      12% — luminance histogram 64-bin (brightness/contrast/gamma shifts)
+  // spatial   11% — spatial grid 8×8 (zoom, vignette, lens, crop offset)
+  // gradient   7% — gradient magnitude (noise, grain, sharpness)
   const score =
-    ph * 0.15 + dh * 0.15 + ah * 0.05 +
-    ch * 0.18 + mse * 0.20 + tx * 0.10 + chroma * 0.17;
+    ph * 0.10 + dh * 0.10 + ah * 0.03 +
+    ch * 0.12 + mse * 0.15 + tx * 0.08 + chroma * 0.12 +
+    luma * 0.12 + spatial * 0.11 + gradient * 0.07;
 
   return {
     score,
-    breakdown: { phash: ph, dhash: dh, ahash: ah, color: ch, mse, texture: tx, chroma, mirrored },
+    breakdown: { phash: ph, dhash: dh, ahash: ah, color: ch, mse, texture: tx, chroma, luma, spatial, gradient, mirrored },
   };
 }
 
@@ -273,14 +351,20 @@ export async function compareFiles(
 
     const avgScore = pairs.reduce((s, p) => s + p.score, 0) / pairs.length;
 
+    const avg = (key: keyof Omit<PairScore["breakdown"], "mirrored">) =>
+      Math.round(pairs.reduce((s, p) => s + (p.breakdown[key] as number), 0) / pairs.length);
+
     const breakdown: PairScore["breakdown"] = {
-      phash:   Math.round(pairs.reduce((s, p) => s + p.breakdown.phash, 0)   / pairs.length),
-      dhash:   Math.round(pairs.reduce((s, p) => s + p.breakdown.dhash, 0)   / pairs.length),
-      ahash:   Math.round(pairs.reduce((s, p) => s + p.breakdown.ahash, 0)   / pairs.length),
-      color:   Math.round(pairs.reduce((s, p) => s + p.breakdown.color, 0)   / pairs.length),
-      mse:     Math.round(pairs.reduce((s, p) => s + p.breakdown.mse, 0)     / pairs.length),
-      texture: Math.round(pairs.reduce((s, p) => s + p.breakdown.texture, 0) / pairs.length),
-      chroma:  Math.round(pairs.reduce((s, p) => s + p.breakdown.chroma, 0)  / pairs.length),
+      phash:    avg("phash"),
+      dhash:    avg("dhash"),
+      ahash:    avg("ahash"),
+      color:    avg("color"),
+      mse:      avg("mse"),
+      texture:  avg("texture"),
+      chroma:   avg("chroma"),
+      luma:     avg("luma"),
+      spatial:  avg("spatial"),
+      gradient: avg("gradient"),
       mirrored: pairs.some(p => p.breakdown.mirrored),
     };
 
