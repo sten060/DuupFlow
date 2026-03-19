@@ -517,12 +517,11 @@ export async function processVideos(
           vfParts.push(`crop=iw/${zf}:ih/${zf}:x=iw*${offx}:y=ih*${offy}`);
           vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=fast_bilinear`);
 
-          // Lens correction — barrel/pincushion distortion (geometric, not visual).
-          // Radially warps the frame: k1>0 = barrel (edges bow out), k1<0 = pincushion.
-          // Strongly affects pHash (DCT structure) and dHash (edge gradients) without
-          // any perceivable brightness/color change.
-          const lensSign = Math.random() > 0.5 ? 1 : -1;
-          const k1 = lensSign * (0.05 + Math.random() * 0.07); // ±0.05–0.12
+          // Lens correction — pincushion distortion (geometric, not visual).
+          // k1 MUST be negative: positive k1 maps edge pixels outside source bounds,
+          // causing FFmpeg to fill them with undefined values encoded as bright green.
+          // With k1 < 0, all output pixels map to valid source coordinates (r_src < r_dest).
+          const k1 = -(0.05 + Math.random() * 0.07); // -0.05 to -0.12 (always negative)
           vfParts.push(`lenscorrection=k1=${k1.toFixed(5)}:k2=${(-k1 / 2).toFixed(5)}`);
 
           // Speed ±1–3% — invisible to the viewer, sufficient to shift the file fingerprint
