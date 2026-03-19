@@ -40,11 +40,13 @@ export default function SettingsClient({
   initialAgencyName,
   isGuest,
   invitations,
+  userEmail,
 }: {
   initialFirstName: string;
   initialAgencyName: string;
   isGuest: boolean;
   invitations: Invitation[];
+  userEmail: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -56,8 +58,6 @@ export default function SettingsClient({
   const [profileMsg, setProfileMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   // Support state
-  const [supportEmail, setSupportEmail] = useState("");
-  const [supportSubject, setSupportSubject] = useState("");
   const [supportMessage, setSupportMessage] = useState("");
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportMsg, setSupportMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -130,24 +130,19 @@ export default function SettingsClient({
 
   async function sendSupport(e: React.FormEvent) {
     e.preventDefault();
-    if (!supportEmail.trim() || !supportSubject.trim() || !supportMessage.trim()) return;
+    if (!supportMessage.trim()) return;
     setSupportLoading(true);
     setSupportMsg(null);
 
     const res = await fetch("/api/support/contact", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: supportEmail.trim(),
-        subject: supportSubject.trim(),
-        message: supportMessage.trim(),
-      }),
+      body: JSON.stringify({ message: supportMessage.trim() }),
     });
     const data = await res.json().catch(() => ({}));
 
     if (res.ok) {
       setSupportMsg({ type: "ok", text: "Message envoyé ! Nous vous répondrons rapidement." });
-      setSupportSubject("");
       setSupportMessage("");
     } else {
       setSupportMsg({ type: "err", text: data.error ?? "Erreur lors de l'envoi." });
@@ -363,36 +358,14 @@ export default function SettingsClient({
           <SectionTitle>Contacter le support</SectionTitle>
           <Card>
             <form onSubmit={sendSupport} className="space-y-4">
+              <p className="text-xs text-white/40">
+                Envoi depuis <span className="text-white/60">{userEmail}</span>
+              </p>
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">Votre adresse email</label>
-                <input
-                  type="email"
-                  value={supportEmail}
-                  onChange={(e) => setSupportEmail(e.target.value)}
-                  placeholder="vous@exemple.com"
-                  required
-                  className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
-                  style={INPUT_STYLE}
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-white/40 mb-1.5">Objet</label>
-                <input
-                  type="text"
-                  value={supportSubject}
-                  onChange={(e) => setSupportSubject(e.target.value)}
-                  placeholder="Ex : Problème avec la duplication vidéo"
-                  required
-                  className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
-                  style={INPUT_STYLE}
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-white/40 mb-1.5">Message</label>
                 <textarea
                   value={supportMessage}
                   onChange={(e) => setSupportMessage(e.target.value)}
-                  placeholder="Décrivez votre problème ou votre question en détail…"
+                  placeholder="Décrivez votre problème ou votre question…"
                   required
                   rows={5}
                   className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition resize-none"
@@ -412,7 +385,7 @@ export default function SettingsClient({
                 </p>
                 <button
                   type="submit"
-                  disabled={supportLoading || !supportEmail.trim() || !supportSubject.trim() || !supportMessage.trim()}
+                  disabled={supportLoading || !supportMessage.trim()}
                   className="rounded-xl px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40 shrink-0"
                   style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
                 >
