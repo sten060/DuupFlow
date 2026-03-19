@@ -73,11 +73,11 @@ export default function LegalPage() {
             </div>
             <div>
               <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">Contact</p>
-              <a href="mailto:contact@duupflow.com" className="text-indigo-400 hover:text-indigo-300">contact@duupflow.com</a>
+              <a href="mailto:hello@duupflow.com" className="text-indigo-400 hover:text-indigo-300">hello@duupflow.com</a>
             </div>
             <div>
               <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">Hébergement</p>
-              <p>Vercel Inc., 340 Pine Street Suite 701, San Francisco, CA 94104, USA</p>
+              <p>Railway Corp., San Francisco, CA, USA</p>
             </div>
           </div>
         </div>
