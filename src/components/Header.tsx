@@ -25,7 +25,7 @@ export default function Header() {
   return (
     <div className="fixed top-4 left-0 right-0 z-50 px-6">
       <div
-        className="flex items-center justify-between px-8 py-3.5 rounded-full border border-white/[0.14] backdrop-blur-xl"
+        className="relative flex items-center justify-between px-8 py-3.5 rounded-full border border-white/[0.14] backdrop-blur-xl"
         style={{
           background: "rgba(11,15,26,0.25)",
           maxWidth: "1280px",
@@ -38,9 +38,9 @@ export default function Header() {
         </Link>
 
         {/* Nav */}
-        <nav className="hidden md:flex items-center gap-0.5">
+        <nav className="hidden md:flex items-center gap-0.5 absolute left-1/2 -translate-x-1/2">
           <NavLink href="/#features" label="Fonctionnalités" />
-          <NavLink href="/comment-ca-marche" label="Comment ça marche" />
+          <NavLink href="/how-it-works" label="Comment ça marche" />
           <NavLink href="/tarifs" label="Tarifs" />
           <NavLink href="/#faq" label="FAQ" />
         </nav>
