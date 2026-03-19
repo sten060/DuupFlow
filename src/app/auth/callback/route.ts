@@ -38,9 +38,25 @@ export async function GET(request: Request) {
           .single();
 
         if (!profile) {
-          // No profile yet → onboarding
-          if (inviteToken) {
-            cookieStore.set("invite_token", inviteToken, {
+          // No profile yet → check for pending invitation (by URL token or by email)
+          const adminClient = createAdminClient();
+
+          // Resolve invite token: from URL first, otherwise look up by email
+          let resolvedToken = inviteToken ?? null;
+          if (!resolvedToken && user.email) {
+            const { data: pendingInvite } = await adminClient
+              .from("team_invitations")
+              .select("token")
+              .eq("guest_email", user.email.toLowerCase())
+              .eq("status", "pending")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .single();
+            if (pendingInvite) resolvedToken = pendingInvite.token;
+          }
+
+          if (resolvedToken) {
+            cookieStore.set("invite_token", resolvedToken, {
               maxAge: 60 * 30,
               path: "/",
               httpOnly: true,
