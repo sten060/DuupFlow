@@ -169,7 +169,7 @@ export default function LoginPage() {
       <div className="flex gap-4 text-xs text-white/25">
         <Link href="/legal" className="hover:text-white/45 transition">Mentions légales</Link>
         <span>·</span>
-        <Link href="/legal" className="hover:text-white/45 transition">Confidentialité</Link>
+        <Link href="/legal/privacy" className="hover:text-white/45 transition">Confidentialité</Link>
       </div>
     </div>
   );

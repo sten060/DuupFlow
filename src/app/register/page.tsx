@@ -160,9 +160,9 @@ export default function RegisterPage() {
 
                 <p className="text-xs text-white/25 text-center">
                   En créant un compte, tu acceptes nos{" "}
-                  <Link href="/legal" className="text-white/40 hover:text-white/60 transition">CGU</Link>
+                  <Link href="/legal/terms" className="text-white/40 hover:text-white/60 transition">CGU</Link>
                   {" & "}
-                  <Link href="/legal" className="text-white/40 hover:text-white/60 transition">Politique de confidentialité</Link>
+                  <Link href="/legal/privacy" className="text-white/40 hover:text-white/60 transition">Politique de confidentialité</Link>
                 </p>
               </form>
 
@@ -180,7 +180,7 @@ export default function RegisterPage() {
         <div className="flex gap-4 text-xs text-white/20">
           <Link href="/legal" className="hover:text-white/40 transition">Mentions légales</Link>
           <span>·</span>
-          <Link href="/legal" className="hover:text-white/40 transition">Confidentialité</Link>
+          <Link href="/legal/privacy" className="hover:text-white/40 transition">Confidentialité</Link>
         </div>
       </div>
 
