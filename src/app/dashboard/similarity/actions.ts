@@ -215,7 +215,7 @@ function spatialGridSimilarity(gA: number[], gB: number[]): number {
   let sum = 0;
   for (let i = 0; i < gA.length; i++) sum += Math.abs(gA[i] - gB[i]);
   const avgDiff = sum / gA.length; // 0-1 range
-  return Math.max(0, Math.min(100, Math.round((1 - avgDiff * 5) * 100)));
+  return Math.max(0, Math.min(100, Math.round((1 - avgDiff * 7) * 100)));
 }
 
 // Gradient magnitude histogram — 32 bins of pixel gradient magnitudes on 64×64.
@@ -239,6 +239,134 @@ async function gradientHistogram(buf: Buffer): Promise<number[]> {
   return bins.map(v => v / count);
 }
 
+// SSIM — Structural Similarity Index Measure, 8×8 block windowed on 64×64 grayscale.
+// Industry gold standard: used by YouTube, Netflix, major video platforms.
+// Combines luminance (µ), contrast (σ), and structure (σAB) independently.
+// More discriminating than MSE for noise, blur, and local distortions (tblend, grain).
+async function ssimSimilarity(bufA: Buffer, bufB: Buffer): Promise<number> {
+  const SIZE = 64;
+  const BLOCK = 8;
+  const C1 = 6.5025;   // (0.01 * 255)²
+  const C2 = 58.5225;  // (0.03 * 255)²
+  const [rawA, rawB] = await Promise.all([
+    sharp(bufA).grayscale().resize(SIZE, SIZE, { fit: "fill" }).raw().toBuffer(),
+    sharp(bufB).grayscale().resize(SIZE, SIZE, { fit: "fill" }).raw().toBuffer(),
+  ]);
+  let ssimSum = 0, count = 0;
+  for (let by = 0; by <= SIZE - BLOCK; by += BLOCK) {
+    for (let bx = 0; bx <= SIZE - BLOCK; bx += BLOCK) {
+      let sA = 0, sB = 0, sA2 = 0, sB2 = 0, sAB = 0, n = 0;
+      for (let y = by; y < by + BLOCK; y++) {
+        for (let x = bx; x < bx + BLOCK; x++) {
+          const a = rawA[y * SIZE + x], b = rawB[y * SIZE + x];
+          sA += a; sB += b; sA2 += a * a; sB2 += b * b; sAB += a * b; n++;
+        }
+      }
+      const mA = sA / n, mB = sB / n;
+      const vA = sA2 / n - mA * mA;
+      const vB = sB2 / n - mB * mB;
+      const cv = sAB / n - mA * mB;
+      ssimSum += (2 * mA * mB + C1) * (2 * cv + C2) /
+                 ((mA * mA + mB * mB + C1) * (vA + vB + C2));
+      count++;
+    }
+  }
+  return Math.max(0, Math.min(100, Math.round((ssimSum / count) * 100)));
+}
+
+// Color moments — mean, std, skewness per RGB channel (9 values total).
+// Captures higher-order distribution statistics missed by histograms.
+// Mean → brightness. Std → contrast. Skewness → asymmetric tone distribution.
+// Sensitive to: hue shifts, saturation changes, colorchannelmixer, eq.
+async function colorMoments(buf: Buffer): Promise<number[]> {
+  const { data, info } = await sharp(buf)
+    .resize(64, 64, { fit: "fill" })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const ch = info.channels;
+  const pixels = info.width * info.height;
+  const moments: number[] = [];
+  for (let c = 0; c < 3; c++) {
+    let s1 = 0, s2 = 0, s3 = 0;
+    for (let i = 0; i < data.length; i += ch) {
+      const v = data[i + c] / 255;
+      s1 += v; s2 += v * v; s3 += v * v * v;
+    }
+    const mean = s1 / pixels;
+    const variance = Math.max(0, s2 / pixels - mean * mean);
+    const std = Math.sqrt(variance);
+    const skewRaw = variance > 0
+      ? (s3 / pixels - 3 * mean * variance - mean * mean * mean) / (std * std * std)
+      : 0;
+    moments.push(mean, std, Math.tanh(skewRaw / 3)); // tanh normalises skewness to -1..1
+  }
+  return moments; // [µR, σR, κR, µG, σG, κG, µB, σB, κB]
+}
+
+function colorMomentSimilarity(mA: number[], mB: number[]): number {
+  // Weighted L1: mean (×3), std (×2), skewness (×1 — less stable)
+  const W = [3, 2, 1, 3, 2, 1, 3, 2, 1];
+  const wSum = 18;
+  let diff = 0;
+  for (let i = 0; i < mA.length; i++) {
+    const range = (i % 3 === 2) ? 2 : 1; // skewness lives in -1..1, scale diff accordingly
+    diff += W[i] * Math.abs(mA[i] - mB[i]) / range;
+  }
+  return Math.max(0, Math.min(100, Math.round((1 - (diff / wSum) * 4) * 100)));
+}
+
+// Edge orientation histogram — 8 directional bins (0°, 45°, 90°… 315°) on 64×64.
+// Captures the structural orientation fingerprint of the frame.
+// Sensitive to: rotation, horizontal/vertical flip, zoom distortion, lens correction.
+// Social platforms use edge orientation as a structural feature for copy detection.
+async function edgeOrientationHistogram(buf: Buffer): Promise<number[]> {
+  const SIZE = 64;
+  const arr = await sharp(buf).grayscale().resize(SIZE, SIZE, { fit: "fill" }).raw().toBuffer();
+  const BINS = 8;
+  const bins = new Array(BINS).fill(0);
+  let total = 0;
+  for (let y = 0; y < SIZE - 1; y++) {
+    for (let x = 0; x < SIZE - 1; x++) {
+      const gx = arr[y * SIZE + x + 1] - arr[y * SIZE + x];
+      const gy = arr[(y + 1) * SIZE + x] - arr[y * SIZE + x];
+      const mag = Math.sqrt(gx * gx + gy * gy);
+      if (mag > 8) { // threshold: only significant edges contribute
+        const angle = Math.atan2(gy, gx); // -π to π
+        const bin = Math.floor(((angle + Math.PI) / (2 * Math.PI)) * BINS) % BINS;
+        bins[bin]++;
+        total++;
+      }
+    }
+  }
+  return total > 0 ? bins.map(v => v / total) : bins;
+}
+
+// Projection profiles — normalised sum of luminance per row (64 values) and per
+// column (64 values) = 128-value vector.
+// Captures the 1-D spatial content distribution along each axis.
+// Very sensitive to: zoom offset, pixel shift, vignette, horizontal/vertical crops.
+async function projectionProfiles(buf: Buffer): Promise<number[]> {
+  const SIZE = 64;
+  const arr = await sharp(buf).grayscale().resize(SIZE, SIZE, { fit: "fill" }).raw().toBuffer();
+  const rows = new Array(SIZE).fill(0);
+  const cols = new Array(SIZE).fill(0);
+  for (let y = 0; y < SIZE; y++)
+    for (let x = 0; x < SIZE; x++) {
+      rows[y] += arr[y * SIZE + x];
+      cols[x] += arr[y * SIZE + x];
+    }
+  const maxR = Math.max(...rows) || 1;
+  const maxC = Math.max(...cols) || 1;
+  return [...rows.map(v => v / maxR), ...cols.map(v => v / maxC)];
+}
+
+function projectionSimilarity(pA: number[], pB: number[]): number {
+  let sum = 0;
+  for (let i = 0; i < pA.length; i++) sum += Math.abs(pA[i] - pB[i]);
+  const avgDiff = sum / pA.length;
+  return Math.max(0, Math.min(100, Math.round((1 - avgDiff * 4) * 100)));
+}
+
 // Horizontal flip of a buffer image — for mirror (reverse filter) detection
 async function flippedBuffer(buf: Buffer): Promise<Buffer> {
   return sharp(buf).flop().toBuffer();
@@ -247,21 +375,25 @@ async function flippedBuffer(buf: Buffer): Promise<Buffer> {
 export type PairScore = {
   score: number;
   breakdown: {
-    phash: number;    // perceptual structure (DCT) — robust but less sensitive
-    dhash: number;    // gradient edges
-    ahash: number;    // luminosity
-    color: number;    // RGB color distribution (32 bins/channel)
-    mse: number;      // pixel-level fidelity (96×96)
-    texture: number;  // sharpness / local variance
-    chroma: number;   // Cb/Cr chroma channels — sensitive to noise/hue/saturation
-    luma: number;     // luminance histogram (64 bins) — sensitive to brightness/contrast/gamma
-    spatial: number;  // spatial grid (8×8 cells) — sensitive to zoom/crop/vignette
-    gradient: number; // gradient magnitude histogram — sensitive to noise/grain/sharpness
+    ssim: number;      // Structural Similarity Index (luminance × contrast × structure)
+    mse: number;       // pixel-level fidelity (96×96 grayscale)
+    spatial: number;   // spatial grid 8×8 (zoom, crop, vignette)
+    chroma: number;    // Cb/Cr chroma channels (hue, saturation, chroma noise)
+    color: number;     // RGB distribution 32 bins/channel
+    luma: number;      // luminance histogram 64 bins (brightness/contrast/gamma)
+    colorMom: number;  // color moments mean/std/skew per channel
+    phash: number;     // perceptual structure fingerprint (DCT)
+    dhash: number;     // edge gradient fingerprint
+    edgeOr: number;    // edge orientation histogram 8 directions
+    gradient: number;  // gradient magnitude histogram (noise/grain/sharpness)
+    proj: number;      // projection profiles row+col (spatial shift)
+    texture: number;   // local variance (grain/noise/contrast)
+    ahash: number;     // global luminosity
     mirrored: boolean;
   };
 };
 
-// Score a single pair of thumbnails using all 10 algorithms
+// Score a single pair of thumbnails using all 14 algorithms
 async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   const [
     phA, phB,
@@ -273,7 +405,11 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
     lumaA, lumaB,
     gridA, gridB,
     gradA, gradB,
+    momA, momB,
+    edgeA, edgeB,
+    projA, projB,
     mse,
+    ssim,
     flippedA,
   ] = await Promise.all([
     pHash(bufA), pHash(bufB),
@@ -285,7 +421,11 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
     lumaHistogram(bufA), lumaHistogram(bufB),
     spatialGrid(bufA), spatialGrid(bufB),
     gradientHistogram(bufA), gradientHistogram(bufB),
+    colorMoments(bufA), colorMoments(bufB),
+    edgeOrientationHistogram(bufA), edgeOrientationHistogram(bufB),
+    projectionProfiles(bufA), projectionProfiles(bufB),
     mseSimilarity(bufA, bufB),
+    ssimSimilarity(bufA, bufB),
     flippedBuffer(bufA),
   ]);
 
@@ -296,15 +436,18 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
     aHash(flippedA),
   ]);
 
-  const ph = simFromHamming(hamming64(phA, phB));
-  const dh = simFromHamming(hamming64(dhA, dhB));
-  const ah = simFromHamming(hamming64(ahA, ahB));
-  const ch = histogramSimilarity(histA, histB);
-  const chroma = histogramSimilarity(chromaA, chromaB);
-  const tx = textureSimilarity(varA, varB);
-  const luma = histogramSimilarity(lumaA, lumaB);
+  const ph      = simFromHamming(hamming64(phA, phB));
+  const dh      = simFromHamming(hamming64(dhA, dhB));
+  const ah      = simFromHamming(hamming64(ahA, ahB));
+  const ch      = histogramSimilarity(histA, histB);
+  const chroma  = histogramSimilarity(chromaA, chromaB);
+  const tx      = textureSimilarity(varA, varB);
+  const luma    = histogramSimilarity(lumaA, lumaB);
   const spatial = spatialGridSimilarity(gridA, gridB);
   const gradient = histogramSimilarity(gradA, gradB);
+  const colorMom = colorMomentSimilarity(momA, momB);
+  const edgeOr   = histogramSimilarity(edgeA, edgeB);
+  const proj     = projectionSimilarity(projA, projB);
 
   const phMirror = simFromHamming(hamming64(phFlipA, phB));
   const dhMirror = simFromHamming(hamming64(dhFlipA, dhB));
@@ -313,25 +456,33 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   const normalStructScore = ph * 0.6 + dh * 0.3 + ah * 0.1;
   const mirrored = mirrorStructScore > normalStructScore + 10 && mirrorStructScore > 60;
 
-  // Weights (sum = 1.0) — 10 algorithms:
-  // pHash     10% — structural fingerprint (strong changes: crop, rotation, flip)
-  // dHash     10% — edge gradient (sharpness, zoom, pixel shift)
-  // aHash      3% — global luminosity (low weight: redundant with luma)
-  // color     12% — RGB distribution (32 bins: saturation, brightness, hue)
-  // MSE       15% — pixel-level (most sensitive: CRF variation, any pixel change)
-  // texture    8% — local variance (grain, unsharp, contrast)
-  // chroma    12% — Cb/Cr channels (chroma noise, hue, saturation, colorchannelmixer)
-  // luma      12% — luminance histogram 64-bin (brightness/contrast/gamma shifts)
-  // spatial   11% — spatial grid 8×8 (zoom, vignette, lens, crop offset)
-  // gradient   7% — gradient magnitude (noise, grain, sharpness)
+  // Weights (sum = 1.0) — 14 algorithms.
+  // Highest weights → most commonly used by social media detection systems
+  // and most sensitive to the specific transforms DuupFlow applies.
+  //
+  // SSIM         12% — structural+luminance+contrast (industry standard, YouTube/Netflix)
+  // MSE          10% — raw pixel differences (96×96, catches every pixel change)
+  // spatialGrid   9% — spatial content map (zoom, crop offset, vignette, lens)
+  // chroma        9% — Cb/Cr distribution (hue, saturation, chroma noise — very sensitive)
+  // color         8% — RGB histogram (brightness, saturation changes)
+  // luma          8% — luminance histogram 64-bin (brightness/contrast/gamma)
+  // colorMoments  7% — mean/std/skew per channel (higher-order color stats)
+  // pHash         7% — perceptual hash DCT (structural fingerprint, all platforms use it)
+  // dHash         7% — gradient hash (edge structure, used by major platforms)
+  // edgeOrient    6% — edge direction distribution (structural orientation fingerprint)
+  // gradient      5% — gradient magnitude (sharpness, grain, noise intensity)
+  // projection    5% — row+col luminance profiles (spatial shift, any positional change)
+  // texture       4% — local variance (grain/noise/contrast)
+  // aHash         3% — global luminosity (low weight: redundant with luma)
   const score =
-    ph * 0.10 + dh * 0.10 + ah * 0.03 +
-    ch * 0.12 + mse * 0.15 + tx * 0.08 + chroma * 0.12 +
-    luma * 0.12 + spatial * 0.11 + gradient * 0.07;
+    ssim * 0.12 + mse * 0.10 + spatial * 0.09 + chroma * 0.09 +
+    ch * 0.08 + luma * 0.08 + colorMom * 0.07 +
+    ph * 0.07 + dh * 0.07 + edgeOr * 0.06 +
+    gradient * 0.05 + proj * 0.05 + tx * 0.04 + ah * 0.03;
 
   return {
     score,
-    breakdown: { phash: ph, dhash: dh, ahash: ah, color: ch, mse, texture: tx, chroma, luma, spatial, gradient, mirrored },
+    breakdown: { ssim, mse, spatial, chroma, color: ch, luma, colorMom, phash: ph, dhash: dh, edgeOr, gradient, proj, texture: tx, ahash: ah, mirrored },
   };
 }
 
@@ -355,16 +506,20 @@ export async function compareFiles(
       Math.round(pairs.reduce((s, p) => s + (p.breakdown[key] as number), 0) / pairs.length);
 
     const breakdown: PairScore["breakdown"] = {
+      ssim:     avg("ssim"),
+      mse:      avg("mse"),
+      spatial:  avg("spatial"),
+      chroma:   avg("chroma"),
+      color:    avg("color"),
+      luma:     avg("luma"),
+      colorMom: avg("colorMom"),
       phash:    avg("phash"),
       dhash:    avg("dhash"),
-      ahash:    avg("ahash"),
-      color:    avg("color"),
-      mse:      avg("mse"),
-      texture:  avg("texture"),
-      chroma:   avg("chroma"),
-      luma:     avg("luma"),
-      spatial:  avg("spatial"),
+      edgeOr:   avg("edgeOr"),
       gradient: avg("gradient"),
+      proj:     avg("proj"),
+      texture:  avg("texture"),
+      ahash:    avg("ahash"),
       mirrored: pairs.some(p => p.breakdown.mirrored),
     };
 
