@@ -46,7 +46,6 @@ export default function SettingsClient({
   initialAgencyName: string;
   isGuest: boolean;
   invitations: Invitation[];
-  userEmail: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -57,10 +56,6 @@ export default function SettingsClient({
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
-  // Support state
-  const [supportMessage, setSupportMessage] = useState("");
-  const [supportLoading, setSupportLoading] = useState(false);
-  const [supportMsg, setSupportMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   // Team state
   const [guestEmail, setGuestEmail] = useState("");
@@ -128,27 +123,6 @@ export default function SettingsClient({
     }
   }
 
-  async function sendSupport(e: React.FormEvent) {
-    e.preventDefault();
-    if (!supportMessage.trim()) return;
-    setSupportLoading(true);
-    setSupportMsg(null);
-
-    const res = await fetch("/api/support/contact", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: supportMessage.trim() }),
-    });
-    const data = await res.json().catch(() => ({}));
-
-    if (res.ok) {
-      setSupportMsg({ type: "ok", text: "Message envoyé ! Nous vous répondrons rapidement." });
-      setSupportMessage("");
-    } else {
-      setSupportMsg({ type: "err", text: data.error ?? "Erreur lors de l'envoi." });
-    }
-    setSupportLoading(false);
-  }
 
   const activeInvitations = localInvitations.filter((i) => i.status !== "removed");
   const canInvite = !isGuest && activeInvitations.length < 3;
@@ -353,48 +327,6 @@ export default function SettingsClient({
             </Card>
           </div>
         )}
-        {/* Support */}
-        <div>
-          <SectionTitle>Contacter le support</SectionTitle>
-          <Card>
-            <form onSubmit={sendSupport} className="space-y-4">
-              <p className="text-xs text-white/40">
-                Envoi depuis <span className="text-white/60">{userEmail}</span>
-              </p>
-              <div>
-                <textarea
-                  value={supportMessage}
-                  onChange={(e) => setSupportMessage(e.target.value)}
-                  placeholder="Décrivez votre problème ou votre question…"
-                  required
-                  rows={5}
-                  className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition resize-none"
-                  style={INPUT_STYLE}
-                />
-              </div>
-
-              {supportMsg && (
-                <p className={`text-xs px-3 py-2 rounded-lg ${supportMsg.type === "ok" ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20" : "text-red-400 bg-red-500/[0.08] border border-red-500/20"}`}>
-                  {supportMsg.text}
-                </p>
-              )}
-
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] text-white/25">
-                  Nous répondons sous 24–48h à <span className="text-white/40">hello@duupflow.com</span>
-                </p>
-                <button
-                  type="submit"
-                  disabled={supportLoading || !supportMessage.trim()}
-                  className="rounded-xl px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40 shrink-0"
-                  style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-                >
-                  {supportLoading ? "Envoi…" : "Envoyer"}
-                </button>
-              </div>
-            </form>
-          </Card>
-        </div>
 
       </div>
     </div>
