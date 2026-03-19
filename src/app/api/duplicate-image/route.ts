@@ -87,20 +87,18 @@ async function processImage(
    * 🎨 BLOC 2 — VISUELS
    * ========================================================= */
   if (flags.visuals) {
-    const brightness = 0.80 + Math.random() * 0.40;
-    const saturation = 0.80 + Math.random() * 0.40;
-    const gamma = 1.0 + Math.random() * 1.5;
+    const brightness = 0.93 + Math.random() * 0.14;
+    const saturation = 0.93 + Math.random() * 0.14;
+    const gamma = 1.0 + Math.random() * 0.3;
     const hue = Math.floor((Math.random() - 0.5) * 6);
 
     img = img.modulate({ brightness, saturation, hue }).gamma(gamma);
 
-    const contrast = 0.85 + Math.random() * 0.30;
+    const contrast = 0.92 + Math.random() * 0.16;
     img = img.linear(contrast, 0);
 
-    const sigma = 0.6 + Math.random() * 0.4;
+    const sigma = 0.3 + Math.random() * 0.2;
     img = img.sharpen({ sigma });
-
-    if (Math.random() < 0.5) img = img.blur(0.3);
   }
 
   /* =========================================================
