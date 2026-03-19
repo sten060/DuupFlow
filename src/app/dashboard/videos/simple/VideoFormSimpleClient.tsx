@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
+import { setJob, removeJob } from "../jobStore";
 
 function ProgressBar({ percent, label }: { percent: number; label?: string }) {
   return (
@@ -217,6 +218,10 @@ export default function VideoFormSimpleClient() {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
+    // Register job in global store so progress persists across page navigation
+    const jobId = Math.random().toString(36).slice(2, 8);
+    setJob({ id: jobId, channel: "simple", progress: 0, msg: "Préparation…", status: "running" });
+
     try {
       const rawForm = new FormData(e.currentTarget);
       const uploadedFiles = rawForm.getAll("files") as File[];
@@ -294,7 +299,9 @@ export default function VideoFormSimpleClient() {
         let msg = `HTTP ${res.status}`;
         let code = res.status >= 500 ? "VID-002" : "VID-001";
         try { const j = JSON.parse(text); msg = j?.error || msg; code = j?.code || code; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
-        setErrorMsg(`[${code}] ${msg}`);
+        const errMsg = `[${code}] ${msg}`;
+        setErrorMsg(errMsg);
+        setJob({ id: jobId, channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
         setProcessing(false);
         return;
       }
@@ -328,16 +335,26 @@ export default function VideoFormSimpleClient() {
             try {
               const evt = JSON.parse(line.slice(6));
               // Remap 0-100% from server to 30-100% in UI (0-30% was upload)
-              if (evt.percent !== undefined) setProgress(30 + Math.round(evt.percent * 0.7));
+              const pct = evt.percent !== undefined ? 30 + Math.round(evt.percent * 0.7) : undefined;
+              if (pct !== undefined) setProgress(pct);
               if (evt.msg) setProgressMsg(evt.msg);
+              // Keep global store in sync
+              if (pct !== undefined || evt.msg) {
+                setJob({ id: jobId, channel: "simple", progress: pct ?? 0, msg: evt.msg ?? "", status: "running" });
+              }
               if (evt.error) {
                 const code = evt.code || "VID-004";
-                setErrorMsg(`[${code}] ${evt.msg || "Erreur FFmpeg"}`);
+                const errMsg = `[${code}] ${evt.msg || "Erreur FFmpeg"}`;
+                setErrorMsg(errMsg);
+                setJob({ id: jobId, channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
                 setProcessing(false);
                 return;
               }
               if (evt.done) {
                 receivedDone = true;
+                setJob({ id: jobId, channel: "simple", progress: 100, msg: "Terminé", status: "done" });
+                // Auto-dismiss after 6 s so the badge doesn't linger forever
+                setTimeout(() => removeJob(jobId), 6000);
                 router.refresh(); // re-fetch server component → VideoFilesClient gets new initialFiles
                 return;
               }
@@ -350,17 +367,25 @@ export default function VideoFormSimpleClient() {
 
       // Stream closed without a done event — function timed out or crashed.
       if (!receivedDone) {
-        setErrorMsg("[CLT-004] Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.");
+        const errMsg = "[CLT-004] Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.";
+        setErrorMsg(errMsg);
+        setJob({ id: jobId, channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
       }
     } catch (err: any) {
       if (err?.name === "AbortError") {
         // User cancelled or inactivity timeout fired.
         if (ctrl.signal.reason === "timeout") {
-          setErrorMsg("[CLT-003] Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.");
+          const errMsg = "[CLT-003] Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.";
+          setErrorMsg(errMsg);
+          setJob({ id: jobId, channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
+        } else {
+          // User cancelled intentionally — remove from store silently
+          removeJob(jobId);
         }
-        // else: user cancelled intentionally, no error message needed
       } else {
-        setErrorMsg(`[CLT-005] Erreur réseau — ${(err as Error)?.message || "connexion interrompue. Réessayez."}`);
+        const errMsg = `[CLT-005] Erreur réseau — ${(err as Error)?.message || "connexion interrompue. Réessayez."}`;
+        setErrorMsg(errMsg);
+        setJob({ id: jobId, channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
       }
     } finally {
       setProcessing(false);

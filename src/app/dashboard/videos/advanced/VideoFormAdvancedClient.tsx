@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
+import { setJob, removeJob } from "../jobStore";
 
 /* ============= UI helpers (sobre / bleu) ============= */
 function Card({
@@ -272,6 +273,10 @@ export default function VideoFormAdvancedClient() {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
+    // Register job in global store so progress persists across page navigation
+    const jobId = Math.random().toString(36).slice(2, 8);
+    setJob({ id: jobId, channel: "advanced", progress: 0, msg: "Préparation…", status: "running" });
+
     try {
       const rawForm = new FormData(e.currentTarget);
       const uploadedFiles = rawForm.getAll("files") as File[];
@@ -341,7 +346,9 @@ export default function VideoFormAdvancedClient() {
         let msg = `HTTP ${res.status}`;
         let code = res.status >= 500 ? "VID-002" : "VID-001";
         try { const j = JSON.parse(text); msg = j?.error || msg; code = j?.code || code; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
-        setSubmitError(`[${code}] ${msg}`);
+        const errMsg = `[${code}] ${msg}`;
+        setSubmitError(errMsg);
+        setJob({ id: jobId, channel: "advanced", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
         setProcessing(false);
         return;
       }
@@ -371,16 +378,24 @@ export default function VideoFormAdvancedClient() {
             if (!line.startsWith("data: ")) continue;
             try {
               const evt = JSON.parse(line.slice(6));
-              if (evt.percent !== undefined) setProgress(30 + Math.round(evt.percent * 0.7));
+              const pct = evt.percent !== undefined ? 30 + Math.round(evt.percent * 0.7) : undefined;
+              if (pct !== undefined) setProgress(pct);
               if (evt.msg) setProgressMsg(evt.msg);
+              if (pct !== undefined || evt.msg) {
+                setJob({ id: jobId, channel: "advanced", progress: pct ?? 0, msg: evt.msg ?? "", status: "running" });
+              }
               if (evt.error) {
                 const code = evt.code || "VID-004";
-                setSubmitError(`[${code}] ${evt.msg || "Erreur FFmpeg"}`);
+                const errMsg = `[${code}] ${evt.msg || "Erreur FFmpeg"}`;
+                setSubmitError(errMsg);
+                setJob({ id: jobId, channel: "advanced", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
                 setProcessing(false);
                 return;
               }
               if (evt.done) {
                 receivedDone = true;
+                setJob({ id: jobId, channel: "advanced", progress: 100, msg: "Terminé", status: "done" });
+                setTimeout(() => removeJob(jobId), 6000);
                 router.refresh(); // re-fetch server component → file list updates instantly
                 return;
               }
@@ -392,15 +407,23 @@ export default function VideoFormAdvancedClient() {
       }
 
       if (!receivedDone) {
-        setSubmitError("[CLT-004] Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.");
+        const errMsg = "[CLT-004] Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.";
+        setSubmitError(errMsg);
+        setJob({ id: jobId, channel: "advanced", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
       }
     } catch (err: any) {
       if (err?.name === "AbortError") {
         if (ctrl.signal.reason === "timeout") {
-          setSubmitError("[CLT-003] Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.");
+          const errMsg = "[CLT-003] Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.";
+          setSubmitError(errMsg);
+          setJob({ id: jobId, channel: "advanced", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
+        } else {
+          removeJob(jobId);
         }
       } else {
-        setSubmitError(`[CLT-005] Erreur réseau — ${(err as Error)?.message || "connexion interrompue. Réessayez."}`);
+        const errMsg = `[CLT-005] Erreur réseau — ${(err as Error)?.message || "connexion interrompue. Réessayez."}`;
+        setSubmitError(errMsg);
+        setJob({ id: jobId, channel: "advanced", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
       }
     } finally {
       setProcessing(false);
