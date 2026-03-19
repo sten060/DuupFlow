@@ -286,35 +286,35 @@ export default function VideoFormAdvancedClient() {
         const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
         const userId = user?.id ?? "anon";
 
-        setProgressMsg(`Upload 0/${uploadedFiles.length}…`);
+        setProgressMsg(`Envoi vidéos (0/${uploadedFiles.length})…`);
         setProgress(0);
-        let doneUploads = 0;
 
-        const storagePaths = await Promise.all(
-          uploadedFiles.map(async (file) => {
-            const signRes = await fetch("/api/storage/sign-upload", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ fileName: file.name, userId }),
-              signal: ctrl.signal,
-            });
-            if (!signRes.ok) {
-              const j = await signRes.json().catch(() => ({}));
-              throw new Error(j?.error || `Erreur sign-upload HTTP ${signRes.status}`);
-            }
-            const { token, path: storagePath } = await signRes.json();
+        // Sequential uploads — parallel Promise.all can fail if one file errors mid-upload
+        const storagePaths: string[] = [];
+        for (let i = 0; i < uploadedFiles.length; i++) {
+          const file = uploadedFiles[i];
+          setProgressMsg(`Envoi vidéo ${i + 1}/${uploadedFiles.length} — ${file.name}…`);
 
-            const uploadRes = await supabase.storage
-              .from("video-uploads")
-              .uploadToSignedUrl(storagePath, token, file);
-            if (uploadRes.error) throw new Error(`Upload storage: ${uploadRes.error.message}`);
+          const signRes = await fetch("/api/storage/sign-upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileName: file.name, userId }),
+            signal: ctrl.signal,
+          });
+          if (!signRes.ok) {
+            const j = await signRes.json().catch(() => ({}));
+            throw new Error(j?.error || `Erreur sign-upload HTTP ${signRes.status}`);
+          }
+          const { token, path: storagePath } = await signRes.json();
 
-            doneUploads++;
-            setProgress(Math.round((doneUploads / uploadedFiles.length) * 30));
-            setProgressMsg(`Upload ${doneUploads}/${uploadedFiles.length}…`);
-            return storagePath;
-          })
-        );
+          const uploadRes = await supabase.storage
+            .from("video-uploads")
+            .uploadToSignedUrl(storagePath, token, file);
+          if (uploadRes.error) throw new Error(`Upload storage (${file.name}): ${uploadRes.error.message}`);
+
+          storagePaths.push(storagePath);
+          setProgress(Math.round(((i + 1) / uploadedFiles.length) * 30));
+        }
 
         setProgress(30);
         setProgressMsg("Envoi au serveur…");
@@ -346,7 +346,7 @@ export default function VideoFormAdvancedClient() {
         return;
       }
 
-      const INACTIVITY_MS = 5 * 60 * 1000;
+      const INACTIVITY_MS = 12 * 60 * 1000; // 12 min — large batches (e.g. 5×10) can take a while
       let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
       const resetInactivity = () => {
         if (inactivityTimer) clearTimeout(inactivityTimer);
@@ -400,7 +400,7 @@ export default function VideoFormAdvancedClient() {
           setSubmitError("[CLT-003] Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.");
         }
       } else {
-        setSubmitError("[CLT-005] Erreur réseau");
+        setSubmitError(`[CLT-005] Erreur réseau — ${(err as Error)?.message || "connexion interrompue. Réessayez."}`);
       }
     } finally {
       setProcessing(false);
