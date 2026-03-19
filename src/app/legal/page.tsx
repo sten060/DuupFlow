@@ -1,27 +1,91 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Mentions légales — DuupFlow",
+  description: "Mentions légales, CGU et politique de confidentialité de DuupFlow.",
+};
+
 export default function LegalPage() {
   return (
-    <main className="min-h-screen bg-[#0B0F1A] text-white px-6 py-12">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold">Termes légaux</h1>
-        <p className="mt-3 text-gray-300 text-sm">
-          Ce contenu est fourni à titre d’exemple. Remplace par tes conditions générales, mentions légales et politique de confidentialité.
+    <div className="min-h-screen bg-[#0B0F1A] text-white">
+      {/* Header */}
+      <header className="border-b border-white/[0.08] px-6 py-4">
+        <div className="max-w-4xl mx-auto">
+          <Link href="/" className="text-xl font-extrabold tracking-tight">
+            <span style={{ color: "#818CF8" }}>Duup</span>
+            <span className="text-white/55">Flow</span>
+          </Link>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-6 py-12">
+        <h1 className="text-4xl font-bold text-white mb-3">Mentions légales</h1>
+        <p className="text-white/50 text-base mb-12">
+          Informations légales relatives au service DuupFlow.
         </p>
 
-        <section className="mt-8 space-y-4 text-gray-200">
-          <h2 className="text-xl font-semibold">1. Objet</h2>
-          <p>Décris le service, les limites de responsabilité, etc.</p>
+        {/* Legal docs links */}
+        <div className="grid sm:grid-cols-2 gap-4 mb-12">
+          <Link href="/legal/terms"
+            className="group rounded-2xl p-6 transition hover:border-indigo-500/40"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center mb-4"
+              style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.2)" }}>
+              <svg className="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h2 className="text-base font-semibold text-white mb-1 group-hover:text-indigo-300 transition">
+              Conditions Générales d&apos;Utilisation
+            </h2>
+            <p className="text-sm text-white/40">Règles d&apos;utilisation du service, abonnement, responsabilités.</p>
+          </Link>
 
-          <h2 className="text-xl font-semibold">2. Données personnelles</h2>
-          <p>Explique la collecte et l’utilisation des données, lien vers la politique de confidentialité.</p>
-
-          <h2 className="text-xl font-semibold">3. Abonnement</h2>
-          <p>Modalités de facturation, rétractation, résiliation.</p>
-        </section>
-
-        <div className="mt-10">
-          <a href="/" className="text-indigo-400 hover:text-indigo-300 underline">Retour à l’accueil</a>
+          <Link href="/legal/privacy"
+            className="group rounded-2xl p-6 transition hover:border-indigo-500/40"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center mb-4"
+              style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.2)" }}>
+              <svg className="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h2 className="text-base font-semibold text-white mb-1 group-hover:text-indigo-300 transition">
+              Politique de confidentialité
+            </h2>
+            <p className="text-sm text-white/40">Données collectées, droits RGPD, sous-traitants, cookies.</p>
+          </Link>
         </div>
-      </div>
-    </main>
+
+        {/* Publisher info */}
+        <div className="rounded-2xl p-6 space-y-4 text-sm text-white/60"
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <h2 className="text-base font-semibold text-white">Informations sur l&apos;éditeur</h2>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">Éditeur</p>
+              <p>DuupFlow</p>
+            </div>
+            <div>
+              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">Site web</p>
+              <p>duupflow.com</p>
+            </div>
+            <div>
+              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">Contact</p>
+              <a href="mailto:contact@duupflow.com" className="text-indigo-400 hover:text-indigo-300">contact@duupflow.com</a>
+            </div>
+            <div>
+              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">Hébergement</p>
+              <p>Vercel Inc., 340 Pine Street Suite 701, San Francisco, CA 94104, USA</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 text-sm text-white/40">
+          <Link href="/" className="hover:text-white/70 transition">← Retour à l&apos;accueil</Link>
+        </div>
+      </main>
+    </div>
   );
 }

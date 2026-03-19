@@ -416,6 +416,8 @@ export default function TarifsPage() {
           <p className="text-xs text-white/25">© 2025 DuupFlow — Tous droits réservés.</p>
           <div className="flex gap-5 text-xs text-white/30">
             <Link href="/legal" className="hover:text-white/60 transition">Mentions légales</Link>
+            <Link href="/legal/terms" className="hover:text-white/60 transition">CGU</Link>
+            <Link href="/legal/privacy" className="hover:text-white/60 transition">Confidentialité</Link>
           </div>
         </div>
       </footer>
