@@ -474,34 +474,42 @@ export async function processVideos(
           .filter(Boolean);
 
         if (packs.includes("visual")) {
-          // Subtle eq — brightness ±3%, contrast ±5%, saturation ±5%, gamma ±3%
-          const b  = clamp(Number((-0.03 + Math.random() * 0.06).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.96 + Math.random() * 0.08).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
-          const st = clamp(Number((0.96 + Math.random() * 0.08).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
-          const gm = clamp(Number((0.97 + Math.random() * 0.06).toFixed(3)),  0.1, 3.0);
+          // eq — brightness ±5%, contrast ±8%, saturation ±8%, gamma ±5%
+          const b  = clamp(Number((-0.05 + Math.random() * 0.10).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          const ct = clamp(Number((0.93 + Math.random() * 0.14).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
+          const st = clamp(Number((0.93 + Math.random() * 0.14).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
+          const gm = clamp(Number((0.95 + Math.random() * 0.10).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
-          // Micro hue shift ±3°
-          const hue = clamp(Number((Math.random() * 0.10 - 0.05).toFixed(3)), -1, 1);
+          // Hue shift ±6° (FFmpeg hue filter unit: degrees)
+          const hue = clamp(Number((Math.random() * 12 - 6).toFixed(2)), -30, 30);
           vfParts.push(`hue=h=${hue}`);
-          // Very light sharpening — imperceptible
-          vfParts.push("unsharp=lx=3:ly=3:la=0.3:cx=3:cy=3:ca=0.3");
-          // Imperceptible noise — luma-only for speed
-          vfParts.push("noise=c0s=2:c0f=t");
-          // Removed: vignette (darkens corners — very visible)
-          // Removed: lenscorrection (distorts/rounds the image — very visible)
+          // Subtle color channel mixing — disrupts AI DCT patterns imperceptibly
+          const rr = (0.96 + Math.random() * 0.08).toFixed(3);
+          const gg = (0.96 + Math.random() * 0.08).toFixed(3);
+          const bb = (0.96 + Math.random() * 0.08).toFixed(3);
+          const cx = (Math.random() * 0.012).toFixed(3);  // 0–1.2% cross-channel bleed
+          vfParts.push(`colorchannelmixer=rr=${rr}:rg=${cx}:rb=${cx}:gg=${gg}:gr=${cx}:gb=${cx}:bb=${bb}:bg=${cx}:br=${cx}`);
+          // Sharpening (slightly stronger for ISP-like effect)
+          vfParts.push("unsharp=lx=3:ly=3:la=0.5:cx=3:cy=3:ca=0.5");
+          // Luma noise — temporal, strong enough to disrupt perceptual hashes
+          const ns = 3 + Math.floor(Math.random() * 4);  // 3–6
+          vfParts.push(`noise=c0s=${ns}:c0f=t`);
+          // Double-resize: scale down 2px then back up — two bicubic passes break DCT fingerprints
+          // without any visible dimension change (original size restored exactly)
+          vfParts.push("scale=iw-2:ih-2:flags=bicubic,scale=iw+2:ih+2:flags=bicubic");
         }
 
         if (packs.includes("motion")) {
-          // Subtle zoom 1.01–1.04× — imperceptible to the eye
-          const zoom = clamp(1.01 + Math.random() * 0.03, LIMITS.zoom.min, LIMITS.zoom.max);
+          // Zoom 1.03–1.08× (stronger to shift pixel grid noticeably for hash algorithms)
+          const zoom = clamp(1.03 + Math.random() * 0.05, LIMITS.zoom.min, LIMITS.zoom.max);
           vfParts.push(`scale=iw*${zoom.toFixed(4)}:ih*${zoom.toFixed(4)}`);
-          // Crop offset 0–10% of the oversize (very small pan)
-          const offx = (Math.random() * 0.10).toFixed(4);
-          const offy = (Math.random() * 0.10).toFixed(4);
+          // Crop offset 0–20% of the oversize (larger pan range)
+          const offx = (Math.random() * 0.20).toFixed(4);
+          const offy = (Math.random() * 0.20).toFixed(4);
           vfParts.push(`crop=iw:ih:x=(in_w-out_w)*${offx}:y=(in_h-out_h)*${offy}`);
-          // Speed ±1–3% with synchronised audio tempo
+          // Speed ±2–4% with synchronised audio tempo
           const side = Math.random() > 0.5 ? 1 : -1;
-          const deviation = 0.01 + Math.random() * 0.02;
+          const deviation = 0.02 + Math.random() * 0.02;
           const sp = clamp(1.0 + side * deviation, LIMITS.speed.min, LIMITS.speed.max);
           vfParts.push(`setpts=${(1 / sp).toFixed(6)}*PTS`);
           afParts.push(`atempo=${sp.toFixed(4)}`);

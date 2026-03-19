@@ -3,7 +3,46 @@
 import { useRef, useState, useEffect } from "react";
 import { maskAiMetadata, deleteAiFiles } from "./actions";
 
-const MAX_FILES = 50;
+const MAX_FILES = 20;
+
+/* ── Accordion ── */
+function Accordion({
+  title, icon, children, borderCls, bgCls, headerTextCls, bodyTextCls,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  borderCls: string;
+  bgCls: string;
+  headerTextCls: string;
+  bodyTextCls: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`rounded-xl border ${borderCls} ${bgCls} overflow-hidden`}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          {icon}
+          <span className={`text-sm font-medium ${headerTextCls}`}>{title}</span>
+        </div>
+        <svg
+          className={`h-4 w-4 shrink-0 ${headerTextCls} transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div className={`px-5 pb-4 text-sm ${bodyTextCls} border-t ${borderCls}`}>
+          <div className="pt-3">{children}</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ── Preview grid ── */
 function FilePreviewGrid({ files }: { files: File[] }) {
@@ -21,7 +60,6 @@ function FilePreviewGrid({ files }: { files: File[] }) {
 
   if (!files.length) return null;
 
-  // Taille des miniatures selon le nombre de fichiers
   const size =
     files.length <= 4 ? 120 :
     files.length <= 9 ? 90 :
@@ -50,7 +88,6 @@ function FilePreviewGrid({ files }: { files: File[] }) {
           ) : (
             <img src={p.url} alt={p.name} className="w-full h-full object-cover" />
           )}
-          {/* filename tooltip on hover */}
           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-end p-1">
             <span className="text-white/80 text-[9px] leading-tight font-mono line-clamp-2 break-all">{p.name}</span>
           </div>
@@ -62,9 +99,7 @@ function FilePreviewGrid({ files }: { files: File[] }) {
 
 /* ── Dropzone ── */
 function FileDropzone({
-  files,
-  onChange,
-  limitError,
+  files, onChange, limitError,
 }: {
   files: File[];
   onChange: (f: File[]) => void;
@@ -117,7 +152,6 @@ function FileDropzone({
         )}
       </div>
 
-      {/* Limit error */}
       {limitError && (
         <div className="mt-2 rounded-xl border border-red-500/25 bg-red-500/[0.06] px-4 py-2.5 text-sm text-red-300 flex items-center gap-2">
           <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -128,7 +162,6 @@ function FileDropzone({
         </div>
       )}
 
-      {/* Preview grid */}
       {files.length > 0 && <FilePreviewGrid files={files} />}
     </div>
   );
@@ -164,12 +197,13 @@ export default function AiDetectionPage() {
     setPending(true);
     setResult(null);
 
-    // Safety timeout: unblock UI after 90s even if server action hangs
+    // Timeout: ~4s per file (parallel) + 15s buffer
+    const timeoutMs = Math.max(60_000, files.length * 4_000 + 15_000);
     if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
     pendingTimeoutRef.current = setTimeout(() => {
       setPending(false);
-      setResult({ ok: false, error: "[CLT-006] Délai dépassé — réessaie avec un fichier plus petit." });
-    }, 90_000);
+      setResult({ ok: false, error: "[CLT-006] Délai dépassé — réessaie avec moins de fichiers." });
+    }, timeoutMs);
 
     maskAiMetadata(fd)
       .then((res) => {
@@ -213,36 +247,50 @@ export default function AiDetectionPage() {
         </p>
       </div>
 
-      {/* notice : détection contenu */}
-      <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] px-5 py-4 text-sm text-amber-200/70 flex gap-3 items-start">
-        <svg className="h-4 w-4 mt-0.5 shrink-0 text-amber-400/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-          <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
-        <div>
-          <p className="text-amber-200/80 font-medium mb-0.5">Remarque sur la détection des plateformes</p>
-          <p>
-            Ce module supprime toutes les métadonnées IA — y compris les manifestes C2PA utilisés par Meta/Threads.
-            Certaines plateformes utilisent aussi une <span className="text-amber-200/90">détection basée sur le contenu visuel</span> (pixels, patterns) indépendante des métadonnées.
-            Pour contourner cette couche, utilise le module <strong className="text-amber-200/80">Duplication Images</strong> afin d'appliquer des micro-variations visuelles.
-          </p>
-        </div>
-      </div>
+      {/* notice : détection contenu — accordion */}
+      <Accordion
+        title="Remarque sur la détection des plateformes"
+        borderCls="border-amber-500/20"
+        bgCls="bg-amber-500/[0.04]"
+        headerTextCls="text-amber-200/80"
+        bodyTextCls="text-amber-200/70"
+        icon={
+          <svg className="h-4 w-4 shrink-0 text-amber-400/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        }
+      >
+        Ce module supprime toutes les métadonnées IA — y compris les manifestes C2PA utilisés par Meta/Threads.
+        Certaines plateformes utilisent aussi une <span className="text-amber-200/90">détection basée sur le contenu visuel</span> (pixels, patterns) indépendante des métadonnées.
+        Pour contourner cette couche, utilise le module <strong className="text-amber-200/80">Duplication Images</strong> afin d'appliquer des micro-variations visuelles.
+      </Accordion>
 
-      {/* info */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.025] px-5 py-4 text-sm text-white/55 flex gap-3 items-start">
-        <svg className="h-4 w-4 mt-0.5 shrink-0 text-white/35" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
-        </svg>
+      {/* info processus — accordion */}
+      <Accordion
+        title="Comment ça fonctionne ?"
+        borderCls="border-white/10"
+        bgCls="bg-white/[0.025]"
+        headerTextCls="text-white/55"
+        bodyTextCls="text-white/50"
+        icon={
+          <svg className="h-4 w-4 shrink-0 text-white/35" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
+          </svg>
+        }
+      >
         <p>
-          Processus en 2 étapes : <strong className="text-white/70">1)</strong> suppression totale de toutes les métadonnées (EXIF, XMP, IPTC, C2PA/JUMBF),
-          puis <strong className="text-white/70">2)</strong> injection d'une identité humaine réaliste avec une date photo cohérente. Aucune modification visuelle.
+          Traitement en <strong className="text-white/70">3 étapes</strong> qui simule un workflow photographique humain :
         </p>
-      </div>
+        <ol className="mt-2 space-y-1 list-decimal list-inside">
+          <li><strong className="text-white/70">Suppression totale</strong> — EXIF, XMP, IPTC, C2PA/JUMBF, tous les manifestes IA effacés.</li>
+          <li><strong className="text-white/70">Traitement pixel</strong> — légère simulation de capture photo (flou objectif → bruit capteur → netteté ISP → re-compression JPEG).</li>
+          <li><strong className="text-white/70">Injection identité humaine</strong> — appareil photo réaliste, logiciel, photographe, date cohérente.</li>
+        </ol>
+      </Accordion>
 
       {/* panel */}
       <div className="rounded-2xl border border-indigo-500/20 bg-white/[0.03] p-6 flex flex-col gap-5">
-        {/* header du panel */}
         <div className="flex items-start gap-3">
           <div className="h-10 w-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center shrink-0">
             <svg className="h-5 w-5 text-indigo-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -258,10 +306,8 @@ export default function AiDetectionPage() {
           </div>
         </div>
 
-        {/* dropzone + previews */}
         <FileDropzone files={files} onChange={handleFilesChange} limitError={limitError} />
 
-        {/* bouton traitement */}
         <button
           onClick={handleSubmit}
           disabled={pending || !files.length}
@@ -271,7 +317,6 @@ export default function AiDetectionPage() {
           {pending ? "Traitement en cours…" : `Masquer la signature IA${files.length ? ` (${files.length} fichier${files.length > 1 ? "s" : ""})` : ""}`}
         </button>
 
-        {/* feedback */}
         {result && (
           <div
             className={`rounded-xl px-4 py-3 text-sm ${
@@ -287,7 +332,7 @@ export default function AiDetectionPage() {
         )}
       </div>
 
-      {/* section téléchargement + suppression */}
+      {/* téléchargement + suppression */}
       <div className="space-y-3">
         {sessionFiles.length > 0 && (
           <div className="rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
@@ -308,7 +353,6 @@ export default function AiDetectionPage() {
         )}
 
         <div className="flex gap-3 flex-wrap">
-          {/* télécharger */}
           <a
             href={downloadUrl}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] transition"
@@ -323,7 +367,6 @@ export default function AiDetectionPage() {
               : "Télécharger tous les fichiers (ZIP)"}
           </a>
 
-          {/* supprimer */}
           {sessionFiles.length > 0 && (
             <button
               onClick={handleDelete}
