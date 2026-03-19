@@ -20,7 +20,13 @@ type Listener = () => void;
 const jobs = new Map<string, VideoJob>();
 const listeners = new Set<Listener>();
 
+// Stable snapshot reference — only replaced when the store mutates.
+// useSyncExternalStore compares via Object.is: returning a new array every
+// call (even when empty) would make React throw "getSnapshot should be cached".
+let _snapshot: VideoJob[] = [];
+
 function notify() {
+  _snapshot = Array.from(jobs.values());
   for (const fn of listeners) fn();
 }
 
@@ -35,12 +41,12 @@ export function removeJob(id: string): void {
 }
 
 export function getJobs(): VideoJob[] {
-  return Array.from(jobs.values());
+  return _snapshot;
 }
 
 /** For useSyncExternalStore — returns a stable snapshot array */
 export function snapshot(): VideoJob[] {
-  return Array.from(jobs.values());
+  return _snapshot;
 }
 
 export function subscribe(fn: Listener): () => void {

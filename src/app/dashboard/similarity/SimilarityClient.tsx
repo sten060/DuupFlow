@@ -4,6 +4,8 @@ import { useState } from "react";
 import { compareFiles } from "./actions";
 
 const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"];
+// Larger thumbnails → more detail → better precision for subtle filters
+const THUMB_SIZE = 192;
 const VIDEO_FRAME_COUNT = 5; // frames extracted at 10%, 25%, 50%, 75%, 90%
 
 function extOf(name: string) {
@@ -14,13 +16,23 @@ function isVideoFile(file: File) {
   return file.type.startsWith("video/") || VIDEO_EXTS.includes(extOf(file.name));
 }
 function scoreColor(v: number): string {
-  if (v >= 80) return "text-red-300";
-  if (v >= 55) return "text-yellow-300";
+  if (v >= 75) return "text-red-300";
+  if (v >= 45) return "text-yellow-300";
   return "text-emerald-300";
+}
+function scoreBgBorder(v: number): string {
+  if (v >= 75) return "border-red-500/30 bg-red-500/10";
+  if (v >= 45) return "border-yellow-500/30 bg-yellow-500/10";
+  return "border-emerald-500/30 bg-emerald-500/15";
+}
+function scoreLabel(v: number): string {
+  if (v >= 75) return "Très similaires — risque de détection";
+  if (v >= 45) return "Similarité modérée";
+  return "Très différents — bien protégé ✓";
 }
 
 // Draw a video frame at `t` seconds onto a canvas and return base64 JPEG
-function seekAndCapture(video: HTMLVideoElement, t: number, size = 128): Promise<string> {
+function seekAndCapture(video: HTMLVideoElement, t: number, size = THUMB_SIZE): Promise<string> {
   return new Promise((resolve, reject) => {
     const onSeeked = () => {
       const canvas = document.createElement("canvas");
@@ -70,16 +82,16 @@ async function extractVideoFrames(file: File, n: number): Promise<string[]> {
   });
 }
 
-// Extract a single 128×128 thumbnail from an image file
+// Extract a single THUMB_SIZE×THUMB_SIZE thumbnail from an image file
 async function extractImageFrame(file: File): Promise<string[]> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = 128;
-      canvas.height = 128;
-      canvas.getContext("2d")!.drawImage(img, 0, 0, 128, 128);
+      canvas.width = THUMB_SIZE;
+      canvas.height = THUMB_SIZE;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, THUMB_SIZE, THUMB_SIZE);
       URL.revokeObjectURL(url);
       resolve([canvas.toDataURL("image/jpeg", 0.88).split(",")[1]]);
     };
@@ -92,6 +104,55 @@ async function getFrames(file: File): Promise<string[]> {
   return isVideoFile(file) ? extractVideoFrames(file, VIDEO_FRAME_COUNT) : extractImageFrame(file);
 }
 
+type Breakdown = {
+  phash: number;
+  dhash: number;
+  ahash: number;
+  color: number;
+  mse: number;
+  texture: number;
+  mirrored: boolean;
+};
+
+type Result = {
+  score: number;
+  breakdown: Breakdown;
+};
+
+function MetricBar({
+  label,
+  value,
+  hint,
+  weight,
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  weight: string;
+}) {
+  const color = value >= 75 ? "bg-red-400" : value >= 45 ? "bg-yellow-400" : "bg-emerald-400";
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-white/70 font-medium">{label}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-white/35 text-[10px]">{weight}</span>
+          <span className={`font-bold ${value >= 75 ? "text-red-300" : value >= 45 ? "text-yellow-300" : "text-emerald-300"}`}>
+            {value}%
+          </span>
+        </div>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+        <div
+          className={`h-1.5 rounded-full transition-all duration-500 ${color}`}
+          style={{ width: `${value}%` }}
+        />
+      </div>
+      <p className="text-[10px] text-white/30">{hint}</p>
+    </div>
+  );
+}
+
 export default function SimilarityClient({
   initialScore,
   initialErr,
@@ -102,7 +163,9 @@ export default function SimilarityClient({
   const [fileA, setFileA] = useState<File | null>(null);
   const [fileB, setFileB] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [score, setScore] = useState<number | undefined>(initialScore);
+  const [result, setResult] = useState<Result | undefined>(
+    initialScore !== undefined ? { score: initialScore, breakdown: { phash: 0, dhash: 0, ahash: 0, color: 0, mse: 0, texture: 0, mirrored: false } } : undefined
+  );
   const [error, setError] = useState<string | null>(initialErr ?? null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -111,15 +174,14 @@ export default function SimilarityClient({
 
     setProcessing(true);
     setError(null);
-    setScore(undefined);
+    setResult(undefined);
 
     try {
-      // Extract frames client-side in parallel (files are already in browser memory)
       const [framesA, framesB] = await Promise.all([getFrames(fileA), getFrames(fileB)]);
-      const result = await compareFiles(framesA, framesB);
+      const data = await compareFiles(framesA, framesB);
 
-      if ("error" in result) setError(result.error);
-      else setScore(result.score);
+      if ("error" in data) setError(data.error);
+      else setResult(data);
     } catch (err: any) {
       setError(err?.message || "Erreur comparaison");
     } finally {
@@ -128,68 +190,103 @@ export default function SimilarityClient({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-      <div className="rounded-xl border border-white/15 bg-white/5 p-4">
-        <label className="block text-sm font-medium mb-2 text-white/85">Fichier A</label>
-        <input
-          type="file"
-          accept="image/*,video/*"
-          required
-          disabled={processing}
-          onChange={(e) => { setFileA(e.target.files?.[0] ?? null); setScore(undefined); }}
-          className="block w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-white/90 disabled:opacity-50"
-        />
-        {fileA && <p className="mt-1 text-xs text-white/45 truncate">{fileA.name} — {(fileA.size / 1024 / 1024).toFixed(2)} Mo</p>}
-      </div>
-
-      <div className="rounded-xl border border-white/15 bg-white/5 p-4">
-        <label className="block text-sm font-medium mb-2 text-white/85">Fichier B</label>
-        <input
-          type="file"
-          accept="image/*,video/*"
-          required
-          disabled={processing}
-          onChange={(e) => { setFileB(e.target.files?.[0] ?? null); setScore(undefined); }}
-          className="block w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-white/90 disabled:opacity-50"
-        />
-        {fileB && <p className="mt-1 text-xs text-white/45 truncate">{fileB.name} — {(fileB.size / 1024 / 1024).toFixed(2)} Mo</p>}
-      </div>
-
-      <div className="sm:col-span-2 space-y-3">
-        {typeof score === "number" && (
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-4 py-3">
-            <span className="text-sm font-semibold text-emerald-300">Similarité : </span>
-            <span className={`font-bold text-2xl ${scoreColor(score)}`}>{score}%</span>
-          </div>
-        )}
-
-        {error && (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-            {error}
-          </div>
-        )}
-
-        {processing && (
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-            <div className="h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.6)] animate-pulse w-full" />
-          </div>
-        )}
-
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={processing || !fileA || !fileB}
-            className={[
-              "rounded-lg px-4 py-2 font-medium text-white transition",
-              processing || !fileA || !fileB
-                ? "cursor-not-allowed bg-emerald-700/60"
-                : "bg-emerald-600 hover:bg-emerald-500",
-            ].join(" ")}
-          >
-            {processing ? "Analyse…" : "Comparer"}
-          </button>
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div className="rounded-xl border border-white/15 bg-white/5 p-4">
+          <label className="block text-sm font-medium mb-2 text-white/85">Fichier A (original)</label>
+          <input
+            type="file"
+            accept="image/*,video/*"
+            required
+            disabled={processing}
+            onChange={(e) => { setFileA(e.target.files?.[0] ?? null); setResult(undefined); }}
+            className="block w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-white/90 disabled:opacity-50"
+          />
+          {fileA && <p className="mt-1 text-xs text-white/45 truncate">{fileA.name} — {(fileA.size / 1024 / 1024).toFixed(2)} Mo</p>}
         </div>
-      </div>
-    </form>
+
+        <div className="rounded-xl border border-white/15 bg-white/5 p-4">
+          <label className="block text-sm font-medium mb-2 text-white/85">Fichier B (copie dupliquée)</label>
+          <input
+            type="file"
+            accept="image/*,video/*"
+            required
+            disabled={processing}
+            onChange={(e) => { setFileB(e.target.files?.[0] ?? null); setResult(undefined); }}
+            className="block w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-white/90 disabled:opacity-50"
+          />
+          {fileB && <p className="mt-1 text-xs text-white/45 truncate">{fileB.name} — {(fileB.size / 1024 / 1024).toFixed(2)} Mo</p>}
+        </div>
+
+        <div className="sm:col-span-2 space-y-4">
+          {/* Main score */}
+          {result && (
+            <div className={`rounded-xl border px-5 py-4 ${scoreBgBorder(result.score)}`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-white/80">Score de similarité</span>
+                <span className={`font-extrabold text-3xl ${scoreColor(result.score)}`}>{result.score}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-white/10 mb-2">
+                <div
+                  className={`h-2 rounded-full transition-all duration-700 ${
+                    result.score >= 75 ? "bg-red-400" : result.score >= 45 ? "bg-yellow-400" : "bg-emerald-400"
+                  }`}
+                  style={{ width: `${result.score}%` }}
+                />
+              </div>
+              <p className="text-xs text-white/55">{scoreLabel(result.score)}</p>
+              {result.breakdown.mirrored && (
+                <p className="mt-2 text-xs font-medium text-sky-300">
+                  🔁 Miroir horizontal détecté — filtre Reverse appliqué sur le fichier B
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Breakdown */}
+          {result && (
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-4">
+              <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Détail des métriques</p>
+              <MetricBar label="Structure (pHash)" value={result.breakdown.phash} weight="×30%" hint="Sensible aux transformations structurelles : crop, zoom, rotation, miroir" />
+              <MetricBar label="Contours (dHash)" value={result.breakdown.dhash} weight="×20%" hint="Sensible aux changements de bords : netteté, unsharp, kernel aléatoire" />
+              <MetricBar label="Couleurs (histogramme)" value={result.breakdown.color} weight="×20%" hint="Sensible aux filtres visuels : saturation, teinte, gamma, luminosité" />
+              <MetricBar label="Pixels (MSE)" value={result.breakdown.mse} weight="×15%" hint="Comparaison pixel par pixel — détecte tout changement de valeur, même subtil" />
+              <MetricBar label="Texture (variance)" value={result.breakdown.texture} weight="×10%" hint="Sensible aux changements de grain : bruit, contraste, filtres semi-visuels" />
+              <MetricBar label="Luminosité (aHash)" value={result.breakdown.ahash} weight="×5%" hint="Sensible aux variations globales de luminosité" />
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          {processing && (
+            <div className="space-y-1.5">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.6)] animate-pulse w-full" />
+              </div>
+              <p className="text-xs text-white/40 text-center">Analyse en cours — 6 algorithmes…</p>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={processing || !fileA || !fileB}
+              className={[
+                "rounded-lg px-4 py-2 font-medium text-white transition",
+                processing || !fileA || !fileB
+                  ? "cursor-not-allowed bg-emerald-700/60"
+                  : "bg-emerald-600 hover:bg-emerald-500",
+              ].join(" ")}
+            >
+              {processing ? "Analyse…" : "Comparer"}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
   );
 }
