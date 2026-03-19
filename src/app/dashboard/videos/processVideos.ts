@@ -474,25 +474,25 @@ export async function processVideos(
           .filter(Boolean);
 
         if (packs.includes("visual")) {
-          // eq — brightness ±12%, contrast ±12%, saturation ±12%, gamma ±8%
-          const b  = clamp(Number((-0.12 + Math.random() * 0.24).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.88 + Math.random() * 0.24).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
-          const st = clamp(Number((0.88 + Math.random() * 0.24).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
-          const gm = clamp(Number((0.92 + Math.random() * 0.16).toFixed(3)),  0.1, 3.0);
+          // eq — brightness ±6%, contrast ±6%, saturation ±6%, gamma ±4%
+          const b  = clamp(Number((-0.06 + Math.random() * 0.12).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          const ct = clamp(Number((0.94 + Math.random() * 0.12).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
+          const st = clamp(Number((0.94 + Math.random() * 0.12).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
+          const gm = clamp(Number((0.96 + Math.random() * 0.08).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
-          // Hue ±20° — noticeable color cast, effective against perceptual hashes
-          const hue = clamp(Number((Math.random() * 40 - 20).toFixed(2)), -30, 30);
+          // Hue ±8° — subtle color shift
+          const hue = clamp(Number((Math.random() * 16 - 8).toFixed(2)), -30, 30);
           vfParts.push(`hue=h=${hue}`);
-          // Color channel mixing 1–5% cross-channel
-          const rr = (0.93 + Math.random() * 0.10).toFixed(3);
-          const gg = (0.93 + Math.random() * 0.10).toFixed(3);
-          const bb = (0.93 + Math.random() * 0.10).toFixed(3);
-          const cx = (0.01 + Math.random() * 0.04).toFixed(3);
+          // Color channel mixing 0.5–2% cross-channel
+          const rr = (0.97 + Math.random() * 0.04).toFixed(3);
+          const gg = (0.97 + Math.random() * 0.04).toFixed(3);
+          const bb = (0.97 + Math.random() * 0.04).toFixed(3);
+          const cx = (0.005 + Math.random() * 0.015).toFixed(3);
           vfParts.push(`colorchannelmixer=rr=${rr}:rg=${cx}:rb=${cx}:gg=${gg}:gr=${cx}:gb=${cx}:bb=${bb}:bg=${cx}:br=${cx}`);
-          // Unsharp (moderate sharpening)
-          vfParts.push("unsharp=lx=3:ly=3:la=0.8:cx=3:cy=3:ca=0.8");
-          // Luma noise temporal — 6-13 (visible grain, fast to encode)
-          const ns = 6 + Math.floor(Math.random() * 8);  // 6–13
+          // Unsharp (light sharpening)
+          vfParts.push("unsharp=lx=3:ly=3:la=0.4:cx=3:cy=3:ca=0.4");
+          // Luma noise temporal — 2–5 (subtle grain)
+          const ns = 2 + Math.floor(Math.random() * 4);  // 2–5
           vfParts.push(`noise=c0s=${ns}:c0f=t`);
           // NOTE: double-resize removed (was slow and barely effective)
         }
