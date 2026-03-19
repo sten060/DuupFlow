@@ -194,18 +194,11 @@ export default function VideoFormSimpleClient() {
   const [dimW, setDimW] = useState(1.0);
   const [dimH, setDimH] = useState(1.0);
 
-  const [borderEnabled, setBorderEnabled] = useState(false);
-  const [borderMin, setBorderMin] = useState(0);
-  const [borderMax, setBorderMax] = useState(20);
-  const [borderHoriz, setBorderHoriz] = useState(false);
-  const [borderLat, setBorderLat] = useState(false);
-
   const singlesJSON = JSON.stringify({
     flip,
     reverse,
     rotation: { enabled: rotEnabled, min_deg: rotMin, max_deg: rotMax },
     dims: { enabled: dimEnabled, w_factor: dimW, h_factor: dimH },
-    border: { enabled: borderEnabled, min_pct: borderMin, max_pct: borderMax, horizontal: borderHoriz, lateral: borderLat },
   });
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -429,8 +422,6 @@ export default function VideoFormSimpleClient() {
           <Toggle checked={flip} onChange={setFlip} label="Flip (vertical)" />
           <Toggle checked={reverse} onChange={setReverse} label="Reverse (miroir horizontal)" />
         </div>
-
-        {/* … le reste de tes contrôles (rotation, dimensions, bordures) inchangés … */}
       </GlowCard>
 
       <SubmitWithProgress pending={processing} />
