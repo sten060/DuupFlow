@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { maskAiMetadata, deleteAiFiles } from "./actions";
 
-const MAX_FILES = 20;
+const MAX_FILES = 30;
 
 /* ── Accordion ── */
 function Accordion({

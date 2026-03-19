@@ -474,42 +474,51 @@ export async function processVideos(
           .filter(Boolean);
 
         if (packs.includes("visual")) {
-          // eq — brightness ±5%, contrast ±8%, saturation ±8%, gamma ±5%
-          const b  = clamp(Number((-0.05 + Math.random() * 0.10).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.93 + Math.random() * 0.14).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
-          const st = clamp(Number((0.93 + Math.random() * 0.14).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
-          const gm = clamp(Number((0.95 + Math.random() * 0.10).toFixed(3)),  0.1, 3.0);
+          // eq — brightness ±12%, contrast ±12%, saturation ±12%, gamma ±8%
+          const b  = clamp(Number((-0.12 + Math.random() * 0.24).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          const ct = clamp(Number((0.88 + Math.random() * 0.24).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
+          const st = clamp(Number((0.88 + Math.random() * 0.24).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
+          const gm = clamp(Number((0.92 + Math.random() * 0.16).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
-          // Hue shift ±6° (FFmpeg hue filter unit: degrees)
-          const hue = clamp(Number((Math.random() * 12 - 6).toFixed(2)), -30, 30);
+          // Hue ±20° — noticeable color cast, effective against perceptual hashes
+          const hue = clamp(Number((Math.random() * 40 - 20).toFixed(2)), -30, 30);
           vfParts.push(`hue=h=${hue}`);
-          // Subtle color channel mixing — disrupts AI DCT patterns imperceptibly
-          const rr = (0.96 + Math.random() * 0.08).toFixed(3);
-          const gg = (0.96 + Math.random() * 0.08).toFixed(3);
-          const bb = (0.96 + Math.random() * 0.08).toFixed(3);
-          const cx = (Math.random() * 0.012).toFixed(3);  // 0–1.2% cross-channel bleed
+          // Color channel mixing 1–5% cross-channel
+          const rr = (0.93 + Math.random() * 0.10).toFixed(3);
+          const gg = (0.93 + Math.random() * 0.10).toFixed(3);
+          const bb = (0.93 + Math.random() * 0.10).toFixed(3);
+          const cx = (0.01 + Math.random() * 0.04).toFixed(3);
           vfParts.push(`colorchannelmixer=rr=${rr}:rg=${cx}:rb=${cx}:gg=${gg}:gr=${cx}:gb=${cx}:bb=${bb}:bg=${cx}:br=${cx}`);
-          // Sharpening (slightly stronger for ISP-like effect)
-          vfParts.push("unsharp=lx=3:ly=3:la=0.5:cx=3:cy=3:ca=0.5");
-          // Luma noise — temporal, strong enough to disrupt perceptual hashes
-          const ns = 3 + Math.floor(Math.random() * 4);  // 3–6
+          // Unsharp (moderate sharpening)
+          vfParts.push("unsharp=lx=3:ly=3:la=0.8:cx=3:cy=3:ca=0.8");
+          // Luma noise temporal — 6-13 (visible grain, fast to encode)
+          const ns = 6 + Math.floor(Math.random() * 8);  // 6–13
           vfParts.push(`noise=c0s=${ns}:c0f=t`);
-          // Double-resize: scale down 2px then back up — two bicubic passes break DCT fingerprints
-          // without any visible dimension change (original size restored exactly)
-          vfParts.push("scale=iw-2:ih-2:flags=bicubic,scale=iw+2:ih+2:flags=bicubic");
+          // NOTE: double-resize removed (was slow and barely effective)
         }
 
         if (packs.includes("motion")) {
-          // Zoom 1.03–1.08× (stronger to shift pixel grid noticeably for hash algorithms)
-          const zoom = clamp(1.03 + Math.random() * 0.05, LIMITS.zoom.min, LIMITS.zoom.max);
-          vfParts.push(`scale=iw*${zoom.toFixed(4)}:ih*${zoom.toFixed(4)}`);
-          // Crop offset 0–20% of the oversize (larger pan range)
-          const offx = (Math.random() * 0.20).toFixed(4);
-          const offy = (Math.random() * 0.20).toFixed(4);
-          vfParts.push(`crop=iw:ih:x=(in_w-out_w)*${offx}:y=(in_h-out_h)*${offy}`);
-          // Speed ±2–4% with synchronised audio tempo
+          // ── Digital zoom with correct sub-region crop ──────────────────────────
+          // Previous code had a bug: crop=iw:ih:x=(in_w-out_w)*off evaluated to x=0
+          // because in_w==out_w after scale, so no crop happened and the video was
+          // output at zoom× the original resolution.
+          //
+          // Correct approach: crop a sub-region (iw/zoom × ih/zoom) from the original
+          // at a random position, then scale that region back up to fill original size.
+          // This is true "digital zoom" — different frame content shown in each copy.
+          const zoom = clamp(1.10 + Math.random() * 0.08, LIMITS.zoom.min, LIMITS.zoom.max); // 1.10–1.18×
+          const zf = zoom.toFixed(6);
+          // Max safe start offset: must ensure crop region stays within frame bounds
+          const maxOff = (1 - 1 / zoom);  // e.g., 0.091 at zoom=1.10, 0.153 at zoom=1.18
+          const offx = (Math.random() * maxOff).toFixed(6);
+          const offy = (Math.random() * maxOff).toFixed(6);
+          // crop: take (iw/zoom × ih/zoom) from position (iw*offx, ih*offy)
+          // scale: bring the sub-region back to full original dimensions — fast_bilinear for speed
+          vfParts.push(`crop=iw/${zf}:ih/${zf}:x=iw*${offx}:y=ih*${offy}`);
+          vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=fast_bilinear`);
+          // Speed ±5–8% — temporal shift makes fixed-timestamp frame comparisons see different content
           const side = Math.random() > 0.5 ? 1 : -1;
-          const deviation = 0.02 + Math.random() * 0.02;
+          const deviation = 0.05 + Math.random() * 0.03;  // 5–8%
           const sp = clamp(1.0 + side * deviation, LIMITS.speed.min, LIMITS.speed.max);
           vfParts.push(`setpts=${(1 / sp).toFixed(6)}*PTS`);
           afParts.push(`atempo=${sp.toFixed(4)}`);
