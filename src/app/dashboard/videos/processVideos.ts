@@ -516,12 +516,27 @@ export async function processVideos(
           // scale: bring the sub-region back to full original dimensions — fast_bilinear for speed
           vfParts.push(`crop=iw/${zf}:ih/${zf}:x=iw*${offx}:y=ih*${offy}`);
           vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=fast_bilinear`);
-          // Speed ±5–8% — temporal shift makes fixed-timestamp frame comparisons see different content
+
+          // Lens correction — barrel/pincushion distortion (geometric, not visual).
+          // Radially warps the frame: k1>0 = barrel (edges bow out), k1<0 = pincushion.
+          // Strongly affects pHash (DCT structure) and dHash (edge gradients) without
+          // any perceivable brightness/color change.
+          const lensSign = Math.random() > 0.5 ? 1 : -1;
+          const k1 = lensSign * (0.05 + Math.random() * 0.07); // ±0.05–0.12
+          vfParts.push(`lenscorrection=k1=${k1.toFixed(5)}:k2=${(-k1 / 2).toFixed(5)}`);
+
+          // Speed ±12–20% — larger temporal shift so fixed-timestamp frame comparisons
+          // see very different content vs. the original (was 5–8%, now 12–20%).
           const side = Math.random() > 0.5 ? 1 : -1;
-          const deviation = 0.05 + Math.random() * 0.03;  // 5–8%
+          const deviation = 0.12 + Math.random() * 0.08;  // 12–20%
           const sp = clamp(1.0 + side * deviation, LIMITS.speed.min, LIMITS.speed.max);
           vfParts.push(`setpts=${(1 / sp).toFixed(6)}*PTS`);
           afParts.push(`atempo=${sp.toFixed(4)}`);
+
+          // Temporal frame blend — mixes each frame with the previous at 30%.
+          // Changes per-frame pixel values (affecting all hash algorithms) with no
+          // visible flicker at normal playback speed.
+          vfParts.push("tblend=all_mode=average:all_opacity=0.3");
         }
 
         if (packs.includes("technical")) {

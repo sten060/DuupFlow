@@ -1,5 +1,6 @@
 import "@/app/globals.css";
 import Sidebar from "./sidebar";
+import GlobalVideoProgress from "./videos/GlobalVideoProgress";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -43,6 +44,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 overflow-y-auto relative z-10">
         {children}
       </div>
+
+      {/* Persistent job progress overlay — survives page navigation */}
+      <GlobalVideoProgress />
     </div>
   );
 }
