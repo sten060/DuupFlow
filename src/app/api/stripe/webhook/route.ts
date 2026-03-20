@@ -127,21 +127,20 @@ export async function POST(request: NextRequest) {
           typeof sub.customer === "string" ? sub.customer : (sub.customer as any)?.id;
 
         if (uid) {
-          // Cancel old subscription if user is upgrading (has a different active sub)
-          const admin = createAdminClient();
-          const { data: existingProfile } = await admin
-            .from("profiles")
-            .select("stripe_subscription_id")
-            .eq("id", uid)
-            .single();
-
-          if (
-            existingProfile?.stripe_subscription_id &&
-            existingProfile.stripe_subscription_id !== sub.id
-          ) {
-            await getStripe()
-              .subscriptions.cancel(existingProfile.stripe_subscription_id)
-              .catch(console.error);
+          // Cancel ALL other active subscriptions for this customer in Stripe.
+          // Using the DB stripe_subscription_id is unreliable (can be null/stale),
+          // so we query Stripe directly to find any duplicates.
+          if (customerId) {
+            const activeSubs = await getStripe().subscriptions.list({
+              customer: customerId,
+              status: "active",
+              limit: 10,
+            });
+            for (const oldSub of activeSubs.data) {
+              if (oldSub.id !== sub.id) {
+                await getStripe().subscriptions.cancel(oldSub.id).catch(console.error);
+              }
+            }
           }
 
           await markUserPaid(uid, plan, customerId, sub.id);
