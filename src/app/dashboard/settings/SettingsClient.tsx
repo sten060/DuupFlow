@@ -38,6 +38,67 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
+const FAQ_ITEMS = [
+  {
+    q: "Mes vidéos dupliquées sont-elles visuellement identiques ?",
+    a: "Oui. Le résultat visuel est quasi identique à l'original — seule la signature numérique change, ce qui les rend uniques aux yeux des algorithmes des réseaux sociaux.",
+  },
+  {
+    q: "Combien de copies puis-je générer ?",
+    a: "En plan Pro, les duplications sont illimitées. En plan Solo, tu bénéficies d'un quota mensuel généreux pour images, vidéos et signatures IA.",
+  },
+  {
+    q: "Sur quelles plateformes DuupFlow fonctionne-t-il ?",
+    a: "Instagram, TikTok, YouTube Shorts, Facebook, Snapchat et bien d'autres. Nos algorithmes sont calibrés sur les systèmes de détection des principales plateformes.",
+  },
+  {
+    q: "Pourquoi le comparateur indique-t-il un score ?",
+    a: "Plus le score est bas, plus tes fichiers sont perçus comme différents par les algorithmes. Un score < 30% signifie que tu es bien protégé pour le multi-posting.",
+  },
+  {
+    q: "Qu'est-ce que la détection IA ?",
+    a: "Les réseaux sociaux peuvent identifier les contenus générés par IA via leurs métadonnées. Notre outil remplace ces métadonnées révélatrices pour que ton contenu passe inaperçu.",
+  },
+];
+
+function FAQSection() {
+  const [open, setOpen] = useState<number | null>(null);
+  return (
+    <div>
+      <SectionTitle>FAQ</SectionTitle>
+      <Card>
+        <div className="space-y-1">
+          {FAQ_ITEMS.map((item, i) => (
+            <div key={i}>
+              <button
+                onClick={() => setOpen(open === i ? null : i)}
+                className="w-full flex items-center justify-between gap-3 py-3 text-left transition"
+              >
+                <span className="text-sm font-medium text-white/75">{item.q}</span>
+                <svg
+                  viewBox="0 0 16 16"
+                  className={`h-3.5 w-3.5 shrink-0 text-white/30 transition-transform ${open === i ? "rotate-180" : ""}`}
+                  fill="none" stroke="currentColor" strokeWidth="2.5"
+                >
+                  <path d="M3 6l5 5 5-5" />
+                </svg>
+              </button>
+              {open === i && (
+                <p className="pb-3 text-sm text-white/45 leading-relaxed">
+                  {item.a}
+                </p>
+              )}
+              {i < FAQ_ITEMS.length - 1 && (
+                <div style={{ height: "1px", background: "rgba(255,255,255,0.05)" }} />
+              )}
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════ */
 
 export default function SettingsClient({
@@ -67,6 +128,12 @@ export default function SettingsClient({
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [localInvitations, setLocalInvitations] = useState<Invitation[]>(invitations);
+
+  const [supportContact, setSupportContact] = useState("");
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportMsg, setSupportMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -117,6 +184,36 @@ export default function SettingsClient({
     if (res.ok) setLocalInvitations((prev) => prev.filter((inv) => inv.id !== id));
   }
 
+  async function sendSupport(e: React.FormEvent) {
+    e.preventDefault();
+    if (!supportContact.trim() || !supportSubject.trim() || !supportMessage.trim()) return;
+    setSupportLoading(true);
+    setSupportMsg(null);
+    try {
+      const res = await fetch("/api/support/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contact: supportContact.trim(),
+          subject: supportSubject.trim(),
+          message: supportMessage.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setSupportMsg({ type: "ok", text: "Message envoyé. Nous vous répondrons rapidement." });
+        setSupportContact("");
+        setSupportSubject("");
+        setSupportMessage("");
+      } else {
+        setSupportMsg({ type: "err", text: data.error ?? "Erreur lors de l'envoi." });
+      }
+    } catch {
+      setSupportMsg({ type: "err", text: "Erreur réseau." });
+    }
+    setSupportLoading(false);
+  }
+
   const activeInvitations = localInvitations.filter((i) => i.status !== "removed");
   const canInvite = !isGuest && plan === "pro" && activeInvitations.length < 3;
   const planLabel = plan === "solo" ? "Solo" : plan === "pro" ? "Pro" : null;
@@ -125,7 +222,7 @@ export default function SettingsClient({
   const planBorder = plan === "solo" ? "rgba(167,139,250,0.25)" : "rgba(99,102,241,0.25)";
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-8 max-w-5xl">
       {/* Header */}
       <div className="mb-8">
         <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1.5">Dashboard</p>
@@ -144,53 +241,59 @@ export default function SettingsClient({
 
       <div className="space-y-6">
 
-        {/* Profile */}
-        <div>
-          <SectionTitle>Profil</SectionTitle>
-          <Card>
-            <form onSubmit={saveProfile} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-white/40 mb-1.5">Prénom</label>
-                  <input
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
-                    style={INPUT_STYLE}
-                  />
+        {/* Profile + FAQ side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Profile */}
+          <div>
+            <SectionTitle>Profil</SectionTitle>
+            <Card>
+              <form onSubmit={saveProfile} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-white/40 mb-1.5">Prénom</label>
+                    <input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/40 mb-1.5">
+                      {isGuest ? "Agence (lecture seule)" : "Agence / Entreprise"}
+                    </label>
+                    <input
+                      type="text"
+                      value={agencyName}
+                      onChange={(e) => setAgencyName(e.target.value)}
+                      disabled={isGuest}
+                      className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition disabled:opacity-40"
+                      style={INPUT_STYLE}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs text-white/40 mb-1.5">
-                    {isGuest ? "Agence (lecture seule)" : "Agence / Entreprise"}
-                  </label>
-                  <input
-                    type="text"
-                    value={agencyName}
-                    onChange={(e) => setAgencyName(e.target.value)}
-                    disabled={isGuest}
-                    className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition disabled:opacity-40"
-                    style={INPUT_STYLE}
-                  />
+                {profileMsg && (
+                  <p className={`text-xs px-3 py-2 rounded-lg ${profileMsg.type === "ok" ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20" : "text-red-400 bg-red-500/[0.08] border border-red-500/20"}`}>
+                    {profileMsg.text}
+                  </p>
+                )}
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={profileLoading}
+                    className="rounded-xl px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                    style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+                  >
+                    {profileLoading ? "Sauvegarde…" : "Sauvegarder"}
+                  </button>
                 </div>
-              </div>
-              {profileMsg && (
-                <p className={`text-xs px-3 py-2 rounded-lg ${profileMsg.type === "ok" ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20" : "text-red-400 bg-red-500/[0.08] border border-red-500/20"}`}>
-                  {profileMsg.text}
-                </p>
-              )}
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={profileLoading}
-                  className="rounded-xl px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                  style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-                >
-                  {profileLoading ? "Sauvegarde…" : "Sauvegarder"}
-                </button>
-              </div>
-            </form>
-          </Card>
+              </form>
+            </Card>
+          </div>
+
+          {/* FAQ */}
+          <FAQSection />
         </div>
 
         {/* Team (Pro hosts only) */}
@@ -340,6 +443,69 @@ export default function SettingsClient({
             </Card>
           </div>
         )}
+
+        {/* Support */}
+        <div>
+          <SectionTitle>Support</SectionTitle>
+          <Card>
+            <p className="text-xs text-white/40 mb-5 leading-relaxed">
+              Une question, un bug ou une suggestion ? Écris-nous directement — nous répondons rapidement.
+            </p>
+            <form onSubmit={sendSupport} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-white/40 mb-1.5">Votre Telegram ou email</label>
+                  <input
+                    type="text"
+                    value={supportContact}
+                    onChange={(e) => setSupportContact(e.target.value)}
+                    placeholder="@votrepseudo ou vous@email.com"
+                    className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                    style={INPUT_STYLE}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-white/40 mb-1.5">Objet</label>
+                  <input
+                    type="text"
+                    value={supportSubject}
+                    onChange={(e) => setSupportSubject(e.target.value)}
+                    placeholder="Ex: Bug sur la duplication vidéo"
+                    className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                    style={INPUT_STYLE}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-white/40 mb-1.5">Votre question</label>
+                <textarea
+                  value={supportMessage}
+                  onChange={(e) => setSupportMessage(e.target.value)}
+                  placeholder="Décrivez votre problème ou question en détail…"
+                  rows={4}
+                  className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition resize-none"
+                  style={INPUT_STYLE}
+                />
+              </div>
+              {supportMsg && (
+                <p className={`text-xs px-3 py-2 rounded-lg ${supportMsg.type === "ok" ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20" : "text-red-400 bg-red-500/[0.08] border border-red-500/20"}`}>
+                  {supportMsg.text}
+                </p>
+              )}
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={supportLoading || !supportContact.trim() || !supportSubject.trim() || !supportMessage.trim()}
+                  className="rounded-xl px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+                  style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+                >
+                  {supportLoading ? "Envoi…" : "Envoyer"}
+                </button>
+              </div>
+            </form>
+          </Card>
+        </div>
+
       </div>
     </div>
   );

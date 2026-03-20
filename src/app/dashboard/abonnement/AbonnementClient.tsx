@@ -95,6 +95,9 @@ export default function AbonnementClient({
   const [isCancelling, setIsCancelling] = useState(cancelAtPeriodEnd);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [showDowngradeModal, setShowDowngradeModal] = useState(false);
+  const [showCancelStep1, setShowCancelStep1] = useState(false);
+  const [showCancelStep2, setShowCancelStep2] = useState(false);
+  const [cancelFeedback, setCancelFeedback] = useState("");
 
   const cancelEndDate = cancelAt
     ? new Date(cancelAt * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
@@ -129,13 +132,19 @@ export default function AbonnementClient({
   }
 
   async function cancelSubscription() {
+    setShowCancelStep2(false);
     setCancelLoading(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/stripe/cancel", { method: "POST" });
+      const res = await fetch("/api/stripe/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedback: cancelFeedback }),
+      });
       const data = await res.json();
       if (res.ok && data.success) {
         setIsCancelling(true);
+        setCancelFeedback("");
         setMsg({ type: "ok", text: "Résiliation programmée. Vous garderez l'accès jusqu'à la fin de votre période." });
       } else {
         setMsg({ type: "err", text: data.error ?? "Erreur lors de la résiliation." });
@@ -463,7 +472,7 @@ export default function AbonnementClient({
 
             {hasStripePortal && !isCancelling && (
               <button
-                onClick={cancelSubscription}
+                onClick={() => setShowCancelStep1(true)}
                 disabled={cancelLoading}
                 className="w-full rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-red-500/[0.06] hover:border-red-500/20 hover:text-red-400/80"
                 style={{
@@ -519,6 +528,108 @@ export default function AbonnementClient({
         )}
       </div>
     </main>
+
+    {/* Cancel — Step 1 modal: are you sure? */}
+    {showCancelStep1 && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        onClick={() => setShowCancelStep1(false)}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl p-6 space-y-5"
+          style={{ background: "#13131a", border: "1px solid rgba(255,255,255,0.10)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-white">Résilier l&apos;abonnement</h2>
+            <p className="text-sm text-white/50">
+              Vous êtes sur le point de résilier votre abonnement DuupFlow.
+            </p>
+          </div>
+          <ul className="space-y-2 text-sm text-white/60">
+            <li className="flex items-start gap-2">
+              <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
+              </svg>
+              Votre accès reste actif jusqu&apos;à la fin de la période en cours
+            </li>
+            <li className="flex items-start gap-2">
+              <svg viewBox="0 0 16 16" className="h-4 w-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M4 4l8 8M12 4l-8 8" />
+              </svg>
+              Toutes vos données et copies seront inaccessibles après l&apos;expiration
+            </li>
+          </ul>
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={() => setShowCancelStep1(false)}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+            >
+              Annuler
+            </button>
+            <button
+              onClick={() => { setShowCancelStep1(false); setShowCancelStep2(true); }}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium transition"
+              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
+            >
+              Continuer
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Cancel — Step 2 modal: feedback required */}
+    {showCancelStep2 && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        onClick={() => setShowCancelStep2(false)}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl p-6 space-y-5"
+          style={{ background: "#13131a", border: "1px solid rgba(255,255,255,0.10)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-white">Avant de partir…</h2>
+            <p className="text-sm text-white/50">
+              Dites-nous pourquoi vous résiliez. Votre avis nous aide à améliorer DuupFlow.
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs text-white/40 mb-2">Votre avis <span className="text-red-400">*</span></label>
+            <textarea
+              value={cancelFeedback}
+              onChange={(e) => setCancelFeedback(e.target.value)}
+              placeholder="Ex: Trop cher, fonctionnalité manquante, je n'utilise plus le service…"
+              rows={4}
+              className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition resize-none"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowCancelStep2(false)}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+            >
+              Annuler
+            </button>
+            <button
+              onClick={cancelSubscription}
+              disabled={!cancelFeedback.trim() || cancelLoading}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-40"
+              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
+            >
+              {cancelLoading ? "Résiliation…" : "Confirmer la résiliation"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Downgrade confirmation modal */}
     {showDowngradeModal && (
