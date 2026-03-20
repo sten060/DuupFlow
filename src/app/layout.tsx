@@ -7,10 +7,6 @@ export const metadata: Metadata = {
   title: "DuupFlow — Duplicateur de contenu IA",
   description:
     "DuupFlow vous permet de dupliquer et transformer vos contenus en quelques secondes grâce à l'IA.",
-  icons: {
-    icon: "/icon.png",
-    apple: "/apple-icon.png",
-  },
   openGraph: {
     title: "DuupFlow — Duplicateur de contenu IA",
     description:
