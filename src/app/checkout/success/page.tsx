@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -9,12 +9,14 @@ type Status = "checking" | "waiting" | "ready" | "unauthenticated";
 
 export default function CheckoutSuccessPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<Status>("checking");
 
   useEffect(() => {
     const supabase = createClient();
     let attempts = 0;
     const MAX_ATTEMPTS = 20; // 20 × 1.5s = 30s max
+    const sessionId = searchParams.get("session_id");
 
     async function checkAndRedirect() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -25,6 +27,27 @@ export default function CheckoutSuccessPage() {
       }
 
       setStatus("waiting");
+
+      // Vérification directe via Stripe si on a un session_id (fiable, sans dépendre du webhook)
+      if (sessionId) {
+        try {
+          const res = await fetch("/api/stripe/verify-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.paid) {
+              setStatus("ready");
+              router.push("/dashboard");
+              return;
+            }
+          }
+        } catch {
+          // Continuer avec le polling si la vérification directe échoue
+        }
+      }
 
       async function poll() {
         attempts++;
@@ -45,7 +68,26 @@ export default function CheckoutSuccessPage() {
         if (attempts < MAX_ATTEMPTS) {
           setTimeout(poll, 1500);
         } else {
-          // Webhook timed out — still redirect, middleware will sort it out
+          // Webhook timed out — vérification directe une dernière fois avant d'abandonner
+          if (sessionId) {
+            try {
+              const res = await fetch("/api/stripe/verify-session", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionId }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.paid) {
+                  setStatus("ready");
+                  router.push("/dashboard");
+                  return;
+                }
+              }
+            } catch {
+              // Ignorer
+            }
+          }
           router.push("/dashboard");
         }
       }
