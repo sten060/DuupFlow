@@ -1,17 +1,15 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 type Status = "checking" | "waiting" | "ready" | "unauthenticated";
 
 function CheckoutSuccessContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<Status>("checking");
-  const [debugError, setDebugError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -38,23 +36,15 @@ function CheckoutSuccessContent() {
             body: JSON.stringify({ sessionId }),
           });
           const data = await res.json();
-          if (!res.ok) {
-            console.error("[success] verify-session error:", res.status, data);
-            setDebugError(`verify-session ${res.status}: ${data?.error ?? ""} ${data?.detail ?? ""}`);
-          } else if (data.paid) {
+          if (res.ok && data.paid) {
             setStatus("ready");
-            router.push("/dashboard");
+            // window.location.href force une vraie navigation HTTP sans cache Next.js
+            window.location.href = "/dashboard";
             return;
-          } else {
-            console.warn("[success] verify-session payment_status:", data.payment_status);
-            setDebugError(`payment_status=${data.payment_status ?? "unknown"}`);
           }
-        } catch (err) {
-          console.error("[success] verify-session fetch error:", err);
-          setDebugError(`fetch error: ${err}`);
+        } catch {
+          // Continuer avec le polling si la vérification directe échoue
         }
-      } else {
-        setDebugError("no session_id in URL");
       }
 
       async function poll() {
@@ -69,34 +59,14 @@ function CheckoutSuccessContent() {
 
         if (hasAccess) {
           setStatus("ready");
-          router.push("/dashboard");
+          window.location.href = "/dashboard";
           return;
         }
 
         if (attempts < MAX_ATTEMPTS) {
           setTimeout(poll, 1500);
         } else {
-          // Webhook timed out — vérification directe une dernière fois avant d'abandonner
-          if (sessionId) {
-            try {
-              const res = await fetch("/api/stripe/verify-session", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sessionId }),
-              });
-              if (res.ok) {
-                const data = await res.json();
-                if (data.paid) {
-                  setStatus("ready");
-                  router.push("/dashboard");
-                  return;
-                }
-              }
-            } catch {
-              // Ignorer
-            }
-          }
-          router.push("/dashboard");
+          window.location.href = "/dashboard";
         }
       }
 
@@ -158,24 +128,19 @@ function CheckoutSuccessContent() {
             Ton abonnement DuupFlow Pro est actif. Tous les modules sont maintenant accessibles.
           </p>
 
-          <Link
-            href="/dashboard"
+          <button
+            onClick={() => { window.location.href = "/dashboard"; }}
             className="inline-block w-full rounded-xl py-3.5 text-sm font-bold text-white text-center transition hover:opacity-90 mb-4"
             style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
           >
             Accéder au dashboard →
-          </Link>
+          </button>
 
           <p className="text-xs text-white/25">
             {status === "ready"
               ? "Redirection en cours…"
               : "Activation de ton accès en cours…"}
           </p>
-          {debugError && (
-            <p className="text-xs text-red-400/60 mt-2 break-all">
-              debug: {debugError}
-            </p>
-          )}
         </>
       )}
     </div>
