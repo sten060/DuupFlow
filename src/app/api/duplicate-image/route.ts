@@ -6,8 +6,9 @@ import crypto from "crypto";
 import sharp from "sharp";
 import JSZip from "jszip";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
+import { checkUsage, incrementUsage } from "@/lib/usage";
 
-export const maxDuration = 60; // 60s — images PNG lourdes peuvent prendre >30s
+export const maxDuration = 60;
 
 /* ============== helpers ============== */
 const randHex = (n = 2) => crypto.randomBytes(n).toString("hex");
@@ -25,13 +26,12 @@ function getMimeType(ext: string): string {
 /* ============== flags ============== */
 type Flags = { semi: boolean; fundamentals: boolean; visuals: boolean; reverse: boolean };
 
-/* ============== pipeline — returns Buffer + output extension ============== */
+/* ============== pipeline ============== */
 async function processImage(
   buffer: Buffer,
   ext: string,
   flags: Flags,
 ): Promise<{ data: Buffer; outExt: string }> {
-  // metadata() reads only the image header — much faster than decoding the full image
   const meta = await sharp(buffer, { failOn: "none" }).metadata();
   let img = sharp(buffer, { failOn: "none" });
 
@@ -39,8 +39,6 @@ async function processImage(
     img = img.flop();
   }
 
-  // Cap to 3000px on the longest side — prevents 60s+ timeouts on large PNGs/raw shots.
-  // 3000px is sufficient for any marketplace (most require ≤2000px).
   const MAX_DIM = 3000;
   const rawW = meta.width  ?? 1024;
   const rawH = meta.height ?? 1024;
@@ -52,9 +50,6 @@ async function processImage(
     img = img.resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.lanczos3 });
   }
 
-  /* =========================================================
-   * 🧠 BLOC 1 — SEMI-VISUELS
-   * ========================================================= */
   if (flags.semi) {
     const kernels = [
       sharp.kernel.nearest,
@@ -83,9 +78,6 @@ async function processImage(
       .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic });
   }
 
-  /* =========================================================
-   * 🎨 BLOC 2 — VISUELS
-   * ========================================================= */
   if (flags.visuals) {
     const brightness = 0.93 + Math.random() * 0.14;
     const saturation = 0.93 + Math.random() * 0.14;
@@ -101,9 +93,6 @@ async function processImage(
     img = img.sharpen({ sigma });
   }
 
-  /* =========================================================
-   * 🧱 BLOC 3 — FONDAMENTAUX (métadonnées + qualité)
-   * ========================================================= */
   const lower = ext.toLowerCase();
   const now = new Date();
   const artistChoices = ["DuupFlow", "Studio", "Duplicator", "ContentEngine"];
@@ -131,13 +120,10 @@ async function processImage(
     };
   }
 
-  // PNG → JPEG: zlib PNG encoding is 15–20× slower than JPEG on large images.
-  // Converting to JPEG eliminates the bottleneck while still changing hash/metadata.
   const chroma = flags.fundamentals ? (Math.random() < 0.5 ? "4:2:0" : "4:4:4") : "4:4:4";
   const progressive = flags.fundamentals ? Math.random() < 0.5 : false;
   const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 7)) : 92;
 
-  // Flatten transparency to white before JPEG (JPEG has no alpha channel)
   if (lower === ".png") {
     img = img.flatten({ background: { r: 255, g: 255, b: 255 } });
   }
@@ -164,6 +150,23 @@ export async function POST(req: Request) {
     }
 
     const count = Math.max(1, Number(form.get("count") ?? 1));
+
+    // ── Usage check (Solo plan limits) ──────────────────────────────────────
+    const usageCheck = await checkUsage("images", count);
+    if (!usageCheck.allowed) {
+      return Response.json(
+        {
+          ok: false,
+          error: usageCheck.message ?? "Limite de duplications atteinte.",
+          code: "IMG-LIMIT",
+          limitReached: true,
+          current: usageCheck.current,
+          limit: usageCheck.limit,
+        },
+        { status: 429 }
+      );
+    }
+
     const flags: Flags = {
       fundamentals: toBool(form.get("fundamentals")),
       visuals: toBool(form.get("visuals")),
@@ -181,21 +184,18 @@ export async function POST(req: Request) {
     const dotIdx = imageFile.name.lastIndexOf(".");
     const ext = (dotIdx >= 0 ? imageFile.name.slice(dotIdx) : ".jpg").toLowerCase();
 
-    // Resolve output directory in background — disk write is optional, never blocks the response
     const fallbackDir = path.join(os.tmpdir(), "duupflow", "local");
     const outDirPromise = Promise.race([
       getOutDirForCurrentUser().then((r) => r.dir),
       new Promise<string>((resolve) => setTimeout(() => resolve(fallbackDir), 2000)),
     ]);
 
-    // Process copies sequentially (one at a time — Railway has limited CPU)
     const results: { filename: string; data: Buffer; outExt: string }[] = [];
     for (let idx = 0; idx < count; idx++) {
       const rand = `${ts}${randHex(4)}`;
       const { data, outExt } = await processImage(buf, ext, flags);
       const filename = `DuupFlow_${y}${m}${d}_dup${idx + 1}_${rand}${outExt}`;
 
-      // Save to disk fire-and-forget — never awaited, never blocks the response
       outDirPromise.then(async (outDir) => {
         await fs.mkdir(outDir, { recursive: true }).catch(() => {});
         fs.writeFile(path.join(outDir, filename), data).catch(() => {});
@@ -204,7 +204,11 @@ export async function POST(req: Request) {
       results.push({ filename, data, outExt });
     }
 
-    // Return binary immediately so the client can trigger download right away
+    // ── Increment usage after successful generation ──────────────────────────
+    if (usageCheck.userId && usageCheck.plan === "solo") {
+      incrementUsage(usageCheck.userId, "images", count).catch(console.error);
+    }
+
     if (results.length === 1) {
       return new Response(results[0].data, {
         headers: {
@@ -214,7 +218,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // Multiple copies → zip (images are already compressed, use STORE to avoid wasting CPU)
     const zip = new JSZip();
     for (const { filename, data } of results) {
       zip.file(filename, data);

@@ -174,12 +174,36 @@ function TestimonialsCarousel() {
   );
 }
 
+function CheckIcon({ color }: { color: string }) {
+  return (
+    <div
+      className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+      style={{ background: `${color}20`, border: `1px solid ${color}40` }}
+    >
+      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="3">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+    </div>
+  );
+}
+
 function PricingCards() {
-  const proFeatures = [
-    "Copies illimitées — images & vidéos",
-    "4 modules : Duplication, Comparateur, Détection IA",
-    "Formats JPG, PNG, WEBP, HEIC, MP4, MOV, MKV",
+  const soloFeatures = [
+    "300 duplications images / mois",
+    "200 duplications vidéos / mois",
+    "100 modifications signature IA / mois",
+    "Formats JPG, PNG, WEBP, MP4, MOV, MKV",
     "Métadonnées EXIF/XMP uniques à chaque copie",
+    "Export ZIP en un clic",
+    "Support par email",
+  ];
+
+  const proFeatures = [
+    "Spoofing images illimité",
+    "Duplications vidéos illimitées",
+    "Signature IA — modifications illimitées",
+    "3 membres invités dans ton workspace",
+    "Tous formats & presets avancés",
     "Export ZIP en un clic",
     "Support prioritaire 7j/7",
   ];
@@ -194,24 +218,65 @@ function PricingCards() {
   ];
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 justify-center max-w-3xl mx-auto">
+    <div className="flex flex-col md:flex-row gap-6 justify-center max-w-4xl mx-auto">
+
+      {/* Plan Solo */}
+      <div
+        className="relative flex-1 rounded-3xl overflow-hidden flex flex-col"
+        style={{
+          background: "rgba(10,14,40,0.90)",
+          border: "1px solid rgba(255,255,255,0.10)",
+        }}
+      >
+        <div
+          className="absolute top-0 left-0 right-0 h-40 pointer-events-none"
+          style={{
+            background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(139,92,246,0.28) 0%, transparent 75%)",
+          }}
+        />
+        <div className="relative z-10 p-8 flex flex-col flex-1">
+          <div className="mb-6">
+            <span className="text-base font-semibold text-white">Plan Solo</span>
+            <div className="flex items-baseline gap-1.5 mb-1 mt-4">
+              <span className="text-5xl font-bold text-white">39€</span>
+              <span className="text-white/45 text-sm">/ mois</span>
+            </div>
+            <p className="text-white/45 text-sm">Pour les créateurs indépendants</p>
+          </div>
+          <div className="h-px bg-white/[0.08] mb-6" />
+          <ul className="space-y-3.5 flex-1 mb-8">
+            {soloFeatures.map((f, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm text-white/70">
+                <CheckIcon color="#A78BFA" />
+                {f}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/register?plan=solo"
+            className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white transition hover:opacity-90"
+            style={{ background: "linear-gradient(135deg,#7C3AED,#6366F1)" }}
+          >
+            Commencer →
+          </Link>
+        </div>
+      </div>
+
       {/* Plan Pro */}
       <div
         className="relative flex-1 rounded-3xl overflow-hidden flex flex-col"
         style={{
           background: "rgba(10,14,40,0.90)",
-          border: "1px solid rgba(255,255,255,0.12)",
+          border: "1.5px solid rgba(99,102,241,0.40)",
         }}
       >
-        {/* Glow blob */}
         <div
           className="absolute top-0 left-0 right-0 h-40 pointer-events-none"
           style={{
-            background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.35) 0%, transparent 75%)",
+            background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.40) 0%, transparent 75%)",
           }}
         />
         <div className="relative z-10 p-8 flex flex-col flex-1">
-          {/* Top */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
               <span className="text-base font-semibold text-white">Plan Pro</span>
@@ -225,28 +290,18 @@ function PricingCards() {
             </div>
             <p className="text-white/45 text-sm">Pour les créateurs et agences</p>
           </div>
-
-          {/* Divider */}
           <div className="h-px bg-white/[0.08] mb-6" />
-
-          {/* Features */}
           <ul className="space-y-3.5 flex-1 mb-8">
             {proFeatures.map((f, i) => (
               <li key={i} className="flex items-start gap-3 text-sm text-white/70">
-                <div className="h-5 w-5 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                  <svg className="h-2.5 w-2.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                </div>
+                <CheckIcon color="#818CF8" />
                 {f}
               </li>
             ))}
           </ul>
-
-          {/* CTA */}
           <div className="flex flex-col gap-3">
             <Link
-              href="/register"
+              href="/register?plan=pro"
               className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white transition hover:opacity-90"
               style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
             >
@@ -267,18 +322,16 @@ function PricingCards() {
         className="relative flex-1 rounded-3xl overflow-hidden flex flex-col"
         style={{
           background: "rgba(10,14,40,0.90)",
-          border: "1px solid rgba(255,255,255,0.12)",
+          border: "1px solid rgba(255,255,255,0.10)",
         }}
       >
-        {/* Glow blob */}
         <div
           className="absolute top-0 left-0 right-0 h-40 pointer-events-none"
           style={{
-            background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(56,189,248,0.25) 0%, transparent 75%)",
+            background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(56,189,248,0.22) 0%, transparent 75%)",
           }}
         />
         <div className="relative z-10 p-8 flex flex-col flex-1">
-          {/* Top */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
               <span className="text-base font-semibold text-white">Plan Entreprise</span>
@@ -288,25 +341,15 @@ function PricingCards() {
             </div>
             <p className="text-white/45 text-sm">Solutions personnalisées pour les équipes</p>
           </div>
-
-          {/* Divider */}
           <div className="h-px bg-white/[0.08] mb-6" />
-
-          {/* Features */}
           <ul className="space-y-3.5 flex-1 mb-8">
             {enterpriseFeatures.map((f, i) => (
               <li key={i} className="flex items-start gap-3 text-sm text-white/70">
-                <div className="h-5 w-5 rounded-full bg-sky-500/20 border border-sky-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                  <svg className="h-2.5 w-2.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                </div>
+                <CheckIcon color="#38BDF8" />
                 {f}
               </li>
             ))}
           </ul>
-
-          {/* CTA */}
           <a
             href="mailto:contact@duupflow.com"
             className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/80 hover:text-white transition border border-white/20 hover:border-white/35 hover:bg-white/[0.04]"
