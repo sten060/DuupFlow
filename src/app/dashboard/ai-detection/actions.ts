@@ -5,6 +5,7 @@ import fs from "fs/promises";
 import crypto from "crypto";
 import sharp from "sharp";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
+import { checkUsage, incrementUsage } from "@/lib/usage";
 
 /* ── constants ── */
 const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp"];
@@ -137,11 +138,26 @@ async function processImage(buf: Buffer, ext: string, outPath: string, meta: sha
  * applique un pipeline pixel anti-fingerprint,
  * et réinjecte une identité humaine réaliste.
  * ───────────────────────────────────────────── */
-export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean; count: number; files: string[]; error?: string }> {
+export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean; count: number; files: string[]; error?: string; limitReached?: boolean; current?: number; limit?: number }> {
   const files = formData.getAll("files") as File[];
   console.log(`[ai-detection] maskAiMetadata called — ${files.length} file(s)`);
 
   if (!files.length) return { ok: false, count: 0, files: [], error: "[AI-001] Aucun fichier reçu." };
+
+  // ── Usage check (Solo plan limits) ────────────────────────────────────────
+  const imageFiles = files.filter((f) => IMAGE_EXTS.includes(extOf(f.name)));
+  const usageCheck = await checkUsage("ai_signatures", imageFiles.length);
+  if (!usageCheck.allowed) {
+    return {
+      ok: false,
+      count: 0,
+      files: [],
+      error: usageCheck.message ?? "Limite de modifications signature IA atteinte.",
+      limitReached: true,
+      current: usageCheck.current,
+      limit: usageCheck.limit,
+    };
+  }
 
   let dir: string;
   try {
@@ -235,6 +251,12 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
   });
 
   console.log(`[ai-detection] done — ${count}/${files.length} file(s) processed`);
+
+  // ── Increment usage after successful processing ────────────────────────────
+  if (count > 0 && usageCheck.userId && usageCheck.plan === "solo") {
+    incrementUsage(usageCheck.userId, "ai_signatures", count).catch(console.error);
+  }
+
   return { ok: true, count, files: outFiles };
 }
 

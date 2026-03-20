@@ -20,6 +20,20 @@ export async function POST(req: NextRequest) {
 
   const adminClient = createAdminClient();
 
+  // Block invitations for Solo plan users
+  const { data: hostProfile } = await adminClient
+    .from("profiles")
+    .select("plan")
+    .eq("id", user.id)
+    .single();
+
+  if (hostProfile?.plan === "solo") {
+    return NextResponse.json(
+      { error: "Le plan Solo ne permet pas d'inviter des membres. Passe au plan Pro pour inviter jusqu'à 3 collaborateurs." },
+      { status: 403 }
+    );
+  }
+
   // Count existing active invitations for this host
   const { data: existing } = await adminClient
     .from("team_invitations")

@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToActiveClient, moveToChurned } from "@/lib/brevo";
+import { resetUsage } from "@/lib/usage";
 import Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
 
-async function getUserInfo(userId: string): Promise<{ email: string; firstName: string } | null> {
+async function getUserInfo(
+  userId: string
+): Promise<{ email: string; firstName: string } | null> {
   const admin = createAdminClient();
   const [{ data: authUser }, { data: profile }] = await Promise.all([
     admin.auth.admin.getUserById(userId),
@@ -17,15 +20,26 @@ async function getUserInfo(userId: string): Promise<{ email: string; firstName: 
   return { email, firstName: profile?.first_name ?? "" };
 }
 
-async function markUserPaid(userId: string) {
+async function markUserPaid(
+  userId: string,
+  plan: "solo" | "pro",
+  customerId?: string,
+  subscriptionId?: string
+) {
   const admin = createAdminClient();
-  await admin.from("profiles").update({
-    has_paid: true,
-    email_sequence: "active",
-    email_sequence_updated_at: new Date().toISOString(),
-  }).eq("id", userId);
+  await admin
+    .from("profiles")
+    .update({
+      has_paid: true,
+      plan,
+      stripe_customer_id: customerId ?? undefined,
+      stripe_subscription_id: subscriptionId ?? undefined,
+      subscription_period_start: new Date().toISOString(),
+      email_sequence: "active",
+      email_sequence_updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
 
-  // Move to Active Clients in Brevo → triggers the paid onboarding sequence
   const info = await getUserInfo(userId);
   if (info) {
     moveToActiveClient(info.email, info.firstName).catch(console.error);
@@ -39,24 +53,35 @@ async function markUserUnpaid(userId: string) {
 
 async function markUserChurned(userId: string) {
   const admin = createAdminClient();
-  await admin.from("profiles").update({
-    has_paid: false,
-    email_sequence: "churned",
-    email_sequence_updated_at: new Date().toISOString(),
-  }).eq("id", userId);
+  await admin
+    .from("profiles")
+    .update({
+      has_paid: false,
+      plan: null,
+      stripe_subscription_id: null,
+      email_sequence: "churned",
+      email_sequence_updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
 
-  // Move to Churned in Brevo → triggers the win-back sequence
   const info = await getUserInfo(userId);
   if (info) {
     moveToChurned(info.email, info.firstName).catch(console.error);
   }
 }
 
-// Dans l'API Stripe 2025-02-24.acacia, l'ID d'abonnement est dans
-// invoice.parent.subscription_details.subscription (plus invoice.subscription)
 function getSubscriptionId(invoice: Stripe.Invoice): string | null {
-  const parent = (invoice as unknown as { parent?: { subscription_details?: { subscription?: string } } }).parent;
+  const parent = (
+    invoice as unknown as {
+      parent?: { subscription_details?: { subscription?: string } };
+    }
+  ).parent;
   return parent?.subscription_details?.subscription ?? null;
+}
+
+function resolvePlanFromPriceId(priceId: string): "solo" | "pro" {
+  if (priceId === process.env.STRIPE_PRICE_ID_SOLO) return "solo";
+  return "pro";
 }
 
 export async function POST(request: NextRequest) {
@@ -64,46 +89,94 @@ export async function POST(request: NextRequest) {
   const signature = request.headers.get("stripe-signature");
 
   if (!signature || !process.env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: "Missing signature or webhook secret" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing signature or webhook secret" },
+      { status: 400 }
+    );
   }
 
   let event: Stripe.Event;
   try {
-    event = getStripe().webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET);
+    event = getStripe().webhooks.constructEvent(
+      rawBody,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
   } catch {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
   switch (event.type) {
-    // Paiement initial réussi → accès débloqué + séquence Active Client
+    // Paiement initial → accès débloqué + plan déterminé par le price ID
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.subscription) {
-        const sub = await getStripe().subscriptions.retrieve(session.subscription as string);
-        const uid = sub.metadata?.supabase_user_id ?? session.client_reference_id;
-        if (uid) await markUserPaid(uid);
+        const sub = await getStripe().subscriptions.retrieve(
+          session.subscription as string,
+          { expand: ["items.data.price"] }
+        );
+        const priceId = sub.items.data[0]?.price?.id ?? "";
+        const plan = resolvePlanFromPriceId(priceId);
+        const uid =
+          sub.metadata?.supabase_user_id ?? session.client_reference_id;
+        const customerId =
+          typeof sub.customer === "string" ? sub.customer : (sub.customer as any)?.id;
+
+        if (uid) {
+          // Cancel old subscription if user is upgrading (has a different active sub)
+          const admin = createAdminClient();
+          const { data: existingProfile } = await admin
+            .from("profiles")
+            .select("stripe_subscription_id")
+            .eq("id", uid)
+            .single();
+
+          if (
+            existingProfile?.stripe_subscription_id &&
+            existingProfile.stripe_subscription_id !== sub.id
+          ) {
+            await getStripe()
+              .subscriptions.cancel(existingProfile.stripe_subscription_id)
+              .catch(console.error);
+          }
+
+          await markUserPaid(uid, plan, customerId, sub.id);
+        }
       } else if (session.client_reference_id) {
-        await markUserPaid(session.client_reference_id);
+        await markUserPaid(session.client_reference_id, "pro");
       }
       break;
     }
 
-    // Renouvellement mensuel → maintenir l'accès
+    // Renouvellement mensuel → maintenir l'accès + reset usage
     case "invoice.paid": {
       const invoice = event.data.object as Stripe.Invoice;
+      const billingReason = (invoice as any).billing_reason as string;
       const subId = getSubscriptionId(invoice);
+
       if (subId) {
         const sub = await getStripe().subscriptions.retrieve(subId);
         const uid = sub.metadata?.supabase_user_id;
         if (uid) {
           const admin = createAdminClient();
-          await admin.from("profiles").update({ has_paid: true }).eq("id", uid);
+          await admin
+            .from("profiles")
+            .update({
+              has_paid: true,
+              subscription_period_start: new Date().toISOString(),
+            })
+            .eq("id", uid);
+
+          // Reset usage only on renewal (not on initial creation)
+          if (billingReason === "subscription_cycle") {
+            await resetUsage(uid).catch(console.error);
+          }
         }
       }
       break;
     }
 
-    // Paiement échoué → révoquer l'accès (Stripe retry, pas de séquence churned)
+    // Paiement échoué → révoquer l'accès
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
       const subId = getSubscriptionId(invoice);
@@ -120,6 +193,18 @@ export async function POST(request: NextRequest) {
       const sub = event.data.object as Stripe.Subscription;
       const uid = sub.metadata?.supabase_user_id;
       if (uid) await markUserChurned(uid);
+      break;
+    }
+
+    // Mise à jour d'abonnement (ex: upgrade via portail Stripe)
+    case "customer.subscription.updated": {
+      const sub = event.data.object as Stripe.Subscription;
+      const uid = sub.metadata?.supabase_user_id;
+      if (uid && sub.items.data[0]?.price?.id) {
+        const plan = resolvePlanFromPriceId(sub.items.data[0].price.id);
+        const admin = createAdminClient();
+        await admin.from("profiles").update({ plan }).eq("id", uid);
+      }
       break;
     }
   }

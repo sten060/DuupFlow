@@ -5,11 +5,12 @@ import { NextResponse } from "next/server";
 import { processVideos } from "@/app/dashboard/videos/processVideos";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkUsage, incrementUsage } from "@/lib/usage";
 
 const INPUT_BUCKET = "video-uploads";
 const OUTPUT_BUCKET = "video-outputs";
 
-export const maxDuration = 300; // seconds — Vercel Pro/Enterprise
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   void cleanupOldFiles(2 * 60 * 60 * 1000);
@@ -23,6 +24,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg, code: "VID-001" }, { status: 400 });
   }
 
+  // ── Usage check (Solo plan limits) ────────────────────────────────────────
+  // Count the number of videos requested (each storagePath = 1 video)
+  const storagePaths = formData.getAll("storagePaths") as string[];
+  const requestedCount = Math.max(1, storagePaths.length || 1);
+
+  const usageCheck = await checkUsage("videos", requestedCount);
+  if (!usageCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: usageCheck.message ?? "Limite de duplications vidéos atteinte.",
+        code: "VID-LIMIT",
+        limitReached: true,
+        current: usageCheck.current,
+        limit: usageCheck.limit,
+      },
+      { status: 429 }
+    );
+  }
+
   // Resolve user context while request cookies are still available
   let dir: string;
   let userId: string;
@@ -34,15 +54,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg, code: "VID-002" }, { status: 500 });
   }
 
-  const storagePaths = formData.getAll("storagePaths") as string[];
   const fileNames    = formData.getAll("fileNames")    as string[];
   const hasStoragePaths = storagePaths.length > 0;
 
-  // Open the SSE stream immediately — no Supabase download before this point.
-  // Downloading inside the stream lets us send real-time progress to the client
-  // instead of making the user wait in silence.
   const encoder = new TextEncoder();
   const tmpFilesToClean: string[] = [];
+
+  // Track whether generation was successful so we can increment usage
+  const usageUserId = usageCheck.userId;
+  const isPlanSolo = usageCheck.plan === "solo";
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -56,10 +76,10 @@ export async function POST(req: Request) {
         try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch {}
       }, 20_000);
 
-      // Tracks which stage is running so the catch block can attach the right code.
-      let errorCode = "VID-004"; // default: FFmpeg error
+      let errorCode = "VID-004";
+      let generationSucceeded = false;
+
       try {
-        // ── Supabase download (inside SSE so the user sees progress) ──────────
         type PreDownloaded = { name: string; tmpPath: string };
         let preDownloadedFiles: PreDownloaded[] | undefined;
 
@@ -69,7 +89,6 @@ export async function POST(req: Request) {
           preDownloadedFiles = new Array(storagePaths.length);
           send({ percent: 0, msg: `Récupération ${storagePaths.length} fichier${storagePaths.length > 1 ? "s" : ""}…` });
 
-          // Download all files in parallel — total time ≈ slowest single download.
           let doneDl = 0;
           await Promise.all(storagePaths.map(async (storagePath, i) => {
             const fileName = fileNames[i] ?? path.basename(storagePath);
@@ -92,11 +111,9 @@ export async function POST(req: Request) {
             send({ percent: Math.round((doneDl / storagePaths.length) * 8), msg: `Récupération ${doneDl}/${storagePaths.length}…` });
           }));
 
-          // Delete input objects from storage now that we have them locally
           await supabase.storage.from(INPUT_BUCKET).remove(storagePaths).catch(() => {});
         }
 
-        // ── FFmpeg processing ─────────────────────────────────────────────────
         errorCode = "VID-004";
         const { channel, outputPaths } = await processVideos(
           formData,
@@ -105,7 +122,6 @@ export async function POST(req: Request) {
           preDownloadedFiles,
         );
 
-        // ── Upload outputs to Supabase (no persistent volume) ─────────────────
         errorCode = "VID-005";
         const hasVolume = !!process.env.OUT_BASE;
         if (!hasVolume && hasStoragePaths && outputPaths.length > 0) {
@@ -129,6 +145,7 @@ export async function POST(req: Request) {
           }));
         }
 
+        generationSucceeded = true;
         send({ percent: 100, msg: "Terminé ✔", done: true, userId, channel });
       } catch (e: any) {
         send({ percent: -1, msg: e?.message || "Erreur FFmpeg", error: true, code: errorCode });
@@ -137,6 +154,12 @@ export async function POST(req: Request) {
         for (const p of tmpFilesToClean) {
           await fs.unlink(p).catch(() => {});
         }
+
+        // Increment usage after successful generation
+        if (generationSucceeded && usageUserId && isPlanSolo) {
+          incrementUsage(usageUserId, "videos", requestedCount).catch(console.error);
+        }
+
         try { controller.close(); } catch {}
       }
     },
@@ -147,9 +170,6 @@ export async function POST(req: Request) {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       "Connection": "keep-alive",
-      // Tells Railway's Nginx proxy NOT to buffer the response.
-      // Without this header, Nginx accumulates the entire stream before
-      // forwarding it, which causes a 502 timeout on long SSE connections.
       "X-Accel-Buffering": "no",
     },
   });
