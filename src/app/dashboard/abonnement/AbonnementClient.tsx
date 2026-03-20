@@ -91,6 +91,7 @@ export default function AbonnementClient({
   const [portalPaymentLoading, setPortalPaymentLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [downgradeLoading, setDowngradeLoading] = useState(false);
   const [isCancelling, setIsCancelling] = useState(cancelAtPeriodEnd);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -142,6 +143,23 @@ export default function AbonnementClient({
       setMsg({ type: "err", text: "Erreur réseau." });
     }
     setCancelLoading(false);
+  }
+
+  async function downgradeToSolo() {
+    setDowngradeLoading(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/stripe/downgrade", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        window.location.reload();
+      } else {
+        setMsg({ type: "err", text: data.error ?? "Erreur lors du changement de plan." });
+      }
+    } catch {
+      setMsg({ type: "err", text: "Erreur réseau." });
+    }
+    setDowngradeLoading(false);
   }
 
   async function upgradeToProCheckout() {
@@ -386,6 +404,30 @@ export default function AbonnementClient({
                       <path d="M8 2l4 4H9v6H7V6H4l4-4z" />
                     </svg>
                     Passer au plan Pro — 99€/mois
+                  </>
+                )}
+              </button>
+            )}
+
+            {plan === "pro" && !isCancelling && (
+              <button
+                onClick={downgradeToSolo}
+                disabled={downgradeLoading}
+                className="w-full rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                  color: "rgba(255,255,255,0.50)",
+                }}
+              >
+                {downgradeLoading ? (
+                  "Changement en cours…"
+                ) : (
+                  <>
+                    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M8 14l-4-4h3V4h2v6h3l-4 4z" />
+                    </svg>
+                    Passer au plan Solo — 39€/mois
                   </>
                 )}
               </button>
