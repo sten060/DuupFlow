@@ -62,7 +62,6 @@ export async function POST(req: Request) {
 
   // Track whether generation was successful so we can increment usage
   const usageUserId = usageCheck.userId;
-  const isPlanSolo = usageCheck.plan === "solo";
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -156,7 +155,7 @@ export async function POST(req: Request) {
         }
 
         // Increment usage after successful generation
-        if (generationSucceeded && usageUserId && isPlanSolo) {
+        if (generationSucceeded && usageUserId) {
           incrementUsage(usageUserId, "videos", requestedCount).catch(console.error);
         }
 
