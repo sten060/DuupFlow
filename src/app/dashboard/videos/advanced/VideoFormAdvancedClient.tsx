@@ -112,7 +112,8 @@ const CONTROLS: Ctrl[] = [
 type RangeState = Record<string, { enabled: boolean; min: number; max: number }>;
 type Template = { name: string; ranges: RangeState };
 
-const TKEY = "duupflow_video_templates_v5";
+const TKEY_BASE = "duupflow_video_templates_v5";
+function tKey(userId: string) { return `${TKEY_BASE}_${userId}`; }
 
 /** ==== Bornes "dures" (FFmpeg safe) pour validation UI ==== */
 const LIMITS: Record<
@@ -206,21 +207,27 @@ export default function VideoFormAdvancedClient() {
   // Templates
   const [templates, setTemplates] = useState<Template[]>([]);
   const [tplName, setTplName] = useState("");
+  const [userId, setUserId] = useState<string>("");
 
   // Stealth mode
   const [stealthMode, setStealthMode] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(TKEY);
-      if (raw) setTemplates(JSON.parse(raw));
-    } catch {}
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const uid = user?.id ?? "local";
+      setUserId(uid);
+      try {
+        const raw = localStorage.getItem(tKey(uid));
+        if (raw) setTemplates(JSON.parse(raw));
+      } catch {}
+    });
   }, []);
 
   const saveTemplates = (next: Template[]) => {
     setTemplates(next);
     try {
-      localStorage.setItem(TKEY, JSON.stringify(next));
+      localStorage.setItem(tKey(userId), JSON.stringify(next));
     } catch {}
   };
 
