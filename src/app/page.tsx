@@ -468,8 +468,8 @@ function AnimVideoDup() {
   const [filesVisible, setFilesVisible] = useState(false);
   const steps = [
     { label: "Import", target: 100, color: "bg-indigo-500" },
-    { label: "Ré-encodage", target: 100, color: "bg-fuchsia-500" },
-    { label: "Métadonnées", target: 100, color: "bg-emerald-500" },
+    { label: "Transformation", target: 100, color: "bg-fuchsia-500" },
+    { label: "Unicité", target: 100, color: "bg-emerald-500" },
     { label: "Export ZIP", target: 100, color: "bg-amber-500" },
   ];
 
@@ -492,7 +492,7 @@ function AnimVideoDup() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
-        <p className="text-xs text-white/40 uppercase tracking-wider">Pipeline d&apos;encodage</p>
+        <p className="text-xs text-white/40 uppercase tracking-wider">Traitement en cours</p>
         {steps.map((s, i) => (
           <div key={s.label} className="space-y-1">
             <div className="flex justify-between text-xs text-white/50"><span>{s.label}</span><span>{pcts[i]}%</span></div>
@@ -697,12 +697,12 @@ function CoreFeaturesAlt() {
         <FeatureRow
           badge="🎬 Duplication Vidéos"
           badgeColor="border border-indigo-500/25 bg-indigo-500/[0.08] text-indigo-300"
-          title={<>Tes vidéos{" "}<span className={G}>ré-encodées</span>, indétectables.</>}
-          subtitle="Chaque copie est ré-encodée avec des paramètres uniques — FPS, GOP, bitrate, codec. Même contenu visuel, signature numérique entièrement différente. Compatible Instagram Reels, TikTok, YouTube Shorts."
+          title={<>Même vidéo,{" "}<span className={G}>perçue comme différente</span>{" "}partout.</>}
+          subtitle="Duplique ta vidéo autant de fois que tu veux. Chaque copie est quasi identique visuellement, mais détectée comme un nouveau fichier par Instagram, TikTok et YouTube — la solution idéale pour le multi-posting sans pénalité."
           bullets={[
-            "Ré-encodage avec paramètres aléatoires à chaque copie",
-            "Résultat visuel 100% identique à l'original",
-            "Export MP4 optimisé pour chaque plateforme",
+            "Copies visuellement identiques à l'original",
+            "Détectées comme fichiers uniques par les algorithmes des réseaux sociaux",
+            "Multi-posting illimité sans risque de shadowban ou de suppression",
           ]}
           mockup={<AnimVideoDup />}
           reverse
@@ -712,9 +712,9 @@ function CoreFeaturesAlt() {
           badge="🔍 Comparateur"
           badgeColor="border border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-300"
           title={<>Mesure ta{" "}<span className={G}>protection</span>{" "}avant de publier.</>}
-          subtitle="Compare deux fichiers et obtiens un score de similarité en quelques secondes. 5 algorithmes combinés (pHash, dHash, histogramme, texture, métadonnées). Plus le score est bas, plus tu es protégé."
+          subtitle="Compare deux fichiers et obtiens un score de similarité en quelques secondes. Plus de 7 systèmes d'analyse combinés pour une détection ultra-précise. Plus le score est bas, plus tu es protégé."
           bullets={[
-            "5 algorithmes de détection combinés",
+            "7+ systèmes d'analyse combinés pour une précision maximale",
             "Score en temps réel — résultat en moins de 3s",
             "Testé et validé sur Instagram, TikTok et YouTube",
           ]}
@@ -757,7 +757,7 @@ function CoreFeaturesAlt() {
  * ═══════════════════════════════════════════════════════ */
 const STATS = [
   { val: "∞", label: "Copies par contenu" },
-  { val: "5", label: "Algorithmes de détection" },
+  { val: "7+", label: "Systèmes d'analyse" },
   { val: "10+", label: "Formats supportés" },
   { val: "500+", label: "Agences utilisatrices" },
 ];

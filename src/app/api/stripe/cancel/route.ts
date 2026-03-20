@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendMail } from "@/lib/mailer";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -14,6 +15,9 @@ export async function POST() {
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
+
+  const body = await req.json().catch(() => ({}));
+  const feedback: string = (body as Record<string, string>).feedback ?? "";
 
   const admin = createAdminClient();
   const { data: profile } = await admin
@@ -53,6 +57,29 @@ export async function POST() {
   const sub = await getStripe().subscriptions.update(subscriptionId, {
     cancel_at_period_end: true,
   });
+
+  // Send feedback email (best-effort, don't block the response)
+  if (feedback.trim()) {
+    sendMail({
+      to: "hello@duupflow.com",
+      subject: `[Résiliation] Feedback de ${user.email ?? "inconnu"}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+          <h2 style="color:#6366f1;margin-bottom:8px">Résiliation d'abonnement — Feedback</h2>
+          <p style="color:#888;font-size:13px;margin-bottom:16px">
+            <strong style="color:#333">Utilisateur :</strong> ${user.email ?? "inconnu"}
+          </p>
+          <div style="background:#f4f4f8;border-radius:8px;padding:16px;font-size:14px;white-space:pre-wrap;line-height:1.6">
+            ${feedback.trim().replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+          </div>
+          <p style="color:#aaa;font-size:11px;margin-top:16px">
+            Date : ${new Date().toLocaleString("fr-FR")}
+          </p>
+        </div>
+      `,
+      replyTo: user.email,
+    }).catch(console.error);
+  }
 
   return NextResponse.json({
     success: true,
