@@ -74,7 +74,7 @@ export default async function AbonnementPage() {
         }
       }
 
-      if (sub) {
+      if (sub && (sub.status === "active" || sub.status === "trialing")) {
         const price = sub.items.data[0]?.price;
         const priceId = price?.id ?? "";
         const unitAmount = price?.unit_amount ?? null;
@@ -84,6 +84,8 @@ export default async function AbonnementPage() {
         const updates: Record<string, unknown> = {};
         if (stripePlan && stripePlan !== plan) { updates.plan = stripePlan; plan = stripePlan; }
         if (stripeCustomer && stripeCustomer !== stripeCustomerId) { updates.stripe_customer_id = stripeCustomer; stripeCustomerId = stripeCustomer; }
+        // Restore has_paid if a valid active subscription exists (e.g. after erroneous churn)
+        if (!profile?.has_paid) updates.has_paid = true;
         if (Object.keys(updates).length > 0) {
           await admin.from("profiles").update(updates).eq("id", user.id);
         }

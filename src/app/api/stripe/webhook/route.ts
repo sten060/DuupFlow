@@ -196,7 +196,19 @@ export async function POST(request: NextRequest) {
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
       const uid = sub.metadata?.supabase_user_id;
-      if (uid) await markUserChurned(uid);
+      if (uid) {
+        const admin = createAdminClient();
+        const { data: profile } = await admin
+          .from("profiles")
+          .select("stripe_subscription_id")
+          .eq("id", uid)
+          .single();
+        // Only churn if this is still the user's current subscription.
+        // If user upgraded, their DB already points to the new sub – don't churn.
+        if (!profile?.stripe_subscription_id || profile.stripe_subscription_id === sub.id) {
+          await markUserChurned(uid);
+        }
+      }
       break;
     }
 
