@@ -11,6 +11,7 @@ function CheckoutSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<Status>("checking");
+  const [debugError, setDebugError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -36,17 +37,24 @@ function CheckoutSuccessContent() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId }),
           });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.paid) {
-              setStatus("ready");
-              router.push("/dashboard");
-              return;
-            }
+          const data = await res.json();
+          if (!res.ok) {
+            console.error("[success] verify-session error:", res.status, data);
+            setDebugError(`verify-session ${res.status}: ${data?.error ?? ""} ${data?.detail ?? ""}`);
+          } else if (data.paid) {
+            setStatus("ready");
+            router.push("/dashboard");
+            return;
+          } else {
+            console.warn("[success] verify-session payment_status:", data.payment_status);
+            setDebugError(`payment_status=${data.payment_status ?? "unknown"}`);
           }
-        } catch {
-          // Continuer avec le polling si la vérification directe échoue
+        } catch (err) {
+          console.error("[success] verify-session fetch error:", err);
+          setDebugError(`fetch error: ${err}`);
         }
+      } else {
+        setDebugError("no session_id in URL");
       }
 
       async function poll() {
@@ -163,6 +171,11 @@ function CheckoutSuccessContent() {
               ? "Redirection en cours…"
               : "Activation de ton accès en cours…"}
           </p>
+          {debugError && (
+            <p className="text-xs text-red-400/60 mt-2 break-all">
+              debug: {debugError}
+            </p>
+          )}
         </>
       )}
     </div>
