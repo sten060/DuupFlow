@@ -232,39 +232,39 @@ function MockupImages() {
 }
 
 function MockupVideos() {
-  const steps = [
-    { label: "Import", pct: 100, color: "bg-indigo-500" },
-    { label: "Ré-encodage", pct: 100, color: "bg-fuchsia-500" },
-    { label: "Métadonnées", pct: 100, color: "bg-emerald-500" },
-    { label: "Export ZIP", pct: 85, color: "bg-amber-500" },
-  ];
-  const files = [
-    "SIMPLE_DuupFlow_20240312_vid1_c01_r8f2p__reel.mp4",
-    "SIMPLE_DuupFlow_20240312_vid1_c02_r9a3k__reel.mp4",
-    "SIMPLE_DuupFlow_20240312_vid1_c03_r2x7m__reel.mp4",
+  const platforms = [
+    { name: "Instagram Reels", icon: "📸", color: "border-fuchsia-500/25 bg-fuchsia-500/[0.06]", label: "fuchsia" },
+    { name: "TikTok", icon: "🎵", color: "border-indigo-500/25 bg-indigo-500/[0.06]", label: "indigo" },
+    { name: "YouTube Shorts", icon: "▶️", color: "border-red-500/25 bg-red-500/[0.06]", label: "red" },
   ];
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
-        <p className="text-xs text-white/40 uppercase tracking-wider">Pipeline d&apos;encodage</p>
-        {steps.map((s) => (
-          <div key={s.label} className="space-y-1">
-            <div className="flex justify-between text-xs text-white/50"><span>{s.label}</span><span>{s.pct}%</span></div>
-            <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-              <div className={`h-full rounded-full ${s.color}`} style={{ width: `${s.pct}%` }} />
-            </div>
-          </div>
-        ))}
+    <div className="space-y-3">
+      {/* Source */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 flex items-center gap-3">
+        <div className="h-10 w-10 rounded-lg bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center text-lg">🎬</div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-white/80 font-medium truncate">ma_video.mp4</p>
+          <p className="text-xs text-white/35">1 fichier source</p>
+        </div>
+        <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/40">Source</span>
       </div>
-      <div className="space-y-2">
-        {files.map((f) => (
-          <div key={f} className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3 flex items-center gap-2">
-            <span className="text-base">🎬</span>
-            <p className="text-xs text-white/50 font-mono flex-1 min-w-0 truncate">{f}</p>
-            <span className="text-xs text-emerald-400">✓</span>
-          </div>
-        ))}
+      {/* Divider */}
+      <div className="flex items-center gap-2 py-0.5">
+        <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+        <span className="text-[10px] text-indigo-400/70 px-2 font-medium">× 3 copies uniques</span>
+        <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
       </div>
+      {/* Platforms */}
+      {platforms.map((p) => (
+        <div key={p.name} className={`rounded-xl border p-3 flex items-center gap-3 ${p.color}`}>
+          <div className="h-9 w-9 rounded-lg bg-white/[0.06] flex items-center justify-center text-base">{p.icon}</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-white/70">{p.name}</p>
+            <p className="text-[11px] text-white/30">Perçue comme nouveau contenu</p>
+          </div>
+          <span className="text-xs text-emerald-400 font-semibold whitespace-nowrap">Unique ✓</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -464,56 +464,66 @@ function AnimImageDup() {
 
 /* Animated Mockup 2 — Video Duplication */
 function AnimVideoDup() {
-  const [pcts, setPcts] = useState([0, 0, 0, 0]);
-  const [filesVisible, setFilesVisible] = useState(false);
-  const steps = [
-    { label: "Import", target: 100, color: "bg-indigo-500" },
-    { label: "Transformation", target: 100, color: "bg-fuchsia-500" },
-    { label: "Unicité", target: 100, color: "bg-emerald-500" },
-    { label: "Export ZIP", target: 100, color: "bg-amber-500" },
-  ];
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
     function play() {
-      setPcts([0, 0, 0, 0]);
-      setFilesVisible(false);
-      timers.push(setTimeout(() => setPcts([100, 0, 0, 0]), 200));
-      timers.push(setTimeout(() => setPcts([100, 100, 0, 0]), 700));
-      timers.push(setTimeout(() => setPcts([100, 100, 100, 0]), 1200));
-      timers.push(setTimeout(() => setPcts([100, 100, 100, 100]), 1700));
-      timers.push(setTimeout(() => setFilesVisible(true), 2000));
+      setStep(0);
+      const t1 = setTimeout(() => setStep(1), 600);
+      const t2 = setTimeout(() => setStep(2), 1200);
+      const t3 = setTimeout(() => setStep(3), 1800);
+      return [t1, t2, t3];
     }
-    play();
-    const loop = setInterval(() => { timers.forEach(clearTimeout); timers.length = 0; play(); }, 4500);
+    const timers = play();
+    const loop = setInterval(() => { timers.forEach(clearTimeout); play(); }, 4500);
     return () => { timers.forEach(clearTimeout); clearInterval(loop); };
   }, []);
 
+  const platforms = [
+    { name: "Instagram Reels", icon: "📸", color: "border-fuchsia-500/30 bg-fuchsia-500/[0.07]" },
+    { name: "TikTok", icon: "🎵", color: "border-indigo-500/30 bg-indigo-500/[0.07]" },
+    { name: "YouTube Shorts", icon: "▶️", color: "border-red-500/30 bg-red-500/[0.07]" },
+  ];
+
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
-        <p className="text-xs text-white/40 uppercase tracking-wider">Traitement en cours</p>
-        {steps.map((s, i) => (
-          <div key={s.label} className="space-y-1">
-            <div className="flex justify-between text-xs text-white/50"><span>{s.label}</span><span>{pcts[i]}%</span></div>
-            <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-              <div className={`h-full rounded-full ${s.color} transition-all duration-700`} style={{ width: `${pcts[i]}%` }} />
-            </div>
-          </div>
-        ))}
+    <div className="space-y-3">
+      {/* Source video */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5 flex items-center gap-3">
+        <div className="h-11 w-11 rounded-xl bg-indigo-500/20 border border-indigo-500/25 flex items-center justify-center text-xl">🎬</div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-white/80 font-medium">ma_video.mp4</p>
+          <p className="text-xs text-white/35">Fichier source</p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-xs text-white/40">{step}/3 copies</span>
+        </div>
       </div>
-      <div className="space-y-2">
-        {["c01", "c02", "c03"].map((c, i) => (
-          <div key={c} className="rounded-lg border border-indigo-500/20 bg-indigo-500/[0.04] p-3 flex items-center gap-2 transition-all duration-500"
-            style={{ opacity: filesVisible ? 1 : 0, transform: filesVisible ? "translateY(0)" : "translateY(10px)", transitionDelay: `${i * 100}ms` }}>
-            <span className="text-base">📹</span>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs text-white/55 font-mono truncate">SIMPLE_DuupFlow_.._{c}.mp4</div>
-            </div>
-            <svg className="h-3.5 w-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>
-          </div>
-        ))}
+
+      {/* Divider with label */}
+      <div className="flex items-center gap-2">
+        <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+        <span className="text-[10px] text-white/30 px-2">copie unique par plateforme</span>
+        <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
       </div>
+
+      {/* Platform copies — animated in */}
+      {platforms.map((p, i) => (
+        <div
+          key={p.name}
+          className={`rounded-xl border p-3 flex items-center gap-3 transition-all duration-500 ${p.color}`}
+          style={{ opacity: step > i ? 1 : 0.12, transform: step > i ? "translateY(0)" : "translateY(10px)" }}
+        >
+          <div className="h-9 w-9 rounded-lg bg-white/[0.06] flex items-center justify-center text-base">{p.icon}</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-white/70">{p.name}</p>
+            <p className="text-[11px] text-white/30">Perçue comme nouveau contenu</p>
+          </div>
+          {step > i && (
+            <span className="text-xs text-emerald-400 font-semibold whitespace-nowrap shrink-0">Unique ✓</span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
