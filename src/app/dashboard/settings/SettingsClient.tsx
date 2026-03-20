@@ -46,6 +46,7 @@ export default function SettingsClient({
   initialAgencyName: string;
   isGuest: boolean;
   invitations: Invitation[];
+  userEmail?: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
