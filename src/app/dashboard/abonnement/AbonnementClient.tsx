@@ -94,6 +94,7 @@ export default function AbonnementClient({
   const [downgradeLoading, setDowngradeLoading] = useState(false);
   const [isCancelling, setIsCancelling] = useState(cancelAtPeriodEnd);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
 
   const cancelEndDate = cancelAt
     ? new Date(cancelAt * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
@@ -146,6 +147,7 @@ export default function AbonnementClient({
   }
 
   async function downgradeToSolo() {
+    setShowDowngradeModal(false);
     setDowngradeLoading(true);
     setMsg(null);
     try {
@@ -208,6 +210,7 @@ export default function AbonnementClient({
   }
 
   return (
+    <>
     <main className="p-8 max-w-2xl">
       {/* Header */}
       <div className="mb-8">
@@ -411,7 +414,7 @@ export default function AbonnementClient({
 
             {plan === "pro" && !isCancelling && (
               <button
-                onClick={downgradeToSolo}
+                onClick={() => setShowDowngradeModal(true)}
                 disabled={downgradeLoading}
                 className="w-full rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{
@@ -516,5 +519,67 @@ export default function AbonnementClient({
         )}
       </div>
     </main>
+
+    {/* Downgrade confirmation modal */}
+    {showDowngradeModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        onClick={() => setShowDowngradeModal(false)}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl p-6 space-y-5"
+          style={{ background: "#13131a", border: "1px solid rgba(255,255,255,0.10)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-white">Passer au plan Solo</h2>
+            <p className="text-sm text-white/50">
+              Votre abonnement Stripe sera mis à jour immédiatement.
+            </p>
+          </div>
+
+          <ul className="space-y-2 text-sm text-white/60">
+            <li className="flex items-start gap-2">
+              <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
+              </svg>
+              Le changement est effectif immédiatement sur Stripe
+            </li>
+            <li className="flex items-start gap-2">
+              <svg viewBox="0 0 16 16" className="h-4 w-4 text-green-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M2 8l4 4 8-8" />
+              </svg>
+              Un avoir de proratisation sera crédité sur votre prochaine facture (60€ → 39€)
+            </li>
+            <li className="flex items-start gap-2">
+              <svg viewBox="0 0 16 16" className="h-4 w-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M4 4l8 8M12 4l-8 8" />
+              </svg>
+              Vous perdrez l'accès aux fonctionnalités illimitées (images, vidéos, signatures IA)
+            </li>
+          </ul>
+
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={() => setShowDowngradeModal(false)}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+            >
+              Annuler
+            </button>
+            <button
+              onClick={downgradeToSolo}
+              disabled={downgradeLoading}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-50"
+              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
+            >
+              {downgradeLoading ? "Changement…" : "Confirmer le passage au Solo"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
