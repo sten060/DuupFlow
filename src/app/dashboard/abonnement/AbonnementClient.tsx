@@ -121,16 +121,16 @@ export default function AbonnementClient({
     setUpgradeLoading(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/stripe/checkout", {
+      const res = await fetch("/api/stripe/upgrade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: "pro" }),
       });
       const data = await res.json();
-      if (res.ok && data.url) {
-        window.location.href = data.url;
+      if (res.ok && data.success) {
+        // Reload to reflect the new Pro plan immediately
+        window.location.reload();
       } else {
-        setMsg({ type: "err", text: data.error ?? "Erreur." });
+        setMsg({ type: "err", text: data.error ?? "Erreur lors de la mise à niveau." });
       }
     } catch {
       setMsg({ type: "err", text: "Erreur réseau." });
