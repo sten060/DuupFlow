@@ -233,9 +233,9 @@ function MockupImages() {
 
 function MockupVideos() {
   const platforms = [
-    { name: "Instagram Reels", icon: "📸", color: "border-fuchsia-500/25 bg-fuchsia-500/[0.06]", label: "fuchsia" },
-    { name: "TikTok", icon: "🎵", color: "border-indigo-500/25 bg-indigo-500/[0.06]", label: "indigo" },
-    { name: "YouTube Shorts", icon: "▶️", color: "border-red-500/25 bg-red-500/[0.06]", label: "red" },
+    { name: "Compte Instagram 1", icon: "📸", color: "border-fuchsia-500/25 bg-fuchsia-500/[0.06]", label: "fuchsia" },
+    { name: "Compte Instagram 2", icon: "📸", color: "border-indigo-500/25 bg-indigo-500/[0.06]", label: "indigo" },
+    { name: "Compte Instagram 3", icon: "📸", color: "border-red-500/25 bg-red-500/[0.06]", label: "red" },
   ];
   return (
     <div className="space-y-3">
@@ -480,9 +480,9 @@ function AnimVideoDup() {
   }, []);
 
   const platforms = [
-    { name: "Instagram Reels", icon: "📸", color: "border-fuchsia-500/30 bg-fuchsia-500/[0.07]" },
-    { name: "TikTok", icon: "🎵", color: "border-indigo-500/30 bg-indigo-500/[0.07]" },
-    { name: "YouTube Shorts", icon: "▶️", color: "border-red-500/30 bg-red-500/[0.07]" },
+    { name: "Compte Instagram 1", icon: "📸", color: "border-fuchsia-500/30 bg-fuchsia-500/[0.07]" },
+    { name: "Compte Instagram 2", icon: "📸", color: "border-indigo-500/30 bg-indigo-500/[0.07]" },
+    { name: "Compte Instagram 3", icon: "📸", color: "border-red-500/30 bg-red-500/[0.07]" },
   ];
 
   return (
