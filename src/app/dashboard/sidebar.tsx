@@ -66,16 +66,6 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
-  {
-    href: "/dashboard/abonnement",
-    label: "Abonnement",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="1" y="4" width="22" height="16" rx="2" />
-        <path d="M1 10h22" />
-      </svg>
-    ),
-  },
 ];
 
 function NavItem({ href, label, icon, badge }: { href: string; label: string; icon: React.ReactNode; badge?: string }) {
@@ -173,6 +163,17 @@ export default function Sidebar() {
       {/* Bottom section */}
       <div className="px-3 pb-5 shrink-0">
         <div className="mx-2 mb-3" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
+
+        <Link
+          href="/dashboard/abonnement"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/35 hover:text-white/65 hover:bg-white/[0.04] transition-all w-full mb-1"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="1" y="4" width="22" height="16" rx="2" />
+            <path d="M1 10h22" />
+          </svg>
+          <span>Abonnement</span>
+        </Link>
 
         <Link
           href="/dashboard/settings"
