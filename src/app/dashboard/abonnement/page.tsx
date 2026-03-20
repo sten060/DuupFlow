@@ -41,37 +41,60 @@ export default async function AbonnementPage() {
   // Sync plan & customer_id from Stripe (fixes wrong plan in DB)
   if (profile?.stripe_subscription_id || stripeCustomerId || profile?.has_paid) {
     try {
-      let sub: import("stripe").default.Subscription | null = null;
+      // Resolve Stripe customer ID if missing
+      if (!stripeCustomerId && user.email) {
+        const customers = await getStripe().customers.list({ email: user.email, limit: 1 });
+        const found = customers.data[0];
+        if (found) {
+          stripeCustomerId = found.id;
+          await admin.from("profiles").update({ stripe_customer_id: found.id }).eq("id", user.id);
+        }
+      }
 
-      if (profile?.stripe_subscription_id) {
-        sub = await getStripe().subscriptions.retrieve(
+      // Fetch ALL active subscriptions for this customer to detect duplicates
+      let allActiveSubs: import("stripe").default.Subscription[] = [];
+      if (stripeCustomerId) {
+        const list = await getStripe().subscriptions.list({
+          customer: stripeCustomerId,
+          status: "active",
+          limit: 10,
+          expand: ["data.items.data.price"],
+        });
+        allActiveSubs = list.data;
+      } else if (profile?.stripe_subscription_id) {
+        // Fallback: retrieve the known subscription directly
+        const sub = await getStripe().subscriptions.retrieve(
           profile.stripe_subscription_id,
           { expand: ["items.data.price"] }
         );
+        if (sub.status === "active" || sub.status === "trialing") {
+          allActiveSubs = [sub];
+        }
+      }
+
+      let sub: import("stripe").default.Subscription | null = null;
+
+      if (allActiveSubs.length > 1) {
+        // Multiple active subscriptions — keep the best plan (Pro > Solo) and cancel the rest
+        const planRank = (s: import("stripe").default.Subscription) => {
+          const priceId = s.items.data[0]?.price?.id ?? "";
+          const amount = s.items.data[0]?.price?.unit_amount ?? 0;
+          if (resolvePlanFromPrice(priceId, amount) === "pro") return 1;
+          return 0;
+        };
+        // Sort: best plan first, then most recently created
+        allActiveSubs.sort((a, b) => {
+          const rankDiff = planRank(b) - planRank(a);
+          if (rankDiff !== 0) return rankDiff;
+          return b.created - a.created;
+        });
+        sub = allActiveSubs[0];
+        // Cancel all others
+        for (const dupe of allActiveSubs.slice(1)) {
+          await getStripe().subscriptions.cancel(dupe.id).catch(console.error);
+        }
       } else {
-        // No subscription ID in DB – try to find by customer or by email
-        let customerId = stripeCustomerId;
-        if (!customerId && user.email) {
-          const customers = await getStripe().customers.list({ email: user.email, limit: 1 });
-          const found = customers.data[0];
-          if (found) {
-            customerId = found.id;
-            stripeCustomerId = found.id;
-            await admin.from("profiles").update({ stripe_customer_id: found.id }).eq("id", user.id);
-          }
-        }
-        if (customerId) {
-          const list = await getStripe().subscriptions.list({
-            customer: customerId,
-            status: "active",
-            limit: 1,
-            expand: ["data.items.data.price"],
-          });
-          sub = list.data[0] ?? null;
-          if (sub) {
-            await admin.from("profiles").update({ stripe_subscription_id: sub.id }).eq("id", user.id);
-          }
-        }
+        sub = allActiveSubs[0] ?? null;
       }
 
       if (sub && (sub.status === "active" || sub.status === "trialing")) {
@@ -84,6 +107,7 @@ export default async function AbonnementPage() {
         const updates: Record<string, unknown> = {};
         if (stripePlan && stripePlan !== plan) { updates.plan = stripePlan; plan = stripePlan; }
         if (stripeCustomer && stripeCustomer !== stripeCustomerId) { updates.stripe_customer_id = stripeCustomer; stripeCustomerId = stripeCustomer; }
+        if (sub.id !== profile?.stripe_subscription_id) { updates.stripe_subscription_id = sub.id; }
         // Restore has_paid if a valid active subscription exists (e.g. after erroneous churn)
         if (!profile?.has_paid) updates.has_paid = true;
         if (Object.keys(updates).length > 0) {
