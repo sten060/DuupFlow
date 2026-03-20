@@ -78,16 +78,25 @@ export default function AbonnementClient({
   usage,
   hasStripePortal,
   subscriptionPeriodStart,
+  cancelAtPeriodEnd,
+  cancelAt,
 }: {
   plan: "solo" | "pro" | null;
   usage: { images: number; videos: number; ai_signatures: number } | null;
   hasStripePortal: boolean;
   subscriptionPeriodStart: string | null;
+  cancelAtPeriodEnd: boolean;
+  cancelAt: number | null;
 }) {
-  const [portalCancelLoading, setPortalCancelLoading] = useState(false);
   const [portalPaymentLoading, setPortalPaymentLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(cancelAtPeriodEnd);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const cancelEndDate = cancelAt
+    ? new Date(cancelAt * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+    : null;
 
   const renewalDate = getRenewalDate(subscriptionPeriodStart);
   const daysLeft = getDaysUntilRenewal(subscriptionPeriodStart);
@@ -96,8 +105,8 @@ export default function AbonnementClient({
   const planBg = plan === "solo" ? "rgba(167,139,250,0.10)" : "rgba(99,102,241,0.10)";
   const planBorder = plan === "solo" ? "rgba(167,139,250,0.22)" : "rgba(99,102,241,0.22)";
 
-  async function openPortal(flow: "cancel" | "payment") {
-    flow === "cancel" ? setPortalCancelLoading(true) : setPortalPaymentLoading(true);
+  async function openPortal(flow: "payment") {
+    setPortalPaymentLoading(true);
     setMsg(null);
     try {
       const res = await fetch("/api/stripe/portal", {
@@ -114,7 +123,25 @@ export default function AbonnementClient({
     } catch {
       setMsg({ type: "err", text: "Erreur réseau." });
     }
-    flow === "cancel" ? setPortalCancelLoading(false) : setPortalPaymentLoading(false);
+    setPortalPaymentLoading(false);
+  }
+
+  async function cancelSubscription() {
+    setCancelLoading(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/stripe/cancel", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setIsCancelling(true);
+        setMsg({ type: "ok", text: "Résiliation programmée. Vous garderez l'accès jusqu'à la fin de votre période." });
+      } else {
+        setMsg({ type: "err", text: data.error ?? "Erreur lors de la résiliation." });
+      }
+    } catch {
+      setMsg({ type: "err", text: "Erreur réseau." });
+    }
+    setCancelLoading(false);
   }
 
   async function upgradeToProCheckout() {
@@ -222,8 +249,29 @@ export default function AbonnementClient({
             </span>
           </div>
 
+          {/* Cancellation banner */}
+          {isCancelling && (
+            <div
+              className="flex items-start gap-3 rounded-xl px-4 py-3 mb-5"
+              style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.22)" }}
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 mt-0.5" fill="none" stroke="#F59E0B" strokeWidth="2">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v4M12 16h.01" />
+              </svg>
+              <div>
+                <p className="text-xs font-semibold" style={{ color: "#F59E0B" }}>Résiliation programmée</p>
+                <p className="text-xs mt-0.5" style={{ color: "rgba(245,158,11,0.75)" }}>
+                  {cancelEndDate
+                    ? `Accès garanti jusqu'au ${cancelEndDate}. Après cette date, votre compte sera désactivé.`
+                    : "Votre abonnement ne sera pas renouvelé. Vous gardez l'accès jusqu'à la fin de la période."}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Renewal date */}
-          {renewalDate && (
+          {renewalDate && !isCancelling && (
             <div
               className="flex items-center justify-between rounded-xl px-4 py-3 mb-5"
               style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
@@ -368,10 +416,10 @@ export default function AbonnementClient({
               </button>
             )}
 
-            {hasStripePortal && (
+            {hasStripePortal && !isCancelling && (
               <button
-                onClick={() => openPortal("cancel")}
-                disabled={portalCancelLoading}
+                onClick={cancelSubscription}
+                disabled={cancelLoading}
                 className="w-full rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-red-500/[0.06] hover:border-red-500/20 hover:text-red-400/80"
                 style={{
                   background: "rgba(255,255,255,0.02)",
@@ -379,8 +427,8 @@ export default function AbonnementClient({
                   color: "rgba(255,255,255,0.35)",
                 }}
               >
-                {portalCancelLoading ? (
-                  "Ouverture…"
+                {cancelLoading ? (
+                  "Résiliation en cours…"
                 ) : (
                   <>
                     <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">

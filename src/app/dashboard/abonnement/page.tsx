@@ -37,6 +37,8 @@ export default async function AbonnementPage() {
   let plan = (profile?.plan as "solo" | "pro" | null) ?? null;
   let stripeCustomerId = profile?.stripe_customer_id ?? null;
   const subscriptionPeriodStart = profile?.subscription_period_start ?? null;
+  let cancelAtPeriodEnd = false;
+  let cancelAt: number | null = null;
 
   // Sync plan & customer_id from Stripe (fixes wrong plan in DB)
   if (profile?.stripe_subscription_id || stripeCustomerId || profile?.has_paid) {
@@ -52,6 +54,7 @@ export default async function AbonnementPage() {
       }
 
       // Fetch ALL active subscriptions for this customer to detect duplicates
+      // Also include "active" subs with cancel_at_period_end=true (they are still active)
       let allActiveSubs: import("stripe").default.Subscription[] = [];
       if (stripeCustomerId) {
         const list = await getStripe().subscriptions.list({
@@ -104,6 +107,10 @@ export default async function AbonnementPage() {
         const stripePlan = resolvePlanFromPrice(priceId, unitAmount);
         const stripeCustomer = typeof sub.customer === "string" ? sub.customer : (sub.customer as any)?.id ?? null;
 
+        // Read cancellation-at-period-end state
+        cancelAtPeriodEnd = sub.cancel_at_period_end;
+        cancelAt = sub.cancel_at ?? null;
+
         const updates: Record<string, unknown> = {};
         if (stripePlan && stripePlan !== plan) { updates.plan = stripePlan; plan = stripePlan; }
         if (stripeCustomer && stripeCustomer !== stripeCustomerId) { updates.stripe_customer_id = stripeCustomer; stripeCustomerId = stripeCustomer; }
@@ -144,6 +151,8 @@ export default async function AbonnementPage() {
       usage={usage}
       hasStripePortal={hasStripePortal}
       subscriptionPeriodStart={subscriptionPeriodStart2}
+      cancelAtPeriodEnd={cancelAtPeriodEnd}
+      cancelAt={cancelAt}
     />
   );
 }
