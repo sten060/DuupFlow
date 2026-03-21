@@ -1,10 +1,4 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/relance",
-      "schedule": "0 10 * * *"
-    }
-  ],
   "functions": {
     "src/app/api/duplicate-video/route.ts": {
       "maxDuration": 300,
