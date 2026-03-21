@@ -75,15 +75,15 @@ export async function POST() {
     );
   }
 
-  // Switch to Solo price — proration applied automatically
+  // Switch to Solo price at next billing cycle — no immediate DB update.
+  // The user keeps Pro access until the current period ends;
+  // the webhook invoice.paid (billing_reason: subscription_cycle) will
+  // apply "solo" in DB when the 39€ invoice is paid next month.
   await getStripe().subscriptions.update(subscriptionId, {
     items: [{ id: itemId, price: soloPriceId }],
-    proration_behavior: "create_prorations",
+    proration_behavior: "none",
     metadata: { plan: "solo" },
   });
-
-  // Update DB immediately (webhook will also fire)
-  await admin.from("profiles").update({ plan: "solo" }).eq("id", user.id);
 
   return NextResponse.json({ success: true });
 }
