@@ -32,8 +32,8 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Redirige vers /login si non authentifié sur /dashboard
-  if (!user && pathname.startsWith("/dashboard")) {
+  // Redirige vers /login si non authentifié sur les routes protégées
+  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/affiliate") || pathname.startsWith("/admin"))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -76,5 +76,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/checkout/:path*"],
+  matcher: ["/dashboard/:path*", "/affiliate/:path*", "/admin/:path*", "/login", "/checkout/:path*"],
 };
