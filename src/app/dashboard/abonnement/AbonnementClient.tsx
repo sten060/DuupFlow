@@ -94,6 +94,7 @@ export default function AbonnementClient({
   const [downgradeLoading, setDowngradeLoading] = useState(false);
   const [isCancelling, setIsCancelling] = useState(cancelAtPeriodEnd);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showDowngradeModal, setShowDowngradeModal] = useState(false);
   const [showCancelStep1, setShowCancelStep1] = useState(false);
   const [showCancelStep2, setShowCancelStep2] = useState(false);
@@ -403,7 +404,7 @@ export default function AbonnementClient({
           <div className="space-y-2.5">
             {plan === "solo" && (
               <button
-                onClick={upgradeToProCheckout}
+                onClick={() => setShowUpgradeModal(true)}
                 disabled={upgradeLoading}
                 className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
@@ -529,6 +530,65 @@ export default function AbonnementClient({
       </div>
     </main>
 
+    {/* Upgrade confirmation modal */}
+    {showUpgradeModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        onClick={() => setShowUpgradeModal(false)}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl p-6 space-y-5"
+          style={{ background: "#13131a", border: "1px solid rgba(255,255,255,0.10)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-white">Passer au plan Pro</h2>
+            <p className="text-sm text-white/50">
+              Vous êtes sur le point de passer au plan Pro à 99€/mois.
+            </p>
+          </div>
+          <ul className="space-y-2 text-sm text-white/60">
+            <li className="flex items-start gap-2">
+              <svg viewBox="0 0 16 16" className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M2 8l4 4 8-8" />
+              </svg>
+              Paiement immédiat du prorata pour les jours restants du mois
+            </li>
+            <li className="flex items-start gap-2">
+              <svg viewBox="0 0 16 16" className="h-4 w-4 text-green-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M2 8l4 4 8-8" />
+              </svg>
+              Accès illimité (images, vidéos, signatures IA) activé immédiatement
+            </li>
+            <li className="flex items-start gap-2">
+              <svg viewBox="0 0 16 16" className="h-4 w-4 text-green-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M2 8l4 4 8-8" />
+              </svg>
+              Jusqu&apos;à 3 membres dans votre workspace
+            </li>
+          </ul>
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={() => setShowUpgradeModal(false)}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+            >
+              Annuler
+            </button>
+            <button
+              onClick={() => { setShowUpgradeModal(false); upgradeToProCheckout(); }}
+              disabled={upgradeLoading}
+              className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+            >
+              {upgradeLoading ? "Redirection…" : "Confirmer — 99€/mois"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     {/* Cancel — Step 1 modal: are you sure? */}
     {showCancelStep1 && (
       <div
@@ -652,22 +712,22 @@ export default function AbonnementClient({
 
           <ul className="space-y-2 text-sm text-white/60">
             <li className="flex items-start gap-2">
-              <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
-              </svg>
-              Le changement est effectif immédiatement sur Stripe
-            </li>
-            <li className="flex items-start gap-2">
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-green-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M2 8l4 4 8-8" />
               </svg>
-              Un avoir de proratisation sera crédité sur votre prochaine facture (60€ → 39€)
+              Vous gardez l&apos;accès Pro jusqu&apos;à la fin de votre période en cours
+            </li>
+            <li className="flex items-start gap-2">
+              <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
+              </svg>
+              Votre prochain paiement sera de 39€ (plan Solo)
             </li>
             <li className="flex items-start gap-2">
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M4 4l8 8M12 4l-8 8" />
               </svg>
-              Vous perdrez l'accès aux fonctionnalités illimitées (images, vidéos, signatures IA)
+              Les limites Solo s&apos;activeront au début du prochain cycle
             </li>
           </ul>
 

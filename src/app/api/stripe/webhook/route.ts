@@ -151,29 +151,35 @@ export async function POST(request: NextRequest) {
       break;
     }
 
-    // Renouvellement mensuel → maintenir l'accès + reset usage
+    // Renouvellement mensuel → maintenir l'accès + reset usage + sync plan
     case "invoice.paid": {
       const invoice = event.data.object as Stripe.Invoice;
       const billingReason = (invoice as any).billing_reason as string;
       const subId = getSubscriptionId(invoice);
 
       if (subId) {
-        const sub = await getStripe().subscriptions.retrieve(subId);
+        const sub = await getStripe().subscriptions.retrieve(subId, {
+          expand: ["items.data.price"],
+        });
         const uid = sub.metadata?.supabase_user_id;
         if (uid) {
           const admin = createAdminClient();
-          await admin
-            .from("profiles")
-            .update({
-              has_paid: true,
-              subscription_period_start: new Date().toISOString(),
-            })
-            .eq("id", uid);
 
-          // Reset usage only on renewal (not on initial creation)
+          // On subscription_cycle, sync the plan from the current price so
+          // a pending downgrade (Pro → Solo) takes effect at the right time.
+          const updatePayload: Record<string, unknown> = {
+            has_paid: true,
+            subscription_period_start: new Date().toISOString(),
+          };
           if (billingReason === "subscription_cycle") {
+            const priceId = sub.items.data[0]?.price?.id;
+            if (priceId) {
+              updatePayload.plan = resolvePlanFromPriceId(priceId, sub.metadata?.plan);
+            }
             await resetUsage(uid).catch(console.error);
           }
+
+          await admin.from("profiles").update(updatePayload).eq("id", uid);
         }
       }
       break;
@@ -222,13 +228,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Mise à jour d'abonnement (ex: upgrade via portail Stripe)
+    // Only sync immediately for upgrades (→ pro). Downgrades (→ solo) are
+    // intentionally deferred to the next invoice.paid cycle so the user
+    // keeps Pro access until the end of the current billing period.
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription;
       const uid = sub.metadata?.supabase_user_id;
       if (uid && sub.items.data[0]?.price?.id) {
         const plan = resolvePlanFromPriceId(sub.items.data[0].price.id, sub.metadata?.plan);
-        const admin = createAdminClient();
-        await admin.from("profiles").update({ plan }).eq("id", uid);
+        if (plan === "pro") {
+          const admin = createAdminClient();
+          await admin.from("profiles").update({ plan }).eq("id", uid);
+        }
       }
       break;
     }
