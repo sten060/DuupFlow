@@ -70,23 +70,37 @@ export default async function AdminAffiliates() {
 
   const admin = createAdminClient();
 
-  const [{ data: affiliates }, { data: referrals }] = await Promise.all([
-    admin.from("affiliates").select("*").order("created_at", { ascending: false }),
-    admin
-      .from("profiles")
-      .select("affiliate_code, has_paid, plan, created_at")
-      .not("affiliate_code", "is", null),
-  ]);
+  const [{ data: affiliates }, { data: referrals }, { data: allPayments }] =
+    await Promise.all([
+      admin.from("affiliates").select("*").order("created_at", { ascending: false }),
+      admin
+        .from("profiles")
+        .select("affiliate_code, has_paid, plan, created_at")
+        .not("affiliate_code", "is", null),
+      admin
+        .from("affiliate_payments")
+        .select("affiliate_code, commission_cents, paid_at"),
+    ]);
 
   const rows = (affiliates ?? []) as AffiliateRow[];
   const allReferrals = (referrals ?? []) as ProfileRow[];
 
-  const stats = rows.map((a) => ({ ...a, ...computeStats(a, allReferrals) }));
+  const paymentRows = allPayments ?? [];
+
+  const stats = rows.map((a) => {
+    const earned = Math.round(
+      paymentRows
+        .filter((p) => p.affiliate_code === a.code)
+        .reduce((s, p) => s + p.commission_cents, 0) / 100
+    );
+    return { ...a, ...computeStats(a, allReferrals), earned };
+  });
 
   const totalInscrits = stats.reduce((s, a) => s + a.inscrits, 0);
   const totalConvertis = stats.reduce((s, a) => s + a.convertis, 0);
   const totalMrr = stats.reduce((s, a) => s + a.mrr, 0);
   const totalCommission = stats.reduce((s, a) => s + a.commission, 0);
+  const totalEarned = stats.reduce((s, a) => s + a.earned, 0);
 
   return (
     <main
@@ -125,12 +139,32 @@ export default async function AdminAffiliates() {
             color="#38BDF8"
           />
           <StatCard
-            label="Commission totale à verser"
+            label="Commission ce mois (MRR)"
             value={`${totalCommission}€`}
-            sub="Ce mois, sur abonnés actifs"
+            sub="Sur abonnés actifs actuels"
             color="#F59E0B"
           />
         </div>
+
+        {/* Real Stripe total */}
+        {paymentRows.length > 0 && (
+          <div
+            className="rounded-2xl p-5 flex items-center justify-between"
+            style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.18)" }}
+          >
+            <div>
+              <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">
+                Commission totale générée (réel Stripe)
+              </p>
+              <p className="text-xs text-white/25 mt-0.5">
+                {paymentRows.length} paiement{paymentRows.length > 1 ? "s" : ""} trackés depuis l&apos;activation du système
+              </p>
+            </div>
+            <p className="text-3xl font-bold" style={{ color: "#10B981" }}>
+              {totalEarned}€
+            </p>
+          </div>
+        )}
 
         {/* Affiliates table */}
         <div
@@ -258,20 +292,32 @@ export default async function AdminAffiliates() {
                       ))}
                     </div>
 
-                    {/* Commission due */}
-                    <div
-                      className="mt-3 flex items-center justify-between rounded-xl px-4 py-2.5"
-                      style={{
-                        background: "rgba(245,158,11,0.05)",
-                        border: "1px solid rgba(245,158,11,0.15)",
-                      }}
-                    >
-                      <p className="text-xs text-white/50">
-                        Commission à verser ce mois
-                      </p>
-                      <p className="text-sm font-bold" style={{ color: "#F59E0B" }}>
-                        {a.commission}€
-                      </p>
+                    {/* Commission due + earned */}
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div
+                        className="flex items-center justify-between rounded-xl px-4 py-2.5"
+                        style={{
+                          background: "rgba(245,158,11,0.05)",
+                          border: "1px solid rgba(245,158,11,0.15)",
+                        }}
+                      >
+                        <p className="text-xs text-white/50">Commission ce mois</p>
+                        <p className="text-sm font-bold" style={{ color: "#F59E0B" }}>
+                          {a.commission}€
+                        </p>
+                      </div>
+                      <div
+                        className="flex items-center justify-between rounded-xl px-4 py-2.5"
+                        style={{
+                          background: "rgba(16,185,129,0.05)",
+                          border: "1px solid rgba(16,185,129,0.15)",
+                        }}
+                      >
+                        <p className="text-xs text-white/50">Total généré (Stripe)</p>
+                        <p className="text-sm font-bold" style={{ color: "#10B981" }}>
+                          {a.earned}€
+                        </p>
+                      </div>
                     </div>
                   </div>
                 );
