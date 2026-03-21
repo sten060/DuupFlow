@@ -113,31 +113,111 @@ export default function DemoPage() {
           </p>
         </div>
 
-      </div>
+        {/* Demo Videos Grid */}
+        <div className="mb-20 space-y-5">
 
-      {/* Demo Videos Grid — full width */}
-      <div className="relative z-10 w-full px-4 md:px-8 mb-20 space-y-6">
+          {/* Row 1 — Vidéos + Images côte à côte */}
+          <div className="grid md:grid-cols-2 gap-0 rounded-3xl overflow-hidden" style={{ border: "1px solid rgba(99,102,241,0.20)", boxShadow: "0 0 60px rgba(99,102,241,0.08), 0 24px 60px rgba(0,0,0,0.4)" }}>
 
-        {/* Row 1 — Vidéos + Images côte à côte */}
-        <div className="grid md:grid-cols-2 gap-0 rounded-3xl overflow-hidden" style={{ border: "1px solid rgba(99,102,241,0.20)", boxShadow: "0 0 60px rgba(99,102,241,0.08), 0 24px 60px rgba(0,0,0,0.4)" }}>
+            {/* Panel gauche — Duplication Vidéos */}
+            <div className="flex flex-col" style={{ background: "rgba(8,12,35,0.85)" }}>
+              {/* Top bar */}
+              <div className="px-6 pt-5 pb-4 flex items-center gap-3 border-b border-white/[0.06]">
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.30)" }}>
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="2" y="5" width="14" height="14" rx="2" />
+                    <path d="M16 9l5-3v12l-5-3V9z" />
+                  </svg>
+                </div>
+                <span className="text-sm font-semibold text-white">Duplication Vidéos</span>
+              </div>
 
-          {/* Panel gauche — Duplication Vidéos */}
-          <div className="flex flex-col" style={{ background: "rgba(8,12,35,0.85)" }}>
+              {/* Video */}
+              <div className="relative mx-5 my-4 rounded-2xl overflow-hidden" style={{ aspectRatio: "16/9", background: "rgba(4,8,25,0.70)", border: "1px solid rgba(99,102,241,0.20)" }}>
+                <video
+                  src="/videos/demo-videos.mp4"
+                  className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                />
+              </div>
+
+              {/* Bottom text */}
+              <div className="px-6 pb-6 space-y-2">
+                <ul className="space-y-1.5">
+                  <li className="flex items-start gap-2 text-xs text-white/50">
+                    <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-indigo-400/70 shrink-0" />
+                    <span><span className="text-white/70 font-medium">Duplication simple</span> — importez votre vidéo, sélectionnez le pack souhaité et dupliquez en un clic. Conçu pour ne pas se prendre la tête : les filtres intégrés sont parfaitement calibrés pour passer sous l&apos;algorithme des réseaux sociaux.</span>
+                  </li>
+                  <li className="flex items-start gap-2 text-xs text-white/50">
+                    <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-indigo-400/70 shrink-0" />
+                    <span><span className="text-white/70 font-medium">Duplication avancée</span> — cette fonction vous permet de choisir exactement les modifications voulues. C&apos;est vous qui décidez précisément ce que vous souhaitez modifier, avec un contrôle total sur chaque paramètre.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Panel droit — Duplication Images */}
+            <div className="flex flex-col border-t md:border-t-0 md:border-l border-white/[0.06]" style={{ background: "rgba(8,12,35,0.85)" }}>
+              {/* Top bar */}
+              <div className="px-6 pt-5 pb-4 flex items-center gap-3 border-b border-white/[0.06]">
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(192,38,211,0.12)", border: "1px solid rgba(192,38,211,0.28)" }}>
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#C026D3" strokeWidth="1.5">
+                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                </div>
+                <span className="text-sm font-semibold text-white">Duplication Images</span>
+              </div>
+
+              {/* Video */}
+              <div className="relative mx-5 my-4 rounded-2xl overflow-hidden" style={{ aspectRatio: "16/9", background: "rgba(4,8,25,0.70)", border: "1px solid rgba(192,38,211,0.18)" }}>
+                <video
+                  src="/videos/demo-images.mp4"
+                  className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                />
+              </div>
+
+              {/* Bottom text */}
+              <div className="px-6 pb-6 space-y-2">
+                <ul className="space-y-1.5">
+                  <li className="flex items-start gap-2 text-xs text-white/50">
+                    <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-fuchsia-400/70 shrink-0" />
+                    <span><span className="text-white/70 font-medium">Métadonnées EXIF/XMP</span> — chaque copie reçoit des métadonnées uniques invisibles à l&apos;œil nu.</span>
+                  </li>
+                  <li className="flex items-start gap-2 text-xs text-white/50">
+                    <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-fuchsia-400/70 shrink-0" />
+                    <span><span className="text-white/70 font-medium">Micro-variations visuelles</span> — légères retouches imperceptibles qui suffisent à tromper les détecteurs.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2 — Comparateur, centré */}
+          <div className="md:w-1/2 mx-auto rounded-3xl overflow-hidden" style={{ border: "1px solid rgba(16,185,129,0.20)", boxShadow: "0 0 50px rgba(16,185,129,0.06), 0 16px 40px rgba(0,0,0,0.4)", background: "rgba(8,12,35,0.85)" }}>
             {/* Top bar */}
-            <div className="px-8 pt-6 pb-5 flex items-center gap-3 border-b border-white/[0.06]">
-              <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.30)" }}>
-                <svg viewBox="0 0 24 24" className="h-5 w-5 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <rect x="2" y="5" width="14" height="14" rx="2" />
-                  <path d="M16 9l5-3v12l-5-3V9z" />
+            <div className="px-6 pt-5 pb-4 flex items-center gap-3 border-b border-white/[0.06]">
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.28)" }}>
+                <svg viewBox="0 0 24 24" className="h-4 w-4 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m21 21-4.35-4.35" />
                 </svg>
               </div>
-              <span className="text-base font-semibold text-white">Duplication Vidéos</span>
+              <span className="text-sm font-semibold text-white">Comparateur de similitude</span>
             </div>
 
             {/* Video */}
-            <div className="relative mx-6 my-5 rounded-2xl overflow-hidden" style={{ aspectRatio: "16/9", background: "rgba(4,8,25,0.70)", border: "1px solid rgba(99,102,241,0.20)" }}>
+            <div className="relative mx-5 my-4 rounded-2xl overflow-hidden" style={{ aspectRatio: "16/9", background: "rgba(4,8,25,0.70)", border: "1px solid rgba(16,185,129,0.18)" }}>
               <video
-                src="/videos/demo-videos.mp4"
+                src="/videos/demo-comparateur.mp4"
                 className="absolute inset-0 w-full h-full object-cover rounded-2xl"
                 autoPlay
                 muted
@@ -147,105 +227,21 @@ export default function DemoPage() {
             </div>
 
             {/* Bottom text */}
-            <div className="px-8 pb-8 space-y-3">
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3 text-sm text-white/55">
-                  <span className="mt-1.5 h-2 w-2 rounded-full bg-indigo-400/70 shrink-0" />
-                  <span><span className="text-white/85 font-semibold">Duplication simple</span> — importez votre vidéo, sélectionnez le pack souhaité et dupliquez en un clic. Conçu pour ne pas se prendre la tête : les filtres intégrés sont parfaitement calibrés pour passer sous l&apos;algorithme des réseaux sociaux.</span>
+            <div className="px-6 pb-6">
+              <ul className="space-y-1.5">
+                <li className="flex items-start gap-2 text-xs text-white/50">
+                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400/70 shrink-0" />
+                  <span><span className="text-white/70 font-medium">Score de similarité en temps réel</span> — compare deux fichiers et affiche un pourcentage de ressemblance détecté par les algorithmes.</span>
                 </li>
-                <li className="flex items-start gap-3 text-sm text-white/55">
-                  <span className="mt-1.5 h-2 w-2 rounded-full bg-indigo-400/70 shrink-0" />
-                  <span><span className="text-white/85 font-semibold">Duplication avancée</span> — cette fonction vous permet de choisir exactement les modifications voulues. C&apos;est vous qui décidez précisément ce que vous souhaitez modifier, avec un contrôle total sur chaque paramètre.</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Panel droit — Duplication Images */}
-          <div className="flex flex-col border-t md:border-t-0 md:border-l border-white/[0.06]" style={{ background: "rgba(8,12,35,0.85)" }}>
-            {/* Top bar */}
-            <div className="px-8 pt-6 pb-5 flex items-center gap-3 border-b border-white/[0.06]">
-              <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(192,38,211,0.12)", border: "1px solid rgba(192,38,211,0.28)" }}>
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="#C026D3" strokeWidth="1.5">
-                  <rect x="3" y="3" width="18" height="18" rx="3" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-              </div>
-              <span className="text-base font-semibold text-white">Duplication Images</span>
-            </div>
-
-            {/* Video */}
-            <div className="relative mx-6 my-5 rounded-2xl overflow-hidden" style={{ aspectRatio: "16/9", background: "rgba(4,8,25,0.70)", border: "1px solid rgba(192,38,211,0.18)" }}>
-              <video
-                src="/videos/demo-images.mp4"
-                className="absolute inset-0 w-full h-full object-cover rounded-2xl"
-                autoPlay
-                muted
-                loop
-                playsInline
-              />
-            </div>
-
-            {/* Bottom text */}
-            <div className="px-8 pb-8 space-y-3">
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3 text-sm text-white/55">
-                  <span className="mt-1.5 h-2 w-2 rounded-full bg-fuchsia-400/70 shrink-0" />
-                  <span><span className="text-white/85 font-semibold">Métadonnées EXIF/XMP</span> — chaque copie reçoit des métadonnées uniques invisibles à l&apos;œil nu.</span>
-                </li>
-                <li className="flex items-start gap-3 text-sm text-white/55">
-                  <span className="mt-1.5 h-2 w-2 rounded-full bg-fuchsia-400/70 shrink-0" />
-                  <span><span className="text-white/85 font-semibold">Micro-variations visuelles</span> — légères retouches imperceptibles qui suffisent à tromper les détecteurs.</span>
+                <li className="flex items-start gap-2 text-xs text-white/50">
+                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400/70 shrink-0" />
+                  <span><span className="text-white/70 font-medium">Détecteur avancé de vraie précision</span> — contrairement aux outils approximatifs, ce comparateur analyse les vrais points de similarité avec 14 algorithmes indépendants. Pas de score bidon : vous voyez exactement où en sont vos copies, pas de résultats inventés pour vous rassurer.</span>
                 </li>
               </ul>
             </div>
           </div>
+
         </div>
-
-        {/* Row 2 — Comparateur, centré mais large */}
-        <div className="max-w-4xl mx-auto rounded-3xl overflow-hidden" style={{ border: "1px solid rgba(16,185,129,0.20)", boxShadow: "0 0 50px rgba(16,185,129,0.06), 0 16px 40px rgba(0,0,0,0.4)", background: "rgba(8,12,35,0.85)" }}>
-          {/* Top bar */}
-          <div className="px-8 pt-6 pb-5 flex items-center gap-3 border-b border-white/[0.06]">
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.28)" }}>
-              <svg viewBox="0 0 24 24" className="h-5 w-5 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-            </div>
-            <span className="text-base font-semibold text-white">Comparateur de similitude</span>
-          </div>
-
-          {/* Video */}
-          <div className="relative mx-6 my-5 rounded-2xl overflow-hidden" style={{ aspectRatio: "16/9", background: "rgba(4,8,25,0.70)", border: "1px solid rgba(16,185,129,0.18)" }}>
-            <video
-              src="/videos/demo-comparateur.mp4"
-              className="absolute inset-0 w-full h-full object-cover rounded-2xl"
-              autoPlay
-              muted
-              loop
-              playsInline
-            />
-          </div>
-
-          {/* Bottom text */}
-          <div className="px-8 pb-8">
-            <ul className="space-y-3">
-              <li className="flex items-start gap-3 text-sm text-white/55">
-                <span className="mt-1.5 h-2 w-2 rounded-full bg-emerald-400/70 shrink-0" />
-                <span><span className="text-white/85 font-semibold">Score de similarité en temps réel</span> — compare deux fichiers et affiche un pourcentage de ressemblance détecté par les algorithmes.</span>
-              </li>
-              <li className="flex items-start gap-3 text-sm text-white/55">
-                <span className="mt-1.5 h-2 w-2 rounded-full bg-emerald-400/70 shrink-0" />
-                <span><span className="text-white/85 font-semibold">Détecteur avancé de vraie précision</span> — contrairement aux outils approximatifs, ce comparateur analyse les vrais points de similarité avec 14 algorithmes indépendants. Pas de score bidon : vous voyez exactement où en sont vos copies, pas de résultats inventés pour vous rassurer.</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-      </div>
-
-      <div className="relative z-10 max-w-5xl mx-auto px-6">
 
         {/* How it works */}
         <div className="mb-20">
