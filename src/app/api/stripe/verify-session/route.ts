@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
 
   // Paiement confirmé — extraire les IDs Stripe depuis la session expandée
   const plan = session.metadata?.plan === "solo" ? "solo" : "pro";
+  const affiliateCode = session.metadata?.affiliate_code ?? null;
   const subscriptionId =
     typeof session.subscription === "string"
       ? session.subscription
@@ -105,6 +106,7 @@ export async function POST(request: NextRequest) {
     ...(subscriptionId ? { stripe_subscription_id: subscriptionId, subscription_period_start: new Date().toISOString() } : {}),
     email_sequence: "active",
     email_sequence_updated_at: new Date().toISOString(),
+    ...(affiliateCode ? { affiliate_code: affiliateCode } : {}),
   }).eq("id", user.id).select("id");
 
   if (updateError) {
@@ -123,6 +125,7 @@ export async function POST(request: NextRequest) {
       ...(subscriptionId ? { stripe_subscription_id: subscriptionId, subscription_period_start: new Date().toISOString() } : {}),
       email_sequence: "active",
       email_sequence_updated_at: new Date().toISOString(),
+      ...(affiliateCode ? { affiliate_code: affiliateCode } : {}),
     });
     if (upsertError) {
       console.error("[verify-session] Supabase upsert error:", upsertError);
