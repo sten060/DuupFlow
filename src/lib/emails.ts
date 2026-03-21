@@ -1,11 +1,12 @@
 /**
  * Transactional emails for DuupFlow.
- * Sent directly via Brevo SMTP API — no automation setup required.
+ * Sent directly via Brevo SMTP API.
  *
  * Emails:
- *  1. Welcome         → on signup (onboarding complete)
- *  2. Payment success → on Stripe payment verified
- *  3. Relance J+1     → daily cron for free users who haven't paid after 24h
+ *  1. Payment success → on Stripe payment verified
+ *
+ * Welcome (D0) and Relance J+1 are handled by Brevo automation,
+ * triggered automatically when a contact is added to the "Free Users" list.
  */
 
 import { sendBrevoEmail } from "@/lib/brevo";
@@ -99,100 +100,7 @@ function layout(previewText: string, content: string): string {
 </html>`;
 }
 
-// ─── Email 1 : Welcome (signup) ───────────────────────────────────────────────
-
-export async function sendWelcomeEmail(email: string, firstName: string) {
-  const name = firstName || "là";
-
-  const content = `
-    <!-- Greeting -->
-    <h1 style="margin:0 0 12px;font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.6px;line-height:1.2;">
-      Bienvenue sur DuupFlow, ${name} 👋
-    </h1>
-    <p style="margin:0 0 32px;font-size:16px;color:#6b6b8f;line-height:1.7;">
-      Ton compte est prêt. Tu peux dès maintenant dupliquer ton contenu entre toutes tes plateformes, automatiquement.
-    </p>
-
-    <!-- Steps -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:36px;">
-
-      <tr>
-        <td style="padding-bottom:16px;">
-          <table role="presentation" cellpadding="0" cellspacing="0" style="background-color:#13131f;border:1px solid #1e1e35;border-radius:12px;width:100%;">
-            <tr>
-              <td style="padding:18px 20px;vertical-align:top;width:40px;">
-                <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:8px;width:32px;height:32px;text-align:center;line-height:32px;font-size:14px;font-weight:700;color:#ffffff;">1</div>
-              </td>
-              <td style="padding:18px 20px 18px 4px;vertical-align:middle;">
-                <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#e2e2f0;">Connecte tes plateformes</p>
-                <p style="margin:0;font-size:13px;color:#6b6b8f;line-height:1.5;">Instagram, TikTok, YouTube, LinkedIn — tout en un endroit.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-
-      <tr>
-        <td style="padding-bottom:16px;">
-          <table role="presentation" cellpadding="0" cellspacing="0" style="background-color:#13131f;border:1px solid #1e1e35;border-radius:12px;width:100%;">
-            <tr>
-              <td style="padding:18px 20px;vertical-align:top;width:40px;">
-                <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:8px;width:32px;height:32px;text-align:center;line-height:32px;font-size:14px;font-weight:700;color:#ffffff;">2</div>
-              </td>
-              <td style="padding:18px 20px 18px 4px;vertical-align:middle;">
-                <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#e2e2f0;">Crée ton premier flux</p>
-                <p style="margin:0;font-size:13px;color:#6b6b8f;line-height:1.5;">Choisis une source et les destinations. C'est tout.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-
-      <tr>
-        <td>
-          <table role="presentation" cellpadding="0" cellspacing="0" style="background-color:#13131f;border:1px solid #1e1e35;border-radius:12px;width:100%;">
-            <tr>
-              <td style="padding:18px 20px;vertical-align:top;width:40px;">
-                <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:8px;width:32px;height:32px;text-align:center;line-height:32px;font-size:14px;font-weight:700;color:#ffffff;">3</div>
-              </td>
-              <td style="padding:18px 20px 18px 4px;vertical-align:middle;">
-                <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#e2e2f0;">Gagne du temps, chaque semaine</p>
-                <p style="margin:0;font-size:13px;color:#6b6b8f;line-height:1.5;">Ton contenu se duplique automatiquement. Zéro copier-coller.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-
-    </table>
-
-    <!-- CTA -->
-    <table role="presentation" cellpadding="0" cellspacing="0">
-      <tr>
-        <td style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:10px;">
-          <a href="${BASE_URL}/dashboard" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;letter-spacing:-0.2px;">
-            Accéder à mon espace →
-          </a>
-        </td>
-      </tr>
-    </table>
-
-    <!-- Sign off -->
-    <p style="margin:36px 0 0;font-size:14px;color:#6b6b8f;line-height:1.7;">
-      Une question ? Réponds directement à cet email — on te répond sous 24h.<br/>
-      <span style="color:#4d4d6b;">— L'équipe DuupFlow</span>
-    </p>
-  `;
-
-  await sendBrevoEmail({
-    to: email,
-    toName: firstName,
-    subject: `Bienvenue sur DuupFlow, ${name} 🎉`,
-    htmlContent: layout("Ton compte est prêt. Découvre comment dupliquer ton contenu en quelques secondes.", content),
-  });
-}
-
-// ─── Email 2 : Payment success ────────────────────────────────────────────────
+// ─── Email 1 : Payment success ────────────────────────────────────────────────
 
 export async function sendPaymentEmail(email: string, firstName: string) {
   const name = firstName || "là";
@@ -256,86 +164,3 @@ export async function sendPaymentEmail(email: string, firstName: string) {
   });
 }
 
-// ─── Email 3 : Relance J+1 (free users who haven't paid) ─────────────────────
-
-export async function sendRelanceEmail(email: string, firstName: string) {
-  const name = firstName || "là";
-
-  const content = `
-    <!-- Greeting -->
-    <h1 style="margin:0 0 12px;font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.6px;line-height:1.2;">
-      ${name}, tu passes à côté de quelque chose.
-    </h1>
-    <p style="margin:0 0 32px;font-size:16px;color:#6b6b8f;line-height:1.7;">
-      Tu t'es inscrit sur DuupFlow hier, mais tu n'as pas encore activé ton accès. On voulait juste te rappeler ce que tu peux gagner.
-    </p>
-
-    <!-- Value props -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
-
-      <tr>
-        <td style="padding-bottom:12px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#13131f;border:1px solid #1e1e35;border-radius:12px;">
-            <tr>
-              <td style="padding:18px 22px;">
-                <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#e2e2f0;">⏱ &nbsp;2 heures gagnées par semaine</p>
-                <p style="margin:0;font-size:13px;color:#6b6b8f;line-height:1.5;">Fini le copier-coller entre plateformes. DuupFlow s'en charge à ta place.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-
-      <tr>
-        <td style="padding-bottom:12px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#13131f;border:1px solid #1e1e35;border-radius:12px;">
-            <tr>
-              <td style="padding:18px 22px;">
-                <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#e2e2f0;">🔗 &nbsp;Toutes tes plateformes synchronisées</p>
-                <p style="margin:0;font-size:13px;color:#6b6b8f;line-height:1.5;">Un seul endroit pour gérer Instagram, TikTok, YouTube et plus encore.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-
-      <tr>
-        <td>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#13131f;border:1px solid #1e1e35;border-radius:12px;">
-            <tr>
-              <td style="padding:18px 22px;">
-                <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#e2e2f0;">🚀 &nbsp;Actif en moins de 2 minutes</p>
-                <p style="margin:0;font-size:13px;color:#6b6b8f;line-height:1.5;">Connecte tes comptes, crée ton flux, et c'est tout. Vraiment.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-
-    </table>
-
-    <!-- CTA -->
-    <table role="presentation" cellpadding="0" cellspacing="0">
-      <tr>
-        <td style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:10px;">
-          <a href="${BASE_URL}/checkout" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;letter-spacing:-0.2px;">
-            Activer mon accès →
-          </a>
-        </td>
-      </tr>
-    </table>
-
-    <!-- Sign off -->
-    <p style="margin:36px 0 0;font-size:14px;color:#6b6b8f;line-height:1.7;">
-      Tu as une question avant de te lancer ? Réponds à cet email, on t'explique tout en quelques minutes.<br/>
-      <span style="color:#4d4d6b;">— L'équipe DuupFlow</span>
-    </p>
-  `;
-
-  await sendBrevoEmail({
-    to: email,
-    toName: firstName,
-    subject: `${name}, tu n'as pas encore activé ton accès 👀`,
-    htmlContent: layout("Découvre ce que tu peux gagner avec DuupFlow en moins de 2 minutes.", content),
-  });
-}
