@@ -14,8 +14,12 @@ function CheckoutSuccessContent() {
   useEffect(() => {
     const supabase = createClient();
     let attempts = 0;
-    const MAX_ATTEMPTS = 20; // 20 × 1.5s = 30s max
+    const MAX_ATTEMPTS = 24; // 24 × 1.5s = 36s max
     const sessionId = searchParams.get("session_id");
+    // Track whether Stripe already confirmed the payment via verify-session.
+    // Used as a fallback: if the DB hasn't caught up after MAX_ATTEMPTS we still
+    // redirect because Stripe is the source of truth.
+    let stripeConfirmed = false;
 
     async function checkAndRedirect() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -27,7 +31,10 @@ function CheckoutSuccessContent() {
 
       setStatus("waiting");
 
-      // Vérification directe via Stripe si on a un session_id (fiable, sans dépendre du webhook)
+      // Vérification directe via Stripe si on a un session_id.
+      // On NE redirige PAS immédiatement ici : on laisse le polling confirmer
+      // que has_paid=true est visible côté client, évitant la race condition
+      // où le middleware lirait encore has_paid=false quelques ms après l'update.
       if (sessionId) {
         try {
           const res = await fetch("/api/stripe/verify-session", {
@@ -37,10 +44,10 @@ function CheckoutSuccessContent() {
           });
           const data = await res.json();
           if (res.ok && data.paid) {
+            stripeConfirmed = true;
             setStatus("ready");
-            // window.location.href force une vraie navigation HTTP sans cache Next.js
-            window.location.href = "/dashboard";
-            return;
+            // Ne pas rediriger tout de suite — on tombe dans le polling
+            // pour s'assurer que la DB est cohérente avant la navigation.
           }
         } catch {
           // Continuer avec le polling si la vérification directe échoue
@@ -59,6 +66,7 @@ function CheckoutSuccessContent() {
 
         if (hasAccess) {
           setStatus("ready");
+          // window.location.href force une vraie navigation HTTP sans cache Next.js
           window.location.href = "/dashboard";
           return;
         }
@@ -66,7 +74,13 @@ function CheckoutSuccessContent() {
         if (attempts < MAX_ATTEMPTS) {
           setTimeout(poll, 1500);
         } else {
-          window.location.href = "/dashboard";
+          // Timeout : ne rediriger vers /dashboard que si Stripe a confirmé
+          // le paiement — sinon le middleware renverrait vers /checkout.
+          if (stripeConfirmed) {
+            window.location.href = "/dashboard";
+          }
+          // Si stripeConfirmed=false et timeout atteint, l'UI reste en état
+          // "waiting" avec le bouton manuel ci-dessous.
         }
       }
 

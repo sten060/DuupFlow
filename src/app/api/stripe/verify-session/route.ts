@@ -54,16 +54,35 @@ export async function POST(request: NextRequest) {
   // Paiement confirmé — mettre à jour Supabase
   const plan = session.metadata?.plan === "solo" ? "solo" : "pro";
   const admin = createAdminClient();
-  const { error: updateError } = await admin.from("profiles").update({
+
+  // .select() renvoie les lignes modifiées → si le tableau est vide,
+  // le profil n'existe pas encore et l'update n'a touché aucune ligne.
+  const { data: updatedRows, error: updateError } = await admin.from("profiles").update({
     has_paid: true,
     plan,
     email_sequence: "active",
     email_sequence_updated_at: new Date().toISOString(),
-  }).eq("id", user.id);
+  }).eq("id", user.id).select("id");
 
   if (updateError) {
     console.error("[verify-session] Supabase update error:", updateError);
     return NextResponse.json({ error: "Erreur mise à jour Supabase", detail: updateError.message }, { status: 500 });
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    // Le profil n'existe pas encore — on le crée via upsert
+    console.warn(`[verify-session] Aucune ligne mise à jour pour user ${user.id} — tentative d'upsert`);
+    const { error: upsertError } = await admin.from("profiles").upsert({
+      id: user.id,
+      has_paid: true,
+      plan,
+      email_sequence: "active",
+      email_sequence_updated_at: new Date().toISOString(),
+    });
+    if (upsertError) {
+      console.error("[verify-session] Supabase upsert error:", upsertError);
+      return NextResponse.json({ error: "Erreur création profil", detail: upsertError.message }, { status: 500 });
+    }
   }
 
   console.log(`[verify-session] has_paid=true set for user ${user.id}`);
