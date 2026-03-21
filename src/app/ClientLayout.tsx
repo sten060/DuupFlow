@@ -1,18 +1,20 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import Header from "@/components/Header";
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+function AffiliateRefTracker() {
   const searchParams = useSearchParams();
-
-  // Persiste le code affilié dès le premier clic sur n'importe quelle page
   useEffect(() => {
     const ref = searchParams.get("ref");
     if (ref) localStorage.setItem("duupflow_ref", ref.toUpperCase());
   }, [searchParams]);
+  return null;
+}
+
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const isDashboard = pathname.startsWith("/dashboard");
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
   const showHeader = !isDashboard && !isAuthPage;
@@ -44,6 +46,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         }}
       />
 
+      <Suspense fallback={null}>
+        <AffiliateRefTracker />
+      </Suspense>
       {showHeader && <Header />}
       {showHeader && <div className="h-20" />}
       {children}
