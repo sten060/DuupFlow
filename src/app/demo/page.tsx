@@ -113,39 +113,167 @@ export default function DemoPage() {
           </p>
         </div>
 
-        {/* Video placeholder */}
-        <div
-          className="relative w-full rounded-3xl overflow-hidden mb-20"
-          style={{
-            border: "1px solid rgba(99,102,241,0.25)",
-            boxShadow: "0 0 80px rgba(99,102,241,0.12), 0 24px 60px rgba(0,0,0,0.5)",
-            background: "rgba(8,12,35,0.80)",
-            aspectRatio: "16/9",
-          }}
-        >
-          {/* Glow */}
-          <div
-            className="absolute top-0 left-0 right-0 h-1 pointer-events-none"
-            style={{ background: "linear-gradient(90deg,#6366F1,#38BDF8)" }}
-          />
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-6">
-            <div
-              className="h-20 w-20 rounded-full flex items-center justify-center"
-              style={{
-                background: "rgba(99,102,241,0.15)",
-                border: "1px solid rgba(99,102,241,0.35)",
-                boxShadow: "0 0 40px rgba(99,102,241,0.25)",
-              }}
-            >
-              <svg viewBox="0 0 24 24" className="h-8 w-8 text-indigo-400 ml-1" fill="currentColor">
-                <path d="M8 5v14l11-7z" />
-              </svg>
+        {/* Demo Videos Grid */}
+        <div className="mb-20 space-y-5">
+
+          {/* Row 1 — Vidéos + Images côte à côte */}
+          <div className="grid md:grid-cols-2 gap-0 rounded-3xl overflow-hidden" style={{ border: "1px solid rgba(99,102,241,0.20)", boxShadow: "0 0 60px rgba(99,102,241,0.08), 0 24px 60px rgba(0,0,0,0.4)" }}>
+
+            {/* Panel gauche — Duplication Vidéos */}
+            <div className="flex flex-col" style={{ background: "rgba(8,12,35,0.85)" }}>
+              {/* Top bar */}
+              <div className="px-6 pt-5 pb-4 flex items-center gap-3 border-b border-white/[0.06]">
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.30)" }}>
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="2" y="5" width="14" height="14" rx="2" />
+                    <path d="M16 9l5-3v12l-5-3V9z" />
+                  </svg>
+                </div>
+                <span className="text-sm font-semibold text-white">Duplication Vidéos</span>
+              </div>
+
+              {/* Video placeholder */}
+              <div className="relative mx-5 my-4 rounded-2xl overflow-hidden flex items-center justify-center" style={{ aspectRatio: "16/9", background: "rgba(4,8,25,0.70)", border: "1px dashed rgba(99,102,241,0.25)" }}>
+                <video
+                  src="/videos/demo-videos.mp4"
+                  className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  onError={(e) => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+                />
+                <div className="relative flex flex-col items-center gap-3 text-center px-4">
+                  <div className="h-14 w-14 rounded-full flex items-center justify-center" style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.28)" }}>
+                    <svg viewBox="0 0 24 24" className="h-6 w-6 text-indigo-400 ml-0.5" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                  <p className="text-white/35 text-xs">Vidéo à insérer</p>
+                </div>
+              </div>
+
+              {/* Bottom text */}
+              <div className="px-6 pb-6 space-y-2">
+                <ul className="space-y-1.5">
+                  <li className="flex items-start gap-2 text-xs text-white/50">
+                    <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-indigo-400/70 shrink-0" />
+                    <span><span className="text-white/70 font-medium">Duplication simple</span> — métadonnées uniques, ré-encodage de base pour chaque copie.</span>
+                  </li>
+                  <li className="flex items-start gap-2 text-xs text-white/50">
+                    <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-indigo-400/70 shrink-0" />
+                    <span><span className="text-white/70 font-medium">Duplication avancée</span> — variation FPS, GOP, bitrate et micro-décalage temporel pour une empreinte totalement différente.</span>
+                  </li>
+                </ul>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-white/60 text-base font-medium mb-1">Insérer vidéo</p>
-              <p className="text-white/30 text-sm">La vidéo de démonstration sera ajoutée ici</p>
+
+            {/* Séparateur vertical */}
+            <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-px pointer-events-none" style={{ background: "rgba(255,255,255,0.06)" }} />
+
+            {/* Panel droit — Duplication Images */}
+            <div className="flex flex-col border-t md:border-t-0 md:border-l border-white/[0.06]" style={{ background: "rgba(8,12,35,0.85)" }}>
+              {/* Top bar */}
+              <div className="px-6 pt-5 pb-4 flex items-center gap-3 border-b border-white/[0.06]">
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(192,38,211,0.12)", border: "1px solid rgba(192,38,211,0.28)" }}>
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#C026D3" strokeWidth="1.5">
+                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                </div>
+                <span className="text-sm font-semibold text-white">Duplication Images</span>
+              </div>
+
+              {/* Video placeholder */}
+              <div className="relative mx-5 my-4 rounded-2xl overflow-hidden flex items-center justify-center" style={{ aspectRatio: "16/9", background: "rgba(4,8,25,0.70)", border: "1px dashed rgba(192,38,211,0.22)" }}>
+                <video
+                  src="/videos/demo-images.mp4"
+                  className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  onError={(e) => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+                />
+                <div className="relative flex flex-col items-center gap-3 text-center px-4">
+                  <div className="h-14 w-14 rounded-full flex items-center justify-center" style={{ background: "rgba(192,38,211,0.10)", border: "1px solid rgba(192,38,211,0.25)" }}>
+                    <svg viewBox="0 0 24 24" className="h-6 w-6 ml-0.5" fill="none" stroke="#C026D3" strokeWidth="1.5">
+                      <rect x="3" y="3" width="18" height="18" rx="3" />
+                      <circle cx="8.5" cy="8.5" r="1.5" />
+                      <polyline points="21 15 16 10 5 21" />
+                    </svg>
+                  </div>
+                  <p className="text-white/35 text-xs">Vidéo à insérer</p>
+                </div>
+              </div>
+
+              {/* Bottom text */}
+              <div className="px-6 pb-6 space-y-2">
+                <ul className="space-y-1.5">
+                  <li className="flex items-start gap-2 text-xs text-white/50">
+                    <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-fuchsia-400/70 shrink-0" />
+                    <span><span className="text-white/70 font-medium">Métadonnées EXIF/XMP</span> — chaque copie reçoit des métadonnées uniques invisibles à l&apos;œil nu.</span>
+                  </li>
+                  <li className="flex items-start gap-2 text-xs text-white/50">
+                    <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-fuchsia-400/70 shrink-0" />
+                    <span><span className="text-white/70 font-medium">Micro-variations visuelles</span> — légères retouches imperceptibles qui suffisent à tromper les détecteurs.</span>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
+
+          {/* Row 2 — Comparateur, centré */}
+          <div className="md:w-1/2 mx-auto rounded-3xl overflow-hidden" style={{ border: "1px solid rgba(16,185,129,0.20)", boxShadow: "0 0 50px rgba(16,185,129,0.06), 0 16px 40px rgba(0,0,0,0.4)", background: "rgba(8,12,35,0.85)" }}>
+            {/* Top bar */}
+            <div className="px-6 pt-5 pb-4 flex items-center gap-3 border-b border-white/[0.06]">
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.28)" }}>
+                <svg viewBox="0 0 24 24" className="h-4 w-4 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m21 21-4.35-4.35" />
+                </svg>
+              </div>
+              <span className="text-sm font-semibold text-white">Comparateur de similitude</span>
+            </div>
+
+            {/* Video placeholder */}
+            <div className="relative mx-5 my-4 rounded-2xl overflow-hidden flex items-center justify-center" style={{ aspectRatio: "16/9", background: "rgba(4,8,25,0.70)", border: "1px dashed rgba(16,185,129,0.20)" }}>
+              <video
+                src="/videos/demo-comparateur.mp4"
+                className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                autoPlay
+                muted
+                loop
+                playsInline
+                onError={(e) => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+              />
+              <div className="relative flex flex-col items-center gap-3 text-center px-4">
+                <div className="h-14 w-14 rounded-full flex items-center justify-center" style={{ background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.25)" }}>
+                  <svg viewBox="0 0 24 24" className="h-6 w-6 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m21 21-4.35-4.35" />
+                  </svg>
+                </div>
+                <p className="text-white/35 text-xs">Vidéo à insérer</p>
+              </div>
+            </div>
+
+            {/* Bottom text */}
+            <div className="px-6 pb-6">
+              <ul className="space-y-1.5">
+                <li className="flex items-start gap-2 text-xs text-white/50">
+                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400/70 shrink-0" />
+                  <span><span className="text-white/70 font-medium">Score de similarité en temps réel</span> — compare deux fichiers et affiche un pourcentage de ressemblance détecté par les algorithmes.</span>
+                </li>
+                <li className="flex items-start gap-2 text-xs text-white/50">
+                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400/70 shrink-0" />
+                  <span><span className="text-white/70 font-medium">Validation avant publication</span> — assure-toi que tes copies passent sous le seuil de détection avant de les diffuser.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
         </div>
 
         {/* How it works */}
