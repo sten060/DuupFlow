@@ -136,11 +136,18 @@ function CheckoutContent() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
+    // Persist affiliate ref code from URL into localStorage so it survives
+    // navigation and is still available when the user clicks "Souscrire".
+    const ref = searchParams.get("ref");
+    if (ref) {
+      localStorage.setItem("duupflow_ref", ref);
+    }
+
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? null);
     });
-  }, []);
+  }, [searchParams]);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -152,10 +159,11 @@ function CheckoutContent() {
     setLoading(true);
     setError("");
     try {
+      const affiliateCode = localStorage.getItem("duupflow_ref") ?? undefined;
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: selectedPlan }),
+        body: JSON.stringify({ plan: selectedPlan, affiliate_code: affiliateCode }),
       });
       const data = await res.json();
       if (!res.ok || !data.url) {

@@ -17,6 +17,10 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const plan = body?.plan === "solo" ? "solo" : "pro";
+  const affiliateCode: string | undefined =
+    typeof body?.affiliate_code === "string" && body.affiliate_code.trim()
+      ? body.affiliate_code.trim().toUpperCase()
+      : undefined;
 
   const priceId =
     plan === "solo"
@@ -46,7 +50,7 @@ export async function POST(request: Request) {
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
     client_reference_id: user.id,
-    metadata: { plan },
+    metadata: { plan, ...(affiliateCode ? { affiliate_code: affiliateCode } : {}) },
     success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${baseUrl}/checkout`,
     subscription_data: {
