@@ -3,6 +3,7 @@ import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToActiveClient } from "@/lib/brevo";
+import { sendPaymentEmail } from "@/lib/emails";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,9 @@ export async function POST(request: NextRequest) {
   ]);
   const email = authUser?.user?.email;
   if (email) {
-    moveToActiveClient(email, profile?.first_name ?? "").catch(console.error);
+    const name = profile?.first_name ?? "";
+    moveToActiveClient(email, name).catch(console.error);
+    sendPaymentEmail(email, name).catch(console.error);
   }
 
   return NextResponse.json({ paid: true });

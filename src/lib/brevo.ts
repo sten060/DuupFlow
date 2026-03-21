@@ -63,6 +63,27 @@ async function removeFromList(email: string, listId: number) {
   await post(`/contacts/lists/${listId}/contacts/remove`, { emails: [email] });
 }
 
+// ─── Transactional email ─────────────────────────────────────────────────────
+
+export async function sendBrevoEmail({
+  to,
+  toName = "",
+  subject,
+  htmlContent,
+}: {
+  to: string;
+  toName?: string;
+  subject: string;
+  htmlContent: string;
+}): Promise<boolean> {
+  return post("/smtp/email", {
+    sender: { name: "DuupFlow", email: "hello@duupflow.com" },
+    to: [{ email: to, name: toName }],
+    subject,
+    htmlContent,
+  });
+}
+
 // ─── Public helpers ──────────────────────────────────────────────────────────
 
 /** Called when a new regular (non-guest) user completes onboarding. */

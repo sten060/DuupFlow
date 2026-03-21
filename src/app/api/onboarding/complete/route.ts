@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToFreeUser } from "@/lib/brevo";
+import { sendWelcomeEmail } from "@/lib/emails";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -25,9 +26,11 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Add to Brevo "Free Users" list to trigger the onboarding email sequence
   if (user.email) {
-    moveToFreeUser(user.email, firstName.trim()).catch(console.error);
+    const email = user.email;
+    const name = firstName.trim();
+    moveToFreeUser(email, name).catch(console.error);
+    sendWelcomeEmail(email, name).catch(console.error);
   }
 
   return NextResponse.json({ ok: true });
