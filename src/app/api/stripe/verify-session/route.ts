@@ -52,9 +52,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Paiement confirmé — mettre à jour Supabase
+  const plan = session.metadata?.plan === "solo" ? "solo" : "pro";
   const admin = createAdminClient();
   const { error: updateError } = await admin.from("profiles").update({
     has_paid: true,
+    plan,
     email_sequence: "active",
     email_sequence_updated_at: new Date().toISOString(),
   }).eq("id", user.id);
