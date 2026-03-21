@@ -48,11 +48,18 @@ export default async function AffiliateDashboard() {
 
   if (!affiliate) redirect("/dashboard");
 
-  const { data: referrals } = await admin
-    .from("profiles")
-    .select("id, has_paid, plan, created_at")
-    .eq("affiliate_code", affiliate.code)
-    .order("created_at", { ascending: false });
+  const [{ data: referrals }, { data: payments }] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("id, has_paid, plan, created_at")
+      .eq("affiliate_code", affiliate.code)
+      .order("created_at", { ascending: false }),
+    admin
+      .from("affiliate_payments")
+      .select("amount_cents, commission_cents, plan, billing_reason, paid_at")
+      .eq("affiliate_code", affiliate.code)
+      .order("paid_at", { ascending: false }),
+  ]);
 
   const inscrits = referrals?.length ?? 0;
   const convertis = referrals?.filter((p) => p.has_paid).length ?? 0;
@@ -61,6 +68,10 @@ export default async function AffiliateDashboard() {
   const mrr = soloCount * 39 + proCount * 99;
   const commission = Math.round((mrr * affiliate.commission_pct) / 100);
   const conversionRate = inscrits > 0 ? Math.round((convertis / inscrits) * 100) : 0;
+
+  const totalEarned = Math.round(
+    (payments?.reduce((s, p) => s + p.commission_cents, 0) ?? 0) / 100
+  );
 
   const appUrl =
     (process.env.NEXT_PUBLIC_APP_URL ?? "https://duupflow.com").replace(/\/$/, "");
@@ -142,6 +153,26 @@ export default async function AffiliateDashboard() {
             color="#818CF8"
           />
         </div>
+
+        {/* Total earned (real Stripe data) */}
+        {(payments?.length ?? 0) > 0 && (
+          <div
+            className="rounded-2xl p-5 flex items-center justify-between"
+            style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.18)" }}
+          >
+            <div>
+              <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">
+                Commission totale générée
+              </p>
+              <p className="text-xs text-white/25 mt-0.5">
+                Basé sur les paiements Stripe réels · {payments?.length} transaction{(payments?.length ?? 0) > 1 ? "s" : ""}
+              </p>
+            </div>
+            <p className="text-3xl font-bold" style={{ color: "#10B981" }}>
+              {totalEarned}€
+            </p>
+          </div>
+        )}
 
         {/* Plan breakdown */}
         {convertis > 0 && (
@@ -236,6 +267,75 @@ export default async function AffiliateDashboard() {
             </div>
           )}
         </div>
+
+        {/* Payment history */}
+        {(payments?.length ?? 0) > 0 && (
+          <div
+            className="rounded-2xl overflow-hidden"
+            style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <div
+              className="px-6 py-4"
+              style={{ background: "rgba(10,14,40,0.70)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">
+                Historique des paiements Stripe
+              </p>
+            </div>
+            <div style={{ background: "rgba(10,14,40,0.55)" }}>
+              {payments?.slice(0, 12).map((p, i) => {
+                const date = new Date(p.paid_at).toLocaleDateString("fr-FR", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                });
+                const isRenewal = p.billing_reason === "subscription_cycle";
+                const planColor = p.plan === "pro" ? "#38BDF8" : "#A78BFA";
+                const commission = (p.commission_cents / 100).toFixed(2);
+                const amount = (p.amount_cents / 100).toFixed(2);
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between px-6 py-3"
+                    style={{
+                      borderBottom:
+                        i < (payments?.length ?? 0) - 1
+                          ? "1px solid rgba(255,255,255,0.04)"
+                          : "none",
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{
+                          background: `${planColor}12`,
+                          border: `1px solid ${planColor}25`,
+                          color: planColor,
+                        }}
+                      >
+                        {p.plan === "pro" ? "Pro" : "Solo"}
+                      </span>
+                      <span className="text-xs text-white/35">{date}</span>
+                      {isRenewal && (
+                        <span className="text-[10px] text-white/20 hidden sm:block">
+                          renouvellement
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 text-right">
+                      <span className="text-xs text-white/25 hidden sm:block">
+                        {amount}€ encaissé
+                      </span>
+                      <span className="text-sm font-semibold" style={{ color: "#10B981" }}>
+                        +{commission}€
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <p className="text-xs text-white/20 text-center">
           La commission est versée manuellement en fin de mois par virement.

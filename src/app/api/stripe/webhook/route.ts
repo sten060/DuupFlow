@@ -167,19 +167,58 @@ export async function POST(request: NextRequest) {
 
           // On subscription_cycle, sync the plan from the current price so
           // a pending downgrade (Pro → Solo) takes effect at the right time.
+          const priceId = sub.items.data[0]?.price?.id;
+          const plan = priceId
+            ? resolvePlanFromPriceId(priceId, sub.metadata?.plan)
+            : "pro";
+
           const updatePayload: Record<string, unknown> = {
             has_paid: true,
             subscription_period_start: new Date().toISOString(),
           };
           if (billingReason === "subscription_cycle") {
-            const priceId = sub.items.data[0]?.price?.id;
-            if (priceId) {
-              updatePayload.plan = resolvePlanFromPriceId(priceId, sub.metadata?.plan);
-            }
+            updatePayload.plan = plan;
             await resetUsage(uid).catch(console.error);
           }
 
           await admin.from("profiles").update(updatePayload).eq("id", uid);
+
+          // ── Tracking affiliation ──────────────────────────────────────
+          const { data: profile } = await admin
+            .from("profiles")
+            .select("affiliate_code")
+            .eq("id", uid)
+            .single();
+
+          if (profile?.affiliate_code) {
+            const { data: affiliate } = await admin
+              .from("affiliates")
+              .select("code, commission_pct")
+              .eq("code", profile.affiliate_code)
+              .single();
+
+            if (affiliate) {
+              const amountCents = (invoice as any).amount_paid as number;
+              const commissionCents = Math.round(
+                (amountCents * affiliate.commission_pct) / 100
+              );
+              await admin.from("affiliate_payments").upsert(
+                {
+                  affiliate_code: affiliate.code,
+                  user_id: uid,
+                  stripe_invoice_id: invoice.id,
+                  amount_cents: amountCents,
+                  commission_cents: commissionCents,
+                  commission_pct: affiliate.commission_pct,
+                  plan,
+                  billing_reason: billingReason,
+                  paid_at: new Date((invoice as any).created * 1000).toISOString(),
+                },
+                { onConflict: "stripe_invoice_id", ignoreDuplicates: true }
+              );
+            }
+          }
+          // ─────────────────────────────────────────────────────────────
         }
       }
       break;
