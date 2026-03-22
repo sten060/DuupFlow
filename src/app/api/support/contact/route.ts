@@ -22,9 +22,10 @@ export async function POST(req: NextRequest) {
 
   const userEmail = user?.email ?? null;
 
-  // ── 1. Save to Supabase (primary — always works) ──────────────────────────
+  // ── 1. Save to Supabase (primary — silently skipped if table not yet created) ──
   const admin = createAdminClient();
   let emailSent = false;
+  let dbSaved = false;
 
   const { error: dbError } = await admin.from("support_messages").insert({
     user_id:    user?.id ?? null,
@@ -36,11 +37,13 @@ export async function POST(req: NextRequest) {
   });
 
   if (dbError) {
-    console.error("[support/contact] DB insert error:", dbError.message);
-    return NextResponse.json({ error: "Impossible d'envoyer le message. Réessayez plus tard." }, { status: 500 });
+    // Table may not exist yet (migration pending) — log and continue to email fallback
+    console.error("[support/contact] DB insert error (non-fatal):", dbError.message);
+  } else {
+    dbSaved = true;
   }
 
-  // ── 2. Send email via SMTP (bonus — silently skipped if not configured) ───
+  // ── 2. Send email via SMTP (required if DB unavailable) ───────────────────
   const esc = (s: string) => s.replace(/</g, "&lt;").replace(/>/g, "&gt;");
   try {
     await sendMail({
@@ -70,9 +73,12 @@ export async function POST(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(1);
   } catch (err: any) {
-    // SMTP not configured or failed — message is already saved in DB, that's fine
-    console.warn("[support/contact] SMTP skipped:", err?.message);
+    console.warn("[support/contact] SMTP error:", err?.message);
+    // If both DB and email failed, return error to user
+    if (!dbSaved) {
+      return NextResponse.json({ error: "Impossible d'envoyer le message. Réessayez plus tard." }, { status: 500 });
+    }
   }
 
-  return NextResponse.json({ ok: true, emailSent });
+  return NextResponse.json({ ok: true, emailSent, dbSaved });
 }
