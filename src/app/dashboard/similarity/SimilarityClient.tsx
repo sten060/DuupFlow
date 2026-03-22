@@ -6,7 +6,7 @@ import { compareFiles } from "./actions";
 const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"];
 // Larger thumbnails → more detail → better precision for subtle filters
 const THUMB_SIZE = 192;
-const VIDEO_FRAME_COUNT = 5; // frames extracted at 10%, 25%, 50%, 75%, 90%
+const VIDEO_FRAME_COUNT = 8; // frames extracted across 10%…90% of video duration
 
 function extOf(name: string) {
   const p = name.lastIndexOf(".");
@@ -31,18 +31,27 @@ function scoreLabel(v: number): string {
   return "Très différents — bien protégé ✓";
 }
 
-// Draw a video frame at `t` seconds onto a canvas and return base64 JPEG
+// Draw a video frame at `t` seconds onto a canvas and return base64 JPEG.
+// Timeout of 3s: some browsers (esp. on MKV/AVI) never fire "seeked" for
+// keyframe-misaligned timestamps — in that case we capture the current frame.
 function seekAndCapture(video: HTMLVideoElement, t: number, size = THUMB_SIZE): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const onSeeked = () => {
+  return new Promise((resolve) => {
+    const capture = () => {
       const canvas = document.createElement("canvas");
       canvas.width = size;
       canvas.height = size;
       canvas.getContext("2d")!.drawImage(video, 0, 0, size, size);
       resolve(canvas.toDataURL("image/jpeg", 0.88).split(",")[1]);
     };
+    const timeout = setTimeout(() => {
+      video.removeEventListener("seeked", onSeeked);
+      capture(); // fallback: capture whatever frame is loaded
+    }, 3000);
+    const onSeeked = () => {
+      clearTimeout(timeout);
+      capture();
+    };
     video.addEventListener("seeked", onSeeked, { once: true });
-    video.addEventListener("error", reject, { once: true });
     video.currentTime = t;
   });
 }
@@ -58,8 +67,9 @@ async function extractVideoFrames(file: File, n: number): Promise<string[]> {
 
     video.addEventListener("loadedmetadata", async () => {
       try {
-        const dur = video.duration || 10;
-        // timestamps spread at 10%…90% to avoid blank start/end
+        // duration can be NaN (MKV/AVI) or Infinity (live streams) — default 30s
+        const dur = isFinite(video.duration) && video.duration > 0 ? video.duration : 30;
+        // timestamps spread at 10%…90% to avoid blank start/end frames
         const pts = Array.from({ length: n }, (_, i) =>
           dur * (0.1 + (0.8 * i) / Math.max(n - 1, 1))
         );
