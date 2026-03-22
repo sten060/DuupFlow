@@ -79,40 +79,52 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    // --- Différentiel par canal R/G/B → Moments couleurs + Chroma Cb/Cr ---
-    const rMult = 0.978 + Math.random() * 0.044;   // ±2.2%
-    const gMult = 0.982 + Math.random() * 0.036;   // ±1.8%
-    const bMult = 0.973 + Math.random() * 0.054;   // ±2.7%
-    img = img.linear([rMult, gMult, bMult], [0, 0, 0]);
+    // 1. Recomb cross-canal → Moments couleurs (96%) + Chroma Cb/Cr (85%)
+    //    Mélange subtil entre canaux RGB = change distributions stat de chaque canal
+    const d = () => 0.990 + Math.random() * 0.020; // 0.990–1.010 diagonal
+    const x = () => (Math.random() - 0.5) * 0.030; // ±1.5% cross-canal
+    img = img.recomb([
+      [d(), x(), x()],
+      [x(), d(), x()],
+      [x(), x(), d()],
+    ]);
 
-    // --- Ajustements globaux → Luminance, Chroma, RGB histogram ---
-    const brightness = 0.967 + Math.random() * 0.066;  // 0.967–1.033  (±3.3%)
-    const saturation = 0.958 + Math.random() * 0.084;  // 0.958–1.042  (±4.2%)
-    const gamma      = 0.974 + Math.random() * 0.052;  // 0.974–1.026  (±2.6%)
+    // 2. Ajustements globaux → Luminance, Chroma, RGB histogram
+    const brightness = 0.967 + Math.random() * 0.066;  // ±3.3%
+    const saturation = 0.958 + Math.random() * 0.084;  // ±4.2%
+    const gamma      = 0.974 + Math.random() * 0.052;  // ±2.6%
     const hue        = Math.floor((Math.random() - 0.5) * 16); // ±8°
-
     img = img.modulate({ brightness, saturation, hue }).gamma(gamma);
 
-    const contrast = 0.970 + Math.random() * 0.060;    // 0.970–1.030  (±3%)
+    const contrast = 0.970 + Math.random() * 0.060;    // ±3%
     img = img.linear(contrast, 0);
 
-    // --- Grain texture → Gradients/magnitude ---
+    // 3. Grain texture → Gradients/magnitude (96%)
     const grainSize = 512;
     const grainBuf = Buffer.alloc(grainSize * grainSize);
     for (let k = 0; k < grainBuf.length; k++) {
-      grainBuf[k] = 128 + Math.floor((Math.random() - 0.5) * 40);
+      grainBuf[k] = 128 + Math.floor((Math.random() - 0.5) * 60);
     }
     const grainPng = await sharp(grainBuf, { raw: { width: grainSize, height: grainSize, channels: 1 } })
-      .blur(0.6)
-      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic })
+      .blur(0.3)
+      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.nearest })
       .png()
       .toBuffer();
-    img = img.composite([{ input: grainPng, blend: "overlay", opacity: 0.05 }]).removeAlpha();
+    img = img.composite([{ input: grainPng, blend: "overlay", opacity: 0.08 }]).removeAlpha();
 
-    // --- Blur + sharpen → dHash/contours ---
-    const blurSigma = 0.5 + Math.random() * 0.5;  // 0.5–1.0
-    img = img.blur(blurSigma);
-    const sigma = 1.0 + Math.random() * 1.0;       // 1.0–2.0
+    // 4. Micro-zoom → pHash (88%) + dHash (89%) + Grille spatiale
+    //    1–2.5% de zoom imperceptible mais décale tous les DCT coefficients
+    const zoomFactor = 1.010 + Math.random() * 0.015; // 1.010–1.025
+    const zW = clampDim(Math.round(baseW * zoomFactor));
+    const zH = clampDim(Math.round(baseH * zoomFactor));
+    const cropLeft = Math.floor((zW - baseW) / 2);
+    const cropTop  = Math.floor((zH - baseH) / 2);
+    img = img
+      .resize(zW, zH, { fit: "fill", kernel: sharp.kernel.cubic })
+      .extract({ left: cropLeft, top: cropTop, width: baseW, height: baseH });
+
+    // 5. Sharpen → dHash/contours + Gradients
+    const sigma = 1.2 + Math.random() * 1.3; // 1.2–2.5
     img = img.sharpen({ sigma });
   }
 
