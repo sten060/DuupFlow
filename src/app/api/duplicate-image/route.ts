@@ -121,13 +121,14 @@ async function processImage(
     const gradAngle = Math.random() * Math.PI * 2;
     const gradDx = Math.cos(gradAngle);
     const gradDy = Math.sin(gradAngle);
-    const gradAmp = 0.08 + Math.random() * 0.08;  // 8–16% de variation lumineuse
+    const gradAmp = 0.04 + Math.random() * 0.06;  // 4–10% de variation lumineuse
     for (let gy = 0; gy < gSize; gy++) {
       for (let gx = 0; gx < gSize; gx++) {
         const nx = (gx / (gSize - 1)) * 2 - 1; // -1 à +1
         const ny = (gy / (gSize - 1)) * 2 - 1;
         const t = gradDx * nx + gradDy * ny;     // projection sur l'axe du gradient
-        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(128 * (1 + t * gradAmp))));
+        // Centre à 235 (≈0.92 en multiply) → effet "éclairage directionnel" léger, pas assombrissement global
+        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(235 * (1 + t * gradAmp))));
       }
     }
     const gradPng = await sharp(gradBuf, { raw: { width: gSize, height: gSize, channels: 1 } })
