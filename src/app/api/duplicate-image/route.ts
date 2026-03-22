@@ -79,20 +79,20 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    const brightness = 0.978 + Math.random() * 0.044;  // 0.978–1.022  (±2.2%)
-    const saturation = 0.975 + Math.random() * 0.050;  // 0.975–1.025  (±2.5%)
-    const gamma = 0.985 + Math.random() * 0.030;       // 0.985–1.015  (±1.5%)
-    const hue = Math.floor((Math.random() - 0.5) * 10); // ±5°
+    const brightness = 0.970 + Math.random() * 0.060;  // 0.970–1.030  (±3%)
+    const saturation = 0.965 + Math.random() * 0.070;  // 0.965–1.035  (±3.5%)
+    const gamma = 0.978 + Math.random() * 0.044;       // 0.978–1.022  (±2.2%)
+    const hue = Math.floor((Math.random() - 0.5) * 14); // ±7°
 
     img = img.modulate({ brightness, saturation, hue }).gamma(gamma);
 
-    const contrast = 0.982 + Math.random() * 0.036;    // 0.982–1.018  (±1.8%)
+    const contrast = 0.975 + Math.random() * 0.050;    // 0.975–1.025  (±2.5%)
     img = img.linear(contrast, 0);
 
-    const blurSigma = 0.3 + Math.random() * 0.3;       // 0.3–0.6 (très léger)
+    const blurSigma = 0.4 + Math.random() * 0.4;       // 0.4–0.8
     img = img.blur(blurSigma);
 
-    const sigma = 0.5 + Math.random() * 0.7;           // 0.5–1.2 (unsharp modéré)
+    const sigma = 0.7 + Math.random() * 0.8;           // 0.7–1.5
     img = img.sharpen({ sigma });
   }
 
