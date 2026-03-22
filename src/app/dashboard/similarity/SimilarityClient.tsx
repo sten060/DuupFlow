@@ -271,18 +271,18 @@ export default function SimilarityClient({
           {result && (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-4">
               <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Détail des métriques</p>
-              <MetricBar label="SSIM" value={result.breakdown.ssim} weight="×14%" hint="Structural Similarity Index — standard industrie YouTube/Netflix — mesure luminance × contraste × structure" />
-              <MetricBar label="Pixels (MSE)" value={result.breakdown.mse} weight="×11%" hint="Erreur quadratique pixel par pixel (96×96) — détecte tout changement de valeur, CRF, décalage spatial" />
-              <MetricBar label="Grille spatiale" value={result.breakdown.spatial} weight="×10%" hint="Moyenne luminance par cellule 8×8 — détecte zoom, recadrage, vignette, décalage de position" />
-              <MetricBar label="Chroma Cb/Cr" value={result.breakdown.chroma} weight="×10%" hint="Canaux Cb et Cr (BT.601) — très sensible au bruit chroma, teinte, saturation, colorchannelmixer" />
-              <MetricBar label="Couleurs RGB" value={result.breakdown.color} weight="×9%" hint="Histogramme RGB 32 bins/canal — sensible à la saturation, luminosité, filtres visuels" />
-              <MetricBar label="Luminance (histogramme)" value={result.breakdown.luma} weight="×9%" hint="Histogramme luminance 64 bins (128×128) — sensible à luminosité ±3%, contraste, gamma" />
-              <MetricBar label="Moments couleurs" value={result.breakdown.colorMom} weight="×8%" hint="Moyenne/écart-type/asymétrie par canal RGB — statistiques d'ordre supérieur : teinte, saturation, EQ" />
-              <MetricBar label="Structure (pHash)" value={result.breakdown.phash} weight="×8%" hint="Empreinte DCT perceptuelle — standard de toutes les plateformes : crop, zoom, rotation, flip" />
-              <MetricBar label="Contours (dHash)" value={result.breakdown.dhash} weight="×8%" hint="Empreinte gradient de bords — utilisée par les grandes plateformes : netteté, zoom, décalage pixels" />
-              <MetricBar label="Gradients (magnitude)" value={result.breakdown.gradient} weight="×6%" hint="Distribution des magnitudes de gradient — grain, bruit, unsharp, tout changement de netteté" />
+              <MetricBar label="SSIM" value={result.breakdown.ssim} weight="×11%" hint="Structural Similarity Index — standard industrie YouTube/Netflix — mesure luminance × contraste × structure" />
+              <MetricBar label="Pixels (MSE)" value={result.breakdown.mse} weight="×9%" hint="Erreur quadratique pixel par pixel (96×96) — détecte tout changement de valeur, CRF, décalage spatial" />
+              <MetricBar label="Grille spatiale" value={result.breakdown.spatial} weight="×8%" hint="Moyenne luminance par cellule 8×8 — détecte zoom, recadrage, vignette, décalage de position" />
+              <MetricBar label="Chroma Cb/Cr" value={result.breakdown.chroma} weight="×8%" hint="Canaux Cb et Cr (BT.601) — très sensible au bruit chroma, teinte, saturation, colorchannelmixer" />
+              <MetricBar label="Couleurs RGB" value={result.breakdown.color} weight="×8%" hint="Histogramme RGB 32 bins/canal — sensible à la saturation, luminosité, filtres visuels" />
+              <MetricBar label="Luminance (histogramme)" value={result.breakdown.luma} weight="×7%" hint="Histogramme luminance 64 bins (128×128) — sensible à luminosité ±3%, contraste, gamma" />
+              <MetricBar label="Moments couleurs" value={result.breakdown.colorMom} weight="×7%" hint="Moyenne/écart-type/asymétrie par canal RGB — statistiques d'ordre supérieur : teinte, saturation, EQ" />
+              <MetricBar label="Structure (pHash)" value={result.breakdown.phash} weight="×7%" hint="Empreinte DCT perceptuelle — standard de toutes les plateformes : crop, zoom, rotation, flip" />
+              <MetricBar label="Contours (dHash)" value={result.breakdown.dhash} weight="×7%" hint="Empreinte gradient de bords — utilisée par les grandes plateformes : netteté, zoom, décalage pixels" />
+              <MetricBar label="Gradients (magnitude)" value={result.breakdown.gradient} weight="×7%" hint="Distribution des magnitudes de gradient — grain, bruit, unsharp, tout changement de netteté" />
               <MetricBar label="Profils projection" value={result.breakdown.proj} weight="×6%" hint="Sommes lignes + colonnes — très sensible au décalage spatial, zoom offset, vignette" />
-              <MetricBar label="Métadonnées" value={result.breakdown.metadata} weight="×10%" hint="Format, taille fichier, richesse EXIF, profil ICC, densité DPI, chroma, progressif — signature technique du fichier" />
+              <MetricBar label="Métadonnées" value={result.breakdown.metadata} weight="×15%" hint="Format, taille fichier, richesse EXIF, profil ICC, densité DPI, chroma, progressif — signature technique du fichier" />
             </div>
           )}
 
