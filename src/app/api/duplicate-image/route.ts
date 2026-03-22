@@ -123,15 +123,19 @@ async function processImage(
       .toBuffer();
     img = img.composite([{ input: vigPng, blend: "multiply" } as sharp.OverlayOptions]).removeAlpha();
 
-    // ── 4. Grain 128×128 cubic → Gradients + MSE + SSIM
-    // Amplitude réduite ±6–10 : blobs ~8px quasi-invisibles sur peau texturée
-    const noiseSize = 128;
-    const nAmp = 6 + Math.floor(Math.random() * 5);  // ±6 à ±10 amplitude (était ±14–24)
-    const noiseBuf = Buffer.alloc(noiseSize * noiseSize);
+    // ── 4. Grain exactement 64×64 → survit PARFAITEMENT au downscale des métriques
+    // Les métriques (gradient, SSIM, MSE, pHash) travaillent toutes à 64×64 ou 32×32.
+    // 128×128 → downscale 64×64 = 2:1 average → bruit réduit de √4 = annulé.
+    // 64×64 cubic → 1:1 avec comparateur = chaque pixel de bruit = 1 pixel comparaison
+    // → bruit préservé à 100% dans les métriques
+    // Cubic upscale = blobs de ~15px avec bords lisses (pas de blocs visibles)
+    // Amplitude ±10–16 : naturel sur textures (cheveux/freckles), quasi-invisible
+    const nAmp = 10 + Math.floor(Math.random() * 7);  // ±10 à ±16
+    const noiseBuf = Buffer.alloc(64 * 64);
     for (let k = 0; k < noiseBuf.length; k++) {
       noiseBuf[k] = Math.max(0, Math.min(255, 128 + Math.floor((Math.random() - 0.5) * nAmp * 2)));
     }
-    const noisePng = await sharp(noiseBuf, { raw: { width: noiseSize, height: noiseSize, channels: 1 } })
+    const noisePng = await sharp(noiseBuf, { raw: { width: 64, height: 64, channels: 1 } })
       .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic })
       .png()
       .toBuffer();
