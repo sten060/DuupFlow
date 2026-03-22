@@ -139,15 +139,7 @@ function CheckoutContent() {
     // Persist affiliate ref code from URL into localStorage so it survives
     // navigation and is still available when the user clicks "Souscrire".
     const ref = searchParams.get("ref");
-    if (ref) {
-      localStorage.setItem("duupflow_ref", ref);
-      // Track the click (fire-and-forget, errors silently ignored)
-      fetch("/api/affiliate/click", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: ref }),
-      }).catch(() => {});
-    }
+    if (ref) localStorage.setItem("duupflow_ref", ref.toUpperCase());
 
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {

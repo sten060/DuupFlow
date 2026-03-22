@@ -8,7 +8,15 @@ function AffiliateRefTracker() {
   const searchParams = useSearchParams();
   useEffect(() => {
     const ref = searchParams.get("ref");
-    if (ref) localStorage.setItem("duupflow_ref", ref.toUpperCase());
+    if (ref) {
+      const code = ref.toUpperCase();
+      localStorage.setItem("duupflow_ref", code);
+      fetch("/api/affiliate/click", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      }).catch(() => {});
+    }
   }, [searchParams]);
   return null;
 }
