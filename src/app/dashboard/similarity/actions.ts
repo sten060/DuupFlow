@@ -511,27 +511,27 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   const normalStructScore = ph * 0.6 + dh * 0.3 + ah * 0.1;
   const mirrored = mirrorStructScore > normalStructScore + 10 && mirrorStructScore > 60;
 
-  // Weights (sum = 0.90 — 10% reserved for metadata computed at file level)
+  // Weights (sum = 0.85 — 15% reserved for metadata computed at file level)
   // Highest weights → most commonly used by social media detection systems
   // and most sensitive to the specific transforms DuupFlow applies.
   //
-  // SSIM         13% — structural+luminance+contrast (industry standard, YouTube/Netflix)
-  // MSE          10% — raw pixel differences (96×96, catches every pixel change)
-  // spatialGrid   9% — spatial content map (zoom, crop offset, vignette, lens)
-  // chroma        9% — Cb/Cr distribution (hue, saturation, chroma noise — very sensitive)
+  // SSIM         11% — structural+luminance+contrast (industry standard, YouTube/Netflix)
+  // MSE           9% — raw pixel differences (96×96, catches every pixel change)
+  // spatialGrid   8% — spatial content map (zoom, crop offset, vignette, lens)
+  // chroma        8% — Cb/Cr distribution (hue, saturation, chroma noise — very sensitive)
   // color         8% — RGB histogram (brightness, saturation changes)
-  // luma          8% — luminance histogram 64-bin (brightness/contrast/gamma)
+  // luma          7% — luminance histogram 64-bin (brightness/contrast/gamma)
   // colorMoments  7% — mean/std/skew per channel (higher-order color stats)
   // pHash         7% — perceptual hash DCT (structural fingerprint, all platforms use it)
   // dHash         7% — gradient hash (edge structure, used by major platforms)
-  // gradient      6% — gradient magnitude (sharpness, grain, noise intensity)
+  // gradient      7% — gradient magnitude (sharpness, grain, noise intensity)
   // projection    6% — row+col luminance profiles (spatial shift, any positional change)
-  // metadata     10% — file metadata (EXIF, ICC, format, size, DPI) — added at file level
+  // metadata     15% — file metadata (EXIF, ICC, format, size, DPI) — added at file level
   const score =
-    ssim * 0.13 + mse * 0.10 + spatial * 0.09 + chroma * 0.09 +
-    ch * 0.08 + luma * 0.08 + colorMom * 0.07 +
+    ssim * 0.11 + mse * 0.09 + spatial * 0.08 + chroma * 0.08 +
+    ch * 0.08 + luma * 0.07 + colorMom * 0.07 +
     ph * 0.07 + dh * 0.07 +
-    gradient * 0.06 + proj * 0.06;
+    gradient * 0.07 + proj * 0.06;
 
   return {
     score,
@@ -562,9 +562,9 @@ export async function compareFiles(
         : Promise.resolve(100), // no raw data → assume identical metadata (neutral)
     ]);
 
-    // Frame-level score (90% of final) + metadata score (10% of final)
+    // Frame-level score (85% of final) + metadata score (15% of final)
     const avgFrameScore = pairs.reduce((s, p) => s + p.score, 0) / pairs.length;
-    const finalScore = avgFrameScore + metadata * 0.10;
+    const finalScore = avgFrameScore + metadata * 0.15;
 
     const avg = (key: keyof Omit<PairScore["breakdown"], "mirrored" | "metadata">) =>
       Math.round(pairs.reduce((s, p) => s + (p.breakdown[key] as number), 0) / pairs.length);

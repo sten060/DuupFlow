@@ -96,12 +96,12 @@ async function processImage(
     img = img.linear([rA, gA, bA], [rB, gB, bB]);
 
     // ── 2. HSL global + contrast → Luminance histo + Chroma + RGB
-    const brightness = 0.965 + Math.random() * 0.070;  // ±3.5%
-    const saturation = 0.955 + Math.random() * 0.090;  // ±4.5%
-    const gamma      = 0.968 + Math.random() * 0.064;  // ±3.2%
+    const brightness = 0.930 + Math.random() * 0.140;  // ±7% (était ±3.5%)
+    const saturation = 0.920 + Math.random() * 0.160;  // ±8% (était ±4.5%)
+    const gamma      = 0.940 + Math.random() * 0.120;  // ±6% (était ±3.2%)
     const hue        = Math.floor((Math.random() - 0.5) * 20); // ±10°
     img = img.modulate({ brightness, saturation, hue }).gamma(gamma);
-    const contrast = 0.965 + Math.random() * 0.070;    // ±3.5%
+    const contrast = 0.930 + Math.random() * 0.140;    // ±7% (était ±3.5%)
     img = img.linear(contrast, 0);
 
     // ── 3. Vignette radiale subtile (3-6%) → Grille spatiale + Profils projection
@@ -142,9 +142,7 @@ async function processImage(
     // Teinte asymétrique ±6° → Chroma Cb/Cr
     const tintHue = Math.floor(3 + Math.random() * 3) * (Math.random() < 0.5 ? 1 : -1); // ±3–6°
     img = img.modulate({ hue: tintHue });
-    // Blur plus fort → Gradients magnitude + SSIM + dHash contours
-    const blur = 0.8 + Math.random() * 1.0; // 0.8–1.8 (était 0.3–0.7)
-    img = img.blur(blur);
+    // Blur supprimé : trop visible sur les portraits
   }
 
   const lower = ext.toLowerCase();
