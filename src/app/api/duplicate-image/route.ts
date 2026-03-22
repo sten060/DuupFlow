@@ -79,42 +79,61 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    // 1. Recomb cross-canal → Moments couleurs (96%) + Chroma Cb/Cr (85%)
-    //    Mélange subtil entre canaux RGB = change distributions stat de chaque canal
-    const d = () => 0.990 + Math.random() * 0.020; // 0.990–1.010 diagonal
-    const x = () => (Math.random() - 0.5) * 0.030; // ±1.5% cross-canal
-    img = img.recomb([
-      [d(), x(), x()],
-      [x(), d(), x()],
-      [x(), x(), d()],
-    ]);
+    // ── 1. Per-channel linear avec offset → Moments couleurs (95%) + Chroma (86%) + RGB (87%)
+    // linear([multR,multG,multB], [offsetR,offsetG,offsetB]) change µ, σ ET skewness par canal
+    const rA = 1.010 + (Math.random() - 0.5) * 0.060;  // 0.980–1.040
+    const gA = 0.975 + (Math.random() - 0.5) * 0.060;  // 0.945–1.005
+    const bA = 1.000 + (Math.random() - 0.5) * 0.080;  // 0.960–1.040
+    const rB = Math.round((Math.random() - 0.5) * 14);  // ±7 niveaux
+    const gB = Math.round((Math.random() - 0.5) * 10);  // ±5 niveaux
+    const bB = Math.round((Math.random() - 0.5) * 18);  // ±9 niveaux
+    img = img.linear([rA, gA, bA], [rB, gB, bB]);
 
-    // 2. Ajustements globaux → Luminance, Chroma, RGB histogram
-    const brightness = 0.967 + Math.random() * 0.066;  // ±3.3%
-    const saturation = 0.958 + Math.random() * 0.084;  // ±4.2%
-    const gamma      = 0.974 + Math.random() * 0.052;  // ±2.6%
-    const hue        = Math.floor((Math.random() - 0.5) * 16); // ±8°
+    // ── 2. HSL global → Luminance histo (86%), Chroma, RGB
+    const brightness = 0.960 + Math.random() * 0.080;  // 0.960–1.040  (±4%)
+    const saturation = 0.950 + Math.random() * 0.100;  // 0.950–1.050  (±5%)
+    const gamma      = 0.968 + Math.random() * 0.064;  // 0.968–1.032  (±3.2%)
+    const hue        = Math.floor((Math.random() - 0.5) * 24); // ±12°
     img = img.modulate({ brightness, saturation, hue }).gamma(gamma);
 
-    const contrast = 0.970 + Math.random() * 0.060;    // ±3%
+    const contrast = 0.960 + Math.random() * 0.080;    // ±4%
     img = img.linear(contrast, 0);
 
-    // 3. Grain texture → Gradients/magnitude (96%)
-    const grainSize = 512;
-    const grainBuf = Buffer.alloc(grainSize * grainSize);
-    for (let k = 0; k < grainBuf.length; k++) {
-      grainBuf[k] = 128 + Math.floor((Math.random() - 0.5) * 60);
+    // ── 3. Vignette radiale → Grille spatiale (77%) + Profils projection (77%) + Gradients (92%)
+    // Dégradé centre→coins visible à 64×64 (scale comparateur) mais naturel à pleine résolution
+    const vigSize = 128;
+    const vigBuf = Buffer.alloc(vigSize * vigSize);
+    const vcx = vigSize / 2, vcy = vigSize / 2;
+    const vmaxR = Math.sqrt(vcx * vcx + vcy * vcy);
+    const vigStrength = 0.14 + Math.random() * 0.10;  // 14–24% assombrissement aux coins
+    for (let vy = 0; vy < vigSize; vy++) {
+      for (let vx = 0; vx < vigSize; vx++) {
+        const dist = Math.sqrt((vx - vcx) ** 2 + (vy - vcy) ** 2) / vmaxR;
+        vigBuf[vy * vigSize + vx] = Math.round(255 * (1 - vigStrength * dist * dist));
+      }
     }
-    const grainPng = await sharp(grainBuf, { raw: { width: grainSize, height: grainSize, channels: 1 } })
-      .blur(0.3)
+    const vigPng = await sharp(vigBuf, { raw: { width: vigSize, height: vigSize, channels: 1 } })
+      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic })
+      .png()
+      .toBuffer();
+    img = img.composite([{ input: vigPng, blend: "multiply", opacity: 1.0 }]).removeAlpha();
+
+    // ── 4. Grain coarse 64×64 → Gradients magnitude (92%)
+    // Résolution 64×64 = exacte résolution d'analyse du comparateur
+    // nearest-neighbor upscale → chaque "pixel grain" couvre une cellule entière
+    const grainBuf = Buffer.alloc(64 * 64);
+    for (let k = 0; k < grainBuf.length; k++) {
+      grainBuf[k] = 128 + Math.floor((Math.random() - 0.5) * 120);  // ±60 amplitude
+    }
+    const grainPng = await sharp(grainBuf, { raw: { width: 64, height: 64, channels: 1 } })
       .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.nearest })
       .png()
       .toBuffer();
-    img = img.composite([{ input: grainPng, blend: "overlay", opacity: 0.08 }]).removeAlpha();
+    img = img.composite([{ input: grainPng, blend: "overlay", opacity: 0.13 }]).removeAlpha();
 
-    // 4. Micro-zoom → pHash (88%) + dHash (89%) + Grille spatiale
-    //    1–2.5% de zoom imperceptible mais décale tous les DCT coefficients
-    const zoomFactor = 1.010 + Math.random() * 0.015; // 1.010–1.025
+    // ── 5. Zoom 3–5% → pHash (84%) + dHash (84%)
+    // Sur l'image 32×32 du DCT pHash: 3% = ~1 pixel décalé → bits qui flippent
+    const zoomFactor = 1.030 + Math.random() * 0.020;  // 3.0–5.0%
     const zW = clampDim(Math.round(baseW * zoomFactor));
     const zH = clampDim(Math.round(baseH * zoomFactor));
     const cropLeft = Math.floor((zW - baseW) / 2);
@@ -123,8 +142,8 @@ async function processImage(
       .resize(zW, zH, { fit: "fill", kernel: sharp.kernel.cubic })
       .extract({ left: cropLeft, top: cropTop, width: baseW, height: baseH });
 
-    // 5. Sharpen → dHash/contours + Gradients
-    const sigma = 1.2 + Math.random() * 1.3; // 1.2–2.5
+    // ── 6. Sharpen fort → Gradients magnitude + dHash/contours
+    const sigma = 1.8 + Math.random() * 1.2;  // 1.8–3.0
     img = img.sharpen({ sigma });
   }
 
