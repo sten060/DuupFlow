@@ -149,14 +149,12 @@ function videoOutName(opts: {
   date: string;
   fileIndex: number;
   copyIndex: number;
-  origName: string;
-  runTag: string;
+  copyTag: string; // tag aléatoire unique par copie — ne contient pas le nom original
 }) {
-  const { channel, date, fileIndex, copyIndex, origName, runTag } = opts;
-  const base = safeBase(origName);
+  const { channel, date, fileIndex, copyIndex, copyTag } = opts;
   return `${channelCaps(channel)}_DuupFlow_${date}_vid${fileIndex}_c${String(
     copyIndex
-  ).padStart(2, "0")}_r${runTag}__${base}.mp4`;
+  ).padStart(2, "0")}_${copyTag}.mp4`;
 }
 export function filterFinals(names: string[]) {
   return names
@@ -386,8 +384,6 @@ export async function processVideos(
   const uploadedFiles = (formData.getAll("files") as unknown as File[]).filter(Boolean);
   // Use pre-downloaded files when provided (bypasses Vercel body limit)
   const files: Array<File | PreDownloadedFile> = preDownloadedFiles ?? uploadedFiles;
-  const runTag = Math.random().toString(36).slice(2, 6);
-
   const { dir } = preResolvedDir
     ? { dir: preResolvedDir }
     : await getOutDirForCurrentUser();
@@ -451,13 +447,14 @@ export async function processVideos(
     const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
     await onProgress?.(startPct, `Encodage ${doneCopies + 1}/${totalCopies}…`);
 
+    // copyTag unique par copie : 8 chars base-36 aléatoires → ex. "x4k9mz2q"
+    const copyTag = Math.random().toString(36).slice(2, 10).padEnd(8, "0");
     const outName = videoOutName({
       channel,
       date: stamp,
       fileIndex,
       copyIndex,
-      origName: fileName,
-      runTag,
+      copyTag,
     });
       const outPath = path.join(dir, outName);
 

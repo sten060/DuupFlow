@@ -204,7 +204,8 @@ export default function SimilarityClient({
       ]);
       // fileA.size / fileB.size = taille réelle — essentiel pour les vidéos car
       // rawA/rawB ne contiennent que 128KB, ce qui biaise le ratio de taille à 1.0.
-      const data = await compareFiles(framesA, framesB, rawA, rawB, fileA.size, fileB.size);
+      // fileA.name / fileB.name = pour la pénalité de nom de fichier différent.
+      const data = await compareFiles(framesA, framesB, rawA, rawB, fileA.size, fileB.size, fileA.name, fileB.name);
 
       if ("error" in data) setError(data.error);
       else setResult(data);
@@ -282,7 +283,8 @@ export default function SimilarityClient({
               <MetricBar label="Couleurs RGB" value={result.breakdown.color} weight="×8%" hint="Histogramme RGB 32 bins/canal — sensible à la saturation, luminosité, filtres visuels" />
               <MetricBar label="Moments couleurs" value={result.breakdown.colorMom} weight="×8%" hint="Moyenne/écart-type/asymétrie par canal RGB — statistiques d'ordre supérieur : teinte, saturation, EQ" />
               <MetricBar label="Luminance (histogramme)" value={result.breakdown.luma} weight="×7%" hint="Histogramme luminance 64 bins (128×128) — sensible à luminosité ±3%, contraste, gamma" />
-              <MetricBar label="Métadonnées" value={result.breakdown.metadata} weight="×15%" hint="Format, taille fichier, richesse EXIF, profil ICC, densité DPI, chroma, progressif — signature technique du fichier" />
+              <MetricBar label="Métadonnées" value={result.breakdown.metadata} weight="×13%" hint="Format, taille fichier, richesse EXIF, profil ICC, densité DPI, chroma, progressif — signature technique du fichier" />
+              <MetricBar label="Nom de fichier" value={result.breakdown.filename} weight="×5%" hint="Similarité des noms de fichiers (bigrammes Jaccard sans extension) — 100% = noms identiques, 0% = aucun caractère commun" />
             </div>
           )}
 

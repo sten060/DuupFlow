@@ -451,6 +451,7 @@ export type PairScore = {
     texture: number;   // local variance (grain/noise/contrast)
     ahash: number;     // global luminosity
     metadata: number;  // file metadata: EXIF richness, ICC, size, format, DPI, chroma
+    filename: number;  // similarité du nom de fichier (100 = identiques, 0 = totalement différents)
     mirrored: boolean;
   };
 };
@@ -538,17 +539,36 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
 
   return {
     score,
-    breakdown: { ssim, mse, spatial, chroma, color: ch, luma, colorMom, phash: ph, dhash: dh, edgeOr, gradient, proj, texture: tx, ahash: ah, metadata: 100, mirrored },
+    breakdown: { ssim, mse, spatial, chroma, color: ch, luma, colorMom, phash: ph, dhash: dh, edgeOr, gradient, proj, texture: tx, ahash: ah, metadata: 100, filename: 100, mirrored },
   };
+}
+
+// Similarité de nom de fichier — compare les noms normalisés (sans extension, en minuscules).
+// Retourne 0–100 : 100 = identiques, 0 = aucun caractère commun.
+function filenameSimilarity(nameA: string, nameB: string): number {
+  const norm = (n: string) => n.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const a = norm(nameA);
+  const b = norm(nameB);
+  if (a === b) return 100;
+  if (!a || !b) return 0;
+  // Jaccard sur bigrammes
+  const bigrams = (s: string) => new Set(Array.from({ length: s.length - 1 }, (_, i) => s.slice(i, i + 2)));
+  const ba = bigrams(a);
+  const bb = bigrams(b);
+  const intersection = [...ba].filter(x => bb.has(x)).length;
+  const union = new Set([...ba, ...bb]).size;
+  return union === 0 ? 0 : Math.round((intersection / union) * 100);
 }
 
 export async function compareFiles(
   framesA: string[],
   framesB: string[],
-  rawA?: string,   // base64 of first ~128KB of file A (for metadata analysis)
-  rawB?: string,   // base64 of first ~128KB of file B
-  sizeA?: number,  // taille réelle du fichier A en octets (obligatoire pour les vidéos)
-  sizeB?: number,  // taille réelle du fichier B en octets
+  rawA?: string,    // base64 of first ~128KB of file A (for metadata analysis)
+  rawB?: string,    // base64 of first ~128KB of file B
+  sizeA?: number,   // taille réelle du fichier A en octets (obligatoire pour les vidéos)
+  sizeB?: number,   // taille réelle du fichier B en octets
+  nameA?: string,   // nom du fichier A (avec extension)
+  nameB?: string,   // nom du fichier B (avec extension)
 ): Promise<{ score: number; breakdown: PairScore["breakdown"] } | { error: string }> {
   try {
     if (!framesA.length || !framesB.length) return { error: "Aucun frame reçu" };
@@ -567,11 +587,14 @@ export async function compareFiles(
         : Promise.resolve(100), // no raw data → assume identical metadata (neutral)
     ]);
 
-    // Frame-level score (85% of final) + metadata score (15% of final)
-    const avgFrameScore = pairs.reduce((s, p) => s + p.score, 0) / pairs.length;
-    const finalScore = avgFrameScore + metadata * 0.15;
+    // Similarité du nom de fichier (0–100). 100 = même nom → 0pt de pénalité.
+    const fnSim = (nameA && nameB) ? filenameSimilarity(nameA, nameB) : 100;
 
-    const avg = (key: keyof Omit<PairScore["breakdown"], "mirrored" | "metadata">) =>
+    // Frame-level score (82% max) + metadata (13% max) + filename (5% max) = 100%
+    const avgFrameScore = pairs.reduce((s, p) => s + p.score, 0) / pairs.length;
+    const finalScore = avgFrameScore + metadata * 0.13 + fnSim * 0.05;
+
+    const avg = (key: keyof Omit<PairScore["breakdown"], "mirrored" | "metadata" | "filename">) =>
       Math.round(pairs.reduce((s, p) => s + (p.breakdown[key] as number), 0) / pairs.length);
 
     const breakdown: PairScore["breakdown"] = {
@@ -590,6 +613,7 @@ export async function compareFiles(
       texture:  avg("texture"),
       ahash:    avg("ahash"),
       metadata: Math.round(metadata),
+      filename: fnSim,
       mirrored: pairs.some(p => p.breakdown.mirrored),
     };
 
