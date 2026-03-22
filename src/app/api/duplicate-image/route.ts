@@ -116,7 +116,7 @@ async function processImage(
       .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic })
       .png()
       .toBuffer();
-    img = img.composite([{ input: vigPng, blend: "multiply", opacity: 1.0 }]).removeAlpha();
+    img = img.composite([{ input: vigPng, blend: "multiply" } as sharp.OverlayOptions]).removeAlpha();
 
     // ── 4. Grain coarse 64×64 → Gradients magnitude (92%)
     // Résolution 64×64 = exacte résolution d'analyse du comparateur
@@ -129,7 +129,8 @@ async function processImage(
       .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.nearest })
       .png()
       .toBuffer();
-    img = img.composite([{ input: grainPng, blend: "overlay", opacity: 0.13 }]).removeAlpha();
+    const grainOverlay: sharp.OverlayOptions & { opacity?: number } = { input: grainPng, blend: "overlay", opacity: 0.13 };
+    img = img.composite([grainOverlay]).removeAlpha();
 
     // ── 5. Zoom 3–5% → pHash (84%) + dHash (84%)
     // Sur l'image 32×32 du DCT pHash: 3% = ~1 pixel décalé → bits qui flippent
