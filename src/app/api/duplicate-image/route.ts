@@ -61,14 +61,16 @@ async function processImage(
     const kernelA = kernels[Math.floor(Math.random() * kernels.length)];
     const kernelB = kernels[Math.floor(Math.random() * kernels.length)];
 
-    // 14% max per side (was 7%) — assez grand pour fliper bits pHash/dHash/spatial
-    // minimum garanti de 3% par côté pour être sûr que ça impacte les métriques
-    const mMin = Math.max(1, Math.floor(Math.min(baseW, baseH) * 0.03));
-    const mMax = Math.floor(Math.min(baseW, baseH) * 0.14);
-    const L = mMin + Math.floor(Math.random() * (mMax - mMin + 1));
-    const T = mMin + Math.floor(Math.random() * (mMax - mMin + 1));
-    const R = mMin + Math.floor(Math.random() * (mMax - mMin + 1));
-    const B = mMin + Math.floor(Math.random() * (mMax - mMin + 1));
+    // CROP ASYMÉTRIQUE FORCÉ : grand L+T, petit R+B → décalage net 8–18% du contenu
+    // Sans asymétrie, un zoom centré préserve les gradients locaux → dHash/pHash insensibles
+    // Avec 14% de décalage net à 32×32 (pHash) = 4.5px shift → 15–25 bits flippent
+    const bigPct  = 0.08 + Math.random() * 0.12;  // 8–20% côté grand
+    const smallPct = Math.random() * 0.03;          // 0–3% côté petit
+    const dim = Math.min(baseW, baseH);
+    const L = Math.floor(dim * bigPct);
+    const T = Math.floor(dim * bigPct);
+    const R = Math.floor(dim * smallPct);
+    const B = Math.floor(dim * smallPct);
     const rawCropW = clampDim(baseW - (L + R));
     const rawCropH = clampDim(baseH - (T + B));
     const safeLeft   = Math.max(0, Math.min(L, baseW - 16));
@@ -122,10 +124,9 @@ async function processImage(
     img = img.composite([{ input: vigPng, blend: "multiply" } as sharp.OverlayOptions]).removeAlpha();
 
     // ── 4. Grain 128×128 cubic → Gradients + MSE + SSIM
-    // 128×128 avec cubic upscale = blobs lisses de ~8px, imperceptibles sur photos texturées
-    // (contrairement à 64×64 nearest qui créait des blocs de 15×15px visibles)
+    // Amplitude réduite ±6–10 : blobs ~8px quasi-invisibles sur peau texturée
     const noiseSize = 128;
-    const nAmp = 14 + Math.floor(Math.random() * 10);  // ±14 à ±24 amplitude
+    const nAmp = 6 + Math.floor(Math.random() * 5);  // ±6 à ±10 amplitude (était ±14–24)
     const noiseBuf = Buffer.alloc(noiseSize * noiseSize);
     for (let k = 0; k < noiseBuf.length; k++) {
       noiseBuf[k] = Math.max(0, Math.min(255, 128 + Math.floor((Math.random() - 0.5) * nAmp * 2)));
@@ -147,9 +148,8 @@ async function processImage(
       .resize(zW, zH, { fit: "fill", kernel: sharp.kernel.cubic })
       .extract({ left: cropLeft, top: cropTop, width: baseW, height: baseH });
 
-    // ── 6. Sharpen modéré → Gradients magnitude + dHash contours
-    const sigma = 1.2 + Math.random() * 0.8;  // 1.2–2.0
-    img = img.sharpen({ sigma });
+    // Sharpen supprimé : sigma 1-2 sur 1000px = sigma 0.06-0.13 à l'échelle 64×64
+    // → complètement moyenné, invisible aux métriques MAIS visible à l'œil → supprimé
   }
 
   if (flags.fundamentals) {
@@ -181,7 +181,7 @@ async function processImage(
   };
 
   if (lower === ".webp") {
-    const quality = flags.fundamentals ? (65 + Math.floor(Math.random() * 15)) : 88; // 65–80
+    const quality = flags.fundamentals ? (50 + Math.floor(Math.random() * 18)) : 88; // 50–68
     return {
       data: await img.withMetadata(exifMeta).webp({ quality, smartSubsample: true }).toBuffer(),
       outExt: ".webp",
@@ -191,8 +191,8 @@ async function processImage(
   // 4:2:0 always quand fundamentals → affecte Chroma Cb/Cr significativement
   const chroma = flags.fundamentals ? "4:2:0" : "4:4:4";
   const progressive = flags.fundamentals ? Math.random() < 0.5 : false;
-  // Qualité 65–80 quand fundamentals → artifacts JPEG → Gradients + MSE
-  const quality = flags.fundamentals ? (65 + Math.floor(Math.random() * 15)) : 88; // 65–80
+  // Qualité 50–68 quand fundamentals → artifacts blocs 8×8 → Gradients + MSE (était 65–80)
+  const quality = flags.fundamentals ? (50 + Math.floor(Math.random() * 18)) : 88; // 50–68
 
   if (lower === ".png") {
     img = img.flatten({ background: { r: 255, g: 255, b: 255 } });
