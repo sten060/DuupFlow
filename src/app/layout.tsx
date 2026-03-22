@@ -5,11 +5,11 @@ import ClientLayout from "./ClientLayout";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.duupflow.com"),
-  title: "DuupFlow — Duplicateur de contenu IA",
+  title: "DuupFlow — Duplique ton contenu en illimité",
   description:
     "DuupFlow vous permet de dupliquer et transformer vos contenus en quelques secondes grâce à l'IA.",
   openGraph: {
-    title: "DuupFlow — Duplicateur de contenu IA",
+    title: "DuupFlow — Duplique ton contenu en illimité",
     description:
       "DuupFlow vous permet de dupliquer et transformer vos contenus en quelques secondes grâce à l'IA.",
     url: "https://www.duupflow.com",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "DuupFlow — Duplicateur de contenu IA",
+    title: "DuupFlow — Duplique ton contenu en illimité",
     description:
       "DuupFlow vous permet de dupliquer et transformer vos contenus en quelques secondes grâce à l'IA.",
     images: ["/og-image.png"],
