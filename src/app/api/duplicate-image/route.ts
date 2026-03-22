@@ -79,34 +79,72 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    // ── 1. Per-channel linear très subtil
-    const rA = 1.000 + (Math.random() - 0.5) * 0.020;  // ±1%
-    const gA = 1.000 + (Math.random() - 0.5) * 0.020;  // ±1%
-    const bA = 1.000 + (Math.random() - 0.5) * 0.020;  // ±1%
-    const rB = Math.round((Math.random() - 0.5) * 4);   // ±2 niveaux
-    const gB = Math.round((Math.random() - 0.5) * 4);
-    const bB = Math.round((Math.random() - 0.5) * 4);
+    // ── 1. Per-channel linear asymétrique → Moments couleurs + Chroma + RGB
+    // Canaux shifts indépendants (directions opposées) → change µ, σ, skewness par canal
+    const rA = 1.010 + (Math.random() - 0.5) * 0.060;  // 0.980–1.040
+    const gA = 0.975 + (Math.random() - 0.5) * 0.060;  // 0.945–1.005
+    const bA = 1.000 + (Math.random() - 0.5) * 0.080;  // 0.960–1.040
+    const rB = Math.round((Math.random() - 0.5) * 14);  // ±7 niveaux
+    const gB = Math.round((Math.random() - 0.5) * 10);  // ±5
+    const bB = Math.round((Math.random() - 0.5) * 18);  // ±9
     img = img.linear([rA, gA, bA], [rB, gB, bB]);
 
-    // ── 2. HSL global très subtil
-    const brightness = 0.990 + Math.random() * 0.020;  // ±1%
-    const saturation = 0.990 + Math.random() * 0.020;  // ±1%
-    const gamma      = 0.990 + Math.random() * 0.020;  // ±1%
-    const hue        = Math.floor((Math.random() - 0.5) * 6); // ±3°
+    // ── 2. HSL global + contrast → Luminance histo + Chroma + RGB
+    const brightness = 0.965 + Math.random() * 0.070;  // ±3.5%
+    const saturation = 0.955 + Math.random() * 0.090;  // ±4.5%
+    const gamma      = 0.968 + Math.random() * 0.064;  // ±3.2%
+    const hue        = Math.floor((Math.random() - 0.5) * 20); // ±10°
     img = img.modulate({ brightness, saturation, hue }).gamma(gamma);
+    const contrast = 0.965 + Math.random() * 0.070;    // ±3.5%
+    img = img.linear(contrast, 0);
 
-    // ── 3. Zoom 1–2% → pHash + dHash légèrement différents, imperceptible à l'œil
-    const zoomFactor = 1.010 + Math.random() * 0.010;  // 1.0–2.0%
+    // ── 3. Vignette radiale subtile (3-6%) → Grille spatiale + Profils projection
+    // Généré à 128×128 avec cubic upscale = dégradé lisse, pas de blocs visibles
+    const vigSize = 128;
+    const vigBuf = Buffer.alloc(vigSize * vigSize);
+    const vcx = vigSize / 2, vcy = vigSize / 2;
+    const vmaxR = Math.sqrt(vcx * vcx + vcy * vcy);
+    const vigStrength = 0.030 + Math.random() * 0.030;  // 3–6% assombrissement coins
+    for (let vy = 0; vy < vigSize; vy++) {
+      for (let vx = 0; vx < vigSize; vx++) {
+        const dist = Math.sqrt((vx - vcx) ** 2 + (vy - vcy) ** 2) / vmaxR;
+        vigBuf[vy * vigSize + vx] = Math.round(255 * (1 - vigStrength * dist * dist));
+      }
+    }
+    const vigPng = await sharp(vigBuf, { raw: { width: vigSize, height: vigSize, channels: 1 } })
+      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic })
+      .png()
+      .toBuffer();
+    img = img.composite([{ input: vigPng, blend: "multiply" } as sharp.OverlayOptions]).removeAlpha();
+
+    // ── 4. Grain 128×128 cubic → Gradients + MSE + SSIM
+    // 128×128 avec cubic upscale = blobs lisses de ~8px, imperceptibles sur photos texturées
+    // (contrairement à 64×64 nearest qui créait des blocs de 15×15px visibles)
+    const noiseSize = 128;
+    const nAmp = 14 + Math.floor(Math.random() * 10);  // ±14 à ±24 amplitude
+    const noiseBuf = Buffer.alloc(noiseSize * noiseSize);
+    for (let k = 0; k < noiseBuf.length; k++) {
+      noiseBuf[k] = Math.max(0, Math.min(255, 128 + Math.floor((Math.random() - 0.5) * nAmp * 2)));
+    }
+    const noisePng = await sharp(noiseBuf, { raw: { width: noiseSize, height: noiseSize, channels: 1 } })
+      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic })
+      .png()
+      .toBuffer();
+    img = img.composite([{ input: noisePng, blend: "overlay" } as sharp.OverlayOptions]).removeAlpha();
+
+    // ── 5. Zoom 3–4% → pHash + dHash + Grille spatiale + Profils projection
+    const zoomFactor = 1.030 + Math.random() * 0.010;  // 3.0–4.0%
     const zW = clampDim(Math.round(baseW * zoomFactor));
     const zH = clampDim(Math.round(baseH * zoomFactor));
-    const cropLeft = Math.floor((zW - baseW) / 2);
-    const cropTop  = Math.floor((zH - baseH) / 2);
+    // Crop asymétrique pour maximiser la diversité spatiale
+    const cropLeft = Math.floor(Math.random() * (zW - baseW));
+    const cropTop  = Math.floor(Math.random() * (zH - baseH));
     img = img
       .resize(zW, zH, { fit: "fill", kernel: sharp.kernel.cubic })
       .extract({ left: cropLeft, top: cropTop, width: baseW, height: baseH });
 
-    // ── 4. Sharpen très léger
-    const sigma = 0.5 + Math.random() * 0.5;  // 0.5–1.0
+    // ── 6. Sharpen modéré → Gradients magnitude + dHash contours
+    const sigma = 1.2 + Math.random() * 0.8;  // 1.2–2.0
     img = img.sharpen({ sigma });
   }
 
