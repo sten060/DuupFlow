@@ -4,6 +4,7 @@ import "./globals.css";
 import ClientLayout from "./ClientLayout";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://duupflow.com"),
   title: "DuupFlow — Duplicateur de contenu IA",
   description:
     "DuupFlow vous permet de dupliquer et transformer vos contenus en quelques secondes grâce à l'IA.",
