@@ -100,15 +100,15 @@ async function processImage(
     // BUG précédent: plage symétrique → moyenne=1.0 → ~50% des cas quasi-invisible
     // FIX: direction aléatoire + minimum garanti → toujours visible à l'œil
     const bDir = Math.random() < 0.5 ? -1 : 1;
-    const brightness = 1.0 + bDir * (0.06 + Math.random() * 0.08);  // ±6–14%, garanti ≥6%
+    const brightness = 1.0 + bDir * (0.10 + Math.random() * 0.10);  // ±10–20%, garanti ≥10%
     const sDir = Math.random() < 0.5 ? -1 : 1;
-    const saturation = 1.0 + sDir * (0.07 + Math.random() * 0.10);  // ±7–17%, garanti ≥7%
+    const saturation = 1.0 + sDir * (0.08 + Math.random() * 0.10);  // ±8–18%, garanti ≥8%
     const gDir = Math.random() < 0.5 ? -1 : 1;
-    const gamma      = 1.0 + gDir * (0.05 + Math.random() * 0.07);  // ±5–12%, garanti ≥5%
+    const gamma      = 1.0 + gDir * (0.08 + Math.random() * 0.10);  // ±8–18%, garanti ≥8%
     const hue        = (Math.random() < 0.5 ? -1 : 1) * (5 + Math.floor(Math.random() * 10)); // ±5–14°
     img = img.modulate({ brightness, saturation, hue }).gamma(gamma);
     const cDir = Math.random() < 0.5 ? -1 : 1;
-    const contrast = 1.0 + cDir * (0.06 + Math.random() * 0.08);    // ±6–14%, garanti ≥6%
+    const contrast = 1.0 + cDir * (0.10 + Math.random() * 0.10);    // ±10–20%, garanti ≥10%
     img = img.linear(contrast, 0);
 
     // ── 3. Gradient de luminosité directionnel → SSIM (terme luminance locale par bloc 8×8)
