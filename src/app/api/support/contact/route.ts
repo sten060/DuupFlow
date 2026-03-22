@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
   try {
     emailSent = await sendBrevoEmail({
       to: "hello@duupflow.com",
+      toName: "Support DuupFlow",
       subject: `[Support] ${subject.trim()}`,
       htmlContent,
     });
