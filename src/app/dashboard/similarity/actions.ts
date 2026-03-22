@@ -456,29 +456,26 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   const normalStructScore = ph * 0.6 + dh * 0.3 + ah * 0.1;
   const mirrored = mirrorStructScore > normalStructScore + 10 && mirrorStructScore > 60;
 
-  // Weights (sum = 1.0) — 14 algorithms.
+  // Weights (sum = 1.0) — 11 algorithms.
   // Highest weights → most commonly used by social media detection systems
   // and most sensitive to the specific transforms DuupFlow applies.
   //
-  // SSIM         12% — structural+luminance+contrast (industry standard, YouTube/Netflix)
-  // MSE          10% — raw pixel differences (96×96, catches every pixel change)
-  // spatialGrid   9% — spatial content map (zoom, crop offset, vignette, lens)
-  // chroma        9% — Cb/Cr distribution (hue, saturation, chroma noise — very sensitive)
-  // color         8% — RGB histogram (brightness, saturation changes)
-  // luma          8% — luminance histogram 64-bin (brightness/contrast/gamma)
-  // colorMoments  7% — mean/std/skew per channel (higher-order color stats)
-  // pHash         7% — perceptual hash DCT (structural fingerprint, all platforms use it)
-  // dHash         7% — gradient hash (edge structure, used by major platforms)
-  // edgeOrient    6% — edge direction distribution (structural orientation fingerprint)
-  // gradient      5% — gradient magnitude (sharpness, grain, noise intensity)
-  // projection    5% — row+col luminance profiles (spatial shift, any positional change)
-  // texture       4% — local variance (grain/noise/contrast)
-  // aHash         3% — global luminosity (low weight: redundant with luma)
+  // SSIM         14% — structural+luminance+contrast (industry standard, YouTube/Netflix)
+  // MSE          11% — raw pixel differences (96×96, catches every pixel change)
+  // spatialGrid  10% — spatial content map (zoom, crop offset, vignette, lens)
+  // chroma       10% — Cb/Cr distribution (hue, saturation, chroma noise — very sensitive)
+  // color         9% — RGB histogram (brightness, saturation changes)
+  // luma          9% — luminance histogram 64-bin (brightness/contrast/gamma)
+  // colorMoments  8% — mean/std/skew per channel (higher-order color stats)
+  // pHash         8% — perceptual hash DCT (structural fingerprint, all platforms use it)
+  // dHash         8% — gradient hash (edge structure, used by major platforms)
+  // gradient      7% — gradient magnitude (sharpness, grain, noise intensity)
+  // projection    6% — row+col luminance profiles (spatial shift, any positional change)
   const score =
-    ssim * 0.12 + mse * 0.10 + spatial * 0.09 + chroma * 0.09 +
-    ch * 0.08 + luma * 0.08 + colorMom * 0.07 +
-    ph * 0.07 + dh * 0.07 + edgeOr * 0.06 +
-    gradient * 0.05 + proj * 0.05 + tx * 0.04 + ah * 0.03;
+    ssim * 0.14 + mse * 0.11 + spatial * 0.10 + chroma * 0.10 +
+    ch * 0.09 + luma * 0.09 + colorMom * 0.08 +
+    ph * 0.08 + dh * 0.08 +
+    gradient * 0.07 + proj * 0.06;
 
   return {
     score,
