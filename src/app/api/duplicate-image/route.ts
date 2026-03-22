@@ -103,10 +103,13 @@ async function processImage(
     const brightness = 1.0 + bDir * (0.08 + Math.random() * 0.10);  // ±8–18%, garanti ≥8%
     const sDir = Math.random() < 0.5 ? -1 : 1;
     const saturation = 1.0 + sDir * (0.08 + Math.random() * 0.10);  // ±8–18%, garanti ≥8%
-    const gDir = Math.random() < 0.5 ? -1 : 1;
-    const gamma      = 1.0 + gDir * (0.08 + Math.random() * 0.10);  // ±8–18%, garanti ≥8%
+    // Sharp.gamma() accepte uniquement [1.0, 3.0]. L'ancienne formule (1.0 + gDir * delta)
+    // pouvait produire 0.82–0.92 quand gDir=-1 → crash. Fix : valeur toujours ≥ 1.0.
+    // On alterne autour de 1.0 en utilisant [1.08, 1.18] ou [2.82, 2.92] (symétrique dans [1,3]).
+    const gMag       = 0.08 + Math.random() * 0.10;              // 0.08–0.18
+    const gammaFinal = Math.random() < 0.5 ? 1.0 + gMag : 3.0 - gMag; // 1.08–1.18 ou 2.82–2.92
     const hue        = (Math.random() < 0.5 ? -1 : 1) * (5 + Math.floor(Math.random() * 10)); // ±5–14°
-    img = img.modulate({ brightness, saturation, hue }).gamma(gamma);
+    img = img.modulate({ brightness, saturation, hue }).gamma(gammaFinal);
     const cDir = Math.random() < 0.5 ? -1 : 1;
     const contrast = 1.0 + cDir * (0.10 + Math.random() * 0.10);    // ±10–20%, garanti ≥10%
     img = img.linear(contrast, 0);
