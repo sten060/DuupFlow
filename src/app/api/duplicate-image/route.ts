@@ -86,22 +86,29 @@ async function processImage(
 
   if (flags.visuals) {
     // ── 1. Per-channel linear asymétrique → Moments couleurs + Chroma + RGB
-    // Canaux shifts indépendants (directions opposées) → change µ, σ, skewness par canal
-    const rA = 1.010 + (Math.random() - 0.5) * 0.060;  // 0.980–1.040
-    const gA = 0.975 + (Math.random() - 0.5) * 0.060;  // 0.945–1.005
-    const bA = 1.000 + (Math.random() - 0.5) * 0.080;  // 0.960–1.040
-    const rB = Math.round((Math.random() - 0.5) * 14);  // ±7 niveaux
-    const gB = Math.round((Math.random() - 0.5) * 10);  // ±5
-    const bB = Math.round((Math.random() - 0.5) * 18);  // ±9
+    // Décalages garantis non-nuls : chaque canal s'éloigne d'au moins ±3-8 niveaux
+    const rB = (Math.random() < 0.5 ? -1 : 1) * (3 + Math.floor(Math.random() * 8));  // ±3–10
+    const gB = (Math.random() < 0.5 ? -1 : 1) * (3 + Math.floor(Math.random() * 7));  // ±3–9
+    const bB = (Math.random() < 0.5 ? -1 : 1) * (4 + Math.floor(Math.random() * 9));  // ±4–12
+    // Multiplicateurs : canaux opposés pour maximiser le delta inter-canal
+    const rA = rB > 0 ? (1.02 + Math.random() * 0.04) : (0.94 + Math.random() * 0.04); // 1.02–1.06 ou 0.94–0.98
+    const gA = gB > 0 ? (0.94 + Math.random() * 0.04) : (1.02 + Math.random() * 0.04);
+    const bA = 1.00 + (Math.random() - 0.5) * 0.06;  // ±3%
     img = img.linear([rA, gA, bA], [rB, gB, bB]);
 
-    // ── 2. HSL global + contrast → Luminance histo + Chroma + RGB
-    const brightness = 0.930 + Math.random() * 0.140;  // ±7% (était ±3.5%)
-    const saturation = 0.920 + Math.random() * 0.160;  // ±8% (était ±4.5%)
-    const gamma      = 0.940 + Math.random() * 0.120;  // ±6% (était ±3.2%)
-    const hue        = Math.floor((Math.random() - 0.5) * 20); // ±10°
+    // ── 2. HSL global + contrast → toujours visible (minimum garanti depuis 1.0)
+    // BUG précédent: plage symétrique → moyenne=1.0 → ~50% des cas quasi-invisible
+    // FIX: direction aléatoire + minimum garanti → toujours visible à l'œil
+    const bDir = Math.random() < 0.5 ? -1 : 1;
+    const brightness = 1.0 + bDir * (0.06 + Math.random() * 0.08);  // ±6–14%, garanti ≥6%
+    const sDir = Math.random() < 0.5 ? -1 : 1;
+    const saturation = 1.0 + sDir * (0.07 + Math.random() * 0.10);  // ±7–17%, garanti ≥7%
+    const gDir = Math.random() < 0.5 ? -1 : 1;
+    const gamma      = 1.0 + gDir * (0.05 + Math.random() * 0.07);  // ±5–12%, garanti ≥5%
+    const hue        = (Math.random() < 0.5 ? -1 : 1) * (5 + Math.floor(Math.random() * 10)); // ±5–14°
     img = img.modulate({ brightness, saturation, hue }).gamma(gamma);
-    const contrast = 0.930 + Math.random() * 0.140;    // ±7% (était ±3.5%)
+    const cDir = Math.random() < 0.5 ? -1 : 1;
+    const contrast = 1.0 + cDir * (0.06 + Math.random() * 0.08);    // ±6–14%, garanti ≥6%
     img = img.linear(contrast, 0);
 
     // ── 3. Vignette radiale subtile (3-6%) → Grille spatiale + Profils projection
