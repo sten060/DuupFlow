@@ -79,20 +79,40 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    const brightness = 0.970 + Math.random() * 0.060;  // 0.970–1.030  (±3%)
-    const saturation = 0.965 + Math.random() * 0.070;  // 0.965–1.035  (±3.5%)
-    const gamma = 0.978 + Math.random() * 0.044;       // 0.978–1.022  (±2.2%)
-    const hue = Math.floor((Math.random() - 0.5) * 14); // ±7°
+    // --- Différentiel par canal R/G/B → Moments couleurs + Chroma Cb/Cr ---
+    const rMult = 0.978 + Math.random() * 0.044;   // ±2.2%
+    const gMult = 0.982 + Math.random() * 0.036;   // ±1.8%
+    const bMult = 0.973 + Math.random() * 0.054;   // ±2.7%
+    img = img.linear([rMult, gMult, bMult], [0, 0, 0]);
+
+    // --- Ajustements globaux → Luminance, Chroma, RGB histogram ---
+    const brightness = 0.967 + Math.random() * 0.066;  // 0.967–1.033  (±3.3%)
+    const saturation = 0.958 + Math.random() * 0.084;  // 0.958–1.042  (±4.2%)
+    const gamma      = 0.974 + Math.random() * 0.052;  // 0.974–1.026  (±2.6%)
+    const hue        = Math.floor((Math.random() - 0.5) * 16); // ±8°
 
     img = img.modulate({ brightness, saturation, hue }).gamma(gamma);
 
-    const contrast = 0.975 + Math.random() * 0.050;    // 0.975–1.025  (±2.5%)
+    const contrast = 0.970 + Math.random() * 0.060;    // 0.970–1.030  (±3%)
     img = img.linear(contrast, 0);
 
-    const blurSigma = 0.4 + Math.random() * 0.4;       // 0.4–0.8
-    img = img.blur(blurSigma);
+    // --- Grain texture → Gradients/magnitude ---
+    const grainSize = 512;
+    const grainBuf = Buffer.alloc(grainSize * grainSize);
+    for (let k = 0; k < grainBuf.length; k++) {
+      grainBuf[k] = 128 + Math.floor((Math.random() - 0.5) * 40);
+    }
+    const grainPng = await sharp(grainBuf, { raw: { width: grainSize, height: grainSize, channels: 1 } })
+      .blur(0.6)
+      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic })
+      .png()
+      .toBuffer();
+    img = img.composite([{ input: grainPng, blend: "overlay", opacity: 0.05 }]).removeAlpha();
 
-    const sigma = 0.7 + Math.random() * 0.8;           // 0.7–1.5
+    // --- Blur + sharpen → dHash/contours ---
+    const blurSigma = 0.5 + Math.random() * 0.5;  // 0.5–1.0
+    img = img.blur(blurSigma);
+    const sigma = 1.0 + Math.random() * 1.0;       // 1.0–2.0
     img = img.sharpen({ sigma });
   }
 
