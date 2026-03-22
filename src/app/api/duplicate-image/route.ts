@@ -79,31 +79,24 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    // Ranges significantly widened to bring perceptual comparator down to ~45%
-    const brightness = 0.75 + Math.random() * 0.50;   // 0.75–1.25  (was 0.93–1.07)
-    const saturation = 0.55 + Math.random() * 0.90;   // 0.55–1.45  (was 0.93–1.07)
-    const gamma = 0.70 + Math.random() * 0.95;        // 0.70–1.65  (was 1.00–1.30)
-    const hue = Math.floor((Math.random() - 0.5) * 30); // ±15°     (was ±3°)
+    const brightness = 0.988 + Math.random() * 0.024;  // 0.988–1.012  (±1.2%)
+    const saturation = 0.988 + Math.random() * 0.024;  // 0.988–1.012  (±1.2%)
+    const gamma = 0.993 + Math.random() * 0.014;       // 0.993–1.007  (±0.7%)
+    const hue = Math.floor((Math.random() - 0.5) * 6); // ±3°
 
     img = img.modulate({ brightness, saturation, hue }).gamma(gamma);
 
-    const contrast = 0.70 + Math.random() * 0.65;     // 0.70–1.35  (was 0.92–1.08)
+    const contrast = 0.993 + Math.random() * 0.014;    // 0.993–1.007  (±0.7%)
     img = img.linear(contrast, 0);
 
-    // Blur pass — strongly shifts DCT frequency content (big perceptual hash impact)
-    const blurSigma = 0.7 + Math.random() * 1.3;      // 0.7–2.0 (new)
-    img = img.blur(blurSigma);
-
-    // Stronger unsharp — was 0.3–0.5, now 0.8–3.0
-    const sigma = 0.8 + Math.random() * 2.2;          // 0.8–3.0
+    const sigma = 0.3 + Math.random() * 0.4;           // 0.3–0.7 (léger unsharp)
     img = img.sharpen({ sigma });
   }
 
   if (flags.fundamentals) {
-    // Subtle tint (±5°) + light blur → creates compression fingerprint divergence
-    const tintHue = Math.floor((Math.random() - 0.5) * 10); // ±5°
+    const tintHue = Math.floor((Math.random() - 0.5) * 4); // ±2°
     if (tintHue !== 0) img = img.modulate({ hue: tintHue });
-    const lightBlur = 0.3 + Math.random() * 0.7; // 0.3–1.0
+    const lightBlur = 0.3 + Math.random() * 0.3; // 0.3–0.6
     img = img.blur(lightBlur);
   }
 
