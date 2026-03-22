@@ -512,26 +512,22 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   const mirrored = mirrorStructScore > normalStructScore + 10 && mirrorStructScore > 60;
 
   // Weights (sum = 0.85 — 15% reserved for metadata computed at file level)
-  // Highest weights → most commonly used by social media detection systems
-  // and most sensitive to the specific transforms DuupFlow applies.
+  // pHash and dHash removed — redistribués sur les métriques restantes.
   //
-  // SSIM         11% — structural+luminance+contrast (industry standard, YouTube/Netflix)
-  // MSE           9% — raw pixel differences (96×96, catches every pixel change)
-  // spatialGrid   8% — spatial content map (zoom, crop offset, vignette, lens)
-  // chroma        8% — Cb/Cr distribution (hue, saturation, chroma noise — very sensitive)
+  // SSIM         13% — structural+luminance+contrast (industry standard, YouTube/Netflix)
+  // MSE          11% — raw pixel differences (96×96, catches every pixel change)
+  // chroma       10% — Cb/Cr distribution (hue, saturation, chroma noise — very sensitive)
+  // gradient     10% — gradient magnitude (sharpness, grain, noise intensity)
+  // projection    9% — row+col luminance profiles (spatial shift, any positional change)
+  // spatialGrid   9% — spatial content map (zoom, crop offset, vignette, lens)
   // color         8% — RGB histogram (brightness, saturation changes)
+  // colorMoments  8% — mean/std/skew per channel (higher-order color stats)
   // luma          7% — luminance histogram 64-bin (brightness/contrast/gamma)
-  // colorMoments  7% — mean/std/skew per channel (higher-order color stats)
-  // pHash         7% — perceptual hash DCT (structural fingerprint, all platforms use it)
-  // dHash         7% — gradient hash (edge structure, used by major platforms)
-  // gradient      7% — gradient magnitude (sharpness, grain, noise intensity)
-  // projection    6% — row+col luminance profiles (spatial shift, any positional change)
   // metadata     15% — file metadata (EXIF, ICC, format, size, DPI) — added at file level
   const score =
-    ssim * 0.11 + mse * 0.09 + spatial * 0.08 + chroma * 0.08 +
-    ch * 0.08 + luma * 0.07 + colorMom * 0.07 +
-    ph * 0.07 + dh * 0.07 +
-    gradient * 0.07 + proj * 0.06;
+    ssim * 0.13 + mse * 0.11 + chroma * 0.10 +
+    gradient * 0.10 + proj * 0.09 + spatial * 0.09 +
+    ch * 0.08 + colorMom * 0.08 + luma * 0.07;
 
   return {
     score,

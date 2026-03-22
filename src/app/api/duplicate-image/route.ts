@@ -153,44 +153,83 @@ async function processImage(
   }
 
   if (flags.fundamentals) {
-    // Teinte asymétrique ±6° → Chroma Cb/Cr
-    const tintHue = Math.floor(3 + Math.random() * 3) * (Math.random() < 0.5 ? 1 : -1); // ±3–6°
+    // Teinte asymétrique ±3–8° → Chroma Cb/Cr
+    const tintHue = Math.floor(3 + Math.random() * 5) * (Math.random() < 0.5 ? 1 : -1); // ±3–8°
     img = img.modulate({ hue: tintHue });
-    // Blur supprimé : trop visible sur les portraits
   }
 
   const lower = ext.toLowerCase();
   const now = new Date();
-  const artistChoices = ["DuupFlow", "Studio", "Duplicator", "ContentEngine"];
+  const artistChoices = ["DuupFlow", "Studio", "Duplicator", "ContentEngine", "MediaFlow", "PixelVault"];
   const artist = flags.fundamentals
     ? artistChoices[Math.floor(Math.random() * artistChoices.length)]
     : "DuupFlow";
-  const dpi = flags.fundamentals ? [72, 96, 150, 300][Math.floor(Math.random() * 4)] : 72;
+
+  // DPI : pool élargi pour maximiser les écarts entre duplications
+  const dpiPool = flags.fundamentals ? [72, 96, 120, 150, 180, 240, 300] : [72];
+  const dpi = dpiPool[Math.floor(Math.random() * dpiPool.length)];
+
+  // Niveau d'enrichissement EXIF — tiré aléatoirement à chaque duplication.
+  // 0 = minimal (~300B), 1 = moyen (~700B), 2 = riche (~1400B)
+  // → exifRatio entre deux dups peut varier de 0.20 à 1.0 → jusqu'à 24pt de pénalité
+  const exifLevel = flags.fundamentals ? Math.floor(Math.random() * 3) : 0;
+
+  const ifd0: Record<string, string> = {
+    Software: `DuupFlow/${randHex(2)}`,
+    Artist: artist,
+    Copyright: `DuupFlow ${now.getFullYear()}`,
+  };
+
+  if (exifLevel >= 1) {
+    const makes  = ["Apple", "Samsung", "Google", "Xiaomi", "Sony", "OnePlus"];
+    const models = ["iPhone 15", "Galaxy S24", "Pixel 8", "Redmi 13", "Xperia 5", "Nord 4"];
+    const idx = Math.floor(Math.random() * makes.length);
+    const hh = String(Math.floor(Math.random() * 24)).padStart(2, "0");
+    const mm = String(Math.floor(Math.random() * 60)).padStart(2, "0");
+    const ss = String(Math.floor(Math.random() * 60)).padStart(2, "0");
+    const mo = String(1 + Math.floor(Math.random() * 12)).padStart(2, "0");
+    const dd = String(1 + Math.floor(Math.random() * 28)).padStart(2, "0");
+    Object.assign(ifd0, {
+      Make:             makes[idx],
+      Model:            models[idx],
+      DateTime:         `${now.getFullYear()}:${mo}:${dd} ${hh}:${mm}:${ss}`,
+      ImageDescription: `Photo ${randHex(3)}`,
+    });
+  }
+
+  if (exifLevel >= 2) {
+    Object.assign(ifd0, {
+      XPTitle:          `Image ${randHex(2)}`,
+      XPComment:        `Captured by ${artist} — ref ${randHex(4)}`,
+      XPAuthor:         artist,
+      XPKeywords:       ["photo", "media", "content", "digital"][Math.floor(Math.random() * 4)],
+      DocumentName:     `DOC-${randHex(3).toUpperCase()}`,
+      HostComputer:     ["MacBook Pro", "Windows PC", "Linux Desktop", "iPad Pro"][Math.floor(Math.random() * 4)],
+    });
+  }
 
   const exifMeta: sharp.WriteableMetadata = {
     density: dpi,
-    exif: {
-      IFD0: {
-        Software: `DuupFlow/${randHex(2)}`,
-        Artist: artist,
-        Copyright: `DuupFlow ${now.getFullYear()}`,
-      },
-    },
+    exif: { IFD0: ifd0 },
   };
 
+  // Chroma subsampling : 4:2:0 ou 4:1:1 aléatoirement quand fundamentals actif
+  // → change la distribution Cb/Cr et la taille fichier
+  const chromaOptions: Array<"4:2:0" | "4:4:4"> = ["4:2:0", "4:2:0", "4:4:4"]; // 2/3 → 4:2:0
+  const chroma = flags.fundamentals
+    ? chromaOptions[Math.floor(Math.random() * chromaOptions.length)]
+    : "4:4:4";
+  const progressive = flags.fundamentals ? Math.random() < 0.5 : false;
+
+  // Qualité 36–78 (plage élargie) → écart de taille fichier maximal entre duplications
+  const quality = flags.fundamentals ? (36 + Math.floor(Math.random() * 42)) : 88;
+
   if (lower === ".webp") {
-    const quality = flags.fundamentals ? (50 + Math.floor(Math.random() * 18)) : 88; // 50–68
     return {
       data: await img.withMetadata(exifMeta).webp({ quality, smartSubsample: true }).toBuffer(),
       outExt: ".webp",
     };
   }
-
-  // 4:2:0 always quand fundamentals → affecte Chroma Cb/Cr significativement
-  const chroma = flags.fundamentals ? "4:2:0" : "4:4:4";
-  const progressive = flags.fundamentals ? Math.random() < 0.5 : false;
-  // Qualité 50–68 quand fundamentals → artifacts blocs 8×8 → Gradients + MSE (était 65–80)
-  const quality = flags.fundamentals ? (50 + Math.floor(Math.random() * 18)) : 88; // 50–68
 
   if (lower === ".png") {
     img = img.flatten({ background: { r: 255, g: 255, b: 255 } });
