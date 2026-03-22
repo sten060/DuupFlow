@@ -186,7 +186,7 @@ export default function SimilarityClient({
   const [fileB, setFileB] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<Result | undefined>(
-    initialScore !== undefined ? { score: initialScore, breakdown: { ssim: 0, mse: 0, spatial: 0, chroma: 0, color: 0, luma: 0, colorMom: 0, phash: 0, dhash: 0, edgeOr: 0, gradient: 0, proj: 0, texture: 0, ahash: 0, metadata: 0, mirrored: false } } : undefined
+    initialScore !== undefined ? { score: initialScore, breakdown: { ssim: 0, mse: 0, spatial: 0, chroma: 0, color: 0, luma: 0, colorMom: 0, phash: 0, dhash: 0, edgeOr: 0, gradient: 0, proj: 0, texture: 0, ahash: 0, metadata: 0, filename: 0, mirrored: false } } : undefined
   );
   const [error, setError] = useState<string | null>(initialErr ?? null);
 
