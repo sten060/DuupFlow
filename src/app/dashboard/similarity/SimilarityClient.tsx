@@ -132,6 +132,7 @@ type Breakdown = {
   texture: number;
   ahash: number;
   metadata: number;
+  filename: number;
   mirrored: boolean;
 };
 
@@ -283,8 +284,7 @@ export default function SimilarityClient({
               <MetricBar label="Couleurs RGB" value={result.breakdown.color} weight="×8%" hint="Histogramme RGB 32 bins/canal — sensible à la saturation, luminosité, filtres visuels" />
               <MetricBar label="Moments couleurs" value={result.breakdown.colorMom} weight="×8%" hint="Moyenne/écart-type/asymétrie par canal RGB — statistiques d'ordre supérieur : teinte, saturation, EQ" />
               <MetricBar label="Luminance (histogramme)" value={result.breakdown.luma} weight="×7%" hint="Histogramme luminance 64 bins (128×128) — sensible à luminosité ±3%, contraste, gamma" />
-              <MetricBar label="Métadonnées" value={result.breakdown.metadata} weight="×13%" hint="Format, taille fichier, richesse EXIF, profil ICC, densité DPI, chroma, progressif — signature technique du fichier" />
-              <MetricBar label="Nom de fichier" value={result.breakdown.filename} weight="×5%" hint="Similarité des noms de fichiers (bigrammes Jaccard sans extension) — 100% = noms identiques, 0% = aucun caractère commun" />
+              <MetricBar label="Métadonnées" value={Math.round((result.breakdown.metadata * 0.72 + result.breakdown.filename * 0.28))} weight="×18%" hint="Format, taille fichier, richesse EXIF, profil ICC, densité DPI, chroma, progressif, nom de fichier — signature technique du fichier" />
             </div>
           )}
 
