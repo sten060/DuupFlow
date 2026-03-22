@@ -373,9 +373,8 @@ async function flippedBuffer(buf: Buffer): Promise<Buffer> {
 }
 
 // Metadata similarity — compares EXIF richness, file size, format, ICC, density, chroma.
-// A DuupFlow duplicate has minimal EXIF (~500B) vs a real photo (~10–20KB),
-// no ICC profile, and often different chroma subsampling → score typically 40–60%.
-async function metadataSimilarity(bufA: Buffer, bufB: Buffer): Promise<number> {
+// sizeA/sizeB = taille réelle du fichier (pas celle du header 128KB) — crucial pour les vidéos.
+async function metadataSimilarity(bufA: Buffer, bufB: Buffer, sizeA?: number, sizeB?: number): Promise<number> {
   const [metaA, metaB] = await Promise.all([
     sharp(bufA, { failOn: "none" }).metadata().catch(() => ({} as sharp.Metadata)),
     sharp(bufB, { failOn: "none" }).metadata().catch(() => ({} as sharp.Metadata)),
@@ -386,9 +385,13 @@ async function metadataSimilarity(bufA: Buffer, bufB: Buffer): Promise<number> {
   // Format mismatch (jpeg vs png vs webp) — 15pt
   if (metaA.format && metaB.format && metaA.format !== metaB.format) score -= 15;
 
-  // File size ratio — up to 30pt (qualité 20-85 → ratio peut atteindre 0.15)
-  if (bufA.length > 0 && bufB.length > 0) {
-    const ratio = Math.min(bufA.length, bufB.length) / Math.max(bufA.length, bufB.length);
+  // File size ratio — up to 30pt
+  // Utilise la taille réelle du fichier si disponible (les vidéos dépassent 128KB).
+  // Sans sizeA/sizeB, bufA.length = bufB.length = 128KB → ratio 1.0 → 0pt (bogue vidéo).
+  const realSizeA = sizeA ?? bufA.length;
+  const realSizeB = sizeB ?? bufB.length;
+  if (realSizeA > 0 && realSizeB > 0) {
+    const ratio = Math.min(realSizeA, realSizeB) / Math.max(realSizeA, realSizeB);
     score -= Math.round((1 - ratio) * 30);
   }
 
@@ -542,8 +545,10 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
 export async function compareFiles(
   framesA: string[],
   framesB: string[],
-  rawA?: string,  // base64 of first ~128KB of file A (for metadata analysis)
-  rawB?: string,  // base64 of first ~128KB of file B
+  rawA?: string,   // base64 of first ~128KB of file A (for metadata analysis)
+  rawB?: string,   // base64 of first ~128KB of file B
+  sizeA?: number,  // taille réelle du fichier A en octets (obligatoire pour les vidéos)
+  sizeB?: number,  // taille réelle du fichier B en octets
 ): Promise<{ score: number; breakdown: PairScore["breakdown"] } | { error: string }> {
   try {
     if (!framesA.length || !framesB.length) return { error: "Aucun frame reçu" };
@@ -558,7 +563,7 @@ export async function compareFiles(
         )
       ),
       rawA && rawB
-        ? metadataSimilarity(Buffer.from(rawA, "base64"), Buffer.from(rawB, "base64"))
+        ? metadataSimilarity(Buffer.from(rawA, "base64"), Buffer.from(rawB, "base64"), sizeA, sizeB)
         : Promise.resolve(100), // no raw data → assume identical metadata (neutral)
     ]);
 

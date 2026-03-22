@@ -202,7 +202,9 @@ export default function SimilarityClient({
         getFrames(fileA), getFrames(fileB),
         fileHeader(fileA), fileHeader(fileB),
       ]);
-      const data = await compareFiles(framesA, framesB, rawA, rawB);
+      // fileA.size / fileB.size = taille réelle — essentiel pour les vidéos car
+      // rawA/rawB ne contiennent que 128KB, ce qui biaise le ratio de taille à 1.0.
+      const data = await compareFiles(framesA, framesB, rawA, rawB, fileA.size, fileB.size);
 
       if ("error" in data) setError(data.error);
       else setResult(data);
