@@ -74,9 +74,12 @@ export async function POST(req: NextRequest) {
     }
   } catch (err: any) {
     console.error("[support/contact] Brevo error:", err?.message);
-    if (!dbSaved) {
-      return NextResponse.json({ error: "Impossible d'envoyer le message. Réessayez plus tard." }, { status: 500 });
-    }
+  }
+
+  // Fail only if neither channel worked
+  if (!emailSent && !dbSaved) {
+    console.error("[support/contact] Both DB and email failed");
+    return NextResponse.json({ error: "Impossible d'envoyer le message. Réessayez plus tard." }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, emailSent, dbSaved });
