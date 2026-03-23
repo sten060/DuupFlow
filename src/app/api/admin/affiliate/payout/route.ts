@@ -23,14 +23,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "affiliate_code et amount_cents (>0) requis" }, { status: 400 });
   }
 
+  const payoutDate = paid_at ?? new Date().toISOString();
+
   const { error: dbError } = await admin.from("affiliate_payouts").insert({
     affiliate_code,
     amount_cents,
     note: note?.trim() ?? null,
-    paid_at: paid_at ?? new Date().toISOString(),
+    paid_at: payoutDate,
   });
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
+
+  // Mark all validated commissions (>15 days old) as paid
+  const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+  await admin
+    .from("affiliate_payments")
+    .update({ commission_paid_at: payoutDate })
+    .eq("affiliate_code", affiliate_code)
+    .is("commission_paid_at", null)
+    .lt("paid_at", fifteenDaysAgo);
 
   return NextResponse.json({ ok: true });
 }
