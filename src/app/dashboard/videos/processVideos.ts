@@ -320,18 +320,14 @@ async function runFFmpegSafe(
     if (afParts.length) args.push("-af", afParts.join(","));
     args.push(
       "-c:v", "libx264",
-      "-preset", "ultrafast",      // ultrafast: prioritise encoding speed (3–5× faster than fast)
-      "-threads", String(threads),  // caller allocates threads based on os.cpus()
-      "-crf", "19",                 // CRF 19: near-lossless, visually transparent
+      "-preset", "ultrafast",     // ultrafast: prioritise encoding speed (3–5× faster than fast)
+      "-threads", String(threads), // caller allocates threads based on os.cpus()
+      "-crf", "23",               // CRF 23: good visual quality with faster encode
       "-pix_fmt", "yuv420p",
-      // Preserve source color space so colors don't shift on re-encode
-      "-colorspace", "bt709",
-      "-color_primaries", "bt709",
-      "-color_trc", "bt709",
       "-c:a", "aac",
       "-b:a", "192k",
     );
-    // extraArgs can override crf (e.g. technical pack sets its own values)
+    // extraArgs can override crf/bitrate (e.g. technical pack sets its own values)
     if (extraArgs.length) args.push(...extraArgs);
   }
 
@@ -440,9 +436,7 @@ export async function processVideos(
   // CPU count we cap concurrency at ncpus and let the OS schedule; threads per
   // process stay at 1 to avoid cross-task contention.
   const ncpus = Math.max(1, os.cpus().length);
-  // Hard cap at 3 concurrent FFmpeg processes to prevent OOM on Railway containers
-  // (os.cpus() returns host machine CPUs, not container allocation).
-  const MAX_CONCURRENT = 3;
+  const MAX_CONCURRENT = 3; // cap to avoid OOM on Railway (os.cpus() returns host CPUs, not container allocation)
   const CONCURRENCY  = Math.min(allTasks.length, ncpus, MAX_CONCURRENT);
   const threadsPerTask = CONCURRENCY > 0
     ? Math.max(1, Math.floor(ncpus / CONCURRENCY))
@@ -475,55 +469,83 @@ export async function processVideos(
           .filter(Boolean);
 
         if (packs.includes("visual")) {
-          // eq — brightness ±3%, contrast ±3%, saturation ±3%, gamma ±2%
-          const b  = clamp(Number((-0.03 + Math.random() * 0.06).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.97 + Math.random() * 0.06).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
-          const st = clamp(Number((0.97 + Math.random() * 0.06).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
-          const gm = clamp(Number((0.98 + Math.random() * 0.04).toFixed(3)),  0.1, 3.0);
+          // eq — brightness ±6%, contrast ±6%, saturation ±6%, gamma ±4%
+          const b  = clamp(Number((-0.06 + Math.random() * 0.12).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          const ct = clamp(Number((0.94 + Math.random() * 0.12).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
+          const st = clamp(Number((0.94 + Math.random() * 0.12).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
+          const gm = clamp(Number((0.96 + Math.random() * 0.08).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
-          // Hue ±4° — very subtle color shift
-          const hue = clamp(Number((Math.random() * 8 - 4).toFixed(2)), -30, 30);
+          // Hue ±8° — subtle color shift
+          const hue = clamp(Number((Math.random() * 16 - 8).toFixed(2)), -30, 30);
           vfParts.push(`hue=h=${hue}`);
-          // Color channel mixing 0.2–0.5% cross-channel
-          const rr = (0.99 + Math.random() * 0.01).toFixed(3);
-          const gg = (0.99 + Math.random() * 0.01).toFixed(3);
-          const bb = (0.99 + Math.random() * 0.01).toFixed(3);
-          const cx = (0.001 + Math.random() * 0.004).toFixed(3);
+          // Color channel mixing 0.5–2% cross-channel
+          const rr = (0.97 + Math.random() * 0.04).toFixed(3);
+          const gg = (0.97 + Math.random() * 0.04).toFixed(3);
+          const bb = (0.97 + Math.random() * 0.04).toFixed(3);
+          const cx = (0.005 + Math.random() * 0.015).toFixed(3);
           vfParts.push(`colorchannelmixer=rr=${rr}:rg=${cx}:rb=${cx}:gg=${gg}:gr=${cx}:gb=${cx}:bb=${bb}:bg=${cx}:br=${cx}`);
-          // Unsharp (very light sharpening)
-          vfParts.push("unsharp=lx=3:ly=3:la=0.15:cx=3:cy=3:ca=0.15");
-          // Luma noise temporal — 1–2 (barely visible grain) + chroma noise on Cb/Cr
+          // Unsharp (light sharpening)
+          vfParts.push("unsharp=lx=3:ly=3:la=0.4:cx=3:cy=3:ca=0.4");
+          // Luma noise temporal — 2–5 (subtle grain) + chroma noise on Cb/Cr
           // c1/c2 = Cb/Cr chroma channels: in yuv420p each chroma sample covers 4 luma pixels
           // → 4 units of chroma noise is completely invisible but changes every color hash
-          const ns = 1 + Math.floor(Math.random() * 2);  // 1–2 luma
-          vfParts.push(`noise=c0s=${ns}:c0f=t:c1s=2:c2s=2:c1f=t:c2f=t`);
+          const ns = 2 + Math.floor(Math.random() * 4);  // 2–5 luma
+          vfParts.push(`noise=c0s=${ns}:c0f=t:c1s=4:c2s=4:c1f=t:c2f=t`);
         }
 
         if (packs.includes("motion")) {
-          // Speed ±1–3% — timing-only, zero visual change.
-          // Changes PTS timestamps and re-encodes audio tempo to match.
-          // Different PTS values alter the file's binary fingerprint.
+          // ── Digital zoom with correct sub-region crop ──────────────────────────
+          // Previous code had a bug: crop=iw:ih:x=(in_w-out_w)*off evaluated to x=0
+          // because in_w==out_w after scale, so no crop happened and the video was
+          // output at zoom× the original resolution.
+          //
+          // Correct approach: crop a sub-region (iw/zoom × ih/zoom) from the original
+          // at a random position, then scale that region back up to fill original size.
+          // This is true "digital zoom" — different frame content shown in each copy.
+          const zoom = clamp(1.10 + Math.random() * 0.08, LIMITS.zoom.min, LIMITS.zoom.max); // 1.10–1.18×
+          const zf = zoom.toFixed(6);
+          // Max safe start offset: must ensure crop region stays within frame bounds
+          const maxOff = (1 - 1 / zoom);  // e.g., 0.091 at zoom=1.10, 0.153 at zoom=1.18
+          const offx = (Math.random() * maxOff).toFixed(6);
+          const offy = (Math.random() * maxOff).toFixed(6);
+          // crop: take (iw/zoom × ih/zoom) from position (iw*offx, ih*offy)
+          // scale: bring the sub-region back to full original dimensions — fast_bilinear for speed
+          vfParts.push(`crop=iw/${zf}:ih/${zf}:x=iw*${offx}:y=ih*${offy}`);
+          vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=fast_bilinear`);
+
+          // Lens correction — pincushion distortion (geometric, not visual).
+          // k1 MUST be negative: positive k1 maps edge pixels outside source bounds,
+          // causing FFmpeg to fill them with undefined values encoded as bright green.
+          // With k1 < 0, all output pixels map to valid source coordinates (r_src < r_dest).
+          const k1 = -(0.05 + Math.random() * 0.07); // -0.05 to -0.12 (always negative)
+          vfParts.push(`lenscorrection=k1=${k1.toFixed(5)}:k2=${(-k1 / 2).toFixed(5)}`);
+
+          // Speed ±1–3% — invisible to the viewer, sufficient to shift the file fingerprint
           const side = Math.random() > 0.5 ? 1 : -1;
           const deviation = 0.01 + Math.random() * 0.02;  // 1–3%
           const sp = clamp(1.0 + side * deviation, LIMITS.speed.min, LIMITS.speed.max);
           vfParts.push(`setpts=${(1 / sp).toFixed(6)}*PTS`);
           afParts.push(`atempo=${sp.toFixed(4)}`);
+
+          // Temporal frame blend — mixes each frame with the previous at 30%.
+          // Changes per-frame pixel values (affecting all hash algorithms) with no
+          // visible flicker at normal playback speed.
+          vfParts.push("tblend=all_mode=average:all_opacity=0.3");
         }
 
         if (packs.includes("technical")) {
-          // CRF 18–22 — perceptually transparent range, no visible quality loss
-          const crf = 18 + Math.floor(Math.random() * 5);
+          const crf = 14 + Math.floor(Math.random() * 15);
           extraArgs.push("-crf", String(crf));
-          // GOP only — changes keyframe structure, zero visual impact
+          const vbit = clamp(3000 + Math.floor(Math.random() * 19001), LIMITS.vbitrate.min, LIMITS.vbitrate.max);
+          extraArgs.push("-b:v", `${vbit}k`);
           const gop = clamp(30 + Math.floor(Math.random() * 471), LIMITS.gop.min, LIMITS.gop.max);
           extraArgs.push("-g", String(gop));
-          // H.264 profile/level — container-level only, no visual impact
           const profiles = ["baseline", "main", "high"];
           const levels = ["5.0", "5.1", "5.2", "6.0"];
           extraArgs.push("-profile:v", profiles[Math.floor(Math.random() * profiles.length)]);
           extraArgs.push("-level:v", levels[Math.floor(Math.random() * levels.length)]);
-          // NO FPS change — changing FPS drops/duplicates frames (visible)
-          // NO bitrate cap — low bitrate causes visible macroblocking
+          const fpsPool = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
+          extraArgs.push("-r", String(fpsPool[Math.floor(Math.random() * fpsPool.length)]));
         }
 
         if (singles?.flip) vfParts.push("vflip");
@@ -566,17 +588,38 @@ export async function processVideos(
           vfParts.push(`pad=iw*(1+${padLeft}+${padRight}):ih*(1+${padTop}+${padBottom}):iw*${padLeft}:ih*${padTop}:color=black`);
         }
 
-        // ── Per-copy CRF variation (18–22) applied whenever re-encoding is triggered ──
-        // Different DCT quantization → different bytes, visually transparent.
-        if ((vfParts.length > 0 || extraArgs.length > 0) && !packs.includes("technical")) {
-          extraArgs.push("-crf", String(18 + Math.floor(Math.random() * 5)));
+        // ── Non-visual uniquifiers applied whenever re-encoding is already triggered ──
+        // These add zero perceptible quality change but make each copy's digital
+        // fingerprint completely different — detectable by every comparator metric.
+        if (vfParts.length > 0 || extraArgs.length > 0) {
+          // 1. Micro spatial pixel shift (1–4px, random direction per copy)
+          //    Each copy has unique pixel offsets → pHash/dHash/MSE all change.
+          //    crop removes N pixels from one side; pad restores original dimensions.
+          //    At 1080p/4K: 1–4px shift is imperceptible (< 0.4% of frame width).
+          const px = 1 + Math.floor(Math.random() * 4);  // 1–4 horizontal
+          const py = 1 + Math.floor(Math.random() * 4);  // 1–4 vertical
+          const fromLeft = Math.random() > 0.5;           // shift direction X
+          const fromTop  = Math.random() > 0.5;           // shift direction Y
+          const cx = fromLeft ? px : 0;
+          const cy = fromTop  ? py : 0;
+          vfParts.push(
+            `crop=iw-${px}:ih-${py}:${cx}:${cy},` +
+            `pad=iw+${px}:ih+${py}:${px - cx}:${py - cy}:color=black`
+          );
+
+          // 2. Per-copy CRF variation (17–23, random per copy)
+          //    Different DCT quantization table → different rounding of each DCT
+          //    coefficient → different decoded pixel values after playback decode.
+          //    All values (17–23) are perceptually transparent. Zero time impact.
+          //    Not applied when technical pack already sets its own CRF range.
+          if (!packs.includes("technical")) {
+            extraArgs.push("-crf", String(17 + Math.floor(Math.random() * 7)));
+          }
         }
 
-        // Ensure H.264-compatible dimensions (must be divisible by 2).
-        // `pad` with no actual padding is near-instant and avoids any interpolation.
-        // Only added when re-encoding is already happening.
+        // Ensure H.264-compatible dimensions (even pixels) only when re-encoding
         if (vfParts.length > 0 || extraArgs.length > 0) {
-          vfParts.push("pad=ceil(iw/2)*2:ceil(ih/2)*2:0:0:color=black");
+          vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
         }
 
       } else {
