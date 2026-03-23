@@ -51,15 +51,21 @@ export async function POST(request: Request) {
   // Le code promo est aussi le code affilié (même chose)
   const effectiveAffiliateCode = promoCode ?? affiliateCode;
 
-  // Résoudre le stripe_promotion_code_id si un code promo est fourni
+  // Résoudre le stripe_promotion_code_id :
+  // - si promoCode tapé manuellement → lookup direct
+  // - si seulement affiliateCode (lien ?ref=) → lookup aussi pour les partenaires lien-seul
   let stripePromotionCodeId: string | undefined;
-  if (promoCode) {
+  const codeToLookup = promoCode ?? affiliateCode;
+  if (codeToLookup) {
     const { data: affiliate } = await admin
       .from("affiliates")
-      .select("stripe_promotion_code_id")
-      .eq("code", promoCode)
+      .select("stripe_promotion_code_id, discount_pct")
+      .eq("code", codeToLookup)
       .single();
-    stripePromotionCodeId = affiliate?.stripe_promotion_code_id ?? undefined;
+    // Appliquer si : code promo manuel, ou partenaire lien-seul (discount_pct défini)
+    if (affiliate?.stripe_promotion_code_id && (promoCode || affiliate.discount_pct != null)) {
+      stripePromotionCodeId = affiliate.stripe_promotion_code_id;
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
