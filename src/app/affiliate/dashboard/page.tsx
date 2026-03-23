@@ -48,36 +48,47 @@ export default async function AffiliateDashboard() {
 
   if (!affiliate) redirect("/dashboard");
 
-  const [{ data: referrals }, { data: payments }] = await Promise.all([
-    admin
-      .from("profiles")
-      .select("id, has_paid, plan, created_at")
-      .eq("affiliate_code", affiliate.code)
-      .order("created_at", { ascending: false }),
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+  const [{ data: payments }, { data: payouts }] = await Promise.all([
     admin
       .from("affiliate_payments")
       .select("amount_cents, commission_cents, plan, billing_reason, paid_at")
       .eq("affiliate_code", affiliate.code)
       .order("paid_at", { ascending: false }),
+    admin
+      .from("affiliate_payouts")
+      .select("id, amount_cents, note, paid_at")
+      .eq("affiliate_code", affiliate.code)
+      .order("paid_at", { ascending: false }),
   ]);
 
-  const inscrits = referrals?.length ?? 0;
-  const convertis = referrals?.filter((p) => p.has_paid).length ?? 0;
-  const soloCount = referrals?.filter((p) => p.plan === "solo").length ?? 0;
-  const proCount = referrals?.filter((p) => p.plan === "pro").length ?? 0;
-  const mrr = soloCount * 39 + proCount * 99;
-  const commission = Math.round((mrr * affiliate.commission_pct) / 100);
-  const conversionRate = inscrits > 0 ? Math.round((convertis / inscrits) * 100) : 0;
+  const allPayments = payments ?? [];
+  const allPayouts = payouts ?? [];
 
-  const totalEarned = Math.round(
-    (payments?.reduce((s, p) => s + p.commission_cents, 0) ?? 0) / 100
-  );
+  // Affiliés payants = lignes distinctes dans affiliate_payments
+  const uniquePayingClients = allPayments.filter(
+    (p) => p.billing_reason === "subscription_create"
+  ).length;
+
+  // Commission ce mois (réelle, identique au calcul CEO)
+  const monthCommissionCents = allPayments
+    .filter((p) => p.paid_at >= monthStart)
+    .reduce((s, p) => s + p.commission_cents, 0);
+
+  // Commission totale gagnée
+  const totalEarnedCents = allPayments.reduce((s, p) => s + p.commission_cents, 0);
+
+  // Total versé
+  const totalPayedOutCents = allPayouts.reduce((s, p) => s + p.amount_cents, 0);
+
+  // Solde en attente
+  const balanceDueCents = totalEarnedCents - totalPayedOutCents;
 
   const appUrl =
     (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.duupflow.com").replace(/\/$/, "");
   const affiliateLink = `${appUrl}/?ref=${affiliate.code}`;
-
-  const conversions = referrals?.filter((p) => p.has_paid) ?? [];
 
   return (
     <main
@@ -126,150 +137,44 @@ export default async function AffiliateDashboard() {
             </code>
             <CopyButton text={affiliateLink} />
           </div>
-          <p className="text-xs text-white/25 mt-3">
-            Partagez ce lien — les inscriptions et conversions sont automatiquement tracées.
-          </p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatCard label="Inscrits via votre lien" value={inscrits} color="rgba(255,255,255,0.85)" />
-          <StatCard
-            label="Abonnés convertis"
-            value={convertis}
-            sub={`${conversionRate}% de conversion`}
-            color="#10B981"
-          />
-          <StatCard
-            label="MRR généré"
-            value={`${mrr}€`}
-            sub={`${soloCount} Solo · ${proCount} Pro`}
-            color="#38BDF8"
-          />
-          <StatCard
-            label="Commission mensuelle"
-            value={`${commission}€`}
-            sub={`${affiliate.commission_pct}% du MRR`}
-            color="#818CF8"
-          />
-        </div>
-
-        {/* Total earned (real Stripe data) */}
-        {(payments?.length ?? 0) > 0 && (
-          <div
-            className="rounded-2xl p-5 flex items-center justify-between"
-            style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.18)" }}
-          >
-            <div>
-              <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">
-                Commission totale générée
-              </p>
-              <p className="text-xs text-white/25 mt-0.5">
-                Basé sur les paiements Stripe réels · {payments?.length} transaction{(payments?.length ?? 0) > 1 ? "s" : ""}
-              </p>
-            </div>
-            <p className="text-3xl font-bold" style={{ color: "#10B981" }}>
-              {totalEarned}€
+          {affiliate.stripe_promotion_code_id && (
+            <p className="text-xs text-white/25 mt-3">
+              Code promo : <span className="text-yellow-400/70 font-mono font-semibold">{affiliate.code}</span>
+              {" "}— vos filleuls peuvent aussi saisir ce code à la caisse.
             </p>
-          </div>
-        )}
-
-        {/* Plan breakdown */}
-        {convertis > 0 && (
-          <div
-            className="rounded-2xl p-5"
-            style={{ background: "rgba(10,14,40,0.55)", border: "1px solid rgba(255,255,255,0.07)" }}
-          >
-            <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-4">
-              Répartition des abonnés actifs
-            </p>
-            <div className="flex gap-6">
-              <div>
-                <p className="text-xl font-bold" style={{ color: "#A78BFA" }}>
-                  {soloCount}
-                </p>
-                <p className="text-xs text-white/40 mt-0.5">Plan Solo — 39€/mois</p>
-              </div>
-              <div
-                className="w-px self-stretch"
-                style={{ background: "rgba(255,255,255,0.07)" }}
-              />
-              <div>
-                <p className="text-xl font-bold" style={{ color: "#38BDF8" }}>
-                  {proCount}
-                </p>
-                <p className="text-xs text-white/40 mt-0.5">Plan Pro — 99€/mois</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Recent conversions */}
-        <div
-          className="rounded-2xl p-5"
-          style={{ background: "rgba(10,14,40,0.55)", border: "1px solid rgba(255,255,255,0.07)" }}
-        >
-          <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-4">
-            Conversions récentes
-          </p>
-          {conversions.length === 0 ? (
-            <p className="text-sm text-white/30 text-center py-6">
-              Aucune conversion pour le moment — partagez votre lien !
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {conversions.slice(0, 10).map((p, i) => {
-                const date = new Date(p.created_at).toLocaleDateString("fr-FR", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                });
-                const planColor = p.plan === "pro" ? "#38BDF8" : "#A78BFA";
-                const planLabel = p.plan === "pro" ? "Pro — 99€/mois" : "Solo — 39€/mois";
-                return (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between rounded-xl px-4 py-2.5"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold"
-                        style={{ background: `${planColor}18`, color: planColor }}
-                      >
-                        {i + 1}
-                      </div>
-                      <span className="text-sm text-white/60">Abonné #{i + 1}</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span
-                        className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                        style={{
-                          background: `${planColor}15`,
-                          border: `1px solid ${planColor}30`,
-                          color: planColor,
-                        }}
-                      >
-                        {planLabel}
-                      </span>
-                      <span className="text-xs text-white/30 tabular-nums hidden sm:block">
-                        {date}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-              {conversions.length > 10 && (
-                <p className="text-xs text-white/25 text-center pt-2">
-                  + {conversions.length - 10} autres conversions
-                </p>
-              )}
-            </div>
           )}
         </div>
 
-        {/* Payment history */}
-        {(payments?.length ?? 0) > 0 && (
+        {/* Key stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <StatCard
+            label="Affiliés payants"
+            value={uniquePayingClients}
+            sub="via votre lien/code"
+            color="#10B981"
+          />
+          <StatCard
+            label="Commission ce mois"
+            value={`${(monthCommissionCents / 100).toFixed(2)}€`}
+            sub={`${affiliate.commission_pct}% des achats réels`}
+            color="#818CF8"
+          />
+          <StatCard
+            label="Total gagné (Stripe)"
+            value={`${(totalEarnedCents / 100).toFixed(2)}€`}
+            sub={`${allPayments.length} transaction${allPayments.length > 1 ? "s" : ""}`}
+            color="#38BDF8"
+          />
+          <StatCard
+            label="Solde en attente"
+            value={`${(balanceDueCents / 100).toFixed(2)}€`}
+            sub="à recevoir prochainement"
+            color={balanceDueCents > 0 ? "#F59E0B" : "#10B981"}
+          />
+        </div>
+
+        {/* Payments history (Stripe) */}
+        {allPayments.length > 0 && (
           <div
             className="rounded-2xl overflow-hidden"
             style={{ border: "1px solid rgba(255,255,255,0.07)" }}
@@ -279,11 +184,11 @@ export default async function AffiliateDashboard() {
               style={{ background: "rgba(10,14,40,0.70)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
             >
               <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">
-                Historique des paiements Stripe
+                Historique des paiements affiliés
               </p>
             </div>
             <div style={{ background: "rgba(10,14,40,0.55)" }}>
-              {payments?.slice(0, 12).map((p, i) => {
+              {allPayments.map((p, i) => {
                 const date = new Date(p.paid_at).toLocaleDateString("fr-FR", {
                   day: "numeric",
                   month: "short",
@@ -299,7 +204,7 @@ export default async function AffiliateDashboard() {
                     className="flex items-center justify-between px-6 py-3"
                     style={{
                       borderBottom:
-                        i < (payments?.length ?? 0) - 1
+                        i < allPayments.length - 1
                           ? "1px solid rgba(255,255,255,0.04)"
                           : "none",
                     }}
@@ -326,7 +231,7 @@ export default async function AffiliateDashboard() {
                       <span className="text-xs text-white/25 hidden sm:block">
                         {amount}€ encaissé
                       </span>
-                      <span className="text-sm font-semibold" style={{ color: "#10B981" }}>
+                      <span className="text-sm font-semibold tabular-nums" style={{ color: "#10B981" }}>
                         +{commission}€
                       </span>
                     </div>
@@ -336,6 +241,74 @@ export default async function AffiliateDashboard() {
             </div>
           </div>
         )}
+
+        {/* Payouts received */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{ border: "1px solid rgba(16,185,129,0.15)" }}
+        >
+          <div
+            className="px-6 py-4"
+            style={{ background: "rgba(16,185,129,0.05)", borderBottom: "1px solid rgba(16,185,129,0.10)" }}
+          >
+            <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">
+              Versements reçus
+            </p>
+          </div>
+          <div style={{ background: "rgba(10,14,40,0.55)" }}>
+            {allPayouts.length === 0 ? (
+              <p className="text-sm text-white/25 text-center py-8">
+                Aucun versement encore effectué — le premier arrive en fin de mois.
+              </p>
+            ) : (
+              <>
+                {allPayouts.map((p, i) => {
+                  const date = new Date(p.paid_at).toLocaleDateString("fr-FR", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  });
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between px-6 py-3"
+                      style={{
+                        borderBottom: i < allPayouts.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="h-6 w-6 rounded-full flex items-center justify-center shrink-0"
+                          style={{ background: "rgba(16,185,129,0.12)" }}
+                        >
+                          <svg className="h-3 w-3 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs text-white/60">{date}</p>
+                          {p.note && <p className="text-[10px] text-white/30 mt-0.5">{p.note}</p>}
+                        </div>
+                      </div>
+                      <p className="text-sm font-bold tabular-nums" style={{ color: "#10B981" }}>
+                        +{(p.amount_cents / 100).toFixed(2)}€
+                      </p>
+                    </div>
+                  );
+                })}
+                <div
+                  className="flex items-center justify-between px-6 py-3"
+                  style={{ borderTop: "1px solid rgba(255,255,255,0.05)", background: "rgba(16,185,129,0.03)" }}
+                >
+                  <p className="text-xs font-semibold text-white/40">Total reçu</p>
+                  <p className="text-sm font-bold tabular-nums" style={{ color: "#10B981" }}>
+                    {(totalPayedOutCents / 100).toFixed(2)}€
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
 
         <p className="text-xs text-white/20 text-center">
           La commission est versée manuellement en fin de mois par virement.
