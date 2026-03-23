@@ -23,9 +23,9 @@ function NavLink({ href, label }: { href: string; label: string }) {
 
 export default function Header() {
   return (
-    <div className="fixed top-4 left-0 right-0 z-50 px-6">
+    <div className="fixed top-2 sm:top-4 left-0 right-0 z-50 px-3 sm:px-6">
       <div
-        className="relative flex items-center justify-between px-8 py-3.5 rounded-full border border-white/[0.14] backdrop-blur-xl"
+        className="relative flex items-center justify-between px-4 sm:px-8 py-2 sm:py-3.5 rounded-full border border-white/[0.14] backdrop-blur-xl"
         style={{
           background: "rgba(11,15,26,0.25)",
           maxWidth: "1280px",
@@ -34,7 +34,7 @@ export default function Header() {
       >
         {/* Logo */}
         <Link href="/" className="shrink-0">
-          <Image src="/icon.png" alt="DuupFlow" width={120} height={40} className="h-10 w-auto" />
+          <Image src="/icon.png" alt="DuupFlow" width={120} height={40} className="h-7 sm:h-10 w-auto" />
         </Link>
 
         {/* Nav */}
@@ -46,16 +46,16 @@ export default function Header() {
         </nav>
 
         {/* CTA */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <Link
             href="/login"
-            className="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-medium text-white/70 hover:text-white transition border border-white/[0.12] hover:border-white/25 hover:bg-white/[0.04]"
+            className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white/70 hover:text-white transition border border-white/[0.12] hover:border-white/25 hover:bg-white/[0.04]"
           >
             Connexion
           </Link>
           <Link
             href="/register"
-            className="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+            className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white transition hover:opacity-90"
             style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
           >
             S&apos;inscrire →

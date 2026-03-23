@@ -48,12 +48,12 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-20 pb-48 overflow-hidden">
+    <section className="relative flex flex-col items-center text-center px-6 pt-8 sm:pt-20 pb-24 sm:pb-48 overflow-hidden">
 
       <Reveal>
-        <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-4 py-1.5 text-sm text-white/70">
+        <div className="mb-5 sm:mb-7 inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-white/15 bg-white/[0.05] px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm text-white/70">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Nouveau — Module Détection IA disponible
+          Nouveau — Détection IA disponible
           <span className="text-white/40">→</span>
         </div>
 
@@ -61,19 +61,19 @@ function Hero() {
           Le seul outil pour dupliquer<br />ton contenu <span className={G}>en illimité.</span>
         </h1>
 
-        <p className="text-white/75 text-lg mb-9">
-          Métadonnées modifiées automatiquement — chaque fichier unique aux yeux des plateformes.
+        <p className="text-white/75 text-sm sm:text-lg mb-6 sm:mb-9">
+          Chaque copie unique — indétectable par les plateformes.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-10 justify-center">
+        <div className="flex flex-row gap-2 sm:gap-3 mb-8 sm:mb-10 justify-center">
           <Link href="/tarifs"
-            className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
+            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl px-4 sm:px-7 py-2.5 sm:py-3.5 font-semibold text-white text-xs sm:text-sm transition hover:opacity-90 hover:-translate-y-0.5"
             style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
             Voir les offres →
           </Link>
           <a href="#features"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">
-            Voir les fonctionnalités
+            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 sm:px-7 py-2.5 sm:py-3.5 font-medium text-xs sm:text-sm text-white/80 hover:bg-white/[0.08] transition">
+            Fonctionnalités
           </a>
         </div>
 
@@ -147,13 +147,12 @@ function ProblemSolution() {
                   Pourquoi DuupFlow existe
                 </span>
               </div>
-              <h2 className="text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
                 Tes meilleurs contenus méritent{" "}
                 <span className={G}>d&apos;exister plus longtemps.</span>
               </h2>
-              <p className="text-white/65 text-base leading-relaxed">
+              <p className="text-white/65 text-sm sm:text-base leading-relaxed">
                 Les plateformes analysent l&apos;empreinte numérique de chaque fichier.
-                Le recyclage de contenu n&apos;est pas une astuce — c&apos;est une stratégie.
                 DuupFlow rend tes copies techniquement indétectables.
               </p>
             </div>
@@ -382,7 +381,7 @@ function FeatureTabs() {
               <p className="text-white/75 leading-relaxed mb-6">{desc.desc}</p>
               <Link href="/register" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">Essayer maintenant →</Link>
             </div>
-            <div className="rounded-2xl border border-white/[0.12] p-5 backdrop-blur-sm overflow-hidden" style={{ minHeight: "480px", background: "rgba(8,12,35,0.75)" }}>
+            <div className="rounded-2xl border border-white/[0.12] p-4 sm:p-5 backdrop-blur-sm overflow-hidden min-h-[300px] sm:min-h-[480px]" style={{ background: "rgba(8,12,35,0.75)" }}>
               {MOCKUPS[active]}
             </div>
           </div>
@@ -653,8 +652,8 @@ function FeatureRow({
           <div className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold mb-5 ${badgeColor}`}>
             {badge}
           </div>
-          <h3 className="text-3xl font-semibold text-white mb-4 tracking-tight leading-[1.15]">{title}</h3>
-          <p className="text-white/70 text-base leading-relaxed mb-7">{subtitle}</p>
+          <h3 className="text-2xl sm:text-3xl font-semibold text-white mb-3 sm:mb-4 tracking-tight leading-[1.15]">{title}</h3>
+          <p className="text-white/70 text-sm sm:text-base leading-relaxed mb-5 sm:mb-7">{subtitle}</p>
           <ul className="space-y-3.5">
             {bullets.map((b, i) => (
               <li key={i} className="flex items-start gap-3 text-sm text-white/75">
@@ -667,7 +666,7 @@ function FeatureRow({
 
         {/* Mockup */}
         <div className="flex-1 w-full max-w-sm md:max-w-md">
-          <div className="rounded-2xl border border-white/[0.12] p-6 backdrop-blur-sm" style={{ minHeight: "320px", background: "rgba(8,12,35,0.75)" }}>
+          <div className="rounded-2xl border border-white/[0.12] p-4 sm:p-6 backdrop-blur-sm min-h-[220px] sm:min-h-[320px]" style={{ background: "rgba(8,12,35,0.75)" }}>
             {mockup}
           </div>
         </div>
@@ -682,11 +681,11 @@ function CoreFeaturesAlt() {
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3 text-center">Fonctionnalités</p>
-          <h2 className="text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight text-center">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight text-center">
             Quatre modules. <span className={G}>Un seul objectif.</span>
           </h2>
-          <p className="text-white/65 text-base max-w-lg mx-auto text-center">
-            Chaque publication unique. Chaque fichier indétectable. Automatiquement.
+          <p className="text-white/65 text-sm sm:text-base max-w-lg mx-auto text-center">
+            Chaque publication unique. Chaque fichier indétectable.
           </p>
         </Reveal>
 
@@ -695,7 +694,7 @@ function CoreFeaturesAlt() {
           badge="🖼️ Duplication Images"
           badgeColor="border border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-300"
           title={<>Un fichier source,{" "}<span className={G}>des copies infinies.</span></>}
-          subtitle="Charge n'importe quelle image. DuupFlow génère autant de variantes que tu veux — chaque fichier possède une empreinte EXIF/XMP unique, indétectable par les algorithmes de détection de doublons."
+          subtitle="Génère autant de variantes que tu veux. Chaque copie a une empreinte EXIF/XMP unique — indétectable par les algorithmes."
           bullets={[
             "Métadonnées EXIF/XMP uniques à chaque copie",
             "Micro-variations visuelles imperceptibles à l'œil",
@@ -708,7 +707,7 @@ function CoreFeaturesAlt() {
           badge="🎬 Duplication Vidéos"
           badgeColor="border border-indigo-500/25 bg-indigo-500/[0.08] text-indigo-300"
           title={<>Même vidéo,{" "}<span className={G}>perçue comme différente</span>{" "}partout.</>}
-          subtitle="Duplique ta vidéo autant de fois que tu veux. Chaque copie est quasi identique visuellement, mais détectée comme un nouveau fichier par Instagram, TikTok et YouTube — la solution idéale pour le multi-posting sans pénalité."
+          subtitle="Chaque copie est re-encodée différemment — perçue comme nouveau fichier par Instagram, TikTok et YouTube. Multi-posting sans pénalité."
           bullets={[
             "Copies visuellement identiques à l'original",
             "Détectées comme fichiers uniques par les algorithmes des réseaux sociaux",
@@ -722,7 +721,7 @@ function CoreFeaturesAlt() {
           badge="🔍 Comparateur"
           badgeColor="border border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-300"
           title={<>Mesure ta{" "}<span className={G}>protection</span>{" "}avant de publier.</>}
-          subtitle="Compare deux fichiers et obtiens un score de similarité en quelques secondes. Plus de 7 systèmes d'analyse combinés pour une détection ultra-précise. Plus le score est bas, plus tu es protégé."
+          subtitle="7+ systèmes d'analyse combinés pour un score de similarité en temps réel. Plus le score est bas, plus tu es protégé."
           bullets={[
             "7+ systèmes d'analyse combinés pour une précision maximale",
             "Score en temps réel — résultat en moins de 3s",
@@ -862,11 +861,11 @@ function CTABanner() {
             <div className="pointer-events-none absolute inset-0 border border-white/[0.10] rounded-3xl" />
             <div className="pointer-events-none absolute inset-0"
               style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
-            <h2 className="text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight relative">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight relative">
               Prêt à scaler ton contenu ?
             </h2>
-            <p className="text-white/70 mb-8 max-w-md mx-auto relative">
-              Accède à tous les modules DuupFlow et commence à dupliquer en illimité dès maintenant.
+            <p className="text-white/70 text-sm sm:text-base mb-6 sm:mb-8 max-w-md mx-auto relative">
+              Tous les modules DuupFlow. Copies illimitées.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 relative">
               <Link href="/register"

@@ -58,7 +58,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <AffiliateRefTracker />
       </Suspense>
       {showHeader && <Header />}
-      {showHeader && <div className="h-20" />}
+      {showHeader && <div className="h-14 sm:h-20" />}
       {children}
     </>
   );

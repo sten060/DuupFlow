@@ -124,22 +124,22 @@ const PRICING_FAQS = [
 function TestimonialCard({ t }: { t: typeof TESTIMONIALS[0] }) {
   return (
     <div
-      className="shrink-0 w-[260px] rounded-2xl border border-white/[0.10] px-5 py-4 flex flex-col justify-between"
+      className="shrink-0 w-[200px] sm:w-[240px] rounded-xl sm:rounded-2xl border border-white/[0.10] px-3 sm:px-4 py-3 sm:py-3.5 flex flex-col justify-between"
       style={{ background: "rgba(8,12,35,0.75)" }}
     >
-      <p className="text-xs text-white/65 leading-relaxed mb-3 line-clamp-2">
+      <p className="text-[11px] sm:text-xs text-white/65 leading-relaxed mb-2.5 line-clamp-2">
         &ldquo;{t.text}&rdquo;
       </p>
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
         <div
-          className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+          className="h-6 w-6 sm:h-7 sm:w-7 rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-white shrink-0"
           style={{ background: t.color }}
         >
           {t.initials}
         </div>
         <div>
-          <p className="text-xs font-semibold text-white leading-none mb-0.5">{t.name}</p>
-          <p className="text-[10px] text-white/40">{t.role}</p>
+          <p className="text-[11px] sm:text-xs font-semibold text-white leading-none mb-0.5">{t.name}</p>
+          <p className="text-[9px] sm:text-[10px] text-white/40">{t.role}</p>
         </div>
       </div>
     </div>
@@ -234,11 +234,11 @@ function PricingCards() {
             background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(139,92,246,0.28) 0%, transparent 75%)",
           }}
         />
-        <div className="relative z-10 p-8 flex flex-col flex-1">
-          <div className="mb-6">
-            <span className="text-base font-semibold text-white">Plan Solo</span>
-            <div className="flex items-baseline gap-1.5 mb-1 mt-4">
-              <span className="text-5xl font-bold text-white">39€</span>
+        <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
+          <div className="mb-5 sm:mb-6">
+            <span className="text-sm sm:text-base font-semibold text-white">Plan Solo</span>
+            <div className="flex items-baseline gap-1.5 mb-1 mt-3 sm:mt-4">
+              <span className="text-4xl sm:text-5xl font-bold text-white">39€</span>
               <span className="text-white/45 text-sm">/ mois</span>
             </div>
             <p className="text-white/45 text-sm">Pour les créateurs indépendants</p>
@@ -284,16 +284,16 @@ function PricingCards() {
             background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.40) 0%, transparent 75%)",
           }}
         />
-        <div className="relative z-10 p-8 flex flex-col flex-1">
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-base font-semibold text-white">Plan Pro</span>
+        <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
+          <div className="mb-5 sm:mb-6">
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <span className="text-sm sm:text-base font-semibold text-white">Plan Pro</span>
               <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 uppercase tracking-wide">
                 Le plus populaire
               </span>
             </div>
             <div className="flex items-baseline gap-1.5 mb-1">
-              <span className="text-5xl font-bold text-white">99€</span>
+              <span className="text-4xl sm:text-5xl font-bold text-white">99€</span>
               <span className="text-white/45 text-sm">/ mois</span>
             </div>
             <p className="text-white/45 text-sm">Pour les créateurs et agences</p>
@@ -339,13 +339,13 @@ function PricingCards() {
             background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(56,189,248,0.22) 0%, transparent 75%)",
           }}
         />
-        <div className="relative z-10 p-8 flex flex-col flex-1">
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-base font-semibold text-white">Plan Entreprise</span>
+        <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
+          <div className="mb-5 sm:mb-6">
+            <div className="flex items-center gap-3 mb-3 sm:mb-4">
+              <span className="text-sm sm:text-base font-semibold text-white">Plan Entreprise</span>
             </div>
             <div className="flex items-baseline gap-1.5 mb-1">
-              <span className="text-5xl font-bold text-white">Sur devis</span>
+              <span className="text-3xl sm:text-5xl font-bold text-white">Sur devis</span>
             </div>
             <p className="text-white/45 text-sm">Solutions personnalisées pour les équipes</p>
           </div>
@@ -430,10 +430,10 @@ export default function TarifsPage() {
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
           Tarif unique — tout inclus
         </div>
-        <h1 className="text-5xl md:text-[3.5rem] font-bold tracking-tight text-white mb-4 leading-[1.08]">
+        <h1 className="text-3xl sm:text-5xl md:text-[3.5rem] font-bold tracking-tight text-white mb-4 leading-[1.08]">
           Nos Tarifs
         </h1>
-        <p className="text-white/65 text-lg max-w-lg mb-3">
+        <p className="text-white/65 text-sm sm:text-lg max-w-lg mb-3">
           Un seul plan pour tout scaler. Pas de limite, pas de surprise.
         </p>
         <p className="text-sm text-white/45 mb-2">
