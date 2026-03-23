@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function DeleteAffiliateButton({ code, name }: { code: string; name: string }) {
   const [confirming, setConfirming] = useState(false);
@@ -10,9 +11,16 @@ export default function DeleteAffiliateButton({ code, name }: { code: string; na
 
   async function handleDelete() {
     setLoading(true);
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
     const res = await fetch("/api/admin/affiliate/delete", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ code }),
     });
     setLoading(false);

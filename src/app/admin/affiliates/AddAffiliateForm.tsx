@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AddAffiliateForm() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function AddAffiliateForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [commission, setCommission] = useState("20");
+  const [discount, setDiscount] = useState("20");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,14 +23,22 @@ export default function AddAffiliateForm() {
     setError("");
     setSuccess("");
 
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
     const res = await fetch("/api/admin/affiliate/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({
         code: code.trim().toUpperCase(),
         name: name.trim(),
         email: email.trim() || undefined,
         commission_pct: Number(commission),
+        discount_pct: Number(discount),
       }),
     });
 
@@ -45,6 +55,7 @@ export default function AddAffiliateForm() {
     setName("");
     setEmail("");
     setCommission("20");
+    setDiscount("20");
     router.refresh();
 
     setTimeout(() => {
@@ -82,7 +93,10 @@ export default function AddAffiliateForm() {
       }}
     >
       <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-semibold text-white">Nouveau partenaire affilié</p>
+        <div>
+          <p className="text-sm font-semibold text-white">Nouveau partenaire affilié</p>
+          <p className="text-[11px] text-white/35 mt-0.5">Avec code promo visible que l'utilisateur saisit</p>
+        </div>
         <button
           type="button"
           onClick={() => { setOpen(false); setError(""); }}
@@ -100,7 +114,7 @@ export default function AddAffiliateForm() {
             required
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s/g, ""))}
-            placeholder="ex: DAVID10"
+            placeholder="ex: DAVID20"
             className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:ring-1 focus:ring-indigo-500/50 transition"
             style={{
               background: "rgba(255,255,255,0.05)",
@@ -142,10 +156,32 @@ export default function AddAffiliateForm() {
           />
         </div>
 
-        {/* Commission */}
+        {/* Réduction offerte aux filleuls */}
         <div>
           <label className="text-xs text-white/40 mb-1 block">
-            Commission renouvellements — <span className="text-indigo-400">{commission}%</span>
+            Réduction du code promo — <span className="text-yellow-400">{discount}%</span>
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min="5"
+              max="50"
+              step="5"
+              value={discount}
+              onChange={(e) => setDiscount(e.target.value)}
+              className="flex-1 accent-yellow-500"
+            />
+            <span className="text-sm font-bold text-white w-10 text-right">{discount}%</span>
+          </div>
+          <div className="flex justify-between text-[10px] text-white/20 mt-0.5">
+            <span>5%</span><span>50%</span>
+          </div>
+        </div>
+
+        {/* Commission partenaire */}
+        <div className="sm:col-span-2">
+          <label className="text-xs text-white/40 mb-1 block">
+            Commission partenaire (renouvellements) — <span className="text-indigo-400">{commission}%</span>
           </label>
           <div className="flex items-center gap-3">
             <input
@@ -173,7 +209,7 @@ export default function AddAffiliateForm() {
         >
           <p className="text-white/50">
             Code promo : <span className="text-indigo-300 font-mono font-bold">{code}</span>
-            {" "}→ <span className="text-white/70">-10€ sur le 1er mois</span>
+            {" "}→ <span className="text-white/70">-{discount}% sur le 1er mois</span>
           </p>
           <p className="text-white/50">
             Commission : <span className="text-white/70">{commission}% sur chaque renouvellement mensuel</span>

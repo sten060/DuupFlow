@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 
@@ -11,13 +10,17 @@ export const dynamic = "force-dynamic";
  * arrive via le lien ?ref=CODE.
  */
 export async function POST(req: NextRequest) {
-  // Vérification CEO
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  const admin = createAdminClient();
+
+  // Vérification via Bearer token
+  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+  if (!token) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const { data: { user }, error: authError } = await admin.auth.getUser(token);
+  if (authError || !user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const adminUserId = process.env.ADMIN_USER_ID;
-  if (!adminUserId || user.id !== adminUserId) {
+  if (!adminUserId || user.id !== adminUserId.trim()) {
     return NextResponse.json({ error: "Interdit" }, { status: 403 });
   }
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AddSimpleLinkForm() {
   const router = useRouter();
@@ -22,9 +23,16 @@ export default function AddSimpleLinkForm() {
     setError("");
     setSuccess("");
 
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
     const res = await fetch("/api/admin/affiliate/create-link", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({
         code: code.trim().toUpperCase(),
         name: name.trim(),
