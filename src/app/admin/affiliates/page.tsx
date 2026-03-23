@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import DeleteAffiliateButton from "./DeleteAffiliateButton";
+import AddAffiliateForm from "./AddAffiliateForm";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,7 @@ type AffiliateRow = {
   email: string | null;
   commission_pct: number;
   user_id: string | null;
+  stripe_promotion_code_id: string | null;
   created_at: string;
 };
 
@@ -119,13 +121,16 @@ export default async function AdminAffiliates() {
     >
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1">
-            Administration
-          </p>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">
-            Partenariats affiliés
-          </h1>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1">
+              Administration
+            </p>
+            <h1 className="text-2xl font-semibold text-white tracking-tight">
+              Partenariats affiliés
+            </h1>
+          </div>
+          <AddAffiliateForm />
         </div>
 
         {/* Global stats */}
@@ -195,7 +200,7 @@ export default async function AdminAffiliates() {
             >
               <p className="text-sm text-white/30">Aucun partenaire enregistré.</p>
               <p className="text-xs text-white/20 mt-1">
-                INSERT INTO affiliates (code, name, email) VALUES (...)
+                Clique sur &quot;Ajouter un partenaire&quot; pour créer le premier.
               </p>
             </div>
           ) : (
@@ -232,11 +237,11 @@ export default async function AdminAffiliates() {
                           <p className="text-sm font-semibold text-white">{a.name}</p>
                           <p className="text-xs text-white/35">
                             {a.email ?? "—"} ·{" "}
-                            <code className="text-indigo-400/70">?ref={a.code}</code>
+                            <code className="text-indigo-400/70">code: {a.code}</code>
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span
                           className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
                           style={{
@@ -246,6 +251,34 @@ export default async function AdminAffiliates() {
                           }}
                         >
                           {a.commission_pct}% commission
+                        </span>
+                        <span
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full font-mono"
+                          style={{
+                            background: "rgba(245,158,11,0.08)",
+                            border: "1px solid rgba(245,158,11,0.20)",
+                            color: "#F59E0B",
+                          }}
+                        >
+                          -{a.code.slice(-2) === "10" ? "10" : "10"}€ · {a.code}
+                        </span>
+                        <span
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                          style={
+                            a.stripe_promotion_code_id
+                              ? {
+                                  background: "rgba(16,185,129,0.08)",
+                                  border: "1px solid rgba(16,185,129,0.20)",
+                                  color: "#10B981",
+                                }
+                              : {
+                                  background: "rgba(239,68,68,0.06)",
+                                  border: "1px solid rgba(239,68,68,0.15)",
+                                  color: "rgba(248,113,113,0.60)",
+                                }
+                          }
+                        >
+                          {a.stripe_promotion_code_id ? "Stripe ✓" : "Stripe manquant"}
                         </span>
                         <span
                           className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
@@ -263,7 +296,7 @@ export default async function AdminAffiliates() {
                                 }
                           }
                         >
-                          {hasAccount ? "Compte lié" : "Pas de compte"}
+                          {hasAccount ? "Compte lié" : "Sans compte"}
                         </span>
                         <DeleteAffiliateButton code={a.code} name={a.name} />
                       </div>
