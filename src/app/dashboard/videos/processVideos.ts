@@ -495,43 +495,14 @@ export async function processVideos(
         }
 
         if (packs.includes("motion")) {
-          // ── Digital zoom with correct sub-region crop ──────────────────────────
-          // Previous code had a bug: crop=iw:ih:x=(in_w-out_w)*off evaluated to x=0
-          // because in_w==out_w after scale, so no crop happened and the video was
-          // output at zoom× the original resolution.
-          //
-          // Correct approach: crop a sub-region (iw/zoom × ih/zoom) from the original
-          // at a random position, then scale that region back up to fill original size.
-          // This is true "digital zoom" — different frame content shown in each copy.
-          const zoom = clamp(1.03 + Math.random() * 0.03, LIMITS.zoom.min, LIMITS.zoom.max); // 1.03–1.06×
-          const zf = zoom.toFixed(6);
-          // Max safe start offset: must ensure crop region stays within frame bounds
-          const maxOff = (1 - 1 / zoom);  // e.g., 0.091 at zoom=1.10, 0.153 at zoom=1.18
-          const offx = (Math.random() * maxOff).toFixed(6);
-          const offy = (Math.random() * maxOff).toFixed(6);
-          // crop: take (iw/zoom × ih/zoom) from position (iw*offx, ih*offy)
-          // scale: bring the sub-region back to full original dimensions — fast_bilinear for speed
-          vfParts.push(`crop=iw/${zf}:ih/${zf}:x=iw*${offx}:y=ih*${offy}`);
-          vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=fast_bilinear`);
-
-          // Lens correction — pincushion distortion (geometric, not visual).
-          // k1 MUST be negative: positive k1 maps edge pixels outside source bounds,
-          // causing FFmpeg to fill them with undefined values encoded as bright green.
-          // With k1 < 0, all output pixels map to valid source coordinates (r_src < r_dest).
-          const k1 = -(0.01 + Math.random() * 0.03); // -0.01 to -0.04 (always negative, very subtle)
-          vfParts.push(`lenscorrection=k1=${k1.toFixed(5)}:k2=${(-k1 / 2).toFixed(5)}`);
-
-          // Speed ±1–3% — invisible to the viewer, sufficient to shift the file fingerprint
+          // Speed ±1–3% — timing-only, zero visual change.
+          // Changes PTS timestamps and re-encodes audio tempo to match.
+          // Different PTS values alter the file's binary fingerprint.
           const side = Math.random() > 0.5 ? 1 : -1;
           const deviation = 0.01 + Math.random() * 0.02;  // 1–3%
           const sp = clamp(1.0 + side * deviation, LIMITS.speed.min, LIMITS.speed.max);
           vfParts.push(`setpts=${(1 / sp).toFixed(6)}*PTS`);
           afParts.push(`atempo=${sp.toFixed(4)}`);
-
-          // Temporal frame blend — mixes each frame with the previous at 30%.
-          // Changes per-frame pixel values (affecting all hash algorithms) with no
-          // visible flicker at normal playback speed.
-          vfParts.push("tblend=all_mode=average:all_opacity=0.12");
         }
 
         if (packs.includes("technical")) {
@@ -589,33 +560,10 @@ export async function processVideos(
           vfParts.push(`pad=iw*(1+${padLeft}+${padRight}):ih*(1+${padTop}+${padBottom}):iw*${padLeft}:ih*${padTop}:color=black`);
         }
 
-        // ── Non-visual uniquifiers applied whenever re-encoding is already triggered ──
-        // These add zero perceptible quality change but make each copy's digital
-        // fingerprint completely different — detectable by every comparator metric.
-        if (vfParts.length > 0 || extraArgs.length > 0) {
-          // 1. Micro spatial pixel shift (1–4px, random direction per copy)
-          //    Each copy has unique pixel offsets → pHash/dHash/MSE all change.
-          //    crop removes N pixels from one side; pad restores original dimensions.
-          //    At 1080p/4K: 1–4px shift is imperceptible (< 0.4% of frame width).
-          const px = 1 + Math.floor(Math.random() * 4);  // 1–4 horizontal
-          const py = 1 + Math.floor(Math.random() * 4);  // 1–4 vertical
-          const fromLeft = Math.random() > 0.5;           // shift direction X
-          const fromTop  = Math.random() > 0.5;           // shift direction Y
-          const cx = fromLeft ? px : 0;
-          const cy = fromTop  ? py : 0;
-          vfParts.push(
-            `crop=iw-${px}:ih-${py}:${cx}:${cy},` +
-            `pad=iw+${px}:ih+${py}:${px - cx}:${py - cy}:color=black`
-          );
-
-          // 2. Per-copy CRF variation (17–23, random per copy)
-          //    Different DCT quantization table → different rounding of each DCT
-          //    coefficient → different decoded pixel values after playback decode.
-          //    All values (17–23) are perceptually transparent. Zero time impact.
-          //    Not applied when technical pack already sets its own CRF range.
-          if (!packs.includes("technical")) {
-            extraArgs.push("-crf", String(17 + Math.floor(Math.random() * 7)));
-          }
+        // ── Per-copy CRF variation (17–23) applied whenever re-encoding is triggered ──
+        // Different DCT quantization → different bytes, visually transparent.
+        if ((vfParts.length > 0 || extraArgs.length > 0) && !packs.includes("technical")) {
+          extraArgs.push("-crf", String(17 + Math.floor(Math.random() * 7)));
         }
 
         // Ensure H.264-compatible dimensions (even pixels) only when re-encoding
