@@ -256,12 +256,23 @@ export default function VideoFormSimpleClient() {
           const file = uploadedFiles[i];
           setProgressMsg(`Envoi vidéo ${i + 1}/${uploadedFiles.length} — ${file.name}…`);
 
-          const signRes = await fetch("/api/storage/sign-upload", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fileName: file.name, userId }),
-            signal: ctrl.signal,
-          });
+          // 30 s timeout for sign-upload — fails fast if server is down
+          const signCtrl = new AbortController();
+          const signTimeout = setTimeout(() => signCtrl.abort("timeout"), 30_000);
+          let signRes: Response;
+          try {
+            signRes = await fetch("/api/storage/sign-upload", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ fileName: file.name, userId }),
+              signal: signCtrl.signal,
+            });
+          } catch (err: any) {
+            clearTimeout(signTimeout);
+            if (err?.name === "AbortError") throw new Error("[CLT-007] Serveur injoignable — réessayez dans quelques secondes.");
+            throw err;
+          }
+          clearTimeout(signTimeout);
           if (!signRes.ok) {
             const j = await signRes.json().catch(() => ({}));
             throw new Error(j?.error || `Erreur sign-upload HTTP ${signRes.status}`);

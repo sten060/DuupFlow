@@ -440,9 +440,10 @@ export async function processVideos(
   // CPU count we cap concurrency at ncpus and let the OS schedule; threads per
   // process stay at 1 to avoid cross-task contention.
   const ncpus = Math.max(1, os.cpus().length);
-  // 1 task per CPU core — avoids over-subscription on single-core servers where
-  // running 2 competing CPU-bound encodes would double the time per copy.
-  const CONCURRENCY  = Math.min(allTasks.length, ncpus);
+  // Hard cap at 3 concurrent FFmpeg processes to prevent OOM on Railway containers
+  // (os.cpus() returns host machine CPUs, not container allocation).
+  const MAX_CONCURRENT = 3;
+  const CONCURRENCY  = Math.min(allTasks.length, ncpus, MAX_CONCURRENT);
   const threadsPerTask = CONCURRENCY > 0
     ? Math.max(1, Math.floor(ncpus / CONCURRENCY))
     : 1;
