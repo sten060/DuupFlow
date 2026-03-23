@@ -1,0 +1,251 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function AddSimpleLinkForm() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [commission, setCommission] = useState("20");
+  const [discount, setDiscount] = useState("20");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    const res = await fetch("/api/admin/affiliate/create-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: code.trim().toUpperCase(),
+        name: name.trim(),
+        email: email.trim() || undefined,
+        commission_pct: Number(commission),
+        discount_pct: Number(discount),
+      }),
+    });
+
+    const data = await res.json();
+    setLoading(false);
+
+    if (!res.ok) {
+      setError(data.error ?? "Erreur inconnue");
+      return;
+    }
+
+    setSuccess(`✓ Partenaire ${data.code} créé — lien d'affiliation actif`);
+    setCode("");
+    setName("");
+    setEmail("");
+    setCommission("20");
+    setDiscount("20");
+    router.refresh();
+
+    setTimeout(() => {
+      setSuccess("");
+      setOpen(false);
+    }, 3000);
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition"
+        style={{
+          background: "rgba(16,185,129,0.12)",
+          border: "1px solid rgba(16,185,129,0.30)",
+          color: "#34D399",
+        }}
+      >
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
+          <path d="M14.828 14.828a4 4 0 015.656 0l-4 4a4 4 0 01-5.656-5.656l1.102-1.101" />
+        </svg>
+        Partenaire lien seul
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="rounded-2xl p-6 space-y-4"
+      style={{
+        background: "rgba(10,14,40,0.80)",
+        border: "1px solid rgba(16,185,129,0.20)",
+      }}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <p className="text-sm font-semibold text-white">Nouveau partenaire — lien seul</p>
+          <p className="text-[11px] text-white/35 mt-0.5">La réduction s'applique automatiquement via le lien, sans code à saisir</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => { setOpen(false); setError(""); }}
+          className="text-white/30 hover:text-white/60 transition text-lg leading-none"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Code interne */}
+        <div>
+          <label className="text-xs text-white/40 mb-1 block">Code de suivi *</label>
+          <input
+            required
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s/g, ""))}
+            placeholder="ex: AGENCETECH"
+            className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:ring-1 focus:ring-emerald-500/50 transition"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.10)",
+            }}
+          />
+          <p className="text-[10px] text-white/25 mt-1">Identifiant du lien ?ref=CODE</p>
+        </div>
+
+        {/* Nom */}
+        <div>
+          <label className="text-xs text-white/40 mb-1 block">Nom du partenaire *</label>
+          <input
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="ex: Agence Tech Paris"
+            className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:ring-1 focus:ring-emerald-500/50 transition"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.10)",
+            }}
+          />
+        </div>
+
+        {/* Email */}
+        <div>
+          <label className="text-xs text-white/40 mb-1 block">Email (optionnel)</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="contact@agence.com"
+            className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:ring-1 focus:ring-emerald-500/50 transition"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.10)",
+            }}
+          />
+        </div>
+
+        {/* Réduction offerte aux affiliés */}
+        <div>
+          <label className="text-xs text-white/40 mb-1 block">
+            Réduction pour les filleuls — <span className="text-emerald-400">{discount}%</span>
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min="5"
+              max="50"
+              step="5"
+              value={discount}
+              onChange={(e) => setDiscount(e.target.value)}
+              className="flex-1 accent-emerald-500"
+            />
+            <span className="text-sm font-bold text-white w-10 text-right">{discount}%</span>
+          </div>
+          <div className="flex justify-between text-[10px] text-white/20 mt-0.5">
+            <span>5%</span><span>50%</span>
+          </div>
+        </div>
+
+        {/* Commission partenaire */}
+        <div className="sm:col-span-2">
+          <label className="text-xs text-white/40 mb-1 block">
+            Commission partenaire (renouvellements) — <span className="text-indigo-400">{commission}%</span>
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min="5"
+              max="40"
+              step="5"
+              value={commission}
+              onChange={(e) => setCommission(e.target.value)}
+              className="flex-1 accent-indigo-500"
+            />
+            <span className="text-sm font-bold text-white w-10 text-right">{commission}%</span>
+          </div>
+          <div className="flex justify-between text-[10px] text-white/20 mt-0.5">
+            <span>5%</span><span>40%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Résumé */}
+      {code && name && (
+        <div
+          className="rounded-xl px-4 py-3 text-xs space-y-1"
+          style={{ background: "rgba(16,185,129,0.05)", border: "1px solid rgba(16,185,129,0.15)" }}
+        >
+          <p className="text-white/50">
+            Lien partenaire : <span className="text-emerald-300 font-mono">duupflow.com/checkout?ref={code}</span>
+          </p>
+          <p className="text-white/50">
+            Réduction filleuls : <span className="text-white/70">-{discount}% sur le 1er mois (auto)</span>
+          </p>
+          <p className="text-white/50">
+            Commission partenaire : <span className="text-white/70">{commission}% sur chaque renouvellement</span>
+          </p>
+          <p className="text-emerald-400/60 text-[10px] mt-1">Aucun code à saisir — la réduction s'applique automatiquement via le lien</p>
+        </div>
+      )}
+
+      {error && (
+        <p className="text-xs text-red-400 bg-red-500/[0.08] border border-red-500/20 rounded-lg px-3 py-2">
+          {error}
+        </p>
+      )}
+      {success && (
+        <p className="text-xs text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20 rounded-lg px-3 py-2">
+          {success}
+        </p>
+      )}
+
+      <div className="flex gap-3 pt-1">
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg,#059669,#10B981)" }}
+        >
+          {loading ? "Création en cours…" : "Créer le partenaire"}
+        </button>
+        <button
+          type="button"
+          onClick={() => { setOpen(false); setError(""); }}
+          className="px-4 py-2.5 rounded-xl text-sm font-semibold transition"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            color: "rgba(255,255,255,0.40)",
+          }}
+        >
+          Annuler
+        </button>
+      </div>
+    </form>
+  );
+}

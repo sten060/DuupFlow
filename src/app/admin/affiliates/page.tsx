@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import DeleteAffiliateButton from "./DeleteAffiliateButton";
 import AddAffiliateForm from "./AddAffiliateForm";
+import AddSimpleLinkForm from "./AddSimpleLinkForm";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ type AffiliateRow = {
   commission_pct: number;
   user_id: string | null;
   stripe_promotion_code_id: string | null;
+  discount_pct: number | null;
   created_at: string;
 };
 
@@ -130,7 +132,10 @@ export default async function AdminAffiliates() {
               Partenariats affiliés
             </h1>
           </div>
-          <AddAffiliateForm />
+          <div className="flex flex-wrap gap-2">
+            <AddSimpleLinkForm />
+            <AddAffiliateForm />
+          </div>
         </div>
 
         {/* Global stats */}
@@ -252,16 +257,29 @@ export default async function AdminAffiliates() {
                         >
                           {a.commission_pct}% commission
                         </span>
-                        <span
-                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full font-mono"
-                          style={{
-                            background: "rgba(245,158,11,0.08)",
-                            border: "1px solid rgba(245,158,11,0.20)",
-                            color: "#F59E0B",
-                          }}
-                        >
-                          -{a.code.slice(-2) === "10" ? "10" : "10"}€ · {a.code}
-                        </span>
+                        {a.discount_pct != null ? (
+                          <span
+                            className="text-[10px] font-semibold px-2 py-0.5 rounded-full font-mono"
+                            style={{
+                              background: "rgba(16,185,129,0.08)",
+                              border: "1px solid rgba(16,185,129,0.20)",
+                              color: "#34D399",
+                            }}
+                          >
+                            Lien -{a.discount_pct}% auto
+                          </span>
+                        ) : (
+                          <span
+                            className="text-[10px] font-semibold px-2 py-0.5 rounded-full font-mono"
+                            style={{
+                              background: "rgba(245,158,11,0.08)",
+                              border: "1px solid rgba(245,158,11,0.20)",
+                              color: "#F59E0B",
+                            }}
+                          >
+                            Code promo -10€ · {a.code}
+                          </span>
+                        )}
                         <span
                           className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
                           style={
