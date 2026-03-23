@@ -70,7 +70,7 @@ export default async function AffiliateDashboard() {
 
   const { data: payments } = await admin
     .from("affiliate_payments")
-    .select("amount_cents, commission_cents, plan, billing_reason, paid_at")
+    .select("amount_cents, commission_cents, plan, billing_reason, paid_at, commission_paid_at")
     .eq("affiliate_code", affiliate.code)
     .order("paid_at", { ascending: false });
 
@@ -89,7 +89,12 @@ export default async function AffiliateDashboard() {
   // Commission totale gagnée
   const totalEarnedCents = allPayments.reduce((s, p) => s + p.commission_cents, 0);
 
+  // Commissions déjà versées
+  const totalPaidCents = allPayments
+    .filter((p) => p.commission_paid_at)
+    .reduce((s, p) => s + p.commission_cents, 0);
 
+  const balanceCents = totalEarnedCents - totalPaidCents;
 
   const appUrl =
     (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.duupflow.com").replace(/\/$/, "");
@@ -142,7 +147,7 @@ export default async function AffiliateDashboard() {
             </code>
             <CopyButton text={affiliateLink} />
           </div>
-          {affiliate.stripe_promotion_code_id && (
+          {affiliate.stripe_promotion_code_id && affiliate.discount_pct === null && (
             <p className="text-xs text-white/25 mt-3">
               Code promo : <span className="text-yellow-400/70 font-mono font-semibold">{affiliate.code}</span>
               {" "}— vos filleuls peuvent aussi saisir ce code à la caisse.
@@ -169,6 +174,12 @@ export default async function AffiliateDashboard() {
             value={`${(totalEarnedCents / 100).toFixed(2)}€`}
             sub={`${allPayments.length} transaction${allPayments.length > 1 ? "s" : ""}`}
             color="#38BDF8"
+          />
+          <StatCard
+            label="Solde à verser"
+            value={`${(balanceCents / 100).toFixed(2)}€`}
+            sub={balanceCents === 0 ? "Tout est à jour ✓" : "En attente de virement"}
+            color={balanceCents === 0 ? "#10B981" : "#F59E0B"}
           />
         </div>
 
@@ -197,6 +208,29 @@ export default async function AffiliateDashboard() {
                 const planColor = p.plan === "pro" ? "#38BDF8" : "#A78BFA";
                 const commission = (p.commission_cents / 100).toFixed(2);
                 const amount = (p.amount_cents / 100).toFixed(2);
+
+                // Commission status
+                const now15dAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+                const stripeDate = new Date(p.paid_at);
+                let statusLabel: string;
+                let statusColor: string;
+                let statusBg: string;
+                if (p.commission_paid_at) {
+                  const paidDate = new Date(p.commission_paid_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+                  statusLabel = `Versée le ${paidDate}`;
+                  statusColor = "#10B981";
+                  statusBg = "rgba(16,185,129,0.10)";
+                } else if (stripeDate < now15dAgo) {
+                  statusLabel = "Validée";
+                  statusColor = "#818CF8";
+                  statusBg = "rgba(99,102,241,0.10)";
+                } else {
+                  const daysLeft = 15 - Math.floor((Date.now() - stripeDate.getTime()) / (24 * 60 * 60 * 1000));
+                  statusLabel = `En attente (${daysLeft}j)`;
+                  statusColor = "#F59E0B";
+                  statusBg = "rgba(245,158,11,0.10)";
+                }
+
                 return (
                   <div
                     key={i}
@@ -227,6 +261,12 @@ export default async function AffiliateDashboard() {
                       )}
                     </div>
                     <div className="flex items-center gap-4 text-right">
+                      <span
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full hidden sm:inline-block"
+                        style={{ background: statusBg, color: statusColor }}
+                      >
+                        {statusLabel}
+                      </span>
                       <span className="text-xs text-white/25 hidden sm:block">
                         {amount}€ encaissé
                       </span>
