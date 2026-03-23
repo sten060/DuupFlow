@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import DeleteAffiliateButton from "./DeleteAffiliateButton";
 import AddAffiliateForm from "./AddAffiliateForm";
 import AddSimpleLinkForm from "./AddSimpleLinkForm";
+import EditAffiliatePanel from "./EditAffiliatePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -319,6 +320,15 @@ export default async function AdminAffiliates() {
                         <DeleteAffiliateButton code={a.code} name={a.name} />
                       </div>
                     </div>
+
+                    {/* Edit panel */}
+                    <EditAffiliatePanel
+                      code={a.code}
+                      name={a.name}
+                      commission_pct={a.commission_pct}
+                      discount_pct={a.discount_pct}
+                      stripe_promotion_code_id={a.stripe_promotion_code_id}
+                    />
 
                     {/* Metrics */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">

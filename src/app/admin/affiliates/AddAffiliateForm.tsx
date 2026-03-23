@@ -214,9 +214,6 @@ export default function AddAffiliateForm() {
           <p className="text-white/50">
             Commission : <span className="text-white/70">{commission}% sur chaque renouvellement mensuel</span>
           </p>
-          <p className="text-white/50">
-            Lien direct : <span className="text-indigo-300/70 font-mono">duupflow.com/checkout?ref={code}</span>
-          </p>
         </div>
       )}
 
