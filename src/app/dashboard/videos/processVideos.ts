@@ -470,28 +470,28 @@ export async function processVideos(
           .filter(Boolean);
 
         if (packs.includes("visual")) {
-          // eq — brightness ±6%, contrast ±6%, saturation ±6%, gamma ±4%
-          const b  = clamp(Number((-0.06 + Math.random() * 0.12).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.94 + Math.random() * 0.12).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
-          const st = clamp(Number((0.94 + Math.random() * 0.12).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
-          const gm = clamp(Number((0.96 + Math.random() * 0.08).toFixed(3)),  0.1, 3.0);
+          // eq — brightness ±3%, contrast ±3%, saturation ±3%, gamma ±2%
+          const b  = clamp(Number((-0.03 + Math.random() * 0.06).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          const ct = clamp(Number((0.97 + Math.random() * 0.06).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
+          const st = clamp(Number((0.97 + Math.random() * 0.06).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
+          const gm = clamp(Number((0.98 + Math.random() * 0.04).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
-          // Hue ±8° — subtle color shift
-          const hue = clamp(Number((Math.random() * 16 - 8).toFixed(2)), -30, 30);
+          // Hue ±4° — very subtle color shift
+          const hue = clamp(Number((Math.random() * 8 - 4).toFixed(2)), -30, 30);
           vfParts.push(`hue=h=${hue}`);
-          // Color channel mixing 0.5–2% cross-channel
-          const rr = (0.97 + Math.random() * 0.04).toFixed(3);
-          const gg = (0.97 + Math.random() * 0.04).toFixed(3);
-          const bb = (0.97 + Math.random() * 0.04).toFixed(3);
-          const cx = (0.005 + Math.random() * 0.015).toFixed(3);
+          // Color channel mixing 0.2–0.5% cross-channel
+          const rr = (0.99 + Math.random() * 0.01).toFixed(3);
+          const gg = (0.99 + Math.random() * 0.01).toFixed(3);
+          const bb = (0.99 + Math.random() * 0.01).toFixed(3);
+          const cx = (0.001 + Math.random() * 0.004).toFixed(3);
           vfParts.push(`colorchannelmixer=rr=${rr}:rg=${cx}:rb=${cx}:gg=${gg}:gr=${cx}:gb=${cx}:bb=${bb}:bg=${cx}:br=${cx}`);
-          // Unsharp (light sharpening)
-          vfParts.push("unsharp=lx=3:ly=3:la=0.4:cx=3:cy=3:ca=0.4");
-          // Luma noise temporal — 2–5 (subtle grain) + chroma noise on Cb/Cr
+          // Unsharp (very light sharpening)
+          vfParts.push("unsharp=lx=3:ly=3:la=0.15:cx=3:cy=3:ca=0.15");
+          // Luma noise temporal — 1–2 (barely visible grain) + chroma noise on Cb/Cr
           // c1/c2 = Cb/Cr chroma channels: in yuv420p each chroma sample covers 4 luma pixels
           // → 4 units of chroma noise is completely invisible but changes every color hash
-          const ns = 2 + Math.floor(Math.random() * 4);  // 2–5 luma
-          vfParts.push(`noise=c0s=${ns}:c0f=t:c1s=4:c2s=4:c1f=t:c2f=t`);
+          const ns = 1 + Math.floor(Math.random() * 2);  // 1–2 luma
+          vfParts.push(`noise=c0s=${ns}:c0f=t:c1s=2:c2s=2:c1f=t:c2f=t`);
         }
 
         if (packs.includes("motion")) {
@@ -503,7 +503,7 @@ export async function processVideos(
           // Correct approach: crop a sub-region (iw/zoom × ih/zoom) from the original
           // at a random position, then scale that region back up to fill original size.
           // This is true "digital zoom" — different frame content shown in each copy.
-          const zoom = clamp(1.10 + Math.random() * 0.08, LIMITS.zoom.min, LIMITS.zoom.max); // 1.10–1.18×
+          const zoom = clamp(1.03 + Math.random() * 0.03, LIMITS.zoom.min, LIMITS.zoom.max); // 1.03–1.06×
           const zf = zoom.toFixed(6);
           // Max safe start offset: must ensure crop region stays within frame bounds
           const maxOff = (1 - 1 / zoom);  // e.g., 0.091 at zoom=1.10, 0.153 at zoom=1.18
@@ -518,7 +518,7 @@ export async function processVideos(
           // k1 MUST be negative: positive k1 maps edge pixels outside source bounds,
           // causing FFmpeg to fill them with undefined values encoded as bright green.
           // With k1 < 0, all output pixels map to valid source coordinates (r_src < r_dest).
-          const k1 = -(0.05 + Math.random() * 0.07); // -0.05 to -0.12 (always negative)
+          const k1 = -(0.01 + Math.random() * 0.03); // -0.01 to -0.04 (always negative, very subtle)
           vfParts.push(`lenscorrection=k1=${k1.toFixed(5)}:k2=${(-k1 / 2).toFixed(5)}`);
 
           // Speed ±1–3% — invisible to the viewer, sufficient to shift the file fingerprint
@@ -531,7 +531,7 @@ export async function processVideos(
           // Temporal frame blend — mixes each frame with the previous at 30%.
           // Changes per-frame pixel values (affecting all hash algorithms) with no
           // visible flicker at normal playback speed.
-          vfParts.push("tblend=all_mode=average:all_opacity=0.3");
+          vfParts.push("tblend=all_mode=average:all_opacity=0.12");
         }
 
         if (packs.includes("technical")) {
