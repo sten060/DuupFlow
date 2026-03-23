@@ -21,6 +21,10 @@ export async function POST(request: Request) {
     typeof body?.affiliate_code === "string" && body.affiliate_code.trim()
       ? body.affiliate_code.trim().toUpperCase()
       : undefined;
+  const promoCode: string | undefined =
+    typeof body?.promo_code === "string" && body.promo_code.trim()
+      ? body.promo_code.trim().toUpperCase()
+      : undefined;
 
   const priceId =
     plan === "solo"
@@ -37,7 +41,6 @@ export async function POST(request: Request) {
   const { origin } = new URL(request.url);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? origin;
 
-  // Re-use existing Stripe customer if available (avoids duplicates on upgrade)
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
@@ -45,12 +48,29 @@ export async function POST(request: Request) {
     .eq("id", user.id)
     .single();
 
+  // Le code promo est aussi le code affilié (même chose)
+  const effectiveAffiliateCode = promoCode ?? affiliateCode;
+
+  // Résoudre le stripe_promotion_code_id si un code promo est fourni
+  let stripePromotionCodeId: string | undefined;
+  if (promoCode) {
+    const { data: affiliate } = await admin
+      .from("affiliates")
+      .select("stripe_promotion_code_id")
+      .eq("code", promoCode)
+      .single();
+    stripePromotionCodeId = affiliate?.stripe_promotion_code_id ?? undefined;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sessionParams: any = {
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
     client_reference_id: user.id,
-    metadata: { plan, ...(affiliateCode ? { affiliate_code: affiliateCode } : {}) },
+    metadata: {
+      plan,
+      ...(effectiveAffiliateCode ? { affiliate_code: effectiveAffiliateCode } : {}),
+    },
     success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${baseUrl}/checkout`,
     subscription_data: {
@@ -62,6 +82,11 @@ export async function POST(request: Request) {
     sessionParams.customer = profile.stripe_customer_id;
   } else {
     sessionParams.customer_email = user.email;
+  }
+
+  // Appliquer la réduction si le code promo est valide
+  if (stripePromotionCodeId) {
+    sessionParams.discounts = [{ promotion_code: stripePromotionCodeId }];
   }
 
   const session = await getStripe().checkout.sessions.create(sessionParams);

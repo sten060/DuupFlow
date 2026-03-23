@@ -134,18 +134,44 @@ function CheckoutContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [promoInput, setPromoInput] = useState("");
+  const [promoState, setPromoState] = useState<"idle" | "validating" | "valid" | "invalid">("idle");
+  const [promoMessage, setPromoMessage] = useState("");
 
   useEffect(() => {
-    // Persist affiliate ref code from URL into localStorage so it survives
-    // navigation and is still available when the user clicks "Souscrire".
     const ref = searchParams.get("ref");
-    if (ref) localStorage.setItem("duupflow_ref", ref.toUpperCase());
+    if (ref) {
+      localStorage.setItem("duupflow_ref", ref.toUpperCase());
+      // Pré-remplir et valider le code si passé dans l'URL
+      setPromoInput(ref.toUpperCase());
+      validatePromoCode(ref.toUpperCase());
+    }
 
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? null);
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  async function validatePromoCode(code: string) {
+    if (!code.trim()) { setPromoState("idle"); setPromoMessage(""); return; }
+    setPromoState("validating");
+    try {
+      const res = await fetch(`/api/promo/validate?code=${encodeURIComponent(code.trim().toUpperCase())}`);
+      const data = await res.json();
+      if (data.valid) {
+        setPromoState("valid");
+        setPromoMessage(data.message ?? `-10€ sur ton 1er mois`);
+        localStorage.setItem("duupflow_ref", code.trim().toUpperCase());
+      } else {
+        setPromoState("invalid");
+        setPromoMessage("Code invalide ou expiré");
+      }
+    } catch {
+      setPromoState("idle");
+    }
+  }
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -158,10 +184,15 @@ function CheckoutContent() {
     setError("");
     try {
       const affiliateCode = localStorage.getItem("duupflow_ref") ?? undefined;
+      const validPromo = promoState === "valid" ? promoInput.trim().toUpperCase() : undefined;
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: selectedPlan, affiliate_code: affiliateCode }),
+        body: JSON.stringify({
+          plan: selectedPlan,
+          affiliate_code: affiliateCode,
+          ...(validPromo ? { promo_code: validPromo } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.url) {
@@ -176,7 +207,9 @@ function CheckoutContent() {
     }
   }
 
-  const price = selectedPlan === "solo" ? "39€" : "99€";
+  const basePrice = selectedPlan === "solo" ? "39€" : "99€";
+  const discountedPrice = selectedPlan === "solo" ? "29€" : "89€";
+  const price = promoState === "valid" ? discountedPrice : basePrice;
 
   return (
     <div className="w-full max-w-2xl relative">
@@ -244,6 +277,50 @@ function CheckoutContent() {
           />
         </div>
 
+        {/* Champ code promo */}
+        <div className="mb-5">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={promoInput}
+              onChange={(e) => {
+                setPromoInput(e.target.value.toUpperCase());
+                setPromoState("idle");
+                setPromoMessage("");
+              }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); validatePromoCode(promoInput); } }}
+              placeholder="Code partenaire (optionnel)"
+              className="flex-1 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:ring-1 transition"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: promoState === "valid"
+                  ? "1px solid rgba(52,211,153,0.5)"
+                  : promoState === "invalid"
+                  ? "1px solid rgba(239,68,68,0.4)"
+                  : "1px solid rgba(255,255,255,0.10)",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => validatePromoCode(promoInput)}
+              disabled={promoState === "validating" || !promoInput.trim()}
+              className="px-4 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40"
+              style={{
+                background: "rgba(99,102,241,0.15)",
+                border: "1px solid rgba(99,102,241,0.3)",
+                color: "#818CF8",
+              }}
+            >
+              {promoState === "validating" ? "…" : "Appliquer"}
+            </button>
+          </div>
+          {promoMessage && (
+            <p className={`text-xs mt-1.5 ${promoState === "valid" ? "text-emerald-400" : "text-red-400"}`}>
+              {promoState === "valid" && "✓ "}{promoMessage}
+            </p>
+          )}
+        </div>
+
         {error && (
           <p className="text-xs text-red-400 bg-red-500/[0.08] border border-red-500/20 rounded-lg px-3 py-2 mb-4">
             {error}
@@ -264,6 +341,8 @@ function CheckoutContent() {
         >
           {loading
             ? "Redirection en cours…"
+            : promoState === "valid"
+            ? `Souscrire — ${basePrice} ${discountedPrice}/1er mois →`
             : `Souscrire au plan ${selectedPlan === "solo" ? "Solo" : "Pro"} — ${price}/mois →`}
         </button>
 
