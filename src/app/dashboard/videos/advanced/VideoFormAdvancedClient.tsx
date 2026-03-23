@@ -288,6 +288,14 @@ export default function VideoFormAdvancedClient() {
       const rawForm = new FormData(e.currentTarget);
       const uploadedFiles = rawForm.getAll("files") as File[];
 
+      // Client-side size guard — 5 GB max per file (matches storage bucket limit)
+      const MAX_FILE_BYTES = 5 * 1024 * 1024 * 1024;
+      const oversized = uploadedFiles.filter(f => f.size > MAX_FILE_BYTES);
+      if (oversized.length > 0) {
+        const names = oversized.map(f => f.name).join(", ");
+        throw new Error(`[CLT-006] Fichier(s) trop volumineux (max 5 Go) : ${names}`);
+      }
+
       // Always use Supabase Storage — see simple client for rationale.
       const DIRECT_LIMIT = 0;
       const canDirect = uploadedFiles.length > 0 && uploadedFiles.every(f => f.size <= DIRECT_LIMIT);
@@ -322,7 +330,13 @@ export default function VideoFormAdvancedClient() {
           const uploadRes = await supabase.storage
             .from("video-uploads")
             .uploadToSignedUrl(storagePath, token, file);
-          if (uploadRes.error) throw new Error(`Upload storage (${file.name}): ${uploadRes.error.message}`);
+          if (uploadRes.error) {
+            const msg = uploadRes.error.message ?? "";
+            if (msg.toLowerCase().includes("maximum allowed size") || msg.toLowerCase().includes("exceeded")) {
+              throw new Error(`Fichier trop volumineux pour le stockage (max 5 Go) : ${file.name}`);
+            }
+            throw new Error(`Upload storage (${file.name}): ${msg}`);
+          }
 
           storagePaths.push(storagePath);
           setProgress(Math.round(((i + 1) / uploadedFiles.length) * 30));
