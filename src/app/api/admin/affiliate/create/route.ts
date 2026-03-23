@@ -62,12 +62,12 @@ export async function POST(req: NextRequest) {
   // ── 2. Créer le Stripe Promotion Code ─────────────────────────────────────
   let stripePromoCodeId: string;
   try {
-    const promoCode = await stripe.promotionCodes.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const promoCode = await (stripe.promotionCodes.create as any)({
       coupon: couponId,
       code: upperCode,
-      max_redemptions: undefined, // illimité
       restrictions: {
-        first_time_transaction: true, // seulement 1er paiement
+        first_time_transaction: true,
       },
       metadata: { affiliate_code: upperCode },
     });
