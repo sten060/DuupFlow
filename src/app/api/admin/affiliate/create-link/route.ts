@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
   const commissionPct = typeof commission_pct === "number" ? commission_pct : 20;
 
   const stripe = getStripe();
-  const admin = createAdminClient();
 
   // ── 1. Créer un coupon Stripe en % (unique par partenaire) ─────────────────
   const coupon = await stripe.coupons.create({

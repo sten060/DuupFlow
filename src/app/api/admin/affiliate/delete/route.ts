@@ -23,8 +23,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Code manquant" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-
   // Supprime les paiements affiliés liés (FK), puis l'affilié
   // affiliate_clicks supprimés automatiquement grâce au ON DELETE CASCADE
   await admin.from("affiliate_payments").delete().eq("affiliate_code", code);
