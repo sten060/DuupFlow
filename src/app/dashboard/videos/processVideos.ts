@@ -320,14 +320,18 @@ async function runFFmpegSafe(
     if (afParts.length) args.push("-af", afParts.join(","));
     args.push(
       "-c:v", "libx264",
-      "-preset", "ultrafast",     // ultrafast: prioritise encoding speed (3–5× faster than fast)
-      "-threads", String(threads), // caller allocates threads based on os.cpus()
-      "-crf", "23",               // CRF 23: good visual quality with faster encode
+      "-preset", "ultrafast",      // ultrafast: prioritise encoding speed (3–5× faster than fast)
+      "-threads", String(threads),  // caller allocates threads based on os.cpus()
+      "-crf", "19",                 // CRF 19: near-lossless, visually transparent
       "-pix_fmt", "yuv420p",
+      // Preserve source color space so colors don't shift on re-encode
+      "-colorspace", "bt709",
+      "-color_primaries", "bt709",
+      "-color_trc", "bt709",
       "-c:a", "aac",
       "-b:a", "192k",
     );
-    // extraArgs can override crf/bitrate (e.g. technical pack sets its own values)
+    // extraArgs can override crf (e.g. technical pack sets its own values)
     if (extraArgs.length) args.push(...extraArgs);
   }
 
@@ -506,18 +510,19 @@ export async function processVideos(
         }
 
         if (packs.includes("technical")) {
-          const crf = 14 + Math.floor(Math.random() * 15);
+          // CRF 18–22 — perceptually transparent range, no visible quality loss
+          const crf = 18 + Math.floor(Math.random() * 5);
           extraArgs.push("-crf", String(crf));
-          const vbit = clamp(3000 + Math.floor(Math.random() * 19001), LIMITS.vbitrate.min, LIMITS.vbitrate.max);
-          extraArgs.push("-b:v", `${vbit}k`);
+          // GOP only — changes keyframe structure, zero visual impact
           const gop = clamp(30 + Math.floor(Math.random() * 471), LIMITS.gop.min, LIMITS.gop.max);
           extraArgs.push("-g", String(gop));
+          // H.264 profile/level — container-level only, no visual impact
           const profiles = ["baseline", "main", "high"];
           const levels = ["5.0", "5.1", "5.2", "6.0"];
           extraArgs.push("-profile:v", profiles[Math.floor(Math.random() * profiles.length)]);
           extraArgs.push("-level:v", levels[Math.floor(Math.random() * levels.length)]);
-          const fpsPool = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
-          extraArgs.push("-r", String(fpsPool[Math.floor(Math.random() * fpsPool.length)]));
+          // NO FPS change — changing FPS drops/duplicates frames (visible)
+          // NO bitrate cap — low bitrate causes visible macroblocking
         }
 
         if (singles?.flip) vfParts.push("vflip");
@@ -560,15 +565,17 @@ export async function processVideos(
           vfParts.push(`pad=iw*(1+${padLeft}+${padRight}):ih*(1+${padTop}+${padBottom}):iw*${padLeft}:ih*${padTop}:color=black`);
         }
 
-        // ── Per-copy CRF variation (17–23) applied whenever re-encoding is triggered ──
+        // ── Per-copy CRF variation (18–22) applied whenever re-encoding is triggered ──
         // Different DCT quantization → different bytes, visually transparent.
         if ((vfParts.length > 0 || extraArgs.length > 0) && !packs.includes("technical")) {
-          extraArgs.push("-crf", String(17 + Math.floor(Math.random() * 7)));
+          extraArgs.push("-crf", String(18 + Math.floor(Math.random() * 5)));
         }
 
-        // Ensure H.264-compatible dimensions (even pixels) only when re-encoding
+        // Ensure H.264-compatible dimensions (must be divisible by 2).
+        // `pad` with no actual padding is near-instant and avoids any interpolation.
+        // Only added when re-encoding is already happening.
         if (vfParts.length > 0 || extraArgs.length > 0) {
-          vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
+          vfParts.push("pad=ceil(iw/2)*2:ceil(ih/2)*2:0:0:color=black");
         }
 
       } else {
