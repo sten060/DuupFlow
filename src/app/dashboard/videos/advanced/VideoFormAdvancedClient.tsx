@@ -442,7 +442,11 @@ export default function VideoFormAdvancedClient() {
           removeJob(jobId);
         }
       } else {
-        const errMsg = `[CLT-005] Erreur réseau — ${(err as Error)?.message || "connexion interrompue. Réessayez."}`;
+        const rawMsg = (err as Error)?.message || "";
+        const isStorageSize = rawMsg.toLowerCase().includes("trop volumineux") || rawMsg.toLowerCase().includes("maximum allowed size");
+        const errMsg = isStorageSize
+          ? `[CLT-006] ${rawMsg}`
+          : `[CLT-005] Erreur réseau — ${rawMsg || "connexion interrompue. Réessayez."}`;
         setSubmitError(errMsg);
         setJob({ id: jobId, channel: "advanced", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
       }

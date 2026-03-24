@@ -11,9 +11,10 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Create bucket if it doesn't exist yet
+  // Create bucket if it doesn't exist yet (ignore "already exists" error)
   await supabase.storage.createBucket(BUCKET, { public: false, fileSizeLimit: FILE_SIZE_LIMIT }).catch(() => {});
-  await supabase.storage.updateBucket(BUCKET, { public: false, fileSizeLimit: FILE_SIZE_LIMIT }).catch(() => {});
+  const { error: updateErr } = await supabase.storage.updateBucket(BUCKET, { public: false, fileSizeLimit: FILE_SIZE_LIMIT });
+  if (updateErr) console.error("[sign-upload] updateBucket failed — actual bucket limit may differ:", updateErr.message);
 
   const storagePath = `${userId ?? "anon"}/${Date.now()}-${fileName}`;
   const { data, error } = await supabase.storage
