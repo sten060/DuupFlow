@@ -1,9 +1,6 @@
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
-import { createWriteStream } from "fs";
-import { pipeline } from "stream/promises";
-import { Readable } from "stream";
 import { NextResponse } from "next/server";
 import { processVideos } from "@/app/dashboard/videos/processVideos";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
@@ -115,26 +112,17 @@ export async function POST(req: Request) {
           await Promise.all(storagePaths.map(async (storagePath, i) => {
             const fileName = fileNames[i] ?? path.basename(storagePath);
 
-            // Stream directly to disk — avoids loading the whole file into RAM
-            const { data: urlData, error: urlErr } = await supabase.storage
+            const { data, error } = await supabase.storage
               .from(INPUT_BUCKET)
-              .createSignedUrl(storagePath, 3600);
+              .download(storagePath);
 
-            if (urlErr || !urlData) {
-              throw new Error(`Récupération storage échouée : ${urlErr?.message ?? "inconnu"}`);
-            }
-
-            const dlResp = await fetch(urlData.signedUrl);
-            if (!dlResp.ok) {
-              throw new Error(`Récupération storage échouée : HTTP ${dlResp.status}`);
-            }
-            if (!dlResp.body) {
-              throw new Error(`Récupération storage échouée : corps de réponse vide`);
+            if (error || !data) {
+              throw new Error(`Récupération storage échouée : ${error?.message ?? "inconnu"}`);
             }
 
             const ext     = path.extname(fileName) || ".mp4";
             const tmpPath = path.join(os.tmpdir(), `duup_in_${Date.now()}_${i}${ext}`);
-            await pipeline(Readable.fromWeb(dlResp.body as any), createWriteStream(tmpPath));
+            await fs.writeFile(tmpPath, Buffer.from(await data.arrayBuffer()));
             tmpFilesToClean.push(tmpPath);
             preDownloadedFiles![i] = { name: fileName, tmpPath };
 
