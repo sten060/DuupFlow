@@ -25,7 +25,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const isDashboard = pathname.startsWith("/dashboard");
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
-  const showHeader = !isDashboard && !isAuthPage;
+  const isAffiliatePage = pathname.startsWith("/affiliate") || pathname.startsWith("/admin");
+  const showHeader = !isDashboard && !isAuthPage && !isAffiliatePage;
 
   return (
     <>
