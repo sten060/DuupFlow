@@ -201,17 +201,30 @@ export async function POST(request: NextRequest) {
           await admin.from("profiles").update(updatePayload).eq("id", uid);
 
           // ── Tracking affiliation ──────────────────────────────────────
+          // Use affiliate_code from subscription metadata first (avoids race condition
+          // where invoice.paid fires before checkout.session.completed saves it to profile)
           const { data: profile } = await admin
             .from("profiles")
             .select("affiliate_code")
             .eq("id", uid)
             .single();
 
-          if (profile?.affiliate_code) {
+          const resolvedAffiliateCode =
+            (sub.metadata?.affiliate_code as string | undefined) ?? profile?.affiliate_code;
+
+          if (resolvedAffiliateCode) {
+            // Also backfill profile if not yet set
+            if (!profile?.affiliate_code) {
+              await admin
+                .from("profiles")
+                .update({ affiliate_code: resolvedAffiliateCode })
+                .eq("id", uid);
+            }
+
             const { data: affiliate } = await admin
               .from("affiliates")
               .select("code, commission_pct")
-              .eq("code", profile.affiliate_code)
+              .eq("code", resolvedAffiliateCode)
               .single();
 
             if (affiliate) {

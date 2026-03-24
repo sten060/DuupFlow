@@ -80,7 +80,11 @@ export async function POST(request: Request) {
     success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${baseUrl}/checkout`,
     subscription_data: {
-      metadata: { supabase_user_id: user.id, plan },
+      metadata: {
+        supabase_user_id: user.id,
+        plan,
+        ...(effectiveAffiliateCode ? { affiliate_code: effectiveAffiliateCode } : {}),
+      },
     },
   };
 
