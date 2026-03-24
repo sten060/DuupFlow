@@ -230,7 +230,8 @@ export default function EditAffiliatePanel({
           </form>
 
           {/* ── Ajouter un code promo ── */}
-          {!stripe_promotion_code_id && (
+          {/* Show when: no stripe code at all, OR affiliate is link-only (discount_pct != null, code is internal) */}
+          {(!stripe_promotion_code_id || discount_pct !== null) && (
             <form
               onSubmit={addPromoCode}
               className="space-y-3 pt-4"
@@ -308,7 +309,7 @@ export default function EditAffiliatePanel({
             </form>
           )}
 
-          {stripe_promotion_code_id && (
+          {stripe_promotion_code_id && discount_pct === null && (
             <div
               className="pt-4 text-xs text-white/30"
               style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
