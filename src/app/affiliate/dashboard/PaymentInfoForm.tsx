@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type PaymentInfo = {
+export type PaymentInfo = {
   iban?: string;
   bic?: string;
   account_name?: string;
