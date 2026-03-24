@@ -1,6 +1,9 @@
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
+import { createWriteStream, createReadStream } from "fs";
+import { pipeline } from "stream/promises";
+import { Readable } from "stream";
 import { NextResponse } from "next/server";
 import { processVideos } from "@/app/dashboard/videos/processVideos";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
@@ -92,17 +95,23 @@ export async function POST(req: Request) {
           await Promise.all(storagePaths.map(async (storagePath, i) => {
             const fileName = fileNames[i] ?? path.basename(storagePath);
 
-            const { data, error } = await supabase.storage
+            // Stream directly to disk — avoids loading the whole file into RAM
+            const { data: urlData, error: urlErr } = await supabase.storage
               .from(INPUT_BUCKET)
-              .download(storagePath);
+              .createSignedUrl(storagePath, 3600);
 
-            if (error || !data) {
-              throw new Error(`Récupération storage échouée : ${error?.message ?? "inconnu"}`);
+            if (urlErr || !urlData) {
+              throw new Error(`Récupération storage échouée : ${urlErr?.message ?? "inconnu"}`);
+            }
+
+            const dlResp = await fetch(urlData.signedUrl);
+            if (!dlResp.ok) {
+              throw new Error(`Récupération storage échouée : HTTP ${dlResp.status}`);
             }
 
             const ext     = path.extname(fileName) || ".mp4";
             const tmpPath = path.join(os.tmpdir(), `duup_in_${Date.now()}_${i}${ext}`);
-            await fs.writeFile(tmpPath, Buffer.from(await data.arrayBuffer()));
+            await pipeline(Readable.fromWeb(dlResp.body as ReadableStream), createWriteStream(tmpPath));
             tmpFilesToClean.push(tmpPath);
             preDownloadedFiles![i] = { name: fileName, tmpPath };
 
@@ -132,10 +141,10 @@ export async function POST(req: Request) {
           await Promise.all(outputPaths.map(async (outPath) => {
             const outName    = path.basename(outPath);
             const storageKey = `${userId}/${outName}`;
-            const fileBuffer = await fs.readFile(outPath);
+            const readStream = Readable.toWeb(createReadStream(outPath)) as ReadableStream<Uint8Array>;
             const { error: uploadError } = await supabase.storage
               .from(OUTPUT_BUCKET)
-              .upload(storageKey, fileBuffer, { contentType: "video/mp4", upsert: true });
+              .upload(storageKey, readStream, { contentType: "video/mp4", upsert: true, duplex: "half" } as any);
             if (uploadError) {
               console.error("[duplicate-video] upload error:", uploadError.message, "file:", outName);
               throw new Error(`Sauvegarde échouée (${outName}) : ${uploadError.message}`);
