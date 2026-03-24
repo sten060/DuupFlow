@@ -118,6 +118,7 @@ export async function POST(request: NextRequest) {
     // Paiement initial → accès débloqué + plan déterminé par le price ID
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+      console.log("[webhook] checkout.session.completed:", session.id);
       if (session.subscription) {
         const sub = await getStripe().subscriptions.retrieve(
           session.subscription as string,
@@ -130,10 +131,10 @@ export async function POST(request: NextRequest) {
         const customerId =
           typeof sub.customer === "string" ? sub.customer : (sub.customer as any)?.id;
 
+        console.log("[webhook] checkout uid:", uid, "plan:", plan, "affiliate_code:", session.metadata?.affiliate_code);
+
         if (uid) {
           // Cancel ALL other active subscriptions for this customer in Stripe.
-          // Using the DB stripe_subscription_id is unreliable (can be null/stale),
-          // so we query Stripe directly to find any duplicates.
           if (customerId) {
             const activeSubs = await getStripe().subscriptions.list({
               customer: customerId,
@@ -149,10 +150,11 @@ export async function POST(request: NextRequest) {
 
           await markUserPaid(uid, plan, customerId, sub.id);
 
-          // Save affiliate_code to profile if not already set (filet de sécurité)
           const affiliateCode = session.metadata?.affiliate_code;
+          const admin = createAdminClient();
+
+          // Save affiliate_code to profile if not already set
           if (affiliateCode) {
-            const admin = createAdminClient();
             const { data: profile } = await admin
               .from("profiles")
               .select("affiliate_code")
@@ -165,6 +167,44 @@ export async function POST(request: NextRequest) {
                 .eq("id", uid);
             }
           }
+
+          // ── Tracking affiliation (premier paiement) ───────────────────
+          const invoiceId = typeof session.invoice === "string" ? session.invoice : null;
+          console.log("[webhook] affiliate tracking — code:", affiliateCode, "invoiceId:", invoiceId);
+          if (affiliateCode && invoiceId) {
+            const { data: affiliate, error: affErr } = await admin
+              .from("affiliates")
+              .select("code, commission_pct")
+              .eq("code", affiliateCode.toUpperCase())
+              .single();
+            console.log("[webhook] affiliate lookup:", affiliate, "error:", affErr);
+            if (affiliate) {
+              const amountCents = session.amount_total ?? 0;
+              const commissionCents = Math.round(
+                (amountCents * affiliate.commission_pct) / 100
+              );
+              const { error: upsertErr } = await admin.from("affiliate_payments").upsert(
+                {
+                  affiliate_code: affiliate.code,
+                  user_id: uid,
+                  stripe_invoice_id: invoiceId,
+                  amount_cents: amountCents,
+                  commission_cents: commissionCents,
+                  commission_pct: affiliate.commission_pct,
+                  plan,
+                  billing_reason: "subscription_create",
+                  paid_at: new Date().toISOString(),
+                },
+                { onConflict: "stripe_invoice_id", ignoreDuplicates: true }
+              );
+              if (upsertErr) {
+                console.error("[webhook] affiliate_payments upsert error:", upsertErr);
+              } else {
+                console.log("[webhook] affiliate payment recorded — invoice:", invoiceId, "commission:", commissionCents);
+              }
+            }
+          }
+          // ─────────────────────────────────────────────────────────────
         }
       } else if (session.client_reference_id) {
         await markUserPaid(session.client_reference_id, "pro");
@@ -172,89 +212,101 @@ export async function POST(request: NextRequest) {
       break;
     }
 
-    // Renouvellement mensuel → maintenir l'accès + reset usage + sync plan
+    // Renouvellement mensuel → maintenir l'accès + reset usage + sync plan + commission affilié
     case "invoice.paid": {
       const invoice = event.data.object as Stripe.Invoice;
       const billingReason = (invoice as any).billing_reason as string;
       const subId = getSubscriptionId(invoice);
+      console.log("[webhook] invoice.paid:", invoice.id, "billing_reason:", billingReason, "subId:", subId);
 
-      if (subId) {
-        const sub = await getStripe().subscriptions.retrieve(subId, {
-          expand: ["items.data.price"],
-        });
-        const uid = sub.metadata?.supabase_user_id;
-        if (uid) {
-          const admin = createAdminClient();
+      if (!subId) {
+        console.warn("[webhook] invoice.paid: no subId found, skipping");
+        break;
+      }
 
-          // On subscription_cycle, sync the plan from the current price so
-          // a pending downgrade (Pro → Solo) takes effect at the right time.
-          const priceId = sub.items.data[0]?.price?.id;
-          const plan = priceId
-            ? resolvePlanFromPriceId(priceId, sub.metadata?.plan)
-            : "pro";
+      const sub = await getStripe().subscriptions.retrieve(subId, {
+        expand: ["items.data.price"],
+      });
+      const uid = sub.metadata?.supabase_user_id;
+      console.log("[webhook] invoice.paid uid:", uid, "sub.metadata.affiliate_code:", sub.metadata?.affiliate_code);
 
-          const updatePayload: Record<string, unknown> = {
-            has_paid: true,
-            subscription_period_start: new Date().toISOString(),
-          };
-          if (billingReason === "subscription_cycle") {
-            updatePayload.plan = plan;
-            await resetUsage(uid).catch(console.error);
-          }
+      if (!uid) {
+        console.warn("[webhook] invoice.paid: no uid in subscription metadata, skipping");
+        break;
+      }
 
-          await admin.from("profiles").update(updatePayload).eq("id", uid);
+      const admin = createAdminClient();
+      const priceId = sub.items.data[0]?.price?.id;
+      const plan = priceId
+        ? resolvePlanFromPriceId(priceId, sub.metadata?.plan)
+        : "pro";
 
-          // ── Tracking affiliation ──────────────────────────────────────
-          // Use affiliate_code from subscription metadata first (avoids race condition
-          // where invoice.paid fires before checkout.session.completed saves it to profile)
-          const { data: profile } = await admin
+      const updatePayload: Record<string, unknown> = {
+        has_paid: true,
+        subscription_period_start: new Date().toISOString(),
+      };
+      if (billingReason === "subscription_cycle") {
+        updatePayload.plan = plan;
+        await resetUsage(uid).catch(console.error);
+      }
+
+      await admin.from("profiles").update(updatePayload).eq("id", uid);
+
+      // ── Tracking affiliation (tous les paiements) ─────────────────────
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("affiliate_code")
+        .eq("id", uid)
+        .single();
+
+      const resolvedAffiliateCode =
+        (sub.metadata?.affiliate_code as string | undefined) ?? profile?.affiliate_code;
+
+      console.log("[webhook] invoice.paid resolvedAffiliateCode:", resolvedAffiliateCode);
+
+      if (resolvedAffiliateCode) {
+        if (!profile?.affiliate_code) {
+          await admin
             .from("profiles")
-            .select("affiliate_code")
-            .eq("id", uid)
-            .single();
+            .update({ affiliate_code: resolvedAffiliateCode })
+            .eq("id", uid);
+        }
 
-          const resolvedAffiliateCode =
-            (sub.metadata?.affiliate_code as string | undefined) ?? profile?.affiliate_code;
+        const { data: affiliate, error: affErr } = await admin
+          .from("affiliates")
+          .select("code, commission_pct")
+          .eq("code", resolvedAffiliateCode)
+          .single();
 
-          if (resolvedAffiliateCode) {
-            // Also backfill profile if not yet set
-            if (!profile?.affiliate_code) {
-              await admin
-                .from("profiles")
-                .update({ affiliate_code: resolvedAffiliateCode })
-                .eq("id", uid);
-            }
+        console.log("[webhook] invoice.paid affiliate lookup:", affiliate, "error:", affErr);
 
-            const { data: affiliate } = await admin
-              .from("affiliates")
-              .select("code, commission_pct")
-              .eq("code", resolvedAffiliateCode)
-              .single();
-
-            if (affiliate) {
-              const amountCents = (invoice as any).amount_paid as number;
-              const commissionCents = Math.round(
-                (amountCents * affiliate.commission_pct) / 100
-              );
-              await admin.from("affiliate_payments").upsert(
-                {
-                  affiliate_code: affiliate.code,
-                  user_id: uid,
-                  stripe_invoice_id: invoice.id,
-                  amount_cents: amountCents,
-                  commission_cents: commissionCents,
-                  commission_pct: affiliate.commission_pct,
-                  plan,
-                  billing_reason: billingReason,
-                  paid_at: new Date((invoice as any).created * 1000).toISOString(),
-                },
-                { onConflict: "stripe_invoice_id", ignoreDuplicates: true }
-              );
-            }
+        if (affiliate) {
+          const amountCents = (invoice as any).amount_paid as number;
+          const commissionCents = Math.round(
+            (amountCents * affiliate.commission_pct) / 100
+          );
+          const { error: upsertErr } = await admin.from("affiliate_payments").upsert(
+            {
+              affiliate_code: affiliate.code,
+              user_id: uid,
+              stripe_invoice_id: invoice.id,
+              amount_cents: amountCents,
+              commission_cents: commissionCents,
+              commission_pct: affiliate.commission_pct,
+              plan,
+              billing_reason: billingReason,
+              paid_at: new Date((invoice as any).created * 1000).toISOString(),
+            },
+            { onConflict: "stripe_invoice_id", ignoreDuplicates: true }
+          );
+          if (upsertErr) {
+            console.error("[webhook] invoice.paid affiliate_payments upsert error:", upsertErr);
+          } else {
+            console.log("[webhook] invoice.paid affiliate payment recorded:", invoice.id);
           }
-          // ─────────────────────────────────────────────────────────────
         }
       }
+      // ─────────────────────────────────────────────────────────────────
       break;
     }
 
