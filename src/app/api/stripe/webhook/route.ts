@@ -136,15 +136,23 @@ export async function POST(request: NextRequest) {
         if (uid) {
           // Cancel ALL other active subscriptions for this customer in Stripe.
           if (customerId) {
-            const activeSubs = await getStripe().subscriptions.list({
-              customer: customerId,
-              status: "active",
-              limit: 10,
-            });
-            for (const oldSub of activeSubs.data) {
-              if (oldSub.id !== sub.id) {
-                await getStripe().subscriptions.cancel(oldSub.id).catch(console.error);
+            try {
+              const activeSubs = await getStripe().subscriptions.list({
+                customer: customerId,
+                status: "active",
+                limit: 10,
+              });
+              for (const oldSub of activeSubs.data) {
+                if (oldSub.id !== sub.id) {
+                  try {
+                    await getStripe().subscriptions.cancel(oldSub.id);
+                  } catch (cancelErr) {
+                    console.error("[webhook] failed to cancel old subscription:", oldSub.id, cancelErr);
+                  }
+                }
               }
+            } catch (listErr) {
+              console.error("[webhook] failed to list active subscriptions:", listErr);
             }
           }
 
