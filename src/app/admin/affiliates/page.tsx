@@ -6,7 +6,7 @@ import AddAffiliateForm from "./AddAffiliateForm";
 import AddSimpleLinkForm from "./AddSimpleLinkForm";
 import EditAffiliatePanel from "./EditAffiliatePanel";
 import PaymentsDetailModal, { type PaymentDetail } from "./PaymentsDetailModal";
-import AccountingPanel, { type PayoutRow } from "./AccountingPanel";
+import AccountingPanel, { type PayoutRow, type PaymentInfo } from "./AccountingPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +44,7 @@ type AffiliateRow = {
   user_id: string | null;
   stripe_promotion_code_id: string | null;
   discount_pct: number | null;
+  payment_info: PaymentInfo;
   created_at: string;
 };
 
@@ -420,6 +421,7 @@ export default async function AdminAffiliates() {
                         monthCommissionCents={a.monthCommissionCents}
                         totalEarnedCents={a.totalCommissionCents}
                         payouts={a.payoutDetails}
+                        paymentInfo={a.payment_info ?? null}
                       />
                     </div>
 

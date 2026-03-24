@@ -11,12 +11,20 @@ export type PayoutRow = {
   paid_at: string;
 };
 
+export type PaymentInfo = {
+  iban?: string;
+  bic?: string;
+  account_name?: string;
+  paypal?: string;
+} | null;
+
 type Props = {
   code: string;
   name: string;
   monthCommissionCents: number;
   totalEarnedCents: number;
   payouts: PayoutRow[];
+  paymentInfo: PaymentInfo;
 };
 
 export default function AccountingPanel({
@@ -25,6 +33,7 @@ export default function AccountingPanel({
   monthCommissionCents,
   totalEarnedCents,
   payouts,
+  paymentInfo,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -134,6 +143,48 @@ export default function AccountingPanel({
                 <p className="text-lg font-bold tabular-nums" style={{ color }}>{value}</p>
               </div>
             ))}
+          </div>
+
+          {/* Payment info */}
+          <div
+            className="px-5 py-4"
+            style={{ background: "rgba(8,12,35,0.88)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+          >
+            <p className="text-[10px] font-semibold text-white/35 uppercase tracking-wider mb-3">
+              Coordonnées de paiement du partenaire
+            </p>
+            {paymentInfo && (paymentInfo.iban || paymentInfo.paypal) ? (
+              <div className="space-y-1.5">
+                {paymentInfo.account_name && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-white/30 w-20 shrink-0">Titulaire</span>
+                    <span className="text-xs text-white/70 font-medium">{paymentInfo.account_name}</span>
+                  </div>
+                )}
+                {paymentInfo.iban && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-white/30 w-20 shrink-0">IBAN</span>
+                    <span className="text-xs text-white/80 font-mono tracking-wide">{paymentInfo.iban}</span>
+                  </div>
+                )}
+                {paymentInfo.bic && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-white/30 w-20 shrink-0">BIC</span>
+                    <span className="text-xs text-white/80 font-mono">{paymentInfo.bic}</span>
+                  </div>
+                )}
+                {paymentInfo.paypal && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-white/30 w-20 shrink-0">PayPal</span>
+                    <span className="text-xs text-blue-300">{paymentInfo.paypal}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-amber-400/60">
+                ⚠ Le partenaire n&apos;a pas encore renseigné ses coordonnées de paiement.
+              </p>
+            )}
           </div>
 
           {/* Payouts history */}

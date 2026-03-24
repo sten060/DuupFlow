@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import CopyButton from "./CopyButton";
+import PaymentInfoForm from "./PaymentInfoForm";
 
 export const dynamic = "force-dynamic";
 
@@ -281,7 +282,10 @@ export default async function AffiliateDashboard() {
           </div>
         )}
 
-<p className="text-xs text-white/20 text-center">
+        {/* Payment info */}
+        <PaymentInfoForm initial={affiliate.payment_info ?? null} />
+
+        <p className="text-xs text-white/20 text-center">
           La commission est versée manuellement en fin de mois par virement.
           Pour toute question : <span className="text-white/35">hello@duupflow.com</span>
         </p>
