@@ -131,7 +131,7 @@ export async function POST(req: Request) {
 
             const ext     = path.extname(fileName) || ".mp4";
             const tmpPath = path.join(os.tmpdir(), `duup_in_${Date.now()}_${i}${ext}`);
-            await pipeline(Readable.fromWeb(dlResp.body as ReadableStream), createWriteStream(tmpPath));
+            await pipeline(Readable.fromWeb(dlResp.body as any), createWriteStream(tmpPath));
             tmpFilesToClean.push(tmpPath);
             preDownloadedFiles![i] = { name: fileName, tmpPath };
 

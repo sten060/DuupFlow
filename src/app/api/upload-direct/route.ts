@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   try {
     await pipeline(
-      Readable.fromWeb(req.body as ReadableStream),
+      Readable.fromWeb(req.body as any),
       createWriteStream(tmpPath),
     );
   } catch (e: any) {
