@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import EditAffiliatePanel from "../EditAffiliatePanel";
-import AccountingPanel, { type PayoutRow, type PaymentInfo } from "../AccountingPanel";
+import { type PaymentInfo } from "../AccountingPanel";
 import PaymentsDetailModal, { type PaymentDetail } from "../PaymentsDetailModal";
 import DeleteAffiliateButton from "../DeleteAffiliateButton";
 
@@ -26,7 +27,6 @@ type Props = {
   monthCommissionCents: number;
   balanceCents: number;
   lastPayoutDate: string | null;
-  payoutDetails: PayoutRow[];
   paymentDetails: PaymentDetail[];
 };
 
@@ -40,7 +40,6 @@ export default function PartnerRow({
   monthCommissionCents,
   balanceCents,
   lastPayoutDate,
-  payoutDetails,
   paymentDetails,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -208,14 +207,16 @@ export default function PartnerRow({
               discount_pct={affiliate.discount_pct}
               stripe_promotion_code_id={affiliate.stripe_promotion_code_id}
             />
-            <AccountingPanel
-              code={affiliate.code}
-              name={affiliate.name}
-              monthCommissionCents={monthCommissionCents}
-              totalEarnedCents={totalCommissionCents}
-              payouts={payoutDetails}
-              paymentInfo={affiliate.payment_info}
-            />
+            <Link
+              href={`/admin/affiliates/accounting/${affiliate.code.toLowerCase()}`}
+              className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition"
+              style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)", color: "#34D399" }}
+            >
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Comptabilité
+            </Link>
             <DeleteAffiliateButton code={affiliate.code} name={affiliate.name} />
           </div>
         </div>

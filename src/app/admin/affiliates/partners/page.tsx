@@ -64,13 +64,6 @@ export default async function AffiliatesPartners() {
 
     const lastPayout = myPayouts[0] ?? null;
 
-    const payoutDetails = myPayouts.map((p) => ({
-      id: p.id,
-      amount_cents: p.amount_cents,
-      note: p.note,
-      paid_at: p.paid_at,
-    }));
-
     const paymentDetails: PaymentDetail[] = myPayments.map((p) => ({
       paid_at: p.paid_at,
       amount_cents: p.amount_cents,
@@ -100,7 +93,6 @@ export default async function AffiliatesPartners() {
       monthCommissionCents,
       balanceCents,
       lastPayoutDate: lastPayout?.paid_at ?? null,
-      payoutDetails,
       paymentDetails,
     };
   });
