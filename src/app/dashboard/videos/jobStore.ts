@@ -61,6 +61,8 @@ export function setJob(
 export function addCompletedFile(id: string, file: CompletedFile): void {
   const job = jobs.get(id);
   if (!job) return;
+  // Deduplicate by URL — prevents duplicate entries when SSE reconnects and replays events
+  if (job.completedFiles.some(f => f.url === file.url)) return;
   jobs.set(id, { ...job, completedFiles: [...job.completedFiles, file] });
   notify();
 }

@@ -294,96 +294,128 @@ export default function VideoFormSimpleClient() {
         apiForm = rawForm;
       }
 
-      const res = await fetch("/api/duplicate-video", {
-        method: "POST",
-        body: apiForm,
-        signal: ctrl.signal,
-      });
+      // ── SSE phase with automatic reconnection ────────────────────────────────
+      // Files are already on Railway (directUploadIds) so re-POSTing is free —
+      // no re-upload needed. On a transient network drop we retry up to 3 times.
+      const MAX_SSE_RETRIES = 3;
+      let sseAttempt = 0;
 
-      if (!res.ok || !res.body) {
-        const text = await res.text().catch(() => "");
-        let msg = `HTTP ${res.status}`;
-        let code = res.status >= 500 ? "VID-002" : "VID-001";
-        try { const j = JSON.parse(text); msg = j?.error || msg; code = j?.code || code; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
-        const errMsg = `[${code}] ${msg}`;
-        setErrorMsg(errMsg);
-        setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
-        setProcessing(false);
-        return;
-      }
-
-      // Read Server-Sent Events stream.
-      // An inactivity watchdog aborts the fetch if no chunk arrives for 5 minutes —
-      // this unblocks the UI when Vercel kills the function without a clean EOF.
-      const INACTIVITY_MS = 12 * 60 * 1000; // 12 min for large batches
-      let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
-      const resetInactivity = () => {
-        if (inactivityTimer) clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(() => ctrl.abort("timeout"), INACTIVITY_MS);
-      };
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      let receivedDone = false;
-
-      resetInactivity();
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          resetInactivity();
-          buf += decoder.decode(value, { stream: true });
-          const lines = buf.split("\n");
-          buf = lines.pop() ?? "";
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            try {
-              const evt = JSON.parse(line.slice(6));
-              // Remap 0-100% from server to 30-100% in UI (0-30% was upload)
-              const pct = evt.percent !== undefined ? 30 + Math.round(evt.percent * 0.7) : undefined;
-              if (pct !== undefined) setProgress(pct);
-              if (evt.msg) setProgressMsg(evt.msg);
-              // Keep global store in sync
-              if (pct !== undefined || evt.msg) {
-                setJob({ id: jobId, type: "video", channel: "simple", progress: pct ?? 0, msg: evt.msg ?? "", status: "running" });
-              }
-              if (evt.fileReady) {
-                addCompletedFile(jobId, evt.fileReady);
-              }
-              if (evt.error) {
-                const code = evt.code || "VID-004";
-                const errMsg = `[${code}] ${evt.msg || "Erreur FFmpeg"}`;
-                setErrorMsg(errMsg);
-                setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
-                setProcessing(false);
-                return;
-              }
-              if (evt.done) {
-                receivedDone = true;
-                if (evt.warning) {
-                  setErrorMsg(evt.warning);
-                  setJob({ id: jobId, type: "video", channel: "simple", progress: 100, msg: evt.warning, status: "done" });
-                } else {
-                  setJob({ id: jobId, type: "video", channel: "simple", progress: 100, msg: "Terminé", status: "done" });
-                }
-                // Auto-dismiss after 6 s so the badge doesn't linger forever
-                setTimeout(() => removeJob(jobId), 6000);
-                router.refresh(); // re-fetch server component → VideoFilesClient gets new initialFiles
-                return;
-              }
-            } catch {}
-          }
+      sseLoop: while (true) {
+        if (sseAttempt > 0) {
+          const delay = sseAttempt * 3000; // 3 s → 6 s → 9 s
+          const reconnMsg = `Reconnexion (${sseAttempt}/${MAX_SSE_RETRIES})…`;
+          setProgressMsg(reconnMsg);
+          setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: reconnMsg, status: "running" });
+          await new Promise(r => setTimeout(r, delay));
+          if (ctrl.signal.aborted) throw new DOMException("Aborted", "AbortError");
         }
-      } finally {
-        if (inactivityTimer) clearTimeout(inactivityTimer);
-      }
 
-      // Stream closed without a done event — function timed out or crashed.
-      if (!receivedDone) {
-        const errMsg = "[CLT-004] Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.";
-        setErrorMsg(errMsg);
-        setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
+        let sseError: unknown = null;
+
+        try {
+          const res = await fetch("/api/duplicate-video", {
+            method: "POST",
+            body: apiForm,
+            signal: ctrl.signal,
+          });
+
+          if (!res.ok || !res.body) {
+            const text = await res.text().catch(() => "");
+            let msg = `HTTP ${res.status}`;
+            let code = res.status >= 500 ? "VID-002" : "VID-001";
+            try { const j = JSON.parse(text); msg = j?.error || msg; code = j?.code || code; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
+            const errMsg = `[${code}] ${msg}`;
+            setErrorMsg(errMsg);
+            setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
+            setProcessing(false);
+            return;
+          }
+
+          // Read Server-Sent Events stream.
+          // An inactivity watchdog aborts the fetch if no chunk arrives for 12 min.
+          const INACTIVITY_MS = 12 * 60 * 1000;
+          let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+          const resetInactivity = () => {
+            if (inactivityTimer) clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(() => ctrl.abort("timeout"), INACTIVITY_MS);
+          };
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = "";
+          let receivedDone = false;
+
+          resetInactivity();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              resetInactivity();
+              buf += decoder.decode(value, { stream: true });
+              const lines = buf.split("\n");
+              buf = lines.pop() ?? "";
+              for (const line of lines) {
+                if (!line.startsWith("data: ")) continue;
+                try {
+                  const evt = JSON.parse(line.slice(6));
+                  // Remap 0-100% from server to 30-100% in UI (0-30% was upload)
+                  const pct = evt.percent !== undefined ? 30 + Math.round(evt.percent * 0.7) : undefined;
+                  if (pct !== undefined) setProgress(pct);
+                  if (evt.msg) setProgressMsg(evt.msg);
+                  if (pct !== undefined || evt.msg) {
+                    setJob({ id: jobId, type: "video", channel: "simple", progress: pct ?? 0, msg: evt.msg ?? "", status: "running" });
+                  }
+                  if (evt.fileReady) {
+                    addCompletedFile(jobId, evt.fileReady);
+                  }
+                  if (evt.error) {
+                    const code = evt.code || "VID-004";
+                    const errMsg = `[${code}] ${evt.msg || "Erreur FFmpeg"}`;
+                    setErrorMsg(errMsg);
+                    setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
+                    setProcessing(false);
+                    return;
+                  }
+                  if (evt.done) {
+                    receivedDone = true;
+                    if (evt.warning) {
+                      setErrorMsg(evt.warning);
+                      setJob({ id: jobId, type: "video", channel: "simple", progress: 100, msg: evt.warning, status: "done" });
+                    } else {
+                      setJob({ id: jobId, type: "video", channel: "simple", progress: 100, msg: "Terminé", status: "done" });
+                    }
+                    setTimeout(() => removeJob(jobId), 6000);
+                    router.refresh();
+                    return;
+                  }
+                } catch {}
+              }
+            }
+          } finally {
+            if (inactivityTimer) clearTimeout(inactivityTimer);
+          }
+
+          if (receivedDone) break sseLoop;
+          // Stream closed without done event — treat as recoverable network drop
+          sseError = new Error("stream_closed_no_done");
+
+        } catch (err: any) {
+          if (err?.name === "AbortError") throw err; // stop/timeout/navigation — never retry
+          sseError = err;
+        }
+
+        sseAttempt++;
+        if (sseAttempt > MAX_SSE_RETRIES) {
+          if ((sseError as Error)?.message === "stream_closed_no_done") {
+            const errMsg = "[CLT-004] Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.";
+            setErrorMsg(errMsg);
+            setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
+          } else {
+            throw sseError; // exhausted retries → outer catch → CLT-005
+          }
+          break sseLoop;
+        }
+        // else: loop again after backoff delay
       }
     } catch (err: any) {
       if (err?.name === "AbortError") {
