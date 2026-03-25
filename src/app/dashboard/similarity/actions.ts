@@ -540,9 +540,9 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   // luma          7% — luminance histogram 64-bin (brightness/contrast/gamma)
   // metadata     15% — file metadata (EXIF, ICC, format, size, DPI) — added at file level
   const score =
-    ssim * 0.13 + mse * 0.11 + chroma * 0.10 +
-    gradient * 0.10 + proj * 0.09 + spatial * 0.09 +
-    ch * 0.08 + colorMom * 0.08 + luma * 0.07;
+    ssim * 0.15 + mse * 0.13 + chroma * 0.05 +
+    gradient * 0.05 + proj * 0.11 + spatial * 0.10 +
+    ch * 0.09 + colorMom * 0.09 + luma * 0.08;
 
   return {
     score,

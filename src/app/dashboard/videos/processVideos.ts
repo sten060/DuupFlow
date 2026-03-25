@@ -404,7 +404,7 @@ async function runFFmpegSafe(
       "-c:v", "libx264",
       "-preset", "ultrafast",     // ultrafast: prioritise encoding speed (3–5× faster than fast)
       "-threads", String(threads), // caller allocates threads based on os.cpus()
-      "-crf", "23",               // CRF 23: good visual quality with faster encode
+      "-crf", "18",               // CRF 18: high visual quality, same speed with ultrafast preset
       "-pix_fmt", "yuv420p",
       "-c:a", "aac",
       "-b:a", "192k",
@@ -587,7 +587,7 @@ export async function processVideos(
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
           // Luma-only temporal noise — changes every pixel every frame → unique hash
           // Increased range 4–8 for stronger pixel-level uniqueness
-          const ns = 4 + Math.floor(Math.random() * 5);  // 4–8 luma
+          const ns = 2 + Math.floor(Math.random() * 3);  // 2–4 luma
           vfParts.push(`noise=c0s=${ns}:c0f=t`);
         }
 
@@ -679,15 +679,24 @@ export async function processVideos(
           vfParts.push(`pad=iw*(1+${padLeft}+${padRight}):ih*(1+${padTop}+${padBottom}):iw*${padLeft}:ih*${padTop}:color=black`);
         }
 
+        if (packs.includes("metadata")) {
+          // Encoding-level binary uniquifiers — change DCT tables, GOP structure, audio
+          // sample rate; invisible to the viewer but alter every byte of the bitstream.
+          // Applied even when no visual pack is active (forces re-encode with metadata).
+          extraArgs.push("-bf", String(Math.floor(Math.random() * 4)));              // 0–3 B-frames
+          extraArgs.push("-ar", Math.random() < 0.5 ? "44100" : "48000");            // audio sample rate
+          extraArgs.push("-g", String(200 + Math.floor(Math.random() * 100)));       // GOP 200–299
+        }
+
         // ── Non-visual uniquifiers applied whenever re-encoding is already triggered ──
         if (vfParts.length > 0 || extraArgs.length > 0) {
-          // Per-copy CRF variation (17–23, random per copy)
+          // Per-copy CRF variation (15–20, random per copy)
           //    Different DCT quantization table → different rounding of each DCT
           //    coefficient → different decoded pixel values after playback decode.
-          //    All values (17–23) are perceptually transparent. Zero time impact.
+          //    All values (15–20) are perceptually transparent. Zero time impact.
           //    Not applied when technical pack already sets its own CRF range.
           if (!packs.includes("technical")) {
-            extraArgs.push("-crf", String(17 + Math.floor(Math.random() * 7)));
+            extraArgs.push("-crf", String(15 + Math.floor(Math.random() * 6)));
           }
         }
 
