@@ -195,28 +195,62 @@ const VIDEO_HUMAN_NAMES = [
   "Lucas Bernard", "Camille Thomas", "Noah Petit", "Léa Moreau",
   "Antoine Durand", "Manon Lefebvre", "Théo Garnier", "Inès Fontaine",
   "Baptiste Morin", "Clara Rousseau", "Maxime Girard", "Julie Chevalier",
+  "Romain Perrin", "Lucie Bertrand", "Hugo Marchand", "Elisa Dupont",
+  "Nathan Aubert", "Chloé Vidal", "Arthur Lemoine", "Pauline Guerin",
+  "Samuel Roux", "Anaïs Collin", "Victor Legrand", "Justine Arnaud",
+  "Tom Bourgeois", "Sarah Picard", "Mathieu Cordier", "Laura Benoit",
 ];
 const VIDEO_ENCODERS = [
-  "HandBrake 1.8.0", "DaVinci Resolve 19.1", "Adobe Premiere Pro 24.6",
-  "Final Cut Pro 11.6", "CapCut Desktop 3.2", "iMovie 14.0",
-  "Kdenlive 23.08", "Vegas Pro 22", "Shotcut 23.11", "Resolve 18.6",
+  "HandBrake 1.8.0", "HandBrake 1.7.3", "HandBrake 1.6.1",
+  "DaVinci Resolve 19.1", "DaVinci Resolve 18.6", "DaVinci Resolve 17.4",
+  "Adobe Premiere Pro 24.6", "Adobe Premiere Pro 23.5", "Adobe Premiere Pro 22.3",
+  "Final Cut Pro 11.6", "Final Cut Pro 10.8", "Final Cut Pro 10.7",
+  "CapCut Desktop 3.2", "CapCut Desktop 2.9", "iMovie 14.0", "iMovie 13.1",
+  "Kdenlive 23.08", "Kdenlive 22.12", "Vegas Pro 22", "Vegas Pro 21",
+  "Shotcut 23.11", "Shotcut 22.09", "Resolve 18.6", "Claquette 1.4",
+  "OpenShot 3.1", "Lightworks 2023.1", "Filmora 13.0", "PowerDirector 22",
 ];
 const VIDEO_COMMENTS = [
-  "Export final", "Client review", "Draft v2", "Social media cut",
+  "Export final", "Client review", "Draft v2", "Draft v3", "Social media cut",
   "Archive copy", "Timeline export", "Delivery package", "Version approuvée",
   "Montage court", "Réseaux sociaux", "Post-production", "Rendu final",
+  "Version HD", "Review cut", "Web export", "Mobile cut", "Broadcast master",
+  "Press copy", "Internal review", "Rough cut", "Fine cut", "Final delivery",
+  "Approved version", "Quick edit", "Story cut", "Highlight reel",
 ];
 const VIDEO_TITLES = [
   "Untitled Project", "My Video", "New Clip", "Export", "Final Cut",
   "Project Export", "Video Draft", "Timeline Export", "Master",
+  "Clip HD", "Export HD", "Version finale", "Projet vidéo", "Brouillon",
+  "Sequence 01", "Scene 01", "Rushes", "Montage", "Cut final",
+  "Footage", "Story", "Reel", "Promo", "Teaser", "Highlights",
 ];
 const VIDEO_GENRES = [
   "Documentary", "Short Film", "Vlog", "Tutorial", "Promotional",
   "Personal", "Entertainment", "Educational", "Social",
+  "Commercial", "Corporate", "Lifestyle", "Travel", "Music Video",
+  "Sports", "Fashion", "Food", "News", "Comedy", "Drama",
 ];
 const VIDEO_SERVICE_NAMES = [
   "Personal Device", "Mobile Upload", "Desktop Export", "Cloud Backup",
+  "Social Export", "Online Delivery", "Archive Service", "Media Server",
+  "Home Studio", "Field Recorder", "Capture Card", "Screen Recorder",
 ];
+const VIDEO_LOCATIONS = [
+  "Paris, France", "Lyon, France", "Marseille, France", "Bordeaux, France",
+  "Toulouse, France", "Nantes, France", "Lille, France", "Strasbourg, France",
+  "London, UK", "Berlin, Germany", "Madrid, Spain", "Brussels, Belgium",
+  "Montreal, Canada", "Geneva, Switzerland", "Amsterdam, Netherlands",
+];
+const VIDEO_BRANDS = ["isom", "mp42", "mp41", "avc1", "iso2"];
+const VIDEO_COMPAT_BRANDS: Record<string, string> = {
+  isom: "isomiso2avc1mp41",
+  mp42: "mp42isomavc1",
+  mp41: "mp41isomiso2avc1",
+  avc1: "avc1isomavc1mp41",
+  iso2: "iso2avc1mp41",
+};
+const VIDEO_LANGUAGES = ["und", "fra", "eng", "deu", "spa", "ita", "por", "nld"];
 function randMetaHex(n = 8): string {
   let s = "";
   for (let i = 0; i < n; i++) s += Math.floor(Math.random() * 16).toString(16);
@@ -224,35 +258,59 @@ function randMetaHex(n = 8): string {
 }
 function getVideoMetadataArgs(): string[] {
   const artist = pickRandom(VIDEO_HUMAN_NAMES);
+  const composer = pickRandom(VIDEO_HUMAN_NAMES);
   const encoder = pickRandom(VIDEO_ENCODERS);
   const comment = pickRandom(VIDEO_COMMENTS);
   const title = pickRandom(VIDEO_TITLES);
   const genre = pickRandom(VIDEO_GENRES);
   const service = pickRandom(VIDEO_SERVICE_NAMES);
+  const location = pickRandom(VIDEO_LOCATIONS);
+  const lang = pickRandom(VIDEO_LANGUAGES);
+  const brand = pickRandom(VIDEO_BRANDS);
+  const compatBrands = VIDEO_COMPAT_BRANDS[brand];
+  const minorVersion = pickRandom([512, 0, 1, 2]);
   const uid = `${randMetaHex(8)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(12)}`;
+  const sessionId = randMetaHex(16);
   const daysAgo = Math.floor(Math.random() * 365);
   const hoursAgo = Math.floor(Math.random() * 24);
   const minsAgo = Math.floor(Math.random() * 60);
   const creationDate = new Date(Date.now() - daysAgo * 86400000 - hoursAgo * 3600000 - minsAgo * 60000);
   const isoDate = creationDate.toISOString().slice(0, 19) + "Z";
+  const year = creationDate.getFullYear();
+  const trackNum = 1 + Math.floor(Math.random() * 99);
   return [
     "-map_metadata", "-1",
     "-metadata", `title=${title}`,
     "-metadata", `artist=${artist}`,
     "-metadata", `author=${artist}`,
+    "-metadata", `composer=${composer}`,
+    "-metadata", `album=${comment}`,
     "-metadata", `encoder=${encoder}`,
     "-metadata", `encoded_by=${encoder}`,
     "-metadata", `creation_time=${isoDate}`,
+    "-metadata", `date=${year}`,
     "-metadata", `comment=${comment}`,
     "-metadata", `description=${comment}`,
-    "-metadata", `copyright=© ${creationDate.getFullYear()} ${artist}`,
+    "-metadata", `synopsis=${comment}`,
+    "-metadata", `copyright=© ${year} ${artist}`,
+    "-metadata", `publisher=${artist}`,
     "-metadata", `genre=${genre}`,
+    "-metadata", `language=${lang}`,
+    "-metadata", `location=${location}`,
     "-metadata", `service_name=${service}`,
     "-metadata", `handler_name=${encoder}`,
-    "-metadata", `major_brand=isom`,
-    "-metadata", `minor_version=512`,
-    "-metadata", `compatible_brands=isomiso2avc1mp41`,
+    "-metadata", `network=${service}`,
+    "-metadata", `episode_sort=${trackNum}`,
+    "-metadata", `track=${trackNum}`,
+    "-metadata", `major_brand=${brand}`,
+    "-metadata", `minor_version=${minorVersion}`,
+    "-metadata", `compatible_brands=${compatBrands}`,
     "-metadata:g", `uid=${uid}`,
+    "-metadata:g", `session_id=${sessionId}`,
+    "-metadata:s:v:0", `language=${lang}`,
+    "-metadata:s:v:0", `handler_name=${encoder}`,
+    "-metadata:s:a:0", `language=${lang}`,
+    "-metadata:s:a:0", `handler_name=${encoder}`,
   ];
 }
 
@@ -519,16 +577,16 @@ export async function processVideos(
           .filter(Boolean);
 
         if (packs.includes("visual")) {
-          // eq — brightness ±3%, contrast ±6%, saturation ±6%, gamma ±4%
-          const b  = clamp(Number((-0.03 + Math.random() * 0.06).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.94 + Math.random() * 0.12).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
-          const st = clamp(Number((0.94 + Math.random() * 0.12).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
-          const gm = clamp(Number((0.96 + Math.random() * 0.08).toFixed(3)),  0.1, 3.0);
+          // eq — brightness ±5%, contrast ±10%, saturation ±10%, gamma ±7%
+          // Plages légèrement élargies pour un fingerprint visuel plus fort
+          const b  = clamp(Number((-0.05 + Math.random() * 0.10).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          const ct = clamp(Number((0.90 + Math.random() * 0.20).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
+          const st = clamp(Number((0.90 + Math.random() * 0.20).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
+          const gm = clamp(Number((0.93 + Math.random() * 0.14).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
-          // hue/unsharp removed: each adds a full filter pass per frame (expensive), eq+noise
-          // already provide sufficient visible and fingerprint variation.
           // Luma-only temporal noise — changes every pixel every frame → unique hash
-          const ns = 2 + Math.floor(Math.random() * 4);  // 2–5 luma
+          // Increased range 4–8 for stronger pixel-level uniqueness
+          const ns = 4 + Math.floor(Math.random() * 5);  // 4–8 luma
           vfParts.push(`noise=c0s=${ns}:c0f=t`);
         }
 
