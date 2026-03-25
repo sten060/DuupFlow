@@ -12,6 +12,25 @@ const OUTPUT_BUCKET = "video-outputs";
 
 export const maxDuration = 300;
 
+const SSE_HEADERS = {
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache, no-transform",
+  "Connection": "keep-alive",
+  "X-Accel-Buffering": "no",
+};
+
+// ── Server-side job registry ────────────────────────────────────────────────
+// Module-level singleton: survives across requests in the same Railway process.
+// When a client's SSE connection drops and reconnects with the same jobId,
+// we replay buffered events + forward live ones — NO FFmpeg restart, NO temp
+// file re-read, NO duplicate output files.
+type JobEntry = {
+  events: object[];   // all SSE data events buffered (keepalives excluded)
+  done: boolean;
+  tmpPaths: string[]; // source temp files — only deleted once job.done = true
+};
+const jobRegistry = new Map<string, JobEntry>();
+
 export async function POST(req: Request) {
   void cleanupOldFiles(2 * 60 * 60 * 1000);
 
@@ -24,8 +43,43 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg, code: "VID-001" }, { status: 400 });
   }
 
-  // ── Usage check (Solo plan limits) ────────────────────────────────────────
-  // Count the number of videos requested (each storagePath = 1 video)
+  const jobId = (formData.get("jobId") as string | null) || null;
+  const encoder = new TextEncoder();
+
+  // ── Reconnect path ────────────────────────────────────────────────────────
+  // Client re-POSTed after a transient network drop with the same jobId.
+  // The original processing continues uninterrupted on Railway.
+  // We just replay buffered events + forward live events to the new SSE stream.
+  if (jobId && jobRegistry.has(jobId)) {
+    const job = jobRegistry.get(jobId)!;
+
+    return new Response(
+      new ReadableStream({
+        async start(controller) {
+          let i = 0;
+          const fwd = (data: object) => {
+            try {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+            } catch {}
+          };
+
+          // Replay all past events, then poll for new ones until job completes
+          while (true) {
+            while (i < job.events.length) fwd(job.events[i++]);
+            if (job.done) break;
+            await new Promise(r => setTimeout(r, 50));
+          }
+          // Flush any final events emitted between last poll and done = true
+          while (i < job.events.length) fwd(job.events[i++]);
+
+          try { controller.close(); } catch {}
+        },
+      }),
+      { headers: SSE_HEADERS }
+    );
+  }
+
+  // ── New job path ──────────────────────────────────────────────────────────
   const storagePaths = formData.getAll("storagePaths") as string[];
   const requestedCount = Math.max(1, storagePaths.length || 1);
 
@@ -43,7 +97,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // Resolve user context while request cookies are still available
   let dir: string;
   let userId: string;
   try {
@@ -54,25 +107,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg, code: "VID-002" }, { status: 500 });
   }
 
-  const fileNames    = formData.getAll("fileNames")    as string[];
+  const fileNames       = formData.getAll("fileNames")       as string[];
   const directUploadIds = formData.getAll("directUploadIds") as string[];
-  const hasStoragePaths = storagePaths.length > 0;
+  const hasStoragePaths  = storagePaths.length > 0;
   const hasDirectUploads = directUploadIds.length > 0;
 
-  const encoder = new TextEncoder();
-  const tmpFilesToClean: string[] = [];
-
-  // Track whether generation was successful so we can increment usage
   const usageUserId = usageCheck.userId;
+
+  // Register job — reconnects will find it here
+  const jobEntry: JobEntry = { events: [], done: false, tmpPaths: [] };
+  if (jobId) jobRegistry.set(jobId, jobEntry);
 
   const stream = new ReadableStream({
     async start(controller) {
       const send = (data: object) => {
+        // Buffer every data event for reconnect replay
+        jobEntry.events.push(data);
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
         } catch {}
       };
 
+      // Keepalives keep the TCP connection alive but are NOT buffered —
+      // a reconnect client doesn't need to replay them.
       const keepalive = setInterval(() => {
         try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch {}
       }, 20_000);
@@ -85,11 +142,9 @@ export async function POST(req: Request) {
         let preDownloadedFiles: PreDownloaded[] | undefined;
 
         if (hasDirectUploads) {
-          // Files were already uploaded directly to /tmp via /api/upload-direct
           errorCode = "VID-003";
           const VALID_PREFIX = path.join(os.tmpdir(), "duup_direct_");
           preDownloadedFiles = directUploadIds.map((uploadId, i) => {
-            // Validate ID to prevent path traversal: must start with expected prefix after join
             if (!/^duup_direct_[\w.-]+$/.test(uploadId)) {
               throw new Error(`ID d'upload invalide : ${uploadId}`);
             }
@@ -97,11 +152,13 @@ export async function POST(req: Request) {
             if (!tmpPath.startsWith(VALID_PREFIX)) {
               throw new Error(`Chemin d'upload invalide`);
             }
-            tmpFilesToClean.push(tmpPath);
+            // Track in jobEntry.tmpPaths — deleted only when job.done = true
+            jobEntry.tmpPaths.push(tmpPath);
             const name = fileNames[i] ?? uploadId;
             return { name, tmpPath };
           });
           send({ percent: 5, msg: "Fichiers reçus, traitement en cours…" });
+
         } else if (hasStoragePaths) {
           errorCode = "VID-003";
           const supabase = createAdminClient();
@@ -111,21 +168,15 @@ export async function POST(req: Request) {
           let doneDl = 0;
           await Promise.all(storagePaths.map(async (storagePath, i) => {
             const fileName = fileNames[i] ?? path.basename(storagePath);
-
-            const { data, error } = await supabase.storage
-              .from(INPUT_BUCKET)
-              .download(storagePath);
-
+            const { data, error } = await supabase.storage.from(INPUT_BUCKET).download(storagePath);
             if (error || !data) {
               throw new Error(`Récupération storage échouée : ${error?.message ?? "inconnu"}`);
             }
-
             const ext     = path.extname(fileName) || ".mp4";
             const tmpPath = path.join(os.tmpdir(), `duup_in_${Date.now()}_${i}${ext}`);
             await fs.writeFile(tmpPath, Buffer.from(await data.arrayBuffer()));
-            tmpFilesToClean.push(tmpPath);
+            jobEntry.tmpPaths.push(tmpPath);
             preDownloadedFiles![i] = { name: fileName, tmpPath };
-
             doneDl++;
             send({ percent: Math.round((doneDl / storagePaths.length) * 8), msg: `Récupération ${doneDl}/${storagePaths.length}…` });
           }));
@@ -140,8 +191,6 @@ export async function POST(req: Request) {
           async (pct, msg) => { send({ percent: 8 + Math.round(pct * 0.91), msg }); },
           dir,
           preDownloadedFiles,
-          // Emit each completed file so the client can show partial results
-          // and the stop button can show already-generated files.
           hasVolume
             ? async (outPath) => {
                 const name = path.basename(outPath);
@@ -177,15 +226,21 @@ export async function POST(req: Request) {
           ? `⚠ ${skippedCount} duplication(s) ont échoué (erreur FFmpeg) — ${outputPaths.length} générée(s) sur ${outputPaths.length + skippedCount} demandée(s). Réessayez pour les vidéos manquantes.`
           : undefined;
         send({ percent: 100, msg: warning ?? "Terminé ✔", done: true, userId, channel, warning });
+
       } catch (e: any) {
         send({ percent: -1, msg: e?.message || "Erreur FFmpeg", error: true, code: errorCode });
       } finally {
         clearInterval(keepalive);
-        for (const p of tmpFilesToClean) {
+        // Mark job done BEFORE deleting temp files so any active reconnect
+        // streams can flush their remaining buffered events first.
+        jobEntry.done = true;
+        // Now safe to delete source temp files
+        for (const p of jobEntry.tmpPaths) {
           await fs.unlink(p).catch(() => {});
         }
+        // Keep entry in registry for 2 min to handle late reconnects gracefully
+        if (jobId) setTimeout(() => jobRegistry.delete(jobId), 120_000);
 
-        // Increment usage after successful generation
         if (generationSucceeded && usageUserId) {
           incrementUsage(usageUserId, "videos", requestedCount).catch(console.error);
         }
@@ -195,12 +250,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      "Connection": "keep-alive",
-      "X-Accel-Buffering": "no",
-    },
-  });
+  return new Response(stream, { headers: SSE_HEADERS });
 }

@@ -289,6 +289,7 @@ export default function VideoFormSimpleClient() {
         }
         for (const id of directUploadIds) apiForm.append("directUploadIds", id);
         for (const f of uploadedFiles) apiForm.append("fileNames", f.name);
+        apiForm.append("jobId", jobId);
       } else {
         // No files or empty — send as-is (fallback / local dev)
         apiForm = rawForm;

@@ -354,6 +354,7 @@ export default function VideoFormAdvancedClient() {
         }
         for (const id of directUploadIds) apiForm.append("directUploadIds", id);
         for (const f of uploadedFiles) apiForm.append("fileNames", f.name);
+        apiForm.append("jobId", jobId);
       } else {
         apiForm = rawForm;
       }
