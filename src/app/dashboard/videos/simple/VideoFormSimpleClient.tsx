@@ -356,7 +356,12 @@ export default function VideoFormSimpleClient() {
               }
               if (evt.done) {
                 receivedDone = true;
-                setJob({ id: jobId, channel: "simple", progress: 100, msg: "Terminé", status: "done" });
+                if (evt.warning) {
+                  setErrorMsg(evt.warning);
+                  setJob({ id: jobId, channel: "simple", progress: 100, msg: evt.warning, status: "done" });
+                } else {
+                  setJob({ id: jobId, channel: "simple", progress: 100, msg: "Terminé", status: "done" });
+                }
                 // Auto-dismiss after 6 s so the badge doesn't linger forever
                 setTimeout(() => removeJob(jobId), 6000);
                 router.refresh(); // re-fetch server component → VideoFilesClient gets new initialFiles

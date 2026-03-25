@@ -134,7 +134,7 @@ export async function POST(req: Request) {
         }
 
         errorCode = "VID-004";
-        const { channel, outputPaths } = await processVideos(
+        const { channel, outputPaths, skippedCount } = await processVideos(
           formData,
           async (pct, msg) => { send({ percent: 8 + Math.round(pct * 0.91), msg }); },
           dir,
@@ -165,7 +165,10 @@ export async function POST(req: Request) {
         }
 
         generationSucceeded = true;
-        send({ percent: 100, msg: "Terminé ✔", done: true, userId, channel });
+        const warning = skippedCount > 0
+          ? `⚠ ${skippedCount} duplication(s) ont échoué (erreur FFmpeg) — ${outputPaths.length} générée(s) sur ${outputPaths.length + skippedCount} demandée(s). Réessayez pour les vidéos manquantes.`
+          : undefined;
+        send({ percent: 100, msg: warning ?? "Terminé ✔", done: true, userId, channel, warning });
       } catch (e: any) {
         send({ percent: -1, msg: e?.message || "Erreur FFmpeg", error: true, code: errorCode });
       } finally {

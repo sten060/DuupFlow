@@ -284,22 +284,27 @@ const LIMITS: Record<string, { min: number; max: number }> = {
 /* ------------------ FFmpeg wrapper ------------------ */
 
 // Run up to `concurrency` async tasks simultaneously.
+// Returns the list of errors from failed tasks (successful tasks still run).
 async function withConcurrency<T>(
   items: T[],
   concurrency: number,
   fn: (item: T) => Promise<void>,
-): Promise<void> {
+): Promise<Error[]> {
   const queue = [...items];
+  const errors: Error[] = [];
   const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
     while (queue.length > 0) {
       try {
         await fn(queue.shift()!);
       } catch (err) {
-        console.error("[withConcurrency] task failed, continuing:", err);
+        const e = err instanceof Error ? err : new Error(String(err));
+        console.error("[withConcurrency] task failed, continuing:", e.message);
+        errors.push(e);
       }
     }
   });
   await Promise.all(workers);
+  return errors;
 }
 
 async function runFFmpegSafe(
@@ -396,7 +401,7 @@ export async function processVideos(
   onProgress?: (pct: number, msg: string) => Promise<void>,
   preResolvedDir?: string,
   preDownloadedFiles?: PreDownloadedFile[]
-): Promise<{ channel: string; outputPaths: string[] }> {
+): Promise<{ channel: string; outputPaths: string[]; skippedCount: number }> {
   const channel = (formData.get("channel") as Channel) ?? "simple";
   const mode = (formData.get("mode") as string) ?? "simple";
   const count = Math.max(1, Number(formData.get("count") || 1));
@@ -478,7 +483,7 @@ export async function processVideos(
     ? Math.max(1, Math.floor(ncpus / CONCURRENCY))
     : 1;
 
-  await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex }) => {
+  const taskErrors = await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex }) => {
     const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
     await onProgress?.(startPct, `Encodage ${doneCopies + 1}/${totalCopies}…`);
 
@@ -514,19 +519,12 @@ export async function processVideos(
           // Hue ±8° — subtle color shift
           const hue = clamp(Number((Math.random() * 16 - 8).toFixed(2)), -30, 30);
           vfParts.push(`hue=h=${hue}`);
-          // Color channel mixing 0.5–2% cross-channel
-          const rr = (0.97 + Math.random() * 0.04).toFixed(3);
-          const gg = (0.97 + Math.random() * 0.04).toFixed(3);
-          const bb = (0.97 + Math.random() * 0.04).toFixed(3);
-          const cx = (0.005 + Math.random() * 0.015).toFixed(3);
-          vfParts.push(`colorchannelmixer=rr=${rr}:rg=${cx}:rb=${cx}:gg=${gg}:gr=${cx}:gb=${cx}:bb=${bb}:bg=${cx}:br=${cx}`);
+          // colorchannelmixer removed: expensive (9 mults/pixel), redundant with eq+hue
           // Unsharp (light sharpening)
           vfParts.push("unsharp=lx=3:ly=3:la=0.25:cx=3:cy=3:ca=0.25");
-          // Luma noise temporal — 2–5 (subtle grain) + chroma noise on Cb/Cr
-          // c1/c2 = Cb/Cr chroma channels: in yuv420p each chroma sample covers 4 luma pixels
-          // → 4 units of chroma noise is completely invisible but changes every color hash
+          // Luma-only temporal noise — chroma noise removed (invisible in yuv420p, costly)
           const ns = 2 + Math.floor(Math.random() * 4);  // 2–5 luma
-          vfParts.push(`noise=c0s=${ns}:c0f=t:c1s=4:c2s=4:c1f=t:c2f=t`);
+          vfParts.push(`noise=c0s=${ns}:c0f=t`);
         }
 
         if (packs.includes("motion")) {
@@ -549,12 +547,8 @@ export async function processVideos(
           vfParts.push(`crop=iw/${zf}:ih/${zf}:x=iw*${offx}:y=ih*${offy}`);
           vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=fast_bilinear`);
 
-          // Lens correction — pincushion distortion (geometric, not visual).
-          // k1 MUST be negative: positive k1 maps edge pixels outside source bounds,
-          // causing FFmpeg to fill them with undefined values encoded as bright green.
-          // With k1 < 0, all output pixels map to valid source coordinates (r_src < r_dest).
-          const k1 = -(0.05 + Math.random() * 0.07); // -0.05 to -0.12 (always negative)
-          vfParts.push(`lenscorrection=k1=${k1.toFixed(5)}:k2=${(-k1 / 2).toFixed(5)}`);
+          // lenscorrection removed: most expensive filter (~50% of encode time), geometric
+          // remapping recalculates every pixel with bilinear interpolation per frame.
 
           // Speed ±1–3% — invisible to the viewer, sufficient to shift the file fingerprint
           const side = Math.random() > 0.5 ? 1 : -1;
@@ -623,6 +617,12 @@ export async function processVideos(
 
         // ── Non-visual uniquifiers applied whenever re-encoding is already triggered ──
         if (vfParts.length > 0 || extraArgs.length > 0) {
+          // Prepend a 1080p cap so all subsequent filters process ≤1920×1080 pixels.
+          // 4K input (3840×2160) → 1920×1080: 4× fewer pixels = ~4× faster filtering.
+          // Already-1080p videos: scale is a no-op (force_original_aspect_ratio=decrease
+          // never upscales). fast_bilinear ensures the downscale itself is instant.
+          vfParts.unshift("scale=1920:1080:force_original_aspect_ratio=decrease:flags=fast_bilinear");
+
           // Per-copy CRF variation (17–23, random per copy)
           //    Different DCT quantization table → different rounding of each DCT
           //    coefficient → different decoded pixel values after playback decode.
@@ -805,5 +805,5 @@ export async function processVideos(
     if (ownsTmpIn) await fs.unlink(tmpIn).catch(() => {});
   }
 
-  return { channel, outputPaths };
+  return { channel, outputPaths, skippedCount: taskErrors.length };
 }

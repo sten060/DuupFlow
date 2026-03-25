@@ -414,7 +414,12 @@ export default function VideoFormAdvancedClient() {
               }
               if (evt.done) {
                 receivedDone = true;
-                setJob({ id: jobId, channel: "advanced", progress: 100, msg: "Terminé", status: "done" });
+                if (evt.warning) {
+                  setSubmitError(evt.warning);
+                  setJob({ id: jobId, channel: "advanced", progress: 100, msg: evt.warning, status: "done" });
+                } else {
+                  setJob({ id: jobId, channel: "advanced", progress: 100, msg: "Terminé", status: "done" });
+                }
                 setTimeout(() => removeJob(jobId), 6000);
                 router.refresh(); // re-fetch server component → file list updates instantly
                 return;
