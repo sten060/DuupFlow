@@ -277,7 +277,11 @@ async function withConcurrency<T>(
   const queue = [...items];
   const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
     while (queue.length > 0) {
-      await fn(queue.shift()!);
+      try {
+        await fn(queue.shift()!);
+      } catch (err) {
+        console.error("[withConcurrency] task failed, continuing:", err);
+      }
     }
   });
   await Promise.all(workers);
@@ -469,8 +473,8 @@ export async function processVideos(
           .filter(Boolean);
 
         if (packs.includes("visual")) {
-          // eq — brightness ±6%, contrast ±6%, saturation ±6%, gamma ±4%
-          const b  = clamp(Number((-0.06 + Math.random() * 0.12).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          // eq — brightness ±3%, contrast ±6%, saturation ±6%, gamma ±4%
+          const b  = clamp(Number((-0.03 + Math.random() * 0.06).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
           const ct = clamp(Number((0.94 + Math.random() * 0.12).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
           const st = clamp(Number((0.94 + Math.random() * 0.12).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
           const gm = clamp(Number((0.96 + Math.random() * 0.08).toFixed(3)),  0.1, 3.0);
@@ -485,7 +489,7 @@ export async function processVideos(
           const cx = (0.005 + Math.random() * 0.015).toFixed(3);
           vfParts.push(`colorchannelmixer=rr=${rr}:rg=${cx}:rb=${cx}:gg=${gg}:gr=${cx}:gb=${cx}:bb=${bb}:bg=${cx}:br=${cx}`);
           // Unsharp (light sharpening)
-          vfParts.push("unsharp=lx=3:ly=3:la=0.4:cx=3:cy=3:ca=0.4");
+          vfParts.push("unsharp=lx=3:ly=3:la=0.25:cx=3:cy=3:ca=0.25");
           // Luma noise temporal — 2–5 (subtle grain) + chroma noise on Cb/Cr
           // c1/c2 = Cb/Cr chroma channels: in yuv420p each chroma sample covers 4 luma pixels
           // → 4 units of chroma noise is completely invisible but changes every color hash
@@ -589,25 +593,8 @@ export async function processVideos(
         }
 
         // ── Non-visual uniquifiers applied whenever re-encoding is already triggered ──
-        // These add zero perceptible quality change but make each copy's digital
-        // fingerprint completely different — detectable by every comparator metric.
         if (vfParts.length > 0 || extraArgs.length > 0) {
-          // 1. Micro spatial pixel shift (1–4px, random direction per copy)
-          //    Each copy has unique pixel offsets → pHash/dHash/MSE all change.
-          //    crop removes N pixels from one side; pad restores original dimensions.
-          //    At 1080p/4K: 1–4px shift is imperceptible (< 0.4% of frame width).
-          const px = 1 + Math.floor(Math.random() * 4);  // 1–4 horizontal
-          const py = 1 + Math.floor(Math.random() * 4);  // 1–4 vertical
-          const fromLeft = Math.random() > 0.5;           // shift direction X
-          const fromTop  = Math.random() > 0.5;           // shift direction Y
-          const cx = fromLeft ? px : 0;
-          const cy = fromTop  ? py : 0;
-          vfParts.push(
-            `crop=iw-${px}:ih-${py}:${cx}:${cy},` +
-            `pad=iw+${px}:ih+${py}:${px - cx}:${py - cy}:color=black`
-          );
-
-          // 2. Per-copy CRF variation (17–23, random per copy)
+          // Per-copy CRF variation (17–23, random per copy)
           //    Different DCT quantization table → different rounding of each DCT
           //    coefficient → different decoded pixel values after playback decode.
           //    All values (17–23) are perceptually transparent. Zero time impact.
