@@ -446,11 +446,16 @@ export async function processVideos(
     })
   );
 
-  // ── Server-side duration guard (50 s max) ────────────────────────────────
+  // ── Server-side duration guard (50 s max) — probes run in parallel ──────
   const MAX_DURATION_S = 50;
+  const durResults = await Promise.all(
+    fileEntries.map(async (entry) => ({
+      entry,
+      dur: await probeVideoDuration(entry.tmpIn, ffmpegBin),
+    }))
+  );
   const validEntries: typeof fileEntries = [];
-  for (const entry of fileEntries) {
-    const dur = await probeVideoDuration(entry.tmpIn, ffmpegBin);
+  for (const { entry, dur } of durResults) {
     if (dur > MAX_DURATION_S) {
       await onProgress?.(2, `⚠ "${entry.fileName}" dépasse ${MAX_DURATION_S}s (${Math.round(dur)}s) — ignorée.`);
       if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
@@ -473,13 +478,19 @@ export async function processVideos(
   );
 
   // ── CPU-aware concurrency ────────────────────────────────────────────────
-  // Run one FFmpeg process per available vCPU — no artificial cap.
-  // Railway Hobby = 8 vCPU → 8 parallel encodes.
-  // Railway Pro   = 24 vCPU → 24 parallel encodes (~3× faster for large batches).
-  // Each process uses 1 thread so total CPU usage = ncpus (no oversubscription).
+  // IMPORTANT: os.cpus() on Railway returns the HOST machine's CPU count (e.g.
+  // 32 or 64), NOT the container's allocated vCPU. Spawning that many FFmpeg
+  // processes on 8 allocated vCPU causes each to run at 1/8 speed + OOM risk.
+  // Fix: hard cap via env var MAX_CONCURRENT_ENCODES (default 8 for Railway
+  // Hobby/Pro 8-vCPU; set to 24 if you upgrade to 24-vCPU replica).
   const ncpus = Math.max(1, os.cpus().length);
-  const CONCURRENCY = Math.min(allTasks.length, ncpus);
-  const threadsPerTask = 1; // 1 thread per process = ncpus total, no contention
+  const MAX_CONCURRENT = Math.min(
+    ncpus,
+    parseInt(process.env.MAX_CONCURRENT_ENCODES ?? "8", 10),
+  );
+  const CONCURRENCY = Math.min(allTasks.length, MAX_CONCURRENT);
+  const threadsPerTask = 1;
+  console.log(`[processVideos] ncpus=${ncpus} MAX_CONCURRENT=${MAX_CONCURRENT} CONCURRENCY=${CONCURRENCY} tasks=${allTasks.length}`);
 
   const taskErrors = await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex }) => {
     const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
@@ -514,13 +525,9 @@ export async function processVideos(
           const st = clamp(Number((0.94 + Math.random() * 0.12).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
           const gm = clamp(Number((0.96 + Math.random() * 0.08).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
-          // Hue ±8° — subtle color shift
-          const hue = clamp(Number((Math.random() * 16 - 8).toFixed(2)), -30, 30);
-          vfParts.push(`hue=h=${hue}`);
-          // colorchannelmixer removed: expensive (9 mults/pixel), redundant with eq+hue
-          // Unsharp (light sharpening)
-          vfParts.push("unsharp=lx=3:ly=3:la=0.25:cx=3:cy=3:ca=0.25");
-          // Luma-only temporal noise — chroma noise removed (invisible in yuv420p, costly)
+          // hue/unsharp removed: each adds a full filter pass per frame (expensive), eq+noise
+          // already provide sufficient visible and fingerprint variation.
+          // Luma-only temporal noise — changes every pixel every frame → unique hash
           const ns = 2 + Math.floor(Math.random() * 4);  // 2–5 luma
           vfParts.push(`noise=c0s=${ns}:c0f=t`);
         }
@@ -615,12 +622,6 @@ export async function processVideos(
 
         // ── Non-visual uniquifiers applied whenever re-encoding is already triggered ──
         if (vfParts.length > 0 || extraArgs.length > 0) {
-          // Prepend a 1080p cap so all subsequent filters process ≤1920×1080 pixels.
-          // 4K input (3840×2160) → 1920×1080: 4× fewer pixels = ~4× faster filtering.
-          // Already-1080p videos: scale is a no-op (force_original_aspect_ratio=decrease
-          // never upscales). fast_bilinear ensures the downscale itself is instant.
-          vfParts.unshift("scale=1920:1080:force_original_aspect_ratio=decrease:flags=fast_bilinear");
-
           // Per-copy CRF variation (17–23, random per copy)
           //    Different DCT quantization table → different rounding of each DCT
           //    coefficient → different decoded pixel values after playback decode.
