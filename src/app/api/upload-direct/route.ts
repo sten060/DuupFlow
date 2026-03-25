@@ -1,8 +1,6 @@
 import os from "os";
+import fs from "fs/promises";
 import path from "path";
-import { createWriteStream } from "fs";
-import { pipeline } from "stream/promises";
-import { Readable } from "stream";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -31,10 +29,11 @@ export async function POST(req: NextRequest) {
   const tmpPath = path.join(os.tmpdir(), uploadId);
 
   try {
-    await pipeline(
-      Readable.fromWeb(req.body as any),
-      createWriteStream(tmpPath),
-    );
+    // Use arrayBuffer() instead of Readable.fromWeb() — avoids the Node.js
+    // TransformStream bug (controller[kState].transformAlgorithm is not a function)
+    // that crashes under concurrent parallel uploads.
+    const buffer = Buffer.from(await req.arrayBuffer());
+    await fs.writeFile(tmpPath, buffer);
   } catch (e: any) {
     return NextResponse.json({ error: `Erreur écriture : ${e.message}` }, { status: 500 });
   }
