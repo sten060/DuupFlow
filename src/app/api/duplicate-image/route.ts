@@ -84,21 +84,19 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    // ── 1. HSL global — très subtil, imperceptible à l'œil mais détectable par les métriques
-    // Brightness ±1% max pour éviter l'effet "éclairci/assombri" visible
+    // ── 1. Ajustements micro — imperceptibles à l'œil, détectables par les métriques pixel
+    // Règle : chaque effet pris seul doit être invisible. Le zoom ci-dessous suffit pour les hash.
+    // Brightness : ±0.3% max — évite tout effet "éclairci/assombri" même cumulé
     const bDir = Math.random() < 0.5 ? -1 : 1;
-    const brightness = 1.0 + bDir * (0.005 + Math.random() * 0.008);  // ±0.5–1.3%
-    // Saturation légère — change les métriques chroma sans altérer les couleurs perceptiblement
+    const brightness = 1.0 + bDir * Math.random() * 0.003;  // ±0–0.3%
+    // Saturation : ±0.5% max — la modulation est multiplicative, +3% sur rouge vif → rose fluo
     const sDir = Math.random() < 0.5 ? -1 : 1;
-    const saturation = 1.0 + sDir * (0.01 + Math.random() * 0.02);    // ±1–3%
-    // Gamma très proche de 1.0 — évite tout effet de luminosité global visible
-    const gammaFinal = 1.0 + Math.random() * 0.015;                    // 1.00–1.015
-    // Hue minime — légère rotation de teinte imperceptible
-    const hue = (Math.random() < 0.5 ? -1 : 1) * Math.floor(Math.random() * 2); // 0 ou ±1°
-    img = img.modulate({ brightness, saturation, hue }).gamma(gammaFinal);
-    // Contraste très léger
+    const saturation = 1.0 + sDir * Math.random() * 0.005;  // ±0–0.5%
+    // Pas de gamma (amplifie brightness), pas de hue (visible sur les couleurs saturées)
+    img = img.modulate({ brightness, saturation });
+    // Contraste micro ±0.5%
     const cDir = Math.random() < 0.5 ? -1 : 1;
-    const contrast = 1.0 + cDir * (0.01 + Math.random() * 0.015);     // ±1–2.5%
+    const contrast = 1.0 + cDir * Math.random() * 0.005;    // ±0–0.5%
     img = img.linear(contrast, 0);
 
     // ── 3. Gradient de luminosité directionnel → SSIM (terme luminance locale par bloc 8×8)
@@ -111,7 +109,7 @@ async function processImage(
     const gradAngle = Math.random() * Math.PI * 2;
     const gradDx = Math.cos(gradAngle);
     const gradDy = Math.sin(gradAngle);
-    const gradAmp = 0.005 + Math.random() * 0.008;  // 0.5–1.3% de variation lumineuse
+    const gradAmp = Math.random() * 0.004;  // 0–0.4% de variation lumineuse
     for (let gy = 0; gy < gSize; gy++) {
       for (let gx = 0; gx < gSize; gx++) {
         const nx = (gx / (gSize - 1)) * 2 - 1; // -1 à +1
