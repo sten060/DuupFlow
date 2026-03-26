@@ -86,32 +86,30 @@ async function processImage(
 
   if (flags.visuals) {
     // ── 1. Per-channel linear asymétrique → Moments couleurs + Chroma + RGB
-    // Décalages garantis non-nuls : chaque canal s'éloigne d'au moins ±3-8 niveaux
-    const rB = (Math.random() < 0.5 ? -1 : 1) * (3 + Math.floor(Math.random() * 8));  // ±3–10
-    const gB = (Math.random() < 0.5 ? -1 : 1) * (3 + Math.floor(Math.random() * 7));  // ±3–9
-    const bB = (Math.random() < 0.5 ? -1 : 1) * (4 + Math.floor(Math.random() * 9));  // ±4–12
-    // Multiplicateurs : canaux opposés pour maximiser le delta inter-canal
-    const rA = rB > 0 ? (1.02 + Math.random() * 0.04) : (0.94 + Math.random() * 0.04); // 1.02–1.06 ou 0.94–0.98
-    const gA = gB > 0 ? (0.94 + Math.random() * 0.04) : (1.02 + Math.random() * 0.04);
-    const bA = 1.00 + (Math.random() - 0.5) * 0.06;  // ±3%
+    // Décalages réduits pour éviter la dominante jaune/orange visible
+    const rB = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 4));  // ±1–4
+    const gB = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 3));  // ±1–3
+    const bB = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 4));  // ±1–4
+    // Multiplicateurs plus proches de 1.0 pour un effet subtil
+    const rA = rB > 0 ? (1.01 + Math.random() * 0.02) : (0.97 + Math.random() * 0.02); // 1.01–1.03 ou 0.97–0.99
+    const gA = gB > 0 ? (0.97 + Math.random() * 0.02) : (1.01 + Math.random() * 0.02);
+    const bA = 1.00 + (Math.random() - 0.5) * 0.03;  // ±1.5%
     img = img.linear([rA, gA, bA], [rB, gB, bB]);
 
-    // ── 2. HSL global + contrast → toujours visible (minimum garanti depuis 1.0)
+    // ── 2. HSL global + contrast — plages réduites pour garder un résultat naturel
     // BUG précédent: plage symétrique → moyenne=1.0 → ~50% des cas quasi-invisible
     // FIX: direction aléatoire + minimum garanti → toujours visible à l'œil
     const bDir = Math.random() < 0.5 ? -1 : 1;
-    const brightness = 1.0 + bDir * (0.08 + Math.random() * 0.10);  // ±8–18%, garanti ≥8%
+    const brightness = 1.0 + bDir * (0.03 + Math.random() * 0.06);  // ±3–9%, assombrissement réduit
     const sDir = Math.random() < 0.5 ? -1 : 1;
-    const saturation = 1.0 + sDir * (0.08 + Math.random() * 0.10);  // ±8–18%, garanti ≥8%
-    // Sharp.gamma() accepte uniquement [1.0, 3.0]. L'ancienne formule (1.0 + gDir * delta)
-    // pouvait produire 0.82–0.92 quand gDir=-1 → crash. Fix : valeur toujours ≥ 1.0.
-    // On alterne autour de 1.0 en utilisant [1.08, 1.18] ou [2.82, 2.92] (symétrique dans [1,3]).
-    const gMag       = 0.08 + Math.random() * 0.10;              // 0.08–0.18
-    const gammaFinal = Math.random() < 0.5 ? 1.0 + gMag : 3.0 - gMag; // 1.08–1.18 ou 2.82–2.92
-    const hue        = (Math.random() < 0.5 ? -1 : 1) * (5 + Math.floor(Math.random() * 10)); // ±5–14°
+    const saturation = 1.0 + sDir * (0.04 + Math.random() * 0.07);  // ±4–11%
+    // Gamma limité à [1.03, 1.15] — les valeurs proches de 3.0 assombrissaient massivement
+    const gMag       = 0.03 + Math.random() * 0.12;              // 0.03–0.15
+    const gammaFinal = 1.0 + gMag;                                // 1.03–1.15 uniquement
+    const hue        = (Math.random() < 0.5 ? -1 : 1) * (2 + Math.floor(Math.random() * 6)); // ±2–7°
     img = img.modulate({ brightness, saturation, hue }).gamma(gammaFinal);
     const cDir = Math.random() < 0.5 ? -1 : 1;
-    const contrast = 1.0 + cDir * (0.10 + Math.random() * 0.10);    // ±10–20%, garanti ≥10%
+    const contrast = 1.0 + cDir * (0.05 + Math.random() * 0.08);    // ±5–13%
     img = img.linear(contrast, 0);
 
     // ── 3. Gradient de luminosité directionnel → SSIM (terme luminance locale par bloc 8×8)
@@ -124,14 +122,14 @@ async function processImage(
     const gradAngle = Math.random() * Math.PI * 2;
     const gradDx = Math.cos(gradAngle);
     const gradDy = Math.sin(gradAngle);
-    const gradAmp = 0.04 + Math.random() * 0.06;  // 4–10% de variation lumineuse
+    const gradAmp = 0.02 + Math.random() * 0.04;  // 2–6% de variation lumineuse
     for (let gy = 0; gy < gSize; gy++) {
       for (let gx = 0; gx < gSize; gx++) {
         const nx = (gx / (gSize - 1)) * 2 - 1; // -1 à +1
         const ny = (gy / (gSize - 1)) * 2 - 1;
         const t = gradDx * nx + gradDy * ny;     // projection sur l'axe du gradient
         // Centre à 235 (≈0.92 en multiply) → effet "éclairage directionnel" léger, pas assombrissement global
-        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(235 * (1 + t * gradAmp))));
+        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(248 * (1 + t * gradAmp))));
       }
     }
     const gradPng = await sharp(gradBuf, { raw: { width: gSize, height: gSize, channels: 1 } })
@@ -157,7 +155,7 @@ async function processImage(
 
   if (flags.fundamentals) {
     // Teinte asymétrique ±3–8° → Chroma Cb/Cr
-    const tintHue = Math.floor(3 + Math.random() * 5) * (Math.random() < 0.5 ? 1 : -1); // ±3–8°
+    const tintHue = Math.floor(1 + Math.random() * 4) * (Math.random() < 0.5 ? 1 : -1); // ±1–4°
     img = img.modulate({ hue: tintHue });
   }
 
