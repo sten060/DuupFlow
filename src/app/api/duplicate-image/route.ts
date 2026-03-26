@@ -84,19 +84,14 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    // ── 1. Ajustements micro — imperceptibles à l'œil, détectables par les métriques pixel
-    // Règle : chaque effet pris seul doit être invisible. Le zoom ci-dessous suffit pour les hash.
-    // Brightness : ±0.3% max — évite tout effet "éclairci/assombri" même cumulé
+    // ── 1. Brightness micro uniquement — saturation supprimée (multiplicative → rose fluo sur lèvres rouges)
+    // hue supprimé (visible sur couleurs saturées), gamma supprimé (amplifie brightness)
     const bDir = Math.random() < 0.5 ? -1 : 1;
-    const brightness = 1.0 + bDir * Math.random() * 0.003;  // ±0–0.3%
-    // Saturation : ±0.5% max — la modulation est multiplicative, +3% sur rouge vif → rose fluo
-    const sDir = Math.random() < 0.5 ? -1 : 1;
-    const saturation = 1.0 + sDir * Math.random() * 0.005;  // ±0–0.5%
-    // Pas de gamma (amplifie brightness), pas de hue (visible sur les couleurs saturées)
-    img = img.modulate({ brightness, saturation });
-    // Contraste micro ±0.5%
+    const brightness = 1.0 + bDir * Math.random() * 0.002;  // ±0–0.2%
+    img = img.modulate({ brightness });
+    // Contraste micro ±0.3%
     const cDir = Math.random() < 0.5 ? -1 : 1;
-    const contrast = 1.0 + cDir * Math.random() * 0.005;    // ±0–0.5%
+    const contrast = 1.0 + cDir * Math.random() * 0.003;    // ±0–0.3%
     img = img.linear(contrast, 0);
 
     // ── 3. Gradient de luminosité directionnel → SSIM (terme luminance locale par bloc 8×8)
