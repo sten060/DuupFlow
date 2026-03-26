@@ -63,8 +63,8 @@ async function processImage(
 
     // CROP ASYMÉTRIQUE FORCÉ : grand L+T, petit R+B → décalage net 4–10% du contenu
     // Réduit depuis 8–20% pour un recadrage plus subtil tout en restant détectable
-    const bigPct  = 0.04 + Math.random() * 0.06;  // 4–10% côté grand
-    const smallPct = Math.random() * 0.02;          // 0–2% côté petit
+    const bigPct  = 0.02 + Math.random() * 0.03;  // 2–5% côté grand
+    const smallPct = Math.random() * 0.01;          // 0–1% côté petit
     const dim = Math.min(baseW, baseH);
     const L = Math.floor(dim * bigPct);
     const T = Math.floor(dim * bigPct);

@@ -640,8 +640,8 @@ export async function processVideos(
         }
 
         if (packs.includes("audio")) {
-          // Volume ±1–3 dB — shifts waveform amplitude, changes audio fingerprint
-          const dbShift = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 2);
+          // Volume ±3–6 dB — shifts waveform amplitude, changes audio fingerprint
+          const dbShift = (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 3);
           afParts.push(`volume=${dbShift.toFixed(2)}dB`);
           // Random audio bitrate — changes audio compression artifact pattern
           const abitratePool = [96, 128, 160, 192, 256];

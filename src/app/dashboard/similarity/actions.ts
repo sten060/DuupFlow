@@ -375,7 +375,8 @@ async function flippedBuffer(buf: Buffer): Promise<Buffer> {
 // Metadata similarity — compares EXIF richness, file size, format, ICC, density, chroma, filename.
 // sizeA/sizeB = taille réelle du fichier (pas celle du header 128KB) — crucial pour les vidéos.
 // nameA/nameB = noms de fichiers pour pénaliser les noms différents (intégré dans ce score).
-async function metadataSimilarity(bufA: Buffer, bufB: Buffer, sizeA?: number, sizeB?: number, nameA?: string, nameB?: string): Promise<number> {
+// durationA/durationB = durée en secondes (vidéo seulement) — permet de calculer le débit et détecter changements CRF/audio.
+async function metadataSimilarity(bufA: Buffer, bufB: Buffer, sizeA?: number, sizeB?: number, nameA?: string, nameB?: string, durationA?: number, durationB?: number): Promise<number> {
   const [metaA, metaB] = await Promise.all([
     sharp(bufA, { failOn: "none" }).metadata().catch(() => ({} as sharp.Metadata)),
     sharp(bufB, { failOn: "none" }).metadata().catch(() => ({} as sharp.Metadata)),
@@ -394,6 +395,16 @@ async function metadataSimilarity(bufA: Buffer, bufB: Buffer, sizeA?: number, si
   if (realSizeA > 0 && realSizeB > 0) {
     const ratio = Math.min(realSizeA, realSizeB) / Math.max(realSizeA, realSizeB);
     score -= Math.round((1 - ratio) * 30);
+  }
+
+  // Bitrate ratio (vidéo seulement) — up to 40pt
+  // Détecter les changements CRF (pack technique) et débit audio (pack audio).
+  // taille/durée = débit moyen → très sensible aux changements de CRF et d'encodage audio.
+  if (durationA && durationB && durationA > 0 && durationB > 0 && realSizeA > 0 && realSizeB > 0) {
+    const bitrateA = realSizeA / durationA;
+    const bitrateB = realSizeB / durationB;
+    const bitrateRatio = Math.min(bitrateA, bitrateB) / Math.max(bitrateA, bitrateB);
+    score -= Math.round((1 - bitrateRatio) * 40);
   }
 
   // EXIF richness — up to 40pt
@@ -570,12 +581,14 @@ function filenameSimilarity(nameA: string, nameB: string): number {
 export async function compareFiles(
   framesA: string[],
   framesB: string[],
-  rawA?: string,    // base64 of first ~128KB of file A (for metadata analysis)
-  rawB?: string,    // base64 of first ~128KB of file B
-  sizeA?: number,   // taille réelle du fichier A en octets (obligatoire pour les vidéos)
-  sizeB?: number,   // taille réelle du fichier B en octets
-  nameA?: string,   // nom du fichier A (avec extension)
-  nameB?: string,   // nom du fichier B (avec extension)
+  rawA?: string,       // base64 of first ~128KB of file A (for metadata analysis)
+  rawB?: string,       // base64 of first ~128KB of file B
+  sizeA?: number,      // taille réelle du fichier A en octets (obligatoire pour les vidéos)
+  sizeB?: number,      // taille réelle du fichier B en octets
+  nameA?: string,      // nom du fichier A (avec extension)
+  nameB?: string,      // nom du fichier B (avec extension)
+  durationA?: number,  // durée vidéo A en secondes (pour calcul débit)
+  durationB?: number,  // durée vidéo B en secondes
 ): Promise<{ score: number; breakdown: PairScore["breakdown"] } | { error: string }> {
   try {
     if (!framesA.length || !framesB.length) return { error: "Aucun frame reçu" };
@@ -590,7 +603,7 @@ export async function compareFiles(
         )
       ),
       rawA && rawB
-        ? metadataSimilarity(Buffer.from(rawA, "base64"), Buffer.from(rawB, "base64"), sizeA, sizeB, nameA, nameB)
+        ? metadataSimilarity(Buffer.from(rawA, "base64"), Buffer.from(rawB, "base64"), sizeA, sizeB, nameA, nameB, durationA, durationB)
         : Promise.resolve(100), // no raw data → assume identical metadata (neutral)
     ]);
 
