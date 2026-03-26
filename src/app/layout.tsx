@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   title: "DuupFlow — Duplique ton contenu en illimité",
   description:
     "DuupFlow vous permet de dupliquer vos contenus en quelques secondes, chaque fichier deviens unique aux yeux des plateformes. Conçu pour les agences souhaitant augmenter le volume de contenus sur les réseaux sociaux.",
+  icons: {
+    icon: "/og-image.png",
+    shortcut: "/og-image.png",
+    apple: "/apple-icon.png",
+  },
   openGraph: {
     title: "DuupFlow — Duplique ton contenu en illimité",
     description:
