@@ -61,11 +61,10 @@ async function processImage(
     const kernelA = kernels[Math.floor(Math.random() * kernels.length)];
     const kernelB = kernels[Math.floor(Math.random() * kernels.length)];
 
-    // CROP ASYMÉTRIQUE FORCÉ : grand L+T, petit R+B → décalage net 8–18% du contenu
-    // Sans asymétrie, un zoom centré préserve les gradients locaux → dHash/pHash insensibles
-    // Avec 14% de décalage net à 32×32 (pHash) = 4.5px shift → 15–25 bits flippent
-    const bigPct  = 0.08 + Math.random() * 0.12;  // 8–20% côté grand
-    const smallPct = Math.random() * 0.03;          // 0–3% côté petit
+    // CROP ASYMÉTRIQUE FORCÉ : grand L+T, petit R+B → décalage net 4–10% du contenu
+    // Réduit depuis 8–20% pour un recadrage plus subtil tout en restant détectable
+    const bigPct  = 0.04 + Math.random() * 0.06;  // 4–10% côté grand
+    const smallPct = Math.random() * 0.02;          // 0–2% côté petit
     const dim = Math.min(baseW, baseH);
     const L = Math.floor(dim * bigPct);
     const T = Math.floor(dim * bigPct);
