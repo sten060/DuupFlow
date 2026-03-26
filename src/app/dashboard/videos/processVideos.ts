@@ -639,6 +639,15 @@ export async function processVideos(
           extraArgs.push("-r", String(fpsPool[Math.floor(Math.random() * fpsPool.length)]));
         }
 
+        if (packs.includes("audio")) {
+          // Volume ±1–3 dB — shifts waveform amplitude, changes audio fingerprint
+          const dbShift = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 2);
+          afParts.push(`volume=${dbShift.toFixed(2)}dB`);
+          // Random audio bitrate — changes audio compression artifact pattern
+          const abitratePool = [96, 128, 160, 192, 256];
+          extraArgs.push("-b:a", `${abitratePool[Math.floor(Math.random() * abitratePool.length)]}k`);
+        }
+
         if (singles?.flip) vfParts.push("vflip");
         if (singles?.reverse) vfParts.push("hflip");
 
