@@ -57,7 +57,8 @@ function seekAndCapture(video: HTMLVideoElement, t: number, size = THUMB_SIZE): 
 }
 
 // Extract N evenly-spaced frames from a video file (sequential seeks on one element)
-async function extractVideoFrames(file: File, n: number): Promise<string[]> {
+// Returns frames array AND the actual video duration in seconds.
+async function extractVideoFrames(file: File, n: number): Promise<{ frames: string[]; duration: number }> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const video = document.createElement("video");
@@ -78,7 +79,7 @@ async function extractVideoFrames(file: File, n: number): Promise<string[]> {
           frames.push(await seekAndCapture(video, t));
         }
         URL.revokeObjectURL(url);
-        resolve(frames);
+        resolve({ frames, duration: dur });
       } catch (err) {
         URL.revokeObjectURL(url);
         reject(err);
@@ -110,8 +111,13 @@ async function extractImageFrame(file: File): Promise<string[]> {
   });
 }
 
-async function getFrames(file: File): Promise<string[]> {
-  return isVideoFile(file) ? extractVideoFrames(file, VIDEO_FRAME_COUNT) : extractImageFrame(file);
+async function getFrames(file: File): Promise<{ frames: string[]; duration?: number }> {
+  if (isVideoFile(file)) {
+    const { frames, duration } = await extractVideoFrames(file, VIDEO_FRAME_COUNT);
+    return { frames, duration };
+  }
+  const frames = await extractImageFrame(file);
+  return { frames };
 }
 
 // Read first 128KB of a file as base64 (enough for EXIF/ICC headers)
@@ -209,14 +215,15 @@ export default function SimilarityClient({
     setResult(undefined);
 
     try {
-      const [framesA, framesB, rawA, rawB] = await Promise.all([
+      const [resultA, resultB, rawA, rawB] = await Promise.all([
         getFrames(fileA), getFrames(fileB),
         fileHeader(fileA), fileHeader(fileB),
       ]);
       // fileA.size / fileB.size = taille réelle — essentiel pour les vidéos car
       // rawA/rawB ne contiennent que 128KB, ce qui biaise le ratio de taille à 1.0.
       // fileA.name / fileB.name = pour la pénalité de nom de fichier différent.
-      const data = await compareFiles(framesA, framesB, rawA, rawB, fileA.size, fileB.size, fileA.name, fileB.name);
+      // durationA/durationB = durée vidéo — permet de calculer le débit (sensible au CRF et à l'audio).
+      const data = await compareFiles(resultA.frames, resultB.frames, rawA, rawB, fileA.size, fileB.size, fileA.name, fileB.name, resultA.duration, resultB.duration);
 
       if ("error" in data) setError(data.error);
       else setResult(data);
