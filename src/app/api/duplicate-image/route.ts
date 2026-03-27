@@ -51,20 +51,9 @@ async function processImage(
   }
 
   if (flags.semi) {
-    // nearest supprimé : provoque une pixelisation visible lors du resize-back
-    const kernels = [
-      sharp.kernel.cubic,
-      sharp.kernel.mitchell,
-      sharp.kernel.lanczos2,
-      sharp.kernel.lanczos3,
-    ] as const;
-    const kernelA = kernels[Math.floor(Math.random() * kernels.length)];
-    const kernelB = kernels[Math.floor(Math.random() * kernels.length)];
-
-    // CROP ASYMÉTRIQUE FORCÉ : grand L+T, petit R+B → décalage net 1–3% du contenu
-    // Réduit pour un recadrage très subtil, imperceptible mais détectable par les métriques
-    const bigPct  = 0.01 + Math.random() * 0.02;  // 1–3% côté grand
-    const smallPct = Math.random() * 0.005;          // 0–0.5% côté petit
+    // Un seul kernel lanczos3 pour le resize-back → pas de double resampling
+    const bigPct  = 0.01 + Math.random() * 0.02;  // 1–3%
+    const smallPct = Math.random() * 0.005;          // 0–0.5%
     const dim = Math.min(baseW, baseH);
     const L = Math.floor(dim * bigPct);
     const T = Math.floor(dim * bigPct);
@@ -77,10 +66,10 @@ async function processImage(
     const safeWidth  = Math.max(16, Math.min(rawCropW, baseW - safeLeft));
     const safeHeight = Math.max(16, Math.min(rawCropH, baseH - safeTop));
 
+    // Pas de premier resize — l'image est déjà à baseW×baseH après le scale initial
     img = img
-      .resize(baseW, baseH, { fit: "fill", kernel: kernelA })
       .extract({ left: safeLeft, top: safeTop, width: safeWidth, height: safeHeight })
-      .resize(baseW, baseH, { fit: "fill", kernel: kernelB });
+      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.lanczos3 });
   }
 
   if (flags.visuals) {
@@ -149,7 +138,13 @@ async function processImage(
       ].join(" :: ");
     }
 
-    exifMeta = { density: dpi, exif: { IFD0: ifd0 } };
+    // Préserver le profil ICC original — sans ICC, les photos Display P3 (iPhone/Samsung)
+    // sont interprétées en sRGB par le navigateur → teinte jaune/chaude sur tons peau/cheveux
+    exifMeta = {
+      density: dpi,
+      exif: { IFD0: ifd0 },
+      ...(meta.icc ? { icc: meta.icc } : {}),
+    };
   }
 
   // Chroma : toujours 4:4:4 — le 4:2:0 crée un cast chaud visible sur les tons peau/cheveux
