@@ -82,6 +82,11 @@ async function processImage(
   // très visible sur les tons chauds (peau, cheveux blonds = ~15–30° HSL).
   // La différenciation chroma se fait via le chroma subsampling 4:2:0 / 4:4:4 et la qualité JPEG.
 
+  // Convertir en sRGB pour normaliser les photos Display P3 (iPhone/Samsung).
+  // Sans cette conversion, les pixels P3 encodés en JPEG sans ICC sont interprétés
+  // comme sRGB par le navigateur → teinte jaune/chaude visible sur peau et cheveux.
+  img = img.toColorspace("srgb");
+
   const lower = ext.toLowerCase();
   const now = new Date();
   const artistChoices = ["DuupFlow", "Studio", "Duplicator", "ContentEngine", "MediaFlow", "PixelVault"];
@@ -138,13 +143,7 @@ async function processImage(
       ].join(" :: ");
     }
 
-    // Préserver le profil ICC original — sans ICC, les photos Display P3 (iPhone/Samsung)
-    // sont interprétées en sRGB par le navigateur → teinte jaune/chaude sur tons peau/cheveux
-    exifMeta = {
-      density: dpi,
-      exif: { IFD0: ifd0 },
-      ...(meta.icc ? { icc: meta.icc } : {}),
-    };
+    exifMeta = { density: dpi, exif: { IFD0: ifd0 } };
   }
 
   // Chroma : toujours 4:4:4 — le 4:2:0 crée un cast chaud visible sur les tons peau/cheveux
