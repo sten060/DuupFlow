@@ -46,18 +46,8 @@ async function processImage(
   }
 
   if (flags.semi) {
-    const kernels = [
-      sharp.kernel.nearest,
-      sharp.kernel.cubic,
-      sharp.kernel.mitchell,
-      sharp.kernel.lanczos2,
-      sharp.kernel.lanczos3,
-    ] as const;
-    const kernelA = kernels[Math.floor(Math.random() * kernels.length)];
-    const kernelB = kernels[Math.floor(Math.random() * kernels.length)];
-
-    const bigPct  = 0.08 + Math.random() * 0.12;
-    const smallPct = Math.random() * 0.03;
+    const bigPct  = 0.01 + Math.random() * 0.02;  // 1–3%
+    const smallPct = Math.random() * 0.005;          // 0–0.5%
     const dim = Math.min(baseW, baseH);
     const L = Math.floor(dim * bigPct);
     const T = Math.floor(dim * bigPct);
@@ -71,66 +61,17 @@ async function processImage(
     const safeHeight = Math.max(16, Math.min(rawCropH, baseH - safeTop));
 
     img = img
-      .resize(baseW, baseH, { fit: "fill", kernel: kernelA })
       .extract({ left: safeLeft, top: safeTop, width: safeWidth, height: safeHeight })
-      .resize(baseW, baseH, { fit: "fill", kernel: kernelB });
+      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.lanczos3 });
   }
 
   if (flags.visuals) {
-    const rB = (Math.random() < 0.5 ? -1 : 1) * (3 + Math.floor(Math.random() * 8));
-    const gB = (Math.random() < 0.5 ? -1 : 1) * (3 + Math.floor(Math.random() * 7));
-    const bB = (Math.random() < 0.5 ? -1 : 1) * (4 + Math.floor(Math.random() * 9));
-    const rA = rB > 0 ? (1.02 + Math.random() * 0.04) : (0.94 + Math.random() * 0.04);
-    const gA = gB > 0 ? (0.94 + Math.random() * 0.04) : (1.02 + Math.random() * 0.04);
-    const bA = 1.00 + (Math.random() - 0.5) * 0.06;
-    img = img.linear([rA, gA, bA], [rB, gB, bB]);
-
-    const bDir = Math.random() < 0.5 ? -1 : 1;
-    const brightness = 1.0 + bDir * (0.08 + Math.random() * 0.10);
-    const sDir = Math.random() < 0.5 ? -1 : 1;
-    const saturation = 1.0 + sDir * (0.08 + Math.random() * 0.10);
-    const gMag       = 0.08 + Math.random() * 0.10;
-    const gammaFinal = Math.random() < 0.5 ? 1.0 + gMag : 3.0 - gMag;
-    const hue        = (Math.random() < 0.5 ? -1 : 1) * (5 + Math.floor(Math.random() * 10));
-    img = img.modulate({ brightness, saturation, hue }).gamma(gammaFinal);
-    const cDir = Math.random() < 0.5 ? -1 : 1;
-    const contrast = 1.0 + cDir * (0.10 + Math.random() * 0.10);
-    img = img.linear(contrast, 0);
-
-    const gSize = 8;
-    const gradBuf = Buffer.alloc(gSize * gSize);
-    const gradAngle = Math.random() * Math.PI * 2;
-    const gradDx = Math.cos(gradAngle);
-    const gradDy = Math.sin(gradAngle);
-    const gradAmp = 0.04 + Math.random() * 0.06;
-    for (let gy = 0; gy < gSize; gy++) {
-      for (let gx = 0; gx < gSize; gx++) {
-        const nx = (gx / (gSize - 1)) * 2 - 1;
-        const ny = (gy / (gSize - 1)) * 2 - 1;
-        const t = gradDx * nx + gradDy * ny;
-        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(235 * (1 + t * gradAmp))));
-      }
-    }
-    const gradPng = await sharp(gradBuf, { raw: { width: gSize, height: gSize, channels: 1 } })
-      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic })
-      .png()
-      .toBuffer();
-    img = img.composite([{ input: gradPng, blend: "multiply" } as sharp.OverlayOptions]).removeAlpha();
-
-    const zoomFactor = 1.030 + Math.random() * 0.010;
-    const zW = clampDim(Math.round(baseW * zoomFactor));
-    const zH = clampDim(Math.round(baseH * zoomFactor));
-    const cropLeft = Math.floor(Math.random() * (zW - baseW));
-    const cropTop  = Math.floor(Math.random() * (zH - baseH));
-    img = img
-      .resize(zW, zH, { fit: "fill", kernel: sharp.kernel.cubic })
-      .extract({ left: cropLeft, top: cropTop, width: baseW, height: baseH });
+    // Pack visuel vide — linear/modulate/gamma/gradient/zoom tous supprimés :
+    // brightness ±8-18%, saturation ±8-18%, hue ±5-15°, gamma, gradient 4-10%, zoom 3-4%
+    // causaient teinte jaune/orange, sur-saturation, pixelisation visibles à l'œil.
   }
 
-  if (flags.fundamentals) {
-    const tintHue = Math.floor(3 + Math.random() * 5) * (Math.random() < 0.5 ? 1 : -1);
-    img = img.modulate({ hue: tintHue });
-  }
+  // Hue shift supprimé des fundamentals — même ±3-8° visible sur tons chauds (peau, cheveux).
 
   const lower = ext.toLowerCase();
   const now = new Date();
@@ -139,57 +80,58 @@ async function processImage(
     ? artistChoices[Math.floor(Math.random() * artistChoices.length)]
     : "DuupFlow";
 
-  const dpiPool = flags.fundamentals ? [72, 96, 120, 150, 180, 240, 300] : [72];
+  const dpiPool = flags.fundamentals ? [60, 72, 96, 120, 150, 180, 240, 300, 600] : [72];
   const dpi = dpiPool[Math.floor(Math.random() * dpiPool.length)];
 
-  const exifLevel = flags.fundamentals ? Math.floor(Math.random() * 3) : 1;
+  const exifLevel = flags.fundamentals ? (Math.random() < 0.5 ? 1 : 2) : 1;
 
   let exifMeta: sharp.WriteableMetadata;
 
-  if (exifLevel === 0) {
-    exifMeta = { density: dpi };
-  } else {
+  {
     const ifd0: Record<string, string> = {
-      Software: `DuupFlow/${randHex(2)}`,
+      Software: `DuupFlow/${randHex(4)}-v${1 + Math.floor(Math.random() * 9)}.${Math.floor(Math.random() * 10)}`,
       Artist: artist,
-      Copyright: `DuupFlow ${now.getFullYear()}`,
+      Copyright: `DuupFlow ${now.getFullYear()} - ${randHex(4)}`,
     };
 
-    if (exifLevel >= 1) {
-      const makes  = ["Apple", "Samsung", "Google", "Xiaomi", "Sony", "OnePlus"];
-      const models = ["iPhone 15", "Galaxy S24", "Pixel 8", "Redmi 13", "Xperia 5", "Nord 4"];
-      const idx = Math.floor(Math.random() * makes.length);
-      const hh = String(Math.floor(Math.random() * 24)).padStart(2, "0");
-      const mm = String(Math.floor(Math.random() * 60)).padStart(2, "0");
-      const ss = String(Math.floor(Math.random() * 60)).padStart(2, "0");
-      const mo = String(1 + Math.floor(Math.random() * 12)).padStart(2, "0");
-      const dd = String(1 + Math.floor(Math.random() * 28)).padStart(2, "0");
-      Object.assign(ifd0, {
-        Make:             makes[idx],
-        Model:            models[idx],
-        DateTime:         `${now.getFullYear()}:${mo}:${dd} ${hh}:${mm}:${ss}`,
-        ImageDescription: `Photo ${randHex(3)}`,
-      });
-    }
+    const makes  = ["Apple", "Samsung", "Google", "Xiaomi", "Sony", "OnePlus", "Huawei", "OPPO"];
+    const models = ["iPhone 15 Pro", "Galaxy S24 Ultra", "Pixel 9", "Redmi 14", "Xperia 5 V", "Nord 4", "P60 Pro", "Find X7"];
+    const idx = Math.floor(Math.random() * makes.length);
+    const hh = String(Math.floor(Math.random() * 24)).padStart(2, "0");
+    const mm = String(Math.floor(Math.random() * 60)).padStart(2, "0");
+    const ss = String(Math.floor(Math.random() * 60)).padStart(2, "0");
+    const mo = String(1 + Math.floor(Math.random() * 12)).padStart(2, "0");
+    const dd = String(1 + Math.floor(Math.random() * 28)).padStart(2, "0");
+    const yr = now.getFullYear() - Math.floor(Math.random() * 3);
+    Object.assign(ifd0, {
+      Make:             makes[idx],
+      Model:            models[idx],
+      DateTime:         `${yr}:${mo}:${dd} ${hh}:${mm}:${ss}`,
+      ImageDescription: `Photo ${randHex(6)} - ${artist}`,
+    });
 
     if (exifLevel >= 2) {
-      const chunks = Array.from({ length: 48 }, () => randHex(8));
-      ifd0.ImageDescription = `${artist} :: ${now.toISOString()} :: ref=${randHex(8)} :: sig=${chunks.join("-")}`;
+      const chunks = Array.from({ length: 120 }, () => randHex(8));
+      ifd0.ImageDescription = [
+        `${artist} :: ${now.toISOString()}`,
+        `ref=${randHex(12)}`,
+        `session=${randHex(16)}`,
+        `device=${makes[idx]} ${models[idx]}`,
+        `sig=${chunks.join("-")}`,
+        `checksum=${randHex(32)}`,
+      ].join(" :: ");
     }
 
     exifMeta = { density: dpi, exif: { IFD0: ifd0 } };
   }
 
-  const chromaOptions: Array<"4:2:0" | "4:4:4"> = ["4:2:0", "4:2:0", "4:4:4"];
-  const chroma = flags.fundamentals
-    ? chromaOptions[Math.floor(Math.random() * chromaOptions.length)]
-    : "4:4:4";
+  const chroma: "4:4:4" = "4:4:4";
   const progressive = flags.fundamentals ? Math.random() < 0.5 : false;
-  const quality = flags.fundamentals ? (20 + Math.floor(Math.random() * 65)) : 88;
+  const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 4)) : 90;
 
   if (lower === ".webp") {
     return {
-      data: await img.withMetadata(exifMeta).webp({ quality, smartSubsample: true }).toBuffer(),
+      data: await img.withMetadata(exifMeta).webp({ quality, smartSubsample: false }).toBuffer(),
       outExt: ".webp",
     };
   }
