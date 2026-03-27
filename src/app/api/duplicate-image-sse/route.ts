@@ -65,33 +65,33 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    // ── Brightness ±2–5%
+    // ── Brightness ±8–18%
     const bDir = Math.random() < 0.5 ? -1 : 1;
-    const brightness = 1.0 + bDir * (0.02 + Math.random() * 0.03);
-    // ── Saturation ±3–8%
+    const brightness = 1.0 + bDir * (0.08 + Math.random() * 0.10);
+    // ── Saturation ±10–25%
     const sDir = Math.random() < 0.5 ? -1 : 1;
-    const saturation = 1.0 + sDir * (0.03 + Math.random() * 0.05);
-    // ── Hue ±3–8° entier
-    const hue = (Math.random() < 0.5 ? -1 : 1) * (3 + Math.floor(Math.random() * 6));
+    const saturation = 1.0 + sDir * (0.10 + Math.random() * 0.15);
+    // ── Hue ±10–25°
+    const hue = (Math.random() < 0.5 ? -1 : 1) * (10 + Math.floor(Math.random() * 16));
     img = img.modulate({ brightness, saturation, hue });
 
-    // ── Gamma 1.05–1.15
-    const gamma = 1.05 + Math.random() * 0.10;
+    // ── Gamma 1.15–1.40
+    const gamma = 1.15 + Math.random() * 0.25;
     img = img.gamma(gamma);
 
-    // ── Gradient directionnel 1–3% amplitude, centre 250/255
+    // ── Gradient directionnel 4–10% amplitude, centre 245/255
     const gSize = 8;
     const gradBuf = Buffer.alloc(gSize * gSize);
     const gradAngle = Math.random() * Math.PI * 2;
     const gradDx = Math.cos(gradAngle);
     const gradDy = Math.sin(gradAngle);
-    const gradAmp = 0.01 + Math.random() * 0.02;
+    const gradAmp = 0.04 + Math.random() * 0.06;
     for (let gy = 0; gy < gSize; gy++) {
       for (let gx = 0; gx < gSize; gx++) {
         const nx = (gx / (gSize - 1)) * 2 - 1;
         const ny = (gy / (gSize - 1)) * 2 - 1;
         const t = gradDx * nx + gradDy * ny;
-        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(250 * (1 + t * gradAmp))));
+        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(245 * (1 + t * gradAmp))));
       }
     }
     const gradPng = await sharp(gradBuf, { raw: { width: gSize, height: gSize, channels: 1 } })
