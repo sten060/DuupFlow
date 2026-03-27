@@ -97,21 +97,20 @@ async function processImage(
     // ── 3. Gradient de luminosité directionnel → SSIM (terme luminance locale par bloc 8×8)
     // Principe : un changement uniforme (brightness global) préserve σxy (covariance SSIM).
     // Un gradient spatial crée des µ différents dans chaque bloc 8×8 → SSIM chute réellement.
-    // Visuellement : ressemble à un angle d'éclairage différent (naturel, pas un artefact).
+    // Centre à 254/255 ≈ 0.996 → assombrissement global <0.5%, imperceptible à l'œil.
     const gSize = 8; // 8×8 points de contrôle → gradient smooth sans blocs visibles
     const gradBuf = Buffer.alloc(gSize * gSize);
-    // Direction aléatoire (angle quelconque) + amplitude 8-16%
     const gradAngle = Math.random() * Math.PI * 2;
     const gradDx = Math.cos(gradAngle);
     const gradDy = Math.sin(gradAngle);
-    const gradAmp = Math.random() * 0.004;  // 0–0.4% de variation lumineuse
+    const gradAmp = Math.random() * 0.002;  // 0–0.2% de variation lumineuse
     for (let gy = 0; gy < gSize; gy++) {
       for (let gx = 0; gx < gSize; gx++) {
         const nx = (gx / (gSize - 1)) * 2 - 1; // -1 à +1
         const ny = (gy / (gSize - 1)) * 2 - 1;
-        const t = gradDx * nx + gradDy * ny;     // projection sur l'axe du gradient
-        // Centre à 235 (≈0.92 en multiply) → effet "éclairage directionnel" léger, pas assombrissement global
-        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(248 * (1 + t * gradAmp))));
+        const t = gradDx * nx + gradDy * ny;
+        // Centre à 254 → assombrissement global <0.5%, variation totale <0.4%
+        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(254 * (1 + t * gradAmp))));
       }
     }
     const gradPng = await sharp(gradBuf, { raw: { width: gSize, height: gSize, channels: 1 } })
@@ -120,19 +119,8 @@ async function processImage(
       .toBuffer();
     img = img.composite([{ input: gradPng, blend: "multiply" } as sharp.OverlayOptions]).removeAlpha();
 
-    // ── 4. Zoom 3–4% → pHash + dHash + Grille spatiale + Profils projection
-    const zoomFactor = 1.030 + Math.random() * 0.010;  // 3.0–4.0%
-    const zW = clampDim(Math.round(baseW * zoomFactor));
-    const zH = clampDim(Math.round(baseH * zoomFactor));
-    // Crop asymétrique pour maximiser la diversité spatiale
-    const cropLeft = Math.floor(Math.random() * (zW - baseW));
-    const cropTop  = Math.floor(Math.random() * (zH - baseH));
-    img = img
-      .resize(zW, zH, { fit: "fill", kernel: sharp.kernel.cubic })
-      .extract({ left: cropLeft, top: cropTop, width: baseW, height: baseH });
-
-    // Sharpen supprimé : sigma 1-2 sur 1000px = sigma 0.06-0.13 à l'échelle 64×64
-    // → complètement moyenné, invisible aux métriques MAIS visible à l'œil → supprimé
+    // Zoom supprimé : le resize cubique 3–4% crée une interpolation visible (flou, perte de netteté)
+    // sur le fichier de sortie même si les métriques 64×64 ne le détectent pas.
   }
 
   if (flags.fundamentals) {
