@@ -65,33 +65,33 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    // ── Brightness ±0–0.3% : variation globale de luminosité sub-perceptible
+    // ── Brightness ±0.5–1% : légère variation de luminosité
     const bDir = Math.random() < 0.5 ? -1 : 1;
-    const brightness = 1.0 + bDir * Math.random() * 0.003;
-    // ── Saturation ±0–0.5% : multiplicatif, imperceptible même sur couleurs très saturées
+    const brightness = 1.0 + bDir * (0.005 + Math.random() * 0.005);
+    // ── Saturation ±0.5–1.5% : variation chromatique légère
     const sDir = Math.random() < 0.5 ? -1 : 1;
-    const saturation = 1.0 + sDir * Math.random() * 0.005;
-    // Note: Sharp exige un entier pour hue — valeurs sub-degré impossibles, supprimé
-    img = img.modulate({ brightness, saturation });
+    const saturation = 1.0 + sDir * (0.005 + Math.random() * 0.010);
+    // ── Hue ±1–3° entier (Sharp exige un entier)
+    const hue = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 3));
+    img = img.modulate({ brightness, saturation, hue });
 
-    // ── Gamma 1.005–1.02 : légère correction de courbe, influence les métriques de luminance
-    const gamma = 1.005 + Math.random() * 0.015;
+    // ── Gamma 1.02–1.06 : correction de courbe légère
+    const gamma = 1.02 + Math.random() * 0.04;
     img = img.gamma(gamma);
 
-    // ── Gradient directionnel 0–0.2% amplitude, centre 254/255 → <0.5% assombrissement global
-    // Crée des µ différents par bloc 8×8 → fait chuter le SSIM sans effet visible
+    // ── Gradient directionnel 0.3–0.8% amplitude, centre 253/255
     const gSize = 8;
     const gradBuf = Buffer.alloc(gSize * gSize);
     const gradAngle = Math.random() * Math.PI * 2;
     const gradDx = Math.cos(gradAngle);
     const gradDy = Math.sin(gradAngle);
-    const gradAmp = Math.random() * 0.002;
+    const gradAmp = 0.003 + Math.random() * 0.005;
     for (let gy = 0; gy < gSize; gy++) {
       for (let gx = 0; gx < gSize; gx++) {
         const nx = (gx / (gSize - 1)) * 2 - 1;
         const ny = (gy / (gSize - 1)) * 2 - 1;
         const t = gradDx * nx + gradDy * ny;
-        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(254 * (1 + t * gradAmp))));
+        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(253 * (1 + t * gradAmp))));
       }
     }
     const gradPng = await sharp(gradBuf, { raw: { width: gSize, height: gSize, channels: 1 } })
