@@ -581,7 +581,7 @@ export async function processVideos(
           // eq — brightness ±5%, contrast ±10%, saturation ±10%, gamma ±7%
           // Plages légèrement élargies pour un fingerprint visuel plus fort
           const b  = clamp(Number((-0.05 + Math.random() * 0.10).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.90 + Math.random() * 0.20).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
+          const ct = clamp(Number((0.95 + Math.random() * 0.10).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
           const st = clamp(Number((0.90 + Math.random() * 0.20).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
           const gm = clamp(Number((0.93 + Math.random() * 0.14).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
