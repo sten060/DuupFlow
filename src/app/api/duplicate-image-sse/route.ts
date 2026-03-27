@@ -64,10 +64,10 @@ async function processImage(
       .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.lanczos3 });
 
     // Légère netteté aléatoire — fait chuter les gradients et le SSIM
-    const sigma = 0.4 + Math.random() * 0.6;   // 0.4–1.0
-    const flat  = 0.5 + Math.random() * 1.0;   // 0.5–1.5
-    const jagged = 0.3 + Math.random() * 0.7;  // 0.3–1.0
-    img = img.sharpen({ sigma, flat, jagged });
+    const sigma  = 0.4 + Math.random() * 0.6;   // 0.4–1.0
+    const flat   = 0.5 + Math.random() * 1.0;   // 0.5–1.5
+    const jagged = 0.3 + Math.random() * 0.7;   // 0.3–1.0
+    img = img.sharpen(sigma, flat, jagged);
   }
 
   if (flags.visuals) {
