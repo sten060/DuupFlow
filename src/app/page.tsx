@@ -899,6 +899,7 @@ function Footer() {
           <Link href="/legal" className="hover:text-white/60 transition">Mentions légales</Link>
           <Link href="/legal/terms" className="hover:text-white/60 transition">CGU</Link>
           <Link href="/legal/privacy" className="hover:text-white/60 transition">Confidentialité</Link>
+          <a href="mailto:hello@duupflow.com" className="hover:text-white/60 transition">Contact</a>
         </div>
       </div>
     </footer>
