@@ -51,8 +51,8 @@ async function processImage(
   }
 
   if (flags.semi) {
+    // nearest supprimé : provoque une pixelisation visible lors du resize-back
     const kernels = [
-      sharp.kernel.nearest,
       sharp.kernel.cubic,
       sharp.kernel.mitchell,
       sharp.kernel.lanczos2,
@@ -89,11 +89,9 @@ async function processImage(
     // La différenciation se fait uniquement via le crop (semi) et les métadonnées (fundamentals).
   }
 
-  if (flags.fundamentals) {
-    // Teinte asymétrique ±0.5–1° max → Chroma Cb/Cr subtil, imperceptible sur couleurs saturées
-    const tintHue = (0.5 + Math.random() * 0.5) * (Math.random() < 0.5 ? 1 : -1); // ±0.5–1°
-    img = img.modulate({ hue: tintHue });
-  }
+  // Hue shift supprimé : modulate({hue}) même à ±0.5° provoque une teinte jaune/orange
+  // très visible sur les tons chauds (peau, cheveux blonds = ~15–30° HSL).
+  // La différenciation chroma se fait via le chroma subsampling 4:2:0 / 4:4:4 et la qualité JPEG.
 
   const lower = ext.toLowerCase();
   const now = new Date();
