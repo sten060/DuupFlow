@@ -8,6 +8,7 @@ export default function Footer() {
           <a href="/legal/terms" className="hover:text-white transition">CGU</a>
           <a href="/legal/privacy" className="hover:text-white transition">Confidentialité</a>
           <a href="/legal" className="hover:text-white transition">Mentions légales</a>
+          <a href="mailto:hello@duupflow.com" className="hover:text-white transition">Contact</a>
         </div>
       </div>
     </footer>
