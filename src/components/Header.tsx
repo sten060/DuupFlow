@@ -23,7 +23,7 @@ function NavLink({ href, label }: { href: string; label: string }) {
 
 export default function Header() {
   return (
-    <div className="fixed top-2 sm:top-4 left-0 right-0 z-50 px-3 sm:px-6">
+    <div className="fixed top-9 left-0 right-0 z-50 px-3 sm:px-6">
       <div
         className="relative flex items-center justify-between px-4 sm:px-8 py-2 sm:py-3.5 rounded-full border border-white/[0.14] backdrop-blur-xl"
         style={{
