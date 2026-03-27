@@ -152,21 +152,18 @@ async function processImage(
     exifMeta = { density: dpi, exif: { IFD0: ifd0 } };
   }
 
-  // Chroma subsampling : 4:2:0 ou 4:4:4 aléatoirement quand fundamentals actif
-  // → change la distribution Cb/Cr et la taille fichier
-  const chromaOptions: Array<"4:2:0" | "4:4:4"> = ["4:2:0", "4:2:0", "4:4:4"]; // 2/3 → 4:2:0
-  const chroma = flags.fundamentals
-    ? chromaOptions[Math.floor(Math.random() * chromaOptions.length)]
-    : "4:4:4";
+  // Chroma : toujours 4:4:4 — le 4:2:0 crée un cast chaud visible sur les tons peau/cheveux
+  // La différenciation se fait uniquement via EXIF, DPI, progressive, taille fichier
+  const chroma: "4:4:4" = "4:4:4";
   const progressive = flags.fundamentals ? Math.random() < 0.5 : false;
 
-  // Qualité 75–92 → écart de taille fichier notable sans artefacts JPEG visibles
-  // Qualité < 75 crée des blocs de compression visibles, surtout sur les zones de peau/cheveux
-  const quality = flags.fundamentals ? (75 + Math.floor(Math.random() * 17)) : 88;
+  // Qualité 88–92 → artefacts JPEG imperceptibles, variation de taille fichier suffisante
+  // Qualité 75 crée des artefacts DCT visibles sur cheveux et peau même à qualité "acceptable"
+  const quality = flags.fundamentals ? (88 + Math.floor(Math.random() * 4)) : 90;
 
   if (lower === ".webp") {
     return {
-      data: await img.withMetadata(exifMeta).webp({ quality, smartSubsample: true }).toBuffer(),
+      data: await img.withMetadata(exifMeta).webp({ quality, smartSubsample: false }).toBuffer(),
       outExt: ".webp",
     };
   }
