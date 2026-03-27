@@ -10,7 +10,6 @@ import { getOutDirForCurrentUser, getOutDirForCurrentUserRSC } from "@/app/dashb
  * Helpers communs images
  * ============================= */
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
-const randSuffix = () => crypto.randomBytes(2).toString("hex");
 const extOf = (name: string) => {
   const p = name.lastIndexOf(".");
   return p >= 0 ? name.slice(p).toLowerCase() : "";
