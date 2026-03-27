@@ -66,12 +66,42 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    // Pack visuel vide — linear/modulate/gamma/gradient/zoom tous supprimés :
-    // brightness ±8-18%, saturation ±8-18%, hue ±5-15°, gamma, gradient 4-10%, zoom 3-4%
-    // causaient teinte jaune/orange, sur-saturation, pixelisation visibles à l'œil.
-  }
+    // ── Brightness ±0–0.3% : variation globale de luminosité sub-perceptible
+    const bDir = Math.random() < 0.5 ? -1 : 1;
+    const brightness = 1.0 + bDir * Math.random() * 0.003;
+    // ── Saturation ±0–0.5% : multiplicatif, imperceptible même sur couleurs très saturées
+    const sDir = Math.random() < 0.5 ? -1 : 1;
+    const saturation = 1.0 + sDir * Math.random() * 0.005;
+    // ── Hue ±0–0.3° : rotation sous le degré, invisible à l'œil nu
+    const hue = (Math.random() < 0.5 ? -1 : 1) * Math.random() * 0.3;
+    img = img.modulate({ brightness, saturation, hue });
 
-  // Hue shift supprimé des fundamentals — même ±3-8° visible sur tons chauds (peau, cheveux).
+    // ── Gamma 1.005–1.02 : légère correction de courbe, influence les métriques de luminance
+    const gamma = 1.005 + Math.random() * 0.015;
+    img = img.gamma(gamma);
+
+    // ── Gradient directionnel 0–0.2% amplitude, centre 254/255 → <0.5% assombrissement global
+    // Crée des µ différents par bloc 8×8 → fait chuter le SSIM sans effet visible
+    const gSize = 8;
+    const gradBuf = Buffer.alloc(gSize * gSize);
+    const gradAngle = Math.random() * Math.PI * 2;
+    const gradDx = Math.cos(gradAngle);
+    const gradDy = Math.sin(gradAngle);
+    const gradAmp = Math.random() * 0.002;
+    for (let gy = 0; gy < gSize; gy++) {
+      for (let gx = 0; gx < gSize; gx++) {
+        const nx = (gx / (gSize - 1)) * 2 - 1;
+        const ny = (gy / (gSize - 1)) * 2 - 1;
+        const t = gradDx * nx + gradDy * ny;
+        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(254 * (1 + t * gradAmp))));
+      }
+    }
+    const gradPng = await sharp(gradBuf, { raw: { width: gSize, height: gSize, channels: 1 } })
+      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic })
+      .png()
+      .toBuffer();
+    img = img.composite([{ input: gradPng, blend: "multiply" } as sharp.OverlayOptions]).removeAlpha();
+  }
 
   const lower = ext.toLowerCase();
   const now = new Date();
