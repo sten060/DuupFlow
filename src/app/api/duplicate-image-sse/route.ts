@@ -45,7 +45,7 @@ async function processImage(
   }
 
   if (flags.semi) {
-    const bigPct  = 0.02 + Math.random() * 0.04;  // 2–6%
+    const bigPct  = 0.03 + Math.random() * 0.04;  // 3–7%
     const smallPct = Math.random() * 0.01;           // 0–1%
     const dim = Math.min(baseW, baseH);
     const L = Math.floor(dim * bigPct);
