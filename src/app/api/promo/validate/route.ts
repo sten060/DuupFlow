@@ -34,7 +34,8 @@ export async function GET(req: NextRequest) {
         affiliate.stripe_promotion_code_id,
         { expand: ["coupon"] }
       );
-      const coupon = promoCode.coupon as { percent_off?: number | null };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const coupon = (promoCode as any).coupon as { percent_off?: number | null };
       if (coupon?.percent_off) discountPct = coupon.percent_off;
     } catch {
       // Fallback silencieux si Stripe inaccessible
