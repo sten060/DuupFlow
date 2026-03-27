@@ -387,14 +387,14 @@ async function metadataSimilarity(bufA: Buffer, bufB: Buffer, sizeA?: number, si
   // Format mismatch (jpeg vs png vs webp) — 15pt
   if (metaA.format && metaB.format && metaA.format !== metaB.format) score -= 15;
 
-  // File size ratio — up to 30pt
+  // File size ratio — up to 45pt
   // Utilise la taille réelle du fichier si disponible (les vidéos dépassent 128KB).
   // Sans sizeA/sizeB, bufA.length = bufB.length = 128KB → ratio 1.0 → 0pt (bogue vidéo).
   const realSizeA = sizeA ?? bufA.length;
   const realSizeB = sizeB ?? bufB.length;
   if (realSizeA > 0 && realSizeB > 0) {
     const ratio = Math.min(realSizeA, realSizeB) / Math.max(realSizeA, realSizeB);
-    score -= Math.round((1 - ratio) * 30);
+    score -= Math.round((1 - ratio) * 45);
   }
 
   // Bitrate ratio (vidéo seulement) — up to 40pt
@@ -407,26 +407,26 @@ async function metadataSimilarity(bufA: Buffer, bufB: Buffer, sizeA?: number, si
     score -= Math.round((1 - bitrateRatio) * 40);
   }
 
-  // EXIF richness — up to 40pt
-  // Niveau 0 = 0 octets, niveau 2 = ~1500B → ratio 0 → pénalité maximale
+  // EXIF richness — up to 60pt
+  // Niveau 1 = ~400B, niveau 2 = ~4000B → ratio ~0.10 → pénalité ~54pt
   const exifA = metaA.exif?.length ?? 0;
   const exifB = metaB.exif?.length ?? 0;
   if (exifA > 0 || exifB > 0) {
     const exifRatio = Math.min(exifA, exifB) / Math.max(exifA, exifB, 1);
-    score -= Math.round((1 - exifRatio) * 40);
+    score -= Math.round((1 - exifRatio) * 60);
   } else {
     // Les deux sans EXIF = même signature technique → pénalité légère
     score -= 5;
   }
 
-  // ICC color profile presence — 10pt (phone photos have ICC, DuupFlow output doesn't)
-  if (!!metaA.icc !== !!metaB.icc) score -= 10;
+  // ICC color profile presence — 15pt (phone photos have ICC, DuupFlow output doesn't)
+  if (!!metaA.icc !== !!metaB.icc) score -= 15;
 
-  // Density/DPI — up to 10pt
+  // Density/DPI — up to 20pt
   const densA = metaA.density ?? 72;
   const densB = metaB.density ?? 72;
   const densRatio = Math.min(densA, densB) / Math.max(densA, densB);
-  score -= Math.round((1 - densRatio) * 10);
+  score -= Math.round((1 - densRatio) * 20);
 
   // Progressive encoding — 5pt
   if (metaA.isProgressive !== metaB.isProgressive) score -= 5;
@@ -540,20 +540,20 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   // Weights (sum = 0.85 — 15% reserved for metadata computed at file level)
   // pHash and dHash removed — redistribués sur les métriques restantes.
   //
-  // SSIM         15% — structural+luminance+contrast (industry standard, YouTube/Netflix)
-  // MSE          13% — raw pixel differences (96×96, catches every pixel change)
-  // chroma        5% — Cb/Cr distribution (hue, saturation, chroma noise)
-  // gradient      5% — gradient magnitude (sharpness, grain, noise intensity)
-  // projection   11% — row+col luminance profiles (spatial shift, any positional change)
-  // spatialGrid  10% — spatial content map (zoom, crop offset, vignette, lens)
+  // SSIM         19% — structural+luminance+contrast (industry standard, YouTube/Netflix)
+  // MSE          17% — raw pixel differences (96×96, catches every pixel change)
+  // chroma        4% — Cb/Cr distribution (hue, saturation, chroma noise)
+  // gradient      4% — gradient magnitude (sharpness, grain, noise intensity)
+  // projection    5% — row+col luminance profiles (spatial shift, any positional change)
+  // spatialGrid  12% — spatial content map (zoom, crop offset, vignette, lens)
   // color         9% — RGB histogram (brightness, saturation changes)
-  // colorMoments  9% — mean/std/skew per channel (higher-order color stats)
-  // luma          8% — luminance histogram 64-bin (brightness/contrast/gamma)
+  // colorMoments  5% — mean/std/skew per channel (higher-order color stats)
+  // luma         10% — luminance histogram 64-bin (brightness/contrast/gamma)
   // metadata     15% — file metadata (EXIF, ICC, format, size, DPI) — added at file level
   const score =
-    ssim * 0.15 + mse * 0.13 + chroma * 0.05 +
-    gradient * 0.05 + proj * 0.11 + spatial * 0.10 +
-    ch * 0.09 + colorMom * 0.09 + luma * 0.08;
+    ssim * 0.19 + mse * 0.17 + chroma * 0.04 +
+    gradient * 0.04 + proj * 0.05 + spatial * 0.12 +
+    ch * 0.09 + colorMom * 0.05 + luma * 0.10;
 
   return {
     score,
