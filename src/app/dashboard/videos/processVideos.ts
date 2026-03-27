@@ -607,9 +607,9 @@ export async function processVideos(
           const offx = (Math.random() * maxOff).toFixed(6);
           const offy = (Math.random() * maxOff).toFixed(6);
           // crop: take (iw/zoom × ih/zoom) from position (iw*offx, ih*offy)
-          // scale: bring the sub-region back to full original dimensions — fast_bilinear for speed
+          // scale: bring the sub-region back to full original dimensions — bicubic: good quality/speed ratio
           vfParts.push(`crop=iw/${zf}:ih/${zf}:x=iw*${offx}:y=ih*${offy}`);
-          vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=fast_bilinear`);
+          vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=bicubic`);
 
           // lenscorrection removed: most expensive filter (~50% of encode time), geometric
           // remapping recalculates every pixel with bilinear interpolation per frame.
