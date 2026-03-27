@@ -17,6 +17,17 @@ export default function AddSimpleLinkForm() {
   const [commission, setCommission] = useState("20");
   const [discount, setDiscount] = useState("20");
   const [noDiscount, setNoDiscount] = useState(false);
+  const [withPromo, setWithPromo] = useState(false);
+
+  function handleCodeChange(val: string) {
+    setCode(val);
+  }
+
+  function handleNoDiscountToggle() {
+    const next = !noDiscount;
+    setNoDiscount(next);
+    if (next) setWithPromo(false); // pas de code promo visible sans réduction
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,6 +51,7 @@ export default function AddSimpleLinkForm() {
         email: email.trim() || undefined,
         commission_pct: Number(commission),
         discount_pct: noDiscount ? 0 : Number(discount),
+        with_visible_promo: !noDiscount && withPromo,
       }),
     });
 
@@ -62,6 +74,7 @@ export default function AddSimpleLinkForm() {
     setCommission("20");
     setDiscount("20");
     setNoDiscount(false);
+    setWithPromo(false);
     router.refresh();
 
     setTimeout(() => {
@@ -85,10 +98,12 @@ export default function AddSimpleLinkForm() {
           <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
           <path d="M14.828 14.828a4 4 0 015.656 0l-4 4a4 4 0 01-5.656-5.656l1.102-1.101" />
         </svg>
-        Partenaire lien seul
+        Nouveau partenaire
       </button>
     );
   }
+
+  const upperCode = code.trim().toUpperCase();
 
   return (
     <form
@@ -101,8 +116,8 @@ export default function AddSimpleLinkForm() {
     >
       <div className="flex items-center justify-between mb-2">
         <div>
-          <p className="text-sm font-semibold text-white">Nouveau partenaire — lien seul</p>
-          <p className="text-[11px] text-white/35 mt-0.5">La réduction s'applique automatiquement via le lien, sans code à saisir</p>
+          <p className="text-sm font-semibold text-white">Nouveau partenaire</p>
+          <p className="text-[11px] text-white/35 mt-0.5">Lien d'affiliation · code promo visible facultatif</p>
         </div>
         <button
           type="button"
@@ -120,7 +135,7 @@ export default function AddSimpleLinkForm() {
           <input
             required
             value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s/g, ""))}
+            onChange={(e) => handleCodeChange(e.target.value.toUpperCase().replace(/\s/g, ""))}
             placeholder="ex: AGENCETECH"
             className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:ring-1 focus:ring-emerald-500/50 transition"
             style={{
@@ -173,7 +188,7 @@ export default function AddSimpleLinkForm() {
             </label>
             <button
               type="button"
-              onClick={() => setNoDiscount((v) => !v)}
+              onClick={handleNoDiscountToggle}
               className="flex items-center gap-1.5 text-[10px] transition px-2 py-0.5 rounded-md"
               style={{
                 background: noDiscount ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.05)",
@@ -231,6 +246,32 @@ export default function AddSimpleLinkForm() {
             <span>5%</span><span>40%</span>
           </div>
         </div>
+
+        {/* Toggle code promo visible */}
+        <div className="sm:col-span-2">
+          <button
+            type="button"
+            disabled={noDiscount}
+            onClick={() => setWithPromo((v) => !v)}
+            className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition w-full disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              background: withPromo ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.04)",
+              border: withPromo ? "1px solid rgba(99,102,241,0.35)" : "1px solid rgba(255,255,255,0.10)",
+              color: withPromo ? "#A5B4FC" : "rgba(255,255,255,0.35)",
+            }}
+          >
+            <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <rect x="2" y="6" width="20" height="12" rx="2" />
+              <path d="M12 10v4M10 12h4" />
+            </svg>
+            {withPromo
+              ? <>Code promo visible activé — les filleuls peuvent aussi saisir <span className="font-mono font-bold">{upperCode || "CODE"}</span> au checkout</>
+              : "Ajouter un code promo visible (optionnel)"}
+          </button>
+          {noDiscount && (
+            <p className="text-[10px] text-white/25 mt-1">Code promo disponible uniquement avec une réduction activée</p>
+          )}
+        </div>
       </div>
 
       {/* Résumé */}
@@ -240,7 +281,7 @@ export default function AddSimpleLinkForm() {
           style={{ background: "rgba(16,185,129,0.05)", border: "1px solid rgba(16,185,129,0.15)" }}
         >
           <p className="text-white/50">
-            Lien partenaire : <span className="text-emerald-300 font-mono">duupflow.com/checkout?ref={code}</span>
+            Lien partenaire : <span className="text-emerald-300 font-mono">duupflow.com/checkout?ref={upperCode}</span>
           </p>
           {noDiscount ? (
             <p className="text-white/50">
@@ -248,15 +289,18 @@ export default function AddSimpleLinkForm() {
             </p>
           ) : (
             <p className="text-white/50">
-              Réduction filleuls : <span className="text-white/70">-{discount}% sur le 1er mois (auto)</span>
+              Réduction filleuls : <span className="text-white/70">-{discount}% sur le 1er mois (auto via lien)</span>
+            </p>
+          )}
+          {withPromo && !noDiscount && (
+            <p className="text-white/50">
+              Code promo visible : <span className="text-indigo-300 font-mono font-bold">{upperCode}</span>
+              <span className="text-white/40"> — saisissable au checkout</span>
             </p>
           )}
           <p className="text-white/50">
             Commission partenaire : <span className="text-white/70">{commission}% sur chaque renouvellement</span>
           </p>
-          {!noDiscount && (
-            <p className="text-emerald-400/60 text-[10px] mt-1">Aucun code à saisir — la réduction s'applique automatiquement via le lien</p>
-          )}
         </div>
       )}
 

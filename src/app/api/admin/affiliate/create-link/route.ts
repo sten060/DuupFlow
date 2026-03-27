@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Interdit" }, { status: 403 });
   }
 
-  const { code, name, email, commission_pct, discount_pct } = await req.json();
+  const { code, name, email, commission_pct, discount_pct, with_visible_promo } = await req.json();
   if (!code || typeof code !== "string" || !name || typeof name !== "string") {
     return NextResponse.json({ error: "code et name requis" }, { status: 400 });
   }
@@ -35,6 +35,10 @@ export async function POST(req: NextRequest) {
   const upperCode = code.trim().toUpperCase();
   const commissionPct = typeof commission_pct === "number" ? commission_pct : 20;
   const hasDiscount = discount_pct > 0;
+  // Si with_visible_promo=true, le code Stripe prend le nom du code (saisissable au checkout).
+  // Sinon, le code interne Stripe est REF{CODE} (non visible).
+  const visiblePromo = hasDiscount && with_visible_promo === true;
+  const stripePromoCodeName = visiblePromo ? upperCode : `REF${upperCode}`;
 
   let stripePromoCodeId: string | null = null;
   let stripeCouponId: string | null = null;
@@ -51,20 +55,22 @@ export async function POST(req: NextRequest) {
     });
     stripeCouponId = coupon.id;
 
-    // ── 2. Créer le Stripe Promotion Code (code interne, non affiché) ────────
+    // ── 2. Créer le Stripe Promotion Code ────────────────────────────────────
+    // Si visiblePromo: code = CODE (saisissable au checkout par l'utilisateur)
+    // Sinon: code = REFCODE (interne, appliqué automatiquement via le lien)
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const promoCode = await (stripe.promotionCodes.create as any)({
         coupon: coupon.id,
-        code: `REF${upperCode}`,
+        code: stripePromoCodeName,
         restrictions: { first_time_transaction: true },
-        metadata: { affiliate_code: upperCode, type: "link_only" },
+        metadata: { affiliate_code: upperCode, type: visiblePromo ? "visible_promo" : "link_only" },
       });
       stripePromoCodeId = promoCode.id;
     } catch (err: any) {
       if (err?.code === "resource_already_exists") {
         return NextResponse.json(
-          { error: `Le code interne 'REF${upperCode}' existe déjà dans Stripe. Utilisez un code de suivi différent.` },
+          { error: `Le code Stripe '${stripePromoCodeName}' existe déjà. Utilisez un code de suivi différent.` },
           { status: 409 }
         );
       } else {
