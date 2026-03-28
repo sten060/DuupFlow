@@ -449,10 +449,18 @@ async function runFFmpegSafe(
     if (afParts.length) args.push("-af", afParts.join(","));
     args.push(
       "-c:v", "libx264",
-      "-preset", "ultrafast",     // ultrafast: prioritise encoding speed (3–5× faster than fast)
-      "-threads", String(threads), // caller allocates threads based on os.cpus()
-      "-crf", "18",               // CRF 18: high visual quality, same speed with ultrafast preset
-      "-pix_fmt", "yuv420p",
+      "-preset", "ultrafast",      // ultrafast: prioritise encoding speed (3–5× faster than fast)
+      "-threads", String(threads),  // caller allocates threads based on os.cpus()
+      "-crf", "18",                // CRF 18: high visual quality, same speed with ultrafast preset
+      "-pix_fmt", "yuv420p",       // H.264 compatibility (limited range, 16–235)
+      // Preserve source color metadata to avoid visible hue/brightness shift:
+      // -pix_fmt yuv420p converts the pixel range but doesn't carry over the color matrix,
+      // primaries, or transfer curve. Without these flags FFmpeg leaves them unspecified,
+      // and decoders default to bt709 — which shifts colors if the source used bt601.
+      "-color_range", "tv",        // signal limited range (correct for yuv420p output)
+      "-colorspace", "copy",       // preserve source color matrix (bt601/bt709/bt2020…)
+      "-color_primaries", "copy",  // preserve source color primaries
+      "-color_trc", "copy",        // preserve source transfer characteristics
       "-c:a", "aac",
       "-b:a", "192k",
     );
