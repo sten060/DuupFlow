@@ -426,7 +426,13 @@ async function runFFmpegSafe(
   // 4. Any video filters → full encode
   const useStreamCopy = vfParts.length === 0 && afParts.length === 0 && extraArgs.length === 0;
   const audioOnly     = vfParts.length === 0 && afParts.length > 0  && extraArgs.length === 0;
-  const videoCopy     = vfParts.length === 0 && !useStreamCopy && !audioOnly; // extra args, no vf
+  // videoCopy: only when extraArgs are audio-compatible output options (like -ar, -b:a).
+  // Video encoder options (-profile:v, -crf, -b:v, -g, -level:v) require a real encode —
+  // passing them with -c:v copy causes FFmpeg to reject them ("Error setting option profile").
+  const hasVideoEncodeArgs = extraArgs.some((a) =>
+    ["-crf", "-b:v", "-profile:v", "-level:v", "-g"].includes(a)
+  );
+  const videoCopy = vfParts.length === 0 && !useStreamCopy && !audioOnly && !hasVideoEncodeArgs;
 
   if (useStreamCopy) {
     args.push("-c", "copy");
@@ -452,8 +458,7 @@ async function runFFmpegSafe(
       "-preset", "ultrafast",      // ultrafast: prioritise encoding speed (3–5× faster than fast)
       "-threads", String(threads),  // caller allocates threads based on os.cpus()
       "-crf", "18",                // CRF 18: high visual quality, same speed with ultrafast preset
-      "-pix_fmt", "yuv420p",       // H.264 compatibility (limited range, 16–235)
-      "-color_range", "tv",        // signal limited range — matches yuv420p output, avoids tint
+      "-pix_fmt", "yuv420p",       // H.264 compatibility — convert 10-bit/full-range inputs
       "-c:a", "aac",
       "-b:a", "192k",
     );
