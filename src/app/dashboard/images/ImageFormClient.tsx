@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import ToggleChip from "../ToggleChip";
-import { setJob, addCompletedFile, removeJob, stopJob, snapshot, subscribe, Job } from "../videos/jobStore";
+import { setJob, addCompletedFile, removeJob, stopJob } from "../videos/jobStore";
 
 const MAX_FILES = 50;
 
@@ -48,7 +48,7 @@ type Props = {
   initialImages: string[];
 };
 
-export default function ImageFormClient({ initialImages: _ }: Props) {
+export default function ImageFormClient({ initialImages }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -56,13 +56,18 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
+  // Persisted download list: initialized from server files, grows as new jobs complete.
+  // Survives job cleanup and page navigation (server re-populates via initialImages).
+  const [persistedFiles, setPersistedFiles] = useState<{ url: string; name: string }[]>(
+    () => initialImages.map((url) => ({
+      url,
+      name: decodeURIComponent(url.split("/").pop() ?? url),
+    }))
+  );
+
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Subscribe to global store to show this page's job completedFiles while on the page
-  const allJobs = useSyncExternalStore(subscribe, snapshot, () => [] as Job[]);
-  const activeJob = activeJobId ? allJobs.find((j) => j.id === activeJobId) : null;
-  const completedFiles = activeJob?.completedFiles ?? [];
 
   const onPick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files || []);
@@ -206,6 +211,11 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
               }
               if (evt.fileReady) {
                 addCompletedFile(jobId, evt.fileReady);
+                setPersistedFiles((prev) =>
+                  prev.some((f) => f.url === evt.fileReady.url)
+                    ? prev
+                    : [...prev, evt.fileReady]
+                );
               }
               if (evt.error) {
                 const errMsg = `[IMG-003] ${evt.msg || "Erreur traitement image"}`;
@@ -388,12 +398,12 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
         )}
       </form>
 
-      {/* Ready files — shown as they arrive via SSE */}
-      {completedFiles.length > 0 && (
+      {/* Ready files — shown as they arrive via SSE and persist across navigation */}
+      {persistedFiles.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-white/80 mr-auto">
-              Prêts à télécharger ({completedFiles.length})
+              Prêts à télécharger ({persistedFiles.length})
             </p>
             <button
               type="button"
@@ -401,7 +411,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
                 const JSZip = (await import("jszip")).default;
                 const zip = new JSZip();
                 await Promise.all(
-                  completedFiles.map(async ({ url, name }) => {
+                  persistedFiles.map(async ({ url, name }) => {
                     const res = await fetch(url);
                     const buf = await res.arrayBuffer();
                     zip.file(name, buf);
@@ -420,7 +430,7 @@ export default function ImageFormClient({ initialImages: _ }: Props) {
           </div>
 
           <div className="rounded-xl border border-white/10 bg-white/5 divide-y divide-white/5 max-h-80 overflow-y-auto">
-            {completedFiles.map(({ url, name }, i) => (
+            {persistedFiles.map(({ url, name }, i) => (
               <div key={i} className="flex items-center justify-between gap-3 px-4 py-2.5">
                 <span className="text-xs text-white/70 truncate flex-1">{name}</span>
                 <a
