@@ -763,10 +763,12 @@ export async function processVideos(
           }
         }
 
-        // Ensure H.264-compatible dimensions (even pixels) only when re-encoding
-        if (vfParts.length > 0 || extraArgs.length > 0) {
+        // Scale filters only when actual video filters are active — NOT when only
+        // extraArgs (metadata/audio) are set, to avoid any visual change on those packs.
+        if (vfParts.length > 0) {
           // Cap to 1080p — 4K input is 4× more pixels → 4× slower; quality difference negligible
           vfParts.unshift("scale=1920:1080:force_original_aspect_ratio=decrease:flags=fast_bilinear");
+          // Ensure even pixel dimensions — libx264 requirement
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
         }
 
