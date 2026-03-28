@@ -81,18 +81,21 @@ const CONTROLS: Ctrl[] = [
   { key: "flip", label: "Flip (vertical)", group: "Boutons", min: 0, max: 1, type: "toggle" },
   { key: "reverse", label: "Reverse (miroir horizontal)", group: "Boutons", min: 0, max: 1, type: "toggle" },
 
-  { key: "saturation", label: "Saturation", group: "Visuel", min: 0.0, max: 0.0, step: 0.01 },
-  { key: "contrast",   label: "Contraste",  group: "Visuel", min: 0.0, max: 0.0, step: 0.01 },
-  { key: "brightness", label: "Luminosité", group: "Visuel", min: 0.0, max: 0.0, step: 0.01 },
-  { key: "gamma",      label: "Gamma",      group: "Visuel", min: 0.0, max: 0.0, step: 0.01 },
-  { key: "hue_rad",    label: "Teinte (Hue)", unit: "rad", group: "Visuel", min: 0.0, max: 0.0, step: 0.005 },
-  { key: "vignette",   label: "Vignette (angle)", unit: "rad", group: "Visuel", min: 0.0, max: 0.0, step: 0.005 },
-  { key: "noise",      label: "Grain (Noise)", group: "Visuel", min: 0, max: 0, step: 1 },
-  { key: "lens_k",     label: "Correction optique (k)", group: "Visuel", min: 0.0, max: 0.0, step: 0.001 },
-  { key: "unsharp",    label: "Netteté douce", group: "Visuel", min: 0, max: 0, step: 0.1 },
+  // Neutral values: sat/con/gam → 1.0 (no change), brightness → 0.0, hue → 0.0
+  // Setting defaults to neutral ensures enabling a filter without changing values = no effect.
+  { key: "saturation", label: "Saturation", group: "Visuel", min: 0.97, max: 1.03, step: 0.01 },
+  { key: "contrast",   label: "Contraste",  group: "Visuel", min: 0.97, max: 1.03, step: 0.01 },
+  { key: "brightness", label: "Luminosité", group: "Visuel", min: -0.03, max: 0.03, step: 0.01 },
+  { key: "gamma",      label: "Gamma",      group: "Visuel", min: 0.97, max: 1.03, step: 0.01 },
+  { key: "hue_rad",    label: "Teinte (Hue)", unit: "rad", group: "Visuel", min: -0.05, max: 0.05, step: 0.005 },
+  { key: "vignette",   label: "Vignette (angle)", unit: "rad", group: "Visuel", min: 0.0, max: 0.1, step: 0.005 },
+  { key: "noise",      label: "Grain (Noise)", group: "Visuel", min: 0, max: 4, step: 1 },
+  { key: "lens_k",     label: "Correction optique (k)", group: "Visuel", min: -0.05, max: 0.05, step: 0.001 },
+  { key: "unsharp",    label: "Netteté douce", group: "Visuel", min: 0, max: 0.3, step: 0.1 },
 
-  { key: "speed",        label: "Vitesse", unit: "x", group: "Mouvement", min: 0.0, max: 0.0, step: 0.001 },
-  { key: "zoom",         label: "Zoom",    unit: "x", group: "Mouvement", min: 0.0, max: 0.0, step: 0.001 },
+  // Neutral values: speed/zoom → 1.0 (no change). Default 0.0 would freeze/hide the video.
+  { key: "speed",        label: "Vitesse", unit: "x", group: "Mouvement", min: 0.98, max: 1.02, step: 0.001 },
+  { key: "zoom",         label: "Zoom",    unit: "x", group: "Mouvement", min: 0.98, max: 1.02, step: 0.001 },
   { key: "pixelshift",   label: "Pixel shift", unit: "px", group: "Mouvement", min: 0, max: 0, step: 1 },
   { key: "rotation_deg", label: "Rotation", unit: "°", group: "Mouvement", min: 0, max: 0, step: 0.1 },
   { key: "fps",          label: "Framerate", unit: "fps", group: "Mouvement", min: 0, max: 0, step: 0.1 },
@@ -120,18 +123,18 @@ const LIMITS: Record<
   string,
   { lo: number; hi: number; label?: string }
 > = {
-  brightness: { lo: -1, hi: 1, label: "−1.0 à +1.0 (neutre 0)" },
-  saturation: { lo: 0, hi: 3, label: "0.0 à 3.0 (neutre 1.0)" },
-  contrast:   { lo: 0, hi: 3, label: "0.0 à 3.0 (neutre 1.0)" },
-  gamma:      { lo: 0.1, hi: 3, label: "0.1 à 3.0 (neutre 1.0)" },
-  hue_rad:    { lo: -Math.PI, hi: Math.PI, label: "≈ −3.142 à +3.142 (neutre 0)" },
-  vignette:   { lo: 0, hi: Math.PI, label: "0.0 à 3.142" },
-  noise:      { lo: 0, hi: 64, label: "0 à 64" },
-  lens_k:     { lo: -1, hi: 1, label: "−1.0 à +1.0 (neutre 0)" },
-  unsharp:    { lo: 0, hi: 5, label: "0.0 à 5.0" },
+  brightness: { lo: -1, hi: 1, label: "neutre 0 — subtil : −0.03 → +0.03" },
+  saturation: { lo: 0, hi: 3, label: "neutre 1.0 — subtil : 0.97 → 1.03" },
+  contrast:   { lo: 0, hi: 3, label: "neutre 1.0 — subtil : 0.97 → 1.03" },
+  gamma:      { lo: 0.1, hi: 3, label: "neutre 1.0 — subtil : 0.97 → 1.03" },
+  hue_rad:    { lo: -Math.PI, hi: Math.PI, label: "neutre 0 — subtil : −0.05 → +0.05" },
+  vignette:   { lo: 0, hi: Math.PI, label: "subtil : 0 → 0.1" },
+  noise:      { lo: 0, hi: 64, label: "subtil : 0 → 4" },
+  lens_k:     { lo: -1, hi: 1, label: "neutre 0 — subtil : −0.05 → +0.05" },
+  unsharp:    { lo: 0, hi: 5, label: "subtil : 0 → 0.3" },
 
-  speed:        { lo: 0.5, hi: 2, label: "0.5 à 2.0 (neutre 1.0)" },
-  zoom:         { lo: 0.5, hi: 3, label: "0.5 à 3.0 (neutre 1.0)" },
+  speed:        { lo: 0.5, hi: 2, label: "neutre 1.0 — subtil : 0.98 → 1.02" },
+  zoom:         { lo: 0.5, hi: 3, label: "neutre 1.0 — subtil : 0.98 → 1.02" },
   pixelshift:   { lo: 0, hi: 200, label: "0 à 200 px" },
   rotation_deg: { lo: -180, hi: 180, label: "−180 à +180 °" },
   fps:          { lo: 10, hi: 60, label: "10 à 60 fps" },
@@ -151,20 +154,20 @@ const LIMITS: Record<
 const HELP_ADVANCED: Record<Group, React.ReactNode> = {
   Visuel: (
     <div>
-      <b>Valeurs recommandées</b><br />
-      Saturation/Contraste/Gamma&nbsp;: <b>0.9 → 1.1</b> (neutre 1) •
-      Luminosité&nbsp;: <b>−0.05 → +0.05</b> (neutre 0) •
-      Hue (rad)&nbsp;: <b>−0.1 → +0.1</b> •
-      Vignette (rad)&nbsp;: <b>0 → 0.15</b> •
-      Grain&nbsp;: <b>0 → 16</b> •
-      k&nbsp;: <b>−0.3 → +0.3</b> •
-      Netteté&nbsp;: <b>0 → 0.6</b>.
+      <b>Valeurs subtiles (imperceptibles)</b><br />
+      Saturation/Contraste/Gamma&nbsp;: <b>0.97 → 1.03</b> (neutre&nbsp;1.0) •
+      Luminosité&nbsp;: <b>−0.03 → +0.03</b> (neutre&nbsp;0) •
+      Hue&nbsp;: <b>−0.05 → +0.05</b> •
+      Vignette&nbsp;: <b>0 → 0.1</b> •
+      Grain&nbsp;: <b>0 → 4</b> •
+      k&nbsp;: <b>−0.05 → +0.05</b> •
+      Netteté&nbsp;: <b>0 → 0.3</b>.
     </div>
   ),
   Mouvement: (
     <div>
-      Vitesse (x) <b>0.9 → 1.1</b> • Zoom <b>0.95 → 1.2</b> • Pixel shift <b>0 → 8</b> •
-      Rotation <b>−5 → +5</b> • FPS <b>24 → 60</b>.
+      Vitesse (x) <b>0.98 → 1.02</b> (neutre&nbsp;1.0) • Zoom <b>0.98 → 1.02</b> • Pixel shift <b>0 → 4</b> •
+      Rotation <b>−1 → +1</b> • FPS <b>24 → 30</b>.
     </div>
   ),
   Techniques: (
