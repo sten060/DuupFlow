@@ -419,12 +419,14 @@ async function runFFmpegSafe(
   // -max_muxing_queue_size must come AFTER -i (output option, not input option)
   args.push("-max_muxing_queue_size", "1024");
 
-  // Three tiers:
+  // Four tiers:
   // 1. No filters at all → full stream copy (near-instant, no re-encode)
   // 2. Audio filters only → copy video track, encode audio (fast: no video decode)
-  // 3. Any video/extra filters → full encode
+  // 3. Extra output args only (e.g. -ar sample rate) → copy video, encode audio with args
+  // 4. Any video filters → full encode
   const useStreamCopy = vfParts.length === 0 && afParts.length === 0 && extraArgs.length === 0;
-  const audioOnly = vfParts.length === 0 && afParts.length > 0 && extraArgs.length === 0;
+  const audioOnly     = vfParts.length === 0 && afParts.length > 0  && extraArgs.length === 0;
+  const videoCopy     = vfParts.length === 0 && !useStreamCopy && !audioOnly; // extra args, no vf
 
   if (useStreamCopy) {
     args.push("-c", "copy");
@@ -432,6 +434,13 @@ async function runFFmpegSafe(
     args.push("-map", "0:v:0", "-map", "0:a:0?");
     args.push("-af", afParts.join(","));
     args.push("-c:v", "copy", "-c:a", "aac", "-b:a", "192k");
+  } else if (videoCopy) {
+    // Metadata-only pack: copy video stream pixel-perfect, re-encode audio only.
+    // extraArgs may include -ar (sample rate) — applied as output options.
+    args.push("-map", "0:v:0", "-map", "0:a:0?");
+    if (afParts.length) args.push("-af", afParts.join(","));
+    args.push("-c:v", "copy", "-c:a", "aac", "-b:a", "192k");
+    if (extraArgs.length) args.push(...extraArgs);
   } else {
     // -map 0:v:0 : first video stream only (avoids crash on MP4s with embedded cover art)
     // -map 0:a:0?: first audio stream if present (prevents crash on no-audio inputs)
@@ -743,24 +752,17 @@ export async function processVideos(
         }
 
         if (packs.includes("metadata")) {
-          // Encoding-level binary uniquifiers — change DCT tables, GOP structure, audio
-          // sample rate; invisible to the viewer but alter every byte of the bitstream.
-          // Applied even when no visual pack is active (forces re-encode with metadata).
-          extraArgs.push("-bf", String(Math.floor(Math.random() * 4)));              // 0–3 B-frames
-          extraArgs.push("-ar", Math.random() < 0.5 ? "44100" : "48000");            // audio sample rate
-          extraArgs.push("-g", String(200 + Math.floor(Math.random() * 100)));       // GOP 200–299
+          // Audio sample rate variation — changes the audio fingerprint (resampling
+          // produces a unique bitstream per copy). Video is stream-copied untouched.
+          // -bf and -g removed: they are video encoder params that force a full video
+          // re-encode, which introduces color-space / pixel-format changes → visible tint.
+          extraArgs.push("-ar", Math.random() < 0.5 ? "44100" : "48000");
         }
 
-        // ── Non-visual uniquifiers applied whenever re-encoding is already triggered ──
-        if (vfParts.length > 0 || extraArgs.length > 0) {
-          // Per-copy CRF variation (15–20, random per copy)
-          //    Different DCT quantization table → different rounding of each DCT
-          //    coefficient → different decoded pixel values after playback decode.
-          //    All values (15–20) are perceptually transparent. Zero time impact.
-          //    Not applied when technical pack already sets its own CRF range.
-          if (!packs.includes("technical")) {
-            extraArgs.push("-crf", String(15 + Math.floor(Math.random() * 6)));
-          }
+        // ── CRF variation — only when video is already being re-encoded ──────────
+        // Adding CRF without video filters would force a full encode and change visuals.
+        if (vfParts.length > 0 && !packs.includes("technical")) {
+          extraArgs.push("-crf", String(15 + Math.floor(Math.random() * 6)));
         }
 
         // Scale filters only when actual video filters are active — NOT when only
