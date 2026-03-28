@@ -121,7 +121,9 @@ async function probeVideoDuration(input: string, binPath: string): Promise<numbe
     let settled = false;
     const done = (val: number) => { if (!settled) { settled = true; clearTimeout(timer); resolve(val); } };
 
-    const p = spawn(binPath, ["-i", input], { stdio: ["ignore", "ignore", "pipe"] });
+    // -probesize 100M lets FFmpeg read further into the file to find the moov atom
+    // when it sits near the end (common for unfaststarted recordings, HEVC from TapRecord, etc.)
+    const p = spawn(binPath, ["-probesize", "100M", "-i", input], { stdio: ["ignore", "ignore", "pipe"] });
     p.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
     p.on("error", () => done(0));
     p.on("close", () => {
@@ -131,6 +133,33 @@ async function probeVideoDuration(input: string, binPath: string): Promise<numbe
 
     // Safety: kill the probe if it hangs for more than 8 seconds
     const timer = setTimeout(() => { p.kill("SIGKILL"); done(0); }, 8_000);
+  });
+}
+
+/**
+ * Quick sanity-check: try to decode 1 frame from the file.
+ * Returns true if FFmpeg can read it (valid file, possibly HEVC or unusual profile
+ * that probeVideoDuration couldn't parse), false if it's genuinely unreadable.
+ */
+async function canFFmpegReadFile(input: string, binPath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (ok: boolean) => { if (!settled) { settled = true; clearTimeout(timer); resolve(ok); } };
+
+    // Decode up to 1 frame, output to null — fast and codec-agnostic
+    const p = spawn(binPath, ["-v", "error", "-i", input, "-vframes", "1", "-f", "null", "-"], {
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    let stderr = "";
+    p.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+    p.on("error", () => done(false));
+    p.on("close", (code) => {
+      // Accept if exit 0, or if stderr has no fatal error (some valid files exit 1 with warnings)
+      const fatal = /Invalid data|moov atom not found|No such file|Permission denied/i.test(stderr);
+      done(code === 0 || !fatal);
+    });
+
+    const timer = setTimeout(() => { p.kill("SIGKILL"); done(false); }, 12_000);
   });
 }
 
@@ -527,9 +556,19 @@ export async function processVideos(
   const validEntries: typeof fileEntries = [];
   for (const { entry, dur } of durResults) {
     if (dur <= 0) {
-      // dur = 0 means ffprobe couldn't read the file (corrupt, truncated, moov atom missing, etc.)
-      await onProgress?.(2, `⚠ "${entry.fileName}" est invalide ou corrompu — ignorée.`);
-      if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
+      // Probe couldn't parse duration — may be a valid HEVC/unusual file that ffmpeg -i
+      // couldn't read the moov atom from (e.g. moov atom at EOF, Apple HEVC metadata).
+      // Do a quick decode test before rejecting: if FFmpeg can read 1 frame it's valid.
+      const readable = await canFFmpegReadFile(entry.tmpIn, ffmpegBin);
+      if (!readable) {
+        console.warn(`[processVideos] rejected "${entry.fileName}": probe=0 and 1-frame test failed`);
+        await onProgress?.(2, `⚠ "${entry.fileName}" est invalide ou corrompu — ignorée.`);
+        if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
+      } else {
+        // Valid file — duration unknown, will process without the 50 s guard
+        console.log(`[processVideos] accepted "${entry.fileName}": probe=0 but 1-frame test passed (likely HEVC)`);
+        validEntries.push(entry);
+      }
     } else if (dur > MAX_DURATION_S) {
       await onProgress?.(2, `⚠ "${entry.fileName}" dépasse ${MAX_DURATION_S}s (${Math.round(dur)}s) — ignorée.`);
       if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
