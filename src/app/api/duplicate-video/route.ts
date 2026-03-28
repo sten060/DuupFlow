@@ -154,7 +154,7 @@ export async function POST(req: Request) {
             }
             // Track in jobEntry.tmpPaths — deleted only when job.done = true
             jobEntry.tmpPaths.push(tmpPath);
-            const name = fileNames[i] ?? uploadId;
+            const name = fileNames[i] || path.basename(uploadId);
             return { name, tmpPath };
           });
           send({ percent: 5, msg: "Fichiers reçus, traitement en cours…" });
@@ -167,7 +167,7 @@ export async function POST(req: Request) {
 
           let doneDl = 0;
           await Promise.all(storagePaths.map(async (storagePath, i) => {
-            const fileName = fileNames[i] ?? path.basename(storagePath);
+            const fileName = fileNames[i] || path.basename(storagePath);
             const { data, error } = await supabase.storage.from(INPUT_BUCKET).download(storagePath);
             if (error || !data) {
               throw new Error(`Récupération storage échouée : ${error?.message ?? "inconnu"}`);

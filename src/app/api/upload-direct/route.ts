@@ -33,6 +33,13 @@ export async function POST(req: NextRequest) {
     // TransformStream bug (controller[kState].transformAlgorithm is not a function)
     // that crashes under concurrent parallel uploads.
     const buffer = Buffer.from(await req.arrayBuffer());
+    console.log(`[upload-direct] received ${buffer.length} bytes for "${fileName}" (uploadId: ${uploadId})`);
+    if (buffer.length === 0) {
+      return NextResponse.json(
+        { error: "Fichier reçu vide (0 octet) — vérifiez la taille du fichier ou la connexion." },
+        { status: 400 }
+      );
+    }
     await fs.writeFile(tmpPath, buffer);
   } catch (e: any) {
     return NextResponse.json({ error: `Erreur écriture : ${e.message}` }, { status: 500 });
