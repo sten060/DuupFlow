@@ -400,14 +400,13 @@ async function runFFmpegSafe(
   if (useStreamCopy) {
     args.push("-c", "copy");
   } else if (audioOnly) {
-    args.push("-map", "0:v", "-map", "0:a?");
+    args.push("-map", "0:v:0", "-map", "0:a:0?");
     args.push("-af", afParts.join(","));
     args.push("-c:v", "copy", "-c:a", "aac", "-b:a", "192k");
   } else {
-    // -map 0:v : always include video
-    // -map 0:a?: include audio only if present — prevents crash on no-audio inputs
-    //            when audio filters (e.g. atempo) are in afParts
-    args.push("-map", "0:v", "-map", "0:a?");
+    // -map 0:v:0 : first video stream only (avoids crash on MP4s with embedded cover art)
+    // -map 0:a:0?: first audio stream if present (prevents crash on no-audio inputs)
+    args.push("-map", "0:v:0", "-map", "0:a:0?");
     if (vfParts.length) args.push("-vf", vfParts.join(","));
     if (afParts.length) args.push("-af", afParts.join(","));
     args.push(
