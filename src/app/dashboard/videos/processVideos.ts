@@ -781,9 +781,15 @@ export async function processVideos(
         // Scale filters only when actual video filters are active — NOT when only
         // extraArgs (metadata/audio) are set, to avoid any visual change on those packs.
         if (vfParts.length > 0) {
-          // Cap to 1080p — 4K input is 4× more pixels → 4× slower; quality difference negligible
-          vfParts.unshift("scale=1920:1080:force_original_aspect_ratio=decrease:flags=fast_bilinear");
-          // Ensure even pixel dimensions — libx264 requirement
+          // Cap the LONGER side at 1920 px to handle both landscape AND portrait videos.
+          // Old "scale=1920:1080" treated portrait phone video (1080×1920) as landscape,
+          // squishing it to 608×1080 (3× fewer pixels — a complete visual change).
+          // New formula: factor = min(1920/max(iw,ih), 1) — scale down only if needed,
+          // output = trunc(dim*factor/2)*2 — ensures even dimensions for libx264.
+          vfParts.unshift(
+            "scale=trunc(iw*min(1920/max(iw\\,ih)\\,1)/2)*2:trunc(ih*min(1920/max(iw\\,ih)\\,1)/2)*2:flags=fast_bilinear",
+          );
+          // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
         }
 
@@ -929,8 +935,11 @@ export async function processVideos(
         // only extraArgs has values (bitrate/gop/fps go through videoCopy/stream-copy
         // and don't need scale, which would force a full encode and cause color tint).
         if (vfParts.length > 0) {
-          // Cap to 1080p — 4K input is 4× more pixels → 4× slower; quality difference negligible
-          vfParts.unshift("scale=1920:1080:force_original_aspect_ratio=decrease:flags=fast_bilinear");
+          // Cap the LONGER side at 1920 px — orientation-aware (same logic as simple mode).
+          vfParts.unshift(
+            "scale=trunc(iw*min(1920/max(iw\\,ih)\\,1)/2)*2:trunc(ih*min(1920/max(iw\\,ih)\\,1)/2)*2:flags=fast_bilinear",
+          );
+          // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
         }
       }
