@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import ToggleChip from "../ToggleChip";
 import { setJob, addCompletedFile, removeJob, stopJob } from "../videos/jobStore";
+import ClearImagesButton from "./ClearImagesButton";
 
 const MAX_FILES = 50;
 
@@ -405,6 +406,7 @@ export default function ImageFormClient({ initialImages }: Props) {
             <p className="text-sm font-semibold text-white/80 mr-auto">
               Prêts à télécharger ({persistedFiles.length})
             </p>
+            <ClearImagesButton onCleared={() => setPersistedFiles([])} />
             <button
               type="button"
               onClick={async () => {
