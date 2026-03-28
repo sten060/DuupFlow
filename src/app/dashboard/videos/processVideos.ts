@@ -384,11 +384,11 @@ async function runFFmpegSafe(
   // Threads to allocate to this FFmpeg process (computed by caller from os.cpus()).
   threads = 1,
 ) {
-  const args: string[] = ["-y", "-hide_banner", "-loglevel", "error", "-max_muxing_queue_size", "1024"];
-  // -stats prints "frame= fps= time=…" to stderr even at loglevel error,
-  // so the UI can show real encoding progress without spamming log output.
+  const args: string[] = ["-y", "-hide_banner", "-loglevel", "error"];
   if (onTick) args.push("-stats");
   args.push("-i", input);
+  // -max_muxing_queue_size must come AFTER -i (output option, not input option)
+  args.push("-max_muxing_queue_size", "1024");
 
   // Three tiers:
   // 1. No filters at all → full stream copy (near-instant, no re-encode)
