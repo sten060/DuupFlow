@@ -85,9 +85,13 @@ export default function Dropzone({
     if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files);
   };
   const onBrowse = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.length) addFiles(e.target.files);
-    // on reset la value pour pouvoir rechoisir les mêmes fichiers si besoin
+    // Capture files into a plain array BEFORE resetting the input —
+    // resetting value="" would otherwise clear the FileList reference.
+    const picked = e.target.files ? Array.from(e.target.files) : [];
+    // Reset BEFORE addFiles so the subsequent syncInputFiles call
+    // (which sets inputRef.current.files = dt.files) is not overwritten.
     e.currentTarget.value = "";
+    if (picked.length) addFiles(picked);
   };
 
   return (
