@@ -916,8 +916,11 @@ export async function processVideos(
         if (Boolean(ranges?.flip?.enabled))    vfParts.push("vflip");
         if (Boolean(ranges?.reverse?.enabled)) vfParts.push("hflip");
 
-        // Ensure H.264-compatible dimensions only when re-encoding
-        if (vfParts.length > 0 || extraArgs.length > 0) {
+        // Ensure H.264-compatible dimensions only when re-encoding.
+        // Only add scale helpers when there are actual video filters — NOT when
+        // only extraArgs has values (bitrate/gop/fps go through videoCopy/stream-copy
+        // and don't need scale, which would force a full encode and cause color tint).
+        if (vfParts.length > 0) {
           // Cap to 1080p — 4K input is 4× more pixels → 4× slower; quality difference negligible
           vfParts.unshift("scale=1920:1080:force_original_aspect_ratio=decrease:flags=fast_bilinear");
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
