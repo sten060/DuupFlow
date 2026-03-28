@@ -526,7 +526,11 @@ export async function processVideos(
   );
   const validEntries: typeof fileEntries = [];
   for (const { entry, dur } of durResults) {
-    if (dur > MAX_DURATION_S) {
+    if (dur <= 0) {
+      // dur = 0 means ffprobe couldn't read the file (corrupt, truncated, moov atom missing, etc.)
+      await onProgress?.(2, `⚠ "${entry.fileName}" est invalide ou corrompu — ignorée.`);
+      if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
+    } else if (dur > MAX_DURATION_S) {
       await onProgress?.(2, `⚠ "${entry.fileName}" dépasse ${MAX_DURATION_S}s (${Math.round(dur)}s) — ignorée.`);
       if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
     } else {
@@ -534,7 +538,7 @@ export async function processVideos(
     }
   }
   if (validEntries.length === 0) {
-    throw new Error(`Toutes les vidéos dépassent la durée maximale de ${MAX_DURATION_S} secondes.`);
+    throw new Error(`Aucune vidéo valide : les fichiers sont corrompus ou dépassent la durée maximale de ${MAX_DURATION_S} secondes.`);
   }
   totalCopies = validEntries.length * count; // recount after filtering
 
