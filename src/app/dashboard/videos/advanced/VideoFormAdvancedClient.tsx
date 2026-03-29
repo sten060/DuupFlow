@@ -83,10 +83,10 @@ const CONTROLS: Ctrl[] = [
 
   // Neutral values: sat/con/gam → 1.0 (no change), brightness → 0.0, hue → 0.0
   // Setting defaults to neutral ensures enabling a filter without changing values = no effect.
-  { key: "saturation", label: "Saturation", group: "Visuel", min: 0.97, max: 1.03, step: 0.01 },
-  { key: "contrast",   label: "Contraste",  group: "Visuel", min: 0.97, max: 1.03, step: 0.01 },
-  { key: "brightness", label: "Luminosité", group: "Visuel", min: -0.03, max: 0.03, step: 0.01 },
-  { key: "gamma",      label: "Gamma",      group: "Visuel", min: 0.97, max: 1.03, step: 0.01 },
+  { key: "saturation", label: "Saturation", group: "Visuel", min: 0.99, max: 1.01, step: 0.001 },
+  { key: "contrast",   label: "Contraste",  group: "Visuel", min: 0.99, max: 1.01, step: 0.001 },
+  { key: "brightness", label: "Luminosité", group: "Visuel", min: -0.01, max: 0.01, step: 0.001 },
+  { key: "gamma",      label: "Gamma",      group: "Visuel", min: 0.99, max: 1.01, step: 0.001 },
   { key: "hue_rad",    label: "Teinte (Hue)", unit: "rad", group: "Visuel", min: -0.05, max: 0.05, step: 0.005 },
   { key: "vignette",   label: "Vignette (angle)", unit: "rad", group: "Visuel", min: 0.0, max: 0.1, step: 0.005 },
   { key: "noise",      label: "Grain (Noise)", group: "Visuel", min: 0, max: 4, step: 1 },
@@ -123,10 +123,10 @@ const LIMITS: Record<
   string,
   { lo: number; hi: number; label?: string }
 > = {
-  brightness: { lo: -1, hi: 1, label: "neutre 0 — subtil : −0.03 → +0.03" },
-  saturation: { lo: 0, hi: 3, label: "neutre 1.0 — subtil : 0.97 → 1.03" },
-  contrast:   { lo: 0, hi: 3, label: "neutre 1.0 — subtil : 0.97 → 1.03" },
-  gamma:      { lo: 0.1, hi: 3, label: "neutre 1.0 — subtil : 0.97 → 1.03" },
+  brightness: { lo: -1, hi: 1, label: "neutre 0 — subtil : −0.01 → +0.01" },
+  saturation: { lo: 0, hi: 3, label: "neutre 1.0 — subtil : 0.99 → 1.01" },
+  contrast:   { lo: 0, hi: 3, label: "neutre 1.0 — subtil : 0.99 → 1.01" },
+  gamma:      { lo: 0.1, hi: 3, label: "neutre 1.0 — subtil : 0.99 → 1.01" },
   hue_rad:    { lo: -Math.PI, hi: Math.PI, label: "neutre 0 — subtil : −0.05 → +0.05" },
   vignette:   { lo: 0, hi: Math.PI, label: "subtil : 0 → 0.1" },
   noise:      { lo: 0, hi: 64, label: "subtil : 0 → 4" },
@@ -155,8 +155,8 @@ const HELP_ADVANCED: Record<Group, React.ReactNode> = {
   Visuel: (
     <div>
       <b>Valeurs subtiles (imperceptibles)</b><br />
-      Saturation/Contraste/Gamma&nbsp;: <b>0.97 → 1.03</b> (neutre&nbsp;1.0) •
-      Luminosité&nbsp;: <b>−0.03 → +0.03</b> (neutre&nbsp;0) •
+      Saturation/Contraste/Gamma&nbsp;: <b>0.99 → 1.01</b> (neutre&nbsp;1.0) •
+      Luminosité&nbsp;: <b>−0.01 → +0.01</b> (neutre&nbsp;0) •
       Hue&nbsp;: <b>−0.05 → +0.05</b> •
       Vignette&nbsp;: <b>0 → 0.1</b> •
       Grain&nbsp;: <b>0 → 4</b> •
