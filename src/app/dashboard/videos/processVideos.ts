@@ -625,8 +625,11 @@ export async function processVideos(
     parseInt(process.env.MAX_CONCURRENT_ENCODES ?? "8", 10),
   );
   const CONCURRENCY = Math.min(allTasks.length, MAX_CONCURRENT);
-  const threadsPerTask = 1;
-  console.log(`[processVideos] ncpus=${ncpus} MAX_CONCURRENT=${MAX_CONCURRENT} CONCURRENCY=${CONCURRENCY} tasks=${allTasks.length}`);
+  // Give each FFmpeg process its fair share of the CPU budget.
+  // e.g. 8-CPU budget / 3 concurrent tasks → 2 threads each (6 CPUs used, 2× faster per task).
+  // When all slots are filled (8 tasks on 8-CPU budget) → 1 thread each (same as before).
+  const threadsPerTask = Math.max(1, Math.floor(MAX_CONCURRENT / CONCURRENCY));
+  console.log(`[processVideos] ncpus=${ncpus} MAX_CONCURRENT=${MAX_CONCURRENT} CONCURRENCY=${CONCURRENCY} threadsPerTask=${threadsPerTask} tasks=${allTasks.length}`);
 
   const taskErrors = await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex }) => {
     const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
