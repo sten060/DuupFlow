@@ -453,15 +453,7 @@ async function runFFmpegSafe(
     // -map 0:v:0 : first video stream only (avoids crash on MP4s with embedded cover art)
     // -map 0:a:0?: first audio stream if present (prevents crash on no-audio inputs)
     args.push("-map", "0:v:0", "-map", "0:a:0?");
-    // Always route frames through the filter graph — even when no user filters are active.
-    // Without a -vf chain, FFmpeg encodes raw decoded frames via direct swscale which does
-    // not properly handle colorspace/range metadata, producing a visible tint on re-encodes.
-    // With a filter chain the graph normalises pixel format and range correctly.
-    // If no user filters: add a minimal even-dimensions scale as a passthrough.
-    const vfFull = vfParts.length > 0
-      ? vfParts
-      : ["scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=fast_bilinear"];
-    args.push("-vf", vfFull.join(","));
+    if (vfParts.length) args.push("-vf", vfParts.join(","));
     if (afParts.length) args.push("-af", afParts.join(","));
     args.push(
       "-c:v", "libx264",
@@ -785,16 +777,15 @@ export async function processVideos(
           extraArgs.push("-crf", String(15 + Math.floor(Math.random() * 6)));
         }
 
-        // Scale filters only when actual video filters are active — NOT when only
-        // extraArgs (metadata/audio) are set, to avoid any visual change on those packs.
-        if (vfParts.length > 0) {
-          // Cap the LONGER side at 1920 px to handle both landscape AND portrait videos.
-          // Old "scale=1920:1080" treated portrait phone video (1080×1920) as landscape,
-          // squishing it to 608×1080 (3× fewer pixels — a complete visual change).
-          // New formula: factor = min(1920/max(iw,ih), 1) — scale down only if needed,
-          // output = trunc(dim*factor/2)*2 — ensures even dimensions for libx264.
+        // Scale filters whenever video will be re-encoded (visual filters OR technical pack).
+        // Technical pack forces a full encode (CRF/bitrate/profile in extraArgs) so it also
+        // needs the scale filter chain to ensure proper pixel format and colorspace handling.
+        if (vfParts.length > 0 || packs.includes("technical")) {
+          // Cap the LONGER side at 1920 px using force_original_aspect_ratio=decrease.
+          // A 1920×1920 bounding box handles both landscape (1920×1080) and portrait
+          // (1080×1920) videos correctly — each fits within the box without squishing.
           vfParts.unshift(
-            "scale=trunc(iw*min(1920/max(iw\\,ih)\\,1)/2)*2:trunc(ih*min(1920/max(iw\\,ih)\\,1)/2)*2:flags=fast_bilinear",
+            "scale=1920:1920:force_original_aspect_ratio=decrease:flags=fast_bilinear",
           );
           // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
@@ -937,14 +928,18 @@ export async function processVideos(
         if (Boolean(ranges?.flip?.enabled))    vfParts.push("vflip");
         if (Boolean(ranges?.reverse?.enabled)) vfParts.push("hflip");
 
-        // Ensure H.264-compatible dimensions only when re-encoding.
-        // Only add scale helpers when there are actual video filters — NOT when
-        // only extraArgs has values (bitrate/gop/fps go through videoCopy/stream-copy
-        // and don't need scale, which would force a full encode and cause color tint).
-        if (vfParts.length > 0) {
-          // Cap the LONGER side at 1920 px — orientation-aware (same logic as simple mode).
+        // Add scale helpers whenever a full video encode will happen.
+        // video filters → full encode via libx264 (vfParts non-empty)
+        // video encoder extraArgs (CRF/bitrate/profile/GOP) → full encode via libx264
+        // Audio-only / stream-copy extraArgs (-ar, -b:a, -ss, -to) do NOT trigger a full
+        // video encode, so they don't need scale and go through the videoCopy tier instead.
+        const willFullEncode = vfParts.length > 0 || extraArgs.some((a) =>
+          ["-crf", "-b:v", "-profile:v", "-level:v", "-g"].includes(a)
+        );
+        if (willFullEncode) {
+          // Same 1920×1920 bounding box as simple mode: handles landscape and portrait.
           vfParts.unshift(
-            "scale=trunc(iw*min(1920/max(iw\\,ih)\\,1)/2)*2:trunc(ih*min(1920/max(iw\\,ih)\\,1)/2)*2:flags=fast_bilinear",
+            "scale=1920:1920:force_original_aspect_ratio=decrease:flags=fast_bilinear",
           );
           // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
