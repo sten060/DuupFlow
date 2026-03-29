@@ -460,9 +460,7 @@ async function runFFmpegSafe(
       "-preset", "ultrafast",      // ultrafast: prioritise encoding speed (3–5× faster than fast)
       "-threads", String(threads),  // caller allocates threads based on os.cpus()
       "-crf", "18",                // CRF 18: high visual quality, same speed with ultrafast preset
-      // pix_fmt yuv420p is now set via format=yuv420p inside the filter graph
-      // to avoid swscale inserting an implicit auto-scaler after the filter chain
-      // that can introduce a yellow tint from BT.601/BT.709 matrix mismatch.
+      "-pix_fmt", "yuv420p",       // Safety net — format=yuv420p in filter graph already converts
       "-c:a", "aac",
       "-b:a", "192k",
     );
@@ -783,19 +781,20 @@ export async function processVideos(
         }
 
         // When video will be re-encoded, ensure even dimensions and cap at 1920px.
-        // Use format=yuv420p inside the filter graph to avoid swscale implicit
-        // colorspace conversion that causes a yellow tint on re-encode.
         if (vfParts.length > 0 || packs.includes("technical")) {
-          // Cap the LONGER side at 1920 px — but use min(iw,1920) to avoid UPSCALING
-          // videos that are already ≤1920. force_original_aspect_ratio=decrease only
-          // shrinks, never grows, so this is safe for smaller inputs too.
-          vfParts.unshift(
+          // ── CRITICAL: convert pixel format FIRST, before any scale operation. ──
+          // iPhone MOV files are often HEVC yuv420p10le (10-bit). When swscale
+          // encounters a scale filter, it does an internal pixel format conversion
+          // (10-bit → 8-bit) using default color matrix assumptions that can be
+          // wrong for the source, producing a yellow tint.
+          // By converting to yuv420p FIRST, all subsequent scale operations are
+          // yuv420p → yuv420p (same format) so swscale only resizes, no color
+          // conversion happens.
+          vfParts.unshift("format=yuv420p");
+          // Cap at 1920px after format conversion — swscale operates on 8-bit now.
+          vfParts.splice(1, 0,
             "scale='min(iw,1920)':'min(ih,1920)':force_original_aspect_ratio=decrease:flags=lanczos",
           );
-          // Force pixel format in the filter graph itself — avoids the implicit
-          // swscale color matrix conversion that -pix_fmt yuv420p triggers as a
-          // separate auto-inserted scaler at the end of the pipeline.
-          vfParts.push("format=yuv420p");
           // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos");
         }
@@ -946,13 +945,12 @@ export async function processVideos(
           ["-crf", "-b:v", "-profile:v", "-level:v", "-g"].includes(a)
         );
         if (willFullEncode) {
-          // Same approach as simple mode: cap at 1920px, use format=yuv420p in
-          // the filter graph to avoid swscale implicit colorspace conversion.
-          vfParts.unshift(
+          // Same as simple mode: format conversion FIRST to avoid tint.
+          vfParts.unshift("format=yuv420p");
+          vfParts.splice(1, 0,
             "scale='min(iw,1920)':'min(ih,1920)':force_original_aspect_ratio=decrease:flags=lanczos",
           );
-          vfParts.push("format=yuv420p");
-          // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
+          // Ensure even dimensions after all filters.
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos");
         }
       }
