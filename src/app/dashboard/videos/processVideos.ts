@@ -451,7 +451,14 @@ async function runFFmpegSafe(
     // -map 0:v:0 : first video stream only (avoids crash on MP4s with embedded cover art)
     // -map 0:a:0?: first audio stream if present (prevents crash on no-audio inputs)
     args.push("-map", "0:v:0", "-map", "0:a:0?");
-    if (vfParts.length) args.push("-vf", vfParts.join(","));
+    // Always include a -vf chain in full encode to force colorspace normalization through
+    // the filter graph (more reliable than swscale implicit conversion).
+    // When no user filters are active (e.g. technical pack), insert a minimal pass that
+    // handles the full-range→limited-range conversion and ensures even H.264 dimensions.
+    const vfFull = vfParts.length > 0
+      ? vfParts
+      : ["scale=trunc(iw/2)*2:trunc(ih/2)*2:in_range=auto:out_range=tv:flags=neighbor"];
+    args.push("-vf", vfFull.join(","));
     if (afParts.length) args.push("-af", afParts.join(","));
     args.push(
       "-c:v", "libx264",
@@ -786,7 +793,7 @@ export async function processVideos(
           // New formula: factor = min(1920/max(iw,ih), 1) — scale down only if needed,
           // output = trunc(dim*factor/2)*2 — ensures even dimensions for libx264.
           vfParts.unshift(
-            "scale=trunc(iw*min(1920/max(iw\\,ih)\\,1)/2)*2:trunc(ih*min(1920/max(iw\\,ih)\\,1)/2)*2:flags=fast_bilinear",
+            "scale=trunc(iw*min(1920/max(iw\\,ih)\\,1)/2)*2:trunc(ih*min(1920/max(iw\\,ih)\\,1)/2)*2:in_range=auto:out_range=tv:flags=fast_bilinear",
           );
           // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
@@ -936,7 +943,7 @@ export async function processVideos(
         if (vfParts.length > 0) {
           // Cap the LONGER side at 1920 px — orientation-aware (same logic as simple mode).
           vfParts.unshift(
-            "scale=trunc(iw*min(1920/max(iw\\,ih)\\,1)/2)*2:trunc(ih*min(1920/max(iw\\,ih)\\,1)/2)*2:flags=fast_bilinear",
+            "scale=trunc(iw*min(1920/max(iw\\,ih)\\,1)/2)*2:trunc(ih*min(1920/max(iw\\,ih)\\,1)/2)*2:in_range=auto:out_range=tv:flags=fast_bilinear",
           );
           // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
