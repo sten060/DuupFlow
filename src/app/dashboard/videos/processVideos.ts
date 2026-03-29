@@ -461,6 +461,13 @@ async function runFFmpegSafe(
       "-threads", String(threads),  // caller allocates threads based on os.cpus()
       "-crf", "18",                // CRF 18: high visual quality, same speed with ultrafast preset
       "-pix_fmt", "yuv420p",       // H.264 compatibility — convert 10-bit/full-range inputs
+      // Explicit BT.709 colorspace metadata: prevents players from guessing the wrong
+      // color matrix when the source had unspecified metadata.  These are the H.264 HD
+      // standard values — valid named constants (not "copy" which crashes FFmpeg).
+      "-colorspace", "bt709",
+      "-color_primaries", "bt709",
+      "-color_trc", "bt709",
+      "-color_range", "tv",        // limited range — correct for yuv420p output
       "-c:a", "aac",
       "-b:a", "192k",
     );
@@ -784,8 +791,11 @@ export async function processVideos(
           // Cap the LONGER side at 1920 px using force_original_aspect_ratio=decrease.
           // A 1920×1920 bounding box handles both landscape (1920×1080) and portrait
           // (1080×1920) videos correctly — each fits within the box without squishing.
+          // in_color_matrix=bt709:out_color_matrix=bt709 — prevent swscale from doing an
+          // implicit BT.601→BT.709 conversion (swscale's default when metadata is absent),
+          // which produces the visible yellow/light tint on re-encoded copies.
           vfParts.unshift(
-            "scale=1920:1920:force_original_aspect_ratio=decrease:flags=fast_bilinear",
+            "scale=1920:1920:force_original_aspect_ratio=decrease:flags=fast_bilinear:in_color_matrix=bt709:out_color_matrix=bt709",
           );
           // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
@@ -938,8 +948,9 @@ export async function processVideos(
         );
         if (willFullEncode) {
           // Same 1920×1920 bounding box as simple mode: handles landscape and portrait.
+          // in_color_matrix=bt709:out_color_matrix=bt709 prevents swscale implicit BT.601 conversion.
           vfParts.unshift(
-            "scale=1920:1920:force_original_aspect_ratio=decrease:flags=fast_bilinear",
+            "scale=1920:1920:force_original_aspect_ratio=decrease:flags=fast_bilinear:in_color_matrix=bt709:out_color_matrix=bt709",
           );
           // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
           vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
