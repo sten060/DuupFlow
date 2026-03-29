@@ -163,46 +163,6 @@ async function canFFmpegReadFile(input: string, binPath: string): Promise<boolea
   });
 }
 
-/**
- * Probe the input video's colorspace metadata by parsing `ffmpeg -i` stderr.
- * Returns only tags that are explicitly present in the source so we can pass
- * them through verbatim — if the source has no tags the output gets none either,
- * ensuring both videos are decoded with the same player defaults (no tint).
- */
-async function probeColorspace(
-  input: string,
-  binPath: string,
-): Promise<{ colorspace?: string; colorPrimaries?: string; colorTrc?: string }> {
-  return new Promise((resolve) => {
-    const p = spawn(binPath, ["-v", "error", "-i", input], { stdio: ["ignore", "ignore", "pipe"] });
-    const timer = setTimeout(() => { p.kill("SIGKILL"); resolve({}); }, 5_000);
-    let stderr = "";
-    p.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
-    p.on("error", () => { clearTimeout(timer); resolve({}); });
-    p.on("close", () => {
-      clearTimeout(timer);
-      try {
-        // Find the first Video: stream line — colorspace tokens appear in the pixel-format descriptor
-        // e.g. "yuv420p(tv, bt709)" or "yuv420p(tv, bt709, bt709, progressive)"
-        const videoLine = stderr.split("\n").find((l) => /\bVideo:/.test(l)) ?? "";
-        if (videoLine.includes("bt709")) {
-          return resolve({ colorspace: "bt709", colorPrimaries: "bt709", colorTrc: "bt709" });
-        }
-        if (videoLine.includes("smpte170m") || videoLine.includes("bt601")) {
-          return resolve({ colorspace: "smpte170m", colorPrimaries: "smpte170m", colorTrc: "smpte170m" });
-        }
-        if (videoLine.includes("bt470bg")) {
-          return resolve({ colorspace: "bt470bg", colorPrimaries: "bt470bg", colorTrc: "bt470bg" });
-        }
-        // No explicit colorspace metadata — do NOT add any tags; let player use its own default
-        resolve({});
-      } catch {
-        resolve({});
-      }
-    });
-  });
-}
-
 const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
 
 function extOf(n: string) {
@@ -453,7 +413,6 @@ async function runFFmpegSafe(
   // Threads to allocate to this FFmpeg process (computed by caller from os.cpus()).
   threads = 1,
 ) {
-  // Resolve binary early — needed for both colorspace probe and the encode itself.
   const ffmpegBin = binPath ?? await getFFmpegBin();
 
   const args: string[] = ["-y", "-hide_banner", "-loglevel", "error"];
@@ -494,7 +453,15 @@ async function runFFmpegSafe(
     // -map 0:v:0 : first video stream only (avoids crash on MP4s with embedded cover art)
     // -map 0:a:0?: first audio stream if present (prevents crash on no-audio inputs)
     args.push("-map", "0:v:0", "-map", "0:a:0?");
-    if (vfParts.length) args.push("-vf", vfParts.join(","));
+    // Always route frames through the filter graph — even when no user filters are active.
+    // Without a -vf chain, FFmpeg encodes raw decoded frames via direct swscale which does
+    // not properly handle colorspace/range metadata, producing a visible tint on re-encodes.
+    // With a filter chain the graph normalises pixel format and range correctly.
+    // If no user filters: add a minimal even-dimensions scale as a passthrough.
+    const vfFull = vfParts.length > 0
+      ? vfParts
+      : ["scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=fast_bilinear"];
+    args.push("-vf", vfFull.join(","));
     if (afParts.length) args.push("-af", afParts.join(","));
     args.push(
       "-c:v", "libx264",
@@ -502,22 +469,9 @@ async function runFFmpegSafe(
       "-threads", String(threads),  // caller allocates threads based on os.cpus()
       "-crf", "18",                // CRF 18: high visual quality, same speed with ultrafast preset
       "-pix_fmt", "yuv420p",       // H.264 compatibility — convert 10-bit/full-range inputs
-      "-color_range", "tv",        // yuv420p is always limited range
       "-c:a", "aac",
       "-b:a", "192k",
     );
-    // Probe and pass through input colorspace metadata so the output carries the same
-    // matrix/primaries/transfer tags as the source.  Players then decode both videos with
-    // the same colorspace → identical appearance.  If the source has no tags we add none,
-    // so player defaults apply consistently to original AND duplicate (no mismatch tint).
-    const colorTags = await probeColorspace(input, ffmpegBin);
-    if (colorTags.colorspace) {
-      args.push(
-        "-colorspace",      colorTags.colorspace,
-        "-color_primaries", colorTags.colorPrimaries!,
-        "-color_trc",       colorTags.colorTrc!,
-      );
-    }
     // extraArgs can override crf/bitrate (e.g. technical pack sets its own values)
     if (extraArgs.length) args.push(...extraArgs);
   }
