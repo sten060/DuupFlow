@@ -459,6 +459,7 @@ async function runFFmpegSafe(
       "-threads", String(threads),  // caller allocates threads based on os.cpus()
       "-crf", "18",                // CRF 18: high visual quality, same speed with ultrafast preset
       "-pix_fmt", "yuv420p",       // H.264 compatibility — convert 10-bit/full-range inputs
+      "-color_range", "tv",        // signal limited range so players don't misread full-range colors
       "-c:a", "aac",
       "-b:a", "192k",
     );
