@@ -169,15 +169,17 @@ async function probeColorInfo(input: string, binPath: string): Promise<ColorInfo
 
 /**
  * Build the HDR→SDR filter chain prefix.
- * Uses the colorspace filter to convert BT.2020→BT.709 color matrix + transfer.
- * Available since FFmpeg 3.4, lightweight, handles the full conversion.
+ * Uses zscale to convert BT.2020 HLG/PQ → BT.709 SDR directly,
+ * without the heavy gbrpf32le+tonemap pipeline.
+ * zscale auto-detects input color properties from stream metadata.
  */
 function hdrToSdrFilters(): string[] {
-  // colorspace filter: converts color matrix (bt2020→bt709), transfer function
-  // (HLG/PQ→bt709), and primaries in one step. fast=1 for speed.
-  // format=yuv420p after: converts 10-bit→8-bit for H.264 compatibility.
   return [
-    "colorspace=all=bt709:iall=bt2020:fast=1",
+    // zscale converts matrix (bt2020→bt709), transfer (HLG/PQ→bt709),
+    // and primaries (bt2020→bt709) in one pass on the native pixel format.
+    // No intermediate gbrpf32le needed — works directly on yuv420p10le.
+    "zscale=m=bt709:t=bt709:p=bt709:r=tv",
+    // Then convert 10-bit → 8-bit for H.264 compatibility.
     "format=yuv420p",
   ];
 }
