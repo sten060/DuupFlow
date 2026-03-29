@@ -142,17 +142,22 @@ async function probeColorInfo(input: string, binPath: string): Promise<ColorInfo
       if (pfm) info.pixFmt = pfm[1];
 
       // Extract color properties from parenthetical — e.g. "(tv, bt2020nc/bt2020/arib-std-b67)"
-      const cm = stderr.match(/\((?:tv|pc|unknown),\s*(\w+)\/(\w+)\/(\w+)\)/);
+      // Use [^\/)]+  instead of \w+ because transfer names like "arib-std-b67" contain hyphens.
+      const cm = stderr.match(/\((?:tv|pc|unknown),\s*([^\/)]+)\/([^\/)]+)\/([^)]+)\)/);
       if (cm) {
-        info.colorSpace = cm[1];     // bt2020nc, bt709, smpte170m, etc.
-        info.colorPrimaries = cm[2]; // bt2020, bt709, etc.
-        info.colorTransfer = cm[3];  // arib-std-b67 (HLG), smpte2084 (PQ), bt709, etc.
+        info.colorSpace = cm[1].trim();     // bt2020nc, bt709, smpte170m, etc.
+        info.colorPrimaries = cm[2].trim(); // bt2020, bt709, etc.
+        info.colorTransfer = cm[3].trim();  // arib-std-b67 (HLG), smpte2084 (PQ), bt709, etc.
       }
 
-      // Detect HDR: BT.2020 color space OR HLG/PQ transfer function
+      // Detect HDR: BT.2020 color space OR HLG/PQ transfer function OR 10-bit HEVC
+      // (iPhone HEVC 10-bit without explicit color tags is almost always BT.2020 HLG)
+      const is10bit = /10le|10be|p010/.test(info.pixFmt);
+      const isHEVC = /hevc|h\.?265/i.test(stderr);
       info.isHDR = /bt2020/i.test(info.colorSpace) ||
                    /bt2020/i.test(info.colorPrimaries) ||
-                   /arib-std-b67|smpte2084/i.test(info.colorTransfer);
+                   /arib-std-b67|smpte2084/i.test(info.colorTransfer) ||
+                   (is10bit && isHEVC);  // 10-bit HEVC = HDR on iPhone
 
       console.log("[probeColorInfo]", input.split("/").pop(), JSON.stringify(info));
       done(info);
