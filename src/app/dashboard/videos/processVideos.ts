@@ -461,13 +461,6 @@ async function runFFmpegSafe(
       "-threads", String(threads),  // caller allocates threads based on os.cpus()
       "-crf", "18",                // CRF 18: high visual quality, same speed with ultrafast preset
       "-pix_fmt", "yuv420p",       // H.264 compatibility — convert 10-bit/full-range inputs
-      // Explicit BT.709 colorspace metadata: prevents players from guessing the wrong
-      // color matrix when the source had unspecified metadata.  These are the H.264 HD
-      // standard values — valid named constants (not "copy" which crashes FFmpeg).
-      "-colorspace", "bt709",
-      "-color_primaries", "bt709",
-      "-color_trc", "bt709",
-      "-color_range", "tv",        // limited range — correct for yuv420p output
       "-c:a", "aac",
       "-b:a", "192k",
     );
@@ -686,7 +679,7 @@ export async function processVideos(
           // crop: take (iw/zoom × ih/zoom) from position (iw*offx, ih*offy)
           // scale: bring the sub-region back to full original dimensions — bicubic: good quality/speed ratio
           vfParts.push(`crop=iw/${zf}:ih/${zf}:x=iw*${offx}:y=ih*${offy}`);
-          vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=bicubic:in_color_matrix=bt709:out_color_matrix=bt709`);
+          vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=bicubic`);
 
           // lenscorrection removed: most expensive filter (~50% of encode time), geometric
           // remapping recalculates every pixel with bilinear interpolation per frame.
@@ -737,14 +730,14 @@ export async function processVideos(
           const deg = a + Math.random() * (b - a);
           const rad = (deg * Math.PI) / 180;
           // c=black (opaque) — black@0 would be alpha=0 which H.264 encodes as bright green
-          vfParts.push(`rotate=${rad.toFixed(6)}:c=black:ow=rotw(iw):oh=roth(ih),scale=iw*1.04:ih*1.04:in_color_matrix=bt709:out_color_matrix=bt709,crop=in_w:in_h:(ow-in_w)/2:(oh-in_h)/2`);
+          vfParts.push(`rotate=${rad.toFixed(6)}:c=black:ow=rotw(iw):oh=roth(ih),scale=iw*1.04:ih*1.04,crop=in_w:in_h:(ow-in_w)/2:(oh-in_h)/2`);
         }
 
         if (singles?.dims?.enabled) {
           const fx = Number(singles.dims.w_factor ?? 1);
           const fy = Number(singles.dims.h_factor ?? 1);
           if (fx > 0 && fy > 0 && (fx !== 1 || fy !== 1)) {
-            vfParts.push(`scale=iw*${fx.toFixed(6)}:ih*${fy.toFixed(6)}:flags=bicubic:in_color_matrix=bt709:out_color_matrix=bt709`);
+            vfParts.push(`scale=iw*${fx.toFixed(6)}:ih*${fy.toFixed(6)}:flags=bicubic`);
           }
         }
 
@@ -791,14 +784,13 @@ export async function processVideos(
           // Cap the LONGER side at 1920 px using force_original_aspect_ratio=decrease.
           // A 1920×1920 bounding box handles both landscape (1920×1080) and portrait
           // (1080×1920) videos correctly — each fits within the box without squishing.
-          // in_color_matrix=bt709:out_color_matrix=bt709 — prevent swscale from doing an
-          // implicit BT.601→BT.709 conversion (swscale's default when metadata is absent),
-          // which produces the visible yellow/light tint on re-encoded copies.
+          // No explicit color matrix: let FFmpeg preserve the source colorspace to avoid
+          // tint issues when the source is BT.601 or has unspecified metadata.
           vfParts.unshift(
-            "scale=1920:1920:force_original_aspect_ratio=decrease:flags=fast_bilinear:in_color_matrix=bt709:out_color_matrix=bt709",
+            "scale=1920:1920:force_original_aspect_ratio=decrease:flags=fast_bilinear",
           );
           // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
-          vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2:in_color_matrix=bt709:out_color_matrix=bt709");
+          vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
         }
 
       } else {
@@ -866,7 +858,7 @@ export async function processVideos(
           const zf = z.toFixed(6);
           // BUG FIX: old code used crop=iw:ih which evaluated x=(in_w-out_w)/2=0 (no crop at all).
           // Correct: scale up/down, then crop-back only when zoomed IN to restore original dimensions.
-          vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=fast_bilinear:in_color_matrix=bt709:out_color_matrix=bt709`);
+          vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=fast_bilinear`);
           if (z > 1.0) {
             // After scale up: iw = W*z, ih = H*z. Crop center region back to W×H.
             vfParts.push(`crop=iw/${zf}:ih/${zf}:x=(iw-iw/${zf})/2:y=(ih-ih/${zf})/2`);
@@ -899,7 +891,7 @@ export async function processVideos(
         const dimW = ranges?.dim_w?.enabled ? _clamp(Number(ranges.dim_w.min), -30, 30) : 0;
         const dimH = ranges?.dim_h?.enabled ? _clamp(Number(ranges.dim_h.min), -30, 30) : 0;
         if (dimW || dimH) {
-          vfParts.push(`scale=iw*${(1 + dimW / 100).toFixed(6)}:ih*${(1 + dimH / 100).toFixed(6)}:flags=bicubic:in_color_matrix=bt709:out_color_matrix=bt709`);
+          vfParts.push(`scale=iw*${(1 + dimW / 100).toFixed(6)}:ih*${(1 + dimH / 100).toFixed(6)}:flags=bicubic`);
         }
 
         const padPx = get("border_px", 0, 0, 0, 200);
@@ -948,12 +940,11 @@ export async function processVideos(
         );
         if (willFullEncode) {
           // Same 1920×1920 bounding box as simple mode: handles landscape and portrait.
-          // in_color_matrix=bt709:out_color_matrix=bt709 prevents swscale implicit BT.601 conversion.
           vfParts.unshift(
-            "scale=1920:1920:force_original_aspect_ratio=decrease:flags=fast_bilinear:in_color_matrix=bt709:out_color_matrix=bt709",
+            "scale=1920:1920:force_original_aspect_ratio=decrease:flags=fast_bilinear",
           );
           // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
-          vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2:in_color_matrix=bt709:out_color_matrix=bt709");
+          vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
         }
       }
 
