@@ -169,18 +169,21 @@ async function probeColorInfo(input: string, binPath: string): Promise<ColorInfo
 
 /**
  * Build the HDR→SDR filter chain prefix.
- * Uses zscale to convert BT.2020 HLG/PQ → BT.709 SDR directly,
- * without the heavy gbrpf32le+tonemap pipeline.
- * zscale auto-detects input color properties from stream metadata.
+ * Full pipeline: linearize → convert primaries → tone map → set BT.709 output.
+ * The tonemap step compresses HDR luminance into SDR range (prevents overexposure).
+ * Without it, HLG bright areas get clipped and the image looks washed out / yellow.
+ *
+ * The "No space left" errors seen earlier were caused by the Railway volume being
+ * full at 5 GB, NOT by this pipeline — confirmed after resizing the volume.
  */
 function hdrToSdrFilters(): string[] {
   return [
-    // zscale converts matrix (bt2020→bt709), transfer (HLG/PQ→bt709),
-    // and primaries (bt2020→bt709) in one pass on the native pixel format.
-    // No intermediate gbrpf32le needed — works directly on yuv420p10le.
-    "zscale=m=bt709:t=bt709:p=bt709:r=tv",
-    // Then convert 10-bit → 8-bit for H.264 compatibility.
-    "format=yuv420p",
+    "zscale=t=linear:npl=100",       // linearize HLG/PQ transfer function
+    "format=gbrpf32le",               // 32-bit float for accurate tone mapping
+    "zscale=p=bt709",                 // convert BT.2020 primaries → BT.709
+    "tonemap=hable:desat=0",          // compress HDR luminance → SDR (no overexposure)
+    "zscale=t=bt709:m=bt709:r=tv",   // set BT.709 transfer + matrix + limited range
+    "format=yuv420p",                 // convert to 8-bit for H.264
   ];
 }
 
