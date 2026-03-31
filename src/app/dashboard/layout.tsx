@@ -1,6 +1,7 @@
 import "@/app/globals.css";
 import Sidebar from "./sidebar";
 import GlobalVideoProgress from "./videos/GlobalVideoProgress";
+import ChatBot from "./components/ChatBot";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -9,23 +10,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div
       className="flex h-screen overflow-hidden text-white"
-      style={{ background: "#060918" }}
+      style={{ background: "#050816" }}
     >
-      {/* Subtle background grid */}
-      <div
-        className="fixed inset-0 pointer-events-none opacity-[0.025]"
-        style={{
-          backgroundImage: "linear-gradient(rgba(99,102,241,1) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,1) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-
       {/* Sidebar */}
       <div
         className="w-56 shrink-0 flex flex-col overflow-y-auto relative z-10"
         style={{
-          background: "rgba(8,12,35,0.97)",
-          borderRight: "1px solid rgba(255,255,255,0.07)",
+          background: "rgba(8,12,30,0.95)",
+          borderRight: "1px solid rgba(255,255,255,0.06)",
+          backdropFilter: "blur(20px)",
         }}
       >
         {/* Brand */}
@@ -41,12 +34,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-y-auto relative z-10">
+      <div className="flex-1 overflow-y-auto relative">
         {children}
       </div>
 
       {/* Persistent job progress overlay — survives page navigation */}
       <GlobalVideoProgress />
+      <ChatBot />
     </div>
   );
 }

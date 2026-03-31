@@ -176,6 +176,18 @@ export default function Sidebar() {
         </Link>
 
         <Link
+          href="/dashboard/support"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/35 hover:text-white/65 hover:bg-white/[0.04] transition-all w-full mb-1"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <span>Support</span>
+        </Link>
+
+        <Link
           href="/dashboard/settings"
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/35 hover:text-white/65 hover:bg-white/[0.04] transition-all w-full mb-1"
         >

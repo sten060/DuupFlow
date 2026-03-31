@@ -35,16 +35,14 @@ function GlowCard({
   return (
     <section
       className={[
-        "relative rounded-2xl border border-white/10",
-        "bg-[linear-gradient(180deg,rgba(16,24,40,.35),rgba(16,24,40,.25))]",
-        "backdrop-blur-md",
-        "shadow-[inset_0_1px_0_rgba(255,255,255,.06),0_0_24px_rgba(90,140,255,.14)]",
-        dense ? "p-3" : "p-4",
+        "relative rounded-2xl border border-white/[0.08]",
+        "bg-white/[0.03] backdrop-blur-xl",
+        dense ? "p-3" : "p-5",
       ].join(" ")}
     >
       {(title || right) && (
         <div className="mb-3 flex items-center justify-between">
-          {title ? <h3 className="text-sm font-semibold leading-none text-white/90">{title}</h3> : <span />}
+          {title ? <h3 className="text-sm font-medium leading-none text-white/80">{title}</h3> : <span />}
           {right}
         </div>
       )}
@@ -72,14 +70,11 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
         type="submit"
         disabled={pending}
         className={[
-          "group relative inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium",
-          "transition will-change-transform",
-          pending ? "bg-slate-600 text-white/80 cursor-not-allowed" : "bg-gradient-to-r from-indigo-500 to-sky-500 text-white hover:scale-[1.01]",
-          "shadow-[0_8px_30px_rgba(80,140,255,.25)]",
+          "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-medium transition-all",
+          pending ? "bg-white/10 text-white/50 cursor-not-allowed" : "bg-indigo-500 text-white hover:bg-indigo-400",
         ].join(" ")}
       >
         {pending ? "Duplication en cours…" : "Dupliquer les vidéos"}
-        <span className="absolute inset-0 rounded-lg ring-1 ring-white/10" />
       </button>
     </div>
   );
@@ -150,17 +145,17 @@ function PackCard({
       type="button"
       onClick={() => onToggle(name)}
       className={[
-        "group rounded-xl border px-4 py-3 text-left transition",
-        "border-white/10 bg-white/[.04] backdrop-blur-md",
-        "hover:shadow-[0_0_24px_rgba(99,179,237,.18)] hover:border-sky-300/40",
-        selected ? "ring-1 ring-sky-300/50 shadow-[0_0_24px_rgba(56,189,248,.28)]" : "",
+        "group rounded-xl border px-4 py-3 text-left transition-all",
+        selected
+          ? "border-indigo-400/30 bg-indigo-500/10"
+          : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]",
       ].join(" ")}
     >
-      <div className="font-semibold text-white/90 inline-flex items-center gap-2">
+      <div className="font-medium text-sm text-white/85 inline-flex items-center gap-2">
         {label}
         <InfoTooltip>{PACK_HELP[name]}</InfoTooltip>
       </div>
-      <div className="text-xs text-white/60">{hint}</div>
+      <div className="text-xs text-white/45 mt-0.5">{hint}</div>
     </button>
   );
 }
@@ -477,14 +472,14 @@ export default function VideoFormSimpleClient() {
             type="button"
             onClick={() => setIphoneMeta(!iphoneMeta)}
             className={[
-              "w-full rounded-xl border px-4 py-3 text-left transition",
-              "border-white/10 bg-white/[.04] backdrop-blur-md",
-              "hover:shadow-[0_0_24px_rgba(99,179,237,.18)] hover:border-sky-300/40",
-              iphoneMeta ? "ring-1 ring-sky-300/50 shadow-[0_0_24px_rgba(56,189,248,.28)]" : "",
+              "w-full rounded-xl border px-4 py-3 text-left transition-all",
+              iphoneMeta
+                ? "border-indigo-400/30 bg-indigo-500/10"
+                : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]",
             ].join(" ")}
           >
-            <div className="font-semibold text-white/90 text-sm">Priorité d'algorithme</div>
-            <div className="text-xs text-white/55 mt-0.5">Injecte des métadonnées réalistes iPhone pour tromper les plateformes (appareil, caméra, iOS, GPS, focale…)</div>
+            <div className="font-medium text-sm text-white/85">Priorité d'algorithme</div>
+            <div className="text-xs text-white/45 mt-0.5">Injecte des métadonnées réalistes iPhone pour tromper les plateformes (appareil, caméra, iOS, GPS, focale…)</div>
           </button>
         </div>
       </GlowCard>

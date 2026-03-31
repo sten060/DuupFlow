@@ -27,10 +27,10 @@ export default function ToggleChip({
         defaultChecked={defaultChecked}
         className="peer sr-only"
       />
-      <div className="select-none rounded-lg border border-white/10 bg-white/5 px-4 py-3 transition
-                      peer-checked:border-indigo-500/40 peer-checked:bg-indigo-500/10">
-        <div className="font-medium">{label}</div>
-        {hint && <div className="text-sm text-white/70">{hint}</div>}
+      <div className="select-none rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 transition-all
+                      peer-checked:border-indigo-400/30 peer-checked:bg-indigo-500/10">
+        <div className="font-medium text-sm text-white/85">{label}</div>
+        {hint && <div className="text-xs text-white/45 mt-0.5">{hint}</div>}
       </div>
     </label>
   );
