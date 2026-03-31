@@ -196,6 +196,8 @@ export default function VideoFormSimpleClient() {
 
   const [flip, setFlip] = useState(false);
   const [reverse, setReverse] = useState(false);
+  const [country, setCountry] = useState("");
+  const [iphoneMeta, setIphoneMeta] = useState(false);
 
   const [rotEnabled, setRotEnabled] = useState(false);
   const [rotMin, setRotMin] = useState(-5);
@@ -449,6 +451,8 @@ export default function VideoFormSimpleClient() {
       <input type="hidden" name="channel" value="simple" />
       <input type="hidden" name="mode" value="simple" />
       <input type="hidden" name="singles" value={singlesJSON} />
+      {country && <input type="hidden" name="country" value={country} />}
+      {iphoneMeta && <input type="hidden" name="iphoneMeta" value="1" />}
       <GlowCard>
         <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
       </GlowCard>
@@ -457,10 +461,40 @@ export default function VideoFormSimpleClient() {
         <input type="number" name="count" min={1} defaultValue={1} className="w-full rounded-lg border border-white/10 bg-white/[.04] px-3 py-2 text-sm text-white/90" />
       </GlowCard>
 
+      <GlowCard title="Options métadonnées" dense>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-white/70 mb-1">Localisation pays (optionnel)</label>
+            <input
+              type="text"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              placeholder="Ex: France, États-Unis, Japon…"
+              className="w-full rounded-lg border border-white/10 bg-white/[.04] px-3 py-2 text-sm text-white/90 placeholder:text-white/30"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setIphoneMeta(!iphoneMeta)}
+            className={[
+              "w-full rounded-xl border px-4 py-3 text-left transition",
+              "border-white/10 bg-white/[.04] backdrop-blur-md",
+              "hover:shadow-[0_0_24px_rgba(99,179,237,.18)] hover:border-sky-300/40",
+              iphoneMeta ? "ring-1 ring-sky-300/50 shadow-[0_0_24px_rgba(56,189,248,.28)]" : "",
+            ].join(" ")}
+          >
+            <div className="font-semibold text-white/90 text-sm">Priorité d'algorithme</div>
+            <div className="text-xs text-white/55 mt-0.5">Injecte des métadonnées réalistes iPhone pour tromper les plateformes (appareil, caméra, iOS, GPS, focale…)</div>
+          </button>
+        </div>
+      </GlowCard>
+
       <GlowCard title="Packs (cumulables)">
         <input type="hidden" name="packs" value={packsSelected.join(",")} />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {(Object.keys(PACKS) as (keyof typeof PACKS)[]).map((k) => (
+
+        <p className="text-xs font-medium text-white/60 uppercase tracking-wide mb-2">Sans modification visuelle</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-4">
+          {(["metadata", "audio", "motion", "technical"] as (keyof typeof PACKS)[]).map((k) => (
             <PackCard
               key={k}
               name={k}
@@ -471,9 +505,20 @@ export default function VideoFormSimpleClient() {
             />
           ))}
         </div>
-        <p className="mt-2 text-xs text-white/55">
-          Ces packs sont <b>légers</b>. Les filtres seuls ci-dessous s’ajoutent par-dessus.
-        </p>
+
+        <p className="text-xs font-medium text-white/60 uppercase tracking-wide mb-2">Avec modification visuelle</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {(["visual"] as (keyof typeof PACKS)[]).map((k) => (
+            <PackCard
+              key={k}
+              name={k}
+              label={PACKS[k].label}
+              hint={PACKS[k].hint}
+              selected={selected[k]}
+              onToggle={(n) => setSelected((s) => ({ ...s, [n]: !s[n] }))}
+            />
+          ))}
+        </div>
       </GlowCard>
 
       <GlowCard title="Filtres seuls (cumulables)">

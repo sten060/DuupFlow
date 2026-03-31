@@ -333,12 +333,33 @@ export default function ImageFormClient({ initialImages }: Props) {
         {/* Filters */}
         <fieldset className="space-y-3">
           <legend className="text-sm font-semibold text-white/90 mb-1">Filtres</legend>
+
+          <p className="text-xs font-medium text-white/60 uppercase tracking-wide">Sans modification visuelle</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <ToggleChip name="fundamentals" value="1" label="Filtres fondamentaux" hint="up/downscale, qualité, chroma, ICC, EXIF/XMP…" defaultChecked />
-            <ToggleChip name="visuals" value="1" label="Filtres visuels" hint="brightness, saturation, gamma, contrast, hue…" />
-            <ToggleChip name="semi" value="1" label="Semi-visuels" hint="kernel aléatoire, micro-crop, léger resize" defaultChecked />
             <ToggleChip name="reverse" value="1" label="Reverse (miroir horizontal)" hint="Miroir horizontal de l'image. Cumulable avec les packs." />
           </div>
+
+          <p className="text-xs font-medium text-white/60 uppercase tracking-wide mt-3">Avec modification visuelle</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <ToggleChip name="visuals" value="1" label="Filtres visuels" hint="brightness, saturation, gamma, contrast, hue…" />
+            <ToggleChip name="semi" value="1" label="Semi-visuels" hint="kernel aléatoire, micro-crop, léger resize" defaultChecked />
+          </div>
+        </fieldset>
+
+        {/* Options métadonnées */}
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-semibold text-white/90 mb-1">Options métadonnées</legend>
+          <div>
+            <label className="block text-xs font-medium text-white/70 mb-1">Localisation pays (optionnel)</label>
+            <input
+              type="text"
+              name="country"
+              placeholder="Ex: France, États-Unis, Japon…"
+              className="w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-sm text-white/90 placeholder:text-white/30"
+            />
+          </div>
+          <ToggleChip name="iphoneMeta" value="1" label="Priorité d'algorithme" hint="Injecte des métadonnées réalistes iPhone (appareil, caméra, iOS, GPS, focale…)" />
         </fieldset>
 
         {/* Copies */}

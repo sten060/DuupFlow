@@ -25,6 +25,7 @@ async function processImage(
   buffer: Buffer,
   ext: string,
   flags: Flags,
+  opts?: { country?: string; iphoneMeta?: boolean },
 ): Promise<{ data: Buffer; outExt: string }> {
   const meta = await sharp(buffer, { failOn: "none" }).metadata();
   let img = sharp(buffer, { failOn: "none" });
@@ -121,7 +122,88 @@ async function processImage(
 
   let exifMeta: sharp.WriteableMetadata;
 
-  {
+  if (opts?.iphoneMeta) {
+    // ── iPhone-realistic EXIF metadata ──────────────────────────────────
+    const iphoneModels = [
+      { make: "Apple", model: "iPhone 16 Pro Max", software: "18.3.2" },
+      { make: "Apple", model: "iPhone 16 Pro", software: "18.3.1" },
+      { make: "Apple", model: "iPhone 15 Pro Max", software: "18.2.1" },
+      { make: "Apple", model: "iPhone 15 Pro", software: "18.2" },
+    ];
+    const iphoneLens = [
+      { focal: "6.86", focalEq: "24", aperture: "1.78", model: "iPhone 16 Pro Max back triple camera 6.86mm f/1.78" },
+      { focal: "2.22", focalEq: "13", aperture: "2.2", model: "iPhone 16 Pro back triple camera 2.22mm f/2.2" },
+      { focal: "9.0", focalEq: "77", aperture: "2.8", model: "iPhone 16 Pro back triple camera 9mm f/2.8" },
+    ];
+    const dev = iphoneModels[Math.floor(Math.random() * iphoneModels.length)];
+    const lens = iphoneLens[Math.floor(Math.random() * iphoneLens.length)];
+    const daysAgo = Math.floor(Math.random() * 30);
+    const d = new Date(Date.now() - daysAgo * 86400000 - Math.floor(Math.random() * 86400000));
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const dtStr = `${d.getFullYear()}:${pad(d.getMonth()+1)}:${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    const subsec = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
+    const tzH = Math.floor(Math.random() * 12) + 1;
+    const offsetTime = `+${pad(tzH)}:00`;
+    const iso = Math.floor(Math.random() * 4) * 200 + 50;   // 50, 250, 450, 650
+    const exposure = `1/${100 + Math.floor(Math.random() * 9900)}`;
+    const shutterSpeed = (6 + Math.random() * 8).toFixed(4);
+    const lat = (43 + Math.random() * 6).toFixed(6);
+    const lon = (-1 + Math.random() * 8).toFixed(6);
+    const alt = (10 + Math.random() * 300).toFixed(1);
+    const locationName = opts?.country || "France";
+
+    const ifd0: Record<string, string> = {
+      Make: dev.make, Model: dev.model, Software: dev.software,
+      DateTime: dtStr, Artist: "", Copyright: "",
+      ImageDescription: "",
+    };
+    const exifIfd: Record<string, string> = {
+      LensModel: lens.model,
+      LensMake: "Apple",
+      FocalLength: lens.focal,
+      FocalLengthIn35mmFilm: lens.focalEq,
+      FNumber: lens.aperture,
+      ApertureValue: lens.aperture,
+      ISOSpeedRatings: String(iso),
+      ExposureTime: exposure,
+      ShutterSpeedValue: shutterSpeed,
+      ExposureBiasValue: "0",
+      ExposureProgram: "2",       // Normal program
+      MeteringMode: "5",          // Pattern
+      Flash: "16",                // No flash
+      WhiteBalance: "0",          // Auto
+      SceneCaptureType: "0",      // Standard
+      DateTimeOriginal: dtStr,
+      DateTimeDigitized: dtStr,
+      SubSecTime: subsec,
+      SubSecTimeOriginal: subsec,
+      SubSecTimeDigitized: subsec,
+      OffsetTime: offsetTime,
+      OffsetTimeOriginal: offsetTime,
+      OffsetTimeDigitized: offsetTime,
+      ColorSpace: "65535",        // Uncalibrated (Display P3)
+    };
+    const gps: Record<string, string> = {
+      GPSLatitudeRef: "N",
+      GPSLatitude: lat,
+      GPSLongitudeRef: "E",
+      GPSLongitude: lon,
+      GPSAltitudeRef: "0",
+      GPSAltitude: alt,
+      GPSSpeedRef: "K",
+      GPSSpeed: (Math.random() * 5).toFixed(2),
+      GPSImgDirectionRef: "T",
+      GPSImgDirection: (Math.random() * 360).toFixed(2),
+      GPSDestBearingRef: "T",
+      GPSDestBearing: (Math.random() * 360).toFixed(2),
+      GPSHPositioningError: (3 + Math.random() * 10).toFixed(6),
+    };
+    exifMeta = { density: dpi, exif: { IFD0: ifd0, IFD3: gps } as any };
+    // Note: sharp's EXIF support is limited; we set what we can via IFD0.
+    // For a complete iPhone EXIF profile, IFD0 covers Make/Model/Software/DateTime.
+    Object.assign((exifMeta.exif as any).IFD0, exifIfd);
+  } else {
+    // ── Standard random metadata ──────────────────────────────────────
     const ifd0: Record<string, string> = {
       Software: `DuupFlow/${randHex(4)}-v${1 + Math.floor(Math.random() * 9)}.${Math.floor(Math.random() * 10)}`,
       Artist: artist,
@@ -204,6 +286,8 @@ export async function POST(req: Request) {
     semi:         toBool(form.get("semivisuals")) || toBool(form.get("semi")),
     reverse:      toBool(form.get("reverse")),
   };
+  const userCountry  = (form.get("country") as string) || "";
+  const useIphoneMeta = toBool(form.get("iphoneMeta"));
 
   if (directUploadIds.length === 0) {
     return Response.json({ error: "Aucune image reçue." }, { status: 400 });
@@ -284,7 +368,7 @@ export async function POST(req: Request) {
 
           for (let c = 0; c < count; c++) {
             const rand = randHex(4);
-            const { data, outExt } = await processImage(buf, ext, flags);
+            const { data, outExt } = await processImage(buf, ext, flags, { country: userCountry || undefined, iphoneMeta: useIphoneMeta });
             const outName = `DuupFlow_${stamp}_img${i + 1}_c${c + 1}_${Date.now()}${rand}${outExt}`;
             const outPath = path.join(dir, outName);
 

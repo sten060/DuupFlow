@@ -363,7 +363,78 @@ function randMetaHex(n = 8): string {
   for (let i = 0; i < n; i++) s += Math.floor(Math.random() * 16).toString(16);
   return s;
 }
-function getVideoMetadataArgs(): string[] {
+/* ---- iPhone-realistic metadata for "Priorité d'algorithme" mode ---- */
+const IPHONE_MODELS = [
+  { make: "Apple", model: "iPhone 16 Pro Max", software: "18.3.2" },
+  { make: "Apple", model: "iPhone 16 Pro", software: "18.3.1" },
+  { make: "Apple", model: "iPhone 15 Pro Max", software: "18.2.1" },
+  { make: "Apple", model: "iPhone 15 Pro", software: "18.2" },
+];
+const IPHONE_LENS = [
+  { focal: "6.86", focalEq: "24", aperture: "1.78", lens: "iPhone 16 Pro Max back triple camera 6.86mm f/1.78" },
+  { focal: "6.765", focalEq: "24", aperture: "1.78", lens: "iPhone 16 Pro back triple camera 6.765mm f/1.78" },
+  { focal: "2.22", focalEq: "13", aperture: "2.2", lens: "iPhone 16 Pro back triple camera 2.22mm f/2.2" },
+  { focal: "9.0", focalEq: "77", aperture: "2.8", lens: "iPhone 16 Pro back triple camera 9mm f/2.8" },
+  { focal: "6.765", focalEq: "24", aperture: "1.78", lens: "iPhone 15 Pro back triple camera 6.765mm f/1.78" },
+];
+
+function getIphoneVideoMetadataArgs(country?: string): string[] {
+  const device = pickRandom(IPHONE_MODELS);
+  const lens = pickRandom(IPHONE_LENS);
+  const daysAgo = Math.floor(Math.random() * 30);
+  const hoursAgo = Math.floor(Math.random() * 24);
+  const minsAgo = Math.floor(Math.random() * 60);
+  const secsAgo = Math.floor(Math.random() * 60);
+  const creationDate = new Date(Date.now() - daysAgo * 86400000 - hoursAgo * 3600000 - minsAgo * 60000 - secsAgo * 1000);
+  const isoDate = creationDate.toISOString().slice(0, 19) + "Z";
+  const year = creationDate.getFullYear();
+  // Random GPS near plausible city centers
+  const lat = (43 + Math.random() * 6).toFixed(6);   // ~43-49°N (France range)
+  const lon = (-1 + Math.random() * 8).toFixed(6);    // ~-1 to 7°E (France range)
+  const alt = (20 + Math.random() * 200).toFixed(2);
+  const gpsIso6709 = `+${lat}+${lon}+${alt}/`;
+
+  const location = country || pickRandom(VIDEO_LOCATIONS);
+  const uid = `${randMetaHex(8)}-${randMetaHex(4)}-4${randMetaHex(3)}-${pickRandom(["8","9","a","b"])}${randMetaHex(3)}-${randMetaHex(12)}`.toUpperCase();
+
+  return [
+    "-map_metadata", "-1",
+    // QuickTime / MP4 top-level metadata
+    "-metadata", `make=${device.make}`,
+    "-metadata", `model=${device.model}`,
+    "-metadata", `software=${device.software}`,
+    "-metadata", `creation_time=${isoDate}`,
+    "-metadata", `date=${year}`,
+    "-metadata", `com.apple.quicktime.make=${device.make}`,
+    "-metadata", `com.apple.quicktime.model=${device.model}`,
+    "-metadata", `com.apple.quicktime.software=${device.software}`,
+    "-metadata", `com.apple.quicktime.creationdate=${isoDate}`,
+    "-metadata", `com.apple.quicktime.camera.lens_model=${lens.lens}`,
+    "-metadata", `com.apple.quicktime.camera.focal_length.35mm_equivalent=${lens.focalEq}`,
+    "-metadata", `com.apple.quicktime.camera.aperture=${lens.aperture}`,
+    "-metadata", `com.apple.quicktime.location.ISO6709=${gpsIso6709}`,
+    "-metadata", `com.apple.quicktime.location.name=${location}`,
+    "-metadata", `location=${location}`,
+    "-metadata", `encoder=Apple ${device.model}`,
+    "-metadata", `handler_name=Core Media Video`,
+    "-metadata", `major_brand=qt`,
+    "-metadata", `minor_version=0`,
+    "-metadata", `compatible_brands=qt`,
+    "-metadata:g", `uid=${uid}`,
+    // Video stream metadata
+    "-metadata:s:v:0", `language=und`,
+    "-metadata:s:v:0", `handler_name=Core Media Video`,
+    // Audio stream metadata
+    "-metadata:s:a:0", `language=und`,
+    "-metadata:s:a:0", `handler_name=Core Media Audio`,
+  ];
+}
+
+function getVideoMetadataArgs(opts?: { country?: string; iphoneMeta?: boolean }): string[] {
+  if (opts?.iphoneMeta) {
+    return getIphoneVideoMetadataArgs(opts.country);
+  }
+
   const artist = pickRandom(VIDEO_HUMAN_NAMES);
   const composer = pickRandom(VIDEO_HUMAN_NAMES);
   const encoder = pickRandom(VIDEO_ENCODERS);
@@ -371,7 +442,7 @@ function getVideoMetadataArgs(): string[] {
   const title = pickRandom(VIDEO_TITLES);
   const genre = pickRandom(VIDEO_GENRES);
   const service = pickRandom(VIDEO_SERVICE_NAMES);
-  const location = pickRandom(VIDEO_LOCATIONS);
+  const location = opts?.country || pickRandom(VIDEO_LOCATIONS);
   const lang = pickRandom(VIDEO_LANGUAGES);
   const brand = pickRandom(VIDEO_BRANDS);
   const compatBrands = VIDEO_COMPAT_BRANDS[brand];
@@ -603,6 +674,8 @@ export async function processVideos(
 
   const singlesRaw = (formData.get("singles") as string) || "{}";
   const rangesRaw = (formData.get("advancedRanges") as string) || "{}";
+  const userCountry = (formData.get("country") as string) || "";
+  const useIphoneMeta = formData.get("iphoneMeta") === "1";
   let singles: Record<string, any> = {};
   let ranges:  Record<string, any> = {};
   try { singles = JSON.parse(singlesRaw); } catch { /* malformed — use defaults */ }
@@ -1030,7 +1103,7 @@ export async function processVideos(
         }
       }
 
-      const metaArgs = getVideoMetadataArgs();
+      const metaArgs = getVideoMetadataArgs({ country: userCountry || undefined, iphoneMeta: useIphoneMeta });
       await runFFmpegSafe(
         tmpIn, outPath, vfParts, afParts, extraArgs, metaArgs,
         // Live progress tick: update message with encoded time so users see activity
