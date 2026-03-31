@@ -546,9 +546,6 @@ async function runFFmpegSafe(
 
   args.push(output);
 
-  // Log the full FFmpeg command for debugging tint / filter issues
-  console.log("[ffmpeg-cmd]", ffmpegBin, args.join(" "));
-
   await new Promise<void>((resolve, reject) => {
     const p = spawn(ffmpegBin, args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";

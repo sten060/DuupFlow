@@ -7,6 +7,13 @@ import { createClient } from "@/lib/supabase/client";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 import { setJob, addCompletedFile, removeJob } from "../jobStore";
+import {
+  getTemplates,
+  saveTemplate,
+  deleteTemplate,
+  migrateTemplatesFromLocal,
+} from "./templateActions";
+import type { Template } from "./templateActions";
 
 /* ============= UI helpers (sobre / bleu) ============= */
 function Card({
@@ -113,10 +120,11 @@ const CONTROLS: Ctrl[] = [
 ];
 
 type RangeState = Record<string, { enabled: boolean; min: number; max: number }>;
-type Template = { name: string; ranges: RangeState };
 
+// Legacy localStorage key — used only for one-time migration to Supabase
 const TKEY_BASE = "duupflow_video_templates_v5";
 function tKey(userId: string) { return `${TKEY_BASE}_${userId}`; }
+const MIGRATED_KEY = "duupflow_templates_migrated_v1";
 
 /** ==== Bornes "dures" (FFmpeg safe) pour validation UI ==== */
 const LIMITS: Record<
@@ -217,24 +225,34 @@ export default function VideoFormAdvancedClient() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       const uid = user?.id ?? "local";
       setUserId(uid);
-      try {
-        const raw = localStorage.getItem(tKey(uid));
-        if (raw) setTemplates(JSON.parse(raw));
-      } catch {}
+
+      // ── One-time migration: push localStorage templates to Supabase ──
+      if (uid !== "local") {
+        try {
+          const migKey = `${MIGRATED_KEY}_${uid}`;
+          if (!localStorage.getItem(migKey)) {
+            const raw = localStorage.getItem(tKey(uid));
+            if (raw) {
+              const local: Template[] = JSON.parse(raw);
+              if (local.length > 0) {
+                await migrateTemplatesFromLocal(local);
+              }
+            }
+            localStorage.setItem(migKey, "1");
+          }
+        } catch {}
+      }
+
+      // ── Load templates from Supabase ──
+      const tpls = await getTemplates();
+      setTemplates(tpls);
     });
   }, []);
 
-  const saveTemplates = (next: Template[]) => {
-    setTemplates(next);
-    try {
-      localStorage.setItem(tKey(userId), JSON.stringify(next));
-    } catch {}
-  };
-
-  const onSaveTpl = () => {
+  const onSaveTpl = async () => {
     const name = tplName.trim();
     if (!name) return;
     const snapshot: RangeState = {
@@ -242,9 +260,8 @@ export default function VideoFormAdvancedClient() {
       dim_w: { enabled: dimsEnabled, min: dimW, max: dimW },
       dim_h: { enabled: dimsEnabled, min: dimH, max: dimH },
     };
-    const tpl: Template = { name, ranges: snapshot };
-    const next = [...templates.filter((t) => t.name !== name), tpl];
-    saveTemplates(next);
+    await saveTemplate(name, snapshot);
+    setTemplates(await getTemplates());
     setTplName("");
   };
 
@@ -255,7 +272,10 @@ export default function VideoFormAdvancedClient() {
     setDimH(Number(t.ranges.dim_h?.min ?? 0));
   };
 
-  const onDeleteTpl = (name: string) => saveTemplates(templates.filter((t) => t.name !== name));
+  const onDeleteTpl = async (name: string) => {
+    await deleteTemplate(name);
+    setTemplates(await getTemplates());
+  };
 
   const onResetAll = () => {
     setRanges(Object.fromEntries(CONTROLS.map((c) => [c.key, { enabled: false, min: c.min, max: c.max }])));
