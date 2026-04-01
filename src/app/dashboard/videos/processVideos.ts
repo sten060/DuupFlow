@@ -388,31 +388,61 @@ const IPHONE_LENS = [
   { focal: "2.22", focalEq: "13", aperture: "2.2", lens: "iPhone 15 Pro back triple camera 2.22mm f/2.2" },
 ];
 
-function getVideoMetadataArgs(opts?: { country?: string; iphoneMeta?: boolean }): string[] {
-  // Always start with base metadata (creation_time, encoder, brand, uid)
-  const encoder = pickRandom(VIDEO_ENCODERS);
-  const daysAgo = Math.floor(Math.random() * 365);
-  const hoursAgo = Math.floor(Math.random() * 24);
-  const minsAgo = Math.floor(Math.random() * 60);
-  const creationDate = new Date(Date.now() - daysAgo * 86400000 - hoursAgo * 3600000 - minsAgo * 60000);
-  const isoDate = creationDate.toISOString().slice(0, 19) + "Z";
-  const brand = pickRandom(VIDEO_BRANDS);
-  const compatBrands = VIDEO_COMPAT_BRANDS[brand];
-  const minorVersion = pickRandom([512, 0, 1, 2]);
-  const uid = `${randMetaHex(8)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(12)}`;
+type MetaOpts = {
+  country?: string;
+  iphoneMeta?: boolean;
+  // Advanced mode: individual controls (undefined = all enabled for simple mode)
+  controls?: {
+    creation_time?: { enabled: boolean; value?: string };
+    encoder?: { enabled: boolean; value?: string };
+    brand?: { enabled: boolean };
+    uid?: { enabled: boolean };
+  };
+};
 
-  const args: string[] = [
-    "-map_metadata", "-1",
-    "-metadata", `creation_time=${isoDate}`,
-    "-metadata", `encoder=${encoder}`,
-    "-metadata", `encoded_by=${encoder}`,
-    "-metadata", `major_brand=${brand}`,
-    "-metadata", `minor_version=${minorVersion}`,
-    "-metadata", `compatible_brands=${compatBrands}`,
-    "-metadata:g", `uid=${uid}`,
-  ];
+function getVideoMetadataArgs(opts?: MetaOpts): string[] {
+  const ctrl = opts?.controls;
+  const allOn = !ctrl; // simple mode: all metadata enabled when function is called
 
-  // Location only if user specified a country
+  const args: string[] = ["-map_metadata", "-1"];
+
+  // creation_time
+  if (allOn || ctrl?.creation_time?.enabled) {
+    const customDate = ctrl?.creation_time?.value;
+    if (customDate) {
+      args.push("-metadata", `creation_time=${customDate}`);
+    } else {
+      const daysAgo = Math.floor(Math.random() * 365);
+      const hoursAgo = Math.floor(Math.random() * 24);
+      const minsAgo = Math.floor(Math.random() * 60);
+      const d = new Date(Date.now() - daysAgo * 86400000 - hoursAgo * 3600000 - minsAgo * 60000);
+      args.push("-metadata", `creation_time=${d.toISOString().slice(0, 19)}Z`);
+    }
+  }
+
+  // encoder / encoded_by
+  if (allOn || ctrl?.encoder?.enabled) {
+    const enc = ctrl?.encoder?.value || pickRandom(VIDEO_ENCODERS);
+    args.push("-metadata", `encoder=${enc}`, "-metadata", `encoded_by=${enc}`);
+  }
+
+  // major_brand / minor_version / compatible_brands
+  if (allOn || ctrl?.brand?.enabled) {
+    const brand = pickRandom(VIDEO_BRANDS);
+    args.push(
+      "-metadata", `major_brand=${brand}`,
+      "-metadata", `minor_version=${pickRandom([512, 0, 1, 2])}`,
+      "-metadata", `compatible_brands=${VIDEO_COMPAT_BRANDS[brand]}`,
+    );
+  }
+
+  // uid
+  if (allOn || ctrl?.uid?.enabled) {
+    const uid = `${randMetaHex(8)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(12)}`;
+    args.push("-metadata:g", `uid=${uid}`);
+  }
+
+  // Location
   if (opts?.country) {
     args.push("-metadata", `location=${opts.country}`);
   }
@@ -756,24 +786,26 @@ export async function processVideos(
       const vfParts: string[] = [];
       const afParts: string[] = [];
       const extraArgs: string[] = [];
+      const packs = String(formData.get("packs") || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
 
       if (mode === "simple") {
         /* ----------- MODE SIMPLE ----------- */
-        const packs = String(formData.get("packs") || "")
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
 
         if (packs.includes("visual")) {
           // eq — brightness ±5%, contrast ±10%, saturation ±10%, gamma ±7%
-          // Plages légèrement élargies pour un fingerprint visuel plus fort
           const b  = clamp(Number((-0.05 + Math.random() * 0.10).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
           const ct = clamp(Number((0.95 + Math.random() * 0.10).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
           const st = clamp(Number((0.90 + Math.random() * 0.20).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
           const gm = clamp(Number((0.93 + Math.random() * 0.14).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
-          // Luma-only temporal noise — changes every pixel every frame → unique hash
-          // Increased range 4–8 for stronger pixel-level uniqueness
+          // noise moved to "pixel_magic" standalone toggle
+        }
+
+        // Pixel Magique — luma noise, imperceptible but changes every pixel hash
+        if (packs.includes("pixel_magic")) {
           const ns = 2 + Math.floor(Math.random() * 3);  // 2–4 luma
           vfParts.push(`noise=c0s=${ns}:c0f=t`);
         }
@@ -875,14 +907,11 @@ export async function processVideos(
           vfParts.push(`pad=iw*(1+${padLeft}+${padRight}):ih*(1+${padTop}+${padBottom}):iw*${padLeft}:ih*${padTop}:color=black`);
         }
 
-        if (packs.includes("metadata")) {
-          // Audio sample rate — resampling changes the full audio bitstream per copy.
+        // Pack "Métadonnées avancé" — audio fingerprint changes
+        if (packs.includes("metadata_advanced")) {
           extraArgs.push("-ar", Math.random() < 0.5 ? "44100" : "48000");
-          // Audio bitrate — different AAC compression → different artifacts → different hash.
           const abitratePool = [96, 128, 160, 192, 256];
           extraArgs.push("-b:a", `${abitratePool[Math.floor(Math.random() * abitratePool.length)]}k`);
-          // Micro volume shift ±0.1–0.5 dB — imperceptible but changes every audio sample
-          // value, making the audio waveform hash unique per copy.
           const sign = Math.random() < 0.5 ? 1 : -1;
           const db = (0.1 + Math.random() * 0.4).toFixed(2);
           afParts.push(`volume=${sign > 0 ? "" : "-"}${db}dB`);
@@ -1068,7 +1097,30 @@ export async function processVideos(
         }
       }
 
-      const metaArgs = getVideoMetadataArgs({ country: userCountry || undefined, iphoneMeta: useIphoneMeta });
+      // Metadata only injected if explicitly requested
+      // Without it: original metadata is preserved (only filename changes)
+      const advMetaEnabled = mode === "advanced" && (
+        ranges?.meta_creation_time?.enabled ||
+        ranges?.meta_encoder?.enabled ||
+        ranges?.meta_brand?.enabled ||
+        ranges?.meta_uid?.enabled ||
+        useIphoneMeta
+      );
+      const wantsMeta = mode === "simple"
+        ? packs.includes("metadata") || useIphoneMeta
+        : advMetaEnabled;
+      const metaArgs = wantsMeta
+        ? getVideoMetadataArgs({
+            country: userCountry || undefined,
+            iphoneMeta: useIphoneMeta,
+            controls: mode === "advanced" ? {
+              creation_time: ranges?.meta_creation_time ?? { enabled: false },
+              encoder: ranges?.meta_encoder ?? { enabled: false },
+              brand: ranges?.meta_brand ?? { enabled: false },
+              uid: ranges?.meta_uid ?? { enabled: false },
+            } : undefined,
+          })
+        : [];
       await runFFmpegSafe(
         tmpIn, outPath, vfParts, afParts, extraArgs, metaArgs,
         // Live progress tick: update message with encoded time so users see activity

@@ -85,25 +85,36 @@ const PACKS: Record<
   "metadata" | "audio" | "motion" | "visual" | "technical",
   { label: string; hint: string; filters: string[] }
 > = {
-  metadata: { label: "Métadonnées", hint: "Titres/encodage neutre", filters: [] },
-  audio:     { label: "Audio",      hint: "volume / petite EQ / bitrate", filters: ["volume", "waveformshift", "audiobitrate"] },
-  motion:    { label: "Mouvement",  hint: "zoom, légère rotation",         filters: ["speed", "zoom", "rotation", "pixelshift"] },
-  visual:    { label: "Visuels",    hint: "EQ, hue, unsharp, grain",       filters: ["eq", "hue", "unsharp", "noise", "vignette", "lens"] },
-  technical: { label: "Technique",  hint: "bitrate vidéo, GOP, fps",       filters: ["bitrate", "gop", "profile", "fps"] },
+  metadata:          { label: "Métadonnées",         hint: "Date, encodeur, brand, uid",             filters: [] },
+  metadata_advanced: { label: "Métadonnées avancé",  hint: "sample rate, bitrate audio, micro volume", filters: [] },
+  pixel_magic:       { label: "Pixel magique",       hint: "Bruit luma imperceptible — hash unique",   filters: [] },
+  audio:             { label: "Audio",               hint: "volume / petite EQ / bitrate",              filters: ["volume", "waveformshift", "audiobitrate"] },
+  motion:            { label: "Mouvement",           hint: "zoom, légère rotation",                     filters: ["speed", "zoom", "rotation", "pixelshift"] },
+  visual:            { label: "Visuels",             hint: "EQ, hue, unsharp",                          filters: ["eq", "hue", "unsharp", "vignette", "lens"] },
+  technical:         { label: "Technique",           hint: "bitrate vidéo, GOP, fps",                   filters: ["bitrate", "gop", "profile", "fps"] },
 };
 
 const PACK_HELP: Record<keyof typeof PACKS, React.ReactNode> = {
   metadata: (
     <div>
-      Aucune altération visuelle/son. Sortie MP4 H.264/AAC, yuv420p, faststart (lecture web rapide).
+      Injecte des métadonnées aléatoires : date, logiciel de montage, brand container, identifiant unique. Aucune modification visuelle.
+    </div>
+  ),
+  metadata_advanced: (
+    <div>
+      Modifie le sample rate audio (44.1/48 kHz), le bitrate audio (96–256 kb/s) et applique un micro shift de volume (±0.1–0.5 dB). Imperceptible.
+    </div>
+  ),
+  pixel_magic: (
+    <div>
+      Ajoute du bruit luma imperceptible à chaque pixel, chaque frame. Change le hash du fichier sans modification visible.
     </div>
   ),
   visual: (
     <div>
-      Variations imperceptibles (tirées aléatoirement) :<br />
+      Variations imperceptibles :<br />
       Luminosité ±3% • Contraste ±5% • Saturation ±5% • Gamma ±3% •
-      Hue ±3° • Unsharp très doux (0.3) • Grain fin (alls=2).<br />
-      Aucune modification visible — uniquement des variations sub-perceptuelles.
+      Hue ±3° • Unsharp très doux.
     </div>
   ),
   motion: (
@@ -181,7 +192,9 @@ export default function VideoFormSimpleClient() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({
-    metadata: true,
+    metadata: false,
+    metadata_advanced: false,
+    pixel_magic: false,
     audio: false,
     motion: false,
     visual: false,
@@ -466,8 +479,8 @@ export default function VideoFormSimpleClient() {
         <h3 className="text-sm font-semibold text-white/90 mb-3">Packs <span className="text-white/40 font-normal">(cumulables)</span></h3>
 
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">Sans modification visuelle</p>
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4 mb-4">
-          {(["metadata", "audio"] as (keyof typeof PACKS)[]).map((k) => (
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 mb-4">
+          {(["metadata", "metadata_advanced", "pixel_magic"] as (keyof typeof PACKS)[]).map((k) => (
             <PackCard
               key={k}
               name={k}
@@ -481,7 +494,7 @@ export default function VideoFormSimpleClient() {
 
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">Avec modification visuelle</p>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-          {(["motion", "technical", "visual"] as (keyof typeof PACKS)[]).map((k) => (
+          {(["audio", "motion", "technical", "visual"] as (keyof typeof PACKS)[]).map((k) => (
             <PackCard
               key={k}
               name={k}

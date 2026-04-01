@@ -59,7 +59,7 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
 }
 
 /* ================== Définition des filtres ================== */
-type Group = "Visuel" | "Mouvement" | "Techniques" | "Audio" | "Options";
+type Group = "Métadonnées" | "Visuel" | "Mouvement" | "Techniques" | "Audio" | "Options";
 
 type Ctrl = {
   key: string;
@@ -74,6 +74,12 @@ type Ctrl = {
 };
 
 const CONTROLS: Ctrl[] = [
+  // Métadonnées
+  { key: "meta_creation_time", label: "Date de création", group: "Métadonnées", min: 0, max: 1, type: "toggle", hint: "Activé = date aléatoire" },
+  { key: "meta_encoder", label: "Encodeur / Logiciel", group: "Métadonnées", min: 0, max: 1, type: "toggle", hint: "Activé = logiciel aléatoire" },
+  { key: "meta_brand", label: "Brand / Format container", group: "Métadonnées", min: 0, max: 1, type: "toggle" },
+  { key: "meta_uid", label: "Identifiant unique (UID)", group: "Métadonnées", min: 0, max: 1, type: "toggle" },
+  // Options
   { key: "flip", label: "Flip (vertical)", group: "Options", min: 0, max: 1, type: "toggle" },
   { key: "reverse", label: "Reverse (miroir horizontal)", group: "Options", min: 0, max: 1, type: "toggle" },
 
@@ -149,6 +155,11 @@ const LIMITS: Record<
 
 /* ============ Infos packs (infobulles) ============ */
 const HELP_ADVANCED: Record<Group, React.ReactNode> = {
+  "Métadonnées": (
+    <div>
+      Active individuellement chaque métadonnée à injecter. Si aucun bouton n'est activé, les métadonnées originales sont préservées.
+    </div>
+  ),
   Visuel: (
     <div>
       <b>Valeurs subtiles (imperceptibles)</b><br />
@@ -274,12 +285,12 @@ export default function VideoFormAdvancedClient() {
   };
 
   const groups = useMemo(() => {
-    const wanted: Group[] = ["Visuel", "Mouvement", "Techniques", "Audio", "Options"];
+    const wanted: Group[] = ["Métadonnées", "Visuel", "Mouvement", "Techniques", "Audio", "Options"];
     return wanted.filter((g) => CONTROLS.some((c) => c.group === g));
   }, []);
 
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(groups.map((g) => [g, true]))
+    Object.fromEntries(groups.map((g) => [g, false]))
   );
 
   function getVideoDuration(file: File): Promise<number> {
@@ -736,7 +747,8 @@ export default function VideoFormAdvancedClient() {
                 );
               })}
 
-              {g === "Options" && (
+              {/* Localisation + Priorité algorithme — in Métadonnées group */}
+              {g === "Métadonnées" && (
                 <>
                   <div className="col-span-full flex flex-wrap items-end gap-4 mt-1">
                     <div className="flex-1 min-w-[200px] max-w-xs">
