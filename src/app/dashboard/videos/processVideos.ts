@@ -449,61 +449,31 @@ function getVideoMetadataArgs(opts?: { country?: string; iphoneMeta?: boolean })
     return getIphoneMetadataArgs(opts.country);
   }
 
-  const artist = pickRandom(VIDEO_HUMAN_NAMES);
-  const composer = pickRandom(VIDEO_HUMAN_NAMES);
   const encoder = pickRandom(VIDEO_ENCODERS);
-  const comment = pickRandom(VIDEO_COMMENTS);
-  const title = pickRandom(VIDEO_TITLES);
-  const genre = pickRandom(VIDEO_GENRES);
-  const service = pickRandom(VIDEO_SERVICE_NAMES);
-  const location = opts?.country || pickRandom(VIDEO_LOCATIONS);
-  const lang = pickRandom(VIDEO_LANGUAGES);
-  const brand = pickRandom(VIDEO_BRANDS);
-  const compatBrands = VIDEO_COMPAT_BRANDS[brand];
-  const minorVersion = pickRandom([512, 0, 1, 2]);
-  const uid = `${randMetaHex(8)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(12)}`;
-  const sessionId = randMetaHex(16);
   const daysAgo = Math.floor(Math.random() * 365);
   const hoursAgo = Math.floor(Math.random() * 24);
   const minsAgo = Math.floor(Math.random() * 60);
   const creationDate = new Date(Date.now() - daysAgo * 86400000 - hoursAgo * 3600000 - minsAgo * 60000);
   const isoDate = creationDate.toISOString().slice(0, 19) + "Z";
-  const year = creationDate.getFullYear();
-  const trackNum = 1 + Math.floor(Math.random() * 99);
-  const args = [
+  const brand = pickRandom(VIDEO_BRANDS);
+  const compatBrands = VIDEO_COMPAT_BRANDS[brand];
+  const minorVersion = pickRandom([512, 0, 1, 2]);
+  const uid = `${randMetaHex(8)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(12)}`;
+  // Only essential metadata — avoid suspicious extra tags that real videos don't have
+  const args: string[] = [
     "-map_metadata", "-1",
-    "-metadata", `title=${title}`,
-    "-metadata", `artist=${artist}`,
-    "-metadata", `author=${artist}`,
-    "-metadata", `composer=${composer}`,
-    "-metadata", `album=${comment}`,
+    "-metadata", `creation_time=${isoDate}`,
     "-metadata", `encoder=${encoder}`,
     "-metadata", `encoded_by=${encoder}`,
-    "-metadata", `creation_time=${isoDate}`,
-    "-metadata", `date=${year}`,
-    "-metadata", `comment=${comment}`,
-    "-metadata", `description=${comment}`,
-    "-metadata", `synopsis=${comment}`,
-    "-metadata", `copyright=© ${year} ${artist}`,
-    "-metadata", `publisher=${artist}`,
-    "-metadata", `genre=${genre}`,
-    "-metadata", `language=${lang}`,
-    "-metadata", `location=${location}`,
-    "-metadata", `service_name=${service}`,
-    "-metadata", `handler_name=${encoder}`,
-    "-metadata", `network=${service}`,
-    "-metadata", `episode_sort=${trackNum}`,
-    "-metadata", `track=${trackNum}`,
     "-metadata", `major_brand=${brand}`,
     "-metadata", `minor_version=${minorVersion}`,
     "-metadata", `compatible_brands=${compatBrands}`,
     "-metadata:g", `uid=${uid}`,
-    "-metadata:g", `session_id=${sessionId}`,
-    "-metadata:s:v:0", `language=${lang}`,
-    "-metadata:s:v:0", `handler_name=${encoder}`,
-    "-metadata:s:a:0", `language=${lang}`,
-    "-metadata:s:a:0", `handler_name=${encoder}`,
   ];
+  // Location only if user specified a country
+  if (opts?.country) {
+    args.push("-metadata", `location=${opts.country}`);
+  }
   return args;
 }
 
