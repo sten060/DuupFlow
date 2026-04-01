@@ -328,14 +328,10 @@ export default function ImageFormClient({ initialImages }: Props) {
             <span>•</span>
             <span>{(totalSize / (1024 * 1024)).toFixed(2)} Mo</span>
           </div>
-        </div>
 
-        <div className="h-px bg-white/[0.06]" />
-
-        {/* Copies + Localisation — côte à côte */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-white/70 mb-1.5">Nombre de copies</label>
+          {/* Copies inside dropzone */}
+          <div className="mt-3 max-w-[200px]">
+            <label className="block text-sm font-medium text-white/70 mb-1">Nombre de copies</label>
             <input
               type="number"
               name="count"
@@ -344,15 +340,19 @@ export default function ImageFormClient({ initialImages }: Props) {
               className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-white/70 mb-1.5">Localisation pays <span className="text-white/30">(optionnel)</span></label>
-            <input
-              type="text"
-              name="country"
-              placeholder="Ex: France, États-Unis, Japon…"
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90 placeholder:text-white/25"
-            />
-          </div>
+        </div>
+
+        <div className="h-px bg-white/[0.06]" />
+
+        {/* Localisation + Priorité algorithme */}
+        <div className="max-w-md">
+          <label className="block text-sm font-medium text-white/70 mb-1.5">Localisation pays <span className="text-white/30">(optionnel)</span></label>
+          <input
+            type="text"
+            name="country"
+            placeholder="Ex: France, États-Unis, Japon…"
+            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90 placeholder:text-white/25"
+          />
         </div>
 
         {/* Priorité d'algorithme */}

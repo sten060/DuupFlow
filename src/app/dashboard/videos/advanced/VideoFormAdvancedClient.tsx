@@ -62,7 +62,7 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
 }
 
 /* ================== Définition des filtres ================== */
-type Group = "Visuel" | "Mouvement" | "Techniques" | "Audio" | "Boutons";
+type Group = "Visuel" | "Mouvement" | "Techniques" | "Audio" | "Options";
 
 type Ctrl = {
   key: string;
@@ -77,8 +77,8 @@ type Ctrl = {
 };
 
 const CONTROLS: Ctrl[] = [
-  { key: "flip", label: "Flip (vertical)", group: "Boutons", min: 0, max: 1, type: "toggle" },
-  { key: "reverse", label: "Reverse (miroir horizontal)", group: "Boutons", min: 0, max: 1, type: "toggle" },
+  { key: "flip", label: "Flip (vertical)", group: "Options", min: 0, max: 1, type: "toggle" },
+  { key: "reverse", label: "Reverse (miroir horizontal)", group: "Options", min: 0, max: 1, type: "toggle" },
 
   // Neutral values: sat/con/gam → 1.0 (no change), brightness → 0.0, hue → 0.0
   // Setting defaults to neutral ensures enabling a filter without changing values = no effect.
@@ -183,9 +183,9 @@ const HELP_ADVANCED: Record<Group, React.ReactNode> = {
       Bitrate audio <b>96 → 256</b> kb/s (AAC).
     </div>
   ),
-  Boutons: (
+  Options: (
     <div>
-      <b>Flip</b> : vertical. <b>Reverse</b> : miroir horizontal. Cumulables.
+      <b>Flip</b> : vertical. <b>Reverse</b> : miroir horizontal. <b>Localisation</b> : pays injecté dans les métadonnées. <b>Priorité d'algorithme</b> : métadonnées iPhone réalistes.
     </div>
   ),
 };
@@ -277,7 +277,7 @@ export default function VideoFormAdvancedClient() {
   };
 
   const groups = useMemo(() => {
-    const wanted: Group[] = ["Visuel", "Mouvement", "Techniques", "Audio", "Boutons"];
+    const wanted: Group[] = ["Visuel", "Mouvement", "Techniques", "Audio", "Options"];
     return wanted.filter((g) => CONTROLS.some((c) => c.group === g));
   }, []);
 
@@ -738,6 +738,31 @@ export default function VideoFormAdvancedClient() {
                   </div>
                 );
               })}
+
+              {/* Country + iPhone Meta — only in Options group */}
+              {g === "Options" && (
+                <>
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
+                    <label className="text-sm font-medium text-white/70 block mb-1.5">Localisation pays</label>
+                    <input
+                      type="text"
+                      name="country"
+                      placeholder="Ex: France, États-Unis, Japon…"
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90 placeholder:text-white/25"
+                    />
+                  </div>
+                  <label className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 block cursor-pointer">
+                    <input type="checkbox" name="iphoneMeta" value="1" className="peer sr-only" />
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-medium text-white/85">⚡ Priorité d'algorithme</span>
+                        <div className="text-[11px] text-white/45 mt-0.5">Métadonnées iPhone réalistes</div>
+                      </div>
+                      <div className="h-4 w-4 rounded border border-white/20 peer-checked:bg-sky-400 peer-checked:border-sky-400 transition" />
+                    </div>
+                  </label>
+                </>
+              )}
             </div>
           )}
         </Card>
