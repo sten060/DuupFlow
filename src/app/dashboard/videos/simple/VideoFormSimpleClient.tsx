@@ -280,7 +280,7 @@ export default function VideoFormSimpleClient() {
         setProgressMsg("Envoi au serveur…");
 
         apiForm = new FormData();
-        for (const key of ["channel", "mode", "singles", "count", "packs"]) {
+        for (const key of ["channel", "mode", "singles", "count", "packs", "country", "iphoneMeta"]) {
           const v = rawForm.get(key);
           if (v !== null) apiForm.append(key, v);
         }
