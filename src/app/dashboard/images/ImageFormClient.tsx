@@ -328,18 +328,18 @@ export default function ImageFormClient({ initialImages }: Props) {
             <span>•</span>
             <span>{(totalSize / (1024 * 1024)).toFixed(2)} Mo</span>
           </div>
+        </div>
 
-          {/* Copies inside dropzone */}
-          <div className="mt-3 max-w-[200px]">
-            <label className="block text-sm font-medium text-white/70 mb-1">Nombre de copies</label>
-            <input
-              type="number"
-              name="count"
-              min={1}
-              defaultValue={1}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90"
-            />
-          </div>
+        {/* Copies */}
+        <div className="max-w-[200px]">
+          <label className="block text-sm font-medium text-white/70 mb-1">Nombre de copies</label>
+          <input
+            type="number"
+            name="count"
+            min={1}
+            defaultValue={1}
+            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90"
+          />
         </div>
 
         <div className="h-px bg-white/[0.06]" />

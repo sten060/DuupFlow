@@ -44,19 +44,16 @@ function Card({
 
 function SubmitWithProgress({ pending }: { pending: boolean }) {
   return (
-    <div className="sticky bottom-0 left-0 right-0 z-10 mt-6">
-      <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[linear-gradient(135deg,_rgba(35,80,180,.22),_rgba(75,140,255,.12))] p-3 backdrop-blur shadow-[0_0_34px_rgba(80,150,255,.22)]">
-        <button
-          type="submit"
-          disabled={pending}
-          className={`rounded-lg px-4 py-2 font-medium text-white transition ${
-            pending ? "cursor-not-allowed bg-sky-500/50" : "bg-sky-500 hover:bg-sky-400"
-          }`}
-        >
-          {pending ? "Duplication…" : "Générer"}
-        </button>
-
-      </div>
+    <div className="mt-6">
+      <button
+        type="submit"
+        disabled={pending}
+        className={`rounded-lg px-4 py-2 font-medium text-white transition ${
+          pending ? "cursor-not-allowed bg-sky-500/50" : "bg-sky-500 hover:bg-sky-400"
+        }`}
+      >
+        {pending ? "Duplication…" : "Générer"}
+      </button>
     </div>
   );
 }
@@ -739,28 +736,26 @@ export default function VideoFormAdvancedClient() {
                 );
               })}
 
-              {/* Country + iPhone Meta — only in Options group */}
               {g === "Options" && (
                 <>
-                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
-                    <label className="text-sm font-medium text-white/70 block mb-1.5">Localisation pays</label>
-                    <input
-                      type="text"
-                      name="country"
-                      placeholder="Ex: France, États-Unis, Japon…"
-                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90 placeholder:text-white/25"
-                    />
-                  </div>
-                  <label className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 block cursor-pointer">
-                    <input type="checkbox" name="iphoneMeta" value="1" className="peer sr-only" />
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-medium text-white/85">⚡ Priorité d'algorithme</span>
-                        <div className="text-[11px] text-white/45 mt-0.5">Métadonnées iPhone réalistes</div>
-                      </div>
-                      <div className="h-4 w-4 rounded border border-white/20 peer-checked:bg-sky-400 peer-checked:border-sky-400 transition" />
+                  <div className="col-span-full flex flex-wrap items-end gap-4 mt-1">
+                    <div className="flex-1 min-w-[200px] max-w-xs">
+                      <label className="block text-sm font-medium text-white/70 mb-1">Localisation pays</label>
+                      <input
+                        type="text"
+                        name="country"
+                        placeholder="Ex: France, États-Unis, Japon…"
+                        className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-white/90 placeholder:text-white/25"
+                      />
                     </div>
-                  </label>
+                    <label className="inline-flex cursor-pointer select-none items-center gap-3 text-sm py-1.5">
+                      <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/15 transition">
+                        <input type="checkbox" name="iphoneMeta" value="1" className="sr-only peer" />
+                        <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white/70 peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
+                      </span>
+                      <span className="text-white/85">⚡ Priorité d'algorithme</span>
+                    </label>
+                  </div>
                 </>
               )}
             </div>

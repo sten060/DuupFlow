@@ -460,35 +460,6 @@ export default function VideoFormSimpleClient() {
 
       <div className="h-px bg-white/[0.06]" />
 
-      {/* Localisation pays */}
-      <div className="max-w-sm">
-        <label className="block text-sm font-medium text-white/70 mb-1.5">Localisation pays <span className="text-white/30">(optionnel)</span></label>
-        <input
-          type="text"
-          value={country}
-          onChange={(e) => setCountry(e.target.value)}
-          placeholder="Ex: France, États-Unis, Japon…"
-          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90 placeholder:text-white/25"
-        />
-      </div>
-
-      {/* Priorité d'algorithme */}
-      <button
-        type="button"
-        onClick={() => setIphoneMeta(!iphoneMeta)}
-        className={[
-          "w-full sm:w-auto rounded-xl border px-4 py-3 text-left transition-all",
-          iphoneMeta
-            ? "border-indigo-400/30 bg-indigo-500/10"
-            : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05]",
-        ].join(" ")}
-      >
-        <div className="font-semibold text-sm text-white/90">⚡ Priorité d'algorithme</div>
-        <div className="text-xs text-white/45 mt-0.5">Métadonnées réalistes iPhone (appareil, caméra, iOS, GPS, focale…)</div>
-      </button>
-
-      <div className="h-px bg-white/[0.06]" />
-
       {/* Packs */}
       <div>
         <input type="hidden" name="packs" value={packsSelected.join(",")} />
@@ -525,12 +496,23 @@ export default function VideoFormSimpleClient() {
 
       <div className="h-px bg-white/[0.06]" />
 
-      {/* Filtres seuls */}
+      {/* Options */}
       <div>
-        <h3 className="text-sm font-semibold text-white/90 mb-3">Filtres seuls</h3>
-        <div className="flex flex-wrap gap-4">
+        <h3 className="text-sm font-semibold text-white/90 mb-3">Options</h3>
+        <div className="flex flex-wrap items-end gap-4">
           <Toggle checked={flip} onChange={setFlip} label="Flip (vertical)" />
           <Toggle checked={reverse} onChange={setReverse} label="Reverse (miroir horizontal)" />
+          <div className="flex-1 min-w-[200px] max-w-xs">
+            <label className="block text-sm font-medium text-white/70 mb-1">Localisation pays</label>
+            <input
+              type="text"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              placeholder="Ex: France, États-Unis, Japon…"
+              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-white/90 placeholder:text-white/25"
+            />
+          </div>
+          <Toggle checked={iphoneMeta} onChange={setIphoneMeta} label="⚡ Priorité d'algorithme" />
         </div>
       </div>
 
