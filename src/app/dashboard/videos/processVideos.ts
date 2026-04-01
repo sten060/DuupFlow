@@ -365,20 +365,35 @@ function randMetaHex(n = 8): string {
 }
 /* ---- iPhone-realistic metadata for "Priorité d'algorithme" mode ---- */
 const IPHONE_MODELS = [
-  { make: "Apple", model: "iPhone 16 Pro Max", software: "18.3.2" },
-  { make: "Apple", model: "iPhone 16 Pro", software: "18.3.1" },
+  { make: "Apple", model: "iPhone 17 Pro Max", software: "26.2" },
+  { make: "Apple", model: "iPhone 17 Pro", software: "26.1" },
+  { make: "Apple", model: "iPhone 17 Air", software: "26.1" },
+  { make: "Apple", model: "iPhone 17", software: "26.0" },
+  { make: "Apple", model: "iPhone 16 Pro Max", software: "18.4.1" },
+  { make: "Apple", model: "iPhone 16 Pro", software: "18.3.2" },
+  { make: "Apple", model: "iPhone 16", software: "18.3.1" },
   { make: "Apple", model: "iPhone 15 Pro Max", software: "18.2.1" },
   { make: "Apple", model: "iPhone 15 Pro", software: "18.2" },
+  { make: "Apple", model: "iPhone 15", software: "18.1" },
 ];
 const IPHONE_LENS = [
+  { focal: "6.86", focalEq: "24", aperture: "1.78", lens: "iPhone 17 Pro Max back triple camera 6.86mm f/1.78" },
   { focal: "6.86", focalEq: "24", aperture: "1.78", lens: "iPhone 16 Pro Max back triple camera 6.86mm f/1.78" },
   { focal: "6.765", focalEq: "24", aperture: "1.78", lens: "iPhone 16 Pro back triple camera 6.765mm f/1.78" },
+  { focal: "2.22", focalEq: "13", aperture: "2.2", lens: "iPhone 17 Pro back triple camera 2.22mm f/2.2" },
   { focal: "2.22", focalEq: "13", aperture: "2.2", lens: "iPhone 16 Pro back triple camera 2.22mm f/2.2" },
   { focal: "9.0", focalEq: "77", aperture: "2.8", lens: "iPhone 16 Pro back triple camera 9mm f/2.8" },
+  { focal: "5.7", focalEq: "28", aperture: "1.6", lens: "iPhone 17 Pro Max back triple camera 5.7mm f/1.6" },
   { focal: "6.765", focalEq: "24", aperture: "1.78", lens: "iPhone 15 Pro back triple camera 6.765mm f/1.78" },
+  { focal: "2.22", focalEq: "13", aperture: "2.2", lens: "iPhone 15 Pro back triple camera 2.22mm f/2.2" },
 ];
 
-function getIphoneVideoMetadataArgs(country?: string): string[] {
+/**
+ * Returns ADDITIONAL metadata args that overlay on top of the base metadata.
+ * FFmpeg applies metadata in order — later -metadata flags override earlier ones.
+ * So we return only the iPhone-specific fields that should overwrite the base ones.
+ */
+function getIphoneOverlayArgs(country?: string): string[] {
   const device = pickRandom(IPHONE_MODELS);
   const lens = pickRandom(IPHONE_LENS);
   const daysAgo = Math.floor(Math.random() * 30);
@@ -387,24 +402,25 @@ function getIphoneVideoMetadataArgs(country?: string): string[] {
   const secsAgo = Math.floor(Math.random() * 60);
   const creationDate = new Date(Date.now() - daysAgo * 86400000 - hoursAgo * 3600000 - minsAgo * 60000 - secsAgo * 1000);
   const isoDate = creationDate.toISOString().slice(0, 19) + "Z";
-  const year = creationDate.getFullYear();
   // Random GPS near plausible city centers
-  const lat = (43 + Math.random() * 6).toFixed(6);   // ~43-49°N (France range)
-  const lon = (-1 + Math.random() * 8).toFixed(6);    // ~-1 to 7°E (France range)
+  const lat = (43 + Math.random() * 6).toFixed(6);
+  const lon = (-1 + Math.random() * 8).toFixed(6);
   const alt = (20 + Math.random() * 200).toFixed(2);
   const gpsIso6709 = `+${lat}+${lon}+${alt}/`;
 
   const location = country || pickRandom(VIDEO_LOCATIONS);
-  const uid = `${randMetaHex(8)}-${randMetaHex(4)}-4${randMetaHex(3)}-${pickRandom(["8","9","a","b"])}${randMetaHex(3)}-${randMetaHex(12)}`.toUpperCase();
 
   return [
-    "-map_metadata", "-1",
-    // QuickTime / MP4 top-level metadata
+    // Overwrite device-related fields from the base metadata
     "-metadata", `make=${device.make}`,
     "-metadata", `model=${device.model}`,
     "-metadata", `software=${device.software}`,
+    "-metadata", `encoder=${device.make} ${device.model}`,
+    "-metadata", `encoded_by=${device.model}`,
     "-metadata", `creation_time=${isoDate}`,
-    "-metadata", `date=${year}`,
+    "-metadata", `date=${creationDate.getFullYear()}`,
+    "-metadata", `location=${location}`,
+    // Apple QuickTime specific
     "-metadata", `com.apple.quicktime.make=${device.make}`,
     "-metadata", `com.apple.quicktime.model=${device.model}`,
     "-metadata", `com.apple.quicktime.software=${device.software}`,
@@ -414,27 +430,13 @@ function getIphoneVideoMetadataArgs(country?: string): string[] {
     "-metadata", `com.apple.quicktime.camera.aperture=${lens.aperture}`,
     "-metadata", `com.apple.quicktime.location.ISO6709=${gpsIso6709}`,
     "-metadata", `com.apple.quicktime.location.name=${location}`,
-    "-metadata", `location=${location}`,
-    "-metadata", `encoder=Apple ${device.model}`,
-    "-metadata", `handler_name=Core Media Video`,
-    "-metadata", `major_brand=qt`,
-    "-metadata", `minor_version=0`,
-    "-metadata", `compatible_brands=qt`,
-    "-metadata:g", `uid=${uid}`,
-    // Video stream metadata
-    "-metadata:s:v:0", `language=und`,
+    // Stream handlers
     "-metadata:s:v:0", `handler_name=Core Media Video`,
-    // Audio stream metadata
-    "-metadata:s:a:0", `language=und`,
     "-metadata:s:a:0", `handler_name=Core Media Audio`,
   ];
 }
 
 function getVideoMetadataArgs(opts?: { country?: string; iphoneMeta?: boolean }): string[] {
-  if (opts?.iphoneMeta) {
-    return getIphoneVideoMetadataArgs(opts.country);
-  }
-
   const artist = pickRandom(VIDEO_HUMAN_NAMES);
   const composer = pickRandom(VIDEO_HUMAN_NAMES);
   const encoder = pickRandom(VIDEO_ENCODERS);
@@ -456,7 +458,7 @@ function getVideoMetadataArgs(opts?: { country?: string; iphoneMeta?: boolean })
   const isoDate = creationDate.toISOString().slice(0, 19) + "Z";
   const year = creationDate.getFullYear();
   const trackNum = 1 + Math.floor(Math.random() * 99);
-  return [
+  const args = [
     "-map_metadata", "-1",
     "-metadata", `title=${title}`,
     "-metadata", `artist=${artist}`,
@@ -490,6 +492,14 @@ function getVideoMetadataArgs(opts?: { country?: string; iphoneMeta?: boolean })
     "-metadata:s:a:0", `language=${lang}`,
     "-metadata:s:a:0", `handler_name=${encoder}`,
   ];
+
+  // If iPhone meta is enabled, overlay iPhone-specific fields on top.
+  // FFmpeg processes metadata in order — later flags overwrite earlier ones.
+  if (opts?.iphoneMeta) {
+    args.push(...getIphoneOverlayArgs(opts.country));
+  }
+
+  return args;
 }
 
 const LIMITS: Record<string, { min: number; max: number }> = {
