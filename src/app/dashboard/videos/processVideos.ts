@@ -389,11 +389,11 @@ const IPHONE_LENS = [
 ];
 
 /**
- * Returns ADDITIONAL metadata args that overlay on top of the base metadata.
- * FFmpeg applies metadata in order — later -metadata flags override earlier ones.
- * So we return only the iPhone-specific fields that should overwrite the base ones.
+ * Returns a COMPLETE set of metadata args that mimics a real iPhone recording.
+ * Clears ALL existing metadata first, then writes ONLY Apple QuickTime tags.
+ * No title, artist, genre, comment, etc. — real iPhones don't have those.
  */
-function getIphoneOverlayArgs(country?: string): string[] {
+function getIphoneMetadataArgs(country?: string): string[] {
   const device = pickRandom(IPHONE_MODELS);
   const lens = pickRandom(IPHONE_LENS);
   const daysAgo = Math.floor(Math.random() * 30);
@@ -402,41 +402,53 @@ function getIphoneOverlayArgs(country?: string): string[] {
   const secsAgo = Math.floor(Math.random() * 60);
   const creationDate = new Date(Date.now() - daysAgo * 86400000 - hoursAgo * 3600000 - minsAgo * 60000 - secsAgo * 1000);
   const isoDate = creationDate.toISOString().slice(0, 19) + "Z";
-  // Random GPS near plausible city centers
-  const lat = (43 + Math.random() * 6).toFixed(6);
-  const lon = (-1 + Math.random() * 8).toFixed(6);
-  const alt = (20 + Math.random() * 200).toFixed(2);
-  const gpsIso6709 = `+${lat}+${lon}+${alt}/`;
+  // Local date with timezone offset (like real iPhone: 2026-02-04T15:07:19+0100)
+  const tzOffsetH = 1 + Math.floor(Math.random() * 3); // +01 to +03
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const localDate = `${creationDate.getFullYear()}-${pad(creationDate.getMonth()+1)}-${pad(creationDate.getDate())}T${pad(creationDate.getHours())}:${pad(creationDate.getMinutes())}:${pad(creationDate.getSeconds())}+${pad(tzOffsetH)}00`;
+  // Random GPS
+  const lat = (43 + Math.random() * 6).toFixed(4);
+  const lon = (1 + Math.random() * 7).toFixed(4);
+  const alt = (20 + Math.random() * 200).toFixed(3);
+  const gpsIso6709 = `+${lat}+${lon.padStart(8, "0")}+${alt}/`;
+  const locationAccuracy = (5 + Math.random() * 20).toFixed(6);
+  // Apple photos originating signature (random base64-like)
+  const sigChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let sig = "";
+  for (let i = 0; i < 36; i++) sig += sigChars[Math.floor(Math.random() * sigChars.length)];
 
   const location = country || pickRandom(VIDEO_LOCATIONS);
 
   return [
-    // Overwrite device-related fields from the base metadata
-    "-metadata", `make=${device.make}`,
-    "-metadata", `model=${device.model}`,
-    "-metadata", `software=${device.software}`,
-    "-metadata", `encoder=${device.make} ${device.model}`,
-    "-metadata", `encoded_by=${device.model}`,
+    "-map_metadata", "-1",
+    // Container brand — real iPhones use "qt" not "isom"
+    "-metadata", `major_brand=qt  `,
+    "-metadata", `minor_version=0`,
+    "-metadata", `compatible_brands=qt  `,
     "-metadata", `creation_time=${isoDate}`,
-    "-metadata", `date=${creationDate.getFullYear()}`,
-    "-metadata", `location=${location}`,
-    // Apple QuickTime specific
+    // Apple QuickTime atoms — exactly like a real iPhone
+    "-metadata", `com.apple.quicktime.location.accuracy.horizontal=${locationAccuracy}`,
+    "-metadata", `com.apple.quicktime.full-frame-rate-playback-intent=0`,
+    "-metadata", `com.apple.quicktime.location.ISO6709=${gpsIso6709}`,
     "-metadata", `com.apple.quicktime.make=${device.make}`,
     "-metadata", `com.apple.quicktime.model=${device.model}`,
     "-metadata", `com.apple.quicktime.software=${device.software}`,
-    "-metadata", `com.apple.quicktime.creationdate=${isoDate}`,
-    "-metadata", `com.apple.quicktime.camera.lens_model=${lens.lens}`,
-    "-metadata", `com.apple.quicktime.camera.focal_length.35mm_equivalent=${lens.focalEq}`,
-    "-metadata", `com.apple.quicktime.camera.aperture=${lens.aperture}`,
-    "-metadata", `com.apple.quicktime.location.ISO6709=${gpsIso6709}`,
-    "-metadata", `com.apple.quicktime.location.name=${location}`,
-    // Stream handlers
+    "-metadata", `com.apple.quicktime.creationdate=${localDate}`,
+    "-metadata", `com.apple.photos.originating.signature=${sig}`,
+    // Stream handlers — exactly like a real iPhone
+    "-metadata:s:v:0", `language=und`,
     "-metadata:s:v:0", `handler_name=Core Media Video`,
+    "-metadata:s:a:0", `language=und`,
     "-metadata:s:a:0", `handler_name=Core Media Audio`,
   ];
 }
 
 function getVideoMetadataArgs(opts?: { country?: string; iphoneMeta?: boolean }): string[] {
+  // iPhone mode: return ONLY Apple QuickTime metadata, no random title/artist/genre
+  if (opts?.iphoneMeta) {
+    return getIphoneMetadataArgs(opts.country);
+  }
+
   const artist = pickRandom(VIDEO_HUMAN_NAMES);
   const composer = pickRandom(VIDEO_HUMAN_NAMES);
   const encoder = pickRandom(VIDEO_ENCODERS);
@@ -492,13 +504,6 @@ function getVideoMetadataArgs(opts?: { country?: string; iphoneMeta?: boolean })
     "-metadata:s:a:0", `language=${lang}`,
     "-metadata:s:a:0", `handler_name=${encoder}`,
   ];
-
-  // If iPhone meta is enabled, overlay iPhone-specific fields on top.
-  // FFmpeg processes metadata in order — later flags overwrite earlier ones.
-  if (opts?.iphoneMeta) {
-    args.push(...getIphoneOverlayArgs(opts.country));
-  }
-
   return args;
 }
 
