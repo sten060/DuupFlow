@@ -82,16 +82,15 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
 
 /* ---------- Packs + Aide ---------- */
 const PACKS: Record<
-  "metadata" | "audio" | "motion" | "visual" | "technical",
+  "metadata" | "metadata_technical" | "pixel_magic" | "audio" | "motion" | "visual",
   { label: string; hint: string; filters: string[] }
 > = {
-  metadata:          { label: "Métadonnées",         hint: "Date, encodeur, brand, uid",             filters: [] },
-  metadata_advanced: { label: "Métadonnées avancé",  hint: "sample rate, bitrate audio, micro volume", filters: [] },
-  pixel_magic:       { label: "Pixel magique",       hint: "Bruit luma imperceptible — hash unique",   filters: [] },
-  audio:             { label: "Audio",               hint: "volume / petite EQ / bitrate",              filters: ["volume", "waveformshift", "audiobitrate"] },
-  motion:            { label: "Mouvement",           hint: "zoom, légère rotation",                     filters: ["speed", "zoom", "rotation", "pixelshift"] },
-  visual:            { label: "Visuels",             hint: "EQ, hue, unsharp",                          filters: ["eq", "hue", "unsharp", "vignette", "lens"] },
-  technical:         { label: "Technique",           hint: "bitrate vidéo, GOP, fps",                   filters: ["bitrate", "gop", "profile", "fps"] },
+  metadata:           { label: "Métadonnées",           hint: "Date, encodeur, brand, uid",               filters: [] },
+  metadata_technical: { label: "Métadonnées technique", hint: "bitrate vidéo, GOP, fps, profil H.264",    filters: ["bitrate", "gop", "profile", "fps"] },
+  pixel_magic:        { label: "Pixel magique",         hint: "Bruit luma imperceptible — hash unique",   filters: [] },
+  audio:              { label: "Audio",                 hint: "volume / petite EQ / bitrate",              filters: ["volume", "waveformshift", "audiobitrate"] },
+  motion:             { label: "Mouvement",             hint: "zoom, légère rotation",                     filters: ["speed", "zoom", "rotation", "pixelshift"] },
+  visual:             { label: "Visuels",               hint: "EQ, hue, unsharp",                          filters: ["eq", "hue", "unsharp", "vignette", "lens"] },
 };
 
 const PACK_HELP: Record<keyof typeof PACKS, React.ReactNode> = {
@@ -100,9 +99,9 @@ const PACK_HELP: Record<keyof typeof PACKS, React.ReactNode> = {
       Injecte des métadonnées aléatoires : date, logiciel de montage, brand container, identifiant unique. Aucune modification visuelle.
     </div>
   ),
-  metadata_advanced: (
+  metadata_technical: (
     <div>
-      Modifie le sample rate audio (44.1/48 kHz), le bitrate audio (96–256 kb/s) et applique un micro shift de volume (±0.1–0.5 dB). Imperceptible.
+      Bitrate vidéo 3–22 Mb/s • GOP 30–500 • Profil H.264 (baseline/main/high) • FPS aléatoire.
     </div>
   ),
   pixel_magic: (
@@ -122,12 +121,6 @@ const PACK_HELP: Record<keyof typeof PACKS, React.ReactNode> = {
       Modifications infimes non visuelles :<br />
       Zoom 1.01×–1.04× • Micro panoramique 0–10% • Vitesse ±1–3% (audio synchronisé).<br />
       Imperceptible à l&apos;œil, suffisant pour diversifier l&apos;empreinte numérique.
-    </div>
-  ),
-  technical: (
-    <div>
-      Bitrate vidéo 10–12.5 Mb/s • GOP 230–340 • Profil H.264 (baseline/main/high) •
-      Niveaux 5.0–6.0 • FPS aléatoire parmi 23.976/24/25/29.97/30/59.94/60.
     </div>
   ),
   audio: (
@@ -193,12 +186,11 @@ export default function VideoFormSimpleClient() {
   const abortRef = useRef<AbortController | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({
     metadata: false,
-    metadata_advanced: false,
+    metadata_technical: false,
     pixel_magic: false,
     audio: false,
     motion: false,
     visual: false,
-    technical: false,
   });
   const packsSelected = useMemo(() => Object.entries(selected).filter(([, v]) => v).map(([k]) => k), [selected]);
 
@@ -480,7 +472,7 @@ export default function VideoFormSimpleClient() {
 
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">Sans modification visuelle</p>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 mb-4">
-          {(["metadata", "metadata_advanced", "pixel_magic"] as (keyof typeof PACKS)[]).map((k) => (
+          {(["metadata", "metadata_technical", "pixel_magic"] as (keyof typeof PACKS)[]).map((k) => (
             <PackCard
               key={k}
               name={k}
@@ -493,8 +485,8 @@ export default function VideoFormSimpleClient() {
         </div>
 
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">Avec modification visuelle</p>
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-          {(["audio", "motion", "technical", "visual"] as (keyof typeof PACKS)[]).map((k) => (
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          {(["audio", "motion", "visual"] as (keyof typeof PACKS)[]).map((k) => (
             <PackCard
               key={k}
               name={k}

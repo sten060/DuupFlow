@@ -617,6 +617,7 @@ async function runFFmpegSafe(
   args.push("-movflags", "+faststart+use_metadata_tags");
   if (metaArgs.length) args.push(...metaArgs);
 
+  if (output.endsWith(".mov")) args.push("-f", "mov");
   args.push(output);
 
   await new Promise<void>((resolve, reject) => {
@@ -774,13 +775,14 @@ export async function processVideos(
 
     // copyTag unique par copie : 8 chars base-36 aléatoires → ex. "x4k9mz2q"
     const copyTag = Math.random().toString(36).slice(2, 10).padEnd(8, "0");
-    const outName = videoOutName({
+    let outName = videoOutName({
       channel,
       date: stamp,
       fileIndex,
       copyIndex,
       copyTag,
     });
+      if (useIphoneMeta) outName = outName.replace(/\.mp4$/, ".mov");
       const outPath = path.join(dir, outName);
 
       const vfParts: string[] = [];
@@ -843,7 +845,7 @@ export async function processVideos(
           // tblend removed: expensive (sequential frame decode), negligible uniquification value
         }
 
-        if (packs.includes("technical")) {
+        if (packs.includes("technical") || packs.includes("metadata_technical")) {
           const crf = 14 + Math.floor(Math.random() * 15);
           extraArgs.push("-crf", String(crf));
           const vbit = clamp(3000 + Math.floor(Math.random() * 19001), LIMITS.vbitrate.min, LIMITS.vbitrate.max);
@@ -905,16 +907,6 @@ export async function processVideos(
           const padLeft   = lat  || (!horiz && !lat) ? pad : 0;
           const padRight  = lat  || (!horiz && !lat) ? pad : 0;
           vfParts.push(`pad=iw*(1+${padLeft}+${padRight}):ih*(1+${padTop}+${padBottom}):iw*${padLeft}:ih*${padTop}:color=black`);
-        }
-
-        // Pack "Métadonnées avancé" — audio fingerprint changes
-        if (packs.includes("metadata_advanced")) {
-          extraArgs.push("-ar", Math.random() < 0.5 ? "44100" : "48000");
-          const abitratePool = [96, 128, 160, 192, 256];
-          extraArgs.push("-b:a", `${abitratePool[Math.floor(Math.random() * abitratePool.length)]}k`);
-          const sign = Math.random() < 0.5 ? 1 : -1;
-          const db = (0.1 + Math.random() * 0.4).toFixed(2);
-          afParts.push(`volume=${sign > 0 ? "" : "-"}${db}dB`);
         }
 
         // ── CRF variation — only when video is already being re-encoded ──────────

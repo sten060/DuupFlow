@@ -9,7 +9,7 @@ import { getFFmpegBin } from "@/app/dashboard/videos/processVideos";
 /**
  * Run ffprobe on an uploaded file and return its format metadata as JSON.
  */
-export async function probeFile(formData: FormData): Promise<{ format: Record<string, any> } | { error: string }> {
+export async function probeFile(formData: FormData): Promise<{ format: Record<string, any>; streams?: Record<string, any>[] } | { error: string }> {
   const file = formData.get("file") as File | null;
   if (!file || file.size === 0) return { error: "Aucun fichier reçu." };
 

@@ -5,12 +5,12 @@ import { useState } from "react";
 type Message = { from: "bot" | "user"; text: string; options?: Option[] };
 type Option = { label: string; action: string };
 
-const TELEGRAM_URL = "https://t.me/duupflow";
+const TELEGRAM_URL = "https://t.me/DuupFlow_Support";
 
 // FAQ decision tree — entonnoir conversationnel
 const TREE: Record<string, { text: string; options: Option[] }> = {
   start: {
-    text: "Salut ! Comment je peux t'aider ?",
+    text: "Salut ! \u{1F44B} Comment je peux t'aider ?",
     options: [
       { label: "Problème avec une duplication", action: "dup_problem" },
       { label: "Question sur mon abonnement", action: "abo" },
@@ -101,6 +101,7 @@ const TREE: Record<string, { text: string; options: Option[] }> = {
 
 export default function ChatBot() {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { from: "bot", text: TREE.start.text, options: TREE.start.options },
   ]);
@@ -126,12 +127,14 @@ export default function ChatBot() {
     setMessages([{ from: "bot", text: TREE.start.text, options: TREE.start.options }]);
   }
 
+  const panelSize = expanded ? "w-96 max-h-[36rem]" : "w-80 max-h-[28rem]";
+
   return (
     <>
       {/* Floating button */}
       <button
         onClick={() => setOpen(!open)}
-        className="fixed top-5 right-5 z-50 h-12 w-12 rounded-full bg-indigo-500 text-white flex items-center justify-center shadow-lg hover:bg-indigo-400 transition-all"
+        className="fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full bg-indigo-500/80 backdrop-blur-xl border border-white/10 text-white flex items-center justify-center shadow-lg hover:bg-indigo-400/80 transition-all"
       >
         {open ? (
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -147,15 +150,31 @@ export default function ChatBot() {
       {/* Chat panel */}
       {open && (
         <div
-          className="fixed top-20 right-5 z-50 w-80 max-h-[28rem] rounded-2xl border border-white/[0.08] flex flex-col overflow-hidden"
-          style={{ background: "rgba(10,14,30,0.95)", backdropFilter: "blur(20px)" }}
+          className={`fixed bottom-20 right-5 z-50 ${panelSize} rounded-2xl bg-white/[0.05] backdrop-blur-2xl border border-white/[0.1] flex flex-col overflow-hidden shadow-2xl transition-all`}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
             <span className="text-sm font-medium text-white/80">Assistance DuupFlow</span>
-            <button onClick={handleReset} className="text-xs text-white/40 hover:text-white/70 transition">
-              Recommencer
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="text-xs text-white/40 hover:text-white/70 transition"
+                title={expanded ? "Réduire" : "Agrandir"}
+              >
+                {expanded ? (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                  </svg>
+                )}
+              </button>
+              <button onClick={handleReset} className="text-xs text-white/40 hover:text-white/70 transition">
+                Recommencer
+              </button>
+            </div>
           </div>
 
           {/* Messages */}

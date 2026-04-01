@@ -59,7 +59,7 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
 }
 
 /* ================== Définition des filtres ================== */
-type Group = "Métadonnées" | "Visuel" | "Mouvement" | "Techniques" | "Audio" | "Options";
+type Group = "Tags" | "Visuel" | "Mouvement" | "Techniques" | "Audio" | "Options";
 
 type Ctrl = {
   key: string;
@@ -75,10 +75,10 @@ type Ctrl = {
 
 const CONTROLS: Ctrl[] = [
   // Métadonnées
-  { key: "meta_creation_time", label: "Date de création", group: "Métadonnées", min: 0, max: 1, type: "toggle", hint: "Activé = date aléatoire" },
-  { key: "meta_encoder", label: "Encodeur / Logiciel", group: "Métadonnées", min: 0, max: 1, type: "toggle", hint: "Activé = logiciel aléatoire" },
-  { key: "meta_brand", label: "Brand / Format container", group: "Métadonnées", min: 0, max: 1, type: "toggle" },
-  { key: "meta_uid", label: "Identifiant unique (UID)", group: "Métadonnées", min: 0, max: 1, type: "toggle" },
+  { key: "meta_creation_time", label: "Date de création", group: "Tags", min: 0, max: 1, type: "toggle", hint: "Activé = date aléatoire" },
+  { key: "meta_encoder", label: "Encodeur / Logiciel", group: "Tags", min: 0, max: 1, type: "toggle", hint: "Activé = logiciel aléatoire" },
+  { key: "meta_brand", label: "Brand / Format container", group: "Tags", min: 0, max: 1, type: "toggle" },
+  { key: "meta_uid", label: "Identifiant unique (UID)", group: "Tags", min: 0, max: 1, type: "toggle" },
   // Options
   { key: "flip", label: "Flip (vertical)", group: "Options", min: 0, max: 1, type: "toggle" },
   { key: "reverse", label: "Reverse (miroir horizontal)", group: "Options", min: 0, max: 1, type: "toggle" },
@@ -155,7 +155,7 @@ const LIMITS: Record<
 
 /* ============ Infos packs (infobulles) ============ */
 const HELP_ADVANCED: Record<Group, React.ReactNode> = {
-  "Métadonnées": (
+  "Tags": (
     <div>
       Active individuellement chaque métadonnée à injecter. Si aucun bouton n'est activé, les métadonnées originales sont préservées.
     </div>
@@ -285,7 +285,7 @@ export default function VideoFormAdvancedClient() {
   };
 
   const groups = useMemo(() => {
-    const wanted: Group[] = ["Métadonnées", "Visuel", "Mouvement", "Techniques", "Audio", "Options"];
+    const wanted: Group[] = ["Tags", "Visuel", "Mouvement", "Techniques", "Audio", "Options"];
     return wanted.filter((g) => CONTROLS.some((c) => c.group === g));
   }, []);
 
@@ -590,18 +590,14 @@ export default function VideoFormAdvancedClient() {
         <Card
           key={g}
           title={
-            <span className="inline-flex items-center gap-2">
-              {g}
-              <InfoTooltip>{HELP_ADVANCED[g]}</InfoTooltip>
-            </span>
-          }
-          right={
             <button
               type="button"
               onClick={() => setOpen((o) => ({ ...o, [g]: !o[g] }))}
-              className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+              className="inline-flex items-center gap-2 cursor-pointer select-none"
             >
-              {open[g] ? "Replier" : "Déplier"}
+              {g}
+              <InfoTooltip>{HELP_ADVANCED[g]}</InfoTooltip>
+              <span className="text-[10px] text-white/40">{open[g] ? "▲" : "▼"}</span>
             </button>
           }
         >
@@ -747,28 +743,32 @@ export default function VideoFormAdvancedClient() {
                 );
               })}
 
-              {/* Localisation + Priorité algorithme — in Métadonnées group */}
-              {g === "Métadonnées" && (
-                <>
-                  <div className="col-span-full flex flex-wrap items-end gap-4 mt-1">
-                    <div className="flex-1 min-w-[200px] max-w-xs">
-                      <label className="block text-sm font-medium text-white/70 mb-1">Localisation pays</label>
-                      <input
-                        type="text"
-                        name="country"
-                        placeholder="Ex: France, États-Unis, Japon…"
-                        className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-white/90 placeholder:text-white/25"
-                      />
-                    </div>
-                    <label className="inline-flex cursor-pointer select-none items-center gap-3 text-sm py-1.5">
-                      <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/15 transition">
-                        <input type="checkbox" name="iphoneMeta" value="1" className="sr-only peer" />
-                        <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white/70 peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
-                      </span>
-                      <span className="text-white/85">⚡ Priorité d'algorithme</span>
-                    </label>
+              {/* Localisation — in Tags group */}
+              {g === "Tags" && (
+                <div className="col-span-full flex flex-wrap items-end gap-4 mt-1">
+                  <div className="flex-1 min-w-[200px] max-w-xs">
+                    <label className="block text-sm font-medium text-white/70 mb-1">Localisation pays</label>
+                    <input
+                      type="text"
+                      name="country"
+                      placeholder="Ex: France, États-Unis, Japon…"
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-white/90 placeholder:text-white/25"
+                    />
                   </div>
-                </>
+                </div>
+              )}
+
+              {/* Priorité algorithme — in Options group */}
+              {g === "Options" && (
+                <div className="col-span-full flex flex-wrap items-end gap-4 mt-1">
+                  <label className="inline-flex cursor-pointer select-none items-center gap-3 text-sm py-1.5">
+                    <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/15 transition">
+                      <input type="checkbox" name="iphoneMeta" value="1" className="sr-only peer" />
+                      <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white/70 peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
+                    </span>
+                    <span className="text-white/85">Priorite d&apos;algorithme</span>
+                  </label>
+                </div>
               )}
             </div>
           )}
