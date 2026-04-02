@@ -3,37 +3,65 @@
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
+import { getFFmpegBin } from "@/app/dashboard/videos/processVideos";
 
+/**
+ * Resolve ffprobe binary. Since @ffmpeg-installer only ships ffmpeg (no ffprobe),
+ * we derive the path from the resolved ffmpeg binary's directory, or scan
+ * well-known locations used by nixpacks / apt / brew.
+ */
 async function getFFprobeBin(): Promise<string> {
   const { existsSync } = await import("fs");
 
-  // 1. PATH lookup via shell built-in
+  // 1. Derive from the resolved ffmpeg — if ffmpeg was found via PATH or
+  //    a well-known path, ffprobe is in the same directory.
   try {
-    const { execSync } = await import("child_process");
-    const found = execSync("command -v ffprobe", { encoding: "utf8", shell: "/bin/sh" }).trim();
-    if (found && existsSync(found)) return found;
+    const ffmpegBin = await getFFmpegBin();
+    const dir = path.dirname(ffmpegBin);
+    const candidate = path.join(dir, "ffprobe");
+    if (existsSync(candidate)) {
+      console.log(`[ffprobe] found next to ffmpeg: ${candidate}`);
+      return candidate;
+    }
   } catch {}
 
-  // 2. Well-known paths (nixpacks, apt, Nix store symlink)
+  // 2. PATH lookup
+  try {
+    const found = execSync("command -v ffprobe", { encoding: "utf8", shell: "/bin/sh" }).trim();
+    if (found && existsSync(found)) {
+      console.log(`[ffprobe] found via PATH: ${found}`);
+      return found;
+    }
+  } catch {}
+
+  // 3. Well-known paths
   const CANDIDATES = [
     "/usr/bin/ffprobe",
     "/usr/local/bin/ffprobe",
     "/nix/var/nix/profiles/default/bin/ffprobe",
   ];
   for (const p of CANDIDATES) {
-    if (existsSync(p)) return p;
+    if (existsSync(p)) {
+      console.log(`[ffprobe] found at known path: ${p}`);
+      return p;
+    }
   }
 
-  // 3. Try ffprobe next to the resolved ffmpeg binary
+  // 4. Scan /nix/store for ffprobe (nixpacks installs into a hashed store path)
   try {
-    const { getFFmpegBin } = await import("@/app/dashboard/videos/processVideos");
-    const ffmpegBin = await getFFmpegBin();
-    const ffprobeBin = ffmpegBin.replace(/ffmpeg([^/]*)$/, "ffprobe$1");
-    if (existsSync(ffprobeBin)) return ffprobeBin;
+    const found = execSync("find /nix/store -maxdepth 3 -name ffprobe -type f 2>/dev/null | head -1", {
+      encoding: "utf8",
+      shell: "/bin/sh",
+      timeout: 3000,
+    }).trim();
+    if (found && existsSync(found)) {
+      console.log(`[ffprobe] found in nix store: ${found}`);
+      return found;
+    }
   } catch {}
 
-  // 4. Bare fallback — let spawn try PATH
+  console.warn("[ffprobe] not found anywhere, falling back to bare 'ffprobe'");
   return "ffprobe";
 }
 
@@ -44,14 +72,12 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
   const file = formData.get("file") as File | null;
   if (!file || file.size === 0) return { error: "Aucun fichier reçu." };
 
-  // Write to temp file
   const ext = path.extname(file.name) || ".mp4";
   const tmpPath = path.join(os.tmpdir(), `duup_probe_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
   await fs.writeFile(tmpPath, Buffer.from(await file.arrayBuffer()));
 
   try {
     const probeBin = await getFFprobeBin();
-    console.log(`[ffprobe] using: ${probeBin}`);
 
     const result = await new Promise<string>((resolve, reject) => {
       const args = ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", tmpPath];
