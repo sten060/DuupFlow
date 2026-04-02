@@ -644,8 +644,8 @@ async function runFFmpegSafe(
     p.on("close", (code) => {
       clearTimeout(timer);
       if (code === 0) return resolve();
-      console.error("FFmpeg error:", stderr);
-      reject(new Error(`FFmpeg failed (${code})\n${stderr}`));
+      console.error("[FFmpeg] stderr:", stderr);
+      reject(new Error(`FFmpeg failed (${code})`));
     });
     const timer = setTimeout(() => {
       p.kill("SIGKILL");
@@ -850,7 +850,7 @@ export async function processVideos(
           // tblend removed: expensive (sequential frame decode), negligible uniquification value
         }
 
-        if (packs.includes("technical") || packs.includes("metadata_technical")) {
+        if (packs.includes("metadata_technical")) {
           const crf = 14 + Math.floor(Math.random() * 15);
           extraArgs.push("-crf", String(crf));
           const vbit = clamp(3000 + Math.floor(Math.random() * 19001), LIMITS.vbitrate.min, LIMITS.vbitrate.max);
@@ -916,12 +916,12 @@ export async function processVideos(
 
         // ── CRF variation — only when video is already being re-encoded ──────────
         // Adding CRF without video filters would force a full encode and change visuals.
-        if (vfParts.length > 0 && !packs.includes("technical")) {
+        if (vfParts.length > 0 && !packs.includes("metadata_technical")) {
           extraArgs.push("-crf", String(15 + Math.floor(Math.random() * 6)));
         }
 
         // When video will be re-encoded, ensure even dimensions and cap at 1920px.
-        if (vfParts.length > 0 || packs.includes("technical")) {
+        if (vfParts.length > 0 || packs.includes("metadata_technical")) {
           // ── HDR → SDR conversion when source is BT.2020 / HLG / PQ ──────────
           // Without this, BT.2020 pixel data encoded as H.264 (BT.709) produces
           // a visible yellow/warm tint because of color matrix mismatch.

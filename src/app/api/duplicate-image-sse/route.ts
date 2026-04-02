@@ -394,7 +394,8 @@ export async function POST(req: Request) {
         generationSucceeded = true;
         send({ percent: 100, msg: "Terminé ✔", done: true, processedOk });
       } catch (e: any) {
-        send({ error: true, msg: e?.message || "Erreur traitement image", code: "IMG-002" });
+        console.error("[duplicate-image] error:", e?.message);
+        send({ error: true, msg: "[IMG-002] Une erreur est survenue pendant le traitement. Contactez le support.", code: "IMG-002" });
       } finally {
         clearInterval(keepalive);
         if (generationSucceeded && usageCheck.userId) {

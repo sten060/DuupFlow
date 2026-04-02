@@ -324,10 +324,9 @@ export default function VideoFormSimpleClient() {
 
           if (!res.ok || !res.body) {
             const text = await res.text().catch(() => "");
-            let msg = `HTTP ${res.status}`;
             let code = res.status >= 500 ? "VID-002" : "VID-001";
-            try { const j = JSON.parse(text); msg = j?.error || msg; code = j?.code || code; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
-            const errMsg = `[${code}] ${msg}`;
+            try { const j = JSON.parse(text); code = j?.code || code; } catch {}
+            const errMsg = `[${code}] Une erreur est survenue. Réessayez ou contactez le support.`;
             setErrorMsg(errMsg);
             setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
             setProcessing(false);

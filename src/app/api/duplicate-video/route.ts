@@ -215,7 +215,7 @@ export async function POST(req: Request) {
               .upload(storageKey, fileBuffer, { contentType: "video/mp4", upsert: true });
             if (uploadError) {
               console.error("[duplicate-video] upload error:", uploadError.message, "file:", outName);
-              throw new Error(`Sauvegarde échouée (${outName}) : ${uploadError.message}`);
+              throw new Error(`Sauvegarde échouée — contactez le support. [VID-005]`);
             }
             await fs.unlink(outPath).catch(() => {});
           }));
@@ -228,7 +228,15 @@ export async function POST(req: Request) {
         send({ percent: 100, msg: warning ?? "Terminé ✔", done: true, userId, channel, warning });
 
       } catch (e: any) {
-        send({ percent: -1, msg: e?.message || "Erreur FFmpeg", error: true, code: errorCode });
+        const userMsg = errorCode === "VID-004"
+          ? "Une erreur est survenue pendant le traitement. Contactez le support."
+          : errorCode === "VID-005"
+          ? "Erreur lors de la sauvegarde du fichier."
+          : errorCode === "VID-003"
+          ? "Erreur lors du chargement du fichier source."
+          : "Une erreur inattendue est survenue.";
+        console.error(`[duplicate-video] ${errorCode}:`, e?.message);
+        send({ percent: -1, msg: `[${errorCode}] ${userMsg}`, error: true, code: errorCode });
       } finally {
         clearInterval(keepalive);
         // Mark job done BEFORE deleting temp files so any active reconnect

@@ -202,7 +202,7 @@ export default function AiDetectionPage() {
     if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
     pendingTimeoutRef.current = setTimeout(() => {
       setPending(false);
-      setResult({ ok: false, error: "[CLT-006] Délai dépassé — réessaie avec moins de fichiers." });
+      setResult({ ok: false, error: "[CLT-003] Délai dépassé — réessaie avec moins de fichiers." });
     }, timeoutMs);
 
     maskAiMetadata(fd)

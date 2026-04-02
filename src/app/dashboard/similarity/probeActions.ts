@@ -46,7 +46,11 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
       setTimeout(() => { p.kill("SIGKILL"); reject(new Error("ffprobe timeout")); }, 10_000);
     });
 
-    return JSON.parse(result);
+    try {
+      return JSON.parse(result);
+    } catch {
+      return { error: "Format de réponse invalide" };
+    }
   } catch (e: any) {
     return { error: e?.message || "Erreur ffprobe" };
   } finally {
