@@ -121,7 +121,7 @@ export default function AvantagesPage() {
             >
               <p className="text-[11px] text-white/60 leading-relaxed">{testimonials[0].quote}</p>
               <div className="mt-3 flex items-center gap-2">
-                <img src={testimonials[0].avatar} alt={testimonials[0].author} className="h-6 w-6 rounded-full object-cover shrink-0" />
+                <div className="h-6 w-6 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold text-white bg-indigo-500">{testimonials[0].author.charAt(0)}</div>
                 <div>
                   <p className="text-[10px] font-semibold text-white/50">{testimonials[0].author}</p>
                   <p className="text-[8px] text-white/25">{testimonials[0].role}</p>
@@ -136,7 +136,7 @@ export default function AvantagesPage() {
             >
               <p className="text-[11px] text-white/60 leading-relaxed">{testimonials[2].quote}</p>
               <div className="mt-3 flex items-center gap-2">
-                <img src={testimonials[2].avatar} alt={testimonials[2].author} className="h-6 w-6 rounded-full object-cover shrink-0" />
+                <div className="h-6 w-6 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold text-white bg-fuchsia-500">{testimonials[2].author.charAt(0)}</div>
                 <div>
                   <p className="text-[10px] font-semibold text-white/50">{testimonials[2].author}</p>
                   <p className="text-[8px] text-white/25">{testimonials[2].role}</p>
@@ -157,7 +157,7 @@ export default function AvantagesPage() {
                 &ldquo;{testimonials[1].quote}&rdquo;
               </p>
               <div className="mt-5 flex items-center gap-3">
-                <img src={testimonials[1].avatar} alt={testimonials[1].author} className="h-10 w-10 rounded-full object-cover shrink-0" />
+                <div className="h-10 w-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold text-white bg-sky-500">{testimonials[1].author.charAt(0)}</div>
                 <div>
                   <p className="text-sm font-semibold text-white/90">{testimonials[1].author}</p>
                   <p className="text-xs text-white/40">{testimonials[1].role}</p>

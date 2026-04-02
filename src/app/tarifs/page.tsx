@@ -135,7 +135,12 @@ function TestimonialCard({ t }: { t: typeof TESTIMONIALS[0] }) {
         &ldquo;{t.text}&rdquo;
       </p>
       <div className="flex items-center gap-2">
-        <img src={t.avatar} alt={t.name} className="h-6 w-6 sm:h-7 sm:w-7 rounded-full object-cover shrink-0" />
+        <div
+          className="h-6 w-6 sm:h-7 sm:w-7 rounded-full shrink-0 flex items-center justify-center text-[10px] sm:text-[11px] font-bold text-white"
+          style={{ background: t.color }}
+        >
+          {t.name.charAt(0)}
+        </div>
         <div>
           <p className="text-[11px] sm:text-xs font-semibold text-white leading-none mb-0.5">{t.name}</p>
           <p className="text-[9px] sm:text-[10px] text-white/40">{t.role}</p>
