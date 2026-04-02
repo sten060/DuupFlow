@@ -11,43 +11,36 @@ const testimonials = [
   { quote: "Le meilleur investissement qu'on ait fait cette année. ROI immédiat.", author: "MediaVibe Agency", role: "Social Media Management" },
 ];
 
-interface Section {
-  title: string;
-  text: string;
-  mockupLabel: string;
-  mockupDetails: string[];
-}
-
-const sections: Section[] = [
+const sections = [
   {
-    title: "Duplication ultra-rapide",
-    text: "Fini les heures d'attente. DuupFlow duplique des dizaines de contenus en quelques secondes. Votre workflow passe à la vitesse supérieure.",
+    title: "Dupliquez en masse, sans attendre",
+    text: "Vos campagnes ne peuvent pas attendre. Avec DuupFlow, dupliquez des dizaines de vidéos et d'images en quelques secondes — pas en quelques heures. Chaque copie est générée en parallèle avec des paramètres uniques. Votre équipe passe moins de temps sur la production technique et plus de temps sur la stratégie.",
     mockupLabel: "Duplication en cours...",
     mockupDetails: ["video_campagne_01.mp4", "video_campagne_02.mp4", "video_campagne_03.mp4", "32 fichiers — 4.2s"],
   },
   {
-    title: "Qualité parfaite, zéro compromis",
-    text: "Chaque duplication conserve la qualité exacte de l'original. 1080p reste 1080p, 4K reste 4K. Aucune perte, aucune compression supplémentaire.",
+    title: "Qualité originale, zéro compromis",
+    text: "Chaque duplication conserve la résolution exacte de votre fichier source. Une vidéo 1080p reste en 1080p. Une vidéo 4K reste en 4K. Aucun downscale automatique, aucune recompression destructrice. Vos clients reçoivent un contenu de qualité professionnelle, identique à l'original pixel par pixel.",
     mockupLabel: "Analyse qualité",
-    mockupDetails: ["Original: 1920x1080 · H.264", "Copie: 1920x1080 · H.264", "Delta pixels: 0.00%", "Qualité: identique"],
+    mockupDetails: ["Original: 3840x2160 · HEVC", "Copie: 3840x2160 · H.264", "Résolution: préservée", "Qualité visuelle: identique"],
   },
   {
-    title: "Duplication invisible",
-    text: "Modifiez l'empreinte numérique de vos fichiers sans toucher au visuel. Métadonnées, hash, paramètres techniques — tout change, sauf ce que vos clients voient.",
+    title: "Modifiez l'invisible, gardez le visible",
+    text: "Les plateformes analysent bien plus que les pixels visibles. Elles inspectent les métadonnées, le hash, la structure technique, l'empreinte numérique. DuupFlow modifie précisément ces couches invisibles — sans changer un seul pixel de votre contenu. Pour les algorithmes, chaque copie est un fichier totalement nouveau. Pour vos clients, c'est exactement le même contenu.",
     mockupLabel: "Empreinte modifiée",
-    mockupDetails: ["Hash SHA-256: ████████ → ████████", "Metadata: régénérées", "Visuel: inchangé", "Détection: 0 match"],
+    mockupDetails: ["Hash SHA-256: modifié", "Métadonnées: régénérées", "Structure technique: unique", "Visuel: inchangé"],
   },
   {
-    title: "Priorité algorithme",
-    text: "Un clic suffit pour injecter des métadonnées iPhone authentiques dans vos duplications. Les algorithmes pensent que le contenu vient d'un appareil réel. Votre contenu a plus de chances de performer.",
+    title: "Placez votre contenu du côté de l'algorithme",
+    text: "En un seul clic, DuupFlow injecte des métadonnées Apple authentiques dans vos fichiers — modèle iPhone, version iOS, objectif caméra, coordonnées GPS. Les algorithmes des plateformes traitent votre contenu comme s'il provenait d'un appareil réel. Vous pouvez aussi cibler une localisation précise pour viser un marché spécifique. Résultat : plus de portée, plus d'engagement, plus de performance.",
     mockupLabel: "Injection métadonnées",
-    mockupDetails: ["Device: iPhone 15 Pro Max", "Lens: 6.765mm f/1.78", "GPS: 48.8566° N, 2.3522° E", "Status: injecté"],
+    mockupDetails: ["Device: iPhone 16 Pro Max", "Lens: 6.86mm f/1.78", "GPS: 48.8566° N, 2.3522° E", "Software: iOS 18.3"],
   },
   {
-    title: "Signature IA effacée",
-    text: "Votre contenu est détecté comme généré par l'IA ? C'était avant DuupFlow. Notre module efface les signatures IA (EXIF, C2PA, JUMBF) et les remplace par une identité humaine réaliste. Les algorithmes ne font plus la différence.",
-    mockupLabel: "Nettoyage IA",
-    mockupDetails: ["C2PA: supprimé", "JUMBF: supprimé", "EXIF IA: remplacé", "Résultat: contenu humain"],
+    title: "Contenus IA ? Plus personne ne le saura",
+    text: "Votre contenu généré par Midjourney, DALL-E ou Stable Diffusion est détecté sur les réseaux ? DuupFlow analyse exactement ce que les algorithmes recherchent pour identifier du contenu IA — signatures EXIF, manifestes C2PA, marqueurs JUMBF — et les efface intégralement. À la place, une identité humaine réaliste est injectée : appareil photo, photographe, logiciel, date. Pour les plateformes, votre contenu est humain.",
+    mockupLabel: "Nettoyage signature IA",
+    mockupDetails: ["C2PA: supprimé ✓", "JUMBF: supprimé ✓", "EXIF IA: remplacé ✓", "Identité: humaine ✓"],
   },
 ];
 
@@ -82,142 +75,148 @@ export default function AvantagesPage() {
     <div className="min-h-screen text-white tech-grid">
       <Header />
 
-      {/* Frosted glass — fixed, covers right half from top of viewport */}
-      <div
-        className="fixed top-0 right-0 w-1/2 h-screen hidden md:block z-0"
-        style={{ backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", background: "rgba(6,10,28,0.25)" }}
-      />
+      {/* Frosted glass right half — h-screen only, not fixed */}
+      <div className="relative min-h-screen overflow-hidden">
+        <div
+          className="absolute top-0 right-0 w-1/2 h-full hidden md:block"
+          style={{ backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", background: "rgba(6,10,28,0.25)" }}
+        />
 
-      {/* Hero */}
-      <div className="relative z-10 min-h-screen grid md:grid-cols-2">
-        {/* Left — headline */}
-        <div className="px-8 sm:px-16 flex flex-col justify-center">
-          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight">
-            Découvrez les avantages{" "}
-            <span className={G}>DuupFlow</span>{" "}
-            pour votre agence
-          </h1>
-          <p className="mt-4 text-white/50 max-w-md">
-            Plus de rapidité, plus de qualité, plus de performances.
-            Voici pourquoi les meilleures agences nous font confiance.
-          </p>
-        </div>
-
-        {/* Right — testimonials like reference */}
-        <div className="flex flex-col items-center justify-center py-32 px-4 relative overflow-hidden">
-
-          {/* Dashed arc */}
-          <svg className="absolute pointer-events-none opacity-[0.08]" width="500" height="500" viewBox="0 0 500 500">
-            <circle cx="250" cy="250" r="200" fill="none" stroke="white" strokeWidth="1.5" strokeDasharray="8 8" />
-          </svg>
-
-          {/* Left card — cut off at left edge, blurred */}
-          <div
-            className="absolute -left-24 top-[12%] w-[280px] rounded-2xl p-5 opacity-40 blur-[1.5px]"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
-          >
-            <p className="text-[11px] text-white/70 leading-relaxed">
-              {testimonials[0].quote}
+        <div className="relative z-10 min-h-screen grid md:grid-cols-2">
+          {/* Left — headline, vertically centered */}
+          <div className="px-8 sm:px-16 flex flex-col justify-center pt-24">
+            <h1 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight">
+              Découvrez les avantages{" "}
+              <span className={G}>DuupFlow</span>{" "}
+              pour votre agence
+            </h1>
+            <p className="mt-4 text-white/50 max-w-md">
+              Plus de rapidité, plus de qualité, plus de performances.
+              Voici pourquoi les meilleures agences nous font confiance.
             </p>
-            <div className="mt-4 flex items-center gap-2">
-              <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400 to-sky-400" />
-              <div>
-                <p className="text-[11px] font-semibold text-white/60">{testimonials[0].author}</p>
-                <p className="text-[9px] text-white/30">{testimonials[0].role}</p>
+          </div>
+
+          {/* Right — testimonials with arc */}
+          <div className="flex items-center justify-center py-24 px-6 relative overflow-visible">
+            {/* Dashed arc connecting all 3 cards — open arc, not full circle */}
+            <svg
+              className="absolute pointer-events-none"
+              width="600" height="600"
+              viewBox="0 0 600 600"
+              style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}
+            >
+              <path
+                d="M 100 500 Q 100 100 300 80 Q 500 60 520 480"
+                fill="none"
+                stroke="rgba(255,255,255,0.06)"
+                strokeWidth="1.5"
+                strokeDasharray="6 6"
+              />
+            </svg>
+
+            {/* Card 1 — top left, partially cut off, blurred */}
+            <div
+              className="absolute -left-16 top-[15%] w-[240px] rounded-xl p-4 opacity-35 blur-[1px]"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              <p className="text-[11px] text-white/60 leading-relaxed">{testimonials[0].quote}</p>
+              <div className="mt-3 flex items-center gap-2">
+                <div className="h-6 w-6 rounded-full bg-gradient-to-br from-indigo-400 to-sky-400 shrink-0" />
+                <div>
+                  <p className="text-[10px] font-semibold text-white/50">{testimonials[0].author}</p>
+                  <p className="text-[8px] text-white/25">{testimonials[0].role}</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Right card — cut off at right edge, blurred */}
-          <div
-            className="absolute -right-20 top-[8%] w-[280px] rounded-2xl p-5 opacity-40 blur-[1.5px]"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
-          >
-            <p className="text-[11px] text-white/70 leading-relaxed">
-              {testimonials[2].quote}
-            </p>
-            <div className="mt-4 flex items-center gap-2">
-              <div className="h-7 w-7 rounded-full bg-gradient-to-br from-sky-400 to-emerald-400" />
-              <div>
-                <p className="text-[11px] font-semibold text-white/60">{testimonials[2].author}</p>
-                <p className="text-[9px] text-white/30">{testimonials[2].role}</p>
+            {/* Card 3 — top right, partially cut off, blurred */}
+            <div
+              className="absolute -right-12 top-[10%] w-[240px] rounded-xl p-4 opacity-35 blur-[1px]"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              <p className="text-[11px] text-white/60 leading-relaxed">{testimonials[2].quote}</p>
+              <div className="mt-3 flex items-center gap-2">
+                <div className="h-6 w-6 rounded-full bg-gradient-to-br from-emerald-400 to-sky-400 shrink-0" />
+                <div>
+                  <p className="text-[10px] font-semibold text-white/50">{testimonials[2].author}</p>
+                  <p className="text-[8px] text-white/25">{testimonials[2].role}</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Center card — main, white-ish bg, elevated, sharp */}
-          <div
-            className="relative z-20 w-full max-w-[360px] rounded-2xl p-7"
-            style={{
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.4)",
-            }}
-          >
-            <p className="text-[15px] text-white/90 leading-relaxed">
-              &ldquo;{testimonials[1].quote}&rdquo;
-            </p>
-            <div className="mt-5 flex items-center gap-3">
-              <div
-                className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
-                style={{ background: "linear-gradient(135deg, #C026D3, #6366F1)" }}
-              >
-                {testimonials[1].author.charAt(0)}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white/90">{testimonials[1].author}</p>
-                <p className="text-xs text-white/40">{testimonials[1].role}</p>
+            {/* Main card — center */}
+            <div
+              className="relative z-20 w-full max-w-[340px] rounded-2xl p-6"
+              style={{
+                background: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
+              }}
+            >
+              <p className="text-[15px] text-white/90 leading-relaxed">
+                &ldquo;{testimonials[1].quote}&rdquo;
+              </p>
+              <div className="mt-5 flex items-center gap-3">
+                <div
+                  className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
+                  style={{ background: "linear-gradient(135deg, #C026D3, #6366F1)" }}
+                >
+                  S
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white/90">{testimonials[1].author}</p>
+                  <p className="text-xs text-white/40">{testimonials[1].role}</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Logo circles on the arc — decorative */}
-          <div className="absolute bottom-[22%] left-[12%] h-12 w-12 rounded-full border border-white/[0.08] bg-white/[0.04] flex items-center justify-center">
-            <span className="text-[10px] font-bold text-white/30">DF</span>
-          </div>
-          <div className="absolute bottom-[28%] right-[10%] h-10 w-10 rounded-full border border-white/[0.08] bg-white/[0.04] flex items-center justify-center">
-            <span className="text-[9px] font-bold text-white/25">MV</span>
-          </div>
+            {/* Logo circles on the arc */}
+            <div className="absolute bottom-[18%] left-[15%] h-11 w-11 rounded-full border border-white/[0.08] bg-white/[0.03] flex items-center justify-center">
+              <span className="text-[9px] font-bold text-white/25 tracking-tight">PF</span>
+            </div>
+            <div className="absolute bottom-[22%] right-[12%] h-11 w-11 rounded-full border border-white/[0.08] bg-white/[0.03] flex items-center justify-center">
+              <span className="text-[9px] font-bold text-white/25 tracking-tight">MV</span>
+            </div>
+            {/* Center bottom logo */}
+            <div className="absolute bottom-[8%] left-1/2 -translate-x-1/2 h-12 w-12 rounded-full border border-white/[0.10] bg-white/[0.05] flex items-center justify-center">
+              <span className="text-[10px] font-black text-white/30">DF</span>
+            </div>
 
-          {/* Bottom text */}
-          <p className="relative z-20 mt-12 text-xs text-white/25">
-            Utilisé par <span className="text-white/50 font-medium">500+ agences</span> marketing & créateurs
-          </p>
+            {/* Bottom text */}
+            <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-white/20">
+              Utilisé par <span className="text-white/40 font-medium">500+ agences</span> marketing & créateurs
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Alternating sections */}
-      <div className="relative z-10">
-        {sections.map((s, i) => {
+      {/* Advantage sections */}
+      {sections.map((s, i) => {
         const reversed = i % 2 !== 0;
         return (
-          <section key={i} className="py-16 px-6">
-            <div className={`max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center ${reversed ? "md:direction-rtl" : ""}`}>
-              {/* Mockup */}
+          <section key={i} className="py-20 px-6">
+            <div className={`max-w-6xl mx-auto grid md:grid-cols-2 gap-16 items-center`}>
               <div className={reversed ? "md:order-2" : ""}>
                 <MockupBox label={s.mockupLabel} details={s.mockupDetails} />
               </div>
-              {/* Text */}
               <div className={reversed ? "md:order-1" : ""}>
-                <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+                <h2 className="text-2xl sm:text-3xl font-bold mb-5">
                   <span className={G}>{s.title}</span>
                 </h2>
-                <p className="text-white/50 leading-relaxed">{s.text}</p>
+                <p className="text-white/50 leading-relaxed text-[15px]">{s.text}</p>
               </div>
             </div>
           </section>
         );
       })}
-      </div>
 
       {/* CTA */}
-      <div className="relative z-10">
-      <section className="py-20 px-6 text-center">
+      <section className="py-24 px-6 text-center">
         <h2 className="text-2xl sm:text-4xl font-bold mb-4">
           Prêt à transformer votre <span className={G}>workflow</span> ?
         </h2>
-        <p className="text-white/40 mb-8 max-w-md mx-auto">
-          Rejoignez les agences qui produisent plus, plus vite, sans compromis.
+        <p className="text-white/40 mb-8 max-w-lg mx-auto">
+          Rejoignez les agences qui produisent plus, plus vite, sans compromis sur la qualité.
         </p>
         <Link
           href="/register"
@@ -227,7 +226,6 @@ export default function AvantagesPage() {
           Commencer gratuitement &rarr;
         </Link>
       </section>
-      </div>
     </div>
   );
 }
