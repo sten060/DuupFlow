@@ -82,57 +82,62 @@ export default function AvantagesPage() {
     <div className="min-h-screen text-white tech-grid">
       <Header />
 
-      {/* Hero — split layout, full height, no gap */}
-      <section className="min-h-screen grid md:grid-cols-2">
-        {/* Left — headline */}
-        <div className="px-8 sm:px-16 flex flex-col justify-center">
-          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight">
-            Découvrez les avantages{" "}
-            <span className={G}>DuupFlow</span>{" "}
-            pour votre agence
-          </h1>
-          <p className="mt-4 text-white/50 max-w-md">
-            Plus de rapidité, plus de qualité, plus de performances.
-            Voici pourquoi les meilleures agences nous font confiance.
-          </p>
-        </div>
-
-        {/* Right — testimonials wall (full height, starts from top) */}
+      {/* Hero — split layout, wall from very top */}
+      <div className="relative min-h-screen">
+        {/* Right wall — starts from top of page, behind header */}
         <div
-          className="flex flex-col justify-center gap-5 px-8 sm:px-12 py-32"
+          className="absolute top-0 right-0 bottom-0 w-1/2 hidden md:block"
           style={{ background: "rgba(6,10,28,0.98)" }}
-        >
-          <p className="text-[10px] uppercase tracking-[0.2em] text-white/25 mb-2">Ces agences nous font confiance</p>
+        />
 
-          {testimonials.map((t, i) => (
-            <div
-              key={i}
-              className="rounded-2xl p-5 border border-white/[0.06] transition-all hover:border-white/[0.12] hover:translate-y-[-2px]"
-              style={{ background: "rgba(255,255,255,0.025)" }}
-            >
-              <p className="text-sm text-white/80 leading-relaxed italic">
-                &ldquo;{t.quote}&rdquo;
-              </p>
-              <div className="mt-3 flex items-center gap-3">
-                <div
-                  className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                  style={{ background: `linear-gradient(135deg, ${["#6366F1","#C026D3","#38BDF8"][i]}, ${["#38BDF8","#6366F1","#10B981"][i]})` }}
-                >
-                  {t.author.charAt(0)}
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-white/70">{t.author}</p>
-                  <p className="text-[10px] text-white/30">{t.role}</p>
+        <div className="relative grid md:grid-cols-2 min-h-screen">
+          {/* Left — headline */}
+          <div className="px-8 sm:px-16 flex flex-col justify-center">
+            <h1 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight">
+              Découvrez les avantages{" "}
+              <span className={G}>DuupFlow</span>{" "}
+              pour votre agence
+            </h1>
+            <p className="mt-4 text-white/50 max-w-md">
+              Plus de rapidité, plus de qualité, plus de performances.
+              Voici pourquoi les meilleures agences nous font confiance.
+            </p>
+          </div>
+
+          {/* Right — testimonials */}
+          <div className="flex flex-col justify-center gap-5 px-8 sm:px-12 py-32 relative z-10">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-white/25 mb-2">Ces agences nous font confiance</p>
+
+            {testimonials.map((t, i) => (
+              <div
+                key={i}
+                className="rounded-2xl p-5 border border-white/[0.06] transition-all hover:border-white/[0.12] hover:translate-y-[-2px]"
+                style={{ background: "rgba(255,255,255,0.025)" }}
+              >
+                <p className="text-sm text-white/80 leading-relaxed italic">
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <div className="mt-3 flex items-center gap-3">
+                  <div
+                    className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                    style={{ background: `linear-gradient(135deg, ${["#6366F1","#C026D3","#38BDF8"][i]}, ${["#38BDF8","#6366F1","#10B981"][i]})` }}
+                  >
+                    {t.author.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-white/70">{t.author}</p>
+                    <p className="text-[10px] text-white/30">{t.role}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          <p className="text-center text-xs text-white/20 mt-2">
-            Utilisé par <span className="text-white/40 font-medium">500+ agences</span> marketing & créateurs
-          </p>
+            <p className="text-center text-xs text-white/20 mt-2">
+              Utilisé par <span className="text-white/40 font-medium">500+ agences</span> marketing & créateurs
+            </p>
+          </div>
         </div>
-      </section>
+      </div>
 
       {/* Alternating sections */}
       {sections.map((s, i) => {
