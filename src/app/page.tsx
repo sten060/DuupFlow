@@ -515,58 +515,101 @@ function AnimVideoDup() {
   );
 }
 
-/* Animated Mockup 3 — Similarity Comparator */
-function AnimSimilarity() {
-  const [score, setScore] = useState(94);
-  const [active, setActive] = useState(false);
+/* Animated Mockup 3 — Invisible Modification (Pixel magique) */
+function AnimInvisible() {
+  const [phase, setPhase] = useState<0 | 1 | 2>(0);
 
   useEffect(() => {
     function play() {
-      setScore(94);
-      setActive(false);
-      setTimeout(() => {
-        setActive(true);
-        let current = 94;
-        const iv = setInterval(() => {
-          current -= 3;
-          if (current <= 18) { current = 18; clearInterval(iv); }
-          setScore(current);
-        }, 60);
-      }, 500);
+      setPhase(0);
+      const t1 = setTimeout(() => setPhase(1), 1200);
+      const t2 = setTimeout(() => setPhase(2), 2400);
+      return [t1, t2];
     }
-    play();
-    const loop = setInterval(play, 4500);
-    return () => clearInterval(loop);
+    const timers = play();
+    const loop = setInterval(() => { timers.forEach(clearTimeout); play(); }, 5000);
+    return () => { timers.forEach(clearTimeout); clearInterval(loop); };
   }, []);
-
-  const color = score < 30 ? "text-emerald-400" : score < 60 ? "text-amber-400" : "text-red-400";
-  const borderColor = score < 30 ? "border-emerald-500/30 bg-emerald-500/[0.06]" : score < 60 ? "border-amber-500/30 bg-amber-500/[0.06]" : "border-red-500/30 bg-red-500/[0.06]";
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        {["contenu_A.mp4", "contenu_B.mp4"].map((name, i) => (
-          <div key={name} className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-center">
-            <div className="h-14 rounded-lg bg-white/[0.06] flex items-center justify-center text-2xl mb-2">{i === 0 ? "🎬" : "📹"}</div>
-            <p className="text-xs text-white/45 truncate">{name}</p>
-          </div>
-        ))}
+      <div className="flex items-center gap-2 mb-2">
+        <div className={`h-2 w-2 rounded-full transition-colors duration-500 ${phase === 2 ? "bg-emerald-400 animate-pulse" : "bg-amber-400 animate-pulse"}`} />
+        <span className="text-xs text-white/50">
+          {phase === 0 ? "Hash original détecté..." : phase === 1 ? "Pixel magique en cours..." : "Hash modifié ✓"}
+        </span>
       </div>
-      <div className={`rounded-xl border p-5 text-center transition-all duration-300 ${borderColor}`}>
-        <div className={`text-4xl font-bold mb-1 transition-all duration-200 ${color}`}>{score}%</div>
-        <p className="text-sm text-white/50 mb-3">{score < 30 ? "Très différents — protégé ✓" : score < 60 ? "Similarité modérée" : "Trop similaires — risque"}</p>
-        <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
-          <div className={`h-full rounded-full transition-all duration-200 ${score < 30 ? "bg-emerald-500" : score < 60 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${score}%` }} />
+      <div className={`rounded-xl border p-4 transition-all duration-500 ${phase === 0 ? "border-amber-500/25 bg-amber-500/[0.05]" : "border-white/10 bg-white/[0.04]"}`}>
+        <p className="text-xs text-white/40 font-mono mb-1">Original Hash</p>
+        <p className={`text-sm font-mono transition-all duration-500 ${phase === 0 ? "text-amber-300" : "text-white/30 line-through"}`}>a7f3e2d1c4b8...9f0a6e3d</p>
+      </div>
+      <div className="flex justify-center">
+        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-500 ${phase >= 1 ? "border-indigo-500/30 bg-indigo-500/[0.10] scale-105" : "border-white/10 bg-white/[0.04] scale-100"}`}>
+          <span className="text-sm">✨</span>
+          <span className={`text-xs font-semibold transition-colors duration-500 ${phase >= 1 ? "text-indigo-300" : "text-white/40"}`}>Pixel magique</span>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2 text-center">
-        {[["pHash", "8%"], ["Couleur", "22%"], ["Méta", "12%"]].map(([k, v]) => (
-          <div key={k} className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-2">
-            <p className="text-xs text-white/30">{k}</p>
-            <p className="text-sm font-semibold text-white/65">{v}</p>
-          </div>
-        ))}
+      <div className={`rounded-xl border p-4 transition-all duration-500 ${phase === 2 ? "border-emerald-500/25 bg-emerald-500/[0.05]" : "border-white/10 bg-white/[0.04]"}`}>
+        <p className="text-xs text-white/40 font-mono mb-1">Modified Hash</p>
+        <p className={`text-sm font-mono transition-all duration-500 ${phase === 2 ? "text-emerald-300" : "text-white/20"}`}>9b2e8f4a7c1d...3b5d2e8f</p>
       </div>
+      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center">
+        <p className={`text-sm font-medium transition-colors duration-500 ${phase === 2 ? "text-emerald-300" : "text-white/50"}`}>Visuellement identique</p>
+        <p className="text-xs text-white/35">Le contenu visuel ne change pas</p>
+      </div>
+    </div>
+  );
+}
+
+/* Animated Mockup — Priority (iPhone metadata injection) */
+function AnimPriority() {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    function play() {
+      setStep(0);
+      const t1 = setTimeout(() => setStep(1), 600);
+      const t2 = setTimeout(() => setStep(2), 1200);
+      const t3 = setTimeout(() => setStep(3), 1800);
+      const t4 = setTimeout(() => setStep(4), 2400);
+      return [t1, t2, t3, t4];
+    }
+    const timers = play();
+    const loop = setInterval(() => { timers.forEach(clearTimeout); play(); }, 5000);
+    return () => { timers.forEach(clearTimeout); clearInterval(loop); };
+  }, []);
+
+  const fields = [
+    { key: "Make", value: "Apple" },
+    { key: "Model", value: "iPhone 16 Pro" },
+    { key: "Software", value: "18.3" },
+    { key: "Location", value: "Paris, France" },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="h-8 w-8 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
+          <svg className="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+        </div>
+        <span className="text-xs text-white/50">{step} / 4 métadonnées injectées</span>
+      </div>
+      {fields.map((f, i) => (
+        <div key={f.key}
+          className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 flex items-center justify-between transition-all duration-500"
+          style={{ opacity: step > i ? 1 : 0.2, transform: step > i ? "translateX(0)" : "translateX(8px)" }}>
+          <span className="text-xs text-white/40 font-mono">{f.key}</span>
+          <span className={`text-xs font-mono transition-colors duration-500 ${step > i ? "text-emerald-300" : "text-white/20"}`}>{f.value}</span>
+          {step > i && (
+            <svg className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>
+          )}
+        </div>
+      ))}
+      {step >= 4 && (
+        <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/[0.06] p-3 text-center transition-all duration-500">
+          <p className="text-xs text-indigo-300">L&apos;algorithme traite votre contenu comme un vrai iPhone</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -670,7 +713,7 @@ function CoreFeaturesAlt() {
         <Reveal>
           <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3 text-center">Fonctionnalités</p>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight text-center">
-            Quatre modules. <span className={G}>Un seul objectif.</span>
+            Duplication Images & Vidéos. <span className={G}>Pixel magique & Priorité algorithme.</span>
           </h2>
           <p className="text-white/65 text-sm sm:text-base max-w-lg mx-auto text-center">
             Chaque publication unique. Chaque fichier indétectable.
@@ -679,54 +722,60 @@ function CoreFeaturesAlt() {
 
         <FeatureRow
           first
-          badge="🖼️ Duplication Images"
+          badge="🖼️🎬 Duplication Images & Vidéos"
           badgeColor="border border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-300"
           title={<>Un fichier source,{" "}<span className={G}>des copies infinies.</span></>}
-          subtitle="Génère autant de variantes que tu veux. Chaque copie a une empreinte EXIF/XMP unique — indétectable par les algorithmes."
+          subtitle="Génère autant de variantes que tu veux — images et vidéos. Chaque copie a une empreinte unique (EXIF, XMP, QuickTime, bitrate, GOP, FPS) — indétectable par les algorithmes."
           bullets={[
-            "Métadonnées EXIF/XMP uniques à chaque copie",
-            "Micro-variations visuelles imperceptibles à l'œil",
-            "JPG, PNG, WEBP, HEIC — export en un clic",
+            "Métadonnées EXIF/XMP uniques à chaque copie image",
+            "Vidéos ré-encodées avec paramètres différents (FPS, GOP, bitrate)",
+            "Multi-posting illimité sans risque de shadowban",
           ]}
           mockup={<AnimImageDup />}
         />
 
+        <Reveal>
+          <div className="text-center py-12 border-t border-white/[0.05]">
+            <p className="text-lg sm:text-xl font-semibold text-white/80">Augmentez le volume, performez, sans perte de qualité</p>
+          </div>
+        </Reveal>
+
         <FeatureRow
-          badge="🎬 Duplication Vidéos"
+          badge="✨ Modification Invisible"
           badgeColor="border border-indigo-500/25 bg-indigo-500/[0.08] text-indigo-300"
-          title={<>Même vidéo,{" "}<span className={G}>perçue comme différente</span>{" "}partout.</>}
-          subtitle="Chaque copie est re-encodée différemment — perçue comme nouveau fichier par Instagram, TikTok et YouTube. Multi-posting sans pénalité."
+          title={<>Pixel magique :{" "}<span className={G}>hash unique, visuel identique.</span></>}
+          subtitle="DuupFlow altère les extracteurs de caractéristiques que les plateformes analysent pour détecter les doublons — sans modifier un seul pixel visible. Chaque copie possède un hash unique, une empreinte technique différente, et une structure de données distincte. Pour les algorithmes, c'est un fichier totalement nouveau."
           bullets={[
-            "Copies visuellement identiques à l'original",
-            "Détectées comme fichiers uniques par les algorithmes des réseaux sociaux",
-            "Multi-posting illimité sans risque de shadowban ou de suppression",
+            "Bruit luma imperceptible sur chaque pixel",
+            "Hash complètement différent à chaque copie",
+            "Aucune modification visuelle détectable",
           ]}
-          mockup={<AnimVideoDup />}
+          mockup={<AnimInvisible />}
           reverse
         />
 
         <FeatureRow
-          badge="🔍 Comparateur"
-          badgeColor="border border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-300"
-          title={<>Mesure ta{" "}<span className={G}>protection</span>{" "}avant de publier.</>}
-          subtitle="7+ systèmes d'analyse combinés pour un score de similarité en temps réel. Plus le score est bas, plus tu es protégé."
+          badge="⚡ Priorité d'algorithme"
+          badgeColor="border border-amber-500/25 bg-amber-500/[0.08] text-amber-300"
+          title={<>Métadonnées iPhone.{" "}<span className={G}>L&apos;algorithme vous priorise.</span></>}
+          subtitle="En un clic, choisissez la localisation exacte de votre contenu et injectez des métadonnées Apple authentiques. Les algorithmes des plateformes traitent votre contenu comme s'il provenait du dernier iPhone. DuupFlow place votre contenu du côté de l'algorithme."
           bullets={[
-            "7+ systèmes d'analyse combinés pour une précision maximale",
-            "Score en temps réel — résultat en moins de 3s",
-            "Testé et validé sur Instagram, TikTok et YouTube",
+            "Injection de métadonnées Apple authentiques (modèle, iOS, caméra)",
+            "Localisation GPS personnalisable",
+            "Format MOV automatique pour simuler un vrai iPhone",
           ]}
-          mockup={<AnimSimilarity />}
+          mockup={<AnimPriority />}
         />
 
         <FeatureRow
           badge="🤖 Détection IA"
-          badgeColor="border border-amber-500/25 bg-amber-500/[0.08] text-amber-300"
+          badgeColor="border border-red-500/25 bg-red-500/[0.08] text-red-300"
           title={<>Masque la{" "}<span className={G}>signature IA.</span>{" "}Instantanément.</>}
-          subtitle="Remplace les métadonnées d'un contenu généré par IA par une identité humaine réaliste. Aucune modification visuelle — seule l'empreinte numérique change."
+          subtitle="Effacez toutes les métadonnées IA (EXIF, XMP, IPTC, C2PA, JUMBF) et remplacez-les par une identité humaine réaliste — appareil photo, logiciel, photographe, date."
           bullets={[
-            "Compatible Midjourney, Runway, Higgsfield, DALL·E",
-            "Masquage des métadonnées en un clic",
-            "Aucune modification du contenu visuel",
+            "Compatible Midjourney, DALL·E, Stable Diffusion, Runway",
+            "Masquage complet des signatures C2PA et JUMBF",
+            "Identité humaine réaliste injectée automatiquement",
           ]}
           mockup={<AnimAIDet />}
           reverse
@@ -782,13 +831,13 @@ function StatsBanner() {
  * SECTION 6 — FAQ
  * ═══════════════════════════════════════════════════════ */
 const FAQS = [
-  { q: "Est-ce que mes contenus seront vraiment uniques pour les plateformes ?", a: "Oui. DuupFlow modifie les métadonnées EXIF/XMP, les paramètres d'encodage et optionnellement des micro-variations visuelles imperceptibles. Chaque fichier possède une empreinte numérique différente, reconnue comme nouveau fichier par les algorithmes de détection d'Instagram, TikTok, YouTube et autres." },
-  { q: "Est-ce que DuupFlow modifie la qualité visuelle de mes contenus ?", a: "Non. Par défaut, les transformations sont imperceptibles à l'œil humain. Le mode 'Métadonnées uniquement' ne touche jamais au contenu visuel. Les micro-variations (micro-zoom, saturation ±2%) sont entièrement optionnelles." },
-  { q: "Combien de copies puis-je créer d'un seul contenu ?", a: "Il n'y a aucune limite technique. Tu peux générer autant de copies que tu veux en une seule opération. La plupart des agences l'utilisent pour créer entre 5 et 50 variantes par contenu." },
-  { q: "Est-ce légal d'utiliser DuupFlow ?", a: "DuupFlow modifie techniquement les fichiers que tu possèdes déjà — il ne crée pas de faux contenus et ne viole pas les droits d'auteur. L'outil est légal ; l'utilisation reste sous ta responsabilité selon les conditions générales de chaque plateforme." },
-  { q: "Quels formats de fichiers sont supportés ?", a: "Images : JPG, JPEG, PNG, WEBP, HEIC. Vidéos : MP4, MOV, MKV, AVI, WebM. L'export se fait en JPG/PNG pour les images et MP4 pour les vidéos." },
-  { q: "Le module Détection IA fonctionne-t-il aussi pour les vidéos ?", a: "Oui. Le module Détection IA manipule les métadonnées de tous les formats supportés, y compris MP4, MOV et MKV. Il peut masquer les signatures IA dans n'importe quel fichier." },
-  { q: "DuupFlow fonctionne-t-il sur tous les réseaux sociaux ?", a: "Oui — Instagram, TikTok, YouTube, Twitter/X, Threads, Pinterest, Facebook et tout réseau qui analyse les empreintes numériques des fichiers. DuupFlow n'est pas limité à un seul réseau." },
+  { q: "Comment DuupFlow rend chaque copie unique ?", a: "DuupFlow modifie les métadonnées (EXIF, XMP, QuickTime), les paramètres techniques (bitrate, GOP, FPS), et peut ajouter du bruit imperceptible via Pixel magique. Chaque copie a un hash unique — les plateformes voient un fichier différent." },
+  { q: "Qu'est-ce que la Priorité d'algorithme ?", a: "C'est une fonctionnalité qui injecte des métadonnées Apple authentiques dans vos fichiers : modèle iPhone, version iOS, caméra, GPS, signature. Les plateformes pensent que le contenu provient d'un vrai iPhone, ce qui améliore son traitement par les algorithmes." },
+  { q: "Qu'est-ce que Pixel magique ?", a: "Pixel magique ajoute un bruit luma imperceptible à chaque pixel. Visuellement identique, mais le hash du fichier est complètement différent. Les algorithmes de détection de doublons ne peuvent pas faire le lien entre l'original et la copie." },
+  { q: "La qualité est-elle préservée ?", a: "Oui. DuupFlow conserve la résolution originale — 1080p reste 1080p, 4K reste 4K. Aucun downscale, aucune perte de qualité." },
+  { q: "Est-ce que DuupFlow peut masquer la signature IA ?", a: "Oui. Le module Détection IA efface toutes les métadonnées IA (EXIF, XMP, IPTC, C2PA, JUMBF) et les remplace par une identité humaine réaliste — appareil photo, logiciel, photographe, date." },
+  { q: "Combien de copies puis-je générer ?", a: "Le nombre dépend de votre abonnement. Tous les plans permettent la duplication en masse avec des copies illimitées par fichier." },
+  { q: "Quels formats sont supportés ?", a: "Images : JPEG, PNG, WebP. Vidéos : MP4, MOV, MKV, AVI, WebM. Le format MOV est utilisé automatiquement avec la Priorité d'algorithme pour simuler un vrai iPhone." },
 ];
 
 function FAQ() {
