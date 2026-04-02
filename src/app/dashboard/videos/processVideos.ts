@@ -772,12 +772,14 @@ export async function processVideos(
   const ncpus = Math.max(1, os.cpus().length);
   const MAX_CONCURRENT = Math.min(
     ncpus,
-    parseInt(process.env.MAX_CONCURRENT_ENCODES ?? "8", 10),
+    parseInt(process.env.MAX_CONCURRENT_ENCODES ?? "4", 10),
   );
   const CONCURRENCY = Math.min(allTasks.length, MAX_CONCURRENT);
-  const threadsPerTask = 1;
+  // Allocate multiple threads per FFmpeg process — libx264 scales well up to ~4 threads.
+  // With fewer concurrent processes, each gets more threads for faster individual encodes.
+  const threadsPerTask = Math.max(1, Math.floor(ncpus / Math.max(1, CONCURRENCY)));
   // Check for zscale availability (needed for HDR→SDR tone mapping)
-  console.log(`[processVideos] ncpus=${ncpus} MAX_CONCURRENT=${MAX_CONCURRENT} CONCURRENCY=${CONCURRENCY} tasks=${allTasks.length}`);
+  console.log(`[processVideos] ncpus=${ncpus} MAX_CONCURRENT=${MAX_CONCURRENT} CONCURRENCY=${CONCURRENCY} threadsPerTask=${threadsPerTask} tasks=${allTasks.length}`);
 
   const taskErrors = await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex, color, duration: videoDuration }) => {
     const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));

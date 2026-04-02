@@ -6,19 +6,44 @@ import fs from "fs/promises";
 import { spawn } from "child_process";
 import { getFFmpegBin } from "@/app/dashboard/videos/processVideos";
 
+/** Map short format names to long names (matches ffprobe output) */
+const FORMAT_LONG_NAMES: Record<string, string> = {
+  mov: "QuickTime / MOV",
+  mp4: "QuickTime / MOV",
+  m4a: "QuickTime / MOV",
+  "3gp": "QuickTime / MOV",
+  "3g2": "QuickTime / MOV",
+  mj2: "QuickTime / MOV",
+  avi: "AVI (Audio Video Interleaved)",
+  mkv: "Matroska / WebM",
+  webm: "Matroska / WebM",
+  flv: "FLV (Flash Video)",
+  ts: "MPEG-TS (MPEG-2 Transport Stream)",
+  mpg: "MPEG-PS (MPEG-2 Program Stream)",
+  wmv: "ASF (Advanced / Active Streaming Format)",
+  ogg: "Ogg",
+};
+
 /**
- * Parse `ffmpeg -i <file>` stderr output into a structure similar to
- * ffprobe JSON ({format, streams}) so the UI keeps working unchanged.
- *
- * We use ffmpeg instead of ffprobe because the Railway nixpacks ffmpeg
- * package does not include ffprobe.
+ * Parse `ffmpeg -i <file>` stderr output into a structure matching
+ * ffprobe JSON ({format, streams}) so the UI works identically.
  */
 function parseFfmpegInfo(stderr: string, fileSize: number): { format: Record<string, any>; streams: Record<string, any>[] } {
   const format: Record<string, any> = {};
   const streams: Record<string, any>[] = [];
 
-  // --- Format-level ---
-  // Duration: 00:01:30.05, start: 0.000000, bitrate: 4567 kb/s
+  // --- Format name ---
+  // Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/tmp/file.mov':
+  const fmtMatch = stderr.match(/Input #0,\s*([^,][^:]*?),?\s+from\s+/);
+  if (fmtMatch) {
+    const rawFormats = fmtMatch[1].trim().replace(/,\s*$/, "");
+    format.format_name = rawFormats;
+    // Derive long name from first format token
+    const first = rawFormats.split(",")[0].trim();
+    format.format_long_name = FORMAT_LONG_NAMES[first] || first;
+  }
+
+  // --- Duration, start, bitrate ---
   const durMatch = stderr.match(/Duration:\s*([\d:.]+)/);
   if (durMatch) {
     const parts = durMatch[1].split(":");
@@ -31,31 +56,37 @@ function parseFfmpegInfo(stderr: string, fileSize: number): { format: Record<str
   const bitrateMatch = stderr.match(/bitrate:\s*([\d]+)\s*kb\/s/);
   if (bitrateMatch) format.bit_rate = String(+bitrateMatch[1] * 1000);
 
-  // Input #0, mov,mp4,m4a,3gp, from 'file.mov':
-  const fmtMatch = stderr.match(/Input #0,\s*([^,]+)/);
-  if (fmtMatch) {
-    format.format_name = fmtMatch[1].trim();
-    format.format_long_name = fmtMatch[1].trim();
-  }
-
   format.size = String(fileSize);
-  format.nb_streams = String(streams.length); // updated below
 
-  // --- Metadata ---
-  // Grab top-level metadata block (before first Stream line)
-  const metaBlock = stderr.match(/Metadata:\s*\n([\s\S]*?)(?=\n\s*Duration:|$)/);
-  if (metaBlock) {
-    const tags: Record<string, string> = {};
-    for (const line of metaBlock[1].split("\n")) {
-      const m = line.match(/^\s+(\w[\w\s-]*?)\s*:\s*(.+)$/);
-      if (m) tags[m[1].trim().toLowerCase()] = m[2].trim();
+  // --- Top-level metadata (tags) ---
+  // Everything between the first "Metadata:" and "Duration:" line
+  // ffmpeg -i output structure:
+  //   Input #0, mov,..., from 'file':
+  //     Metadata:
+  //       key : value
+  //       com.apple.quicktime.model: iPhone 15
+  //     Duration: ...
+  //     Stream #0:0: ...
+  const tags: Record<string, string> = {};
+
+  // Find the first Metadata block (container-level, before Duration)
+  const metaStart = stderr.indexOf("Metadata:");
+  const durationLine = stderr.indexOf("Duration:");
+  if (metaStart !== -1 && durationLine !== -1 && metaStart < durationLine) {
+    const block = stderr.slice(metaStart + "Metadata:".length, durationLine);
+    for (const line of block.split("\n")) {
+      // Match: "    key  : value" — key can contain dots, dashes, underscores
+      const m = line.match(/^\s+([\w][\w.\s-]*?)\s*:\s*(.+)$/);
+      if (m) {
+        const key = m[1].trim();
+        const val = m[2].trim();
+        tags[key] = val;
+      }
     }
-    if (Object.keys(tags).length) format.tags = tags;
   }
+  if (Object.keys(tags).length) format.tags = tags;
 
   // --- Streams ---
-  // Stream #0:0(und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709), 1920x1080 [SAR 1:1 DAR 16:9], 4296 kb/s, 30 fps, 30 tbr, 600 tbn (default)
-  // Stream #0:1(und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 128 kb/s (default)
   const streamRegex = /Stream #\d+:\d+(?:\([^)]*\))?:\s*(Video|Audio|Subtitle|Data):\s*(.+)/g;
   let match;
   while ((match = streamRegex.exec(stderr)) !== null) {
@@ -63,69 +94,69 @@ function parseFfmpegInfo(stderr: string, fileSize: number): { format: Record<str
     const info = match[2];
     const stream: Record<string, any> = { codec_type: codecType };
 
-    // codec name: first word before parentheses or comma
+    // codec name
     const codecMatch = info.match(/^(\S+)/);
     if (codecMatch) stream.codec_name = codecMatch[1].replace(/,$/, "");
 
-    // profile in parentheses right after codec: h264 (High)
+    // profile: h264 (High)
     const profileMatch = info.match(/^\S+\s+\(([^)]+)\)/);
     if (profileMatch) stream.profile = profileMatch[1];
 
     if (codecType === "video") {
-      // resolution: 1920x1080
       const resMatch = info.match(/(\d{2,5})x(\d{2,5})/);
       if (resMatch) {
         stream.width = +resMatch[1];
         stream.height = +resMatch[2];
       }
-      // pixel format: yuv420p, yuv420p10le, etc.
-      const pixMatch = info.match(/,\s*(yuv\w+|rgb\w+|bgr\w+|gray\w*|p010\w*)/);
+      const pixMatch = info.match(/,\s*(yuv\w+|rgb\w+|bgr\w+|gray\w*|p010\w*|nv\d+)/);
       if (pixMatch) stream.pix_fmt = pixMatch[1];
-      // fps
       const fpsMatch = info.match(/([\d.]+)\s*fps/);
       if (fpsMatch) stream.avg_frame_rate = `${fpsMatch[1]}/1`;
-      // video bitrate
       const vbrMatch = info.match(/([\d]+)\s*kb\/s/);
       if (vbrMatch) stream.bit_rate = String(+vbrMatch[1] * 1000);
-      // color info
       const colorMatch = info.match(/\(tv,\s*(\w+)\)/);
       if (colorMatch) stream.color_space = colorMatch[1];
+      // duration from stream-level metadata
+      const durStreamMatch = info.match(/Duration:\s*([\d:.]+)/);
+      if (durStreamMatch) {
+        const p = durStreamMatch[1].split(":");
+        stream.duration = String((+p[0]) * 3600 + (+p[1]) * 60 + (+p[2]));
+      }
     }
 
     if (codecType === "audio") {
-      // sample rate: 44100 Hz
       const srMatch = info.match(/(\d+)\s*Hz/);
       if (srMatch) stream.sample_rate = srMatch[1];
-      // channels: mono, stereo, 5.1, etc.
-      const chMatch = info.match(/Hz,\s*(mono|stereo|[\d.]+)/);
+      const chMatch = info.match(/Hz,\s*(mono|stereo|[\d.]+(?:\s*\(\w+\))?)/);
       if (chMatch) {
-        const ch = chMatch[1];
+        const ch = chMatch[1].split("(")[0].trim();
         stream.channels = ch === "mono" ? 1 : ch === "stereo" ? 2 : +ch || 0;
         stream.channel_layout = ch;
       }
-      // audio bitrate
       const abrMatch = info.match(/([\d]+)\s*kb\/s/);
       if (abrMatch) stream.bit_rate = String(+abrMatch[1] * 1000);
     }
 
-    // Stream-level metadata (appears after stream line)
+    // Stream-level metadata
     const streamIdx = match.index + match[0].length;
-    const nextStream = stderr.indexOf("Stream #", streamIdx);
-    const metaSection = stderr.slice(streamIdx, nextStream > 0 ? nextStream : undefined);
-    const metaMatch = metaSection.match(/Metadata:\s*\n([\s\S]*?)(?=\n\s*Stream|$)/);
-    if (metaMatch) {
-      const tags: Record<string, string> = {};
-      for (const line of metaMatch[1].split("\n")) {
-        const m = line.match(/^\s+(\w[\w\s-]*?)\s*:\s*(.+)$/);
-        if (m) tags[m[1].trim().toLowerCase()] = m[2].trim();
+    const nextStreamIdx = stderr.indexOf("Stream #", streamIdx);
+    const metaSection = stderr.slice(streamIdx, nextStreamIdx > 0 ? nextStreamIdx : undefined);
+    const streamMetaMatch = metaSection.match(/Metadata:\s*\n([\s\S]*?)(?=\n\s*(?:Stream|$))/);
+    if (streamMetaMatch) {
+      const sTags: Record<string, string> = {};
+      for (const line of streamMetaMatch[1].split("\n")) {
+        const m = line.match(/^\s+([\w][\w.\s-]*?)\s*:\s*(.+)$/);
+        if (m) sTags[m[1].trim()] = m[2].trim();
       }
-      if (Object.keys(tags).length) stream.tags = tags;
+      if (Object.keys(sTags).length) stream.tags = sTags;
     }
 
     streams.push(stream);
   }
 
   format.nb_streams = String(streams.length);
+  // probe_score: 100 for recognized containers
+  format.probe_score = format.format_name ? "100" : "0";
 
   return { format, streams };
 }
@@ -144,15 +175,13 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
 
   try {
     const ffmpegBin = await getFFmpegBin();
-    console.log(`[probe] using ffmpeg: ${ffmpegBin}`);
 
     const stderr = await new Promise<string>((resolve, reject) => {
-      // ffmpeg -i file exits with code 1 when no output is specified — that's expected.
       const p = spawn(ffmpegBin, ["-i", tmpPath, "-hide_banner"], { stdio: ["ignore", "pipe", "pipe"] });
       let out = "";
       p.stderr.on("data", (d: Buffer) => { out += d.toString(); });
       p.on("error", () => reject(new Error(`ffmpeg introuvable (tried: ${ffmpegBin})`)));
-      p.on("close", () => resolve(out)); // always resolve — exit code 1 is normal
+      p.on("close", () => resolve(out));
       setTimeout(() => { p.kill("SIGKILL"); reject(new Error("ffmpeg timeout")); }, 10_000);
     });
 
