@@ -6,23 +6,24 @@ import fs from "fs/promises";
 import { spawn } from "child_process";
 
 async function getFFprobeBin(): Promise<string> {
-  // 1. Try @ffprobe-installer/ffprobe package
-  try {
-    const { path: probePath } = await import("@ffprobe-installer/ffprobe");
-    await fs.access(probePath);
-    return probePath;
-  } catch {}
+  const { existsSync } = await import("fs");
 
-  // 2. Try ffprobe next to ffmpeg from @ffmpeg-installer
+  // 1. Try ffprobe next to the resolved ffmpeg binary (@ffmpeg-installer)
   try {
     const { getFFmpegBin } = await import("@/app/dashboard/videos/processVideos");
     const ffmpegBin = await getFFmpegBin();
     const ffprobeBin = ffmpegBin.replace(/ffmpeg$/, "ffprobe");
-    await fs.access(ffprobeBin);
-    return ffprobeBin;
+    if (existsSync(ffprobeBin)) return ffprobeBin;
   } catch {}
 
-  // 3. Fallback to system PATH
+  // 2. Try system PATH (installed via nixpacks/apt)
+  try {
+    const { execSync } = await import("child_process");
+    const found = execSync("command -v ffprobe", { encoding: "utf8", shell: "/bin/sh" }).trim();
+    if (found && existsSync(found)) return found;
+  } catch {}
+
+  // 3. Bare fallback — let spawn try PATH
   return "ffprobe";
 }
 
