@@ -197,7 +197,7 @@ export default function ChatBot() {
     setMessages([{ from: "bot", text: TREE.start.text, options: TREE.start.options }]);
   }
 
-  const panelSize = expanded ? "w-[32rem] max-h-[42rem]" : "w-80 max-h-[28rem]";
+  const panelSize = expanded ? "w-[32rem] h-[85vh]" : "w-80 max-h-[28rem]";
 
   return (
     <>

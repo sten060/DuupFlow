@@ -288,7 +288,7 @@ function MockupAI() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-4">
-        <p className="text-xs text-amber-400 font-medium mb-3 flex items-center gap-1.5"><span>⚡</span> Signature IA injectée</p>
+        <p className="text-xs text-amber-400 font-medium mb-3 flex items-center gap-1.5"><span>⚡</span> Signature IA détectée</p>
         <div className="space-y-2">
           {[["Software", "Midjourney v6.1"], ["Artist", "Midjourney Bot"], ["Creator", "midjourney.com"], ["DigitalSourceType", "trainedAlgorithmicMedia"]].map(([k, v]) => (
             <div key={k} className="flex justify-between text-xs">
@@ -299,7 +299,7 @@ function MockupAI() {
         </div>
       </div>
       <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] p-4">
-        <p className="text-xs text-emerald-400 font-medium mb-3 flex items-center gap-1.5"><span>🛡️</span> Signature IA masquée</p>
+        <p className="text-xs text-emerald-400 font-medium mb-3 flex items-center gap-1.5"><span>🛡️</span> Signature IA effacée</p>
         <div className="space-y-2">
           {[["Software", "Adobe Lightroom 7.2"], ["Make", "Sony"], ["Model", "A7 IV"], ["Artist", "Sophie Renaud"]].map(([k, v]) => (
             <div key={k} className="flex justify-between text-xs">
@@ -642,7 +642,7 @@ function AnimAIDet() {
       <div className="flex items-center gap-2 mb-4">
         <div className={`h-2 w-2 rounded-full transition-colors duration-500 ${phase === 2 ? "bg-emerald-400 animate-pulse" : "bg-amber-400 animate-pulse"}`} />
         <span className="text-xs text-white/50">
-          {phase === 0 ? "Analyse en cours..." : phase === 1 ? "Remplacement des métadonnées..." : "Signature IA masquée ✓"}
+          {phase === 0 ? "Analyse en cours..." : phase === 1 ? "Remplacement des métadonnées..." : "Signature IA effacée ✓"}
         </span>
       </div>
       {fields.map((f) => (

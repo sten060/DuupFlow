@@ -7,7 +7,7 @@ const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transpa
 
 const testimonials = [
   { quote: "DuupFlow a divisé par 10 notre temps de production. On scale nos campagnes sans effort.", author: "Agence PixelForce", role: "Growth Marketing" },
-  { quote: "On ne peut plus s'en passer. L'outil est devenu indispensable pour notre workflow quotidien.", author: "Studio Kreatif", role: "Création de contenu" },
+  { quote: "Avant DuupFlow, on passait 3 heures par semaine à préparer nos contenus pour le multi-posting. Aujourd'hui c'est fait en 5 minutes. On a triplé notre volume de publication sans recruter.", author: "Studio Kreatif", role: "Création de contenu" },
   { quote: "Le meilleur investissement qu'on ait fait cette année. ROI immédiat.", author: "MediaVibe Agency", role: "Social Media Management" },
 ];
 

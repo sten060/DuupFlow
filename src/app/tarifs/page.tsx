@@ -108,8 +108,12 @@ const PRICING_FAQS = [
     a: "Il n'y a aucune limite sur le nombre de fichiers ou de copies générées. Tu peux importer autant de contenus que tu veux et créer autant de variantes que nécessaire, sans restriction mensuelle.",
   },
   {
-    q: "Y a-t-il une période d'essai gratuite ?",
-    a: "Nous proposons une garantie satisfait ou remboursé de 7 jours. Si DuupFlow ne correspond pas à tes attentes dans les 7 premiers jours, contacte-nous et nous te remboursons intégralement.",
+    q: "Qu'est-ce que la Priorité d'algorithme ?",
+    a: "La Priorité d'algorithme injecte des métadonnées Apple authentiques dans tes fichiers — modèle iPhone, version iOS, objectif caméra, coordonnées GPS. Les algorithmes des plateformes traitent ton contenu comme s'il provenait d'un appareil réel, ce qui booste ta portée organique.",
+  },
+  {
+    q: "À quoi sert le Pixel magique ?",
+    a: "Le Pixel magique ajoute du bruit imperceptible à chaque pixel de chaque frame. Le résultat est visuellement identique à l'original, mais le hash du fichier est complètement différent. Les algorithmes de détection de doublons voient un fichier unique à chaque copie.",
   },
   {
     q: "Comment fonctionne la facturation ?",
