@@ -4,7 +4,27 @@ import os from "os";
 import path from "path";
 import fs from "fs/promises";
 import { spawn } from "child_process";
-import { getFFmpegBin } from "@/app/dashboard/videos/processVideos";
+
+async function getFFprobeBin(): Promise<string> {
+  // 1. Try @ffprobe-installer/ffprobe package
+  try {
+    const { path: probePath } = await import("@ffprobe-installer/ffprobe");
+    await fs.access(probePath);
+    return probePath;
+  } catch {}
+
+  // 2. Try ffprobe next to ffmpeg from @ffmpeg-installer
+  try {
+    const { getFFmpegBin } = await import("@/app/dashboard/videos/processVideos");
+    const ffmpegBin = await getFFmpegBin();
+    const ffprobeBin = ffmpegBin.replace(/ffmpeg$/, "ffprobe");
+    await fs.access(ffprobeBin);
+    return ffprobeBin;
+  } catch {}
+
+  // 3. Fallback to system PATH
+  return "ffprobe";
+}
 
 /**
  * Run ffprobe on an uploaded file and return its format metadata as JSON.
@@ -19,17 +39,7 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
   await fs.writeFile(tmpPath, Buffer.from(await file.arrayBuffer()));
 
   try {
-    // Find ffprobe next to ffmpeg
-    const ffmpegBin = await getFFmpegBin();
-    const ffprobeBin = ffmpegBin.replace(/ffmpeg$/, "ffprobe");
-
-    // Check if ffprobe exists, otherwise try system ffprobe
-    let probeBin = ffprobeBin;
-    try {
-      await fs.access(probeBin);
-    } catch {
-      probeBin = "ffprobe"; // fallback to PATH
-    }
+    const probeBin = await getFFprobeBin();
 
     const result = await new Promise<string>((resolve, reject) => {
       const args = ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", tmpPath];
