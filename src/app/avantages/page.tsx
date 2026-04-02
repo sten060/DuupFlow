@@ -79,7 +79,7 @@ function MockupBox({ label, details }: { label: string; details: string[] }) {
 
 export default function AvantagesPage() {
   return (
-    <div className="min-h-screen text-white" style={{ background: "#050816" }}>
+    <div className="min-h-screen text-white tech-grid">
       <Header />
 
       {/* Hero */}

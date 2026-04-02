@@ -23,7 +23,7 @@ export default function PartenairePage() {
   }
 
   return (
-    <div className="min-h-screen text-white" style={{ background: "#050816" }}>
+    <div className="min-h-screen text-white tech-grid">
       <Header />
 
       <div className="pt-40 pb-20 px-6 max-w-5xl mx-auto">
