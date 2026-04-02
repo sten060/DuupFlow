@@ -359,6 +359,110 @@ function GuideModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+/* ─── News Modal ─── */
+const NEWS_SECTIONS = [
+  {
+    title: "Duplication Vidéo",
+    color: "#6366F1",
+    items: [
+      { name: "Priorité d'algorithme", desc: "Simule un iPhone réel (métadonnées Apple, .mov)" },
+      { name: "Pixel magique", desc: "Bruit imperceptible pour hash unique" },
+      { name: "Métadonnées technique", desc: "Bitrate, GOP, FPS, profil H.264 aléatoires" },
+      { name: "Localisation pays", desc: "Injecte le pays dans les métadonnées" },
+      { name: "Qualité originale préservée", desc: "Plus de cap 1920px, 4K reste 4K" },
+    ],
+  },
+  {
+    title: "Duplication Image",
+    color: "#C026D3",
+    items: [
+      { name: "Priorité d'algorithme", desc: "EXIF Apple authentiques (appareil, GPS, focale)" },
+      { name: "Localisation pays", desc: "Pays injecté dans l'EXIF" },
+    ],
+  },
+  {
+    title: "Comparateur",
+    color: "#10B981",
+    items: [
+      { name: "Analyse ffprobe", desc: "Compare les métadonnées exactes de deux fichiers" },
+      { name: "Score de similarité", desc: "Pourcentage de ressemblance" },
+      { name: "Drag & drop", desc: "Glisse tes fichiers directement" },
+    ],
+  },
+  {
+    title: "Support",
+    color: "#F59E0B",
+    items: [
+      { name: "Chatbot intelligent", desc: "Assistance instantanée avec FAQ complète" },
+      { name: "Page Support", desc: "Telegram + Email en un clic" },
+    ],
+  },
+];
+
+function NewsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      style={{ background: "rgba(6,9,24,0.88)", backdropFilter: "blur(10px)" }}
+    >
+      <div
+        className="w-full max-w-2xl max-h-[80vh] rounded-2xl overflow-hidden flex flex-col"
+        style={{
+          background: "rgba(10,14,40,0.98)",
+          border: "1px solid rgba(56,189,248,0.25)",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(56,189,248,0.10)",
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-8 pt-7 pb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-white tracking-tight">Nouveautés</h2>
+            <p className="text-xs text-white/40 mt-1">Les dernières fonctionnalités de DuupFlow</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-white/30 hover:text-white/60 transition h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/5"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-8 pb-8 space-y-6">
+          {NEWS_SECTIONS.map((section) => (
+            <div key={section.title}>
+              <h3
+                className="text-sm font-semibold mb-3 flex items-center gap-2"
+                style={{ color: section.color }}
+              >
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ background: section.color }}
+                />
+                {section.title}
+              </h3>
+              <div className="space-y-2">
+                {section.items.map((item) => (
+                  <div
+                    key={item.name}
+                    className="rounded-lg px-4 py-2.5 text-sm"
+                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                  >
+                    <span className="font-medium text-white/85">{item.name}</span>
+                    <span className="text-white/40"> — {item.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardHome({
   firstName,
   agencyName,
