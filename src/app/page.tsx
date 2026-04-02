@@ -313,18 +313,18 @@ function MockupAI() {
   );
 }
 
-const MOCKUPS: Record<string, React.ReactNode> = { images: <MockupImages />, videos: <MockupVideos />, comparator: <MockupComparator />, ai: <MockupAI /> };
-const TAB_DESCS: Record<string, { title: string; desc: string }> = {
-  images: { title: "Duplication d'images sans limite", desc: "Importe n'importe quelle image, choisis le nombre de copies, et DuupFlow génère autant de fichiers uniques que tu veux — avec des métadonnées différentes à chaque fois." },
-  videos: { title: "Vidéos ré-encodées, indétectables", desc: "Chaque copie est ré-encodée avec des paramètres légèrement différents (FPS, GOP, bitrate, codec). Aux yeux d'Instagram ou TikTok, c'est un nouveau fichier." },
-  comparator: { title: "Mesure la différence entre deux contenus", desc: "Compare deux fichiers et obtiens un score de similarité précis. Plus le % est bas, plus les contenus sont différents — et plus tu es protégé contre les filtres de duplication." },
-  ai: { title: "Masque la signature IA de ton contenu", desc: "Remplace les métadonnées d'un contenu généré par IA par une identité humaine réaliste. Aucune modification visuelle — seule l'empreinte numérique change." },
+const MOCKUPS: Record<string, React.ReactNode> = { duplication: <MockupDuplication />, invisible: <MockupInvisible />, priority: <MockupPriority />, ai: <MockupAI /> };
+const TAB_DESCS: Record<string, string> = {
+  duplication: "Dupliquez vos images et vidéos en masse. Chaque copie est unique — métadonnées, empreinte technique, hash. Indétectable par les plateformes.",
+  invisible: "Modifiez l'empreinte numérique sans toucher au visuel. Pixel magique change le hash de chaque fichier tout en gardant le contenu visuellement identique.",
+  priority: "Localisez votre contenu et injectez des métadonnées iPhone authentiques. L'algorithme pense que votre contenu vient d'un appareil réel.",
+  ai: "Effacez la signature IA de vos contenus. Remplacez les métadonnées Midjourney, DALL-E, Stable Diffusion par une identité humaine réaliste.",
 };
 
 function FeatureTabs() {
-  const [active, setActive] = useState("images");
+  const [active, setActive] = useState("duplication");
   const [progress, setProgress] = useState(0);
-  const activeRef = useRef("images");
+  const activeRef = useRef("duplication");
   const progressRef = useRef(0);
 
   useEffect(() => {
@@ -365,8 +365,8 @@ function FeatureTabs() {
           </div>
           <div className="grid md:grid-cols-[1fr_360px] gap-8 items-start">
             <div className="py-4">
-              <h3 className="text-2xl font-semibold text-white mb-3">{desc.title}</h3>
-              <p className="text-white/75 leading-relaxed mb-6">{desc.desc}</p>
+              <h3 className="text-2xl font-semibold text-white mb-3">{TABS.find(t => t.id === active)?.label}</h3>
+              <p className="text-white/75 leading-relaxed mb-6">{desc}</p>
               <Link href="/register" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">Essayer maintenant →</Link>
             </div>
             <div className="rounded-2xl border border-white/[0.12] p-4 sm:p-5 backdrop-blur-sm overflow-hidden min-h-[300px] sm:min-h-[480px]" style={{ background: "rgba(8,12,35,0.75)" }}>
