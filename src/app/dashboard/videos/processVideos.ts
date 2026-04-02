@@ -465,6 +465,8 @@ function getVideoMetadataArgs(opts?: MetaOpts): string[] {
     const sigChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let sig = "";
     for (let i = 0; i < 36; i++) sig += sigChars[Math.floor(Math.random() * sigChars.length)];
+    // Prevent ffmpeg from writing its own "Lavf..." encoder tag into the container
+    args.push("-fflags", "+bitexact");
     // Override container brand to match iPhone (qt, not isom)
     args.push(
       "-metadata", `major_brand=qt  `,
@@ -481,6 +483,9 @@ function getVideoMetadataArgs(opts?: MetaOpts): string[] {
       );
     }
     args.push(
+      // Override encoder to Apple-realistic values (removes random encoder set above)
+      "-metadata", `encoder=${device.model} ${device.software}`,
+      "-metadata", `encoded_by=${device.model}`,
       // Apple QuickTime atoms
       "-metadata", `com.apple.quicktime.full-frame-rate-playback-intent=0`,
       "-metadata", `com.apple.quicktime.make=${device.make}`,
