@@ -82,15 +82,14 @@ export default function AvantagesPage() {
     <div className="min-h-screen text-white tech-grid">
       <Header />
 
-      {/* Hero — split layout, wall from very top */}
-      <div className="relative min-h-screen">
-        {/* Right wall — starts from top of page, behind header */}
-        <div
-          className="absolute top-0 right-0 bottom-0 w-1/2 hidden md:block"
-          style={{ background: "rgba(6,10,28,0.98)" }}
-        />
+      {/* Right wall — fixed, full viewport height, behind header */}
+      <div
+        className="fixed top-0 right-0 bottom-0 w-1/2 hidden md:block z-0"
+        style={{ background: "rgba(6,10,28,0.98)" }}
+      />
 
-        <div className="relative grid md:grid-cols-2 min-h-screen">
+      {/* Hero — split layout */}
+      <div className="relative z-10 min-h-screen grid md:grid-cols-2">
           {/* Left — headline */}
           <div className="px-8 sm:px-16 flex flex-col justify-center">
             <h1 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight">
@@ -139,7 +138,8 @@ export default function AvantagesPage() {
         </div>
       </div>
 
-      {/* Alternating sections */}
+      {/* Alternating sections — relative z-10 to stay above the fixed wall */}
+      <div className="relative z-10">
       {sections.map((s, i) => {
         const reversed = i % 2 !== 0;
         return (
@@ -160,8 +160,10 @@ export default function AvantagesPage() {
           </section>
         );
       })}
+      </div>
 
       {/* CTA */}
+      <div className="relative z-10">
       <section className="py-20 px-6 text-center">
         <h2 className="text-2xl sm:text-4xl font-bold mb-4">
           Prêt à transformer votre <span className={G}>workflow</span> ?
@@ -177,6 +179,7 @@ export default function AvantagesPage() {
           Commencer gratuitement &rarr;
         </Link>
       </section>
+      </div>
     </div>
   );
 }
