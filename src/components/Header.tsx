@@ -41,8 +41,10 @@ export default function Header() {
         <nav className="hidden md:flex items-center gap-0.5 absolute left-1/2 -translate-x-1/2">
           <NavLink href="https://www.duupflow.com/#features" label="Fonctionnalités" />
           <NavLink href="/how-it-works" label="Comment ça marche" />
+          <NavLink href="/avantages" label="Avantages" />
           <NavLink href="/tarifs" label="Tarifs" />
           <NavLink href="https://www.duupflow.com/#faq" label="FAQ" />
+          <NavLink href="/partenaire" label="Partenaire" />
         </nav>
 
         {/* CTA */}

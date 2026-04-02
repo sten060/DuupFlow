@@ -180,21 +180,21 @@ function ProblemSolution() {
  * SECTION 3 — FEATURE TABS (auto-rotating)
  * ═══════════════════════════════════════════════════════ */
 const TABS = [
-  { id: "images", label: "Duplication Images" },
-  { id: "videos", label: "Duplication Vidéos" },
-  { id: "comparator", label: "Comparateur" },
+  { id: "duplication", label: "Duplication Images & Vidéos" },
+  { id: "invisible", label: "Modification Invisible" },
+  { id: "priority", label: "Priorité d'algorithme" },
   { id: "ai", label: "Détection IA" },
 ];
 const TAB_IDS = TABS.map((t) => t.id);
 const TAB_DURATION = 4000;
 const TICK = 50;
 
-function MockupImages() {
-  const files = [
-    { name: "DuupFlow_20240312_dup1_47.jpg", size: "2.4 MB", color: "bg-fuchsia-500/20 border-fuchsia-500/30" },
-    { name: "DuupFlow_20240312_dup2_83.jpg", size: "2.4 MB", color: "bg-indigo-500/20 border-indigo-500/30" },
-    { name: "DuupFlow_20240312_dup3_12.jpg", size: "2.4 MB", color: "bg-pink-500/20 border-pink-500/30" },
-    { name: "DuupFlow_20240312_dup4_55.jpg", size: "2.4 MB", color: "bg-violet-500/20 border-violet-500/30" },
+function MockupDuplication() {
+  const copies = [
+    { name: "DuupFlow_dup1_47.jpg", type: "Image", size: "2.4 MB", color: "border-fuchsia-500/30 bg-fuchsia-500/[0.08]" },
+    { name: "DuupFlow_dup2_83.mp4", type: "Vidéo", size: "18.7 MB", color: "border-indigo-500/30 bg-indigo-500/[0.08]" },
+    { name: "DuupFlow_dup3_12.jpg", type: "Image", size: "2.4 MB", color: "border-pink-500/30 bg-pink-500/[0.08]" },
+    { name: "DuupFlow_dup4_55.mp4", type: "Vidéo", size: "18.7 MB", color: "border-violet-500/30 bg-violet-500/[0.08]" },
   ];
   return (
     <div className="space-y-3">
@@ -203,26 +203,27 @@ function MockupImages() {
           <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-xs text-white/50">4 copies générées</span>
         </div>
-        <span className="text-xs text-white/30">original.jpg → 4 duplicates</span>
+        <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-medium">Images & Vidéos</span>
       </div>
       <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 flex items-center gap-3">
-        <div className="h-10 w-10 rounded-lg bg-white/[0.08] flex items-center justify-center text-lg">🖼️</div>
+        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-500/20 to-sky-500/20 flex items-center justify-center text-lg">📁</div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-white/80 font-medium truncate">photo_instagram.jpg</p>
-          <p className="text-xs text-white/35">Fichier source · 2.4 MB</p>
+          <p className="text-sm text-white/80 font-medium truncate">contenu_source</p>
+          <p className="text-xs text-white/35">Fichier source · Image ou Vidéo</p>
         </div>
         <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/50">Source</span>
       </div>
       <div className="flex justify-center py-1">
         <svg className="h-5 w-5 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
       </div>
-      {files.map((f) => (
+      {copies.map((f) => (
         <div key={f.name} className={`rounded-xl border p-3 flex items-center gap-3 ${f.color}`}>
-          <div className="h-10 w-10 rounded-lg bg-white/[0.08] flex items-center justify-center text-sm">📄</div>
+          <div className="h-10 w-10 rounded-lg bg-white/[0.08] flex items-center justify-center text-sm">{f.type === "Image" ? "🖼️" : "🎬"}</div>
           <div className="flex-1 min-w-0">
             <p className="text-xs text-white/70 font-mono truncate">{f.name}</p>
-            <p className="text-xs text-white/35">Métadonnées modifiées · {f.size}</p>
+            <p className="text-xs text-white/35">Métadonnées uniques · {f.size}</p>
           </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/[0.06] text-white/40 border border-white/10">{f.type}</span>
           <svg className="h-4 w-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
         </div>
       ))}
@@ -230,67 +231,54 @@ function MockupImages() {
   );
 }
 
-function MockupVideos() {
-  const platforms = [
-    { name: "Compte Instagram 1", icon: "📸", color: "border-fuchsia-500/25 bg-fuchsia-500/[0.06]", label: "fuchsia" },
-    { name: "Compte Instagram 2", icon: "📸", color: "border-indigo-500/25 bg-indigo-500/[0.06]", label: "indigo" },
-    { name: "Compte Instagram 3", icon: "📸", color: "border-red-500/25 bg-red-500/[0.06]", label: "red" },
-  ];
+function MockupInvisible() {
   return (
-    <div className="space-y-3">
-      {/* Source */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 flex items-center gap-3">
-        <div className="h-10 w-10 rounded-lg bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center text-lg">🎬</div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-white/80 font-medium truncate">ma_video.mp4</p>
-          <p className="text-xs text-white/35">1 fichier source</p>
-        </div>
-        <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/40">Source</span>
+    <div className="space-y-4">
+      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+        <p className="text-xs text-white/40 font-mono mb-1">Original Hash</p>
+        <p className="text-sm text-amber-300 font-mono">a7f3e2d1c4b8...9f0a6e3d</p>
       </div>
-      {/* Divider */}
-      <div className="flex items-center gap-2 py-0.5">
-        <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-        <span className="text-[10px] text-indigo-400/70 px-2 font-medium">× 3 copies uniques</span>
-        <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-      </div>
-      {/* Platforms */}
-      {platforms.map((p) => (
-        <div key={p.name} className={`rounded-xl border p-3 flex items-center gap-3 ${p.color}`}>
-          <div className="h-9 w-9 rounded-lg bg-white/[0.06] flex items-center justify-center text-base">{p.icon}</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-white/70">{p.name}</p>
-            <p className="text-[11px] text-white/30">Perçue comme nouveau contenu</p>
-          </div>
-          <span className="text-xs text-emerald-400 font-semibold whitespace-nowrap">Unique ✓</span>
+      <div className="flex justify-center">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-indigo-500/30 bg-indigo-500/[0.10]">
+          <span className="text-sm">✨</span>
+          <span className="text-xs font-semibold text-indigo-300">Pixel magique</span>
         </div>
-      ))}
+      </div>
+      <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] p-4">
+        <p className="text-xs text-white/40 font-mono mb-1">Modified Hash</p>
+        <p className="text-sm text-emerald-300 font-mono">9b2e8f4a7c1d...3b5d2e8f</p>
+      </div>
+      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 text-center">
+        <p className="text-sm text-white/70 font-medium mb-1">Visuellement identique</p>
+        <p className="text-xs text-white/40">Le contenu visuel ne change pas. Seule l&apos;empreinte numérique est modifiée.</p>
+      </div>
     </div>
   );
 }
 
-function MockupComparator() {
+function MockupPriority() {
+  const fields = [
+    { key: "Make", value: "Apple" },
+    { key: "Model", value: "iPhone 16 Pro" },
+    { key: "Software", value: "18.3" },
+    { key: "Location", value: "Paris, France" },
+  ];
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        {["contenu_A.mp4", "contenu_B.mp4"].map((name, i) => (
-          <div key={name} className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-center">
-            <div className="h-16 rounded-lg bg-white/[0.06] flex items-center justify-center text-2xl mb-2">{i === 0 ? "🎬" : "📹"}</div>
-            <p className="text-xs text-white/50 truncate">{name}</p>
-          </div>
-        ))}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="h-8 w-8 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
+          <svg className="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+        </div>
+        <span className="text-xs font-semibold text-amber-300">Métadonnées iPhone injectées</span>
       </div>
-      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-5 text-center">
-        <div className="text-4xl font-bold text-emerald-400 mb-1">18%</div>
-        <p className="text-sm text-white/60 mb-3">de similarité détectée</p>
-        <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden"><div className="h-full rounded-full bg-emerald-500 w-[18%]" /></div>
-      </div>
-      <div className="grid grid-cols-3 gap-2 text-center">
-        {[["pHash", "12%"], ["Couleur", "24%"], ["Méta", "18%"]].map(([k, v]) => (
-          <div key={k} className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-2">
-            <p className="text-xs text-white/35">{k}</p>
-            <p className="text-sm font-semibold text-white/70">{v}</p>
-          </div>
-        ))}
+      {fields.map((f) => (
+        <div key={f.key} className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 flex items-center justify-between">
+          <span className="text-xs text-white/40 font-mono">{f.key}</span>
+          <span className="text-xs text-emerald-300 font-mono">{f.value}</span>
+        </div>
+      ))}
+      <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/[0.06] p-3 text-center">
+        <p className="text-xs text-indigo-300">L&apos;algorithme traite votre contenu comme un vrai iPhone</p>
       </div>
     </div>
   );
@@ -899,7 +887,19 @@ function Footer() {
           <Link href="/legal" className="hover:text-white/60 transition">Mentions légales</Link>
           <Link href="/legal/terms" className="hover:text-white/60 transition">CGU</Link>
           <Link href="/legal/privacy" className="hover:text-white/60 transition">Confidentialité</Link>
+          <Link href="/partenaire" className="hover:text-white/60 transition">Partenaire</Link>
           <a href="mailto:hello@duupflow.com" className="hover:text-white/60 transition">Contact</a>
+        </div>
+        <div className="mt-4 flex justify-center">
+          <a
+            href="https://t.me/DuupFlow_Support"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-xs text-white/40 hover:text-white/70 transition"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 1 0 24 12.056A12.014 12.014 0 0 0 11.944 0ZM16.906 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472c-.18 1.898-.962 6.502-1.36 8.627c-.168.9-.499 1.201-.82 1.23c-.696.065-1.225-.46-1.9-.902c-1.056-.693-1.653-1.124-2.678-1.8c-1.185-.78-.417-1.21.258-1.91c.177-.184 3.247-2.977 3.307-3.23c.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345c-.48.33-.913.49-1.302.48c-.428-.008-1.252-.241-1.865-.44c-.752-.245-1.349-.374-1.297-.789c.027-.216.325-.437.893-.663c3.498-1.524 5.83-2.529 6.998-3.014c3.332-1.386 4.025-1.627 4.476-1.635Z"/></svg>
+            Support Telegram
+          </a>
         </div>
       </div>
     </footer>
