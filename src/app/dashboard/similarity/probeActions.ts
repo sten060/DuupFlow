@@ -3,70 +3,135 @@
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
-import { spawn, execSync } from "child_process";
+import { spawn } from "child_process";
 import { getFFmpegBin } from "@/app/dashboard/videos/processVideos";
 
 /**
- * Resolve ffprobe binary. Since @ffmpeg-installer only ships ffmpeg (no ffprobe),
- * we derive the path from the resolved ffmpeg binary's directory, or scan
- * well-known locations used by nixpacks / apt / brew.
+ * Parse `ffmpeg -i <file>` stderr output into a structure similar to
+ * ffprobe JSON ({format, streams}) so the UI keeps working unchanged.
+ *
+ * We use ffmpeg instead of ffprobe because the Railway nixpacks ffmpeg
+ * package does not include ffprobe.
  */
-async function getFFprobeBin(): Promise<string> {
-  const { existsSync } = await import("fs");
+function parseFfmpegInfo(stderr: string, fileSize: number): { format: Record<string, any>; streams: Record<string, any>[] } {
+  const format: Record<string, any> = {};
+  const streams: Record<string, any>[] = [];
 
-  // 1. Derive from the resolved ffmpeg — if ffmpeg was found via PATH or
-  //    a well-known path, ffprobe is in the same directory.
-  try {
-    const ffmpegBin = await getFFmpegBin();
-    const dir = path.dirname(ffmpegBin);
-    const candidate = path.join(dir, "ffprobe");
-    if (existsSync(candidate)) {
-      console.log(`[ffprobe] found next to ffmpeg: ${candidate}`);
-      return candidate;
-    }
-  } catch {}
+  // --- Format-level ---
+  // Duration: 00:01:30.05, start: 0.000000, bitrate: 4567 kb/s
+  const durMatch = stderr.match(/Duration:\s*([\d:.]+)/);
+  if (durMatch) {
+    const parts = durMatch[1].split(":");
+    const secs = (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parts[2]);
+    format.duration = String(secs.toFixed(6));
+  }
+  const startMatch = stderr.match(/start:\s*([\d.]+)/);
+  if (startMatch) format.start_time = startMatch[1];
 
-  // 2. PATH lookup
-  try {
-    const found = execSync("command -v ffprobe", { encoding: "utf8", shell: "/bin/sh" }).trim();
-    if (found && existsSync(found)) {
-      console.log(`[ffprobe] found via PATH: ${found}`);
-      return found;
-    }
-  } catch {}
+  const bitrateMatch = stderr.match(/bitrate:\s*([\d]+)\s*kb\/s/);
+  if (bitrateMatch) format.bit_rate = String(+bitrateMatch[1] * 1000);
 
-  // 3. Well-known paths
-  const CANDIDATES = [
-    "/usr/bin/ffprobe",
-    "/usr/local/bin/ffprobe",
-    "/nix/var/nix/profiles/default/bin/ffprobe",
-  ];
-  for (const p of CANDIDATES) {
-    if (existsSync(p)) {
-      console.log(`[ffprobe] found at known path: ${p}`);
-      return p;
-    }
+  // Input #0, mov,mp4,m4a,3gp, from 'file.mov':
+  const fmtMatch = stderr.match(/Input #0,\s*([^,]+)/);
+  if (fmtMatch) {
+    format.format_name = fmtMatch[1].trim();
+    format.format_long_name = fmtMatch[1].trim();
   }
 
-  // 4. Scan /nix/store for ffprobe (nixpacks installs into a hashed store path)
-  try {
-    const found = execSync("find /nix/store -maxdepth 3 -name ffprobe -type f 2>/dev/null | head -1", {
-      encoding: "utf8",
-      shell: "/bin/sh",
-      timeout: 3000,
-    }).trim();
-    if (found && existsSync(found)) {
-      console.log(`[ffprobe] found in nix store: ${found}`);
-      return found;
-    }
-  } catch {}
+  format.size = String(fileSize);
+  format.nb_streams = String(streams.length); // updated below
 
-  console.warn("[ffprobe] not found anywhere, falling back to bare 'ffprobe'");
-  return "ffprobe";
+  // --- Metadata ---
+  // Grab top-level metadata block (before first Stream line)
+  const metaBlock = stderr.match(/Metadata:\s*\n([\s\S]*?)(?=\n\s*Duration:|$)/);
+  if (metaBlock) {
+    const tags: Record<string, string> = {};
+    for (const line of metaBlock[1].split("\n")) {
+      const m = line.match(/^\s+(\w[\w\s-]*?)\s*:\s*(.+)$/);
+      if (m) tags[m[1].trim().toLowerCase()] = m[2].trim();
+    }
+    if (Object.keys(tags).length) format.tags = tags;
+  }
+
+  // --- Streams ---
+  // Stream #0:0(und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709), 1920x1080 [SAR 1:1 DAR 16:9], 4296 kb/s, 30 fps, 30 tbr, 600 tbn (default)
+  // Stream #0:1(und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 128 kb/s (default)
+  const streamRegex = /Stream #\d+:\d+(?:\([^)]*\))?:\s*(Video|Audio|Subtitle|Data):\s*(.+)/g;
+  let match;
+  while ((match = streamRegex.exec(stderr)) !== null) {
+    const codecType = match[1].toLowerCase();
+    const info = match[2];
+    const stream: Record<string, any> = { codec_type: codecType };
+
+    // codec name: first word before parentheses or comma
+    const codecMatch = info.match(/^(\S+)/);
+    if (codecMatch) stream.codec_name = codecMatch[1].replace(/,$/, "");
+
+    // profile in parentheses right after codec: h264 (High)
+    const profileMatch = info.match(/^\S+\s+\(([^)]+)\)/);
+    if (profileMatch) stream.profile = profileMatch[1];
+
+    if (codecType === "video") {
+      // resolution: 1920x1080
+      const resMatch = info.match(/(\d{2,5})x(\d{2,5})/);
+      if (resMatch) {
+        stream.width = +resMatch[1];
+        stream.height = +resMatch[2];
+      }
+      // pixel format: yuv420p, yuv420p10le, etc.
+      const pixMatch = info.match(/,\s*(yuv\w+|rgb\w+|bgr\w+|gray\w*|p010\w*)/);
+      if (pixMatch) stream.pix_fmt = pixMatch[1];
+      // fps
+      const fpsMatch = info.match(/([\d.]+)\s*fps/);
+      if (fpsMatch) stream.avg_frame_rate = `${fpsMatch[1]}/1`;
+      // video bitrate
+      const vbrMatch = info.match(/([\d]+)\s*kb\/s/);
+      if (vbrMatch) stream.bit_rate = String(+vbrMatch[1] * 1000);
+      // color info
+      const colorMatch = info.match(/\(tv,\s*(\w+)\)/);
+      if (colorMatch) stream.color_space = colorMatch[1];
+    }
+
+    if (codecType === "audio") {
+      // sample rate: 44100 Hz
+      const srMatch = info.match(/(\d+)\s*Hz/);
+      if (srMatch) stream.sample_rate = srMatch[1];
+      // channels: mono, stereo, 5.1, etc.
+      const chMatch = info.match(/Hz,\s*(mono|stereo|[\d.]+)/);
+      if (chMatch) {
+        const ch = chMatch[1];
+        stream.channels = ch === "mono" ? 1 : ch === "stereo" ? 2 : +ch || 0;
+        stream.channel_layout = ch;
+      }
+      // audio bitrate
+      const abrMatch = info.match(/([\d]+)\s*kb\/s/);
+      if (abrMatch) stream.bit_rate = String(+abrMatch[1] * 1000);
+    }
+
+    // Stream-level metadata (appears after stream line)
+    const streamIdx = match.index + match[0].length;
+    const nextStream = stderr.indexOf("Stream #", streamIdx);
+    const metaSection = stderr.slice(streamIdx, nextStream > 0 ? nextStream : undefined);
+    const metaMatch = metaSection.match(/Metadata:\s*\n([\s\S]*?)(?=\n\s*Stream|$)/);
+    if (metaMatch) {
+      const tags: Record<string, string> = {};
+      for (const line of metaMatch[1].split("\n")) {
+        const m = line.match(/^\s+(\w[\w\s-]*?)\s*:\s*(.+)$/);
+        if (m) tags[m[1].trim().toLowerCase()] = m[2].trim();
+      }
+      if (Object.keys(tags).length) stream.tags = tags;
+    }
+
+    streams.push(stream);
+  }
+
+  format.nb_streams = String(streams.length);
+
+  return { format, streams };
 }
 
 /**
- * Run ffprobe on an uploaded file and return its format metadata as JSON.
+ * Run ffmpeg -i on an uploaded file and return parsed metadata.
  */
 export async function probeFile(formData: FormData): Promise<{ format: Record<string, any>; streams?: Record<string, any>[] } | { error: string }> {
   const file = formData.get("file") as File | null;
@@ -74,33 +139,26 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
 
   const ext = path.extname(file.name) || ".mp4";
   const tmpPath = path.join(os.tmpdir(), `duup_probe_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
-  await fs.writeFile(tmpPath, Buffer.from(await file.arrayBuffer()));
+  const buf = Buffer.from(await file.arrayBuffer());
+  await fs.writeFile(tmpPath, buf);
 
   try {
-    const probeBin = await getFFprobeBin();
+    const ffmpegBin = await getFFmpegBin();
+    console.log(`[probe] using ffmpeg: ${ffmpegBin}`);
 
-    const result = await new Promise<string>((resolve, reject) => {
-      const args = ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", tmpPath];
-      const p = spawn(probeBin, args, { stdio: ["ignore", "pipe", "pipe"] });
-      let stdout = "";
-      let stderr = "";
-      p.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
-      p.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
-      p.on("error", () => reject(new Error(`ffprobe introuvable (tried: ${probeBin})`)));
-      p.on("close", (code) => {
-        if (code === 0) resolve(stdout);
-        else reject(new Error(stderr || `ffprobe exit ${code}`));
-      });
-      setTimeout(() => { p.kill("SIGKILL"); reject(new Error("ffprobe timeout")); }, 10_000);
+    const stderr = await new Promise<string>((resolve, reject) => {
+      // ffmpeg -i file exits with code 1 when no output is specified — that's expected.
+      const p = spawn(ffmpegBin, ["-i", tmpPath, "-hide_banner"], { stdio: ["ignore", "pipe", "pipe"] });
+      let out = "";
+      p.stderr.on("data", (d: Buffer) => { out += d.toString(); });
+      p.on("error", () => reject(new Error(`ffmpeg introuvable (tried: ${ffmpegBin})`)));
+      p.on("close", () => resolve(out)); // always resolve — exit code 1 is normal
+      setTimeout(() => { p.kill("SIGKILL"); reject(new Error("ffmpeg timeout")); }, 10_000);
     });
 
-    try {
-      return JSON.parse(result);
-    } catch {
-      return { error: "Format de réponse invalide" };
-    }
+    return parseFfmpegInfo(stderr, buf.length);
   } catch (e: any) {
-    return { error: e?.message || "Erreur ffprobe" };
+    return { error: e?.message || "Erreur analyse fichier" };
   } finally {
     await fs.unlink(tmpPath).catch(() => {});
   }
