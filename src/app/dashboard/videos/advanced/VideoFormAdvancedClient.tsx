@@ -371,7 +371,7 @@ export default function VideoFormAdvancedClient() {
         setProgressMsg("Envoi au serveur…");
 
         apiForm = new FormData();
-        for (const key of ["channel", "mode", "advancedRanges", "count"]) {
+        for (const key of ["channel", "mode", "advancedRanges", "count", "country", "iphoneMeta"]) {
           const v = rawForm.get(key);
           if (v !== null) apiForm.append(key, v);
         }
