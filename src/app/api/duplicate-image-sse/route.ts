@@ -154,8 +154,7 @@ async function processImage(
 
     const ifd0: Record<string, string> = {
       Make: dev.make, Model: dev.model, Software: dev.software,
-      DateTime: dtStr, Artist: "", Copyright: "",
-      ImageDescription: "",
+      DateTime: dtStr,
     };
     const exifIfd: Record<string, string> = {
       LensModel: lens.model,
