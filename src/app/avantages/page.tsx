@@ -6,9 +6,9 @@ import Header from "@/components/Header";
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
 const testimonials = [
-  { quote: "DuupFlow a divisé par 10 notre temps de production. On scale nos campagnes sans effort.", author: "Agence PixelForce", role: "Agence OFM", avatar: "/testimonials/avatar1.jpeg" },
-  { quote: "Avant DuupFlow, on passait 3 heures par semaine à préparer nos contenus pour le multi-posting. Aujourd'hui c'est fait en 5 minutes. On a triplé notre volume de publication sans recruter.", author: "Studio Kreatif", role: "Agence OFM", avatar: "/testimonials/avatar3.jpeg" },
-  { quote: "Le meilleur investissement qu'on ait fait cette année. ROI immédiat.", author: "MediaVibe Agency", role: "Mentor", avatar: "/testimonials/avatar5.jpeg" },
+  { quote: "DuupFlow a divisé par 10 notre temps de production. On scale nos campagnes sans effort.", author: "Agence PixelForce", role: "Agence OFM", avatar: "/testimonials/eli king ★ legacy of gods.jpeg" },
+  { quote: "Avant DuupFlow, on passait 3 heures par semaine à préparer nos contenus pour le multi-posting. Aujourd'hui c'est fait en 5 minutes. On a triplé notre volume de publication sans recruter.", author: "Studio Kreatif", role: "Agence OFM", avatar: "/testimonials/percy jackson — percy jackson and the olympians & the heroes of olympus by rick riordan.jpeg" },
+  { quote: "Le meilleur investissement qu'on ait fait cette année. ROI immédiat.", author: "MediaVibe Agency", role: "Mentor", avatar: "/testimonials/_ (4).jpeg" },
 ];
 
 const sections = [
@@ -121,7 +121,7 @@ export default function AvantagesPage() {
             >
               <p className="text-[11px] text-white/60 leading-relaxed">{testimonials[0].quote}</p>
               <div className="mt-3 flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold text-white bg-indigo-500">{testimonials[0].author.charAt(0)}</div>
+                <img src={testimonials[0].avatar} alt={testimonials[0].author} className="h-6 w-6 rounded-full object-cover shrink-0" />
                 <div>
                   <p className="text-[10px] font-semibold text-white/50">{testimonials[0].author}</p>
                   <p className="text-[8px] text-white/25">{testimonials[0].role}</p>
@@ -136,7 +136,7 @@ export default function AvantagesPage() {
             >
               <p className="text-[11px] text-white/60 leading-relaxed">{testimonials[2].quote}</p>
               <div className="mt-3 flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold text-white bg-fuchsia-500">{testimonials[2].author.charAt(0)}</div>
+                <img src={testimonials[2].avatar} alt={testimonials[2].author} className="h-6 w-6 rounded-full object-cover shrink-0" />
                 <div>
                   <p className="text-[10px] font-semibold text-white/50">{testimonials[2].author}</p>
                   <p className="text-[8px] text-white/25">{testimonials[2].role}</p>
@@ -157,7 +157,7 @@ export default function AvantagesPage() {
                 &ldquo;{testimonials[1].quote}&rdquo;
               </p>
               <div className="mt-5 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold text-white bg-sky-500">{testimonials[1].author.charAt(0)}</div>
+                <img src={testimonials[1].avatar} alt={testimonials[1].author} className="h-10 w-10 rounded-full object-cover shrink-0" />
                 <div>
                   <p className="text-sm font-semibold text-white/90">{testimonials[1].author}</p>
                   <p className="text-xs text-white/40">{testimonials[1].role}</p>
