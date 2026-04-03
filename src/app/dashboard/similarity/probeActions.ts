@@ -4,6 +4,8 @@ import os from "os";
 import path from "path";
 import fs from "fs/promises";
 import { spawn } from "child_process";
+import sharp from "sharp";
+import exifReader from "exif-reader";
 import { getFFmpegBin } from "@/app/dashboard/videos/processVideos";
 
 /** Map short format names to long names (matches ffprobe output) */
@@ -167,8 +169,6 @@ const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".tiff", ".tif", "
  * Probe an image file using sharp — reads EXIF, ICC, and format metadata.
  */
 async function probeImage(buf: Buffer, realSize: number, fileName: string): Promise<{ format: Record<string, any>; streams: Record<string, any>[] }> {
-  const sharpMod = await import("sharp");
-  const sharp = sharpMod.default;
   const meta = await sharp(buf, { failOn: "none" }).metadata();
 
   const ext = path.extname(fileName).toLowerCase().replace(".", "");
@@ -187,9 +187,7 @@ async function probeImage(buf: Buffer, realSize: number, fileName: string): Prom
   const tags: Record<string, string> = {};
   if (meta.exif) {
     try {
-      const exifReader = await import("exif-reader");
-      const exifParse = exifReader.default || exifReader;
-      const exifData = exifParse(meta.exif);
+      const exifData = exifReader(meta.exif);
 
       // Flatten EXIF data into tags
       const flattenExif = (obj: any, prefix = "") => {
@@ -210,11 +208,11 @@ async function probeImage(buf: Buffer, realSize: number, fileName: string): Prom
           }
         }
       };
-      if (exifData.Image || exifData.image) flattenExif(exifData.Image || exifData.image, "");
-      if (exifData.Photo || exifData.exif) flattenExif(exifData.Photo || exifData.exif, "");
-      if (exifData.GPSInfo || exifData.gps) flattenExif(exifData.GPSInfo || exifData.gps, "GPS");
-      // Also flatten top-level for simpler exif-reader versions
-      if (!exifData.Image && !exifData.image) flattenExif(exifData, "");
+      const ed = exifData as any;
+      if (ed.Image) flattenExif(ed.Image, "");
+      if (ed.Photo) flattenExif(ed.Photo, "");
+      if (ed.GPSInfo) flattenExif(ed.GPSInfo, "GPS");
+      if (!ed.Image && !ed.Photo) flattenExif(ed, "");
     } catch (e) {
       // exif-reader not available or parsing failed — try manual approach
       tags["exif"] = "present (parsing unavailable)";
@@ -256,10 +254,15 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
   const buf = Buffer.from(await file.arrayBuffer());
 
   // Use sharp for images — ffmpeg -i doesn't read EXIF tags
-  if (IMAGE_EXTS.has(ext)) {
+  const isImage = IMAGE_EXTS.has(ext);
+  console.log(`[probe] file=${file.name} ext=${ext} isImage=${isImage} size=${buf.length}`);
+  if (isImage) {
     try {
-      return await probeImage(buf, realSize, file.name);
+      const result = await probeImage(buf, realSize, file.name);
+      console.log(`[probe] image OK, tags=${Object.keys(result.format.tags || {}).length}`);
+      return result;
     } catch (e: any) {
+      console.error(`[probe] image error:`, e);
       return { error: e?.message || "Erreur analyse image" };
     }
   }
