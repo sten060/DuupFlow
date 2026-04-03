@@ -168,6 +168,9 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
   const file = formData.get("file") as File | null;
   if (!file || file.size === 0) return { error: "Aucun fichier reçu." };
 
+  // Client may send only first 20MB; real file size is passed separately.
+  const realSize = parseInt(formData.get("realSize") as string, 10) || file.size;
+
   const ext = path.extname(file.name) || ".mp4";
   const tmpPath = path.join(os.tmpdir(), `duup_probe_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
   const buf = Buffer.from(await file.arrayBuffer());
@@ -185,7 +188,7 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
       setTimeout(() => { p.kill("SIGKILL"); reject(new Error("ffmpeg timeout")); }, 10_000);
     });
 
-    return parseFfmpegInfo(stderr, buf.length);
+    return parseFfmpegInfo(stderr, realSize);
   } catch (e: any) {
     return { error: e?.message || "Erreur analyse fichier" };
   } finally {
