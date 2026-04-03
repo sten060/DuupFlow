@@ -11,84 +11,84 @@ const TESTIMONIALS = [
     text: "DuupFlow nous a fait gagner des heures. On réutilise nos meilleurs contenus sans jamais être pénalisés par les algorithmes.",
     name: "S.M.",
     role: "Agence OFM",
-    avatar: "/testimonials/avatar1.jpeg",
+    avatar: "/testimonials/_ (1).jpeg",
     color: "#6366F1",
   },
   {
     text: "DuupFlow fait ça en quelques secondes et les résultats sont incomparables. Mon reach a explosé depuis que je l'utilise.",
     name: "J.R.",
     role: "Créateur de contenu",
-    avatar: "/testimonials/avatar2.jpeg",
+    avatar: "/testimonials/_ (2).jpeg",
     color: "#8B5CF6",
   },
   {
     text: "Je vérifie chaque copie avant de publier grâce au Comparateur. Mon taux d'engagement a doublé en un mois.",
     name: "A.K.",
     role: "Agence OFM",
-    avatar: "/testimonials/avatar3.jpeg",
+    avatar: "/testimonials/_ (3).jpeg",
     color: "#38BDF8",
   },
   {
     text: "50 copies d'un même Reel, chacune unique. TikTok ne l'a jamais détecté. C'est exactement ce qu'il nous fallait.",
     name: "L.B.",
     role: "Agence OFM",
-    avatar: "/testimonials/avatar4.jpeg",
+    avatar: "/testimonials/_ (4).jpeg",
     color: "#EC4899",
   },
   {
     text: "Notre portée organique a explosé. On publie le même contenu sur 6 plateformes sans aucune pénalité algorithmique.",
     name: "P.D.",
     role: "Agence OFM",
-    avatar: "/testimonials/avatar5.jpeg",
+    avatar: "/testimonials/_ (5).jpeg",
     color: "#10B981",
   },
   {
     text: "Notre CAC a baissé de 30% depuis qu'on scale avec DuupFlow. La duplication automatique des meilleurs contenus, c'est du génie.",
     name: "T.M.",
     role: "Agence OFM",
-    avatar: "/testimonials/avatar6.jpeg",
+    avatar: "/testimonials/_ (6).jpeg",
     color: "#F59E0B",
   },
   {
     text: "Avant DuupFlow, chaque post demandait une nouvelle création. Maintenant on réutilise nos top performers à l'infini.",
     name: "N.V.",
     role: "Agence OFM",
-    avatar: "/testimonials/avatar7.jpeg",
+    avatar: "/testimonials/_ (7).jpeg",
     color: "#6366F1",
   },
   {
     text: "Le module Détection IA est parfait. Je publie des contenus générés par IA sans aucun marqueur détectable.",
     name: "R.C.",
     role: "Mentor",
-    avatar: "/testimonials/avatar8.jpeg",
+    avatar: "/testimonials/_ (8).jpeg",
     color: "#8B5CF6",
   },
   {
     text: "DuupFlow gère 3 clients en simultané. On génère 100+ copies par semaine sans effort supplémentaire.",
     name: "F.L.",
     role: "Agence OFM",
-    avatar: "/testimonials/avatar9.jpeg",
+    avatar: "/testimonials/_.jpeg",
     color: "#38BDF8",
   },
   {
     text: "Ce qui me plaît avec DuupFlow, c'est la simplicité. Upload, dupliquer, télécharger. 30 secondes chrono.",
     name: "C.B.",
     role: "Agence OFM",
-    avatar: "/testimonials/avatar10.jpeg",
+    avatar: "/testimonials/Ig sascha07__.jpeg",
     color: "#EC4899",
   },
   {
     text: "Mon taux d'impression sur TikTok a triplé en 2 semaines après avoir commencé à utiliser DuupFlow.",
     name: "K.D.",
     role: "Agence OFM",
-    avatar: "/testimonials/avatar11.jpeg",
+    avatar: "/testimonials/OFM = @melvin_ofm.jpeg",
     color: "#10B981",
   },
   {
     text: "DuupFlow est devenu notre outil #1. Pas une seule pénalité depuis 4 mois d'utilisation intensive.",
     name: "O.M.",
     role: "Agence OFM",
-    avatar: "/testimonials/avatar2.jpeg",
+    avatar: "/testimonials/hunter davenport _ the play _ briar u.jpeg",
     color: "#F59E0B",
   },
 ];
@@ -135,12 +135,7 @@ function TestimonialCard({ t }: { t: typeof TESTIMONIALS[0] }) {
         &ldquo;{t.text}&rdquo;
       </p>
       <div className="flex items-center gap-2">
-        <div
-          className="h-6 w-6 sm:h-7 sm:w-7 rounded-full shrink-0 flex items-center justify-center text-[10px] sm:text-[11px] font-bold text-white"
-          style={{ background: t.color }}
-        >
-          {t.name.charAt(0)}
-        </div>
+        <img src={t.avatar} alt={t.name} className="h-6 w-6 sm:h-7 sm:w-7 rounded-full object-cover shrink-0" />
         <div>
           <p className="text-[11px] sm:text-xs font-semibold text-white leading-none mb-0.5">{t.name}</p>
           <p className="text-[9px] sm:text-[10px] text-white/40">{t.role}</p>
