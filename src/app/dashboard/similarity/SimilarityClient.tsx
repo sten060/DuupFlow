@@ -38,10 +38,19 @@ export default function SimilarityClient() {
     setProbe2(null);
 
     try {
+      // Only send first 20MB of each file — enough for ffmpeg to read all metadata.
+      // Send real file size separately so the comparator can display it.
+      const PROBE_LIMIT = 20 * 1024 * 1024;
+
       const fd1 = new FormData();
-      fd1.append("file", file1);
+      const slice1 = file1.size > PROBE_LIMIT ? file1.slice(0, PROBE_LIMIT, file1.type) : file1;
+      fd1.append("file", new File([slice1], file1.name, { type: file1.type }));
+      fd1.append("realSize", String(file1.size));
+
       const fd2 = new FormData();
-      fd2.append("file", file2);
+      const slice2 = file2.size > PROBE_LIMIT ? file2.slice(0, PROBE_LIMIT, file2.type) : file2;
+      fd2.append("file", new File([slice2], file2.name, { type: file2.type }));
+      fd2.append("realSize", String(file2.size));
 
       const [r1, r2] = await Promise.all([probeFile(fd1), probeFile(fd2)]);
 
