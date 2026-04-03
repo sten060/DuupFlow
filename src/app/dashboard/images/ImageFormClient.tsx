@@ -110,6 +110,8 @@ export default function ImageFormClient({ initialImages }: Props) {
     const visuals = formData.has("visuals");
     const semi = formData.has("semi");
     const reverse = formData.has("reverse");
+    const iphoneMeta = formData.get("iphoneMeta") === "1";
+    const country = (formData.get("country") as string) || "";
 
     const imageFiles = files.filter((f) => f.type.startsWith("image/"));
 
@@ -158,6 +160,8 @@ export default function ImageFormClient({ initialImages }: Props) {
       if (visuals)      apiForm.append("visuals", "1");
       if (semi)         apiForm.append("semi", "1");
       if (reverse)      apiForm.append("reverse", "1");
+      if (iphoneMeta)   apiForm.append("iphoneMeta", "1");
+      if (country)      apiForm.append("country", country);
       for (const id of directUploadIds) apiForm.append("directUploadIds", id);
       for (const f of imageFiles)       apiForm.append("fileNames", f.name);
 
