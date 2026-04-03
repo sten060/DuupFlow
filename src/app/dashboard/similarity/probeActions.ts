@@ -161,19 +161,111 @@ function parseFfmpegInfo(stderr: string, fileSize: number): { format: Record<str
   return { format, streams };
 }
 
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".tiff", ".tif", ".heic", ".heif", ".avif"]);
+
 /**
- * Run ffmpeg -i on an uploaded file and return parsed metadata.
+ * Probe an image file using sharp — reads EXIF, ICC, and format metadata.
+ */
+async function probeImage(buf: Buffer, realSize: number, fileName: string): Promise<{ format: Record<string, any>; streams: Record<string, any>[] }> {
+  const sharpMod = await import("sharp");
+  const sharp = sharpMod.default;
+  const meta = await sharp(buf, { failOn: "none" }).metadata();
+
+  const ext = path.extname(fileName).toLowerCase().replace(".", "");
+  const format: Record<string, any> = {
+    format_name: ext || meta.format || "image",
+    format_long_name: meta.format === "jpeg" ? "JPEG (Joint Photographic Experts Group)"
+      : meta.format === "png" ? "PNG (Portable Network Graphics)"
+      : meta.format === "webp" ? "WebP"
+      : meta.format || "Image",
+    size: String(realSize),
+    nb_streams: "1",
+    probe_score: "100",
+  };
+
+  // Build tags from EXIF
+  const tags: Record<string, string> = {};
+  if (meta.exif) {
+    try {
+      const exifReader = await import("exif-reader");
+      const exifParse = exifReader.default || exifReader;
+      const exifData = exifParse(meta.exif);
+
+      // Flatten EXIF data into tags
+      const flattenExif = (obj: any, prefix = "") => {
+        if (!obj || typeof obj !== "object") return;
+        for (const [key, val] of Object.entries(obj)) {
+          if (val === null || val === undefined) continue;
+          const fullKey = prefix ? `${prefix}.${key}` : key;
+          if (val instanceof Date) {
+            tags[fullKey] = val.toISOString();
+          } else if (typeof val === "object" && !Array.isArray(val) && !(val instanceof Buffer)) {
+            flattenExif(val, fullKey);
+          } else if (Array.isArray(val)) {
+            tags[fullKey] = val.join(", ");
+          } else if (val instanceof Buffer) {
+            // skip binary data
+          } else {
+            tags[fullKey] = String(val);
+          }
+        }
+      };
+      if (exifData.Image || exifData.image) flattenExif(exifData.Image || exifData.image, "");
+      if (exifData.Photo || exifData.exif) flattenExif(exifData.Photo || exifData.exif, "");
+      if (exifData.GPSInfo || exifData.gps) flattenExif(exifData.GPSInfo || exifData.gps, "GPS");
+      // Also flatten top-level for simpler exif-reader versions
+      if (!exifData.Image && !exifData.image) flattenExif(exifData, "");
+    } catch (e) {
+      // exif-reader not available or parsing failed — try manual approach
+      tags["exif"] = "present (parsing unavailable)";
+    }
+  }
+
+  // Add basic metadata as tags
+  if (meta.density) tags["density_dpi"] = String(meta.density);
+  if (meta.chromaSubsampling) tags["chromaSubsampling"] = meta.chromaSubsampling;
+  if (meta.isProgressive) tags["progressive"] = "true";
+  if (meta.hasProfile) tags["icc_profile"] = "present";
+  if (meta.space) tags["colorspace"] = meta.space;
+
+  if (Object.keys(tags).length) format.tags = tags;
+
+  // Stream info
+  const stream: Record<string, any> = {
+    codec_type: "video",
+    codec_name: meta.format || "image",
+    width: meta.width,
+    height: meta.height,
+    pix_fmt: meta.channels === 4 ? "rgba" : meta.channels === 3 ? "rgb" : `channels_${meta.channels}`,
+  };
+  if (meta.space) stream.color_space = meta.space;
+
+  return { format, streams: [stream] };
+}
+
+/**
+ * Run ffmpeg -i on a video file and return parsed metadata,
+ * or use sharp for images to read EXIF data.
  */
 export async function probeFile(formData: FormData): Promise<{ format: Record<string, any>; streams?: Record<string, any>[] } | { error: string }> {
   const file = formData.get("file") as File | null;
   if (!file || file.size === 0) return { error: "Aucun fichier reçu." };
 
-  // Client may send only first 20MB; real file size is passed separately.
   const realSize = parseInt(formData.get("realSize") as string, 10) || file.size;
-
-  const ext = path.extname(file.name) || ".mp4";
-  const tmpPath = path.join(os.tmpdir(), `duup_probe_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
+  const ext = path.extname(file.name).toLowerCase() || ".mp4";
   const buf = Buffer.from(await file.arrayBuffer());
+
+  // Use sharp for images — ffmpeg -i doesn't read EXIF tags
+  if (IMAGE_EXTS.has(ext)) {
+    try {
+      return await probeImage(buf, realSize, file.name);
+    } catch (e: any) {
+      return { error: e?.message || "Erreur analyse image" };
+    }
+  }
+
+  // Video files — use ffmpeg -i
+  const tmpPath = path.join(os.tmpdir(), `duup_probe_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
   await fs.writeFile(tmpPath, buf);
 
   try {
