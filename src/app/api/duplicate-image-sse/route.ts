@@ -72,40 +72,22 @@ async function processImage(
   }
 
   if (flags.visuals) {
-    // ── Brightness ±4–10%
+    // ── Brightness ±3%
     const bDir = Math.random() < 0.5 ? -1 : 1;
-    const brightness = 1.0 + bDir * (0.04 + Math.random() * 0.06);
-    // ── Saturation ±5–15%
+    const brightness = 1.0 + bDir * (0.01 + Math.random() * 0.02);
+    // ── Saturation ±5%
     const sDir = Math.random() < 0.5 ? -1 : 1;
-    const saturation = 1.0 + sDir * (0.05 + Math.random() * 0.10);
-    // ── Hue ±4–12°
-    const hue = (Math.random() < 0.5 ? -1 : 1) * (4 + Math.floor(Math.random() * 9));
+    const saturation = 1.0 + sDir * (0.02 + Math.random() * 0.03);
+    // ── Hue ±3°
+    const hue = (Math.random() < 0.5 ? -1 : 1) * Math.floor(1 + Math.random() * 3);
     img = img.modulate({ brightness, saturation, hue });
 
-    // ── Gamma 1.10–1.20
-    const gamma = 1.10 + Math.random() * 0.10;
+    // ── Gamma ±3% (1.00–1.03)
+    const gamma = 1.00 + Math.random() * 0.03;
     img = img.gamma(gamma);
 
-    // ── Gradient directionnel 2–6% amplitude
-    const gSize = 8;
-    const gradBuf = Buffer.alloc(gSize * gSize);
-    const gradAngle = Math.random() * Math.PI * 2;
-    const gradDx = Math.cos(gradAngle);
-    const gradDy = Math.sin(gradAngle);
-    const gradAmp = 0.02 + Math.random() * 0.04;
-    for (let gy = 0; gy < gSize; gy++) {
-      for (let gx = 0; gx < gSize; gx++) {
-        const nx = (gx / (gSize - 1)) * 2 - 1;
-        const ny = (gy / (gSize - 1)) * 2 - 1;
-        const t = gradDx * nx + gradDy * ny;
-        gradBuf[gy * gSize + gx] = Math.max(0, Math.min(255, Math.round(250 * (1 + t * gradAmp))));
-      }
-    }
-    const gradPng = await sharp(gradBuf, { raw: { width: gSize, height: gSize, channels: 1 } })
-      .resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.cubic })
-      .png()
-      .toBuffer();
-    img = img.composite([{ input: gradPng, blend: "multiply" } as sharp.OverlayOptions]).removeAlpha();
+    // ── Unsharp très doux
+    img = img.sharpen(0.5, 0.5, 0.5);
   }
 
   const lower = ext.toLowerCase();
