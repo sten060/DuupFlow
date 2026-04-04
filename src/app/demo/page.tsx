@@ -117,7 +117,7 @@ export default function DemoPage() {
         <div className="mb-20 rounded-3xl overflow-hidden" style={{ border: "1px solid rgba(99,102,241,0.20)", boxShadow: "0 0 60px rgba(99,102,241,0.08), 0 24px 60px rgba(0,0,0,0.4)", background: "rgba(8,12,35,0.85)" }}>
           <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
             <iframe
-              src="https://www.youtube.com/embed/zLq8afhMxBk?autoplay=1&mute=1&loop=1&playlist=zLq8afhMxBk&controls=1&rel=0"
+              src="https://www.youtube.com/embed/Qk_MrsWHgrw?autoplay=1&mute=1&loop=1&playlist=Qk_MrsWHgrw&controls=1&rel=0"
               className="absolute inset-0 w-full h-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
