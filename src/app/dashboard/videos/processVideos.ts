@@ -809,13 +809,17 @@ export async function processVideos(
         /* ----------- MODE SIMPLE ----------- */
 
         if (packs.includes("visual")) {
-          // eq — brightness ±5%, contrast ±10%, saturation ±10%, gamma ±7%
-          const b  = clamp(Number((-0.05 + Math.random() * 0.10).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
-          const ct = clamp(Number((0.95 + Math.random() * 0.10).toFixed(3)),  LIMITS.contrast.min,   LIMITS.contrast.max);
-          const st = clamp(Number((0.90 + Math.random() * 0.20).toFixed(3)),  LIMITS.saturation.min, LIMITS.saturation.max);
-          const gm = clamp(Number((0.93 + Math.random() * 0.14).toFixed(3)),  0.1, 3.0);
+          // eq — brightness ±3%, contrast ±5%, saturation ±5%, gamma ±3%
+          const b  = clamp(Number((-0.03 + Math.random() * 0.06).toFixed(3)), LIMITS.brightness.min, LIMITS.brightness.max);
+          const ct = clamp(Number((0.975 + Math.random() * 0.05).toFixed(3)), LIMITS.contrast.min,   LIMITS.contrast.max);
+          const st = clamp(Number((0.975 + Math.random() * 0.05).toFixed(3)), LIMITS.saturation.min, LIMITS.saturation.max);
+          const gm = clamp(Number((0.97 + Math.random() * 0.06).toFixed(3)),  0.1, 3.0);
           vfParts.push(`eq=brightness=${b}:contrast=${ct}:saturation=${st}:gamma=${gm}`);
-          // noise moved to "pixel_magic" standalone toggle
+          // hue ±3°
+          const hue = clamp(Math.round(-3 + Math.random() * 6), -180, 180);
+          if (hue !== 0) vfParts.push(`hue=h=${hue}`);
+          // unsharp très doux
+          vfParts.push("unsharp=3:3:0.3:3:3:0.1");
         }
 
         // Pixel Magique — luma noise, imperceptible but changes every pixel hash
@@ -858,16 +862,21 @@ export async function processVideos(
         }
 
         if (packs.includes("metadata_technical")) {
-          const crf = 14 + Math.floor(Math.random() * 15);
-          extraArgs.push("-crf", String(crf));
-          const vbit = clamp(3000 + Math.floor(Math.random() * 19001), LIMITS.vbitrate.min, LIMITS.vbitrate.max);
-          extraArgs.push("-b:v", `${vbit}k`);
+          // Only apply encoding params when video is already being re-encoded
+          // (visual or motion packs active). Otherwise just vary GOP/fps as
+          // metadata-level changes — avoids full re-encode that alters visuals.
+          if (vfParts.length > 0) {
+            const crf = 16 + Math.floor(Math.random() * 8); // 16–23 (narrower, high quality)
+            extraArgs.push("-crf", String(crf));
+            const vbit = clamp(3000 + Math.floor(Math.random() * 19001), LIMITS.vbitrate.min, LIMITS.vbitrate.max);
+            extraArgs.push("-b:v", `${vbit}k`);
+            const profiles = ["main", "high"];
+            const levels = ["5.0", "5.1", "5.2"];
+            extraArgs.push("-profile:v", profiles[Math.floor(Math.random() * profiles.length)]);
+            extraArgs.push("-level:v", levels[Math.floor(Math.random() * levels.length)]);
+          }
           const gop = clamp(30 + Math.floor(Math.random() * 471), LIMITS.gop.min, LIMITS.gop.max);
           extraArgs.push("-g", String(gop));
-          const profiles = ["baseline", "main", "high"];
-          const levels = ["5.0", "5.1", "5.2", "6.0"];
-          extraArgs.push("-profile:v", profiles[Math.floor(Math.random() * profiles.length)]);
-          extraArgs.push("-level:v", levels[Math.floor(Math.random() * levels.length)]);
           const fpsPool = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
           extraArgs.push("-r", String(fpsPool[Math.floor(Math.random() * fpsPool.length)]));
         }
