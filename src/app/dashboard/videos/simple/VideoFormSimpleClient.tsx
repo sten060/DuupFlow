@@ -471,7 +471,7 @@ export default function VideoFormSimpleClient() {
 
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">Sans modification visuelle</p>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 mb-4">
-          {(["metadata", "metadata_technical", "pixel_magic"] as (keyof typeof PACKS)[]).map((k) => (
+          {(["metadata", "metadata_technical", "pixel_magic", "audio"] as (keyof typeof PACKS)[]).map((k) => (
             <PackCard
               key={k}
               name={k}
@@ -485,7 +485,7 @@ export default function VideoFormSimpleClient() {
 
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">Avec modification visuelle</p>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-          {(["audio", "motion", "visual"] as (keyof typeof PACKS)[]).map((k) => (
+          {(["motion", "visual"] as (keyof typeof PACKS)[]).map((k) => (
             <PackCard
               key={k}
               name={k}
