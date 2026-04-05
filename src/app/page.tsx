@@ -48,7 +48,7 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-12 sm:pt-28 pb-20 sm:pb-40 overflow-hidden">
+    <section className="relative flex flex-col items-center text-center px-6 pt-8 sm:pt-16 pb-20 sm:pb-40 overflow-hidden">
 
       {/* Social proof avatars */}
       <Reveal>
