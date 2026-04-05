@@ -48,38 +48,86 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-8 sm:pt-20 pb-24 sm:pb-48 overflow-hidden">
+    <section className="relative flex flex-col items-center text-center px-6 pt-12 sm:pt-28 pb-20 sm:pb-40 overflow-hidden">
 
+      {/* Social proof avatars */}
       <Reveal>
-        <div className="mb-5 sm:mb-7 inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-white/15 bg-white/[0.05] px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm text-white/70">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Nouveau — Détection IA disponible
-          <span className="text-white/40">→</span>
+        <div className="flex items-center gap-3 mb-8 sm:mb-10">
+          <div className="flex -space-x-2.5">
+            {["/testimonials/_ (1).jpeg", "/testimonials/_ (2).jpeg", "/testimonials/_ (3).jpeg", "/testimonials/_ (4).jpeg"].map((src, i) => (
+              <img key={i} src={src} alt="" className="h-8 w-8 sm:h-9 sm:w-9 rounded-full border-2 border-[#0B0F1A] object-cover" />
+            ))}
+          </div>
+          <p className="text-sm sm:text-base text-white/60">
+            Rejoins <span className="text-white font-semibold">500+</span> agences satisfaites
+          </p>
         </div>
+      </Reveal>
 
-        <h1 className="max-w-5xl text-[2.6rem] md:text-[3.5rem] font-bold leading-[1.08] tracking-tight text-white mb-5">
-          Le seul outil pour dupliquer<br />ton contenu <span className={G}>en illimité.</span>
+      {/* Main heading — Inter-like, large, tracking tight */}
+      <Reveal delay={80}>
+        <h1 className="max-w-5xl text-[2.8rem] sm:text-[3.5rem] md:text-[4.5rem] font-bold leading-[1.05] tracking-[-0.025em] text-white mb-6 sm:mb-7"
+            style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+          Le seul outil pour dupliquer<br className="hidden sm:block" />
+          ton contenu <span className={G}>en illimité</span>
         </h1>
+      </Reveal>
 
-        <p className="text-white/75 text-sm sm:text-lg mb-6 sm:mb-9">
-          Chaque copie unique — indétectable par les plateformes.
+      {/* Subtitle */}
+      <Reveal delay={160}>
+        <p className="max-w-2xl text-white/50 text-base sm:text-lg leading-relaxed mb-8 sm:mb-10">
+          Chaque copie est unique et indétectable par les algorithmes des plateformes.
+          Conçu pour les agences qui veulent scaler leur production de contenu.
         </p>
+      </Reveal>
 
-        <div className="flex flex-row gap-2 sm:gap-3 mb-8 sm:mb-10 justify-center">
-          <Link href="/tarifs"
-            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl px-4 sm:px-7 py-2.5 sm:py-3.5 font-semibold text-white text-xs sm:text-sm transition hover:opacity-90 hover:-translate-y-0.5"
-            style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
-            Voir les offres →
+      {/* CTA buttons */}
+      <Reveal delay={240}>
+        <div className="flex flex-row gap-3 sm:gap-4 mb-12 sm:mb-16 justify-center">
+          <Link href="/register"
+            className="inline-flex items-center gap-2 rounded-xl px-6 sm:px-8 py-3 sm:py-3.5 font-semibold text-white text-sm sm:text-base transition hover:opacity-90 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(99,102,241,0.3)]"
+            style={{ background: "linear-gradient(135deg,#4F46E5,#6366F1)" }}>
+            Commencer gratuitement
           </Link>
-          <a href="#features"
-            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 sm:px-7 py-2.5 sm:py-3.5 font-medium text-xs sm:text-sm text-white/80 hover:bg-white/[0.08] transition">
-            Fonctionnalités
-          </a>
+          <Link href="/demo"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-6 sm:px-8 py-3 sm:py-3.5 font-medium text-sm sm:text-base text-white/80 hover:bg-white/[0.08] hover:border-white/25 transition">
+            Voir la démo
+          </Link>
         </div>
+      </Reveal>
 
-        <p className="text-xs text-white/30 tracking-wide uppercase">
-          Utilisé par 500+ agences marketing &amp; créateurs de contenu
-        </p>
+      {/* Platform logos marquee */}
+      <Reveal delay={320}>
+        <div className="relative w-full max-w-4xl overflow-hidden">
+          {/* Fade edges */}
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-r from-[#0B0F1A] to-transparent" />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-l from-[#0B0F1A] to-transparent" />
+
+          <style>{`
+            @keyframes marquee-platforms { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+            .marquee-platforms { animation: marquee-platforms 25s linear infinite; }
+          `}</style>
+
+          <div className="marquee-platforms flex items-center gap-12 sm:gap-16 w-max">
+            {[...Array(2)].map((_, dup) => (
+              <div key={dup} className="flex items-center gap-12 sm:gap-16">
+                {[
+                  { name: "Instagram", icon: "M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 01-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 017.8 2zm-.2 2A3.6 3.6 0 004 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 003.6-3.6V7.6C20 5.61 18.39 4 16.4 4H7.6zm9.65 1.5a1.25 1.25 0 110 2.5 1.25 1.25 0 010-2.5zM12 7a5 5 0 110 10 5 5 0 010-10zm0 2a3 3 0 100 6 3 3 0 000-6z" },
+                  { name: "TikTok", icon: "M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.17a8.16 8.16 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.6z" },
+                  { name: "Reddit", icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5.8 11.33c.02.16.03.33.03.5 0 2.55-2.97 4.63-6.63 4.63s-6.63-2.07-6.63-4.63c0-.17.01-.33.03-.5a1.45 1.45 0 01-.53-1.11 1.45 1.45 0 012.47-1.05 7.2 7.2 0 013.95-1.24l.74-3.49a.3.3 0 01.35-.24l2.49.53a1.04 1.04 0 011.96.47 1.04 1.04 0 01-1.85.66l-2.14-.45-.65 3.05a7.13 7.13 0 013.87 1.23 1.45 1.45 0 012.47 1.05c0 .42-.2.8-.53 1.09zM9.5 13a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zm5 0a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zm-4.74 3.57a.3.3 0 01.42 0c.58.55 1.39.85 2.22.85s1.64-.3 2.22-.85a.3.3 0 01.42.42c-.72.68-1.66 1.05-2.64 1.05s-1.92-.37-2.64-1.05a.3.3 0 010-.42z" },
+                  { name: "Threads", icon: "M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017C1.5 8.418 2.35 5.564 3.995 3.516 5.845 1.212 8.598.031 12.179.007h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.739.739c-1.027-3.695-3.615-5.563-7.596-5.563-3.005.014-5.258.985-6.705 2.886C4.368 7.107 3.755 9.354 3.735 12v.009c.02 2.645.633 4.892 1.753 6.367 1.447 1.9 3.7 2.87 6.705 2.884 2.316-.012 4.082-.578 5.4-1.733 1.484-1.302 2.168-3.077 2.03-5.274-.092-1.466-.56-2.581-1.392-3.316-.815-.72-1.89-1.085-3.196-1.085h-.008c-1.935.013-3.397.851-4.22 2.422l2.371 1.22c.388-.753 1.07-1.17 1.957-1.17.56.007 1.033.216 1.363.605.283.332.452.8.501 1.387.076 1.225-.254 2.158-1.013 2.852-.768.703-1.853 1.06-3.22 1.06h-.008c-2.86-.02-4.938-1.497-5.593-3.973-.299-1.13-.299-2.433 0-3.563.655-2.476 2.733-3.953 5.593-3.973h.008c1.557.012 2.879.507 3.93 1.473.93.856 1.563 2.008 1.88 3.424l2.672-.728c-.418-1.888-1.282-3.47-2.565-4.702C17.948 4.578 16.133 3.84 14.019 3.82h-.013c-3.897.027-6.627 2.117-7.523 5.508-.387 1.465-.387 3.078 0 4.543.896 3.391 3.626 5.481 7.523 5.508h.013" },
+                  { name: "X", icon: "M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" },
+                  { name: "YouTube Shorts", icon: "M10 15l5.19-3L10 9v6m11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z" },
+                ].map((platform) => (
+                  <div key={platform.name} className="flex items-center gap-2.5 text-white/40 shrink-0">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d={platform.icon} /></svg>
+                    <span className="text-sm sm:text-base font-medium whitespace-nowrap">{platform.name}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       </Reveal>
     </section>
   );
