@@ -97,10 +97,10 @@ function Hero() {
 
       {/* Platform logos — large text marquee like LanX */}
       <Reveal delay={320}>
-        <div className="relative w-full max-w-5xl overflow-hidden py-6 border-t border-white/[0.06]">
-          {/* Fade edges */}
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-32 z-10 bg-gradient-to-r from-[#0B0F1A] to-transparent" />
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-32 z-10 bg-gradient-to-l from-[#0B0F1A] to-transparent" />
+        <div className="relative w-full max-w-5xl overflow-hidden py-6">
+          {/* Fade edges — transparent-based to avoid dark box */}
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-32 z-10" style={{ background: "linear-gradient(to right, rgba(11,15,26,0.9), transparent)" }} />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-32 z-10" style={{ background: "linear-gradient(to left, rgba(11,15,26,0.9), transparent)" }} />
 
           <style>{`
             @keyframes marquee-platforms { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }

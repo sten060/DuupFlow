@@ -23,7 +23,7 @@ function NavLink({ href, label }: { href: string; label: string }) {
 
 export default function Header() {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md" style={{ background: "rgba(11,15,26,0.65)" }}>
+    <header className="fixed top-[36px] left-0 right-0 z-50 backdrop-blur-md" style={{ background: "rgba(11,15,26,0.65)" }}>
       <div
         className="flex items-center justify-between px-6 sm:px-10 py-4 sm:py-5"
         style={{ maxWidth: "1280px", margin: "0 auto" }}
