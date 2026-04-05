@@ -132,7 +132,7 @@ function ProblemSolution() {
             {/* LEFT — stacked Problem + Solution cards */}
             <div className="space-y-4">
               {/* Problem */}
-              <div className="rounded-2xl border border-red-500/25 p-5" style={{ background: "rgba(30,5,5,0.70)" }}>
+              <div className="rounded-xl border border-red-500/25 p-5" style={{ background: "rgba(30,5,5,0.70)" }}>
                 <div className="flex items-center gap-3 mb-5">
                   <div className="h-9 w-9 rounded-xl bg-red-500/15 border border-red-500/25 flex items-center justify-center">
                     <svg className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -153,7 +153,7 @@ function ProblemSolution() {
               </div>
 
               {/* Solution */}
-              <div className="rounded-2xl border border-indigo-500/25 p-5" style={{ background: "rgba(5,8,40,0.75)" }}>
+              <div className="rounded-xl border border-indigo-500/25 p-5" style={{ background: "rgba(5,8,40,0.75)" }}>
                 <div className="flex items-center gap-3 mb-5">
                   <div className="h-9 w-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
                     <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -511,41 +511,40 @@ function FeaturesScroller() {
         {/* Horizontal track */}
         <div
           ref={trackRef}
-          className="flex gap-40 will-change-transform"
-          style={{ transform: `translateX(calc(50vw - 40vw - ${scrollX}px))` }}
+          className="flex gap-[12vw] will-change-transform"
+          style={{ transform: `translateX(calc(50vw - 35vw - ${scrollX}px))` }}
         >
           {cards.map((card, i) => (
             <div
               key={card.title}
-              className="shrink-0 w-[88vw] sm:w-[78vw] md:w-[70vw] rounded-lg border border-white/[0.08] overflow-hidden"
+              className="shrink-0 w-[88vw] sm:w-[78vw] md:w-[70vw] rounded-md border border-white/[0.08] overflow-hidden"
               style={{ background: "rgba(8,12,35,0.6)" }}
             >
-              <div className="grid md:grid-cols-[1.2fr_1fr]">
+              <div className="grid md:grid-cols-[1fr_1.1fr]">
                 {/* Left — text */}
                 <div className="p-6 sm:p-8 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-sm text-white/25 font-mono">{String(i + 1).padStart(2, "0")} / {String(cards.length).padStart(2, "0")}</span>
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-xl sm:text-2xl font-semibold text-white">{card.title}</h3>
                       {card.badge && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/25 font-semibold">
                           {card.badge}
                         </span>
                       )}
                     </div>
-                    <h3 className="text-xl sm:text-2xl font-semibold text-white mb-4">{card.title}</h3>
                     <p className="text-sm sm:text-base text-white/50 leading-relaxed">{card.desc}</p>
                   </div>
                   <Link
                     href="/register"
-                    className="inline-flex items-center gap-2 mt-6 text-sm font-medium transition"
+                    className="inline-flex items-center gap-2 mt-8 text-sm font-medium transition"
                     style={{ color: card.accent }}
                   >
                     Essayer maintenant →
                   </Link>
                 </div>
                 {/* Right — mockup */}
-                <div className="p-4 sm:p-6 flex items-center justify-center border-l border-white/[0.06]" style={{ background: "rgba(0,0,0,0.2)" }}>
-                  <div className="w-full max-w-[360px]">
+                <div className="p-5 sm:p-8 flex items-center justify-center border-l border-white/[0.06]" style={{ background: "rgba(0,0,0,0.15)" }}>
+                  <div className="w-full">
                     {MOCKUPS[["duplication", "invisible", "priority", "ai"][i]]}
                   </div>
                 </div>
@@ -1131,9 +1130,6 @@ export default function LandingPage() {
       </div>
       <ProblemSolution />
       <FeaturesScroller />
-      <div className="max-w-5xl mx-auto px-6">
-        <div className="h-px bg-white/[0.12]" />
-      </div>
       <CoreFeaturesAlt />
       <StatsBanner />
       <FAQ />
