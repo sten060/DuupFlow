@@ -48,7 +48,7 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-12 sm:pt-28 pb-20 sm:pb-40 overflow-hidden">
+    <section className="relative flex flex-col items-center text-center px-6 pt-8 sm:pt-16 pb-20 sm:pb-40 overflow-hidden">
 
       {/* Social proof avatars */}
       <Reveal>
@@ -80,16 +80,16 @@ function Hero() {
         </p>
       </Reveal>
 
-      {/* CTA buttons — matching LanX style */}
+      {/* CTA buttons — slide-in hover effect (CSS in globals.css) */}
       <Reveal delay={240}>
         <div className="flex flex-row gap-3 sm:gap-4 mb-16 sm:mb-24 justify-center">
           <Link href="/register"
-            className="inline-flex items-center gap-2 rounded-xl px-7 sm:px-9 py-3 sm:py-3.5 font-semibold text-white text-sm sm:text-base transition hover:-translate-y-0.5 hover:shadow-[0_8px_40px_rgba(79,70,229,0.5)]"
+            className="slide-btn slide-btn-primary inline-flex items-center gap-2 rounded-xl px-7 sm:px-9 py-3 sm:py-3.5 font-semibold text-white text-sm sm:text-base transition-shadow hover:shadow-[0_8px_40px_rgba(79,70,229,0.5)]"
             style={{ background: "#4F46E5" }}>
             Commencer gratuitement
           </Link>
           <Link href="/demo"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/[0.05] px-7 sm:px-9 py-3 sm:py-3.5 font-medium text-sm sm:text-base text-white/80 hover:bg-white/[0.10] hover:border-white/30 transition">
+            className="slide-btn slide-btn-outline inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/[0.05] px-7 sm:px-9 py-3 sm:py-3.5 font-medium text-sm sm:text-base text-white/80 transition">
             Voir la démo
           </Link>
         </div>
@@ -97,21 +97,17 @@ function Hero() {
 
       {/* Platform logos — large text marquee like LanX */}
       <Reveal delay={320}>
-        <div className="relative w-full max-w-5xl overflow-hidden py-6 border-t border-white/[0.06]">
-          {/* Fade edges */}
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-32 z-10 bg-gradient-to-r from-[#0B0F1A] to-transparent" />
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-32 z-10 bg-gradient-to-l from-[#0B0F1A] to-transparent" />
-
+        <div className="w-screen relative left-1/2 -translate-x-1/2 overflow-hidden py-4">
           <style>{`
             @keyframes marquee-platforms { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
             .marquee-platforms { animation: marquee-platforms 30s linear infinite; }
           `}</style>
 
-          <div className="marquee-platforms flex items-center gap-16 sm:gap-24 w-max">
+          <div className="marquee-platforms flex items-center gap-20 sm:gap-28 w-max">
             {[...Array(2)].map((_, dup) => (
-              <div key={dup} className="flex items-center gap-16 sm:gap-24">
+              <div key={dup} className="flex items-center gap-20 sm:gap-28">
                 {["Instagram", "TikTok", "Reddit", "Threads", "X", "YouTube Shorts"].map((name) => (
-                  <span key={name} className="text-xl sm:text-2xl font-semibold text-white/30 whitespace-nowrap tracking-tight">
+                  <span key={name} className="text-2xl sm:text-3xl font-semibold text-white/25 whitespace-nowrap tracking-tight">
                     {name}
                   </span>
                 ))}

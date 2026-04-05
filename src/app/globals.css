@@ -4,6 +4,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Slide-in button hover effect */
+.slide-btn { position: relative; overflow: hidden; z-index: 1; }
+.slide-btn::before {
+  content: '';
+  position: absolute; inset: 0; z-index: -1;
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: inherit;
+}
+.slide-btn:hover::before { transform: translateY(0); }
+.slide-btn-primary::before { background: #6366F1; }
+.slide-btn-outline::before { background: rgba(255,255,255,0.1); }
+
 /* ---------- Tokens ---------- */
 :root{
   /* fonds — indigo profond */
