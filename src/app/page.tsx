@@ -511,18 +511,18 @@ function FeaturesScroller() {
         {/* Horizontal track */}
         <div
           ref={trackRef}
-          className="flex gap-10 will-change-transform"
-          style={{ transform: `translateX(calc(50vw - 45vw - ${scrollX}px))` }}
+          className="flex gap-20 will-change-transform"
+          style={{ transform: `translateX(calc(50vw - 35vw - ${scrollX}px))` }}
         >
           {cards.map((card, i) => (
             <div
               key={card.title}
-              className="shrink-0 w-[90vw] sm:w-[80vw] md:w-[65vw] rounded-lg border border-white/[0.08] overflow-hidden"
+              className="shrink-0 w-[85vw] sm:w-[72vw] md:w-[60vw] rounded-lg border border-white/[0.08] overflow-hidden"
               style={{ background: "rgba(8,12,35,0.6)" }}
             >
-              <div className="grid md:grid-cols-2">
+              <div className="grid md:grid-cols-[1fr_1fr]">
                 {/* Left — text */}
-                <div className="p-7 sm:p-9 flex flex-col justify-between">
+                <div className="p-6 sm:p-8 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-1">
                       <span className="text-sm text-white/25 font-mono">{String(i + 1).padStart(2, "0")} / {String(cards.length).padStart(2, "0")}</span>
