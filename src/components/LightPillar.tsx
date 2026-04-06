@@ -301,6 +301,14 @@ export default function LightPillar({
 
     let lastTime = performance.now();
     const frameTime = 1000 / settings.targetFPS;
+    let paused = false;
+
+    // Pause rendering when scrolled past the viewport (performance optimization)
+    const handleScroll = () => {
+      paused = window.scrollY > window.innerHeight;
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
 
     const animate = (currentTime: number) => {
       if (
@@ -311,7 +319,7 @@ export default function LightPillar({
       )
         return;
       const deltaTime = currentTime - lastTime;
-      if (deltaTime >= frameTime) {
+      if (!paused && deltaTime >= frameTime) {
         timeRef.current += 0.016 * rotationSpeed;
         materialRef.current.uniforms.uTime.value = timeRef.current;
         rendererRef.current.render(sceneRef.current, cameraRef.current);
@@ -343,6 +351,7 @@ export default function LightPillar({
 
     return () => {
       resizeObserver.disconnect();
+      window.removeEventListener("scroll", handleScroll);
       if (interactive) {
         container.removeEventListener("mousemove", handleMouseMove);
       }

@@ -108,7 +108,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             pillarHeight={0.4}
             noiseIntensity={0.5}
             pillarRotation={-35}
-            quality="high"
+            quality="medium"
             mixBlendMode="screen"
           />
         </div>
