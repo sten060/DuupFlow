@@ -48,7 +48,7 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-8 sm:pt-16 pb-20 sm:pb-40 overflow-hidden">
+    <section className="relative flex flex-col items-center text-center px-6 pt-6 sm:pt-12 pb-20 sm:pb-40 overflow-hidden">
 
       {/* Social proof avatars */}
       <Reveal>
@@ -102,13 +102,21 @@ function Hero() {
             .marquee-platforms { animation: marquee-platforms 30s linear infinite; }
           `}</style>
 
-          <div className="marquee-platforms flex items-center gap-20 sm:gap-28 w-max">
+          <div className="marquee-platforms flex items-center gap-16 sm:gap-24 w-max">
             {[...Array(2)].map((_, dup) => (
-              <div key={dup} className="flex items-center gap-20 sm:gap-28">
-                {["Instagram", "TikTok", "Reddit", "Threads", "X", "YouTube Shorts"].map((name) => (
-                  <span key={name} className="text-2xl sm:text-3xl font-semibold text-white/25 whitespace-nowrap tracking-tight">
-                    {name}
-                  </span>
+              <div key={dup} className="flex items-center gap-16 sm:gap-24">
+                {[
+                  { name: "Instagram", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 01-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 017.8 2zm-.2 2A3.6 3.6 0 004 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 003.6-3.6V7.6C20 5.61 18.39 4 16.4 4H7.6zm9.65 1.5a1.25 1.25 0 110 2.5 1.25 1.25 0 010-2.5zM12 7a5 5 0 110 10 5 5 0 010-10zm0 2a3 3 0 100 6 3 3 0 000-6z"/></svg> },
+                  { name: "TikTok", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.17a8.16 8.16 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.6z"/></svg> },
+                  { name: "Reddit", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5.8 11.33c.02.16.03.33.03.5 0 2.55-2.97 4.63-6.63 4.63s-6.63-2.07-6.63-4.63c0-.17.01-.33.03-.5a1.45 1.45 0 01-.53-1.11 1.45 1.45 0 012.47-1.05 7.2 7.2 0 013.95-1.24l.74-3.49a.3.3 0 01.35-.24l2.49.53a1.04 1.04 0 011.96.47 1.04 1.04 0 01-1.85.66l-2.14-.45-.65 3.05a7.13 7.13 0 013.87 1.23 1.45 1.45 0 012.47 1.05c0 .42-.2.8-.53 1.09zM9.5 13a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zm5 0a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5z"/></svg> },
+                  { name: "Threads", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017C1.5 8.418 2.35 5.564 3.995 3.516 5.845 1.212 8.598.031 12.179.007h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.739.739c-1.027-3.695-3.615-5.563-7.596-5.563-3.005.014-5.258.985-6.705 2.886C4.368 7.107 3.755 9.354 3.735 12v.009c.02 2.645.633 4.892 1.753 6.367 1.447 1.9 3.7 2.87 6.705 2.884 2.316-.012 4.082-.578 5.4-1.733 1.484-1.302 2.168-3.077 2.03-5.274-.092-1.466-.56-2.581-1.392-3.316-.815-.72-1.89-1.085-3.196-1.085h-.008c-1.935.013-3.397.851-4.22 2.422l2.371 1.22c.388-.753 1.07-1.17 1.957-1.17.56.007 1.033.216 1.363.605.283.332.452.8.501 1.387.076 1.225-.254 2.158-1.013 2.852-.768.703-1.853 1.06-3.22 1.06h-.008c-2.86-.02-4.938-1.497-5.593-3.973-.299-1.13-.299-2.433 0-3.563.655-2.476 2.733-3.953 5.593-3.973h.008c1.557.012 2.879.507 3.93 1.473.93.856 1.563 2.008 1.88 3.424l2.672-.728c-.418-1.888-1.282-3.47-2.565-4.702C17.948 4.578 16.133 3.84 14.019 3.82h-.013c-3.897.027-6.627 2.117-7.523 5.508-.387 1.465-.387 3.078 0 4.543.896 3.391 3.626 5.481 7.523 5.508h.013"/></svg> },
+                  { name: "X", icon: <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> },
+                  { name: "YouTube", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg> },
+                ].map((p) => (
+                  <div key={p.name} className="flex items-center gap-2.5 text-white/25 shrink-0">
+                    {p.icon}
+                    <span className="text-xl sm:text-2xl font-semibold whitespace-nowrap tracking-tight">{p.name}</span>
+                  </div>
                 ))}
               </div>
             ))}
