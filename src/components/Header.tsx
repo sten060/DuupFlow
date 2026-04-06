@@ -70,28 +70,38 @@ export default function Header() {
         </div>
 
         {/* Mobile dropdown menu */}
-        {menuOpen && (
-          <div
-            className="md:hidden border-t border-white/[0.08] px-4 py-4 space-y-1"
-            style={{ background: "rgba(11,15,26,0.95)" }}
-          >
-            <NavLink href="https://www.duupflow.com/#features" label="Fonctionnalités" onClick={() => setMenuOpen(false)} />
-            <NavLink href="/tarifs" label="Tarifs" onClick={() => setMenuOpen(false)} />
-            <NavLink href="/avantages" label="Avantages" onClick={() => setMenuOpen(false)} />
-            <NavLink href="/demo" label="Démo" onClick={() => setMenuOpen(false)} />
-            <NavLink href="https://www.duupflow.com/#faq" label="FAQ" onClick={() => setMenuOpen(false)} />
-            <div className="pt-2">
-              <Link
-                href="/register"
-                onClick={() => setMenuOpen(false)}
-                className="btn-glow block text-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
-              >
-                Commencer gratuitement
-              </Link>
-            </div>
-          </div>
-        )}
       </header>
+
+      {/* Mobile sidebar overlay */}
+      {menuOpen && (
+        <div className="md:hidden fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
+      )}
+
+      {/* Mobile sidebar — slides from right */}
+      <div
+        className={`md:hidden fixed top-0 right-0 bottom-0 z-[80] w-[65%] max-w-[280px] flex flex-col px-6 py-8 transition-transform duration-300 ease-out ${menuOpen ? "translate-x-0" : "translate-x-full"}`}
+        style={{ background: "rgba(8,12,30,0.97)", borderLeft: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <button onClick={() => setMenuOpen(false)} className="self-end mb-8 text-white/50 hover:text-white transition" aria-label="Fermer">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+        <nav className="flex flex-col gap-1">
+          <NavLink href="https://www.duupflow.com/#features" label="Fonctionnalités" onClick={() => setMenuOpen(false)} />
+          <NavLink href="/tarifs" label="Tarifs" onClick={() => setMenuOpen(false)} />
+          <NavLink href="/avantages" label="Avantages" onClick={() => setMenuOpen(false)} />
+          <NavLink href="/demo" label="Démo" onClick={() => setMenuOpen(false)} />
+          <NavLink href="https://www.duupflow.com/#faq" label="FAQ" onClick={() => setMenuOpen(false)} />
+        </nav>
+        <div className="mt-auto pt-6">
+          <Link
+            href="/register"
+            onClick={() => setMenuOpen(false)}
+            className="btn-glow block text-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
+          >
+            Commencer gratuitement
+          </Link>
+        </div>
+      </div>
     </>
   );
 }
