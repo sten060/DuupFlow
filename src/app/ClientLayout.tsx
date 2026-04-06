@@ -92,9 +92,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <Suspense fallback={null}>
         <AffiliateRefTracker />
       </Suspense>
-      {showHeader && <PromoBar />}
+      {showHeader && <div className="hidden md:block"><PromoBar /></div>}
       {showHeader && <Header />}
-      {showHeader && <div className="h-[calc(50px+4rem)] sm:h-[calc(50px+5rem)]" />}
+      {showHeader && <div className="h-16 md:h-[calc(50px+5rem)]" />}
       {children}
     </>
   );
