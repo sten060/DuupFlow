@@ -2,7 +2,10 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
+import dynamic from "next/dynamic";
 import Header from "@/components/Header";
+
+const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
 
 const PROMO_TEXT = "À l'occasion de la nouvelle version plus optimale de DuupFlow mise à jour récemment — Profite de -15% sur ton abonnement avec le code FLOW15";
 
@@ -61,6 +64,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
   const isAffiliatePage = pathname.startsWith("/affiliate") || pathname.startsWith("/admin");
   const showHeader = !isDashboard && !isAuthPage && !isAffiliatePage;
+  const isLanding = pathname === "/";
 
   return (
     <>
@@ -85,6 +89,29 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Dark overlay — bottom only */}
       <div className="fixed inset-0 -z-20 pointer-events-none"
         style={{ background: "linear-gradient(180deg, transparent 0%, transparent 40%, rgba(0,0,0,0.35) 60%, rgba(0,0,0,0.55) 100%)" }} />
+
+      {/* Light Pillar — fixed, full viewport, only on landing page */}
+      {isLanding && (
+        <div className="fixed inset-0 -z-10 pointer-events-none"
+          style={{
+            mask: "linear-gradient(180deg, black 0%, black 40%, transparent 70%)",
+            WebkitMask: "linear-gradient(180deg, black 0%, black 40%, transparent 70%)",
+          }}>
+          <LightPillar
+            topColor="#818CF8"
+            bottomColor="#6366F1"
+            intensity={0.6}
+            rotationSpeed={0.3}
+            glowAmount={0.004}
+            pillarWidth={3}
+            pillarHeight={0.4}
+            noiseIntensity={0.5}
+            pillarRotation={-35}
+            quality="high"
+            mixBlendMode="screen"
+          />
+        </div>
+      )}
 
       <Suspense fallback={null}>
         <AffiliateRefTracker />
