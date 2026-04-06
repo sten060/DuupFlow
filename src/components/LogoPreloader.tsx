@@ -16,10 +16,19 @@ export default function LogoPreloader({
   logoSize = 90,
   backgroundColor = "#060c1e",
 }: LogoPreloaderProps) {
-  // init → loading (logo slides up into view) → logoOut (logo slides up & fades) → done (unmount)
-  const [phase, setPhase] = useState<"init" | "loading" | "logoOut" | "done">("init");
+  // Skip if already seen this session
+  const [alreadySeen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("duupflow_preloader_seen") === "1";
+  });
+
+  const [phase, setPhase] = useState<"init" | "loading" | "logoOut" | "done">(
+    alreadySeen ? "done" : "init"
+  );
 
   useEffect(() => {
+    if (alreadySeen) return;
+    sessionStorage.setItem("duupflow_preloader_seen", "1");
     const t0 = setTimeout(() => setPhase("loading"), 50);
     const t1 = setTimeout(() => setPhase("logoOut"), duration * 1000 + 50);
     const t2 = setTimeout(() => setPhase("done"), duration * 1000 + 800);
@@ -28,7 +37,7 @@ export default function LogoPreloader({
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [duration]);
+  }, [duration, alreadySeen]);
 
   if (phase === "done") return null;
 
