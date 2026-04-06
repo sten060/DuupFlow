@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
+import LiquidGlass from "@/components/LiquidGlass";
 
 /* ─── tiny helpers ─── */
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
@@ -49,6 +50,49 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
 function Hero() {
   return (
     <section className="relative flex flex-col items-center text-center px-6 pt-6 sm:pt-12 pb-20 sm:pb-40 overflow-hidden">
+
+      {/* Liquid glass background */}
+      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
+        {/* Color blobs behind the glass — DuupFlow logo palette */}
+        <div className="absolute inset-0 overflow-hidden">
+          <style>{`
+            @keyframes lg-a{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(50px,-70px) scale(1.1)}66%{transform:translate(-40px,50px) scale(.93)}}
+            @keyframes lg-b{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-60px,40px) scale(1.15)}66%{transform:translate(40px,-50px) scale(.9)}}
+          `}</style>
+          <div className="absolute top-[-15%] left-[0%] w-[65vw] h-[65vw] max-w-[800px] max-h-[800px] rounded-full blur-[60px]"
+            style={{ background:"radial-gradient(circle,#1a3aab,transparent 70%)", animation:"lg-a 14s ease-in-out infinite" }} />
+          <div className="absolute top-[0%] right-[-10%] w-[55vw] h-[55vw] max-w-[700px] max-h-[700px] rounded-full blur-[50px]"
+            style={{ background:"radial-gradient(circle,#7c3aed,transparent 70%)", animation:"lg-b 18s ease-in-out infinite" }} />
+          <div className="absolute top-[20%] left-[20%] w-[50vw] h-[50vw] max-w-[650px] max-h-[650px] rounded-full blur-[70px]"
+            style={{ background:"radial-gradient(circle,#2d5ce8,transparent 70%)", animation:"lg-a 20s ease-in-out infinite 2s" }} />
+          <div className="absolute top-[-10%] left-[40%] w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] rounded-full blur-[45px]"
+            style={{ background:"radial-gradient(circle,rgba(112,176,248,0.8),transparent 70%)", animation:"lg-b 12s ease-in-out infinite 1s" }} />
+          <div className="absolute top-[10%] left-[55%] w-[45vw] h-[45vw] max-w-[550px] max-h-[550px] rounded-full blur-[60px]"
+            style={{ background:"radial-gradient(circle,rgba(99,102,241,0.9),transparent 70%)", animation:"lg-a 16s ease-in-out infinite 3s" }} />
+        </div>
+        {/* Glass refraction layer */}
+        <LiquidGlass
+          borderRadius={0}
+          borderWidth={0}
+          brightness={100}
+          glassOpacity={0.15}
+          blur={8}
+          displace={1.2}
+          liquidBlur={2}
+          backgroundOpacity={0.02}
+          saturation={1.2}
+          distortionScale={-120}
+          chromaAmount={4}
+          centerStability={0.3}
+          style={{ position:"absolute", inset:0, width:"100%", height:"100%" }}
+        />
+        {/* Fade to page background at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-[35%]"
+          style={{ background:"linear-gradient(to bottom, transparent, #040810)" }} />
+      </div>
+
+      {/* Content — above glass */}
+      <div className="relative" style={{ zIndex: 1 }}>
 
       {/* Social proof avatars */}
       <Reveal>
@@ -123,6 +167,7 @@ function Hero() {
           </div>
         </div>
       </Reveal>
+      </div>{/* close content z-1 wrapper */}
     </section>
   );
 }

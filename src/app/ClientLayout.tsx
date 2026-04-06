@@ -64,50 +64,30 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <>
-      {/* ── Background layers ── */}
-
-      {/* 1. Base: pure dark */}
-      <div className="fixed inset-0 pointer-events-none" style={{ zIndex: -30, background: "#040810" }} />
-
-      {/* 2. Animated liquid glass blobs (top half only) */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: -29 }}>
-        <style>{`
-          @keyframes liquid-a { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(40px,-60px) scale(1.08)} 66%{transform:translate(-30px,40px) scale(0.95)} }
-          @keyframes liquid-b { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(-50px,30px) scale(1.12)} 66%{transform:translate(30px,-40px) scale(0.92)} }
-        `}</style>
-        <div className="absolute top-[-10%] left-[5%] w-[55vw] h-[55vw] max-w-[700px] max-h-[700px] rounded-full blur-[80px]"
-          style={{ background: "radial-gradient(circle, #1a3aab 0%, transparent 70%)", animation: "liquid-a 14s ease-in-out infinite" }} />
-        <div className="absolute top-[5%] right-[0%] w-[50vw] h-[50vw] max-w-[650px] max-h-[650px] rounded-full blur-[70px]"
-          style={{ background: "radial-gradient(circle, #7c3aed 0%, transparent 70%)", animation: "liquid-b 17s ease-in-out infinite" }} />
-        <div className="absolute top-[15%] left-[25%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full blur-[90px]"
-          style={{ background: "radial-gradient(circle, #2d5ce8 0%, transparent 70%)", animation: "liquid-a 20s ease-in-out infinite 3s" }} />
-        <div className="absolute top-[-5%] left-[45%] w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] rounded-full blur-[60px]"
-          style={{ background: "radial-gradient(circle, rgba(112,176,248,0.7) 0%, transparent 70%)", animation: "liquid-b 12s ease-in-out infinite 1s" }} />
-        <div className="absolute top-[10%] left-[35%] w-[45vw] h-[45vw] max-w-[550px] max-h-[550px] rounded-full blur-[80px]"
-          style={{ background: "radial-gradient(circle, rgba(99,102,241,0.8) 0%, transparent 70%)", animation: "liquid-a 16s ease-in-out infinite 2s" }} />
-      </div>
-
-      {/* 3. Fade: blobs → dark at ~55%, then original gradient below */}
-      <div className="fixed inset-0 pointer-events-none" style={{
-        zIndex: -28,
-        background: "linear-gradient(180deg, transparent 0%, transparent 35%, #040810 55%, #060c1e 60%, #0c1c80 75%, #1535c0 85%, #2d6ae8 93%, #70b0f8 100%)",
-      }} />
-
-      {/* 4. Grid overlay (only visible from 50% down) */}
-      <div className="fixed inset-0 pointer-events-none" style={{
-        zIndex: -27,
-        backgroundImage:
-          "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
-        backgroundSize: "46px 46px",
-        mask: "linear-gradient(180deg, transparent 0%, transparent 40%, black 60%)",
-        WebkitMask: "linear-gradient(180deg, transparent 0%, transparent 40%, black 60%)",
-      }} />
-
-      {/* 5. Dark overlay (only from 50% down) */}
-      <div className="fixed inset-0 pointer-events-none" style={{
-        zIndex: -26,
-        background: "linear-gradient(180deg, transparent 0%, transparent 45%, rgba(0,0,0,0.35) 65%, rgba(0,0,0,0.55) 100%)",
-      }} />
+      {/* ── Fixed background: dark top (hero has its own liquid glass) + gradient bottom ── */}
+      <div
+        className="fixed inset-0 -z-20 pointer-events-none"
+        style={{
+          background: "linear-gradient(180deg, #040810 0%, #040810 35%, #060c1e 45%, #0c1c80 65%, #1535c0 78%, #2d6ae8 90%, #70b0f8 100%)",
+        }}
+      />
+      <div
+        className="fixed inset-0 -z-20 pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
+          backgroundSize: "46px 46px",
+          mask: "linear-gradient(180deg, transparent 0%, transparent 35%, black 55%)",
+          WebkitMask: "linear-gradient(180deg, transparent 0%, transparent 35%, black 55%)",
+        }}
+      />
+      {/* Dark overlay — only bottom half */}
+      <div
+        className="fixed inset-0 -z-20 pointer-events-none"
+        style={{
+          background: "linear-gradient(180deg, transparent 0%, transparent 40%, rgba(0,0,0,0.35) 60%, rgba(0,0,0,0.55) 100%)",
+        }}
+      />
 
       <Suspense fallback={null}>
         <AffiliateRefTracker />
