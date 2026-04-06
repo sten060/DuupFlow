@@ -23,18 +23,18 @@ function NavLink({ href, label }: { href: string; label: string }) {
 
 export default function Header() {
   return (
-    <header className="fixed top-11 left-0 right-0 z-50 backdrop-blur-md" style={{ background: "rgba(11,15,26,0.65)" }}>
+    <header className="fixed top-11 left-0 right-0 z-50 backdrop-blur-md" style={{ background: "rgba(11,15,26,0.2)" }}>
       <div
-        className="flex items-center justify-between px-6 sm:px-10 py-4 sm:py-5"
+        className="flex items-center justify-between px-6 sm:px-10 py-3 sm:py-4"
         style={{ maxWidth: "1280px", margin: "0 auto" }}
       >
         {/* Logo */}
         <Link href="/" className="shrink-0 flex items-center gap-2">
-          <Image src="/icon.png" alt="DuupFlow" width={120} height={40} className="h-7 sm:h-8 w-auto" />
+          <Image src="/icon.png" alt="DuupFlow" width={160} height={50} className="h-9 sm:h-11 w-auto" />
         </Link>
 
         {/* Nav — centered */}
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden md:flex items-center gap-3">
           <NavLink href="https://www.duupflow.com/#features" label="Fonctionnalités" />
           <NavLink href="/tarifs" label="Tarifs" />
           <NavLink href="/avantages" label="Avantages" />
@@ -44,8 +44,7 @@ export default function Header() {
         {/* CTA */}
         <Link
           href="/register"
-          className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-          style={{ background: "#4F46E5" }}
+          className="btn-glow inline-flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold text-white"
         >
           Commencer
         </Link>

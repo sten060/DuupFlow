@@ -48,17 +48,17 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-8 sm:pt-16 pb-20 sm:pb-40 overflow-hidden">
+    <section className="relative flex flex-col items-center text-center px-6 pt-6 sm:pt-12 pb-20 sm:pb-40 overflow-hidden">
 
       {/* Social proof avatars */}
       <Reveal>
-        <div className="flex items-center gap-3 mb-8 sm:mb-10">
+        <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-10">
           <div className="flex -space-x-2.5">
             {["/testimonials/_ (1).jpeg", "/testimonials/_ (2).jpeg", "/testimonials/_ (3).jpeg", "/testimonials/_ (4).jpeg"].map((src, i) => (
-              <img key={i} src={src} alt="" className="h-8 w-8 sm:h-9 sm:w-9 rounded-full border-2 border-[#0B0F1A] object-cover" />
+              <img key={i} src={src} alt="" className="h-6 w-6 sm:h-9 sm:w-9 rounded-full border-2 border-[#0B0F1A] object-cover" />
             ))}
           </div>
-          <p className="text-sm sm:text-base text-white/60">
+          <p className="text-xs sm:text-base text-white/60">
             Rejoins <span className="text-white font-semibold">500+</span> agences satisfaites
           </p>
         </div>
@@ -75,8 +75,8 @@ function Hero() {
       {/* Subtitle */}
       <Reveal delay={160}>
         <p className="max-w-2xl text-white/45 text-base sm:text-lg leading-relaxed mb-8 sm:mb-10">
-          Chaque copie est unique et indétectable par les algorithmes des plateformes.
-          Conçu pour les agences qui veulent scaler leur production de contenu.
+          <span className="sm:hidden">Chaque copie unique — indétectable par les plateformes.</span>
+          <span className="hidden sm:inline">Chaque copie est unique et indétectable par les algorithmes des plateformes. Conçu pour les agences qui veulent scaler leur production de contenu.</span>
         </p>
       </Reveal>
 
@@ -84,8 +84,7 @@ function Hero() {
       <Reveal delay={240}>
         <div className="flex flex-row gap-3 sm:gap-4 mb-16 sm:mb-24 justify-center">
           <Link href="/register"
-            className="slide-btn slide-btn-primary inline-flex items-center gap-2 rounded-xl px-7 sm:px-9 py-3 sm:py-3.5 font-semibold text-white text-sm sm:text-base transition-shadow hover:shadow-[0_8px_40px_rgba(79,70,229,0.5)]"
-            style={{ background: "#4F46E5" }}>
+            className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 sm:px-9 py-3 sm:py-3.5 font-semibold text-white text-sm sm:text-base">
             Commencer gratuitement
           </Link>
           <Link href="/demo"
@@ -103,13 +102,21 @@ function Hero() {
             .marquee-platforms { animation: marquee-platforms 30s linear infinite; }
           `}</style>
 
-          <div className="marquee-platforms flex items-center gap-20 sm:gap-28 w-max">
+          <div className="marquee-platforms flex items-center gap-16 sm:gap-24 w-max">
             {[...Array(2)].map((_, dup) => (
-              <div key={dup} className="flex items-center gap-20 sm:gap-28">
-                {["Instagram", "TikTok", "Reddit", "Threads", "X", "YouTube Shorts"].map((name) => (
-                  <span key={name} className="text-2xl sm:text-3xl font-semibold text-white/25 whitespace-nowrap tracking-tight">
-                    {name}
-                  </span>
+              <div key={dup} className="flex items-center gap-16 sm:gap-24">
+                {[
+                  { name: "Instagram", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 01-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 017.8 2zm-.2 2A3.6 3.6 0 004 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 003.6-3.6V7.6C20 5.61 18.39 4 16.4 4H7.6zm9.65 1.5a1.25 1.25 0 110 2.5 1.25 1.25 0 010-2.5zM12 7a5 5 0 110 10 5 5 0 010-10zm0 2a3 3 0 100 6 3 3 0 000-6z"/></svg> },
+                  { name: "TikTok", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.17a8.16 8.16 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.6z"/></svg> },
+                  { name: "Reddit", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5.8 11.33c.02.16.03.33.03.5 0 2.55-2.97 4.63-6.63 4.63s-6.63-2.07-6.63-4.63c0-.17.01-.33.03-.5a1.45 1.45 0 01-.53-1.11 1.45 1.45 0 012.47-1.05 7.2 7.2 0 013.95-1.24l.74-3.49a.3.3 0 01.35-.24l2.49.53a1.04 1.04 0 011.96.47 1.04 1.04 0 01-1.85.66l-2.14-.45-.65 3.05a7.13 7.13 0 013.87 1.23 1.45 1.45 0 012.47 1.05c0 .42-.2.8-.53 1.09zM9.5 13a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zm5 0a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5z"/></svg> },
+                  { name: "Threads", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 192 192" fill="currentColor"><path d="M141.537 88.988a66.667 66.667 0 00-2.518-1.143c-1.482-27.307-16.403-42.94-41.457-43.1h-.34c-14.986 0-27.449 6.396-35.12 18.036l13.779 9.452c5.737-8.706 14.612-10.586 21.341-10.586h.232c8.24.054 14.466 2.452 18.51 7.13 2.96 3.424 4.948 8.174 5.956 14.218a86.34 86.34 0 00-24.478-2.636c-25.544 0-41.972 13.462-41.46 33.977.262 10.48 5.282 19.544 14.13 25.518 7.504 5.063 17.16 7.58 27.2 7.1 13.256-.63 23.636-5.468 30.862-14.372 5.484-6.756 8.926-15.378 10.372-26.076 6.214 3.746 10.822 8.694 13.396 14.768 4.258 10.048 4.508 26.542-7.846 38.878-10.834 10.82-23.862 15.502-43.622 15.666-21.852-.182-38.354-7.152-49.074-20.73C40.84 142.562 35.25 122.282 35.058 98c.192-24.282 5.782-44.562 16.616-60.276C62.394 24.146 78.896 17.176 100.748 16.994c22.02.186 38.742 7.19 49.698 20.834 5.398 6.726 9.484 14.876 12.2 24.276l15.022-4.082c-3.222-11.108-8.132-20.834-14.708-29.024C149.422 12.464 128.994 4.262 100.844 4.044h-.192C72.626 4.26 52.378 12.502 38.84 29.142 23.704 48.024 15.988 74.084 15.76 98.046l-.004.108c.228 23.962 7.944 50.022 23.08 68.904C52.378 183.698 72.626 191.94 100.652 192.156h.192c24.312-.186 42.082-6.776 57.532-21.36 20.588-19.432 19.78-43.586 13.792-57.608-4.292-10.064-12.396-18.246-23.631-23.2zM99.522 149.198c-15.832.756-31.894-6.29-32.372-20.386-.34-10.076 7.18-21.274 28.598-21.274a76.376 76.376 0 0121.022 2.946c-2.394 27.944-17.248 38.714-17.248 38.714z"/></svg> },
+                  { name: "X", icon: <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> },
+                  { name: "YouTube", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg> },
+                ].map((p) => (
+                  <div key={p.name} className="flex items-center gap-2.5 text-white/25 shrink-0">
+                    {p.icon}
+                    <span className="text-xl sm:text-2xl font-semibold whitespace-nowrap tracking-tight">{p.name}</span>
+                  </div>
                 ))}
               </div>
             ))}
@@ -133,7 +140,7 @@ function ProblemSolution() {
             {/* LEFT — stacked Problem + Solution cards */}
             <div className="space-y-4">
               {/* Problem */}
-              <div className="rounded-2xl border border-red-500/25 p-5" style={{ background: "rgba(30,5,5,0.70)" }}>
+              <div className="rounded-xl border border-red-500/25 p-5" style={{ background: "rgba(30,5,5,0.70)" }}>
                 <div className="flex items-center gap-3 mb-5">
                   <div className="h-9 w-9 rounded-xl bg-red-500/15 border border-red-500/25 flex items-center justify-center">
                     <svg className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -154,7 +161,7 @@ function ProblemSolution() {
               </div>
 
               {/* Solution */}
-              <div className="rounded-2xl border border-indigo-500/25 p-5" style={{ background: "rgba(5,8,40,0.75)" }}>
+              <div className="rounded-xl border border-indigo-500/25 p-5" style={{ background: "rgba(5,8,40,0.75)" }}>
                 <div className="flex items-center gap-3 mb-5">
                   <div className="h-9 w-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
                     <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -224,42 +231,26 @@ const TAB_IDS = TABS.map((t) => t.id);
 const TAB_DURATION = 4000;
 const TICK = 50;
 
+/* ── Compact mockups for horizontal scroller cards ── */
 function MockupDuplication() {
   const copies = [
-    { name: "DuupFlow_dup1_47.jpg", type: "Image", size: "2.4 MB", color: "border-fuchsia-500/30 bg-fuchsia-500/[0.08]" },
-    { name: "DuupFlow_dup2_83.mp4", type: "Vidéo", size: "18.7 MB", color: "border-indigo-500/30 bg-indigo-500/[0.08]" },
-    { name: "DuupFlow_dup3_12.jpg", type: "Image", size: "2.4 MB", color: "border-pink-500/30 bg-pink-500/[0.08]" },
-    { name: "DuupFlow_dup4_55.mp4", type: "Vidéo", size: "18.7 MB", color: "border-violet-500/30 bg-violet-500/[0.08]" },
+    { name: "DuupFlow_dup1_47.jpg", type: "Image", size: "2.4 MB" },
+    { name: "DuupFlow_dup2_83.mp4", type: "Vidéo", size: "18.7 MB" },
+    { name: "DuupFlow_dup3_12.jpg", type: "Image", size: "2.4 MB" },
   ];
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-xs text-white/50">4 copies générées</span>
-        </div>
-        <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-medium">Images & Vidéos</span>
+    <div className="space-y-2.5 text-xs">
+      <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2.5 flex items-center gap-2.5">
+        <span className="text-base">📁</span>
+        <div className="flex-1 min-w-0"><p className="text-white/70 font-medium truncate">contenu_source</p><p className="text-[10px] text-white/30">Fichier source</p></div>
+        <span className="px-2 py-0.5 rounded border border-white/10 bg-white/[0.04] text-white/40 text-[10px]">Source</span>
       </div>
-      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 flex items-center gap-3">
-        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-500/20 to-sky-500/20 flex items-center justify-center text-lg">📁</div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-white/80 font-medium truncate">contenu_source</p>
-          <p className="text-xs text-white/35">Fichier source · Image ou Vidéo</p>
-        </div>
-        <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/50">Source</span>
-      </div>
-      <div className="flex justify-center py-1">
-        <svg className="h-5 w-5 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
-      </div>
+      <div className="flex justify-center"><svg className="h-4 w-4 text-white/15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12l7 7 7-7" /></svg></div>
       {copies.map((f) => (
-        <div key={f.name} className={`rounded-xl border p-3 flex items-center gap-3 ${f.color}`}>
-          <div className="h-10 w-10 rounded-lg bg-white/[0.08] flex items-center justify-center text-sm">{f.type === "Image" ? "🖼️" : "🎬"}</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-white/70 font-mono truncate">{f.name}</p>
-            <p className="text-xs text-white/35">Métadonnées uniques · {f.size}</p>
-          </div>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/[0.06] text-white/40 border border-white/10">{f.type}</span>
-          <svg className="h-4 w-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
+        <div key={f.name} className="rounded-lg border border-indigo-500/20 bg-indigo-500/[0.04] px-3 py-2.5 flex items-center gap-2.5">
+          <span className="text-base">{f.type === "Image" ? "🖼️" : "🎬"}</span>
+          <div className="flex-1 min-w-0"><p className="text-white/60 font-mono truncate text-[11px]">{f.name}</p><p className="text-[10px] text-white/25">Métadonnées uniques · {f.size}</p></div>
+          <svg className="h-3.5 w-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
         </div>
       ))}
     </div>
@@ -268,24 +259,23 @@ function MockupDuplication() {
 
 function MockupInvisible() {
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-        <p className="text-xs text-white/40 font-mono mb-1">Original Hash</p>
-        <p className="text-sm text-amber-300 font-mono">a7f3e2d1c4b8...9f0a6e3d</p>
+    <div className="space-y-3 text-xs">
+      <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2.5">
+        <p className="text-[10px] text-white/30 font-mono mb-0.5">Original Hash</p>
+        <p className="text-indigo-300 font-mono text-[11px]">a7f3e2d1c4b8...9f0a6e3d</p>
       </div>
       <div className="flex justify-center">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-indigo-500/30 bg-indigo-500/[0.10]">
-          <span className="text-sm">✨</span>
-          <span className="text-xs font-semibold text-indigo-300">Pixel magique</span>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/[0.10]">
+          <span className="text-xs">✨</span><span className="text-[11px] font-semibold text-indigo-300">Pixel magique</span>
         </div>
       </div>
-      <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] p-4">
-        <p className="text-xs text-white/40 font-mono mb-1">Modified Hash</p>
-        <p className="text-sm text-emerald-300 font-mono">9b2e8f4a7c1d...3b5d2e8f</p>
+      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2.5">
+        <p className="text-[10px] text-white/30 font-mono mb-0.5">Modified Hash</p>
+        <p className="text-emerald-300 font-mono text-[11px]">9b2e8f4a7c1d...3b5d2e8f</p>
       </div>
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 text-center">
-        <p className="text-sm text-white/70 font-medium mb-1">Visuellement identique</p>
-        <p className="text-xs text-white/40">Le contenu visuel ne change pas. Seule l&apos;empreinte numérique est modifiée.</p>
+      <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-center">
+        <p className="text-white/60 font-medium text-[11px] mb-0.5">Visuellement identique</p>
+        <p className="text-[10px] text-white/30">Le contenu visuel ne change pas. Seule l&apos;empreinte est modifiée.</p>
       </div>
     </div>
   );
@@ -299,21 +289,21 @@ function MockupPriority() {
     { key: "Location", value: "Paris, France" },
   ];
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="h-8 w-8 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
-          <svg className="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+    <div className="space-y-2.5 text-xs">
+      <div className="flex items-center gap-2 mb-1">
+        <div className="h-6 w-6 rounded-md bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
+          <svg className="h-3 w-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
         </div>
-        <span className="text-xs font-semibold text-amber-300">Métadonnées iPhone injectées</span>
+        <span className="text-[11px] font-semibold text-indigo-300">Métadonnées iPhone injectées</span>
       </div>
       {fields.map((f) => (
-        <div key={f.key} className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 flex items-center justify-between">
-          <span className="text-xs text-white/40 font-mono">{f.key}</span>
-          <span className="text-xs text-emerald-300 font-mono">{f.value}</span>
+        <div key={f.key} className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 flex items-center justify-between">
+          <span className="text-white/35 font-mono text-[11px]">{f.key}</span>
+          <span className="text-indigo-300 font-mono text-[11px]">{f.value}</span>
         </div>
       ))}
-      <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/[0.06] p-3 text-center">
-        <p className="text-xs text-indigo-300">L&apos;algorithme traite votre contenu comme un vrai iPhone</p>
+      <div className="rounded-lg border border-indigo-500/15 bg-indigo-500/[0.04] px-3 py-2 text-center">
+        <p className="text-[10px] text-indigo-300/70">L&apos;algorithme traite votre contenu comme un vrai iPhone</p>
       </div>
     </div>
   );
@@ -321,26 +311,20 @@ function MockupPriority() {
 
 function MockupAI() {
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-4">
-        <p className="text-xs text-amber-400 font-medium mb-3 flex items-center gap-1.5"><span>⚡</span> Signature IA détectée</p>
-        <div className="space-y-2">
-          {[["Software", "Midjourney v6.1"], ["Artist", "Midjourney Bot"], ["Creator", "midjourney.com"], ["DigitalSourceType", "trainedAlgorithmicMedia"]].map(([k, v]) => (
-            <div key={k} className="flex justify-between text-xs">
-              <span className="text-white/40 font-mono">{k}</span>
-              <span className="text-amber-300 font-mono">{v}</span>
-            </div>
+    <div className="space-y-3 text-xs">
+      <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-3 py-3">
+        <p className="text-[10px] text-amber-400 font-medium mb-2 flex items-center gap-1"><span>⚡</span> Signature IA détectée</p>
+        <div className="space-y-1.5">
+          {[["Software", "Midjourney v6.1"], ["Artist", "Midjourney Bot"], ["Creator", "midjourney.com"]].map(([k, v]) => (
+            <div key={k} className="flex justify-between"><span className="text-white/35 font-mono text-[11px]">{k}</span><span className="text-amber-300/80 font-mono text-[11px]">{v}</span></div>
           ))}
         </div>
       </div>
-      <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] p-4">
-        <p className="text-xs text-emerald-400 font-medium mb-3 flex items-center gap-1.5"><span>🛡️</span> Signature IA effacée</p>
-        <div className="space-y-2">
-          {[["Software", "Adobe Lightroom 7.2"], ["Make", "Sony"], ["Model", "A7 IV"], ["Artist", "Sophie Renaud"]].map(([k, v]) => (
-            <div key={k} className="flex justify-between text-xs">
-              <span className="text-white/40 font-mono">{k}</span>
-              <span className="text-emerald-300 font-mono">{v}</span>
-            </div>
+      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-3">
+        <p className="text-[10px] text-emerald-400 font-medium mb-2 flex items-center gap-1"><span>🛡️</span> Signature IA effacée</p>
+        <div className="space-y-1.5">
+          {[["Software", "Adobe Lightroom 7.2"], ["Make", "Sony"], ["Model", "A7 IV"]].map(([k, v]) => (
+            <div key={k} className="flex justify-between"><span className="text-white/35 font-mono text-[11px]">{k}</span><span className="text-emerald-300/80 font-mono text-[11px]">{v}</span></div>
           ))}
         </div>
       </div>
@@ -414,6 +398,130 @@ function FeatureTabs() {
             className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3 font-medium text-sm text-white/75 hover:text-white hover:bg-white/[0.08] transition">
             Voir la démo →
           </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+ * SECTION 3b — HORIZONTAL SCROLLER (replaces FeatureTabs)
+ * ═══════════════════════════════════════════════════════ */
+const GLOW = "text-[#5B7BFF]";
+const GS = { textShadow: "0 0 25px rgba(91,123,255,0.5)" };
+
+const SCROLLER_CARDS = [
+  {
+    title: <><span className={GLOW} style={GS}>Duplication</span> Images &amp; Vidéos</>,
+    desc: "Dupliquez vos images et vidéos en masse. Chaque copie est unique — métadonnées, empreinte technique, hash. Indétectable par les plateformes.",
+    accent: "#6366F1",
+  },
+  {
+    title: <>Modification <span className={GLOW} style={GS}>Invisible</span></>,
+    desc: "Modifiez l'empreinte numérique sans toucher au visuel. Pixel magique change le hash de chaque fichier tout en gardant le contenu visuellement identique.",
+    accent: "#6366F1",
+  },
+  {
+    title: <><span className={GLOW} style={GS}>Priorité</span> d&apos;algorithme</>,
+    desc: "Localisez votre contenu et injectez des métadonnées iPhone authentiques. L'algorithme pense que votre contenu vient d'un appareil réel.",
+    accent: "#6366F1",
+  },
+  {
+    title: <>Détection <span className={GLOW} style={GS}>IA</span></>,
+    desc: "Effacez la signature IA de vos contenus. Remplacez les métadonnées Midjourney, DALL-E, Stable Diffusion par une identité humaine réaliste.",
+    accent: "#6366F1",
+    badge: "NEW",
+  },
+];
+
+function FeaturesScroller() {
+  const stickyRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [scrollX, setScrollX] = useState(0);
+
+  useEffect(() => {
+    const container = stickyRef.current;
+    if (!container) return;
+    const onScroll = () => {
+      const rect = container.getBoundingClientRect();
+      const stickyTop = 0;
+      // How far the container has scrolled past the top
+      const scrolled = stickyTop - rect.top;
+      const maxScroll = container.offsetHeight - window.innerHeight;
+      const progress = Math.max(0, Math.min(1, scrolled / maxScroll));
+      const track = trackRef.current;
+      if (track) {
+        // Find the last card and calculate how far to scroll so it centers
+        const lastCard = track.lastElementChild as HTMLElement | null;
+        const cardWidth = lastCard?.offsetWidth ?? 0;
+        // Stop when the last card is centered: its left edge should be at (viewport - cardWidth) / 2
+        const maxX = track.scrollWidth - cardWidth - (window.innerWidth - cardWidth) / 2;
+        setScrollX(progress * Math.max(0, maxX));
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const cards = SCROLLER_CARDS;
+  // Height = 100vh per card + 200vh extra so last card centers before unsticking
+  const stickyHeight = `${(cards.length + 2) * 100}vh`;
+
+  return (
+    <section ref={stickyRef} className="relative" style={{ height: stickyHeight }}>
+      <div className="sticky top-0 h-screen overflow-hidden flex flex-col justify-center">
+        {/* Title with curtain reveal */}
+        <Reveal>
+          <div className="px-6 sm:px-12 mb-20">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-white tracking-tight mb-4 leading-[1.1]">
+              Augmentez le <span className="text-[#5B7BFF]" style={{ textShadow: "0 0 30px rgba(91,123,255,0.5)" }}>volume</span>, performez,<br className="hidden sm:block" /> sans perte de <span className="text-[#5B7BFF]" style={{ textShadow: "0 0 30px rgba(91,123,255,0.5)" }}>qualité</span>
+            </h2>
+            <p className="text-white/40 text-sm sm:text-lg max-w-2xl">
+              Tous les outils dont vous avez besoin pour scaler votre production de contenu.
+            </p>
+          </div>
+        </Reveal>
+
+        {/* Horizontal track */}
+        <div
+          ref={trackRef}
+          className="flex gap-[12vw] will-change-transform"
+          style={{ transform: `translateX(calc(50vw - 35vw - ${scrollX}px))` }}
+        >
+          {cards.map((card, i) => (
+            <div
+              key={card.title}
+              className="shrink-0 w-[88vw] sm:w-[78vw] md:w-[70vw] rounded-md border border-white/[0.08] overflow-hidden"
+              style={{ background: "rgba(8,12,35,0.6)" }}
+            >
+              <div className="grid md:grid-cols-[1fr_1.2fr]">
+                {/* Left — text */}
+                <div className="p-6 sm:p-8">
+                  <div className="flex items-center gap-2 mb-3">
+                    <h3 className="text-xl sm:text-2xl font-semibold text-white">{card.title}</h3>
+                    {"badge" in card && card.badge && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/25 font-semibold">
+                        {card.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm sm:text-base text-white/50 leading-relaxed mb-6">{card.desc}</p>
+                  <Link
+                    href="/register"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition"
+                  >
+                    Essayer maintenant →
+                  </Link>
+                </div>
+                {/* Right — mockup */}
+                <div className="p-6 sm:p-8 flex items-center">
+                  <div className="w-full">
+                    {MOCKUPS[["duplication", "invisible", "priority", "ai"][i]]}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -812,8 +920,7 @@ function CoreFeaturesAlt() {
         <Reveal>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-6 pb-8">
             <Link href="/register"
-              className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
-              style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
+              className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm">
               Commencer maintenant →
             </Link>
             <Link href="/demo"
@@ -935,8 +1042,7 @@ function CTABanner() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 relative">
               <Link href="/register"
-                className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
-                style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
+                className="btn-glow inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm">
                 Commencer maintenant →
               </Link>
               <Link href="/demo"
@@ -994,18 +1100,7 @@ export default function LandingPage() {
         <div className="h-px bg-white/[0.12]" />
       </div>
       <ProblemSolution />
-      <div className="max-w-5xl mx-auto px-6">
-        <div className="h-px bg-white/[0.12]" />
-      </div>
-      <Reveal>
-        <div className="text-center py-12">
-          <p className="text-lg sm:text-xl font-semibold text-white/80">Augmentez le volume, performez, sans perte de qualité</p>
-        </div>
-      </Reveal>
-      <FeatureTabs />
-      <div className="max-w-5xl mx-auto px-6">
-        <div className="h-px bg-white/[0.12]" />
-      </div>
+      <FeaturesScroller />
       <CoreFeaturesAlt />
       <StatsBanner />
       <FAQ />
