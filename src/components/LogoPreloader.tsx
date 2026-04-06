@@ -67,7 +67,7 @@ export default function LogoPreloader({
         justifyContent: "center",
         transition: "opacity 0.7s cubic-bezier(.7,.2,.2,1)",
         opacity: bgOpacity,
-        pointerEvents: phase === "done" ? "none" : "all",
+        pointerEvents: "all",
         zIndex: 99999,
         overflow: "hidden",
       }}
