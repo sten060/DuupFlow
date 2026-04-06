@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
+
+const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
 
 /* ─── tiny helpers ─── */
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
@@ -48,7 +51,32 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-6 sm:pt-12 pb-20 sm:pb-40 overflow-hidden">
+    <section className="relative flex flex-col items-center text-center px-6 pt-6 sm:pt-12 pb-20 sm:pb-40 overflow-x-hidden">
+
+      {/* Light Pillar WebGL background — extends above hero to cover header area */}
+      <div className="absolute left-0 right-0 bottom-0 pointer-events-none"
+        style={{
+          top: "-10rem",
+          mask: "linear-gradient(180deg, black 0%, black 60%, transparent 100%)",
+          WebkitMask: "linear-gradient(180deg, black 0%, black 60%, transparent 100%)",
+        }}>
+        <LightPillar
+          topColor="#818CF8"
+          bottomColor="#6366F1"
+          intensity={0.6}
+          rotationSpeed={0.3}
+          glowAmount={0.004}
+          pillarWidth={3}
+          pillarHeight={0.4}
+          noiseIntensity={0.5}
+          pillarRotation={-35}
+          quality="high"
+          mixBlendMode="screen"
+        />
+      </div>
+
+      {/* Hero content — z-10 to sit above LightPillar */}
+      <div className="relative z-10 flex flex-col items-center w-full">
 
       {/* Social proof avatars */}
       <Reveal>
@@ -123,6 +151,8 @@ function Hero() {
           </div>
         </div>
       </Reveal>
+
+      </div>{/* end hero content wrapper */}
     </section>
   );
 }

@@ -2,10 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
-import dynamic from "next/dynamic";
 import Header from "@/components/Header";
-
-const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
 
 const PROMO_TEXT = "À l'occasion de la nouvelle version plus optimale de DuupFlow mise à jour récemment — Profite de -15% sur ton abonnement avec le code FLOW15";
 
@@ -72,26 +69,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Base: dark background everywhere */}
       <div className="fixed inset-0 -z-20 pointer-events-none" style={{ background: "#060c1e" }} />
 
-      {/* Hero animated background — WebGL Light Pillar (top section only) */}
-      <div className="fixed inset-0 -z-20 pointer-events-none overflow-hidden"
-        style={{
-          mask: "linear-gradient(180deg, black 0%, black 30%, transparent 55%)",
-          WebkitMask: "linear-gradient(180deg, black 0%, black 30%, transparent 55%)",
-        }}>
-        <LightPillar
-          topColor="#5227FF"
-          bottomColor="#FF9FFC"
-          intensity={1}
-          rotationSpeed={0.3}
-          glowAmount={0.005}
-          pillarWidth={3}
-          pillarHeight={0.4}
-          noiseIntensity={0.5}
-          quality="high"
-        />
-      </div>
-
-      {/* Gradient: blobs fade into original gradient at ~50% */}
+      {/* Gradient: background gradient */}
       <div className="fixed inset-0 -z-20 pointer-events-none"
         style={{ background: "linear-gradient(180deg, transparent 0%, transparent 30%, #060c1e 50%, #0c1c80 68%, #1535c0 80%, #2d6ae8 92%, #70b0f8 100%)" }} />
 
