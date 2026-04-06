@@ -48,6 +48,7 @@ export default function Header() {
             <NavLink href="/tarifs" label="Tarifs" />
             <NavLink href="/avantages" label="Avantages" />
             <NavLink href="https://www.duupflow.com/#faq" label="FAQ" />
+            <NavLink href="/how-it-works" label="Comment ça marche" />
           </nav>
 
           <div className="flex items-center gap-2">
@@ -94,6 +95,7 @@ export default function Header() {
           <NavLink href="/avantages" label="Avantages" onClick={() => setMenuOpen(false)} />
           <NavLink href="/demo" label="Démo" onClick={() => setMenuOpen(false)} />
           <NavLink href="https://www.duupflow.com/#faq" label="FAQ" onClick={() => setMenuOpen(false)} />
+          <NavLink href="/how-it-works" label="Comment ça marche" onClick={() => setMenuOpen(false)} />
         </nav>
         <div className="mt-auto pt-6">
           <Link

@@ -66,8 +66,8 @@ function Hero() {
 
       {/* Main heading — large, elegant, light weight like LanX */}
       <Reveal delay={80}>
-        <h1 className="max-w-5xl text-[2.5rem] sm:text-[3.5rem] md:text-[5rem] font-semibold leading-[1.08] tracking-[-0.03em] text-white/90 mb-6 sm:mb-7">
-          Le seul outil pour dupliquer<br className="hidden sm:block" />
+        <h1 className="max-w-5xl text-[2.5rem] sm:text-[3.5rem] md:text-[5rem] font-light leading-[1.08] tracking-[-0.02em] text-white/90 mb-6 sm:mb-7">
+          Le seul outil pour dupliquer{" "}<br className="hidden sm:block" />
           ton contenu <span className={G}>en illimité</span>
         </h1>
       </Reveal>
