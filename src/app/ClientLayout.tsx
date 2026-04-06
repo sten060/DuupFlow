@@ -69,22 +69,33 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Base: dark background everywhere */}
       <div className="fixed inset-0 -z-20 pointer-events-none" style={{ background: "#060c1e" }} />
 
-      {/* Animated blobs — covers full viewport including behind header */}
+      {/* Hero animated background — liquid pink/purple/magenta effect */}
       <div className="fixed inset-0 -z-20 pointer-events-none overflow-hidden">
         <style>{`
-          @keyframes lg-a{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(50px,-70px) scale(1.1)}66%{transform:translate(-40px,50px) scale(.93)}}
-          @keyframes lg-b{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-60px,40px) scale(1.15)}66%{transform:translate(40px,-50px) scale(.9)}}
+          @keyframes hero-spin{0%{transform:rotate(0deg) scale(1.5)}100%{transform:rotate(360deg) scale(1.5)}}
+          @keyframes hero-drift-a{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(60px,-80px) scale(1.15)}66%{transform:translate(-50px,60px) scale(.9)}}
+          @keyframes hero-drift-b{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-70px,50px) scale(1.2)}66%{transform:translate(50px,-60px) scale(.85)}}
         `}</style>
-        <div className="absolute top-[-15%] left-[0%] w-[65vw] h-[65vw] max-w-[800px] max-h-[800px] rounded-full blur-[80px]"
-          style={{ background:"radial-gradient(circle,#1a3aab,transparent 70%)", animation:"lg-a 14s ease-in-out infinite" }} />
-        <div className="absolute top-[0%] right-[-10%] w-[55vw] h-[55vw] max-w-[700px] max-h-[700px] rounded-full blur-[70px]"
-          style={{ background:"radial-gradient(circle,#7c3aed,transparent 70%)", animation:"lg-b 18s ease-in-out infinite" }} />
-        <div className="absolute top-[20%] left-[20%] w-[50vw] h-[50vw] max-w-[650px] max-h-[650px] rounded-full blur-[90px]"
-          style={{ background:"radial-gradient(circle,#2d5ce8,transparent 70%)", animation:"lg-a 20s ease-in-out infinite 2s" }} />
-        <div className="absolute top-[-10%] left-[40%] w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] rounded-full blur-[60px]"
-          style={{ background:"radial-gradient(circle,rgba(112,176,248,0.8),transparent 70%)", animation:"lg-b 12s ease-in-out infinite 1s" }} />
-        <div className="absolute top-[10%] left-[55%] w-[45vw] h-[45vw] max-w-[550px] max-h-[550px] rounded-full blur-[80px]"
-          style={{ background:"radial-gradient(circle,rgba(99,102,241,0.9),transparent 70%)", animation:"lg-a 16s ease-in-out infinite 3s" }} />
+        {/* Slowly rotating conic gradient — creates the streaked liquid bands */}
+        <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%]"
+          style={{
+            background: "conic-gradient(from 0deg at 50% 50%, #000 0deg, #ff1493 50deg, #000 100deg, #8b00ff 150deg, #ff00ff 200deg, #000 250deg, #d946ef 300deg, #000 360deg)",
+            animation: "hero-spin 25s linear infinite",
+            filter: "blur(60px)",
+            opacity: 0.85,
+          }} />
+        {/* Pink glow overlay */}
+        <div className="absolute top-[-10%] left-[5%] w-[60vw] h-[60vw] max-w-[750px] max-h-[750px] rounded-full"
+          style={{ background:"radial-gradient(circle, rgba(255,20,147,0.7), transparent 60%)", filter:"blur(70px)", animation:"hero-drift-a 18s ease-in-out infinite" }} />
+        {/* Purple glow overlay */}
+        <div className="absolute top-[5%] right-[-5%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full"
+          style={{ background:"radial-gradient(circle, rgba(139,0,255,0.6), transparent 55%)", filter:"blur(80px)", animation:"hero-drift-b 22s ease-in-out infinite 2s" }} />
+        {/* White/bright intersection highlight */}
+        <div className="absolute top-[0%] left-[25%] w-[35vw] h-[35vw] max-w-[420px] max-h-[420px] rounded-full"
+          style={{ background:"radial-gradient(circle, rgba(255,255,255,0.4), transparent 50%)", filter:"blur(40px)", animation:"hero-drift-a 15s ease-in-out infinite 3s", mixBlendMode:"overlay" }} />
+        {/* Magenta accent blob */}
+        <div className="absolute top-[15%] left-[45%] w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] rounded-full"
+          style={{ background:"radial-gradient(circle, rgba(236,72,153,0.5), transparent 55%)", filter:"blur(75px)", animation:"hero-drift-b 20s ease-in-out infinite 4s" }} />
       </div>
 
       {/* Gradient: blobs fade into original gradient at ~50% */}
