@@ -451,7 +451,8 @@ function FeaturesScroller() {
       const progress = Math.max(0, Math.min(1, scrolled / maxScroll));
       const track = trackRef.current;
       if (track) {
-        const totalWidth = track.scrollWidth - window.innerWidth;
+        // Subtract only half the viewport so the last card can center on screen
+        const totalWidth = track.scrollWidth - window.innerWidth * 0.5;
         setScrollX(progress * totalWidth);
       }
     };
