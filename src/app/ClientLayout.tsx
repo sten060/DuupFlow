@@ -2,7 +2,10 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
+import dynamic from "next/dynamic";
 import Header from "@/components/Header";
+
+const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
 
 const PROMO_TEXT = "À l'occasion de la nouvelle version plus optimale de DuupFlow mise à jour récemment — Profite de -15% sur ton abonnement avec le code FLOW15";
 
@@ -69,22 +72,23 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Base: dark background everywhere */}
       <div className="fixed inset-0 -z-20 pointer-events-none" style={{ background: "#060c1e" }} />
 
-      {/* Animated blobs — covers full viewport including behind header */}
-      <div className="fixed inset-0 -z-20 pointer-events-none overflow-hidden">
-        <style>{`
-          @keyframes lg-a{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(50px,-70px) scale(1.1)}66%{transform:translate(-40px,50px) scale(.93)}}
-          @keyframes lg-b{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-60px,40px) scale(1.15)}66%{transform:translate(40px,-50px) scale(.9)}}
-        `}</style>
-        <div className="absolute top-[-15%] left-[0%] w-[65vw] h-[65vw] max-w-[800px] max-h-[800px] rounded-full blur-[80px]"
-          style={{ background:"radial-gradient(circle,#1a3aab,transparent 70%)", animation:"lg-a 14s ease-in-out infinite" }} />
-        <div className="absolute top-[0%] right-[-10%] w-[55vw] h-[55vw] max-w-[700px] max-h-[700px] rounded-full blur-[70px]"
-          style={{ background:"radial-gradient(circle,#7c3aed,transparent 70%)", animation:"lg-b 18s ease-in-out infinite" }} />
-        <div className="absolute top-[20%] left-[20%] w-[50vw] h-[50vw] max-w-[650px] max-h-[650px] rounded-full blur-[90px]"
-          style={{ background:"radial-gradient(circle,#2d5ce8,transparent 70%)", animation:"lg-a 20s ease-in-out infinite 2s" }} />
-        <div className="absolute top-[-10%] left-[40%] w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] rounded-full blur-[60px]"
-          style={{ background:"radial-gradient(circle,rgba(112,176,248,0.8),transparent 70%)", animation:"lg-b 12s ease-in-out infinite 1s" }} />
-        <div className="absolute top-[10%] left-[55%] w-[45vw] h-[45vw] max-w-[550px] max-h-[550px] rounded-full blur-[80px]"
-          style={{ background:"radial-gradient(circle,rgba(99,102,241,0.9),transparent 70%)", animation:"lg-a 16s ease-in-out infinite 3s" }} />
+      {/* Hero animated background — WebGL Light Pillar (top section only) */}
+      <div className="fixed inset-0 -z-20 pointer-events-none overflow-hidden"
+        style={{
+          mask: "linear-gradient(180deg, black 0%, black 30%, transparent 55%)",
+          WebkitMask: "linear-gradient(180deg, black 0%, black 30%, transparent 55%)",
+        }}>
+        <LightPillar
+          topColor="#5227FF"
+          bottomColor="#FF9FFC"
+          intensity={1}
+          rotationSpeed={0.3}
+          glowAmount={0.005}
+          pillarWidth={3}
+          pillarHeight={0.4}
+          noiseIntensity={0.5}
+          quality="high"
+        />
       </div>
 
       {/* Gradient: blobs fade into original gradient at ~50% */}
