@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import Header from "@/components/Header";
 
 const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
+const LogoPreloader = dynamic(() => import("@/components/LogoPreloader"), { ssr: false });
 
 const PROMO_TEXT = "À l'occasion de la nouvelle version plus optimale de DuupFlow mise à jour récemment — Profite de -15% sur ton abonnement avec le code FLOW15";
 
@@ -120,6 +121,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {showHeader && <Header />}
       {showHeader && <div className="h-16 md:h-[calc(50px+5rem)]" />}
       {children}
+
+      {/* Logo preloader — only on landing page */}
+      {isLanding && <LogoPreloader duration={1.8} logoSize={90} />}
     </>
   );
 }
