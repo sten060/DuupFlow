@@ -2,6 +2,7 @@ import "@/app/globals.css";
 import Sidebar from "./sidebar";
 import GlobalVideoProgress from "./videos/GlobalVideoProgress";
 import ChatBot from "./components/ChatBot";
+import DashboardLangSwitch from "./components/DashboardLangSwitch";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -21,10 +22,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           backdropFilter: "blur(20px)",
         }}
       >
-        {/* Brand */}
-        <div className="px-5 pt-6 pb-5 shrink-0">
-          <span className="text-lg font-extrabold tracking-tight" style={{ color: "#818CF8" }}>Duup</span>
-          <span className="text-lg font-extrabold tracking-tight text-white/45">Flow</span>
+        {/* Brand + Lang */}
+        <div className="px-5 pt-6 pb-5 shrink-0 flex items-center justify-between">
+          <div>
+            <span className="text-lg font-extrabold tracking-tight" style={{ color: "#818CF8" }}>Duup</span>
+            <span className="text-lg font-extrabold tracking-tight text-white/45">Flow</span>
+          </div>
+          <DashboardLangSwitch />
         </div>
         <div
           className="mx-4 mb-3 shrink-0"
