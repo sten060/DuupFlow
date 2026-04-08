@@ -67,8 +67,8 @@ function Hero() {
       {/* Main heading — large, elegant, light weight like LanX */}
       <Reveal delay={80}>
         <h1 className="max-w-5xl text-[2.5rem] sm:text-[3.5rem] md:text-[5rem] font-light leading-[1.08] tracking-[-0.02em] text-white/90 mb-6 sm:mb-7">
-          Le seul outil pour dupliquer{" "}<br className="hidden sm:block" />
-          ton contenu <span className={G}>en illimité</span>
+          Multiplie ton contenu.{" "}<br className="hidden sm:block" />
+          <span className={G}>Domine l&apos;algorithme.</span>
         </h1>
       </Reveal>
 
@@ -434,95 +434,103 @@ const SCROLLER_CARDS = [
   },
 ];
 
-function FeaturesScroller() {
-  const stickyRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [scrollX, setScrollX] = useState(0);
+/* ── How It Works — CardShowcase (replaces FeaturesScroller) ── */
+const HOW_STEPS = [
+  { num: "01", title: "Importe ton contenu", desc: "Glisse-dépose ton image ou ta vidéo dans DuupFlow. JPG, PNG, WEBP, MP4, MOV, MKV — tous les formats sont acceptés, même en lot.", tag: "Upload" },
+  { num: "02", title: "Duplique en illimité", desc: "Choisis le nombre de copies et les options (visuel, semi-visuel, métadonnées). DuupFlow modifie chaque fichier pour qu'il soit unique aux yeux des algorithmes de détection.", tag: "Duplication" },
+  { num: "03", title: "Télécharge et publie", desc: "Exporte tes contenus en ZIP ou un par un. Chaque fichier est prêt à être publié sur Instagram, TikTok, YouTube, Twitter/X ou n'importe quelle plateforme.", tag: "Export" },
+];
+
+function HowItWorks() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+  const activeRef = useRef(0);
+  const progressRef = useRef(0);
 
   useEffect(() => {
-    const container = stickyRef.current;
-    if (!container) return;
-    const onScroll = () => {
-      const rect = container.getBoundingClientRect();
-      const stickyTop = 0;
-      // How far the container has scrolled past the top
-      const scrolled = stickyTop - rect.top;
-      const maxScroll = container.offsetHeight - window.innerHeight;
-      const progress = Math.max(0, Math.min(1, scrolled / maxScroll));
-      const track = trackRef.current;
-      if (track) {
-        // Find the last card and calculate how far to scroll so it centers
-        const lastCard = track.lastElementChild as HTMLElement | null;
-        const cardWidth = lastCard?.offsetWidth ?? 0;
-        // Stop when the last card is centered: its left edge should be at (viewport - cardWidth) / 2
-        const maxX = track.scrollWidth - cardWidth - (window.innerWidth - cardWidth) / 2;
-        setScrollX(progress * Math.max(0, maxX));
-      }
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
-  const cards = SCROLLER_CARDS;
-  // Height = 100vh per card + 200vh extra so last card centers before unsticking
-  const stickyHeight = `${(cards.length + 2) * 100}vh`;
+  useEffect(() => {
+    if (isMobile) return;
+    const tick = 16;
+    const speed = 5;
+    const increment = (100 / (speed * 1000)) * tick;
+    const interval = setInterval(() => {
+      progressRef.current += increment;
+      if (progressRef.current >= 100) {
+        const next = (activeRef.current + 1) % HOW_STEPS.length;
+        activeRef.current = next;
+        progressRef.current = 0;
+        setActiveIndex(next);
+        setProgress(0);
+      } else {
+        setProgress(progressRef.current);
+      }
+    }, tick);
+    return () => clearInterval(interval);
+  }, [isMobile]);
+
+  const handleClick = (i: number) => {
+    if (isMobile) return;
+    activeRef.current = i;
+    progressRef.current = 0;
+    setActiveIndex(i);
+    setProgress(0);
+  };
 
   return (
-    <section ref={stickyRef} className="relative" style={{ height: stickyHeight }}>
-      <div className="sticky top-0 h-screen overflow-hidden flex flex-col justify-center">
-        {/* Title with curtain reveal */}
+    <section id="how-it-works" className="px-6 pb-36">
+      <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
-          <div className="px-6 sm:px-12 mb-20">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-white tracking-tight mb-4 leading-[1.1]">
-              Augmentez le <span className="text-[#5B7BFF]" style={{ textShadow: "0 0 30px rgba(91,123,255,0.5)" }}>volume</span>, performez,<br className="hidden sm:block" /> sans perte de <span className="text-[#5B7BFF]" style={{ textShadow: "0 0 30px rgba(91,123,255,0.5)" }}>qualité</span>
-            </h2>
-            <p className="text-white/40 text-sm sm:text-lg max-w-2xl">
-              Tous les outils dont vous avez besoin pour scaler votre production de contenu.
-            </p>
-          </div>
+          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">Comment ça marche</p>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
+            Opérationnel <span className={G}>en 3 étapes</span>
+          </h2>
+          <p className="text-white/45 text-sm sm:text-base mb-12 max-w-xl">
+            Simple, rapide, sans courbe d&apos;apprentissage.
+          </p>
         </Reveal>
 
-        {/* Horizontal track */}
-        <div
-          ref={trackRef}
-          className="flex gap-[12vw] will-change-transform"
-          style={{ transform: `translateX(calc(50vw - 35vw - ${scrollX}px))` }}
-        >
-          {cards.map((card, i) => (
-            <div
-              key={i}
-              className="shrink-0 w-[88vw] sm:w-[78vw] md:w-[70vw] rounded-md border border-white/[0.08] overflow-hidden"
-              style={{ background: "rgba(8,12,35,0.6)" }}
-            >
-              <div className="grid md:grid-cols-[1fr_1.2fr]">
-                {/* Left — text */}
-                <div className="p-6 sm:p-8">
-                  <div className="flex items-center gap-2 mb-3">
-                    <h3 className="text-xl sm:text-2xl font-semibold text-white">{card.title}</h3>
-                    {"badge" in card && card.badge && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/25 font-semibold">
-                        {card.badge}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm sm:text-base text-white/50 leading-relaxed mb-6">{card.desc}</p>
-                  <Link
-                    href="/register"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition"
-                  >
-                    Essayer maintenant →
-                  </Link>
+        <Reveal delay={80}>
+          {isMobile ? (
+            <div className="flex flex-col gap-4">
+              {HOW_STEPS.map((card, i) => (
+                <div key={i} className="border border-white/[0.08] p-5" style={{ background: "rgba(8,12,35,0.6)" }}>
+                  <div className="text-3xl font-bold text-indigo-400/40 mb-3 tracking-tight">{card.num}</div>
+                  <h3 className="text-lg font-semibold text-white mb-2">{card.title}</h3>
+                  <p className="text-sm text-white/50 leading-relaxed mb-3">{card.desc}</p>
+                  <span className="text-xs text-indigo-400 font-medium">{card.tag}</span>
                 </div>
-                {/* Right — mockup */}
-                <div className="p-6 sm:p-8 flex items-center">
-                  <div className="w-full">
-                    {MOCKUPS[["duplication", "invisible", "priority", "ai"][i]]}
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
+          ) : (
+            <div className="flex gap-0 w-full" style={{ height: "380px" }}>
+              {HOW_STEPS.map((card, i) => {
+                const isActive = i === activeIndex;
+                return (
+                  <div key={i} onClick={() => handleClick(i)}
+                    className="relative cursor-pointer border border-white/[0.08] p-6 overflow-hidden"
+                    style={{ background: "rgba(8,12,35,0.6)", flex: isActive ? 2.5 : 1, transition: "flex 0.5s ease-in-out", display: "flex", flexDirection: "column" }}>
+                    <div className="absolute bottom-0 left-0 w-[2px]" style={{ height: "100%", background: "rgba(255,255,255,0.06)" }}>
+                      {isActive && <div className="absolute bottom-0 left-0 w-full" style={{ height: `${progress}%`, background: "linear-gradient(to top, #6366F1, #818CF8)", transition: "height 16ms linear" }} />}
+                    </div>
+                    <div className="text-4xl font-bold tracking-tight mb-3" style={{ color: isActive ? "rgba(129,140,248,0.6)" : "rgba(129,140,248,0.25)", transition: "color 0.3s" }}>{card.num}</div>
+                    <h3 className="text-lg font-semibold mb-3" style={{ color: isActive ? "white" : "rgba(255,255,255,0.5)", transition: "color 0.3s" }}>{card.title}</h3>
+                    <div style={{ opacity: isActive ? 1 : 0, maxHeight: isActive ? "300px" : "0px", overflow: "hidden", transition: "opacity 0.3s ease, max-height 0.4s ease", display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}>
+                      <p className="text-sm text-white/60 leading-relaxed">{card.desc}</p>
+                      <span className="text-xs text-indigo-400 font-medium mt-4">{card.tag}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Reveal>
       </div>
     </section>
   );
@@ -849,84 +857,121 @@ function FeatureRow({
   );
 }
 
-function CoreFeaturesAlt() {
+/* ── Avantages — Hover Carousel ── */
+const ADVANTAGES = [
+  {
+    title: "Duplication en masse",
+    desc: "Dupliquez des dizaines de vidéos et d'images en quelques secondes. Chaque copie est générée avec des paramètres uniques.",
+    tags: ["Images & Vidéos", "Illimité", "Parallèle", "Instantané"],
+  },
+  {
+    title: "Qualité préservée",
+    desc: "Chaque duplication conserve la résolution exacte. 1080p reste 1080p, 4K reste 4K. Aucun downscale, aucune recompression.",
+    tags: ["4K", "Lossless", "Pixel Perfect", "Pro"],
+  },
+  {
+    title: "Invisible pour les algos",
+    desc: "Métadonnées, hash, structure technique — tout est modifié. Pour les algorithmes, chaque copie est un fichier totalement nouveau.",
+    tags: ["Anti-détection", "Hash unique", "EXIF", "Indétectable"],
+  },
+  {
+    title: "Priorité algorithme",
+    desc: "Injectez des métadonnées Apple authentiques. Les plateformes traitent votre contenu comme un vrai iPhone.",
+    tags: ["iPhone", "GPS", "iOS", "Boost algo"],
+  },
+  {
+    title: "Masquage IA",
+    desc: "Effacez les signatures Midjourney, DALL-E, Stable Diffusion. Une identité humaine réaliste est injectée.",
+    tags: ["C2PA", "JUMBF", "Anti-IA", "Identité"],
+  },
+];
+
+function AvantagesCarousel() {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
   return (
-    <section id="features" className="px-6 pb-20">
-      <div className="max-w-5xl mx-auto pt-20">
+    <section id="features" className="px-6 pb-36">
+      <div className="max-w-6xl mx-auto pt-20">
         <Reveal>
-          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3 text-center">Fonctionnalités</p>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight text-center">
-            Optez pour un outil à la hauteur du potentiel <span className={G}>de votre agence</span>
+          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">Avantages</p>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
+            Pourquoi les agences choisissent <span className={G}>DuupFlow</span>
           </h2>
-          <p className="text-white/65 text-sm sm:text-base max-w-lg mx-auto text-center">
+          <p className="text-white/45 text-sm sm:text-base mb-12 max-w-xl">
             Chaque publication unique. Chaque fichier indétectable.
           </p>
         </Reveal>
 
-        <FeatureRow
-          first
-          badge="🖼️🎬 Duplication Images & Vidéos"
-          badgeColor="border border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-300"
-          title={<>Un fichier source,{" "}<span className={G}>des copies infinies.</span></>}
-          subtitle="Génère autant de variantes que tu veux — images et vidéos. Chaque copie a une empreinte unique (EXIF, XMP, QuickTime, bitrate, GOP, FPS) — indétectable par les algorithmes."
-          bullets={[
-            "Métadonnées EXIF/XMP uniques à chaque copie image",
-            "Vidéos ré-encodées avec paramètres différents (FPS, GOP, bitrate)",
-            "Multi-posting illimité sans risque de shadowban",
-          ]}
-          mockup={<AnimImageDup />}
-        />
+        <Reveal delay={80}>
+          {/* Desktop: hover carousel */}
+          <div className="hidden md:flex gap-0 w-full" style={{ height: "480px" }}>
+            {ADVANTAGES.map((adv, i) => {
+              const isHovered = hoveredIndex === i;
+              const isDefault = hoveredIndex === null && i === 0;
+              const isExpanded = isHovered || isDefault;
+              return (
+                <div
+                  key={i}
+                  onMouseEnter={() => setHoveredIndex(i)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                  className="relative border border-white/[0.08] p-6 overflow-hidden cursor-pointer"
+                  style={{
+                    background: "rgba(8,12,35,0.6)",
+                    flex: isExpanded ? 3 : 1,
+                    transition: "flex 0.5s cubic-bezier(0.4,0,0.2,1)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  {/* Background gradient accent */}
+                  <div className="absolute inset-0 pointer-events-none" style={{
+                    background: isExpanded
+                      ? "linear-gradient(180deg, transparent 0%, rgba(99,102,241,0.06) 100%)"
+                      : "transparent",
+                    transition: "background 0.5s",
+                  }} />
 
-        <FeatureRow
-          badge="✨ Modification Invisible"
-          badgeColor="border border-indigo-500/25 bg-indigo-500/[0.08] text-indigo-300"
-          title={<>Pixel magique :{" "}<span className={G}>hash unique, visuel identique.</span></>}
-          subtitle="DuupFlow altère les extracteurs de caractéristiques que les plateformes analysent pour détecter les doublons — sans modifier un seul pixel visible. Chaque copie possède un hash unique, une empreinte technique différente, et une structure de données distincte. Pour les algorithmes, c'est un fichier totalement nouveau."
-          bullets={[
-            "Bruit luma imperceptible sur chaque pixel",
-            "Hash complètement différent à chaque copie",
-            "Aucune modification visuelle détectable",
-          ]}
-          mockup={<AnimInvisible />}
-          reverse
-        />
+                  {/* Content */}
+                  <div className="relative z-10">
+                    <h3
+                      className="text-lg font-semibold mb-2"
+                      style={{ color: isExpanded ? "white" : "rgba(255,255,255,0.5)", transition: "color 0.3s" }}
+                    >
+                      {adv.title}
+                    </h3>
+                    <div style={{
+                      opacity: isExpanded ? 1 : 0,
+                      maxHeight: isExpanded ? "200px" : "0px",
+                      overflow: "hidden",
+                      transition: "opacity 0.3s ease, max-height 0.4s ease",
+                    }}>
+                      <p className="text-sm text-white/60 leading-relaxed mb-4">{adv.desc}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {adv.tags.map((tag) => (
+                          <span key={tag} className="text-xs px-2.5 py-1 border border-white/10 bg-white/[0.04] text-white/50">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-        <FeatureRow
-          badge="⚡ Priorité d'algorithme"
-          badgeColor="border border-amber-500/25 bg-amber-500/[0.08] text-amber-300"
-          title={<>Métadonnées iPhone.{" "}<span className={G}>L&apos;algorithme vous priorise.</span></>}
-          subtitle="En un clic, choisissez la localisation exacte de votre contenu et injectez des métadonnées Apple authentiques. Les algorithmes des plateformes traitent votre contenu comme s'il provenait du dernier iPhone. DuupFlow place votre contenu du côté de l'algorithme."
-          bullets={[
-            "Injection de métadonnées Apple authentiques (modèle, iOS, caméra)",
-            "Localisation GPS personnalisable",
-            "Format MOV automatique pour simuler un vrai iPhone",
-          ]}
-          mockup={<AnimPriority />}
-        />
-
-        <FeatureRow
-          badge="🤖 Détection IA"
-          badgeColor="border border-red-500/25 bg-red-500/[0.08] text-red-300"
-          title={<>Masque la{" "}<span className={G}>signature IA.</span>{" "}Instantanément.</>}
-          subtitle="Effacez toutes les métadonnées IA (EXIF, XMP, IPTC, C2PA, JUMBF) et remplacez-les par une identité humaine réaliste — appareil photo, logiciel, photographe, date."
-          bullets={[
-            "Compatible Midjourney, DALL·E, Stable Diffusion, Runway",
-            "Masquage complet des signatures C2PA et JUMBF",
-            "Identité humaine réaliste injectée automatiquement",
-          ]}
-          mockup={<AnimAIDet />}
-          reverse
-        />
-        <Reveal>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-6 pb-8">
-            <Link href="/register"
-              className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm">
-              Commencer maintenant →
-            </Link>
-            <Link href="/demo"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">
-              Voir la démo
-            </Link>
+          {/* Mobile: vertical stack */}
+          <div className="md:hidden flex flex-col gap-4">
+            {ADVANTAGES.map((adv, i) => (
+              <div key={i} className="border border-white/[0.08] p-5" style={{ background: "rgba(8,12,35,0.6)" }}>
+                <h3 className="text-lg font-semibold text-white mb-2">{adv.title}</h3>
+                <p className="text-sm text-white/50 leading-relaxed mb-3">{adv.desc}</p>
+                <div className="flex flex-wrap gap-2">
+                  {adv.tags.map((tag) => (
+                    <span key={tag} className="text-xs px-2.5 py-1 border border-white/10 bg-white/[0.04] text-white/50">{tag}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </Reveal>
       </div>
@@ -1100,8 +1145,8 @@ export default function LandingPage() {
         <div className="h-px bg-white/[0.12]" />
       </div>
       <ProblemSolution />
-      <FeaturesScroller />
-      <CoreFeaturesAlt />
+      <HowItWorks />
+      <AvantagesCarousel />
       <StatsBanner />
       <FAQ />
       <CTABanner />
