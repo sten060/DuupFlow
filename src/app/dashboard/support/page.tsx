@@ -1,9 +1,15 @@
+"use client";
+
+import { useTranslation } from "@/lib/i18n/context";
+
 export default function SupportPage() {
+  const { t } = useTranslation();
+
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-bold text-white/90 mb-2">Support</h1>
+      <h1 className="text-2xl font-bold text-white/90 mb-2">{t("dashboard.support.title")}</h1>
       <p className="text-sm text-white/50 mb-8">
-        Besoin d'aide ? Contacte-nous via l'un des canaux ci-dessous.
+        {t("dashboard.support.subtitle")}
       </p>
 
       <div className="space-y-4">
@@ -20,8 +26,8 @@ export default function SupportPage() {
             </svg>
           </div>
           <div className="flex-1">
-            <div className="font-medium text-white/85 text-sm">Telegram</div>
-            <div className="text-xs text-white/45 mt-0.5">Réponse rapide en direct — canal recommandé</div>
+            <div className="font-medium text-white/85 text-sm">{t("dashboard.support.telegram")}</div>
+            <div className="text-xs text-white/45 mt-0.5">{t("dashboard.support.telegramDesc")}</div>
           </div>
           <svg viewBox="0 0 24 24" className="h-4 w-4 text-white/30 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M7 17l9.2-9.2M17 17V7H7" />
@@ -40,8 +46,8 @@ export default function SupportPage() {
             </svg>
           </div>
           <div className="flex-1">
-            <div className="font-medium text-white/85 text-sm">Email</div>
-            <div className="text-xs text-white/45 mt-0.5">support@duupflow.com — réponse sous 24h</div>
+            <div className="font-medium text-white/85 text-sm">{t("dashboard.support.email")}</div>
+            <div className="text-xs text-white/45 mt-0.5">{t("dashboard.support.emailDesc")}</div>
           </div>
           <svg viewBox="0 0 24 24" className="h-4 w-4 text-white/30 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M7 17l9.2-9.2M17 17V7H7" />
@@ -50,30 +56,30 @@ export default function SupportPage() {
       </div>
 
       <div className="mt-8 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
-        <h2 className="text-sm font-medium text-white/80 mb-3">Questions fréquentes</h2>
+        <h2 className="text-sm font-medium text-white/80 mb-3">{t("dashboard.support.faqTitle")}</h2>
         <div className="space-y-3 text-sm">
           <details className="group">
             <summary className="cursor-pointer text-white/60 hover:text-white/80 transition">
-              Ma duplication échoue, que faire ?
+              {t("dashboard.support.faq1Q")}
             </summary>
             <p className="mt-2 text-white/45 text-xs leading-relaxed pl-1">
-              Vérifie que ta vidéo fait moins de 50 secondes et est au format MP4, MOV, MKV ou AVI. Si le problème persiste, contacte-nous sur Telegram.
+              {t("dashboard.support.faq1A")}
             </p>
           </details>
           <details className="group">
             <summary className="cursor-pointer text-white/60 hover:text-white/80 transition">
-              Comment fonctionne la Priorité d'algorithme ?
+              {t("dashboard.support.faq2Q")}
             </summary>
             <p className="mt-2 text-white/45 text-xs leading-relaxed pl-1">
-              Elle injecte des métadonnées réalistes d'iPhone (appareil, caméra, iOS, GPS, focale) dans tes fichiers pour que les plateformes pensent que le contenu vient d'un appareil réel.
+              {t("dashboard.support.faq2A")}
             </p>
           </details>
           <details className="group">
             <summary className="cursor-pointer text-white/60 hover:text-white/80 transition">
-              Quels packs ne modifient pas le visuel ?
+              {t("dashboard.support.faq3Q")}
             </summary>
             <p className="mt-2 text-white/45 text-xs leading-relaxed pl-1">
-              Les packs Métadonnées, Audio, Mouvement et Technique ne touchent pas le visuel. Seul le pack Visuels applique des changements visibles (très subtils).
+              {t("dashboard.support.faq3A")}
             </p>
           </details>
         </div>

@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import { maskAiMetadata, deleteAiFiles } from "./actions";
+import { useTranslation } from "@/lib/i18n/context";
 
 const MAX_FILES = 30;
 
@@ -99,10 +100,11 @@ function FilePreviewGrid({ files }: { files: File[] }) {
 
 /* ── Dropzone ── */
 function FileDropzone({
-  files, onChange, limitError,
+  files, onChange, limitError, t,
 }: {
   files: File[];
   onChange: (f: File[]) => void;
+  t: (key: string, vars?: Record<string, string | number>) => string;
   limitError?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -143,11 +145,11 @@ function FileDropzone({
           <rect x="2" y="3" width="20" height="18" rx="3" />
         </svg>
         {files.length === 0 ? (
-          <p className="text-sm text-white/40">Déposer ou cliquer pour sélectionner <span className="text-white/25">(max {MAX_FILES})</span></p>
+          <p className="text-sm text-white/40">{t("dashboard.aiDetection.dropzone")} <span className="text-white/25">{t("dashboard.aiDetection.dropzoneMax", { count: String(MAX_FILES) })}</span></p>
         ) : (
           <p className="text-sm text-white/60">
-            {files.length} fichier{files.length > 1 ? "s" : ""} sélectionné{files.length > 1 ? "s" : ""}
-            <span className="text-white/30 ml-2 text-xs">— cliquer pour changer</span>
+            {t("dashboard.aiDetection.filesSelected", { count: String(files.length) })}
+            <span className="text-white/30 ml-2 text-xs">{t("dashboard.aiDetection.clickToChange")}</span>
           </p>
         )}
       </div>
@@ -169,6 +171,7 @@ function FileDropzone({
 
 /* ── Page principale ── */
 export default function AiDetectionPage() {
+  const { t } = useTranslation();
   const [files, setFiles] = useState<File[]>([]);
   const [limitError, setLimitError] = useState<string>("");
   const [result, setResult] = useState<{ ok: boolean; count?: number; error?: string; limitReached?: boolean } | null>(null);
@@ -240,16 +243,16 @@ export default function AiDetectionPage() {
       {/* header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-white">
-          Détection IA — Métadonnées
+          {t("dashboard.aiDetection.title")}
         </h1>
         <p className="text-sm text-white/50 mt-1">
-          Efface intégralement les métadonnées IA (EXIF, XMP, IPTC, C2PA) et les remplace par une identité humaine réaliste.
+          {t("dashboard.aiDetection.subtitle")}
         </p>
       </div>
 
       {/* notice : détection contenu — accordion */}
       <Accordion
-        title="Remarque sur la détection des plateformes"
+        title={t("dashboard.aiDetection.platformNotice")}
         borderCls="border-amber-500/20"
         bgCls="bg-amber-500/[0.04]"
         headerTextCls="text-amber-200/80"
@@ -268,7 +271,7 @@ export default function AiDetectionPage() {
 
       {/* info processus — accordion */}
       <Accordion
-        title="Comment ça fonctionne ?"
+        title={t("dashboard.aiDetection.howItWorks")}
         borderCls="border-white/10"
         bgCls="bg-white/[0.025]"
         headerTextCls="text-white/55"
@@ -299,14 +302,14 @@ export default function AiDetectionPage() {
             </svg>
           </div>
           <div>
-            <h2 className="font-semibold text-white text-base">Masquer la signature IA</h2>
+            <h2 className="font-semibold text-white text-base">{t("dashboard.aiDetection.maskTitle")}</h2>
             <p className="text-sm text-white/50 mt-0.5">
-              Remplace toutes les métadonnées IA par une identité humaine réaliste — appareil photo, logiciel, photographe, date.
+              {t("dashboard.aiDetection.maskSubtitle")}
             </p>
           </div>
         </div>
 
-        <FileDropzone files={files} onChange={handleFilesChange} limitError={limitError} />
+        <FileDropzone files={files} onChange={handleFilesChange} limitError={limitError} t={t} />
 
         <button
           onClick={handleSubmit}
@@ -314,7 +317,7 @@ export default function AiDetectionPage() {
           className="h-11 rounded-xl font-medium text-sm transition disabled:opacity-40 disabled:cursor-not-allowed text-white"
           style={{ background: "linear-gradient(90deg,#6366F1,#818CF8)" }}
         >
-          {pending ? "Traitement en cours…" : `Masquer la signature IA${files.length ? ` (${files.length} fichier${files.length > 1 ? "s" : ""})` : ""}`}
+          {pending ? t("dashboard.aiDetection.processing") : files.length ? t("dashboard.aiDetection.maskButtonFiles", { count: String(files.length) }) : t("dashboard.aiDetection.maskButton")}
         </button>
 
         {result && (
@@ -341,7 +344,7 @@ export default function AiDetectionPage() {
         {sessionFiles.length > 0 && (
           <div className="rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
             <p className="text-xs text-white/40 uppercase tracking-wider mb-2">
-              Fichiers traités cette session ({sessionFiles.length})
+              {t("dashboard.aiDetection.processedFiles")} ({sessionFiles.length})
             </p>
             <ul className="space-y-1">
               {sessionFiles.map((name) => (
@@ -367,8 +370,8 @@ export default function AiDetectionPage() {
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
             {sessionFiles.length > 0
-              ? `Télécharger (${sessionFiles.length} fichier${sessionFiles.length > 1 ? "s" : ""})`
-              : "Télécharger tous les fichiers (ZIP)"}
+              ? t("dashboard.aiDetection.downloadFiles", { count: String(sessionFiles.length) })
+              : t("dashboard.aiDetection.downloadZip")}
           </a>
 
           {sessionFiles.length > 0 && (
@@ -382,7 +385,7 @@ export default function AiDetectionPage() {
                 <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
                 <path d="M10 11v6M14 11v6M9 6V4h6v2" />
               </svg>
-              {deleting ? "Suppression…" : `Supprimer les fichiers (${sessionFiles.length})`}
+              {deleting ? t("dashboard.aiDetection.deleting") : t("dashboard.aiDetection.deleteFiles", { count: String(sessionFiles.length) })}
             </button>
           )}
         </div>

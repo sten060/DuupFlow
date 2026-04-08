@@ -2,10 +2,12 @@
 
 import { useRef, useState, DragEvent } from "react";
 import { probeFile } from "./probeActions";
+import { useTranslation } from "@/lib/i18n/context";
 
 type ProbeResult = Record<string, any> | null;
 
 export default function SimilarityClient() {
+  const { t } = useTranslation();
   const [file1, setFile1] = useState<File | null>(null);
   const [file2, setFile2] = useState<File | null>(null);
   const [probe1, setProbe1] = useState<ProbeResult>(null);
@@ -144,9 +146,9 @@ export default function SimilarityClient() {
   }
 
   function similarityLabel(score: number) {
-    if (score >= 75) return "Très similaires";
-    if (score >= 45) return "Similarité modérée";
-    return "Fichiers distincts";
+    if (score >= 75) return t("dashboard.similarity.verySimilar");
+    if (score >= 45) return t("dashboard.similarity.moderateSimilarity");
+    return t("dashboard.similarity.distinctFiles");
   }
 
   function similarityBg(score: number) {
@@ -157,23 +159,26 @@ export default function SimilarityClient() {
 
   return (
     <div className="space-y-6">
+      <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.similarity.title")}</h1>
+      <p className="text-sm text-white/50">{t("dashboard.similarity.subtitle")}</p>
+      <div className="h-px bg-white/[0.06]" />
       {/* File inputs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-white/70 mb-1.5">Fichier 1</label>
+          <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.similarity.file1")}</label>
           <div
             onClick={() => ref1.current?.click()}
             onDragOver={handleDragOver}
             onDrop={makeDrop(setFile1, setProbe1)}
             className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 cursor-pointer hover:border-emerald-400/30 transition text-sm text-white/60"
           >
-            {file1 ? file1.name : "Cliquer ou glisser-déposer…"}
+            {file1 ? file1.name : t("dashboard.similarity.clickOrDrop")}
             <input ref={ref1} type="file" className="hidden" accept="video/*,image/*"
               onChange={(e) => { setFile1(e.target.files?.[0] ?? null); setProbe1(null); }} />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-white/70 mb-1.5">Fichier 2</label>
+          <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.similarity.file2")}</label>
           <div
             onClick={() => ref2.current?.click()}
             onDragOver={handleDragOver}
@@ -197,7 +202,7 @@ export default function SimilarityClient() {
             : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-[0_4px_20px_rgba(16,185,129,.35)]",
         ].join(" ")}
       >
-        {loading ? "Analyse en cours…" : "Comparer les métadonnées"}
+        {loading ? t("dashboard.similarity.analyzing") : t("dashboard.similarity.compareButton")}
       </button>
 
       {error && (
@@ -219,7 +224,7 @@ export default function SimilarityClient() {
                     {similarityLabel(similarity.score)}
                   </span>
                   <p className="text-xs text-white/50">
-                    {similarity.matches} champs identiques sur {similarity.total}
+                    {t("dashboard.similarity.identicalFields", { matches: String(similarity.matches), total: String(similarity.total) })}
                   </p>
                 </div>
               </div>
@@ -228,14 +233,14 @@ export default function SimilarityClient() {
 
           {/* Format info */}
           <div>
-            <h3 className="text-sm font-semibold text-white/80 mb-2">Format</h3>
+            <h3 className="text-sm font-semibold text-white/80 mb-2">{t("dashboard.similarity.formatSection")}</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-white/[0.06]">
-                    <th className="text-left py-2 pr-4 text-white/50 font-medium">Champ</th>
-                    <th className="text-left py-2 pr-4 text-white/50 font-medium">Fichier 1</th>
-                    <th className="text-left py-2 text-white/50 font-medium">Fichier 2</th>
+                    <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.fieldColumn")}</th>
+                    <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.file1Column")}</th>
+                    <th className="text-left py-2 text-white/50 font-medium">{t("dashboard.similarity.file2Column")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -260,12 +265,12 @@ export default function SimilarityClient() {
 
           {/* Tags comparison */}
           <div>
-            <h3 className="text-sm font-semibold text-white/80 mb-2">Métadonnées (tags)</h3>
+            <h3 className="text-sm font-semibold text-white/80 mb-2">{t("dashboard.similarity.tagsSection")}</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-white/[0.06]">
-                    <th className="text-left py-2 pr-4 text-white/50 font-medium">Tag</th>
+                    <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.tagColumn")}</th>
                     <th className="text-left py-2 pr-4 text-white/50 font-medium">Fichier 1</th>
                     <th className="text-left py-2 text-white/50 font-medium">Fichier 2</th>
                   </tr>
@@ -284,7 +289,7 @@ export default function SimilarityClient() {
                     );
                   })}
                   {allTagKeys.length === 0 && (
-                    <tr><td colSpan={3} className="py-3 text-white/40 text-center">Aucun tag trouvé</td></tr>
+                    <tr><td colSpan={3} className="py-3 text-white/40 text-center">{t("dashboard.similarity.noTagsFound")}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -296,7 +301,7 @@ export default function SimilarityClient() {
             <>
               <div className="h-px bg-white/[0.06]" />
               <div>
-                <h3 className="text-sm font-semibold text-white/80 mb-2">Flux vidéo</h3>
+                <h3 className="text-sm font-semibold text-white/80 mb-2">{t("dashboard.similarity.videoStreamSection")}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
@@ -331,7 +336,7 @@ export default function SimilarityClient() {
             <>
               <div className="h-px bg-white/[0.06]" />
               <div>
-                <h3 className="text-sm font-semibold text-white/80 mb-2">Flux audio</h3>
+                <h3 className="text-sm font-semibold text-white/80 mb-2">{t("dashboard.similarity.audioStreamSection")}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearVideosSimpleAction, clearVideosAdvancedAction } from "./actions";
+import { useTranslation } from "@/lib/i18n/context";
 
 type Channel = "simple" | "advanced";
 
@@ -13,6 +14,7 @@ export default function VideoFilesClient({
   initialFiles: string[];
   channel: Channel;
 }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [files, setFiles] = useState<string[]>(initialFiles);
   const [clearing, setClearing] = useState(false);
@@ -48,20 +50,20 @@ export default function VideoFilesClient({
           disabled={clearing}
           className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/80 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
-          {clearing ? "Nettoyage…" : `Vider les vidéos (${channel})`}
+          {clearing ? t("dashboard.videos.clearing") : t("dashboard.videos.clearVideos", { channel })}
         </button>
         <a
           href={`/api/out/zip?scope=videos&channel=${channel}`}
           className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
         >
-          Télécharger tout (ZIP)
+          {t("dashboard.videos.downloadAllZip")}
         </a>
       </div>
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <h2 className="font-semibold mb-2">Vidéos générées ({channel})</h2>
+        <h2 className="font-semibold mb-2">{t("dashboard.videos.generatedVideos", { channel })}</h2>
         {files.length === 0 ? (
-          <p className="text-white/60 text-sm">Aucune vidéo pour l&apos;instant.</p>
+          <p className="text-white/60 text-sm">{t("dashboard.videos.noVideosYet")}</p>
         ) : (
           <ul className="list-disc pl-5 space-y-1">
             {files.map((u) => {

@@ -4,69 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-
-const NAV_ITEMS = [
-  {
-    href: "/dashboard",
-    label: "Accueil",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    ),
-  },
-  {
-    href: "/dashboard/images",
-    label: "Images",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="3" y="3" width="18" height="18" rx="3" />
-        <circle cx="8.5" cy="8.5" r="1.5" />
-        <polyline points="21 15 16 10 5 21" />
-      </svg>
-    ),
-  },
-  {
-    href: "/dashboard/videos",
-    label: "Vidéos",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="2" y="5" width="14" height="14" rx="2" />
-        <path d="M16 9l5-3v12l-5-3V9z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/dashboard/similarity",
-    label: "Comparateur",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-        <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.35-4.35" />
-      </svg>
-    ),
-  },
-  {
-    href: "/dashboard/generate",
-    label: "Variation IA",
-    badge: "BETA",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/dashboard/ai-detection",
-    label: "Détection IA",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      </svg>
-    ),
-  },
-];
+import { useTranslation } from "@/lib/i18n/context";
 
 function NavItem({ href, label, icon, badge }: { href: string; label: string; icon: React.ReactNode; badge?: string }) {
   const pathname = usePathname();
@@ -113,6 +51,70 @@ export default function Sidebar() {
   const supabase = createClient();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [hostAgency, setHostAgency] = useState<string | null>(null);
+  const { t } = useTranslation();
+
+  const NAV_ITEMS = [
+    {
+      href: "/dashboard",
+      label: t("dashboard.sidebar.accueil"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+      ),
+    },
+    {
+      href: "/dashboard/images",
+      label: t("dashboard.sidebar.images"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="18" height="18" rx="3" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+      ),
+    },
+    {
+      href: "/dashboard/videos",
+      label: t("dashboard.sidebar.videos"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="2" y="5" width="14" height="14" rx="2" />
+          <path d="M16 9l5-3v12l-5-3V9z" />
+        </svg>
+      ),
+    },
+    {
+      href: "/dashboard/similarity",
+      label: t("dashboard.sidebar.comparateur"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+      ),
+    },
+    {
+      href: "/dashboard/generate",
+      label: t("dashboard.sidebar.variationIA"),
+      badge: t("dashboard.sidebar.beta"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
+        </svg>
+      ),
+    },
+    {
+      href: "/dashboard/ai-detection",
+      label: t("dashboard.sidebar.detectionIA"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+      ),
+    },
+  ];
 
   useEffect(() => {
     async function loadProfile() {
@@ -154,7 +156,7 @@ export default function Sidebar() {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <nav className="flex-1 px-3 pb-4 space-y-0.5 overflow-y-auto pt-1">
-        <p className="text-[10px] tracking-[0.14em] text-white/20 uppercase px-3 mb-2.5">Navigation</p>
+        <p className="text-[10px] tracking-[0.14em] text-white/20 uppercase px-3 mb-2.5">{t("dashboard.sidebar.navigation")}</p>
         {NAV_ITEMS.map((item) => (
           <NavItem key={item.href} {...item} />
         ))}
@@ -172,7 +174,7 @@ export default function Sidebar() {
             <rect x="1" y="4" width="22" height="16" rx="2" />
             <path d="M1 10h22" />
           </svg>
-          <span>Abonnement</span>
+          <span>{t("dashboard.sidebar.abonnement")}</span>
         </Link>
 
         <Link
@@ -184,7 +186,7 @@ export default function Sidebar() {
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
-          <span>Support</span>
+          <span>{t("dashboard.sidebar.support")}</span>
         </Link>
 
         <Link
@@ -195,7 +197,7 @@ export default function Sidebar() {
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
-          <span>Paramètres</span>
+          <span>{t("dashboard.sidebar.parametres")}</span>
         </Link>
 
         {/* User card */}
@@ -228,7 +230,7 @@ export default function Sidebar() {
             <polyline points="16 17 21 12 16 7" />
             <line x1="21" y1="12" x2="9" y2="12" />
           </svg>
-          <span>Déconnexion</span>
+          <span>{t("dashboard.sidebar.deconnexion")}</span>
         </button>
       </div>
     </div>

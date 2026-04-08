@@ -2,143 +2,51 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useTranslation } from "@/lib/i18n/context";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
-/* ─── Testimonials ─── */
-const TESTIMONIALS = [
-  {
-    text: "DuupFlow nous a fait gagner des heures. On réutilise nos meilleurs contenus sans jamais être pénalisés par les algorithmes.",
-    name: "S.M.",
-    role: "Agence OFM",
-    avatar: "/testimonials/_ (1).jpeg",
-    color: "#6366F1",
-  },
-  {
-    text: "DuupFlow fait ça en quelques secondes et les résultats sont incomparables. Mon reach a explosé depuis que je l'utilise.",
-    name: "J.R.",
-    role: "Créateur de contenu",
-    avatar: "/testimonials/_ (2).jpeg",
-    color: "#8B5CF6",
-  },
-  {
-    text: "Je vérifie chaque copie avant de publier grâce au Comparateur. Mon taux d'engagement a doublé en un mois.",
-    name: "A.K.",
-    role: "Agence OFM",
-    avatar: "/testimonials/_ (3).jpeg",
-    color: "#38BDF8",
-  },
-  {
-    text: "50 copies d'un même Reel, chacune unique. TikTok ne l'a jamais détecté. C'est exactement ce qu'il nous fallait.",
-    name: "L.B.",
-    role: "Agence OFM",
-    avatar: "/testimonials/_ (4).jpeg",
-    color: "#EC4899",
-  },
-  {
-    text: "Notre portée organique a explosé. On publie le même contenu sur 6 plateformes sans aucune pénalité algorithmique.",
-    name: "P.D.",
-    role: "Agence OFM",
-    avatar: "/testimonials/_ (5).jpeg",
-    color: "#10B981",
-  },
-  {
-    text: "Notre CAC a baissé de 30% depuis qu'on scale avec DuupFlow. La duplication automatique des meilleurs contenus, c'est du génie.",
-    name: "T.M.",
-    role: "Agence OFM",
-    avatar: "/testimonials/_ (6).jpeg",
-    color: "#F59E0B",
-  },
-  {
-    text: "Avant DuupFlow, chaque post demandait une nouvelle création. Maintenant on réutilise nos top performers à l'infini.",
-    name: "N.V.",
-    role: "Agence OFM",
-    avatar: "/testimonials/_ (7).jpeg",
-    color: "#6366F1",
-  },
-  {
-    text: "Le module Détection IA est parfait. Je publie des contenus générés par IA sans aucun marqueur détectable.",
-    name: "R.C.",
-    role: "Mentor",
-    avatar: "/testimonials/_ (8).jpeg",
-    color: "#8B5CF6",
-  },
-  {
-    text: "DuupFlow gère 3 clients en simultané. On génère 100+ copies par semaine sans effort supplémentaire.",
-    name: "F.L.",
-    role: "Agence OFM",
-    avatar: "/testimonials/_.jpeg",
-    color: "#38BDF8",
-  },
-  {
-    text: "Ce qui me plaît avec DuupFlow, c'est la simplicité. Upload, dupliquer, télécharger. 30 secondes chrono.",
-    name: "C.B.",
-    role: "Agence OFM",
-    avatar: "/testimonials/Ig sascha07__.jpeg",
-    color: "#EC4899",
-  },
-  {
-    text: "Mon taux d'impression sur TikTok a triplé en 2 semaines après avoir commencé à utiliser DuupFlow.",
-    name: "K.D.",
-    role: "Agence OFM",
-    avatar: "/testimonials/OFM = @melvin_ofm.jpeg",
-    color: "#10B981",
-  },
-  {
-    text: "DuupFlow est devenu notre outil #1. Pas une seule pénalité depuis 4 mois d'utilisation intensive.",
-    name: "O.M.",
-    role: "Agence OFM",
-    avatar: "/testimonials/hunter davenport _ the play _ briar u.jpeg",
-    color: "#F59E0B",
-  },
+/* ─── Testimonials (static data, text keys resolved in component) ─── */
+const TESTIMONIAL_META = [
+  { key: "tarifs.testimonial1", name: "S.M.", role: "Agence OFM", avatar: "/testimonials/_ (1).jpeg", color: "#6366F1" },
+  { key: "tarifs.testimonial2", name: "J.R.", role: "Agence OFM", avatar: "/testimonials/_ (2).jpeg", color: "#8B5CF6" },
+  { key: "tarifs.testimonial3", name: "A.K.", role: "Agence OFM", avatar: "/testimonials/_ (3).jpeg", color: "#38BDF8" },
+  { key: "tarifs.testimonial4", name: "L.B.", role: "Agence OFM", avatar: "/testimonials/_ (4).jpeg", color: "#EC4899" },
+  { key: "tarifs.testimonial5", name: "P.D.", role: "Agence OFM", avatar: "/testimonials/_ (5).jpeg", color: "#10B981" },
+  { key: "tarifs.testimonial6", name: "T.M.", role: "Agence OFM", avatar: "/testimonials/_ (6).jpeg", color: "#F59E0B" },
+  { key: "tarifs.testimonial7", name: "N.V.", role: "Agence OFM", avatar: "/testimonials/_ (7).jpeg", color: "#6366F1" },
+  { key: "tarifs.testimonial8", name: "R.C.", role: "Mentor", avatar: "/testimonials/_ (8).jpeg", color: "#8B5CF6" },
+  { key: "tarifs.testimonial9", name: "F.L.", role: "Agence OFM", avatar: "/testimonials/_.jpeg", color: "#38BDF8" },
+  { key: "tarifs.testimonial10", name: "C.B.", role: "Agence OFM", avatar: "/testimonials/Ig sascha07__.jpeg", color: "#EC4899" },
+  { key: "tarifs.testimonial11", name: "K.D.", role: "Agence OFM", avatar: "/testimonials/OFM = @melvin_ofm.jpeg", color: "#10B981" },
+  { key: "tarifs.testimonial12", name: "O.M.", role: "Agence OFM", avatar: "/testimonials/hunter davenport _ the play _ briar u.jpeg", color: "#F59E0B" },
 ];
 
-/* ─── Pricing FAQ ─── */
-const PRICING_FAQS = [
-  {
-    q: "Puis-je annuler mon abonnement à tout moment ?",
-    a: "Oui, absolument. Tu peux annuler ton abonnement à tout moment depuis ton espace compte, sans préavis ni frais supplémentaires. L'accès reste actif jusqu'à la fin de la période déjà payée.",
-  },
-  {
-    q: "Le plan Pro inclut-il tous les modules DuupFlow ?",
-    a: "Oui. Le plan Pro donne accès à l'intégralité des modules : Duplication Images, Duplication Vidéos, Comparateur de similarité et Détection IA. Tous les formats sont supportés et les copies sont illimitées.",
-  },
-  {
-    q: "Combien de fichiers puis-je traiter par mois avec le plan Pro ?",
-    a: "Il n'y a aucune limite sur le nombre de fichiers ou de copies générées. Tu peux importer autant de contenus que tu veux et créer autant de variantes que nécessaire, sans restriction mensuelle.",
-  },
-  {
-    q: "Qu'est-ce que la Priorité d'algorithme ?",
-    a: "La Priorité d'algorithme injecte des métadonnées Apple authentiques dans tes fichiers — modèle iPhone, version iOS, objectif caméra, coordonnées GPS. Les algorithmes des plateformes traitent ton contenu comme s'il provenait d'un appareil réel, ce qui booste ta portée organique.",
-  },
-  {
-    q: "À quoi sert le Pixel magique ?",
-    a: "Le Pixel magique ajoute du bruit imperceptible à chaque pixel de chaque frame. Le résultat est visuellement identique à l'original, mais le hash du fichier est complètement différent. Les algorithmes de détection de doublons voient un fichier unique à chaque copie.",
-  },
-  {
-    q: "Comment fonctionne la facturation ?",
-    a: "La facturation est mensuelle et automatique. Tu reçois une facture par email à chaque renouvellement. Nous acceptons les cartes Visa, Mastercard et American Express via notre partenaire Stripe.",
-  },
-  {
-    q: "Quelle est la différence entre le plan Pro et le plan Entreprise ?",
-    a: "Le plan Pro est conçu pour les créateurs et petites agences — accès complet, copies illimitées, support prioritaire. Le plan Entreprise ajoute l'accès API, un account manager dédié, un SLA personnalisé et un onboarding sur mesure pour les équipes de grande taille.",
-  },
+/* ─── Pricing FAQ keys ─── */
+const PRICING_FAQ_KEYS = [
+  { qKey: "tarifs.pricingFaq1Q", aKey: "tarifs.pricingFaq1A" },
+  { qKey: "tarifs.pricingFaq2Q", aKey: "tarifs.pricingFaq2A" },
+  { qKey: "tarifs.pricingFaq3Q", aKey: "tarifs.pricingFaq3A" },
+  { qKey: "tarifs.pricingFaq4Q", aKey: "tarifs.pricingFaq4A" },
+  { qKey: "tarifs.pricingFaq5Q", aKey: "tarifs.pricingFaq5A" },
+  { qKey: "tarifs.pricingFaq6Q", aKey: "tarifs.pricingFaq6A" },
+  { qKey: "tarifs.pricingFaq7Q", aKey: "tarifs.pricingFaq7A" },
 ];
 
-function TestimonialCard({ t }: { t: typeof TESTIMONIALS[0] }) {
+function TestimonialCard({ item }: { item: { text: string; name: string; role: string; avatar: string; color: string } }) {
   return (
     <div
       className="shrink-0 w-[200px] sm:w-[240px] rounded-xl sm:rounded-2xl border border-white/[0.10] px-3 sm:px-4 py-3 sm:py-3.5 flex flex-col justify-between"
       style={{ background: "rgba(8,12,35,0.75)" }}
     >
       <p className="text-[11px] sm:text-xs text-white/65 leading-relaxed mb-2.5 line-clamp-2">
-        &ldquo;{t.text}&rdquo;
+        &ldquo;{item.text}&rdquo;
       </p>
       <div className="flex items-center gap-2">
-        <img src={t.avatar} alt={t.name} className="h-6 w-6 sm:h-7 sm:w-7 rounded-full object-cover shrink-0" />
+        <img src={item.avatar} alt={item.name} className="h-6 w-6 sm:h-7 sm:w-7 rounded-full object-cover shrink-0" />
         <div>
-          <p className="text-[11px] sm:text-xs font-semibold text-white leading-none mb-0.5">{t.name}</p>
-          <p className="text-[9px] sm:text-[10px] text-white/40">{t.role}</p>
+          <p className="text-[11px] sm:text-xs font-semibold text-white leading-none mb-0.5">{item.name}</p>
+          <p className="text-[9px] sm:text-[10px] text-white/40">{item.role}</p>
         </div>
       </div>
     </div>
@@ -146,6 +54,14 @@ function TestimonialCard({ t }: { t: typeof TESTIMONIALS[0] }) {
 }
 
 function TestimonialsCarousel() {
+  const { t } = useTranslation();
+  const testimonials = TESTIMONIAL_META.map((m) => ({
+    text: t(m.key),
+    name: m.name,
+    role: m.role,
+    avatar: m.avatar,
+    color: m.color,
+  }));
   return (
     <div className="relative overflow-hidden">
       <style>{`
@@ -165,8 +81,8 @@ function TestimonialsCarousel() {
 
       <div className="marquee-track flex gap-4" style={{ width: "max-content" }}>
         {/* Render twice for seamless loop */}
-        {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
-          <TestimonialCard key={i} t={t} />
+        {[...testimonials, ...testimonials].map((item, i) => (
+          <TestimonialCard key={i} item={item} />
         ))}
       </div>
     </div>
@@ -187,33 +103,34 @@ function CheckIcon({ color }: { color: string }) {
 }
 
 function PricingCards() {
+  const { t } = useTranslation();
   const soloFeatures = [
-    "300 duplications images / mois",
-    "200 duplications vidéos / mois",
-    "100 modifications signature IA / mois",
-    "Formats JPG, PNG, WEBP, MP4, MOV, MKV",
-    "Métadonnées EXIF/XMP uniques à chaque copie",
-    "Export ZIP en un clic",
-    "Support par email",
+    t("tarifs.soloFeature1"),
+    t("tarifs.soloFeature2"),
+    t("tarifs.soloFeature3"),
+    t("tarifs.soloFeature4"),
+    t("tarifs.soloFeature5"),
+    t("tarifs.soloFeature6"),
+    t("tarifs.soloFeature7"),
   ];
 
   const proFeatures = [
-    "Spoofing images illimité",
-    "Duplications vidéos illimitées",
-    "Signature IA — modifications illimitées",
-    "3 membres invités dans ton workspace",
-    "Tous formats & presets avancés",
-    "Export ZIP en un clic",
-    "Support prioritaire 7j/7",
+    t("tarifs.proFeature1"),
+    t("tarifs.proFeature2"),
+    t("tarifs.proFeature3"),
+    t("tarifs.proFeature4"),
+    t("tarifs.proFeature5"),
+    t("tarifs.proFeature6"),
+    t("tarifs.proFeature7"),
   ];
 
   const enterpriseFeatures = [
-    "Tout le plan Pro, sans limitation",
-    "Accès API complet",
-    "Account manager dédié",
-    "SLA personnalisé garanti",
-    "Onboarding et formation équipe",
-    "Facturation sur mesure",
+    t("tarifs.enterpriseFeature1"),
+    t("tarifs.enterpriseFeature2"),
+    t("tarifs.enterpriseFeature3"),
+    t("tarifs.enterpriseFeature4"),
+    t("tarifs.enterpriseFeature5"),
+    t("tarifs.enterpriseFeature6"),
   ];
 
   return (
@@ -235,12 +152,12 @@ function PricingCards() {
         />
         <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
           <div className="mb-5 sm:mb-6">
-            <span className="text-sm sm:text-base font-semibold text-white">Plan Solo</span>
+            <span className="text-sm sm:text-base font-semibold text-white">{t("tarifs.planSolo")}</span>
             <div className="flex items-baseline gap-1.5 mb-1 mt-3 sm:mt-4">
               <span className="text-4xl sm:text-5xl font-bold text-white">39€</span>
-              <span className="text-white/45 text-sm">/ mois</span>
+              <span className="text-white/45 text-sm">{t("tarifs.perMonth")}</span>
             </div>
-            <p className="text-white/45 text-sm">Pour les créateurs indépendants</p>
+            <p className="text-white/45 text-sm">{t("tarifs.soloDesc")}</p>
           </div>
           <div className="h-px bg-white/[0.08] mb-6" />
           <ul className="space-y-3.5 flex-1 mb-8">
@@ -257,13 +174,13 @@ function PricingCards() {
               className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white transition hover:opacity-90"
               style={{ background: "linear-gradient(135deg,#7C3AED,#6366F1)" }}
             >
-              Commencer →
+              {t("tarifs.commencer")}
             </Link>
             <Link
               href="/demo"
               className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/70 hover:text-white transition border border-white/15 hover:border-white/30 hover:bg-white/[0.04]"
             >
-              Voir la démo
+              {t("tarifs.voirDemo")}
             </Link>
           </div>
         </div>
@@ -286,16 +203,16 @@ function PricingCards() {
         <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
           <div className="mb-5 sm:mb-6">
             <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-              <span className="text-sm sm:text-base font-semibold text-white">Plan Pro</span>
+              <span className="text-sm sm:text-base font-semibold text-white">{t("tarifs.planPro")}</span>
               <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 uppercase tracking-wide">
-                Le plus populaire
+                {t("tarifs.mostPopular")}
               </span>
             </div>
             <div className="flex items-baseline gap-1.5 mb-1">
               <span className="text-4xl sm:text-5xl font-bold text-white">99€</span>
-              <span className="text-white/45 text-sm">/ mois</span>
+              <span className="text-white/45 text-sm">{t("tarifs.perMonth")}</span>
             </div>
-            <p className="text-white/45 text-sm">Pour les créateurs et agences</p>
+            <p className="text-white/45 text-sm">{t("tarifs.proDesc")}</p>
           </div>
           <div className="h-px bg-white/[0.08] mb-6" />
           <ul className="space-y-3.5 flex-1 mb-8">
@@ -312,13 +229,13 @@ function PricingCards() {
               className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white transition hover:opacity-90"
               style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
             >
-              Commencer →
+              {t("tarifs.commencer")}
             </Link>
             <Link
               href="/demo"
               className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/70 hover:text-white transition border border-white/15 hover:border-white/30 hover:bg-white/[0.04]"
             >
-              Voir la démo
+              {t("tarifs.voirDemo")}
             </Link>
           </div>
         </div>
@@ -341,12 +258,12 @@ function PricingCards() {
         <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
           <div className="mb-5 sm:mb-6">
             <div className="flex items-center gap-3 mb-3 sm:mb-4">
-              <span className="text-sm sm:text-base font-semibold text-white">Plan Entreprise</span>
+              <span className="text-sm sm:text-base font-semibold text-white">{t("tarifs.planEntreprise")}</span>
             </div>
             <div className="flex items-baseline gap-1.5 mb-1">
-              <span className="text-3xl sm:text-5xl font-bold text-white">Sur devis</span>
+              <span className="text-3xl sm:text-5xl font-bold text-white">{t("tarifs.surDevis")}</span>
             </div>
-            <p className="text-white/45 text-sm">Solutions personnalisées pour les équipes</p>
+            <p className="text-white/45 text-sm">{t("tarifs.entrepriseDesc")}</p>
           </div>
           <div className="h-px bg-white/[0.08] mb-6" />
           <ul className="space-y-3.5 flex-1 mb-8">
@@ -361,7 +278,7 @@ function PricingCards() {
             href="mailto:contact@duupflow.com"
             className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/80 hover:text-white transition border border-white/20 hover:border-white/35 hover:bg-white/[0.04]"
           >
-            Nous contacter →
+            {t("tarifs.nousContacter")}
           </a>
         </div>
       </div>
@@ -370,7 +287,9 @@ function PricingCards() {
 }
 
 function PricingFAQ() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState<number | null>(null);
+  const pricingFaqs = PRICING_FAQ_KEYS.map((f) => ({ q: t(f.qKey), a: t(f.aKey) }));
   return (
     <section className="relative overflow-hidden">
       {/* Dark blue background */}
@@ -385,13 +304,13 @@ function PricingFAQ() {
           <div className="grid md:grid-cols-[2fr_3fr] gap-16">
             <div className="md:sticky md:top-28 self-start">
               <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">FAQ</p>
-              <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight leading-[1.1]">Questions fréquentes</h2>
+              <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight leading-[1.1]">{t("tarifs.faqTitle")}</h2>
               <p className="text-white/60 text-sm mt-4 leading-relaxed">
-                Tu as d&apos;autres questions ? Contacte-nous par email.
+                {t("tarifs.faqSubtitle")}
               </p>
             </div>
             <div className="divide-y divide-white/[0.08]">
-              {PRICING_FAQS.map((faq, i) => (
+              {pricingFaqs.map((faq, i) => (
                 <div key={i}>
                   <button
                     onClick={() => setOpen(open === i ? null : i)}
@@ -421,25 +340,26 @@ function PricingFAQ() {
 }
 
 export default function TarifsPage() {
+  const { t } = useTranslation();
   return (
     <div>
       {/* ── HERO ── */}
       <section className="flex flex-col items-center text-center px-6 pt-20 pb-16">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-4 py-1.5 text-sm text-white/70">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Tarif unique — tout inclus
+          {t("tarifs.badge")}
         </div>
         <h1 className="text-3xl sm:text-5xl md:text-[3.5rem] font-bold tracking-tight text-white mb-4 leading-[1.08]">
-          Nos Tarifs
+          {t("tarifs.title")}
         </h1>
         <p className="text-white/65 text-sm sm:text-lg max-w-lg mb-3">
-          Un seul plan pour tout scaler. Pas de limite, pas de surprise.
+          {t("tarifs.subtitle")}
         </p>
         <p className="text-sm text-white/45 mb-2">
-          Conçu pour les{" "}
-          <span className={G + " font-semibold"}>créateurs</span>
-          {" "}et les{" "}
-          <span className={G + " font-semibold"}>agences marketing</span>
+          {t("tarifs.forCreators")}{" "}
+          <span className={G + " font-semibold"}>{t("tarifs.creators")}</span>
+          {" "}{t("tarifs.and")}{" "}
+          <span className={G + " font-semibold"}>{t("tarifs.agencies")}</span>
         </p>
       </section>
 
@@ -463,11 +383,11 @@ export default function TarifsPage() {
             <span style={{ color: "#818CF8" }}>Duup</span>
             <span className="text-white/50">Flow</span>
           </div>
-          <p className="text-xs text-white/25">© 2025 DuupFlow — Tous droits réservés.</p>
+          <p className="text-xs text-white/25">{t("footer.copyright").replace("{year}", new Date().getFullYear().toString())}</p>
           <div className="flex gap-5 text-xs text-white/30">
-            <Link href="/legal" className="hover:text-white/60 transition">Mentions légales</Link>
-            <Link href="/legal/terms" className="hover:text-white/60 transition">CGU</Link>
-            <Link href="/legal/privacy" className="hover:text-white/60 transition">Confidentialité</Link>
+            <Link href="/legal" className="hover:text-white/60 transition">{t("footer.mentionsLegales")}</Link>
+            <Link href="/legal/terms" className="hover:text-white/60 transition">{t("footer.cgu")}</Link>
+            <Link href="/legal/privacy" className="hover:text-white/60 transition">{t("footer.confidentialite")}</Link>
           </div>
         </div>
       </footer>

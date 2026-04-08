@@ -5,28 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Suspense } from "react";
+import { useTranslation } from "@/lib/i18n/context";
 
 type Plan = "solo" | "pro";
 
-const SOLO_FEATURES = [
-  "300 duplications images / mois",
-  "200 duplications vidéos / mois",
-  "100 modifications signature IA / mois",
-  "Formats JPG, PNG, WEBP, MP4, MOV, MKV",
-  "Métadonnées EXIF/XMP uniques",
-  "Export ZIP en un clic",
-  "Support par email",
-];
-
-const PRO_FEATURES = [
-  "Spoofing images illimité",
-  "Duplications vidéos illimitées",
-  "Signature IA — modifications illimitées",
-  "3 membres invités dans ton workspace",
-  "Tous formats & presets avancés",
-  "Export ZIP en un clic",
-  "Support prioritaire 7j/7",
-];
+// SOLO_FEATURES and PRO_FEATURES moved inside component to use t()
 
 function PlanCard({
   name,
@@ -51,6 +34,7 @@ function PlanCard({
   gradientFrom: string;
   gradientTo: string;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
@@ -98,7 +82,7 @@ function PlanCard({
         </p>
         <div className="flex items-baseline gap-1">
           <span className="text-4xl font-extrabold text-white">{price}</span>
-          <span className="text-white/40 text-sm">/mois</span>
+          <span className="text-white/40 text-sm">{t("common.perMonth")}</span>
         </div>
       </div>
 
@@ -129,6 +113,27 @@ function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultPlan = (searchParams.get("plan") as Plan) === "solo" ? "solo" : "pro";
+  const { t } = useTranslation();
+
+  const SOLO_FEATURES = [
+    t("tarifs.soloFeature1"),
+    t("tarifs.soloFeature2"),
+    t("tarifs.soloFeature3"),
+    t("tarifs.soloFeature4"),
+    t("tarifs.soloFeature5"),
+    t("tarifs.soloFeature6"),
+    t("tarifs.soloFeature7"),
+  ];
+
+  const PRO_FEATURES = [
+    t("tarifs.proFeature1"),
+    t("tarifs.proFeature2"),
+    t("tarifs.proFeature3"),
+    t("tarifs.proFeature4"),
+    t("tarifs.proFeature5"),
+    t("tarifs.proFeature6"),
+    t("tarifs.proFeature7"),
+  ];
 
   const [selectedPlan, setSelectedPlan] = useState<Plan>(defaultPlan);
   const [loading, setLoading] = useState(false);
@@ -162,11 +167,11 @@ function CheckoutContent() {
       const data = await res.json();
       if (data.valid) {
         setPromoState("valid");
-        setPromoMessage(data.message ?? `-10€ sur ton 1er mois`);
+        setPromoMessage(data.message ?? t("checkout.promoValid"));
         localStorage.setItem("duupflow_ref", code.trim().toUpperCase());
       } else {
         setPromoState("invalid");
-        setPromoMessage("Code invalide ou expiré");
+        setPromoMessage(t("checkout.promoInvalid"));
       }
     } catch {
       setPromoState("idle");
@@ -196,13 +201,13 @@ function CheckoutContent() {
       });
       const data = await res.json();
       if (!res.ok || !data.url) {
-        setError(data.error ?? "Erreur lors de la création de la session.");
+        setError(data.error ?? t("checkout.sessionError"));
         setLoading(false);
         return;
       }
       window.location.href = data.url;
     } catch {
-      setError("Erreur réseau. Réessaie.");
+      setError(t("checkout.networkError"));
       setLoading(false);
     }
   }
@@ -241,13 +246,13 @@ function CheckoutContent() {
               }}
             >
               <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              Choisir un plan · Sans engagement
+              {t("checkout.badge")}
             </span>
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            Démarrer avec DuupFlow
+            {t("checkout.title")}
           </h1>
-          <p className="text-white/45 text-sm mt-1">Résiliable à tout moment depuis les paramètres</p>
+          <p className="text-white/45 text-sm mt-1">{t("checkout.subtitle")}</p>
         </div>
 
         {/* Plan cards */}
@@ -266,7 +271,7 @@ function CheckoutContent() {
           <PlanCard
             name="Pro"
             price="99€"
-            badge="Populaire"
+            badge={t("checkout.popular")}
             features={PRO_FEATURES}
             selected={selectedPlan === "pro"}
             onSelect={() => setSelectedPlan("pro")}
@@ -289,7 +294,7 @@ function CheckoutContent() {
                 setPromoMessage("");
               }}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); validatePromoCode(promoInput); } }}
-              placeholder="Code partenaire (optionnel)"
+              placeholder={t("checkout.promoPlaceholder")}
               className="flex-1 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:ring-1 transition"
               style={{
                 background: "rgba(255,255,255,0.05)",
@@ -311,7 +316,7 @@ function CheckoutContent() {
                 color: "#818CF8",
               }}
             >
-              {promoState === "validating" ? "…" : "Appliquer"}
+              {promoState === "validating" ? "..." : t("checkout.promoApply")}
             </button>
           </div>
           {promoMessage && (
@@ -340,34 +345,34 @@ function CheckoutContent() {
           }}
         >
           {loading
-            ? "Redirection en cours…"
+            ? t("checkout.redirecting")
             : promoState === "valid"
-            ? `Souscrire — ${basePrice} ${discountedPrice}/1er mois →`
-            : `Souscrire au plan ${selectedPlan === "solo" ? "Solo" : "Pro"} — ${price}/mois →`}
+            ? t("checkout.subscribePromo", { basePrice, discountedPrice })
+            : t("checkout.subscribe", { plan: selectedPlan === "solo" ? t("checkout.planSolo") : t("checkout.planPro"), price })}
         </button>
 
         <p className="text-center text-xs text-white/25 mt-4">
-          Paiement sécurisé par Stripe · SSL 256-bit
+          {t("checkout.securePayment")}
         </p>
       </div>
 
       <p className="text-center text-xs text-white/20 mt-6">
         {userEmail ? (
           <>
-            Connecté en tant que <span className="text-white/40">{userEmail}</span>
+            {t("checkout.connectedAs")} <span className="text-white/40">{userEmail}</span>
             {" · "}
             <button
               onClick={handleSignOut}
               className="text-indigo-400/60 hover:text-indigo-400 underline cursor-pointer"
             >
-              Changer de compte
+              {t("checkout.changeAccount")}
             </button>
           </>
         ) : (
           <>
-            Tu as déjà un compte actif ?{" "}
+            {t("checkout.hasActiveAccount")}{" "}
             <Link href="/login" className="text-indigo-400/60 hover:text-indigo-400 underline">
-              Se connecter
+              {t("checkout.login")}
             </Link>
           </>
         )}

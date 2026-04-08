@@ -4,11 +4,13 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslation } from "@/lib/i18n/context";
 
 type Status = "checking" | "waiting" | "ready" | "unauthenticated" | "error";
 
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
+  const { t } = useTranslation();
   const [status, setStatus] = useState<Status>("checking");
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
@@ -104,17 +106,17 @@ function CheckoutSuccessContent() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight mb-3">
-            Paiement confirmé 🎉
+            {t("checkout.successTitle")}
           </h1>
           <p className="text-white/50 text-sm mb-8 leading-relaxed">
-            Connecte-toi pour accéder à ton abonnement DuupFlow.
+            {t("checkout.loginToAccess")}
           </p>
           <Link
             href="/login"
             className="inline-block w-full rounded-xl py-3.5 text-sm font-bold text-white text-center transition hover:opacity-90"
             style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
           >
-            Se connecter →
+            {t("checkout.loginButton")}
           </Link>
         </>
       ) : status === "error" ? (
@@ -131,10 +133,10 @@ function CheckoutSuccessContent() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight mb-3">
-            Activation en attente
+            {t("checkout.activationPending")}
           </h1>
           <p className="text-white/50 text-sm mb-2 leading-relaxed">
-            Ton paiement Stripe est confirmé mais l&apos;activation n&apos;a pas pu se faire automatiquement.
+            {t("checkout.activationPendingDesc")}
           </p>
           {debugInfo && (
             <p className="text-red-400/70 text-xs mb-6 font-mono bg-red-950/30 rounded px-3 py-2">
@@ -142,14 +144,14 @@ function CheckoutSuccessContent() {
             </p>
           )}
           <p className="text-white/30 text-xs mb-6">
-            Copie l&apos;info ci-dessus et contacte le support, ou réessaie dans quelques minutes.
+            {t("checkout.copyAndContact")}
           </p>
           <button
             onClick={() => { window.location.reload(); }}
             className="inline-block w-full rounded-xl py-3.5 text-sm font-bold text-white text-center transition hover:opacity-90"
             style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
           >
-            Réessayer →
+            {t("checkout.retry")}
           </button>
         </>
       ) : (
@@ -168,10 +170,10 @@ function CheckoutSuccessContent() {
           </div>
 
           <h1 className="text-3xl font-bold text-white tracking-tight mb-3">
-            Paiement confirmé 🎉
+            {t("checkout.successTitle")}
           </h1>
           <p className="text-white/50 text-sm mb-8 leading-relaxed">
-            Ton abonnement DuupFlow est actif. Tous les modules sont maintenant accessibles.
+            {t("checkout.successSubtitle")}
           </p>
 
           <button
@@ -179,13 +181,13 @@ function CheckoutSuccessContent() {
             className="inline-block w-full rounded-xl py-3.5 text-sm font-bold text-white text-center transition hover:opacity-90 mb-4"
             style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
           >
-            Accéder au dashboard →
+            {t("checkout.goToDashboard")}
           </button>
 
           <p className="text-xs text-white/25">
             {status === "ready"
-              ? "Redirection en cours…"
-              : "Activation de ton accès en cours…"}
+              ? t("checkout.redirectionInProgress")
+              : t("checkout.activationInProgress")}
           </p>
         </>
       )}

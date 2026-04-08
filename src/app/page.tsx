@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { useTranslation } from "@/lib/i18n/context";
 
 const Carousel3D = dynamic(() => import("@/components/Carousel3D"), { ssr: false });
 
@@ -50,6 +51,7 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
  * SECTION 1 — HERO
  * ═══════════════════════════════════════════════════════ */
 function Hero() {
+  const { t } = useTranslation();
   return (
     <section className="relative flex flex-col items-center text-center px-6 pt-6 sm:pt-12 pb-20 sm:pb-40 overflow-hidden">
 
@@ -62,7 +64,7 @@ function Hero() {
             ))}
           </div>
           <p className="text-xs sm:text-base text-white/60">
-            Rejoins <span className="text-white font-semibold">500+</span> agences satisfaites
+            {t("hero.socialProof").replace("{count}", "500")}
           </p>
         </div>
       </Reveal>
@@ -70,17 +72,17 @@ function Hero() {
       {/* Main heading — large, elegant, light weight like LanX */}
       <Reveal delay={80}>
         <h1 className="max-w-5xl text-[2.5rem] sm:text-[3.5rem] md:text-[5rem] font-light leading-[1.08] tracking-[-0.02em] text-white/90 mb-6 sm:mb-7">
-          Dupliquer à l&apos;infini{" "}<br className="hidden sm:block" />
-          <span className={G}>Votre contenu sera unique</span>{" "}<br className="hidden sm:block" />
-          aux yeux des algorithmes
+          {t("hero.titleLine1")}{" "}<br className="hidden sm:block" />
+          <span className={G}>{t("hero.titleLine2")}</span>{" "}<br className="hidden sm:block" />
+          {t("hero.titleLine3")}
         </h1>
       </Reveal>
 
       {/* Subtitle */}
       <Reveal delay={160}>
         <p className="max-w-2xl text-white/45 text-base sm:text-lg leading-relaxed mb-8 sm:mb-10">
-          <span className="sm:hidden">Chaque copie unique — indétectable par les plateformes.</span>
-          <span className="hidden sm:inline">Chaque copie est unique et indétectable par les algorithmes des plateformes. Conçu pour les agences qui veulent scaler leur production de contenu.</span>
+          <span className="sm:hidden">{t("hero.subtitleMobile")}</span>
+          <span className="hidden sm:inline">{t("hero.subtitleDesktop")}</span>
         </p>
       </Reveal>
 
@@ -89,11 +91,11 @@ function Hero() {
         <div className="flex flex-row gap-3 sm:gap-4 mb-16 sm:mb-24 justify-center">
           <Link href="/register"
             className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 sm:px-9 py-3 sm:py-3.5 font-semibold text-white text-sm sm:text-base">
-            Commencer gratuitement
+            {t("hero.ctaPrimary")}
           </Link>
           <Link href="/demo"
             className="slide-btn slide-btn-outline inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/[0.05] px-7 sm:px-9 py-3 sm:py-3.5 font-medium text-sm sm:text-base text-white/80 transition">
-            Voir la démo
+            {t("hero.ctaSecondary")}
           </Link>
         </div>
       </Reveal>
@@ -135,6 +137,7 @@ function Hero() {
  * SECTION 2 — PROBLÈME / SOLUTION
  * ═══════════════════════════════════════════════════════ */
 function ProblemSolution() {
+  const { t } = useTranslation();
   return (
     <section className="px-6 pb-36">
       <div className="max-w-6xl mx-auto pt-20">
@@ -151,15 +154,14 @@ function ProblemSolution() {
                       <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                     </svg>
                   </div>
-                  <h3 className="font-semibold text-white text-base">Le Problème</h3>
+                  <h3 className="font-semibold text-white text-base">{t("problemSolution.problemTitle")}</h3>
                 </div>
                 <p className="text-white/75 text-sm leading-relaxed mb-5">
-                  Les plateformes détectent chaque doublon — même renommé, même recompressé.
-                  Résultat : shadowban silencieux dès la 2e publication.
+                  {t("problemSolution.problemText")}
                 </p>
                 <div className="rounded-xl border border-red-500/15 bg-red-500/[0.06] px-4 py-3">
                   <p className="text-sm font-semibold text-red-300">
-                    1 fichier = 1 seule publication. Après ça, shadowban assuré.
+                    {t("problemSolution.problemHighlight")}
                   </p>
                 </div>
               </div>
@@ -172,15 +174,14 @@ function ProblemSolution() {
                       <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <h3 className="font-semibold text-white text-base">La Solution DuupFlow</h3>
+                  <h3 className="font-semibold text-white text-base">{t("problemSolution.solutionTitle")}</h3>
                 </div>
                 <p className="text-white/75 text-sm leading-relaxed mb-5">
-                  DuupFlow régénère l&apos;empreinte de chaque copie — métadonnées uniques,
-                  ré-encodage vidéo, micro-variations invisibles. Techniquement nouveau à chaque fois.
+                  {t("problemSolution.solutionText")}
                 </p>
                 <div className="rounded-xl border border-indigo-500/15 bg-indigo-500/[0.06] px-4 py-3">
                   <p className="text-sm font-semibold text-indigo-300">
-                    Scale le même contenu à l&apos;infini. Sans jamais être détecté.
+                    {t("problemSolution.solutionHighlight")}
                   </p>
                 </div>
               </div>
@@ -190,16 +191,15 @@ function ProblemSolution() {
             <div>
               <div className="mb-5">
                 <span className="inline-flex items-center gap-2 rounded-full border border-indigo-500/25 bg-indigo-500/[0.08] px-4 py-1.5 text-xs font-semibold text-indigo-400 tracking-wide uppercase">
-                  Pourquoi DuupFlow existe
+                  {t("problemSolution.badge")}
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
-                Tes meilleurs contenus méritent{" "}
-                <span className={G}>d&apos;exister plus longtemps.</span>
+                {t("problemSolution.title")}{" "}
+                <span className={G}>{t("problemSolution.titleHighlight")}</span>
               </h2>
               <p className="text-white/65 text-sm sm:text-base leading-relaxed">
-                Les plateformes analysent l&apos;empreinte numérique de chaque fichier.
-                DuupFlow rend tes copies techniquement indétectables.
+                {t("problemSolution.description")}
               </p>
             </div>
           </div>
@@ -210,10 +210,8 @@ function ProblemSolution() {
             style={{ background: "rgba(8,12,35,0.65)" }}
           >
             <p className="text-sm text-white/70">
-              <span className="text-white font-semibold">Résultat :</span>{" "}
-              un seul bon contenu →{" "}
-              <span className={G + " font-semibold"}>50 publications uniques</span>{" "}
-              → 50 chances de toucher l&apos;algorithme.
+              <span className="text-white font-semibold">{t("problemSolution.resultLabel")}</span>{" "}
+              {t("problemSolution.resultText").replace(/\{count\}/g, "50")}
             </p>
           </div>
         </Reveal>
@@ -225,35 +223,30 @@ function ProblemSolution() {
 /* ═══════════════════════════════════════════════════════
  * SECTION 3 — FEATURE TABS (auto-rotating)
  * ═══════════════════════════════════════════════════════ */
-const TABS = [
-  { id: "duplication", label: "Duplication Images & Vidéos" },
-  { id: "invisible", label: "Modification Invisible" },
-  { id: "priority", label: "Priorité d'algorithme" },
-  { id: "ai", label: "Détection IA" },
-];
-const TAB_IDS = TABS.map((t) => t.id);
+const TAB_IDS = ["duplication", "invisible", "priority", "ai"];
 const TAB_DURATION = 4000;
 const TICK = 50;
 
 /* ── Compact mockups for horizontal scroller cards ── */
 function MockupDuplication() {
+  const { t } = useTranslation();
   const copies = [
     { name: "DuupFlow_dup1_47.jpg", type: "Image", size: "2.4 MB" },
-    { name: "DuupFlow_dup2_83.mp4", type: "Vidéo", size: "18.7 MB" },
+    { name: "DuupFlow_dup2_83.mp4", type: "Video", size: "18.7 MB" },
     { name: "DuupFlow_dup3_12.jpg", type: "Image", size: "2.4 MB" },
   ];
   return (
     <div className="space-y-2.5 text-xs">
       <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2.5 flex items-center gap-2.5">
         <span className="text-base">📁</span>
-        <div className="flex-1 min-w-0"><p className="text-white/70 font-medium truncate">contenu_source</p><p className="text-[10px] text-white/30">Fichier source</p></div>
-        <span className="px-2 py-0.5 rounded border border-white/10 bg-white/[0.04] text-white/40 text-[10px]">Source</span>
+        <div className="flex-1 min-w-0"><p className="text-white/70 font-medium truncate">contenu_source</p><p className="text-[10px] text-white/30">{t("fonctionnalites.sourceFile")}</p></div>
+        <span className="px-2 py-0.5 rounded border border-white/10 bg-white/[0.04] text-white/40 text-[10px]">{t("fonctionnalites.source")}</span>
       </div>
       <div className="flex justify-center"><svg className="h-4 w-4 text-white/15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12l7 7 7-7" /></svg></div>
       {copies.map((f) => (
         <div key={f.name} className="rounded-lg border border-indigo-500/20 bg-indigo-500/[0.04] px-3 py-2.5 flex items-center gap-2.5">
           <span className="text-base">{f.type === "Image" ? "🖼️" : "🎬"}</span>
-          <div className="flex-1 min-w-0"><p className="text-white/60 font-mono truncate text-[11px]">{f.name}</p><p className="text-[10px] text-white/25">Métadonnées uniques · {f.size}</p></div>
+          <div className="flex-1 min-w-0"><p className="text-white/60 font-mono truncate text-[11px]">{f.name}</p><p className="text-[10px] text-white/25">{t("fonctionnalites.metadataModified")} · {f.size}</p></div>
           <svg className="h-3.5 w-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
         </div>
       ))}
@@ -262,6 +255,7 @@ function MockupDuplication() {
 }
 
 function MockupInvisible() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-3 text-xs">
       <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2.5">
@@ -278,14 +272,15 @@ function MockupInvisible() {
         <p className="text-emerald-300 font-mono text-[11px]">9b2e8f4a7c1d...3b5d2e8f</p>
       </div>
       <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-center">
-        <p className="text-white/60 font-medium text-[11px] mb-0.5">Visuellement identique</p>
-        <p className="text-[10px] text-white/30">Le contenu visuel ne change pas. Seule l&apos;empreinte est modifiée.</p>
+        <p className="text-white/60 font-medium text-[11px] mb-0.5">{t("fonctionnalites.visuallyIdentical")}</p>
+        <p className="text-[10px] text-white/30">{t("fonctionnalites.visualContentUnchanged")}</p>
       </div>
     </div>
   );
 }
 
 function MockupPriority() {
+  const { t } = useTranslation();
   const fields = [
     { key: "Make", value: "Apple" },
     { key: "Model", value: "iPhone 16 Pro" },
@@ -298,7 +293,7 @@ function MockupPriority() {
         <div className="h-6 w-6 rounded-md bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
           <svg className="h-3 w-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
         </div>
-        <span className="text-[11px] font-semibold text-indigo-300">Métadonnées iPhone injectées</span>
+        <span className="text-[11px] font-semibold text-indigo-300">{t("fonctionnalites.metadataInjected").replace("{count}", "4")}</span>
       </div>
       {fields.map((f) => (
         <div key={f.key} className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 flex items-center justify-between">
@@ -307,17 +302,18 @@ function MockupPriority() {
         </div>
       ))}
       <div className="rounded-lg border border-indigo-500/15 bg-indigo-500/[0.04] px-3 py-2 text-center">
-        <p className="text-[10px] text-indigo-300/70">L&apos;algorithme traite votre contenu comme un vrai iPhone</p>
+        <p className="text-[10px] text-indigo-300/70">{t("fonctionnalites.algorithmTreatsAsIphone")}</p>
       </div>
     </div>
   );
 }
 
 function MockupAI() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-3 text-xs">
       <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-3 py-3">
-        <p className="text-[10px] text-amber-400 font-medium mb-2 flex items-center gap-1"><span>⚡</span> Signature IA détectée</p>
+        <p className="text-[10px] text-amber-400 font-medium mb-2 flex items-center gap-1"><span>⚡</span> {t("fonctionnalites.aiSignatureDetected")}</p>
         <div className="space-y-1.5">
           {[["Software", "Midjourney v6.1"], ["Artist", "Midjourney Bot"], ["Creator", "midjourney.com"]].map(([k, v]) => (
             <div key={k} className="flex justify-between"><span className="text-white/35 font-mono text-[11px]">{k}</span><span className="text-amber-300/80 font-mono text-[11px]">{v}</span></div>
@@ -325,7 +321,7 @@ function MockupAI() {
         </div>
       </div>
       <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-3">
-        <p className="text-[10px] text-emerald-400 font-medium mb-2 flex items-center gap-1"><span>🛡️</span> Signature IA effacée</p>
+        <p className="text-[10px] text-emerald-400 font-medium mb-2 flex items-center gap-1"><span>🛡️</span> {t("fonctionnalites.aiSignatureCleared")}</p>
         <div className="space-y-1.5">
           {[["Software", "Adobe Lightroom 7.2"], ["Make", "Sony"], ["Model", "A7 IV"]].map(([k, v]) => (
             <div key={k} className="flex justify-between"><span className="text-white/35 font-mono text-[11px]">{k}</span><span className="text-emerald-300/80 font-mono text-[11px]">{v}</span></div>
@@ -337,18 +333,27 @@ function MockupAI() {
 }
 
 const MOCKUPS: Record<string, React.ReactNode> = { duplication: <MockupDuplication />, invisible: <MockupInvisible />, priority: <MockupPriority />, ai: <MockupAI /> };
-const TAB_DESCS: Record<string, string> = {
-  duplication: "Dupliquez vos images et vidéos en masse. Chaque copie est unique — métadonnées, empreinte technique, hash. Indétectable par les plateformes.",
-  invisible: "Modifiez l'empreinte numérique sans toucher au visuel. Pixel magique change le hash de chaque fichier tout en gardant le contenu visuellement identique.",
-  priority: "Localisez votre contenu et injectez des métadonnées iPhone authentiques. L'algorithme pense que votre contenu vient d'un appareil réel.",
-  ai: "Effacez la signature IA de vos contenus. Remplacez les métadonnées Midjourney, DALL-E, Stable Diffusion par une identité humaine réaliste.",
-};
 
 function FeatureTabs() {
+  const { t } = useTranslation();
   const [active, setActive] = useState("duplication");
   const [progress, setProgress] = useState(0);
   const activeRef = useRef("duplication");
   const progressRef = useRef(0);
+
+  const tabs = [
+    { id: "duplication", label: t("featuresScroller.card1Title") },
+    { id: "invisible", label: t("featuresScroller.card2Title") },
+    { id: "priority", label: t("featuresScroller.card3Title") },
+    { id: "ai", label: t("featuresScroller.card4Title") },
+  ];
+
+  const tabDescs: Record<string, string> = {
+    duplication: t("featuresScroller.card1Desc"),
+    invisible: t("featuresScroller.card2Desc"),
+    priority: t("featuresScroller.card3Desc"),
+    ai: t("featuresScroller.card4Desc"),
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -366,20 +371,20 @@ function FeatureTabs() {
   }, []);
 
   const handleTab = (id: string) => { activeRef.current = id; progressRef.current = 0; setActive(id); setProgress(0); };
-  const desc = TAB_DESCS[active];
+  const desc = tabDescs[active];
 
   return (
     <section className="px-6 pb-36">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <div className="flex overflow-x-auto gap-1 p-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] mb-8 scrollbar-none">
-            {TABS.map((t) => (
-              <button key={t.id} onClick={() => handleTab(t.id)}
+            {tabs.map((tab) => (
+              <button key={tab.id} onClick={() => handleTab(tab.id)}
                 className="flex-1 min-w-max rounded-xl px-4 py-2.5 text-sm font-medium transition whitespace-nowrap relative overflow-hidden"
-                style={{ color: active === t.id ? "white" : "rgba(255,255,255,0.45)", background: active === t.id ? "rgba(255,255,255,0.10)" : "transparent", border: active === t.id ? "1px solid rgba(255,255,255,0.15)" : "1px solid transparent" }}>
-                {t.label}
-                {t.id === "ai" && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/25 font-semibold">NEW</span>}
-                {active === t.id && (
+                style={{ color: active === tab.id ? "white" : "rgba(255,255,255,0.45)", background: active === tab.id ? "rgba(255,255,255,0.10)" : "transparent", border: active === tab.id ? "1px solid rgba(255,255,255,0.15)" : "1px solid transparent" }}>
+                {tab.label}
+                {tab.id === "ai" && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/25 font-semibold">{t("featuresScroller.badgeNew")}</span>}
+                {active === tab.id && (
                   <span className="absolute bottom-0 left-0 h-[2px] rounded-full"
                     style={{ width: `${progress}%`, background: "linear-gradient(90deg,#6366F1,#38BDF8)", transition: "width 50ms linear" }} />
                 )}
@@ -388,9 +393,9 @@ function FeatureTabs() {
           </div>
           <div className="grid md:grid-cols-[1fr_360px] gap-8 items-start">
             <div className="py-4">
-              <h3 className="text-2xl font-semibold text-white mb-3">{TABS.find(t => t.id === active)?.label}</h3>
+              <h3 className="text-2xl font-semibold text-white mb-3">{tabs.find(tab => tab.id === active)?.label}</h3>
               <p className="text-white/75 leading-relaxed mb-6">{desc}</p>
-              <Link href="/register" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">Essayer maintenant →</Link>
+              <Link href="/register" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">{t("featuresScroller.tryNow")}</Link>
             </div>
             <div className="rounded-2xl border border-white/[0.12] p-4 sm:p-5 backdrop-blur-sm overflow-hidden min-h-[300px] sm:min-h-[480px]" style={{ background: "rgba(8,12,35,0.75)" }}>
               {MOCKUPS[active]}
@@ -400,7 +405,7 @@ function FeatureTabs() {
         <div className="flex justify-center mt-10">
           <Link href="/demo"
             className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3 font-medium text-sm text-white/75 hover:text-white hover:bg-white/[0.08] transition">
-            Voir la démo →
+            {t("featuresScroller.seeDemo")}
           </Link>
         </div>
       </div>
@@ -414,31 +419,8 @@ function FeatureTabs() {
 const GLOW = "text-[#5B7BFF]";
 const GS = { textShadow: "0 0 25px rgba(91,123,255,0.5)" };
 
-const SCROLLER_CARDS = [
-  {
-    title: <><span className={GLOW} style={GS}>Duplication</span> Images &amp; Vidéos</>,
-    desc: "Dupliquez vos images et vidéos en masse. Chaque copie est unique — métadonnées, empreinte technique, hash. Indétectable par les plateformes.",
-    accent: "#6366F1",
-  },
-  {
-    title: <>Modification <span className={GLOW} style={GS}>Invisible</span></>,
-    desc: "Modifiez l'empreinte numérique sans toucher au visuel. Pixel magique change le hash de chaque fichier tout en gardant le contenu visuellement identique.",
-    accent: "#6366F1",
-  },
-  {
-    title: <><span className={GLOW} style={GS}>Priorité</span> d&apos;algorithme</>,
-    desc: "Localisez votre contenu et injectez des métadonnées iPhone authentiques. L'algorithme pense que votre contenu vient d'un appareil réel.",
-    accent: "#6366F1",
-  },
-  {
-    title: <>Détection <span className={GLOW} style={GS}>IA</span></>,
-    desc: "Effacez la signature IA de vos contenus. Remplacez les métadonnées Midjourney, DALL-E, Stable Diffusion par une identité humaine réaliste.",
-    accent: "#6366F1",
-    badge: "NEW",
-  },
-];
-
 function FeaturesScroller() {
+  const { t } = useTranslation();
   const stickyRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [scrollX, setScrollX] = useState(0);
@@ -464,8 +446,31 @@ function FeaturesScroller() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const cards = SCROLLER_CARDS;
-  const stickyHeight = `${(cards.length + 2) * 100}vh`;
+  const scrollerCards = [
+    {
+      title: <><span className={GLOW} style={GS}>{t("featuresScroller.card1Title").split(" ")[0]}</span> {t("featuresScroller.card1Title").split(" ").slice(1).join(" ")}</>,
+      desc: t("featuresScroller.card1Desc"),
+      accent: "#6366F1",
+    },
+    {
+      title: <>{t("featuresScroller.card2Title").split(" ")[0]} <span className={GLOW} style={GS}>{t("featuresScroller.card2Title").split(" ").slice(1).join(" ")}</span></>,
+      desc: t("featuresScroller.card2Desc"),
+      accent: "#6366F1",
+    },
+    {
+      title: <><span className={GLOW} style={GS}>{t("featuresScroller.card3Title").split(" ")[0]}</span> {t("featuresScroller.card3Title").split(" ").slice(1).join(" ")}</>,
+      desc: t("featuresScroller.card3Desc"),
+      accent: "#6366F1",
+    },
+    {
+      title: <>{t("featuresScroller.card4Title").split(" ")[0]} <span className={GLOW} style={GS}>{t("featuresScroller.card4Title").split(" ").slice(1).join(" ")}</span></>,
+      desc: t("featuresScroller.card4Desc"),
+      accent: "#6366F1",
+      badge: t("featuresScroller.badgeNew"),
+    },
+  ];
+
+  const stickyHeight = `${(scrollerCards.length + 2) * 100}vh`;
 
   return (
     <section ref={stickyRef} className="relative" style={{ height: stickyHeight }}>
@@ -473,15 +478,15 @@ function FeaturesScroller() {
         <Reveal>
           <div className="px-6 sm:px-12 mb-20">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-white tracking-tight mb-4 leading-[1.1]">
-              Augmentez le <span className="text-[#5B7BFF]" style={{ textShadow: "0 0 30px rgba(91,123,255,0.5)" }}>volume</span>, performez,<br className="hidden sm:block" /> sans perte de <span className="text-[#5B7BFF]" style={{ textShadow: "0 0 30px rgba(91,123,255,0.5)" }}>qualité</span>
+              {t("featuresScroller.title1")} <span className="text-[#5B7BFF]" style={{ textShadow: "0 0 30px rgba(91,123,255,0.5)" }}>{t("featuresScroller.titleVolume")}</span>{t("featuresScroller.title2")}<br className="hidden sm:block" /> {t("featuresScroller.title3")} <span className="text-[#5B7BFF]" style={{ textShadow: "0 0 30px rgba(91,123,255,0.5)" }}>{t("featuresScroller.titleQualite")}</span>
             </h2>
             <p className="text-white/40 text-sm sm:text-lg max-w-2xl">
-              Tous les outils dont vous avez besoin pour scaler votre production de contenu.
+              {t("featuresScroller.subtitle")}
             </p>
           </div>
         </Reveal>
         <div ref={trackRef} className="flex gap-[12vw] will-change-transform" style={{ transform: `translateX(calc(50vw - 35vw - ${scrollX}px))` }}>
-          {cards.map((card, i) => (
+          {scrollerCards.map((card, i) => (
             <div key={i} className="shrink-0 w-[88vw] sm:w-[78vw] md:w-[70vw] rounded-md border border-white/[0.08] overflow-hidden" style={{ background: "rgba(8,12,35,0.6)" }}>
               <div className="grid md:grid-cols-[1fr_1.2fr]">
                 <div className="p-6 sm:p-8">
@@ -492,7 +497,7 @@ function FeaturesScroller() {
                     )}
                   </div>
                   <p className="text-sm sm:text-base text-white/50 leading-relaxed mb-6">{card.desc}</p>
-                  <Link href="/register" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">Essayer maintenant →</Link>
+                  <Link href="/register" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">{t("featuresScroller.tryNow")}</Link>
                 </div>
                 <div className="p-6 sm:p-8 flex items-center">
                   <div className="w-full">{MOCKUPS[["duplication", "invisible", "priority", "ai"][i]]}</div>
@@ -507,18 +512,19 @@ function FeaturesScroller() {
 }
 
 /* ── How It Works — CardShowcase ── */
-const HOW_STEPS = [
-  { num: "01", title: "Importe ton contenu", desc: "Glisse-dépose ton image ou ta vidéo dans DuupFlow. JPG, PNG, WEBP, MP4, MOV, MKV — tous les formats sont acceptés, même en lot.", tag: "Upload" },
-  { num: "02", title: "Duplique en illimité", desc: "Choisis le nombre de copies et les options (visuel, semi-visuel, métadonnées). DuupFlow modifie chaque fichier pour qu'il soit unique aux yeux des algorithmes de détection.", tag: "Duplication" },
-  { num: "03", title: "Télécharge et publie", desc: "Exporte tes contenus en ZIP ou un par un. Chaque fichier est prêt à être publié sur Instagram, TikTok, YouTube, Twitter/X ou n'importe quelle plateforme.", tag: "Export" },
-];
-
 function HowItWorks() {
+  const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const activeRef = useRef(0);
   const progressRef = useRef(0);
+
+  const howSteps = [
+    { num: t("howItWorks.step1Num"), title: t("howItWorks.step1Title"), desc: t("howItWorks.step1Desc"), tag: t("howItWorks.step1Tag") },
+    { num: t("howItWorks.step2Num"), title: t("howItWorks.step2Title"), desc: t("howItWorks.step2Desc"), tag: t("howItWorks.step2Tag") },
+    { num: t("howItWorks.step3Num"), title: t("howItWorks.step3Title"), desc: t("howItWorks.step3Desc"), tag: t("howItWorks.step3Tag") },
+  ];
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -535,7 +541,7 @@ function HowItWorks() {
     const interval = setInterval(() => {
       progressRef.current += increment;
       if (progressRef.current >= 100) {
-        const next = (activeRef.current + 1) % HOW_STEPS.length;
+        const next = (activeRef.current + 1) % howSteps.length;
         activeRef.current = next;
         progressRef.current = 0;
         setActiveIndex(next);
@@ -559,19 +565,19 @@ function HowItWorks() {
     <section id="how-it-works" className="px-6 pb-36">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
-          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">Comment ça marche</p>
+          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">{t("howItWorks.badge")}</p>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
-            Opérationnel <span className={G}>en 3 étapes</span>
+            {t("howItWorks.title")} <span className={G}>{t("howItWorks.titleHighlight")}</span>
           </h2>
           <p className="text-white/45 text-sm sm:text-base mb-12 max-w-xl">
-            Simple, rapide, sans courbe d&apos;apprentissage.
+            {t("howItWorks.subtitle")}
           </p>
         </Reveal>
 
         <Reveal delay={80}>
           {isMobile ? (
             <div className="flex flex-col gap-4">
-              {HOW_STEPS.map((card, i) => (
+              {howSteps.map((card, i) => (
                 <div key={i} className="border border-white/[0.08] p-5" style={{ background: "rgba(8,12,35,0.6)" }}>
                   <div className="text-3xl font-bold text-indigo-400/40 mb-3 tracking-tight">{card.num}</div>
                   <h3 className="text-lg font-semibold text-white mb-2">{card.title}</h3>
@@ -582,7 +588,7 @@ function HowItWorks() {
             </div>
           ) : (
             <div className="flex gap-0 w-full" style={{ height: "380px" }}>
-              {HOW_STEPS.map((card, i) => {
+              {howSteps.map((card, i) => {
                 const isActive = i === activeIndex;
                 return (
                   <div key={i} onClick={() => handleClick(i)}
@@ -614,6 +620,7 @@ function HowItWorks() {
 
 /* Animated Mockup 1 — Image Duplication */
 function AnimImageDup() {
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
   useEffect(() => {
     function play() {
@@ -641,17 +648,17 @@ function AnimImageDup() {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-xs text-white/50">{step} / 4 copies générées</span>
+          <span className="text-xs text-white/50">{t("fonctionnalites.copiesGenerated").replace("{count}", String(step))}</span>
         </div>
-        <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-medium">× illimité</span>
+        <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-medium">{t("fonctionnalites.unlimited")}</span>
       </div>
       <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-sky-500/20 flex items-center justify-center text-lg">🖼️</div>
         <div className="flex-1 min-w-0">
           <p className="text-sm text-white/80 font-medium truncate">photo_instagram.jpg</p>
-          <p className="text-xs text-white/35">Fichier source · 2.4 MB</p>
+          <p className="text-xs text-white/35">{t("fonctionnalites.sourceFile")} · 2.4 MB</p>
         </div>
-        <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/40">Source</span>
+        <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/40">{t("fonctionnalites.source")}</span>
       </div>
       <div className="flex justify-center py-0.5">
         <svg className="h-4 w-4 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
@@ -663,7 +670,7 @@ function AnimImageDup() {
           <div className="h-9 w-9 rounded-lg bg-white/[0.06] flex items-center justify-center text-sm">📄</div>
           <div className="flex-1 min-w-0">
             <p className="text-xs text-white/65 font-mono truncate">{f.name}</p>
-            <p className="text-xs text-white/30">Métadonnées modifiées</p>
+            <p className="text-xs text-white/30">{t("fonctionnalites.metadataModified")}</p>
           </div>
           <svg className="h-4 w-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
         </div>
@@ -674,6 +681,7 @@ function AnimImageDup() {
 
 /* Animated Mockup 2 — Video Duplication */
 function AnimVideoDup() {
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -702,7 +710,7 @@ function AnimVideoDup() {
         <div className="h-11 w-11 rounded-xl bg-indigo-500/20 border border-indigo-500/25 flex items-center justify-center text-xl">🎬</div>
         <div className="flex-1 min-w-0">
           <p className="text-sm text-white/80 font-medium">ma_video.mp4</p>
-          <p className="text-xs text-white/35">Fichier source</p>
+          <p className="text-xs text-white/35">{t("fonctionnalites.sourceFile")}</p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -740,6 +748,7 @@ function AnimVideoDup() {
 
 /* Animated Mockup 3 — Invisible Modification (Pixel magique) */
 function AnimInvisible() {
+  const { t } = useTranslation();
   const [phase, setPhase] = useState<0 | 1 | 2>(0);
 
   useEffect(() => {
@@ -759,7 +768,7 @@ function AnimInvisible() {
       <div className="flex items-center gap-2 mb-2">
         <div className={`h-2 w-2 rounded-full transition-colors duration-500 ${phase === 2 ? "bg-emerald-400 animate-pulse" : "bg-amber-400 animate-pulse"}`} />
         <span className="text-xs text-white/50">
-          {phase === 0 ? "Hash original détecté..." : phase === 1 ? "Pixel magique en cours..." : "Hash modifié ✓"}
+          {phase === 0 ? t("fonctionnalites.originalHash") : phase === 1 ? t("fonctionnalites.pixelMagicInProgress") : t("fonctionnalites.hashModified")}
         </span>
       </div>
       <div className={`rounded-xl border p-4 transition-all duration-500 ${phase === 0 ? "border-amber-500/25 bg-amber-500/[0.05]" : "border-white/10 bg-white/[0.04]"}`}>
@@ -777,8 +786,8 @@ function AnimInvisible() {
         <p className={`text-sm font-mono transition-all duration-500 ${phase === 2 ? "text-emerald-300" : "text-white/20"}`}>9b2e8f4a7c1d...3b5d2e8f</p>
       </div>
       <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center">
-        <p className={`text-sm font-medium transition-colors duration-500 ${phase === 2 ? "text-emerald-300" : "text-white/50"}`}>Visuellement identique</p>
-        <p className="text-xs text-white/35">Le contenu visuel ne change pas</p>
+        <p className={`text-sm font-medium transition-colors duration-500 ${phase === 2 ? "text-emerald-300" : "text-white/50"}`}>{t("fonctionnalites.visuallyIdentical")}</p>
+        <p className="text-xs text-white/35">{t("fonctionnalites.visualContentUnchanged")}</p>
       </div>
     </div>
   );
@@ -786,6 +795,7 @@ function AnimInvisible() {
 
 /* Animated Mockup — Priority (iPhone metadata injection) */
 function AnimPriority() {
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -815,7 +825,7 @@ function AnimPriority() {
         <div className="h-8 w-8 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
           <svg className="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
         </div>
-        <span className="text-xs text-white/50">{step} / 4 métadonnées injectées</span>
+        <span className="text-xs text-white/50">{t("fonctionnalites.metadataInjected").replace("{count}", String(step))}</span>
       </div>
       {fields.map((f, i) => (
         <div key={f.key}
@@ -830,7 +840,7 @@ function AnimPriority() {
       ))}
       {step >= 4 && (
         <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/[0.06] p-3 text-center transition-all duration-500">
-          <p className="text-xs text-indigo-300">L&apos;algorithme traite votre contenu comme un vrai iPhone</p>
+          <p className="text-xs text-indigo-300">{t("fonctionnalites.algorithmTreatsAsIphone")}</p>
         </div>
       )}
     </div>
@@ -839,6 +849,7 @@ function AnimPriority() {
 
 /* Animated Mockup 4 — AI Metadata Detection */
 function AnimAIDet() {
+  const { t } = useTranslation();
   const [phase, setPhase] = useState<0 | 1 | 2>(0);
 
   useEffect(() => {
@@ -865,7 +876,7 @@ function AnimAIDet() {
       <div className="flex items-center gap-2 mb-4">
         <div className={`h-2 w-2 rounded-full transition-colors duration-500 ${phase === 2 ? "bg-emerald-400 animate-pulse" : "bg-amber-400 animate-pulse"}`} />
         <span className="text-xs text-white/50">
-          {phase === 0 ? "Analyse en cours..." : phase === 1 ? "Remplacement des métadonnées..." : "Signature IA effacée ✓"}
+          {phase === 0 ? t("fonctionnalites.analysisInProgress") : phase === 1 ? t("fonctionnalites.replacingMetadata") : t("fonctionnalites.aiSignatureErased")}
         </span>
       </div>
       {fields.map((f) => (
@@ -930,11 +941,11 @@ function FeatureRow({
 }
 
 /* ── Avantages — 3D Gradient Carousel ── */
-const CAROUSEL_CARDS = [
+const CAROUSEL_CARD_KEYS = [
   {
-    title: "Duplication en masse",
-    desc: "Dupliquez des dizaines de fichiers en quelques secondes. Chaque copie est unique.",
-    tags: ["Images & Vidéos", "Illimité", "Parallèle"],
+    titleKey: "avantages.card1Title",
+    descKey: "avantages.card1Desc",
+    tagsKey: "avantages.card1Tags",
     gradient: "linear-gradient(180deg, #0c1a3a 0%, #162850 60%, #0a1628 100%)",
     mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:6px;">
       <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);">
@@ -954,9 +965,9 @@ const CAROUSEL_CARDS = [
     </div>`,
   },
   {
-    title: "Qualité préservée",
-    desc: "1080p reste 1080p, 4K reste 4K. Aucun downscale.",
-    tags: ["4K", "Lossless", "Pixel Perfect"],
+    titleKey: "avantages.card2Title",
+    descKey: "avantages.card2Desc",
+    tagsKey: "avantages.card2Tags",
     gradient: "linear-gradient(180deg, #0f0f2a 0%, #1a1a45 60%, #0f0f1a 100%)",
     mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:8px;">
       <div style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);">
@@ -973,9 +984,9 @@ const CAROUSEL_CARDS = [
     </div>`,
   },
   {
-    title: "Invisible pour les algos",
-    desc: "Hash modifié, contenu visuellement identique.",
-    tags: ["Anti-détection", "Hash unique", "EXIF"],
+    titleKey: "avantages.card3Title",
+    descKey: "avantages.card3Desc",
+    tagsKey: "avantages.card3Tags",
     gradient: "linear-gradient(180deg, #1a0a30 0%, #2d1060 60%, #150a28 100%)",
     mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:8px;">
       <div style="padding:10px;border-radius:8px;border:1px solid rgba(245,158,11,0.15);background:rgba(245,158,11,0.04);">
@@ -990,9 +1001,9 @@ const CAROUSEL_CARDS = [
     </div>`,
   },
   {
-    title: "Priorité algorithme",
-    desc: "Métadonnées iPhone injectées automatiquement.",
-    tags: ["iPhone", "GPS", "iOS"],
+    titleKey: "avantages.card4Title",
+    descKey: "avantages.card4Desc",
+    tagsKey: "avantages.card4Tags",
     gradient: "linear-gradient(180deg, #0a1830 0%, #162850 60%, #0a1220 100%)",
     mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:5px;">
       <div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);">
@@ -1010,9 +1021,9 @@ const CAROUSEL_CARDS = [
     </div>`,
   },
   {
-    title: "Masquage IA",
-    desc: "Signatures IA effacées. Identité humaine injectée.",
-    tags: ["C2PA", "JUMBF", "Anti-IA"],
+    titleKey: "avantages.card5Title",
+    descKey: "avantages.card5Desc",
+    tagsKey: "avantages.card5Tags",
     gradient: "linear-gradient(180deg, #1a0e35 0%, #261850 60%, #0f1830 100%)",
     mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:5px;">
       <div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);">
@@ -1032,16 +1043,23 @@ const CAROUSEL_CARDS = [
 ];
 
 function AvantagesCarousel() {
+  const { t } = useTranslation();
+  const carouselCards = CAROUSEL_CARD_KEYS.map((card) => ({
+    ...card,
+    title: t(card.titleKey),
+    desc: t(card.descKey),
+    tags: t(card.tagsKey).split(", "),
+  }));
   return (
     <section id="features" className="pb-20">
       <div className="max-w-6xl mx-auto pt-20 px-6">
         <Reveal>
-          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">Avantages</p>
+          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">{t("avantages.badge")}</p>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
-            Pourquoi les agences choisissent <span className={G}>DuupFlow</span>
+            {t("avantages.title")} <span className={G}>{t("avantages.titleHighlight")}</span>
           </h2>
           <p className="text-white/45 text-sm sm:text-base mb-12 max-w-xl">
-            Chaque publication unique. Chaque fichier indétectable.
+            {t("avantages.subtitle")}
           </p>
         </Reveal>
       </div>
@@ -1050,7 +1068,7 @@ function AvantagesCarousel() {
       <Reveal delay={80}>
         <div style={{ height: "480px" }}>
           <Carousel3D
-            cards={CAROUSEL_CARDS}
+            cards={carouselCards}
             cardWidth={340}
             cardAspectRatio={0.75}
             borderRadius={12}
@@ -1068,15 +1086,15 @@ function AvantagesCarousel() {
       <div className="max-w-6xl mx-auto px-6">
         <Reveal delay={120}>
           <div className="text-center mt-16">
-            <p className="text-white/60 text-lg mb-6">Envie d&apos;aller plus loin ?</p>
+            <p className="text-white/60 text-lg mb-6">{t("avantages.ctaText")}</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link href="/fonctionnalites"
                 className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm">
-                Voir les fonctionnalités
+                {t("avantages.ctaFeatures")}
               </Link>
               <Link href="/demo"
                 className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">
-                Voir la démo
+                {t("avantages.ctaDemo")}
               </Link>
             </div>
           </div>
@@ -1089,20 +1107,20 @@ function AvantagesCarousel() {
 /* ═══════════════════════════════════════════════════════
  * SECTION 5 — STATS BANNER
  * ═══════════════════════════════════════════════════════ */
-const STATS = [
-  { val: "∞", label: "Copies par contenu" },
-  { val: "7+", label: "Systèmes d'analyse" },
-  { val: "10+", label: "Formats supportés" },
-  { val: "500+", label: "Agences utilisatrices" },
-];
-
 function StatsBanner() {
+  const { t } = useTranslation();
+  const stats = [
+    { val: "∞", label: t("stats.copies") },
+    { val: "7+", label: t("stats.systems") },
+    { val: "10+", label: t("stats.formats") },
+    { val: "500+", label: t("stats.agencies") },
+  ];
   return (
     <section className="px-6 pb-36">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <div className="rounded-2xl border border-white/[0.10] p-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center" style={{ background: "rgba(8,12,35,0.70)" }}>
-            {STATS.map((s) => (
+            {stats.map((s) => (
               <div key={s.label}>
                 <div className={`text-3xl font-semibold mb-1 ${G}`}>{s.val}</div>
                 <div className="text-xs text-white/40 uppercase tracking-wider">{s.label}</div>
@@ -1118,18 +1136,18 @@ function StatsBanner() {
 /* ═══════════════════════════════════════════════════════
  * SECTION 6 — FAQ
  * ═══════════════════════════════════════════════════════ */
-const FAQS = [
-  { q: "Comment DuupFlow rend chaque copie unique ?", a: "DuupFlow modifie les métadonnées (EXIF, XMP, QuickTime), les paramètres techniques (bitrate, GOP, FPS), et peut ajouter du bruit imperceptible via Pixel magique. Chaque copie a un hash unique — les plateformes voient un fichier différent." },
-  { q: "Qu'est-ce que la Priorité d'algorithme ?", a: "C'est une fonctionnalité qui injecte des métadonnées Apple authentiques dans vos fichiers : modèle iPhone, version iOS, caméra, GPS, signature. Les plateformes pensent que le contenu provient d'un vrai iPhone, ce qui améliore son traitement par les algorithmes." },
-  { q: "Qu'est-ce que Pixel magique ?", a: "Pixel magique ajoute un bruit luma imperceptible à chaque pixel. Visuellement identique, mais le hash du fichier est complètement différent. Les algorithmes de détection de doublons ne peuvent pas faire le lien entre l'original et la copie." },
-  { q: "La qualité est-elle préservée ?", a: "Oui. DuupFlow conserve la résolution originale — 1080p reste 1080p, 4K reste 4K. Aucun downscale, aucune perte de qualité." },
-  { q: "Est-ce que DuupFlow peut masquer la signature IA ?", a: "Oui. Le module Détection IA efface toutes les métadonnées IA (EXIF, XMP, IPTC, C2PA, JUMBF) et les remplace par une identité humaine réaliste — appareil photo, logiciel, photographe, date." },
-  { q: "Combien de copies puis-je générer ?", a: "Le nombre dépend de votre abonnement. Tous les plans permettent la duplication en masse avec des copies illimitées par fichier." },
-  { q: "Quels formats sont supportés ?", a: "Images : JPEG, PNG, WebP. Vidéos : MP4, MOV, MKV, AVI, WebM. Le format MOV est utilisé automatiquement avec la Priorité d'algorithme pour simuler un vrai iPhone." },
-];
-
 function FAQ() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState<number | null>(null);
+  const faqs = [
+    { q: t("faq.q1"), a: t("faq.a1") },
+    { q: t("faq.q2"), a: t("faq.a2") },
+    { q: t("faq.q3"), a: t("faq.a3") },
+    { q: t("faq.q4"), a: t("faq.a4") },
+    { q: t("faq.q5"), a: t("faq.a5") },
+    { q: t("faq.q6"), a: t("faq.a6") },
+    { q: t("faq.q7"), a: t("faq.a7") },
+  ];
   return (
     <section id="faq" className="relative overflow-hidden">
       {/* Special dark blue background */}
@@ -1146,12 +1164,12 @@ function FAQ() {
         <Reveal>
           <div className="grid md:grid-cols-[2fr_3fr] gap-16">
             <div className="md:sticky md:top-28 self-start">
-              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">FAQ</p>
-              <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight leading-[1.1]">Questions fréquentes</h2>
-              <p className="text-white/60 text-sm mt-4 leading-relaxed">Tu as d&apos;autres questions ? Contacte-nous par email ou via le chat intégré.</p>
+              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">{t("faq.badge")}</p>
+              <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight leading-[1.1]">{t("faq.title")}</h2>
+              <p className="text-white/60 text-sm mt-4 leading-relaxed">{t("faq.subtitle")}</p>
             </div>
             <div className="divide-y divide-white/[0.08]">
-              {FAQS.map((faq, i) => (
+              {faqs.map((faq, i) => (
                 <div key={i}>
                   <button onClick={() => setOpen(open === i ? null : i)}
                     className="w-full flex items-center justify-between gap-4 py-5 text-left text-sm font-medium text-white/90 hover:text-white transition">
@@ -1177,6 +1195,7 @@ function FAQ() {
  * SECTION 7 — CTA BOTTOM
  * ═══════════════════════════════════════════════════════ */
 function CTABanner() {
+  const { t } = useTranslation();
   return (
     <section className="px-6 pb-36">
       <div className="max-w-5xl mx-auto pt-20">
@@ -1187,19 +1206,19 @@ function CTABanner() {
             <div className="pointer-events-none absolute inset-0"
               style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight relative">
-              Prêt à scaler ton contenu ?
+              {t("cta.title")}
             </h2>
             <p className="text-white/70 text-sm sm:text-base mb-6 sm:mb-8 max-w-md mx-auto relative">
-              Tous les modules DuupFlow. Copies illimitées.
+              {t("cta.subtitle")}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 relative">
               <Link href="/register"
                 className="btn-glow inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm">
-                Commencer maintenant →
+                {t("cta.primary")}
               </Link>
               <Link href="/demo"
                 className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-8 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">
-                Voir la démo
+                {t("cta.secondary")}
               </Link>
             </div>
           </div>
@@ -1211,6 +1230,7 @@ function CTABanner() {
 
 /* ─── FOOTER ─── */
 function Footer() {
+  const { t } = useTranslation();
   return (
     <footer className="px-6 pb-10 border-t border-white/[0.06]">
       <div className="max-w-5xl mx-auto pt-10 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -1218,13 +1238,13 @@ function Footer() {
           <span style={{ color: "#818CF8" }}>Duup</span>
           <span className="text-white/50">Flow</span>
         </div>
-        <p className="text-xs text-white/25">© 2025 DuupFlow — Tous droits réservés.</p>
+        <p className="text-xs text-white/25">{t("footer.copyright").replace("{year}", new Date().getFullYear().toString())}</p>
         <div className="flex gap-5 text-xs text-white/30">
-          <Link href="/legal" className="hover:text-white/60 transition">Mentions légales</Link>
-          <Link href="/legal/terms" className="hover:text-white/60 transition">CGU</Link>
-          <Link href="/legal/privacy" className="hover:text-white/60 transition">Confidentialité</Link>
-          <Link href="/partenaire" className="hover:text-white/60 transition">Partenaire</Link>
-          <a href="mailto:hello@duupflow.com" className="hover:text-white/60 transition">Contact</a>
+          <Link href="/legal" className="hover:text-white/60 transition">{t("footer.mentionsLegales")}</Link>
+          <Link href="/legal/terms" className="hover:text-white/60 transition">{t("footer.cgu")}</Link>
+          <Link href="/legal/privacy" className="hover:text-white/60 transition">{t("footer.confidentialite")}</Link>
+          <Link href="/partenaire" className="hover:text-white/60 transition">{t("footer.partenaire")}</Link>
+          <a href="mailto:hello@duupflow.com" className="hover:text-white/60 transition">{t("footer.contact")}</a>
         </div>
         <div className="mt-4 flex justify-center">
           <a
@@ -1234,7 +1254,7 @@ function Footer() {
             className="inline-flex items-center gap-2 text-xs text-white/40 hover:text-white/70 transition"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 1 0 24 12.056A12.014 12.014 0 0 0 11.944 0ZM16.906 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472c-.18 1.898-.962 6.502-1.36 8.627c-.168.9-.499 1.201-.82 1.23c-.696.065-1.225-.46-1.9-.902c-1.056-.693-1.653-1.124-2.678-1.8c-1.185-.78-.417-1.21.258-1.91c.177-.184 3.247-2.977 3.307-3.23c.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345c-.48.33-.913.49-1.302.48c-.428-.008-1.252-.241-1.865-.44c-.752-.245-1.349-.374-1.297-.789c.027-.216.325-.437.893-.663c3.498-1.524 5.83-2.529 6.998-3.014c3.332-1.386 4.025-1.627 4.476-1.635Z"/></svg>
-            Support Telegram
+            {t("footer.supportTelegram")}
           </a>
         </div>
       </div>

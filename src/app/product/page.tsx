@@ -1,8 +1,11 @@
+"use client";
 // src/app/product/page.tsx
+
 import "@/app/globals.css";
 import Link from "next/link";
 import Testimonials from "@/components/Testimonials";
 import FAQ from "@/components/FAQ";
+import { useTranslation } from "@/lib/i18n/context";
 
 function Plan({
   title,
@@ -17,11 +20,12 @@ function Plan({
   features: string[];
   cta: { label: string; href: string };
 }) {
+  const { t } = useTranslation();
   return (
     <div className="card-soft relative">
       <div className="text-white/70 text-sm mb-2">{tagline}</div>
       <h3 className="text-2xl font-semibold">{title}</h3>
-      <div className="mt-2 text-3xl font-semibold">{price}<span className="text-base font-normal">/mois</span></div>
+      <div className="mt-2 text-3xl font-semibold">{price}<span className="text-base font-normal">{t("common.perMonth")}</span></div>
 
       <ul className="mt-4 space-y-2 text-white/85">
         {features.map((f, i) => (
@@ -63,52 +67,52 @@ function ModuleCard({ title, color, lines }: { title: string; color: "pink"|"blu
   );
 }
 
-export const revalidate = false;
-
 export default function ProductPage() {
+  const { t } = useTranslation();
+
   return (
     <main className="text-white">
       {/* Plans */}
       <section className="container-zeno pt-14">
-        <h1 className="h1 text-center mb-2">Deux offres simples</h1>
-        <p className="lead text-center mb-8">Tu commences maintenant, tu peux évoluer quand tu veux.</p>
+        <h1 className="h1 text-center mb-2">{t("product.twoPlansTitle")}</h1>
+        <p className="lead text-center mb-8">{t("product.twoPlansSubtitle")}</p>
 
         <div className="grid md:grid-cols-2 gap-6">
           <Plan
             title="Starter"
             price="100€"
-            tagline="Parfait pour démarrer"
+            tagline={t("product.starterTagline")}
             features={[
-              "Accès immédiat 7j/7",
-              "Images & vidéos supportées",
-              "Préréglages IG/TikTok",
-              "Téléchargement ZIP",
-              "Support par email",
+              t("product.starterFeature1"),
+              t("product.starterFeature2"),
+              t("product.starterFeature3"),
+              t("product.starterFeature4"),
+              t("product.starterFeature5"),
             ]}
-            cta={{ label: "Choisir Starter", href: "/register" }}
+            cta={{ label: t("product.chooseStarter"), href: "/register" }}
           />
           <Plan
             title="Pro"
             price="189€"
-            tagline="Plus populaire"
+            tagline={t("tarifs.mostPopular")}
             features={[
-              "Tout le Starter",
-              "500+ duplicas / mois",
-              "Tous formats & presets avancés",
-              "Historique 90 jours & analytics",
-              "Support prioritaire",
+              t("product.proFeature1"),
+              t("product.proFeature2"),
+              t("product.proFeature3"),
+              t("product.proFeature4"),
+              t("product.proFeature5"),
             ]}
-            cta={{ label: "Choisir Pro", href: "/register" }}
+            cta={{ label: t("product.choosePro"), href: "/register" }}
           />
         </div>
 
         {/* garanties / rassurance */}
         <div className="grid sm:grid-cols-4 gap-4 mt-6">
           {[
-            ["Paiement sécurisé Stripe"],
-            ["Accès immédiat après achat"],
-            ["7j/7 — support par email"],
-            ["Résiliation en 1 clic"],
+            [t("product.guarantee1")],
+            [t("product.guarantee2")],
+            [t("product.guarantee3")],
+            [t("product.guarantee4")],
           ].map(([txt], i) => (
             <div key={i} className="card-soft flex items-center gap-2 py-3">
               <span className="neon-icon-pink">
@@ -120,7 +124,7 @@ export default function ProductPage() {
         </div>
 
         <p className="text-white/70 text-center mt-6">
-          Après l’achat, ton compte est activé <strong>instantanément</strong>. Accès complet 7j/7, export illimité selon ton quota, historique et support continu. Tu peux changer d’offre à tout moment.
+          {t("product.afterPurchase")}
         </p>
       </section>
 
@@ -128,50 +132,48 @@ export default function ProductPage() {
 
       {/* Modules inclus */}
       <section className="container-zeno">
-        <h2 className="h2 text-center mb-6">Les modules inclus</h2>
+        <h2 className="h2 text-center mb-6">{t("product.modulesTitle")}</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           <ModuleCard
-            title="Duplication Images"
+            title={t("demo.module1Title")}
             color="pink"
             lines={[
-              "Variantes uniques (dimensions, recompression, EXIF, micro-variations)",
-              "Look préservé, duplication prête à poster",
-              "Batch en lot, contrôle qualité visuel",
+              t("product.imageModule1"),
+              t("product.imageModule2"),
+              t("product.imageModule3"),
             ]}
           />
           <ModuleCard
-            title="Duplication Vidéos"
+            title={t("demo.module2Title")}
             color="blue"
             lines={[
-              "Ré-encodage léger (FPS, GOP, bitrate, timebase, hash)",
-              "Préserve l’apparence, modifie la signature technique",
-              "Sorties prêtes pour Reels, TikTok, Shorts",
+              t("product.videoModule1"),
+              t("product.videoModule2"),
+              t("product.videoModule3"),
             ]}
           />
           <ModuleCard
-            title="Détecteur de similarité"
+            title={t("demo.module3Title")}
             color="green"
             lines={[
-              "Compare médias + métadonnées, note claire",
-              "Réduit les doublons, sécurise les variations",
-              "Décisions nettes, tri rapide",
+              t("product.comparatorModule1"),
+              t("product.comparatorModule2"),
+              t("product.comparatorModule3"),
             ]}
           />
           <ModuleCard
-            title="Génération IA"
+            title={t("product.aiGenerationTitle")}
             color="mix"
             lines={[
-              "Crée automatiquement des variantes sans casser l’identité visuelle",
-              "Contrôles sobres, rendu propre",
-              "Idéal quand tu veux aller plus loin",
+              t("product.aiModule1"),
+              t("product.aiModule2"),
+              t("product.aiModule3"),
             ]}
           />
         </div>
 
         <p className="text-white/70 mt-8">
-          Zeno combine duplication maîtrisée, contrôle qualité et outils IA pour t’offrir un pipeline
-          sans friction : tu importes, tu règles, tu vérifies, tu exportes. Propre, lisible, et calibré
-          pour les plateformes. Idéal pour scaler sans perdre en cohérence.
+          {t("product.modulesDescription")}
         </p>
       </section>
 
@@ -185,13 +187,13 @@ export default function ProductPage() {
       <hr className="divider" />
 
       <section className="container-zeno pb-16">
-        <h2 className="h2 mb-6 text-center">FAQ</h2>
+        <h2 className="h2 mb-6 text-center">{t("faq.badge")}</h2>
         <FAQ
           items={[
-            { q: "Comment tester Zeno ?", a: "Choisis un plan et commence. Tu peux changer/annuler quand tu veux." },
-            { q: "Puis-je inviter mon équipe ?", a: "Oui sur le plan Pro (multi-membres) avec historique & analytics." },
-            { q: "Quels formats vidéo ?", a: "Classiques web & sociaux. Les presets gèrent FPS/GOP/bitrate/timebase." },
-            { q: "Support ?", a: "Email 7j/7. Sur Pro : prioritaire." },
+            { q: t("product.faq1Q"), a: t("product.faq1A") },
+            { q: t("product.faq2Q"), a: t("product.faq2A") },
+            { q: t("product.faq3Q"), a: t("product.faq3A") },
+            { q: t("product.faq4Q"), a: t("product.faq4A") },
           ]}
         />
       </section>

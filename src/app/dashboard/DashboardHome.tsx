@@ -2,196 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslation } from "@/lib/i18n/context";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
-const MODULES = [
-  {
-    href: "/dashboard/images",
-    title: "Duplication Images",
-    desc: "Génère des copies uniques de chaque image — métadonnées EXIF/XMP, micro-variations visuelles, export en lot.",
-    badge: null,
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="3" width="18" height="18" rx="3" />
-        <circle cx="8.5" cy="8.5" r="1.5" />
-        <polyline points="21 15 16 10 5 21" />
-      </svg>
-    ),
-    color: "#C026D3",
-    colorBg: "rgba(192,38,211,0.10)",
-    colorBorder: "rgba(192,38,211,0.22)",
-  },
-  {
-    href: "/dashboard/videos",
-    title: "Duplication Vidéos",
-    desc: "Ré-encode chaque copie vidéo avec des paramètres uniques — FPS, GOP, bitrate, codec. Indétectable.",
-    badge: null,
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="2" y="5" width="14" height="14" rx="2" />
-        <path d="M16 9l5-3v12l-5-3V9z" />
-      </svg>
-    ),
-    color: "#6366F1",
-    colorBg: "rgba(99,102,241,0.10)",
-    colorBorder: "rgba(99,102,241,0.22)",
-  },
-  {
-    href: "/dashboard/similarity",
-    title: "Comparateur",
-    desc: "Mesure la similarité visuelle entre deux fichiers. Score précis pour valider l'indétectabilité.",
-    badge: null,
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="11" cy="11" r="7" />
-        <path d="m21 21-4.35-4.35" />
-      </svg>
-    ),
-    color: "#10B981",
-    colorBg: "rgba(16,185,129,0.10)",
-    colorBorder: "rgba(16,185,129,0.22)",
-  },
-  {
-    href: "/dashboard/generate",
-    title: "Variation IA",
-    desc: "Crée des variantes automatiques de tes contenus grâce à l'intelligence artificielle.",
-    badge: "BETA",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
-      </svg>
-    ),
-    color: "#38BDF8",
-    colorBg: "rgba(56,189,248,0.10)",
-    colorBorder: "rgba(56,189,248,0.22)",
-  },
-  {
-    href: "/dashboard/ai-detection",
-    title: "Détection IA",
-    desc: "Masque la signature IA dans les métadonnées. Aucune modification visuelle du fichier.",
-    badge: null,
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      </svg>
-    ),
-    color: "#F59E0B",
-    colorBg: "rgba(245,158,11,0.10)",
-    colorBorder: "rgba(245,158,11,0.22)",
-  },
-];
-
-/* ─── Guide steps ─── */
-const GUIDE_STEPS = [
-  {
-    id: "intro",
-    title: "Bienvenue dans DuupFlow 🚀",
-    subtitle: "Guide de démarrage",
-    content:
-      "En 2 minutes, découvre les 5 modules qui vont transformer ta stratégie de contenu. Tu peux revenir sur ce guide à tout moment.",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-7 w-7 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-      </svg>
-    ),
-    iconBg: "rgba(99,102,241,0.15)",
-    iconBorder: "rgba(99,102,241,0.30)",
-    moduleIndex: null,
-    cta: { label: "Commencer →", href: null },
-  },
-  {
-    id: "images",
-    title: "Duplication Images",
-    subtitle: "Étape 1 / 5 — Le cœur de DuupFlow",
-    content:
-      "Génère des copies uniques avec métadonnées EXIF/XMP aléatoires. Active la Priorité d'algorithme pour injecter des EXIF Apple authentiques (appareil, GPS, focale). Ajoute une localisation pays pour un réalisme total.",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="3" width="18" height="18" rx="3" />
-        <circle cx="8.5" cy="8.5" r="1.5" />
-        <polyline points="21 15 16 10 5 21" />
-      </svg>
-    ),
-    iconBg: "rgba(192,38,211,0.15)",
-    iconBorder: "rgba(192,38,211,0.30)",
-    moduleIndex: 0,
-    cta: { label: "Essayer maintenant →", href: "/dashboard/images" },
-  },
-  {
-    id: "videos",
-    title: "Duplication Vidéos",
-    subtitle: "Étape 2 / 5 — Vos vidéos rendues uniques",
-    content:
-      "Ré-encode chaque copie avec des paramètres uniques. Nouveautés : Priorité d'algorithme (métadonnées iPhone .mov), Pixel magique (hash unique par frame), Métadonnées technique (bitrate, GOP, FPS, profil H.264). Qualité 4K préservée.",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="2" y="5" width="14" height="14" rx="2" />
-        <path d="M16 9l5-3v12l-5-3V9z" />
-      </svg>
-    ),
-    iconBg: "rgba(99,102,241,0.15)",
-    iconBorder: "rgba(99,102,241,0.30)",
-    moduleIndex: 1,
-    cta: { label: "Essayer maintenant →", href: "/dashboard/videos" },
-  },
-  {
-    id: "comparateur",
-    title: "Comparateur de similarité",
-    subtitle: "Étape 3 / 5 — Valide tes copies",
-    content:
-      "Compare deux fichiers côte à côte avec analyse ffprobe complète. Score de similarité en pourcentage, différences surlignées en vert. Glisse tes fichiers en drag & drop pour une vérification instantanée.",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-7 w-7 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="11" cy="11" r="7" />
-        <path d="m21 21-4.35-4.35" />
-      </svg>
-    ),
-    iconBg: "rgba(16,185,129,0.15)",
-    iconBorder: "rgba(16,185,129,0.30)",
-    moduleIndex: 2,
-    cta: { label: "Essayer maintenant →", href: "/dashboard/similarity" },
-  },
-  {
-    id: "ia",
-    title: "Variation IA & Détection IA",
-    subtitle: "Étapes 4 & 5 / 5 — La puissance de l'IA",
-    content:
-      "La Détection IA efface toutes les signatures IA (EXIF, XMP, IPTC, C2PA) et les remplace par une identité humaine réaliste. Ton contenu IA passe pour un contenu créé par un humain. Le module Variation IA arrive bientôt.",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-400" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
-      </svg>
-    ),
-    iconBg: "rgba(56,189,248,0.15)",
-    iconBorder: "rgba(56,189,248,0.30)",
-    moduleIndex: 3,
-    cta: { label: "Explorer l'IA →", href: "/dashboard/generate" },
-  },
-  {
-    id: "invite",
-    title: "Inviter un collaborateur",
-    subtitle: "Bonus — Travaille en équipe",
-    content:
-      "Depuis les Paramètres, invite jusqu'à 3 collaborateurs dans ton workspace. Ils accèdent à tous les modules sans frais supplémentaires.",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-7 w-7 text-amber-400" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
-    iconBg: "rgba(245,158,11,0.15)",
-    iconBorder: "rgba(245,158,11,0.30)",
-    moduleIndex: null,
-    cta: { label: "Gérer l'équipe →", href: "/dashboard/settings" },
-  },
-];
-
 const GUIDE_KEY = "duupflow_guide_v2";
 
-function ModuleCard({ mod }: { mod: typeof MODULES[0] }) {
+function ModuleCard({ mod }: { mod: { href: string; title: string; desc: string; badge: string | null; icon: React.ReactNode; color: string; colorBg: string; colorBorder: string } }) {
   return (
     <Link
       href={mod.href}
@@ -242,7 +59,109 @@ function ModuleCard({ mod }: { mod: typeof MODULES[0] }) {
 
 /* ─── Guide Modal ─── */
 function GuideModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
+
+  const GUIDE_STEPS = [
+    {
+      id: "intro",
+      title: t("dashboard.home.guideTitleIntro"),
+      subtitle: t("dashboard.home.guideSubtitleIntro"),
+      content: t("dashboard.home.guideContentIntro"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-7 w-7 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+        </svg>
+      ),
+      iconBg: "rgba(99,102,241,0.15)",
+      iconBorder: "rgba(99,102,241,0.30)",
+      moduleIndex: null as number | null,
+      cta: { label: t("dashboard.home.guideCommencer"), href: null as string | null },
+    },
+    {
+      id: "images",
+      title: t("dashboard.home.guideStep1Title"),
+      subtitle: t("dashboard.home.guideStep1Subtitle"),
+      content: t("dashboard.home.guideContentIntro"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="3" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+      ),
+      iconBg: "rgba(192,38,211,0.15)",
+      iconBorder: "rgba(192,38,211,0.30)",
+      moduleIndex: 0,
+      cta: { label: t("dashboard.home.guideEssayer"), href: "/dashboard/images" },
+    },
+    {
+      id: "videos",
+      title: t("dashboard.home.guideStep2Title"),
+      subtitle: t("dashboard.home.guideStep2Subtitle"),
+      content: t("dashboard.home.guideContentIntro"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="2" y="5" width="14" height="14" rx="2" />
+          <path d="M16 9l5-3v12l-5-3V9z" />
+        </svg>
+      ),
+      iconBg: "rgba(99,102,241,0.15)",
+      iconBorder: "rgba(99,102,241,0.30)",
+      moduleIndex: 1,
+      cta: { label: t("dashboard.home.guideEssayer"), href: "/dashboard/videos" },
+    },
+    {
+      id: "comparateur",
+      title: t("dashboard.home.guideStep3Title"),
+      subtitle: t("dashboard.home.guideStep3Subtitle"),
+      content: t("dashboard.home.guideContentIntro"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-7 w-7 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+      ),
+      iconBg: "rgba(16,185,129,0.15)",
+      iconBorder: "rgba(16,185,129,0.30)",
+      moduleIndex: 2,
+      cta: { label: t("dashboard.home.guideEssayer"), href: "/dashboard/similarity" },
+    },
+    {
+      id: "ia",
+      title: t("dashboard.home.guideStep4Title"),
+      subtitle: t("dashboard.home.guideStep4Subtitle"),
+      content: t("dashboard.home.guideContentIntro"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
+        </svg>
+      ),
+      iconBg: "rgba(56,189,248,0.15)",
+      iconBorder: "rgba(56,189,248,0.30)",
+      moduleIndex: 3,
+      cta: { label: t("dashboard.home.guideExplorerIA"), href: "/dashboard/generate" },
+    },
+    {
+      id: "invite",
+      title: t("dashboard.home.guideStep5Title"),
+      subtitle: t("dashboard.home.guideStep5Subtitle"),
+      content: t("dashboard.home.guideContentIntro"),
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-7 w-7 text-amber-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      ),
+      iconBg: "rgba(245,158,11,0.15)",
+      iconBorder: "rgba(245,158,11,0.30)",
+      moduleIndex: null,
+      cta: { label: t("dashboard.home.guideGererEquipe"), href: "/dashboard/settings" },
+    },
+  ];
+
   const current = GUIDE_STEPS[step];
   const isLast = step === GUIDE_STEPS.length - 1;
   const progress = ((step) / (GUIDE_STEPS.length - 1)) * 100;
@@ -289,7 +208,7 @@ function GuideModal({ onClose }: { onClose: () => void }) {
               onClick={onClose}
               className="text-xs text-white/30 hover:text-white/60 transition"
             >
-              Passer ×
+              {t("dashboard.home.guidePasser")}
             </button>
           </div>
 
@@ -350,7 +269,7 @@ function GuideModal({ onClose }: { onClose: () => void }) {
                 color: current.cta.href ? "rgba(255,255,255,0.65)" : "white",
               }}
             >
-              {isLast ? "Terminer ✓" : "Étape suivante →"}
+              {isLast ? t("dashboard.home.guideTerminer") : t("dashboard.home.guideEtapeSuivante")}
             </button>
           </div>
         </div>
@@ -360,46 +279,48 @@ function GuideModal({ onClose }: { onClose: () => void }) {
 }
 
 /* ─── News Modal ─── */
-const NEWS_SECTIONS = [
-  {
-    title: "Duplication Vidéo",
-    color: "#6366F1",
-    items: [
-      { name: "Priorité d'algorithme", desc: "Simule un iPhone réel (métadonnées Apple, .mov)", detail: "Chaque copie reçoit des métadonnées Apple authentiques (modèle iPhone, version iOS, caméra, GPS, signature). Le fichier sort en .mov — exactement comme une vidéo filmée depuis un iPhone. Les plateformes ne font plus la différence." },
-      { name: "Pixel magique", desc: "Bruit imperceptible pour hash unique", detail: "Ajoute du bruit luma invisible à l'œil nu sur chaque pixel, chaque frame. Le fichier a un hash complètement différent de l'original — les algorithmes de détection de doublons le voient comme un fichier totalement nouveau." },
-      { name: "Métadonnées technique", desc: "Bitrate, GOP, FPS, profil H.264 aléatoires", detail: "Modifie les paramètres techniques d'encodage (bitrate 3–22 Mb/s, GOP, framerate, profil H.264). Chaque copie a une empreinte technique unique sans changement visuel perceptible." },
-      { name: "Localisation pays", desc: "Injecte le pays dans les métadonnées", detail: "Renseigne un pays et il sera intégré dans les métadonnées de chaque copie. Utile pour cibler un marché spécifique ou simuler l'origine géographique du contenu." },
-      { name: "Qualité originale préservée", desc: "Plus de cap 1920px, 4K reste 4K", detail: "Tes vidéos conservent leur résolution d'origine. Une vidéo 1080p reste 1080p, une 4K reste 4K. Aucune perte de qualité liée au redimensionnement." },
-    ],
-  },
-  {
-    title: "Duplication Image",
-    color: "#C026D3",
-    items: [
-      { name: "Priorité d'algorithme", desc: "EXIF Apple authentiques (appareil, GPS, focale)", detail: "Injecte un profil EXIF complet d'iPhone : modèle d'appareil, objectif, focale, ouverture, ISO, GPS, signature Apple. Tes images semblent provenir d'un vrai appareil photo." },
-      { name: "Localisation pays", desc: "Pays injecté dans l'EXIF", detail: "Le pays que tu choisis est intégré dans les données EXIF de chaque copie. Les plateformes associent le contenu à cette localisation." },
-    ],
-  },
-  {
-    title: "Comparateur",
-    color: "#10B981",
-    items: [
-      { name: "Analyse ffprobe", desc: "Compare les métadonnées exactes de deux fichiers", detail: "Upload deux fichiers et visualise côte à côte toutes leurs métadonnées : format, tags, flux vidéo, flux audio. Tu vois exactement ce qui diffère entre l'original et la copie." },
-      { name: "Score de similarité", desc: "Pourcentage de ressemblance", detail: "Un score automatique calcule le pourcentage de champs identiques entre les deux fichiers. Vert = bien distinct, rouge = trop similaire." },
-      { name: "Drag & drop", desc: "Glisse tes fichiers directement", detail: "Plus besoin de naviguer dans tes dossiers — glisse simplement tes fichiers dans les zones de dépôt pour lancer la comparaison instantanément." },
-    ],
-  },
-  {
-    title: "Support",
-    color: "#F59E0B",
-    items: [
-      { name: "Chatbot intelligent", desc: "Assistance instantanée avec FAQ complète", detail: "Un assistant intégré répond à tes questions en temps réel. Il te guide étape par étape pour résoudre les problèmes courants, et redirige vers le support humain si nécessaire." },
-      { name: "Page Support", desc: "Telegram + Email en un clic", detail: "Accède directement au support via Telegram pour une réponse rapide, ou par email pour les demandes plus détaillées. Tout est accessible depuis le dashboard." },
-    ],
-  },
-];
-
 function NewsModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+
+  const NEWS_SECTIONS = [
+    {
+      title: t("dashboard.home.moduleVideos"),
+      color: "#6366F1",
+      items: [
+        { name: "Priorite d'algorithme", desc: "Simule un iPhone reel (metadonnees Apple, .mov)", detail: "" },
+        { name: "Pixel magique", desc: "Bruit imperceptible pour hash unique", detail: "" },
+        { name: "Metadonnees technique", desc: "Bitrate, GOP, FPS, profil H.264 aleatoires", detail: "" },
+        { name: "Localisation pays", desc: "Injecte le pays dans les metadonnees", detail: "" },
+        { name: "Qualite originale preservee", desc: "Plus de cap 1920px, 4K reste 4K", detail: "" },
+      ],
+    },
+    {
+      title: t("dashboard.home.moduleImages"),
+      color: "#C026D3",
+      items: [
+        { name: "Priorite d'algorithme", desc: "EXIF Apple authentiques (appareil, GPS, focale)", detail: "" },
+        { name: "Localisation pays", desc: "Pays injecte dans l'EXIF", detail: "" },
+      ],
+    },
+    {
+      title: t("dashboard.home.moduleComparateur"),
+      color: "#10B981",
+      items: [
+        { name: "Analyse ffprobe", desc: "Compare les metadonnees exactes de deux fichiers", detail: "" },
+        { name: "Score de similarite", desc: "Pourcentage de ressemblance", detail: "" },
+        { name: "Drag & drop", desc: "Glisse tes fichiers directement", detail: "" },
+      ],
+    },
+    {
+      title: t("dashboard.sidebar.support"),
+      color: "#F59E0B",
+      items: [
+        { name: "Chatbot intelligent", desc: "Assistance instantanee avec FAQ complete", detail: "" },
+        { name: "Page Support", desc: "Telegram + Email en un clic", detail: "" },
+      ],
+    },
+  ];
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
@@ -416,8 +337,8 @@ function NewsModal({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="flex items-center justify-between px-8 pt-7 pb-4">
           <div>
-            <h2 className="text-xl font-semibold text-white tracking-tight">Nouveautés</h2>
-            <p className="text-xs text-white/40 mt-1">Les dernières fonctionnalités de DuupFlow</p>
+            <h2 className="text-xl font-semibold text-white tracking-tight">{t("dashboard.home.newsTitle")}</h2>
+            <p className="text-xs text-white/40 mt-1">{t("dashboard.home.newsSubtitle")}</p>
           </div>
           <button
             onClick={onClose}
@@ -477,6 +398,84 @@ export default function DashboardHome({
 }) {
   const [showGuide, setShowGuide] = useState(false);
   const [showNews, setShowNews] = useState(false);
+  const { t } = useTranslation();
+
+  const MODULES = [
+    {
+      href: "/dashboard/images",
+      title: t("dashboard.home.moduleImages"),
+      desc: t("dashboard.home.moduleImagesDesc"),
+      badge: null,
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="3" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+      ),
+      color: "#C026D3",
+      colorBg: "rgba(192,38,211,0.10)",
+      colorBorder: "rgba(192,38,211,0.22)",
+    },
+    {
+      href: "/dashboard/videos",
+      title: t("dashboard.home.moduleVideos"),
+      desc: t("dashboard.home.moduleVideosDesc"),
+      badge: null,
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="2" y="5" width="14" height="14" rx="2" />
+          <path d="M16 9l5-3v12l-5-3V9z" />
+        </svg>
+      ),
+      color: "#6366F1",
+      colorBg: "rgba(99,102,241,0.10)",
+      colorBorder: "rgba(99,102,241,0.22)",
+    },
+    {
+      href: "/dashboard/similarity",
+      title: t("dashboard.home.moduleComparateur"),
+      desc: t("dashboard.home.moduleComparateurDesc"),
+      badge: null,
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+      ),
+      color: "#10B981",
+      colorBg: "rgba(16,185,129,0.10)",
+      colorBorder: "rgba(16,185,129,0.22)",
+    },
+    {
+      href: "/dashboard/generate",
+      title: t("dashboard.home.moduleVariationIA"),
+      desc: t("dashboard.home.moduleVariationIADesc"),
+      badge: "BETA",
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
+        </svg>
+      ),
+      color: "#38BDF8",
+      colorBg: "rgba(56,189,248,0.10)",
+      colorBorder: "rgba(56,189,248,0.22)",
+    },
+    {
+      href: "/dashboard/ai-detection",
+      title: t("dashboard.home.moduleDetectionIA"),
+      desc: t("dashboard.home.moduleDetectionIADesc"),
+      badge: null,
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+      ),
+      color: "#F59E0B",
+      colorBg: "rgba(245,158,11,0.10)",
+      colorBorder: "rgba(245,158,11,0.22)",
+    },
+  ];
 
   useEffect(() => {
     if (!localStorage.getItem(GUIDE_KEY)) {
@@ -495,18 +494,18 @@ export default function DashboardHome({
       {/* Header */}
       <div className="mb-8">
         <p className="text-xs font-medium text-white/30 tracking-[0.14em] uppercase mb-2">
-          {agencyName ?? "Dashboard"}
+          {agencyName ?? t("dashboard.home.dashboard")}
         </p>
         <h1 className="text-3xl font-semibold text-white tracking-tight">
           {firstName ? (
-            <>Bonjour, <span className={G}>{firstName}</span> 👋</>
+            <>{t("dashboard.home.bonjour")} <span className={G}>{firstName}</span></>
           ) : (
-            <>Tableau de bord</>
+            <>{t("dashboard.home.tableauDeBord")}</>
           )}
         </h1>
         <div className="flex items-center justify-between mt-1.5">
           <p className="text-sm text-white/40">
-            Choisis un module pour travailler tes contenus.
+            {t("dashboard.home.chooseModule")}
           </p>
           <div className="flex items-center gap-3">
             <button
@@ -516,7 +515,7 @@ export default function DashboardHome({
               <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M13 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zM5 5h6M5 8h6M5 11h3" />
               </svg>
-              Nouveautés
+              {t("dashboard.home.nouveautes")}
             </button>
             <button
               onClick={() => setShowGuide(true)}
@@ -526,7 +525,7 @@ export default function DashboardHome({
                 <circle cx="8" cy="8" r="6" />
                 <path d="M8 7v4M8 5.5v.5" />
               </svg>
-              Guide
+              {t("dashboard.home.guide")}
             </button>
           </div>
         </div>
@@ -537,7 +536,7 @@ export default function DashboardHome({
 
       {/* Section label */}
       <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-white/25 mb-4">
-        Modules disponibles
+        {t("dashboard.home.modulesDisponibles")}
       </p>
 
       {/* Module grid */}

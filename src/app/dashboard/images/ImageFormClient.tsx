@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useRef, useState } from "react";
 import ToggleChip from "../ToggleChip";
 import { setJob, addCompletedFile, removeJob, stopJob } from "../videos/jobStore";
 import ClearImagesButton from "./ClearImagesButton";
+import { useTranslation } from "@/lib/i18n/context";
 
 const MAX_FILES = 50;
 
@@ -50,6 +51,7 @@ type Props = {
 };
 
 export default function ImageFormClient({ initialImages }: Props) {
+  const { t } = useTranslation();
   const [files, setFiles] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -120,12 +122,12 @@ export default function ImageFormClient({ initialImages }: Props) {
 
     const jobId = Math.random().toString(36).slice(2, 8);
     setActiveJobId(jobId);
-    setJob({ id: jobId, type: "image", channel: "image", progress: 0, msg: "Préparation…", status: "running", ctrl });
+    setJob({ id: jobId, type: "image", channel: "image", progress: 0, msg: t("dashboard.images.preparing"), status: "running", ctrl });
 
     setProcessing(true);
     setErrorMsg(null);
     setProgress(0);
-    setProgressLabel(`Compression et envoi de ${imageFiles.length} image(s)…`);
+    setProgressLabel(t("dashboard.images.compressing", { count: String(imageFiles.length) }));
 
     try {
       // ── 1. Compress + upload all images in parallel ──────────────────────
@@ -143,7 +145,7 @@ export default function ImageFormClient({ initialImages }: Props) {
           }
           const { uploadId } = await uploadRes.json();
           completedUploads++;
-          setProgressLabel(`${completedUploads}/${imageFiles.length} image(s) envoyée(s)…`);
+          setProgressLabel(t("dashboard.images.uploadProgress", { done: String(completedUploads), total: String(imageFiles.length) }));
           setProgress(Math.round((completedUploads / imageFiles.length) * 20));
           return uploadId as string;
         })
@@ -151,8 +153,8 @@ export default function ImageFormClient({ initialImages }: Props) {
 
       // ── 2. POST to SSE route ─────────────────────────────────────────────
       setProgress(20);
-      setProgressLabel("Traitement des images…");
-      setJob({ id: jobId, type: "image", channel: "image", progress: 20, msg: "Traitement…", status: "running" });
+      setProgressLabel(t("dashboard.images.processingImages"));
+      setJob({ id: jobId, type: "image", channel: "image", progress: 20, msg: t("dashboard.images.processingLabel"), status: "running" });
 
       const apiForm = new FormData();
       apiForm.append("count", String(count));
@@ -230,7 +232,7 @@ export default function ImageFormClient({ initialImages }: Props) {
               }
               if (evt.done) {
                 receivedDone = true;
-                setJob({ id: jobId, type: "image", channel: "image", progress: 100, msg: "Terminé", status: "done" });
+                setJob({ id: jobId, type: "image", channel: "image", progress: 100, msg: t("dashboard.images.done"), status: "done" });
                 setTimeout(() => removeJob(jobId), 8000);
                 setFiles([]);
                 return;
@@ -270,6 +272,7 @@ export default function ImageFormClient({ initialImages }: Props) {
 
   return (
     <div className="space-y-6">
+      <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.images.title")}</h1>
       <form onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6" autoComplete="off">
         {/* Drop zone */}
         <div
@@ -282,7 +285,7 @@ export default function ImageFormClient({ initialImages }: Props) {
         >
           <div className="pointer-events-none select-none">
             <p className="text-sm text-white/70">
-              Glissez vos fichiers ici ou cliquez pour parcourir (max {MAX_FILES})
+              {t("dashboard.images.dropzone", { max: String(MAX_FILES) })}
             </p>
           </div>
 
@@ -328,15 +331,15 @@ export default function ImageFormClient({ initialImages }: Props) {
           )}
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-white/60">
-            <span>{files.length} fichier(s)</span>
+            <span>{t("dashboard.images.filesCount", { count: String(files.length) })}</span>
             <span>•</span>
-            <span>{(totalSize / (1024 * 1024)).toFixed(2)} Mo</span>
+            <span>{t("dashboard.images.fileSize", { size: (totalSize / (1024 * 1024)).toFixed(2) })}</span>
           </div>
         </div>
 
         {/* Copies */}
         <div className="max-w-[200px]">
-          <label className="block text-sm font-medium text-white/70 mb-1">Nombre de copies</label>
+          <label className="block text-sm font-medium text-white/70 mb-1">{t("dashboard.images.copiesLabel")}</label>
           <input
             type="number"
             name="count"
@@ -350,34 +353,34 @@ export default function ImageFormClient({ initialImages }: Props) {
 
         {/* Localisation + Priorité algorithme */}
         <div className="max-w-md">
-          <label className="block text-sm font-medium text-white/70 mb-1.5">Localisation pays <span className="text-white/30">(optionnel)</span></label>
+          <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.images.countryLabel")} <span className="text-white/30">{t("dashboard.images.countryOptional")}</span></label>
           <input
             type="text"
             name="country"
-            placeholder="Ex: France, États-Unis, Japon…"
+            placeholder={t("dashboard.images.countryPlaceholder")}
             className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90 placeholder:text-white/25"
           />
         </div>
 
         {/* Priorité d'algorithme */}
-        <ToggleChip name="iphoneMeta" value="1" label="⚡ Priorité d'algorithme" hint="Simule une photo iPhone — injecte EXIF Apple authentiques (appareil, caméra, iOS, GPS, focale, signature)" accent="pink" />
+        <ToggleChip name="iphoneMeta" value="1" label={`⚡ ${t("dashboard.images.iphoneMetaLabel")}`} hint={t("dashboard.images.iphoneMetaHint")} accent="pink" />
 
         <div className="h-px bg-white/[0.06]" />
 
         {/* Filtres */}
         <div>
-          <h3 className="text-sm font-semibold text-white/90 mb-3">Filtres <span className="text-white/40 font-normal">(cumulables)</span></h3>
+          <h3 className="text-sm font-semibold text-white/90 mb-3">{t("dashboard.images.filtersTitle")} <span className="text-white/40 font-normal">{t("dashboard.images.filtersCumulative")}</span></h3>
 
-          <p className="text-xs font-medium text-fuchsia-300/60 uppercase tracking-wide mb-2">Sans modification visuelle</p>
+          <p className="text-xs font-medium text-fuchsia-300/60 uppercase tracking-wide mb-2">{t("dashboard.images.noVisualChange")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 mb-4">
-            <ToggleChip name="fundamentals" value="1" label="Filtres fondamentaux" hint="up/downscale, qualité, chroma, ICC, EXIF/XMP…" defaultChecked accent="pink" />
-            <ToggleChip name="reverse" value="1" label="Reverse (miroir horizontal)" hint="Miroir horizontal de l'image" accent="pink" />
+            <ToggleChip name="fundamentals" value="1" label={t("dashboard.images.fundamentalsLabel")} hint={t("dashboard.images.fundamentalsHint")} defaultChecked accent="pink" />
+            <ToggleChip name="reverse" value="1" label={t("dashboard.images.reverseLabel")} hint={t("dashboard.images.reverseHint")} accent="pink" />
           </div>
 
-          <p className="text-xs font-medium text-fuchsia-300/60 uppercase tracking-wide mb-2">Avec modification visuelle</p>
+          <p className="text-xs font-medium text-fuchsia-300/60 uppercase tracking-wide mb-2">{t("dashboard.images.withVisualChange")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-            <ToggleChip name="visuals" value="1" label="Filtres visuels" hint="brightness, saturation, gamma, contrast, hue…" accent="pink" />
-            <ToggleChip name="semi" value="1" label="Semi-visuels" hint="kernel aléatoire, micro-crop, léger resize" defaultChecked accent="pink" />
+            <ToggleChip name="visuals" value="1" label={t("dashboard.images.visualsLabel")} hint={t("dashboard.images.visualsHint")} accent="pink" />
+            <ToggleChip name="semi" value="1" label={t("dashboard.images.semiLabel")} hint={t("dashboard.images.semiHint")} defaultChecked accent="pink" />
           </div>
         </div>
 
@@ -395,7 +398,7 @@ export default function ImageFormClient({ initialImages }: Props) {
                 : "bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white hover:shadow-[0_4px_20px_rgba(192,38,211,.35)]",
             ].join(" ")}
           >
-            {processing ? "Duplication en cours…" : "Dupliquer les images"}
+            {processing ? t("dashboard.images.duplicating") : t("dashboard.images.duplicateButton")}
           </button>
 
           {processing && (
@@ -404,7 +407,7 @@ export default function ImageFormClient({ initialImages }: Props) {
               onClick={handleStop}
               className="rounded-xl px-4 py-2.5 text-sm font-semibold bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/15 transition"
             >
-              ■ Arrêter
+              {t("dashboard.images.stopButton")}
             </button>
           )}
         </div>
@@ -435,7 +438,7 @@ export default function ImageFormClient({ initialImages }: Props) {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-white/80 mr-auto">
-              Prêts à télécharger ({persistedFiles.length})
+              {t("dashboard.images.readyToDownload", { count: String(persistedFiles.length) })}
             </p>
             <ClearImagesButton onCleared={() => setPersistedFiles([])} />
             <button
@@ -458,7 +461,7 @@ export default function ImageFormClient({ initialImages }: Props) {
               }}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition"
             >
-              Tout télécharger
+              {t("dashboard.images.downloadAll")}
             </button>
           </div>
 
@@ -471,7 +474,7 @@ export default function ImageFormClient({ initialImages }: Props) {
                   download={name}
                   className="shrink-0 rounded-md px-3 py-1 text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition"
                 >
-                  Télécharger
+                  {t("dashboard.images.downloadSingle")}
                 </a>
               </div>
             ))}

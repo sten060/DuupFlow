@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import { useFormStatus } from "react-dom";
+import { useTranslation } from "@/lib/i18n/context";
 
 export function SubmitButton({ children }: { children?: React.ReactNode }) {
+  const { t } = useTranslation();
   const { pending } = useFormStatus();
 
   return (
@@ -20,12 +22,13 @@ export function SubmitButton({ children }: { children?: React.ReactNode }) {
           aria-hidden="true"
         />
       )}
-      <span>{pending ? "Duplication…" : (children ?? "Dupliquer")}</span>
+      <span>{pending ? t("common.loading") : (children ?? t("common.confirm"))}</span>
     </button>
   );
 }
 
 export function PendingOverlay() {
+  const { t } = useTranslation();
   const { pending } = useFormStatus();
   if (!pending) return null;
 
@@ -33,7 +36,7 @@ export function PendingOverlay() {
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40">
       <div className="flex items-center gap-3 rounded-md bg-zinc-900 px-4 py-3 text-white shadow-lg">
         <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/70 border-r-transparent" />
-        <span>Duplication en cours…</span>
+        <span>{t("common.loading")}</span>
       </div>
     </div>
   );

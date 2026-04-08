@@ -1,23 +1,24 @@
+"use client";
+
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Toasts from "../Toasts";
+import { useTranslation } from "@/lib/i18n/context";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-export default async function VideosHub({
-  searchParams,
-}: { searchParams?: { ok?: string; err?: string; warn?: string } }) {
-  const ok = Boolean(searchParams?.ok);
-  const err = searchParams?.err ? decodeURIComponent(searchParams.err) : undefined;
-  const warn = searchParams?.warn ? decodeURIComponent(searchParams.warn) : undefined;
+export default function VideosHub() {
+  const searchParams = useSearchParams();
+  const ok = Boolean(searchParams?.get("ok"));
+  const err = searchParams?.get("err") ? decodeURIComponent(searchParams.get("err")!) : undefined;
+  const warn = searchParams?.get("warn") ? decodeURIComponent(searchParams.get("warn")!) : undefined;
+  const { t } = useTranslation();
 
   return (
     <main className="p-6 space-y-8">
       <Toasts ok={ok} err={err} warn={warn} />
 
       <header>
-        <h1 className="text-3xl font-extrabold tracking-tight">Duplication Vidéos</h1>
-        <p className="text-sm text-white/50 mt-1">Choisis ton mode de travail.</p>
+        <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videos.title")}</h1>
+        <p className="text-sm text-white/50 mt-1">{t("dashboard.videos.subtitle")}</p>
       </header>
 
       <div className="h-px bg-white/[0.06]" />
@@ -38,12 +39,12 @@ export default async function VideosHub({
               <path d="M8 5v14l11-7z" />
             </svg>
             <div>
-              <h2 className="text-base font-bold text-white/90">Mode Simple</h2>
+              <h2 className="text-base font-bold text-white/90">{t("dashboard.videos.simpleTitle")}</h2>
               <p className="text-xs text-white/50 mt-0.5">
-                Rapide et efficace — idéal pour dupliquer en masse sans configuration.
+                {t("dashboard.videos.simpleDesc")}
               </p>
               <div className="mt-2 inline-flex items-center gap-2 text-xs text-indigo-300 group-hover:gap-3 transition-all">
-                <span>Commencer</span>
+                <span>{t("dashboard.videos.simpleStart")}</span>
                 <span>→</span>
               </div>
             </div>
@@ -65,12 +66,12 @@ export default async function VideosHub({
               <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
             </svg>
             <div>
-              <h2 className="text-base font-bold text-white/90">Mode Avancé</h2>
+              <h2 className="text-base font-bold text-white/90">{t("dashboard.videos.advancedTitle")}</h2>
               <p className="text-xs text-white/50 mt-0.5">
-                Contrôle total — configure chaque filtre manuellement avec templates.
+                {t("dashboard.videos.advancedDesc")}
               </p>
               <div className="mt-2 inline-flex items-center gap-2 text-xs text-sky-300 group-hover:gap-3 transition-all">
-                <span>Configurer</span>
+                <span>{t("dashboard.videos.advancedStart")}</span>
                 <span>→</span>
               </div>
             </div>

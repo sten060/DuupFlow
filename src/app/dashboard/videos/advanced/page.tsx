@@ -1,5 +1,4 @@
 // src/app/(dashboard)/videos/advanced/page.tsx
-import Link from "next/link";
 import { listOutVideosAdvanced } from "../actions";
 import VideoFormAdvancedClient from "./VideoFormAdvancedClient";
 import VideoFilesClient from "../VideoFilesClient";
@@ -15,11 +14,6 @@ export default async function VideosAdvancedPage() {
       {/* Fond bleu clair flouté */}
       <div className="fixed top-0 left-56 right-0 h-[500px] pointer-events-none"
            style={{ background: "radial-gradient(800px 400px at 50% -100px, rgba(56,189,248,.10), transparent 70%)" }} />
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-extrabold tracking-tight">Duplication Vidéos — Avancé</h1>
-        <Link href="/dashboard/videos" className="text-sm text-white/40 hover:text-white/70 transition">← Retour</Link>
-      </div>
-
       <VideoFormAdvancedClient />
 
       <VideoFilesClient initialFiles={files} channel="advanced" />

@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import LanguageSwitch from "@/components/LanguageSwitch";
+import { useTranslation } from "@/lib/i18n/context";
 
 function NavLink({ href, label, onClick }: { href: string; label: string; onClick?: () => void }) {
   const pathname = usePathname();
@@ -27,6 +29,7 @@ function NavLink({ href, label, onClick }: { href: string; label: string; onClic
 }
 
 export default function Header() {
+  const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -44,19 +47,20 @@ export default function Header() {
 
           {/* Nav — desktop only */}
           <nav className="hidden md:flex items-center gap-3">
-            <NavLink href="/fonctionnalites" label="Fonctionnalités" />
-            <NavLink href="/tarifs" label="Tarifs" />
-            <NavLink href="/#features" label="Avantages" />
-            <NavLink href="https://www.duupflow.com/#faq" label="FAQ" />
+            <NavLink href="/fonctionnalites" label={t("nav.fonctionnalites")} />
+            <NavLink href="/tarifs" label={t("nav.tarifs")} />
+            <NavLink href="/#features" label={t("nav.avantages")} />
+            <NavLink href="https://www.duupflow.com/#faq" label={t("nav.faq")} />
           </nav>
 
           <div className="flex items-center gap-2">
+            <LanguageSwitch />
             {/* CTA — desktop */}
             <Link
               href="/register"
               className="btn-glow hidden sm:inline-flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold text-white"
             >
-              Commencer
+              {t("nav.commencer")}
             </Link>
 
             {/* Hamburger — mobile only */}
@@ -85,15 +89,15 @@ export default function Header() {
         className={`md:hidden fixed top-0 right-0 bottom-0 z-[80] w-[65%] max-w-[280px] flex flex-col px-6 py-8 transition-transform duration-300 ease-out ${menuOpen ? "translate-x-0" : "translate-x-full"}`}
         style={{ background: "rgba(8,12,30,0.97)", borderLeft: "1px solid rgba(255,255,255,0.08)" }}
       >
-        <button onClick={() => setMenuOpen(false)} className="self-end mb-8 text-white/50 hover:text-white transition" aria-label="Fermer">
+        <button onClick={() => setMenuOpen(false)} className="self-end mb-8 text-white/50 hover:text-white transition" aria-label={t("nav.closeLabel")}>
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
         <nav className="flex flex-col gap-1">
-          <NavLink href="/fonctionnalites" label="Fonctionnalités" onClick={() => setMenuOpen(false)} />
-          <NavLink href="/tarifs" label="Tarifs" onClick={() => setMenuOpen(false)} />
-          <NavLink href="/#features" label="Avantages" onClick={() => setMenuOpen(false)} />
-          <NavLink href="/demo" label="Démo" onClick={() => setMenuOpen(false)} />
-          <NavLink href="https://www.duupflow.com/#faq" label="FAQ" onClick={() => setMenuOpen(false)} />
+          <NavLink href="/fonctionnalites" label={t("nav.fonctionnalites")} onClick={() => setMenuOpen(false)} />
+          <NavLink href="/tarifs" label={t("nav.tarifs")} onClick={() => setMenuOpen(false)} />
+          <NavLink href="/#features" label={t("nav.avantages")} onClick={() => setMenuOpen(false)} />
+          <NavLink href="/demo" label={t("nav.demo")} onClick={() => setMenuOpen(false)} />
+          <NavLink href="https://www.duupflow.com/#faq" label={t("nav.faq")} onClick={() => setMenuOpen(false)} />
         </nav>
         <div className="mt-auto pt-6">
           <Link
@@ -101,7 +105,7 @@ export default function Header() {
             onClick={() => setMenuOpen(false)}
             className="btn-glow block text-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
           >
-            Commencer gratuitement
+            {t("nav.commencerGratuitement")}
           </Link>
         </div>
       </div>

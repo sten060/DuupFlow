@@ -3,8 +3,10 @@
 import Link from "next/link";
 import Header from "@/components/Header";
 import { useState } from "react";
+import { useTranslation } from "@/lib/i18n/context";
 
 export default function PartenairePage() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ nom: "", prenom: "", email: "", agence: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,17 +31,17 @@ export default function PartenairePage() {
       <div className="pt-40 pb-20 px-6 max-w-5xl mx-auto">
         {/* Back link */}
         <Link href="/" className="text-sm text-white/40 hover:text-white/70 transition mb-8 inline-block">
-          &larr; Retour à l&apos;accueil
+          {t("partenaire.backToHome")}
         </Link>
 
         <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mb-4">
-          Programme Partenaire{" "}
+          {t("partenaire.title")}{" "}
           <span className="bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent">
-            DuupFlow
+            {t("partenaire.titleHighlight")}
           </span>
         </h1>
         <p className="text-white/50 mb-12 max-w-2xl">
-          Rejoignez notre programme d&apos;affiliation et gagnez des commissions sur chaque client que vous nous apportez.
+          {t("partenaire.subtitle")}
         </p>
 
         {/* Two cards */}
@@ -56,10 +58,10 @@ export default function PartenairePage() {
               </svg>
             </div>
             <h2 className="text-xl font-semibold mb-2 group-hover:text-indigo-300 transition">
-              Je suis déjà partenaire
+              {t("partenaire.alreadyPartner")}
             </h2>
             <p className="text-sm text-white/40">
-              Accédez à votre tableau de bord affilié pour suivre vos commissions et vos liens.
+              {t("partenaire.alreadyPartnerDesc")}
             </p>
           </Link>
 
@@ -74,16 +76,16 @@ export default function PartenairePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold mb-2">Je veux devenir partenaire</h2>
+              <h2 className="text-xl font-semibold mb-2">{t("partenaire.becomePartner")}</h2>
               <p className="text-sm text-white/40">
-                Remplissez le formulaire ci-dessous et nous vous répondrons rapidement.
+                {t("partenaire.becomePartnerDesc")}
               </p>
             </div>
 
             {submitted ? (
               <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-6 text-center">
                 <p className="text-green-400 font-medium">
-                  Votre demande a été envoyée. Nous vous répondrons dans moins de 24h.
+                  {t("partenaire.successMessage")}
                 </p>
               </div>
             ) : (
@@ -91,7 +93,7 @@ export default function PartenairePage() {
                 <div className="grid grid-cols-2 gap-4">
                   <input
                     name="nom"
-                    placeholder="Nom"
+                    placeholder={t("partenaire.nomPlaceholder")}
                     required
                     value={form.nom}
                     onChange={handleChange}
@@ -99,7 +101,7 @@ export default function PartenairePage() {
                   />
                   <input
                     name="prenom"
-                    placeholder="Prénom"
+                    placeholder={t("partenaire.prenomPlaceholder")}
                     required
                     value={form.prenom}
                     onChange={handleChange}
@@ -109,7 +111,7 @@ export default function PartenairePage() {
                 <input
                   name="email"
                   type="email"
-                  placeholder="Email"
+                  placeholder={t("partenaire.emailPlaceholder")}
                   required
                   value={form.email}
                   onChange={handleChange}
@@ -117,7 +119,7 @@ export default function PartenairePage() {
                 />
                 <input
                   name="agence"
-                  placeholder="Nom de l'agence"
+                  placeholder={t("partenaire.agencePlaceholder")}
                   required
                   value={form.agence}
                   onChange={handleChange}
@@ -125,7 +127,7 @@ export default function PartenairePage() {
                 />
                 <textarea
                   name="message"
-                  placeholder="Message (optionnel)"
+                  placeholder={t("partenaire.messagePlaceholder")}
                   rows={4}
                   value={form.message}
                   onChange={handleChange}
@@ -137,7 +139,7 @@ export default function PartenairePage() {
                   className="w-full rounded-lg py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                   style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
                 >
-                  {loading ? "Envoi en cours..." : "Envoyer ma demande"}
+                  {loading ? t("partenaire.submitting") : t("partenaire.submitButton")}
                 </button>
               </form>
             )}

@@ -2,11 +2,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 import { setJob, addCompletedFile, removeJob } from "../jobStore";
+import { useTranslation } from "@/lib/i18n/context";
 import {
   getTemplates,
   saveTemplate,
@@ -43,6 +45,7 @@ function Card({
 }
 
 function SubmitWithProgress({ pending }: { pending: boolean }) {
+  const { t } = useTranslation();
   return (
     <div className="mt-6">
       <button
@@ -52,7 +55,7 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
           pending ? "cursor-not-allowed bg-sky-500/50" : "bg-sky-500 hover:bg-sky-400"
         }`}
       >
-        {pending ? "Duplication…" : "Générer"}
+        {pending ? t("dashboard.videosAdvanced.duplicating") : t("dashboard.videosAdvanced.generateButton")}
       </button>
     </div>
   );
@@ -200,6 +203,7 @@ const HELP_ADVANCED: Record<Group, React.ReactNode> = {
 
 /* ========================= Page ========================= */
 export default function VideoFormAdvancedClient() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
@@ -309,14 +313,14 @@ export default function VideoFormAdvancedClient() {
     setProcessing(true);
     setSubmitError(null);
     setProgress(0);
-    setProgressMsg("Préparation…");
+    setProgressMsg(t("dashboard.videosAdvanced.preparing"));
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
     // Register job in global store so progress persists across page navigation
     const jobId = Math.random().toString(36).slice(2, 8);
-    setJob({ id: jobId, type: "video", channel: "advanced", progress: 0, msg: "Préparation…", status: "running", ctrl });
+    setJob({ id: jobId, type: "video", channel: "advanced", progress: 0, msg: t("dashboard.videosAdvanced.preparing"), status: "running", ctrl });
 
     try {
       const rawForm = new FormData(e.currentTarget);
@@ -368,7 +372,7 @@ export default function VideoFormAdvancedClient() {
         );
 
         setProgress(30);
-        setProgressMsg("Envoi au serveur…");
+        setProgressMsg(t("dashboard.videosAdvanced.sendingToServer"));
 
         apiForm = new FormData();
         for (const key of ["channel", "mode", "advancedRanges", "count", "country", "iphoneMeta"]) {
@@ -467,7 +471,7 @@ export default function VideoFormAdvancedClient() {
                       setSubmitError(evt.warning);
                       setJob({ id: jobId, type: "video", channel: "advanced", progress: 100, msg: evt.warning, status: "done" });
                     } else {
-                      setJob({ id: jobId, type: "video", channel: "advanced", progress: 100, msg: "Terminé", status: "done" });
+                      setJob({ id: jobId, type: "video", channel: "advanced", progress: 100, msg: "Done", status: "done" });
                     }
                     setTimeout(() => removeJob(jobId), 6000);
                     router.refresh();
@@ -564,6 +568,11 @@ export default function VideoFormAdvancedClient() {
     ].join(" ");
 
   return (
+    <>
+    <div className="flex items-center justify-between">
+      <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosAdvanced.title")}</h1>
+      <Link href="/dashboard/videos" className="text-sm text-white/40 hover:text-white/70 transition">{t("dashboard.videosAdvanced.back")}</Link>
+    </div>
     <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="channel" value="advanced" />
       <input type="hidden" name="mode" value="advanced" />
@@ -572,7 +581,7 @@ export default function VideoFormAdvancedClient() {
       <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
         <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
         <div className="max-w-xs">
-          <label className="block text-sm font-medium text-white/70 mb-1.5">Nombre de copies</label>
+          <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.videosAdvanced.copiesLabel")}</label>
           <input
             type="number"
             name="count"
@@ -747,11 +756,11 @@ export default function VideoFormAdvancedClient() {
               {g === "Tags" && (
                 <div className="col-span-full flex flex-wrap items-end gap-4 mt-1">
                   <div className="flex-1 min-w-[200px] max-w-xs">
-                    <label className="block text-sm font-medium text-white/70 mb-1">Localisation pays</label>
+                    <label className="block text-sm font-medium text-white/70 mb-1">{t("dashboard.videosAdvanced.countryLabel")}</label>
                     <input
                       type="text"
                       name="country"
-                      placeholder="Ex: France, États-Unis, Japon…"
+                      placeholder={t("dashboard.videosAdvanced.countryPlaceholder")}
                       className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-white/90 placeholder:text-white/25"
                     />
                   </div>
@@ -766,9 +775,9 @@ export default function VideoFormAdvancedClient() {
                       <input type="checkbox" name="iphoneMeta" value="1" className="sr-only peer" />
                       <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white/70 peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
                     </span>
-                    <span className="text-white/85">⚡ Priorité d&apos;algorithme</span>
+                    <span className="text-white/85">⚡ {t("dashboard.videosAdvanced.iphoneMetaLabel")}</span>
                   </label>
-                  <InfoTooltip>Simule une vidéo iPhone avec métadonnées Apple authentiques (QuickTime, GPS, signature). Le fichier sort en .mov.</InfoTooltip>
+                  <InfoTooltip>{t("dashboard.videosAdvanced.iphoneMetaHint")}</InfoTooltip>
                 </div>
               )}
             </div>
@@ -777,12 +786,12 @@ export default function VideoFormAdvancedClient() {
       ))}
 
       {/* Templates + Reset */}
-      <Card title="Templates">
+      <Card title={t("dashboard.videosAdvanced.templatesTitle")}>
         <div className="flex flex-wrap gap-2">
           <input
             value={tplName}
             onChange={(e) => setTplName(e.target.value)}
-            placeholder="Nom de la template…"
+            placeholder={t("dashboard.videosAdvanced.templatePlaceholder")}
             className="min-w-[220px] flex-1 rounded-md border border-white/15 bg-transparent px-3 py-2 text-sm"
           />
           <button
@@ -790,14 +799,14 @@ export default function VideoFormAdvancedClient() {
             onClick={onSaveTpl}
             className="rounded-lg bg-sky-500 px-3 py-2 text-sm text-white hover:bg-sky-400"
           >
-            Enregistrer
+            {t("dashboard.videosAdvanced.saveTemplate")}
           </button>
           <button
             type="button"
             onClick={onResetAll}
             className="rounded-lg border border-white/20 px-3 py-2 text-sm hover:bg-white/10"
           >
-            Reset filtres
+            {t("dashboard.videosAdvanced.resetFilters")}
           </button>
         </div>
 
@@ -824,6 +833,7 @@ export default function VideoFormAdvancedClient() {
         </p>
       )}
     </form>
+    </>
   );
 }
 
@@ -837,7 +847,8 @@ function TemplatesList({
   onLoad: (t: Template) => void;
   onDelete: (n: string) => void;
 }) {
-  if (templates.length === 0) return <p className="text-sm text-white/55">Aucune template.</p>;
+  const { t } = useTranslation();
+  if (templates.length === 0) return <p className="text-sm text-white/55">{t("dashboard.videosAdvanced.noTemplates")}</p>;
 
   return (
     <div className="mt-3 flex flex-wrap gap-2">

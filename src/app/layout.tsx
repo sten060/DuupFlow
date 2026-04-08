@@ -6,9 +6,9 @@ import ClientLayout from "./ClientLayout";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.duupflow.com"),
-  title: "DuupFlow — Duplique ton contenu en illimité",
+  title: "DuupFlow — Duplicate your content infinitely",
   description:
-    "DuupFlow vous permet de dupliquer vos contenus en quelques secondes, chaque fichier deviens unique aux yeux des plateformes. Conçu pour les agences souhaitant augmenter le volume de contenus sur les réseaux sociaux.",
+    "DuupFlow lets you duplicate your content in seconds. Each file becomes unique in the eyes of platform algorithms. Built for agencies looking to scale their social media content.",
   icons: {
     icon: [
       { url: "/icon.png", type: "image/png" },
@@ -18,9 +18,9 @@ export const metadata: Metadata = {
     apple: "/apple-icon.png",
   },
   openGraph: {
-    title: "DuupFlow — Duplique ton contenu en illimité",
+    title: "DuupFlow — Duplicate your content infinitely",
     description:
-      "DuupFlow vous permet de dupliquer vos contenus en quelques secondes, chaque fichier deviens unique aux yeux des plateformes. Conçu pour les agences souhaitant augmenter le volume de contenus sur les réseaux sociaux.",
+      "DuupFlow lets you duplicate your content in seconds. Each file becomes unique in the eyes of platform algorithms. Built for agencies looking to scale their social media content.",
     url: "https://www.duupflow.com",
     siteName: "DuupFlow",
     images: [
@@ -31,14 +31,14 @@ export const metadata: Metadata = {
         alt: "DuupFlow",
       },
     ],
-    locale: "fr_FR",
+    locale: "en_US",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "DuupFlow — Duplique ton contenu en illimité",
+    title: "DuupFlow — Duplicate your content infinitely",
     description:
-      "DuupFlow vous permet de dupliquer vos contenus en quelques secondes, chaque fichier deviens unique aux yeux des plateformes. Conçu pour les agences souhaitant augmenter le volume de contenus sur les réseaux sociaux.",
+      "DuupFlow lets you duplicate your content in seconds. Each file becomes unique in the eyes of platform algorithms. Built for agencies looking to scale their social media content.",
     images: ["/og-image.png"],
   },
 };
@@ -49,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr">
+    <html lang="en" suppressHydrationWarning>
       <body className="text-white antialiased">
         <Script
           id="microsoft-clarity"

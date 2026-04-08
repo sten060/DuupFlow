@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PLAN_LIMITS } from "@/lib/plans";
+import { useTranslation } from "@/lib/i18n/context";
 
 function getRenewalDate(periodStart: string | null): string | null {
   if (!periodStart) return null;
@@ -19,7 +20,7 @@ function getDaysUntilRenewal(periodStart: string | null): number | null {
 }
 
 function UsageBar({
-  label, icon, current, limit, unlimited, color,
+  label, icon, current, limit, unlimited, color, usedText,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -27,6 +28,7 @@ function UsageBar({
   limit: number;
   unlimited?: boolean;
   color: string;
+  usedText?: string;
 }) {
   const pct = unlimited ? 100 : Math.min(100, Math.round((current / limit) * 100));
   const isNearLimit = !unlimited && pct >= 80;
@@ -54,7 +56,7 @@ function UsageBar({
         >
           {unlimited ? (
             <span className="flex items-center gap-1">
-              <span className="text-white/40 text-[10px]">{current} utilisé</span>
+              <span className="text-white/40 text-[10px]">{current} {usedText}</span>
               <span className="text-white/25 text-[10px] mx-0.5">·</span>
               <span style={{ color }}>∞</span>
             </span>
@@ -88,6 +90,7 @@ export default function AbonnementClient({
   cancelAtPeriodEnd: boolean;
   cancelAt: number | null;
 }) {
+  const { t } = useTranslation();
   const [portalPaymentLoading, setPortalPaymentLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
@@ -124,10 +127,10 @@ export default function AbonnementClient({
       if (res.ok && data.url) {
         window.location.href = data.url;
       } else {
-        setMsg({ type: "err", text: data.error ?? "Erreur lors de l'ouverture du portail." });
+        setMsg({ type: "err", text: data.error ?? t("dashboard.subscription.portalError") });
       }
     } catch {
-      setMsg({ type: "err", text: "Erreur réseau." });
+      setMsg({ type: "err", text: t("dashboard.subscription.networkError") });
     }
     setPortalPaymentLoading(false);
   }
@@ -146,12 +149,12 @@ export default function AbonnementClient({
       if (res.ok && data.success) {
         setIsCancelling(true);
         setCancelFeedback("");
-        setMsg({ type: "ok", text: "Résiliation programmée. Vous garderez l'accès jusqu'à la fin de votre période." });
+        setMsg({ type: "ok", text: t("dashboard.subscription.cancelSuccess") });
       } else {
-        setMsg({ type: "err", text: data.error ?? "Erreur lors de la résiliation." });
+        setMsg({ type: "err", text: data.error ?? t("dashboard.subscription.cancelError") });
       }
     } catch {
-      setMsg({ type: "err", text: "Erreur réseau." });
+      setMsg({ type: "err", text: t("dashboard.subscription.networkError") });
     }
     setCancelLoading(false);
   }
@@ -166,10 +169,10 @@ export default function AbonnementClient({
       if (res.ok && data.success) {
         window.location.reload();
       } else {
-        setMsg({ type: "err", text: data.error ?? "Erreur lors du changement de plan." });
+        setMsg({ type: "err", text: data.error ?? t("dashboard.subscription.downgradeError") });
       }
     } catch {
-      setMsg({ type: "err", text: "Erreur réseau." });
+      setMsg({ type: "err", text: t("dashboard.subscription.networkError") });
     }
     setDowngradeLoading(false);
   }
@@ -187,10 +190,10 @@ export default function AbonnementClient({
         // Reload to reflect the new Pro plan immediately
         window.location.reload();
       } else {
-        setMsg({ type: "err", text: data.error ?? "Erreur lors de la mise à niveau." });
+        setMsg({ type: "err", text: data.error ?? t("dashboard.subscription.upgradeError") });
       }
     } catch {
-      setMsg({ type: "err", text: "Erreur réseau." });
+      setMsg({ type: "err", text: t("dashboard.subscription.networkError") });
     }
     setUpgradeLoading(false);
   }
@@ -200,19 +203,19 @@ export default function AbonnementClient({
       <main className="p-8 max-w-2xl">
         <div className="mb-8">
           <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1.5">Dashboard</p>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">Abonnement</h1>
+          <h1 className="text-2xl font-semibold text-white tracking-tight">{t("dashboard.subscription.title")}</h1>
         </div>
         <div
           className="rounded-2xl p-8 text-center"
           style={{ background: "rgba(10,14,40,0.55)", border: "1px solid rgba(255,255,255,0.07)" }}
         >
-          <p className="text-white/50 mb-4">Aucun abonnement actif.</p>
+          <p className="text-white/50 mb-4">{t("dashboard.subscription.noSubscription")}</p>
           <Link
             href="/checkout"
             className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
             style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
           >
-            Choisir un plan
+            {t("dashboard.subscription.choosePlan")}
           </Link>
         </div>
       </main>
@@ -226,7 +229,7 @@ export default function AbonnementClient({
       <div className="mb-8">
         <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1.5">Dashboard</p>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-white tracking-tight">Abonnement</h1>
+          <h1 className="text-2xl font-semibold text-white tracking-tight">{t("dashboard.subscription.title")}</h1>
           <span
             className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
             style={{ background: planBg, border: `1px solid ${planBorder}`, color: planColor }}
@@ -276,7 +279,7 @@ export default function AbonnementClient({
               style={{ background: planBg, border: `1px solid ${planBorder}`, color: planColor }}
             >
               <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-              Actif
+              {t("dashboard.subscription.active")}
             </span>
           </div>
 
@@ -291,11 +294,11 @@ export default function AbonnementClient({
                 <path d="M12 8v4M12 16h.01" />
               </svg>
               <div>
-                <p className="text-xs font-semibold" style={{ color: "#F59E0B" }}>Résiliation programmée</p>
+                <p className="text-xs font-semibold" style={{ color: "#F59E0B" }}>{t("dashboard.subscription.cancelScheduled")}</p>
                 <p className="text-xs mt-0.5" style={{ color: "rgba(245,158,11,0.75)" }}>
                   {cancelEndDate
-                    ? `Accès garanti jusqu'au ${cancelEndDate}. Après cette date, votre compte sera désactivé.`
-                    : "Votre abonnement ne sera pas renouvelé. Vous gardez l'accès jusqu'à la fin de la période."}
+                    ? t("dashboard.subscription.cancelScheduledDesc", { date: cancelEndDate })
+                    : t("dashboard.subscription.cancelScheduledDescGeneric")}
                 </p>
               </div>
             </div>
@@ -313,7 +316,7 @@ export default function AbonnementClient({
                   <path d="M16 2v4M8 2v4M3 10h18" />
                 </svg>
                 <div>
-                  <p className="text-xs text-white/50">Prochain renouvellement</p>
+                  <p className="text-xs text-white/50">{t("dashboard.subscription.nextRenewal")}</p>
                   <p className="text-xs font-semibold text-white/80 mt-0.5">{renewalDate}</p>
                 </div>
               </div>
@@ -335,11 +338,11 @@ export default function AbonnementClient({
           {/* Usage */}
           <div className="mb-5">
             <p className="text-xs font-semibold tracking-[0.12em] uppercase text-white/25 mb-4">
-              Utilisation {isUnlimited ? "— Illimitée" : "ce mois"}
+              {isUnlimited ? t("dashboard.subscription.usageUnlimited") : t("dashboard.subscription.usageThisMonth")}
             </p>
             <div className="space-y-4">
               <UsageBar
-                label="Duplication images"
+                label={t("dashboard.subscription.imagesDuplication")}
                 icon={
                   <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke={planColor} strokeWidth="2">
                     <rect x="3" y="3" width="18" height="18" rx="3" />
@@ -351,9 +354,10 @@ export default function AbonnementClient({
                 limit={PLAN_LIMITS.solo.images}
                 unlimited={isUnlimited}
                 color={planColor}
+                usedText={t("dashboard.subscription.used")}
               />
               <UsageBar
-                label="Duplication vidéos"
+                label={t("dashboard.subscription.videosDuplication")}
                 icon={
                   <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="#38BDF8" strokeWidth="2">
                     <rect x="2" y="5" width="14" height="14" rx="2" />
@@ -364,9 +368,10 @@ export default function AbonnementClient({
                 limit={PLAN_LIMITS.solo.videos}
                 unlimited={isUnlimited}
                 color="#38BDF8"
+                usedText={t("dashboard.subscription.used")}
               />
               <UsageBar
-                label="Signature IA"
+                label={t("dashboard.subscription.aiSignatures")}
                 icon={
                   <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="#10B981" strokeWidth="2">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -376,6 +381,7 @@ export default function AbonnementClient({
                 limit={PLAN_LIMITS.solo.ai_signatures}
                 unlimited={isUnlimited}
                 color="#10B981"
+                usedText={t("dashboard.subscription.used")}
               />
             </div>
             {!isUnlimited && (
@@ -410,13 +416,13 @@ export default function AbonnementClient({
                 style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
               >
                 {upgradeLoading ? (
-                  "Redirection…"
+                  t("dashboard.subscription.redirecting")
                 ) : (
                   <>
                     <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M8 2l4 4H9v6H7V6H4l4-4z" />
                     </svg>
-                    Passer au plan Pro — 99€/mois
+                    {t("dashboard.subscription.upgradeToProPrice")}
                   </>
                 )}
               </button>
@@ -434,13 +440,13 @@ export default function AbonnementClient({
                 }}
               >
                 {downgradeLoading ? (
-                  "Changement en cours…"
+                  t("dashboard.subscription.changingPlan")
                 ) : (
                   <>
                     <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M8 14l-4-4h3V4h2v6h3l-4 4z" />
                     </svg>
-                    Passer au plan Solo — 39€/mois
+                    {t("dashboard.subscription.downgradeToSoloPrice")}
                   </>
                 )}
               </button>
@@ -458,14 +464,14 @@ export default function AbonnementClient({
                 }}
               >
                 {portalPaymentLoading ? (
-                  "Ouverture…"
+                  t("dashboard.subscription.opening")
                 ) : (
                   <>
                     <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="1" y="4" width="14" height="9" rx="2" />
                       <path d="M1 7h14" />
                     </svg>
-                    Changer le moyen de paiement
+                    {t("dashboard.subscription.managePayment")}
                   </>
                 )}
               </button>
@@ -483,14 +489,14 @@ export default function AbonnementClient({
                 }}
               >
                 {cancelLoading ? (
-                  "Résiliation en cours…"
+                  t("dashboard.subscription.cancellingInProgress")
                 ) : (
                   <>
                     <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="8" cy="8" r="6" />
                       <path d="M5 8h6" />
                     </svg>
-                    Résilier l&apos;abonnement
+                    {t("dashboard.subscription.cancelSubscription")}
                   </>
                 )}
               </button>
@@ -574,7 +580,7 @@ export default function AbonnementClient({
               className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
             >
-              Annuler
+              {t("dashboard.subscription.cancelButton")}
             </button>
             <button
               onClick={() => { setShowUpgradeModal(false); upgradeToProCheckout(); }}
@@ -582,7 +588,7 @@ export default function AbonnementClient({
               className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
               style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
             >
-              {upgradeLoading ? "Redirection…" : "Confirmer — 99€/mois"}
+              {upgradeLoading ? t("dashboard.subscription.redirecting") : t("dashboard.subscription.confirmUpgrade")}
             </button>
           </div>
         </div>
@@ -627,14 +633,14 @@ export default function AbonnementClient({
               className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
             >
-              Annuler
+              {t("dashboard.subscription.cancelButton")}
             </button>
             <button
               onClick={() => { setShowCancelStep1(false); setShowCancelStep2(true); }}
               className="flex-1 rounded-xl py-2.5 text-sm font-medium transition"
               style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
             >
-              Continuer
+              {t("dashboard.subscription.continueButton")}
             </button>
           </div>
         </div>
@@ -676,7 +682,7 @@ export default function AbonnementClient({
               className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
             >
-              Annuler
+              {t("dashboard.subscription.cancelButton")}
             </button>
             <button
               onClick={cancelSubscription}
@@ -684,7 +690,7 @@ export default function AbonnementClient({
               className="flex-1 rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-40"
               style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
             >
-              {cancelLoading ? "Résiliation…" : "Confirmer la résiliation"}
+              {cancelLoading ? t("dashboard.subscription.cancelling") : t("dashboard.subscription.confirmCancel")}
             </button>
           </div>
         </div>
@@ -737,7 +743,7 @@ export default function AbonnementClient({
               className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
             >
-              Annuler
+              {t("dashboard.subscription.cancelButton")}
             </button>
             <button
               onClick={downgradeToSolo}
@@ -745,7 +751,7 @@ export default function AbonnementClient({
               className="flex-1 rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-50"
               style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
             >
-              {downgradeLoading ? "Changement…" : "Confirmer le passage au Solo"}
+              {downgradeLoading ? t("dashboard.subscription.changingPlan") : t("dashboard.subscription.confirmDowngrade")}
             </button>
           </div>
         </div>

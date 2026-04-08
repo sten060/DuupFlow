@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@/lib/i18n/context";
 
 type Invitation = {
   id: string;
@@ -38,34 +39,21 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-const FAQ_ITEMS = [
-  {
-    q: "Mes vidéos dupliquées sont-elles visuellement identiques ?",
-    a: "Oui. Le résultat visuel est quasi identique à l'original — seule la signature numérique change, ce qui les rend uniques aux yeux des algorithmes des réseaux sociaux.",
-  },
-  {
-    q: "Combien de copies puis-je générer ?",
-    a: "En plan Pro, les duplications sont illimitées. En plan Solo, tu bénéficies d'un quota mensuel généreux pour images, vidéos et signatures IA.",
-  },
-  {
-    q: "Sur quelles plateformes DuupFlow fonctionne-t-il ?",
-    a: "Instagram, TikTok, YouTube Shorts, Facebook, Snapchat et bien d'autres. Nos algorithmes sont calibrés sur les systèmes de détection des principales plateformes.",
-  },
-  {
-    q: "Pourquoi le comparateur indique-t-il un score ?",
-    a: "Plus le score est bas, plus tes fichiers sont perçus comme différents par les algorithmes. Un score < 30% signifie que tu es bien protégé pour le multi-posting.",
-  },
-  {
-    q: "Qu'est-ce que la détection IA ?",
-    a: "Les réseaux sociaux peuvent identifier les contenus générés par IA via leurs métadonnées. Notre outil remplace ces métadonnées révélatrices pour que ton contenu passe inaperçu.",
-  },
-];
+// FAQ_ITEMS moved inside FAQSection to use t()
 
 function FAQSection() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState<number | null>(null);
+  const FAQ_ITEMS = [
+    { q: t("dashboard.settings.faq1Q"), a: t("dashboard.settings.faq1A") },
+    { q: t("dashboard.settings.faq2Q"), a: t("dashboard.settings.faq2A") },
+    { q: t("dashboard.settings.faq3Q"), a: t("dashboard.settings.faq3A") },
+    { q: t("dashboard.settings.faq4Q"), a: t("dashboard.settings.faq4A") },
+    { q: t("dashboard.settings.faq5Q"), a: t("dashboard.settings.faq5A") },
+  ];
   return (
     <div>
-      <SectionTitle>FAQ</SectionTitle>
+      <SectionTitle>{t("dashboard.settings.faqTitle")}</SectionTitle>
       <Card>
         <div className="space-y-1">
           {FAQ_ITEMS.map((item, i) => (
@@ -116,6 +104,7 @@ export default function SettingsClient({
   invitations: Invitation[];
   userEmail?: string;
 }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const supabase = createClient();
 
@@ -147,8 +136,8 @@ export default function SettingsClient({
       .update({ first_name: firstName.trim(), agency_name: agencyName.trim() })
       .eq("id", user.id);
     setProfileMsg(error
-      ? { type: "err", text: "Erreur lors de la sauvegarde." }
-      : { type: "ok", text: "Profil mis à jour." }
+      ? { type: "err", text: t("dashboard.settings.profileError") }
+      : { type: "ok", text: t("dashboard.settings.profileUpdated") }
     );
     setProfileLoading(false);
     router.refresh();
@@ -201,7 +190,7 @@ export default function SettingsClient({
       });
       const data = await res.json();
       if (res.ok && data.ok) {
-        setSupportMsg({ type: "ok", text: "Message envoyé. Nous vous répondrons rapidement." });
+        setSupportMsg({ type: "ok", text: t("dashboard.settings.supportSent") });
         setSupportContact("");
         setSupportSubject("");
         setSupportMessage("");
@@ -227,7 +216,7 @@ export default function SettingsClient({
       <div className="mb-8">
         <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1.5">Dashboard</p>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-white tracking-tight">Paramètres</h1>
+          <h1 className="text-2xl font-semibold text-white tracking-tight">{t("dashboard.settings.title")}</h1>
           {planLabel && (
             <span
               className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
@@ -245,12 +234,12 @@ export default function SettingsClient({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* Profile */}
           <div>
-            <SectionTitle>Profil</SectionTitle>
+            <SectionTitle>{t("dashboard.settings.profileSection")}</SectionTitle>
             <Card>
               <form onSubmit={saveProfile} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-white/40 mb-1.5">Prénom</label>
+                    <label className="block text-xs text-white/40 mb-1.5">{t("dashboard.settings.firstNameLabel")}</label>
                     <input
                       type="text"
                       value={firstName}
@@ -261,7 +250,7 @@ export default function SettingsClient({
                   </div>
                   <div>
                     <label className="block text-xs text-white/40 mb-1.5">
-                      {isGuest ? "Agence (lecture seule)" : "Agence / Entreprise"}
+                      {isGuest ? t("dashboard.settings.agencyLabelGuest") : t("dashboard.settings.agencyLabel")}
                     </label>
                     <input
                       type="text"
@@ -285,7 +274,7 @@ export default function SettingsClient({
                     className="rounded-xl px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                     style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
                   >
-                    {profileLoading ? "Sauvegarde…" : "Sauvegarder"}
+                    {profileLoading ? t("dashboard.settings.saving") : t("dashboard.settings.save")}
                   </button>
                 </div>
               </form>
@@ -300,9 +289,9 @@ export default function SettingsClient({
         {!isGuest && plan === "pro" && (
           <div>
             <SectionTitle>
-              Équipe{" "}
+              {t("dashboard.settings.teamSection")}{" "}
               <span className="normal-case text-white/20 font-normal tracking-normal ml-1">
-                — {activeInvitations.length}/3 membres
+                — {activeInvitations.length}/3 {t("dashboard.settings.teamMembers")}
               </span>
             </SectionTitle>
             <Card>
@@ -338,7 +327,7 @@ export default function SettingsClient({
                             : { background: "rgba(245,158,11,0.10)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.20)" }
                           }
                         >
-                          {inv.status === "accepted" ? "Invité" : "En attente"}
+                          {inv.status === "accepted" ? t("dashboard.settings.invited") : t("dashboard.settings.pending")}
                         </span>
                         <button
                           onClick={() => removeInvitation(inv.id)}
@@ -360,7 +349,7 @@ export default function SettingsClient({
                     type="email"
                     value={guestEmail}
                     onChange={(e) => setGuestEmail(e.target.value)}
-                    placeholder="Email de la personne à inviter"
+                    placeholder={t("dashboard.settings.invitePlaceholder")}
                     className="flex-1 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/25 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
                     style={INPUT_STYLE}
                   />
@@ -370,11 +359,11 @@ export default function SettingsClient({
                     className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40 shrink-0"
                     style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
                   >
-                    {inviteLoading ? "…" : "Inviter"}
+                    {inviteLoading ? t("dashboard.settings.inviting") : t("dashboard.settings.inviteButton")}
                   </button>
                 </form>
               ) : (
-                <p className="text-xs text-white/30 text-center py-2">Limite de 3 membres atteinte.</p>
+                <p className="text-xs text-white/30 text-center py-2">{t("dashboard.settings.teamLimitReached")}</p>
               )}
               {inviteMsg && (
                 <p className={`mt-3 text-xs px-3 py-2 rounded-lg ${inviteMsg.type === "ok" ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20" : "text-red-400 bg-red-500/[0.08] border border-red-500/20"}`}>
@@ -392,7 +381,7 @@ export default function SettingsClient({
         {/* Solo — no members notice */}
         {!isGuest && plan === "solo" && (
           <div>
-            <SectionTitle>Équipe</SectionTitle>
+            <SectionTitle>{t("dashboard.settings.teamSection")}</SectionTitle>
             <Card>
               <div className="flex items-start gap-3">
                 <div
@@ -406,9 +395,9 @@ export default function SettingsClient({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white/75 mb-1">Invitations non disponibles en Solo</p>
+                  <p className="text-sm font-medium text-white/75 mb-1">{t("dashboard.settings.soloNoInvite")}</p>
                   <p className="text-xs text-white/40 leading-relaxed">
-                    Le plan Solo est personnel. Passe au plan Pro pour inviter jusqu&apos;à 3 collaborateurs dans ton workspace.
+                    {t("dashboard.settings.soloNoInviteDesc")}
                   </p>
                 </div>
               </div>
@@ -419,7 +408,7 @@ export default function SettingsClient({
         {/* Guest notice */}
         {isGuest && (
           <div>
-            <SectionTitle>Workspace</SectionTitle>
+            <SectionTitle>{t("dashboard.settings.workspace")}</SectionTitle>
             <Card>
               <div className="flex items-start gap-3">
                 <div
@@ -433,10 +422,9 @@ export default function SettingsClient({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white/75 mb-1">Tu es membre invité·e</p>
+                  <p className="text-sm font-medium text-white/75 mb-1">{t("dashboard.settings.guestNotice")}</p>
                   <p className="text-xs text-white/40 leading-relaxed">
-                    Tu accèdes à ce workspace en tant que membre invité·e. La gestion de l&apos;équipe
-                    est réservée au propriétaire du compte.
+                    {t("dashboard.settings.guestNoticeDesc")}
                   </p>
                 </div>
               </div>
@@ -446,42 +434,42 @@ export default function SettingsClient({
 
         {/* Support */}
         <div>
-          <SectionTitle>Support</SectionTitle>
+          <SectionTitle>{t("dashboard.settings.supportSection")}</SectionTitle>
           <Card>
             <p className="text-xs text-white/40 mb-5 leading-relaxed">
-              Une question, un bug ou une suggestion ? Écris-nous directement — nous répondons rapidement.
+              {t("dashboard.settings.supportIntro")}
             </p>
             <form onSubmit={sendSupport} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-white/40 mb-1.5">Votre Telegram ou email</label>
+                  <label className="block text-xs text-white/40 mb-1.5">{t("dashboard.settings.supportContactLabel")}</label>
                   <input
                     type="text"
                     value={supportContact}
                     onChange={(e) => setSupportContact(e.target.value)}
-                    placeholder="@votrepseudo ou vous@email.com"
+                    placeholder={t("dashboard.settings.supportContactPlaceholder")}
                     className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
                     style={INPUT_STYLE}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-white/40 mb-1.5">Objet</label>
+                  <label className="block text-xs text-white/40 mb-1.5">{t("dashboard.settings.supportSubjectLabel")}</label>
                   <input
                     type="text"
                     value={supportSubject}
                     onChange={(e) => setSupportSubject(e.target.value)}
-                    placeholder="Ex: Bug sur la duplication vidéo"
+                    placeholder={t("dashboard.settings.supportSubjectPlaceholder")}
                     className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
                     style={INPUT_STYLE}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">Votre question</label>
+                <label className="block text-xs text-white/40 mb-1.5">{t("dashboard.settings.supportMessageLabel")}</label>
                 <textarea
                   value={supportMessage}
                   onChange={(e) => setSupportMessage(e.target.value)}
-                  placeholder="Décrivez votre problème ou question en détail…"
+                  placeholder={t("dashboard.settings.supportMessagePlaceholder")}
                   rows={4}
                   className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition resize-none"
                   style={INPUT_STYLE}
@@ -499,7 +487,7 @@ export default function SettingsClient({
                   className="rounded-xl px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
                   style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
                 >
-                  {supportLoading ? "Envoi…" : "Envoyer"}
+                  {supportLoading ? t("dashboard.settings.supportSending") : t("dashboard.settings.supportSend")}
                 </button>
               </div>
             </form>

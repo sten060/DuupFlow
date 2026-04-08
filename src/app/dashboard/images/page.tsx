@@ -17,8 +17,6 @@ export default async function ImagesPage({ searchParams }: { searchParams?: { ok
            style={{ background: "radial-gradient(800px 400px at 50% -100px, rgba(192,38,211,.10), transparent 70%)" }} />
       <Toasts ok={ok} err={err} />
 
-      <h1 className="text-3xl font-extrabold tracking-tight">Duplication Images</h1>
-
       <ImageFormClient initialImages={initialImages} />
     </main>
   );

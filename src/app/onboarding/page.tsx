@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslation } from "@/lib/i18n/context";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
@@ -10,6 +11,7 @@ function OnboardingForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isGuest = searchParams.get("type") === "guest";
+  const { t } = useTranslation();
 
   const [firstName, setFirstName] = useState("");
   const [agencyName, setAgencyName] = useState("");
@@ -26,8 +28,8 @@ function OnboardingForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!firstName.trim()) { setError("Le prénom est requis."); return; }
-    if (!isGuest && !agencyName.trim()) { setError("Le nom d'agence est requis."); return; }
+    if (!firstName.trim()) { setError(t("onboarding.firstNameRequired")); return; }
+    if (!isGuest && !agencyName.trim()) { setError(t("onboarding.agencyRequired")); return; }
 
     setLoading(true);
     setError("");
@@ -44,7 +46,7 @@ function OnboardingForm() {
       });
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error ?? "Erreur lors de la création du profil.");
+        setError(data.error ?? t("onboarding.profileError"));
         setLoading(false);
         return;
       }
@@ -58,7 +60,7 @@ function OnboardingForm() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Erreur lors de la création du profil.");
+        setError(data.error ?? t("onboarding.profileError"));
         setLoading(false);
         return;
       }
@@ -104,25 +106,25 @@ function OnboardingForm() {
         >
           <div className="mb-7">
             <h1 className="text-2xl font-semibold text-white mb-2 tracking-tight">
-              {isGuest ? "Rejoindre le workspace" : "Créer ton espace"}
+              {isGuest ? t("onboarding.joinWorkspace") : t("onboarding.createSpace")}
             </h1>
             <p className="text-sm text-white/45">
               {isGuest
-                ? "Tu as été invité·e à rejoindre un workspace DuupFlow."
-                : "Quelques infos pour personnaliser ton expérience."}
+                ? t("onboarding.joinWorkspaceSubtitle")
+                : t("onboarding.createSpaceSubtitle")}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-white/50 mb-1.5 uppercase tracking-wide">
-                Prénom
+                {t("onboarding.firstNameLabel")}
               </label>
               <input
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Ex : Alexandre"
+                placeholder={t("onboarding.firstNamePlaceholder")}
                 className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition focus:ring-1 focus:ring-indigo-500/50"
                 style={{
                   background: "rgba(255,255,255,0.05)",
@@ -135,13 +137,13 @@ function OnboardingForm() {
             {!isGuest && (
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5 uppercase tracking-wide">
-                  Nom d&apos;agence ou d&apos;entreprise
+                  {t("onboarding.agencyLabel")}
                 </label>
                 <input
                   type="text"
                   value={agencyName}
                   onChange={(e) => setAgencyName(e.target.value)}
-                  placeholder="Ex : Studio Créatif"
+                  placeholder={t("onboarding.agencyPlaceholder")}
                   className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition focus:ring-1 focus:ring-indigo-500/50"
                   style={{
                     background: "rgba(255,255,255,0.05)",
@@ -163,7 +165,7 @@ function OnboardingForm() {
               className="w-full rounded-xl py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50 mt-2"
               style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
             >
-              {loading ? "Création en cours…" : "Continuer →"}
+              {loading ? t("onboarding.creating") : t("onboarding.continue")}
             </button>
           </form>
         </div>

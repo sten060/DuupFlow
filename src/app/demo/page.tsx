@@ -1,72 +1,77 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslation } from "@/lib/i18n/context";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
-const FEATURES = [
-  {
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="3" width="18" height="18" rx="3" />
-        <circle cx="8.5" cy="8.5" r="1.5" />
-        <polyline points="21 15 16 10 5 21" />
-      </svg>
-    ),
-    color: "#C026D3",
-    bg: "rgba(192,38,211,0.10)",
-    border: "rgba(192,38,211,0.22)",
-    title: "Duplication Images",
-    desc: "Génère des copies infinies d'une image, chacune avec des métadonnées EXIF/XMP uniques — invisible pour les algorithmes.",
-  },
-  {
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="2" y="5" width="14" height="14" rx="2" />
-        <path d="M16 9l5-3v12l-5-3V9z" />
-      </svg>
-    ),
-    color: "#6366F1",
-    bg: "rgba(99,102,241,0.10)",
-    border: "rgba(99,102,241,0.22)",
-    title: "Duplication Vidéos",
-    desc: "Ré-encode chaque copie avec des paramètres uniques (FPS, GOP, bitrate). Indétectable sur Instagram, TikTok, YouTube.",
-  },
-  {
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="11" cy="11" r="7" />
-        <path d="m21 21-4.35-4.35" />
-      </svg>
-    ),
-    color: "#10B981",
-    bg: "rgba(16,185,129,0.10)",
-    border: "rgba(16,185,129,0.22)",
-    title: "Comparateur",
-    desc: "Score de similarité en temps réel — valide que tes copies sont bien uniques avant de publier.",
-  },
-  {
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      </svg>
-    ),
-    color: "#F59E0B",
-    bg: "rgba(245,158,11,0.10)",
-    border: "rgba(245,158,11,0.22)",
-    title: "Détection IA",
-    desc: "Remplace les métadonnées IA par une identité humaine réaliste. Aucune modification visuelle.",
-  },
-];
-
-const STEPS = [
-  { num: "01", title: "Importe ton fichier", desc: "Glisse-dépose n'importe quelle image ou vidéo." },
-  { num: "02", title: "Choisis le nombre de copies", desc: "De 1 à l'infini — aucune limite technique." },
-  { num: "03", title: "Lance la duplication", desc: "DuupFlow génère chaque copie en quelques secondes." },
-  { num: "04", title: "Télécharge et publie", desc: "Export ZIP en un clic. Prêt à diffuser sur toutes les plateformes." },
-];
+// FEATURES and STEPS are defined inside the component to use t()
 
 export default function DemoPage() {
+  const { t } = useTranslation();
+
+  const FEATURES = [
+    {
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="3" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+      ),
+      color: "#C026D3",
+      bg: "rgba(192,38,211,0.10)",
+      border: "rgba(192,38,211,0.22)",
+      title: t("demo.module1Title"),
+      desc: t("demo.module1Desc"),
+    },
+    {
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="2" y="5" width="14" height="14" rx="2" />
+          <path d="M16 9l5-3v12l-5-3V9z" />
+        </svg>
+      ),
+      color: "#6366F1",
+      bg: "rgba(99,102,241,0.10)",
+      border: "rgba(99,102,241,0.22)",
+      title: t("demo.module2Title"),
+      desc: t("demo.module2Desc"),
+    },
+    {
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+      ),
+      color: "#10B981",
+      bg: "rgba(16,185,129,0.10)",
+      border: "rgba(16,185,129,0.22)",
+      title: t("demo.module3Title"),
+      desc: t("demo.module3Desc"),
+    },
+    {
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+      ),
+      color: "#F59E0B",
+      bg: "rgba(245,158,11,0.10)",
+      border: "rgba(245,158,11,0.22)",
+      title: t("demo.module4Title"),
+      desc: t("demo.module4Desc"),
+    },
+  ];
+
+  const STEPS = [
+    { num: t("demo.step1Num"), title: t("demo.step1Title"), desc: t("demo.step1Desc") },
+    { num: t("demo.step2Num"), title: t("demo.step2Title"), desc: t("demo.step2Desc") },
+    { num: t("demo.step3Num"), title: t("demo.step3Title"), desc: t("demo.step3Desc") },
+    { num: t("demo.step4Num"), title: t("demo.step4Title"), desc: t("demo.step4Desc") },
+  ];
+
   return (
     <div
       className="min-h-screen text-white"
@@ -93,7 +98,7 @@ export default function DemoPage() {
           className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
           style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
         >
-          Commencer maintenant →
+          {t("demo.commencerMaintenant")}
         </Link>
       </header>
 
@@ -103,13 +108,13 @@ export default function DemoPage() {
         <div className="text-center mb-16">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-4 py-1.5 text-sm text-white/70">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Démo DuupFlow — Découvre comment ça marche
+            {t("demo.badge")}
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-4 leading-[1.08]">
-            Vois DuupFlow en <span className={G}>action</span>
+            {t("demo.title")} <span className={G}>{t("demo.titleHighlight")}</span>
           </h1>
           <p className="text-white/60 text-lg max-w-xl mx-auto">
-            En 2 minutes, comprends comment dupliquer ton contenu en illimité sans jamais être détecté par les algorithmes.
+            {t("demo.subtitle")}
           </p>
         </div>
 
@@ -128,9 +133,9 @@ export default function DemoPage() {
         {/* How it works */}
         <div className="mb-20">
           <div className="text-center mb-10">
-            <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">Comment ça marche</p>
+            <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">{t("demo.howItWorksBadge")}</p>
             <h2 className="text-3xl font-semibold text-white tracking-tight">
-              Simple comme <span className={G}>1, 2, 3, 4</span>
+              {t("demo.howItWorksTitle")} <span className={G}>{t("demo.howItWorksTitleHighlight")}</span>
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -159,9 +164,9 @@ export default function DemoPage() {
         {/* Modules */}
         <div className="mb-20">
           <div className="text-center mb-10">
-            <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">Les modules</p>
+            <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">{t("demo.modulesBadge")}</p>
             <h2 className="text-3xl font-semibold text-white tracking-tight">
-              4 modules, <span className={G}>un seul objectif</span>
+              {t("demo.modulesTitle")} <span className={G}>{t("demo.modulesTitleHighlight")}</span>
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -195,10 +200,10 @@ export default function DemoPage() {
           style={{ background: "rgba(10,14,40,0.60)", border: "1px solid rgba(255,255,255,0.08)" }}
         >
           {[
-            { val: "∞", label: "Copies illimitées" },
-            { val: "< 3s", label: "Par duplication" },
-            { val: "10+", label: "Formats supportés" },
-            { val: "500+", label: "Agences utilisatrices" },
+            { val: t("demo.stat1Val"), label: t("demo.stat1Label") },
+            { val: t("demo.stat2Val"), label: t("demo.stat2Label") },
+            { val: t("demo.stat3Val"), label: t("demo.stat3Label") },
+            { val: t("demo.stat4Val"), label: t("demo.stat4Label") },
           ].map((s) => (
             <div key={s.label}>
               <div className={`text-3xl font-bold mb-1 ${G}`}>{s.val}</div>
@@ -216,10 +221,10 @@ export default function DemoPage() {
           <div className="pointer-events-none absolute inset-0"
             style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
           <h2 className="text-3xl font-semibold text-white mb-3 tracking-tight relative">
-            Prêt à commencer ?
+            {t("demo.ctaTitle")}
           </h2>
           <p className="text-white/60 mb-8 max-w-sm mx-auto relative text-sm">
-            Accède à tous les modules DuupFlow et commence à dupliquer en illimité.
+            {t("demo.ctaSubtitle")}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 relative">
             <Link
@@ -227,13 +232,13 @@ export default function DemoPage() {
               className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
               style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
             >
-              Commencer maintenant →
+              {t("demo.ctaPrimary")}
             </Link>
             <Link
               href="/tarifs"
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-8 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition"
             >
-              Voir les tarifs
+              {t("demo.ctaSecondary")}
             </Link>
           </div>
         </div>
@@ -242,7 +247,7 @@ export default function DemoPage() {
 
       {/* Footer */}
       <footer className="relative z-10 px-8 py-8 border-t border-white/[0.06] text-center">
-        <p className="text-xs text-white/25">© 2025 DuupFlow — Tous droits réservés.</p>
+        <p className="text-xs text-white/25">{t("footer.copyright", { year: new Date().getFullYear().toString() })}</p>
       </footer>
     </div>
   );

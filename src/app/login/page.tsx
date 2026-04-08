@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslation } from "@/lib/i18n/context";
 
 function GoogleIcon() {
   return (
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const supabase = createClient();
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
+  const { t } = useTranslation();
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -84,18 +86,18 @@ export default function LoginPage() {
               </svg>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white mb-1">Vérifie ta boîte mail</h2>
+              <h2 className="text-xl font-bold text-white mb-1">{t("login.checkEmail")}</h2>
               <p className="text-white/45 text-sm">
-                Un lien de connexion a été envoyé à{" "}
+                {t("login.linkSent")}{" "}
                 <span className="text-white/70 font-medium">{email}</span>
               </p>
             </div>
-            <p className="text-white/25 text-xs">Expire dans 1 heure · Vérifie tes spams</p>
+            <p className="text-white/25 text-xs">{t("login.expiresIn")}</p>
             <button
               onClick={() => { setSent(false); setEmail(""); }}
               className="text-sm text-white/40 hover:text-white/70 transition"
             >
-              Utiliser une autre adresse
+              {t("login.useOtherAddress")}
             </button>
           </div>
         ) : (
@@ -105,22 +107,22 @@ export default function LoginPage() {
                 className="rounded-xl px-4 py-4 mb-6 text-sm space-y-1"
                 style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)" }}
               >
-                <p className="font-semibold text-amber-300">Aucun compte DuupFlow trouvé</p>
+                <p className="font-semibold text-amber-300">{t("login.affiliateError")}</p>
                 <p className="text-white/55 text-xs leading-relaxed">
-                  Tu as uniquement un compte partenaire affilié. Pour accéder au dashboard DuupFlow, crée un compte classique séparé.
+                  {t("login.affiliateErrorDesc")}
                 </p>
                 <Link
                   href="/register"
                   className="inline-block mt-2 text-xs font-semibold text-amber-300 hover:text-amber-200 transition underline underline-offset-2"
                 >
-                  Créer un compte DuupFlow →
+                  {t("login.createAccount")}
                 </Link>
               </div>
             )}
 
             <div className="mb-8 text-center">
-              <h1 className="text-2xl font-bold text-white mb-1.5">Bon retour 👋</h1>
-              <p className="text-white/45 text-sm">Connecte-toi à ton compte DuupFlow</p>
+              <h1 className="text-2xl font-bold text-white mb-1.5">{t("login.title")}</h1>
+              <p className="text-white/45 text-sm">{t("login.subtitle")}</p>
             </div>
 
             {/* Google */}
@@ -129,27 +131,27 @@ export default function LoginPage() {
               className="w-full flex items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:text-white transition border border-white/[0.12] hover:border-white/25 hover:bg-white/[0.04] mb-5"
             >
               <GoogleIcon />
-              Continuer avec Google
+              {t("login.googleButton")}
             </button>
 
             {/* OR divider */}
             <div className="flex items-center gap-3 mb-5">
               <div className="flex-1 h-px bg-white/[0.08]" />
-              <span className="text-xs text-white/25 uppercase tracking-wider">ou</span>
+              <span className="text-xs text-white/25 uppercase tracking-wider">{t("login.or")}</span>
               <div className="flex-1 h-px bg-white/[0.08]" />
             </div>
 
             {/* Email form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-1.5">Email</label>
+                <label className="block text-xs font-medium text-white/50 mb-1.5">{t("login.emailLabel")}</label>
                 <input
                   type="email"
                   required
                   autoFocus
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="toi@exemple.com"
+                  placeholder={t("login.emailPlaceholder")}
                   className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition"
                   style={{
                     background: "rgba(255,255,255,0.04)",
@@ -172,14 +174,14 @@ export default function LoginPage() {
                 className="w-full rounded-xl py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
                 style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
               >
-                {loading ? "Envoi…" : "Envoyer le lien de connexion →"}
+                {loading ? t("login.submitting") : t("login.submitButton")}
               </button>
             </form>
 
             <p className="text-center text-sm text-white/40 mt-6">
-              Pas encore de compte ?{" "}
+              {t("login.noAccount")}{" "}
               <Link href="/register" className="text-indigo-400 hover:text-indigo-300 transition font-medium">
-                Commencer maintenant
+                {t("login.startNow")}
               </Link>
             </p>
           </>
@@ -188,9 +190,9 @@ export default function LoginPage() {
 
       {/* Footer */}
       <div className="flex gap-4 text-xs text-white/25">
-        <Link href="/legal" className="hover:text-white/45 transition">Mentions légales</Link>
+        <Link href="/legal" className="hover:text-white/45 transition">{t("common.mentionsLegales")}</Link>
         <span>·</span>
-        <Link href="/legal/privacy" className="hover:text-white/45 transition">Confidentialité</Link>
+        <Link href="/legal/privacy" className="hover:text-white/45 transition">{t("common.confidentialite")}</Link>
       </div>
     </div>
   );

@@ -1,14 +1,13 @@
-import Link from "next/link";
-import type { Metadata } from "next";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Conditions Générales d'Utilisation — DuupFlow",
-  description: "Conditions générales d'utilisation du service DuupFlow.",
-};
+import Link from "next/link";
+import { useTranslation } from "@/lib/i18n/context";
 
 const LAST_UPDATED = "19 mars 2026";
 
 export default function TermsPage() {
+  const { t } = useTranslation();
+
   return (
     <div className="min-h-screen bg-[#0B0F1A] text-white">
       {/* Header */}
@@ -19,7 +18,7 @@ export default function TermsPage() {
             <span className="text-white/55">Flow</span>
           </Link>
           <Link href="/legal/privacy" className="text-sm text-white/40 hover:text-white/70 transition">
-            Politique de confidentialité →
+            {t("legal.privacyLink")}
           </Link>
         </div>
       </header>
@@ -29,11 +28,11 @@ export default function TermsPage() {
         <div className="mb-12">
           <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium mb-4"
             style={{ background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.20)", color: "#818CF8" }}>
-            Dernière mise à jour : {LAST_UPDATED}
+            {t("legal.lastUpdated")} {LAST_UPDATED}
           </div>
-          <h1 className="text-4xl font-bold text-white mb-3">Conditions Générales d&apos;Utilisation</h1>
+          <h1 className="text-4xl font-bold text-white mb-3">{t("legal.termsPageTitle")}</h1>
           <p className="text-white/50 text-base max-w-2xl">
-            Ces conditions régissent votre accès et votre utilisation du service DuupFlow. En créant un compte, vous acceptez l&apos;intégralité de ces conditions.
+            {t("legal.termsPageSubtitle")}
           </p>
         </div>
 
@@ -184,7 +183,7 @@ export default function TermsPage() {
             <p>
               Le traitement de vos données personnelles est régi par notre{" "}
               <Link href="/legal/privacy" className="text-indigo-400 hover:text-indigo-300">
-                Politique de confidentialité
+                {t("legal.privacyTitle")}
               </Link>
               , qui fait partie intégrante des présentes CGU.
             </p>
@@ -221,9 +220,9 @@ export default function TermsPage() {
 
         {/* Footer nav */}
         <div className="mt-16 pt-8 border-t border-white/[0.08] flex flex-wrap gap-4 text-sm text-white/40">
-          <Link href="/" className="hover:text-white/70 transition">← Retour à l&apos;accueil</Link>
-          <Link href="/legal/privacy" className="hover:text-white/70 transition">Politique de confidentialité</Link>
-          <Link href="/legal" className="hover:text-white/70 transition">Mentions légales</Link>
+          <Link href="/" className="hover:text-white/70 transition">{t("legal.backToHome")}</Link>
+          <Link href="/legal/privacy" className="hover:text-white/70 transition">{t("legal.privacyTitle")}</Link>
+          <Link href="/legal" className="hover:text-white/70 transition">{t("legal.title")}</Link>
         </div>
       </main>
     </div>

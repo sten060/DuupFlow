@@ -2,16 +2,18 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 import { setJob, addCompletedFile, removeJob } from "../jobStore";
+import { useTranslation } from "@/lib/i18n/context";
 
 function ProgressBar({ percent, label }: { percent: number; label?: string }) {
   return (
     <div className="w-full">
       <div className="mb-1 flex items-center justify-between text-xs text-white/70">
-        <span>{label ?? "Progression"}</span>
+        <span>{label ?? "Progress"}</span>
         <span>{percent}%</span>
       </div>
       <div className="h-2.5 w-full rounded-full bg-white/10 overflow-hidden">
@@ -64,6 +66,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
 }
 
 function SubmitWithProgress({ pending }: { pending: boolean }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-4">
       <button
@@ -74,7 +77,7 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
           pending ? "bg-white/10 text-white/50 cursor-not-allowed" : "bg-gradient-to-r from-indigo-500 to-sky-500 text-white hover:shadow-[0_4px_20px_rgba(99,102,241,.35)]",
         ].join(" ")}
       >
-        {pending ? "Duplication en cours…" : "Dupliquer les vidéos"}
+        {pending ? t("dashboard.videosSimple.duplicating") : t("dashboard.videosSimple.duplicateButton")}
       </button>
     </div>
   );
@@ -178,6 +181,7 @@ function getVideoDuration(file: File): Promise<number> {
 
 /* ---------- Composant principal (SIMPLE) ---------- */
 export default function VideoFormSimpleClient() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
@@ -219,14 +223,14 @@ export default function VideoFormSimpleClient() {
     setProcessing(true);
     setErrorMsg(null);
     setProgress(0);
-    setProgressMsg("Préparation…");
+    setProgressMsg(t("dashboard.videosSimple.preparing"));
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
     // Register job in global store so progress persists across page navigation
     const jobId = Math.random().toString(36).slice(2, 8);
-    setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: "Préparation…", status: "running", ctrl });
+    setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: t("dashboard.videosSimple.preparing"), status: "running", ctrl });
 
     try {
       const rawForm = new FormData(e.currentTarget);
@@ -282,7 +286,7 @@ export default function VideoFormSimpleClient() {
         );
 
         setProgress(30);
-        setProgressMsg("Envoi au serveur…");
+        setProgressMsg(t("dashboard.videosSimple.sendingToServer"));
 
         apiForm = new FormData();
         for (const key of ["channel", "mode", "singles", "count", "packs", "country", "iphoneMeta"]) {
@@ -384,7 +388,7 @@ export default function VideoFormSimpleClient() {
                       setErrorMsg(evt.warning);
                       setJob({ id: jobId, type: "video", channel: "simple", progress: 100, msg: evt.warning, status: "done" });
                     } else {
-                      setJob({ id: jobId, type: "video", channel: "simple", progress: 100, msg: "Terminé", status: "done" });
+                      setJob({ id: jobId, type: "video", channel: "simple", progress: 100, msg: "Done", status: "done" });
                     }
                     setTimeout(() => removeJob(jobId), 6000);
                     router.refresh();
@@ -446,6 +450,11 @@ export default function VideoFormSimpleClient() {
   }
 
   return (
+    <>
+    <div className="flex items-center justify-between">
+      <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosSimple.title")}</h1>
+      <Link href="/dashboard/videos" className="text-sm text-white/40 hover:text-white/70 transition">{t("dashboard.videosSimple.back")}</Link>
+    </div>
     <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="channel" value="simple" />
       <input type="hidden" name="mode" value="simple" />
@@ -457,7 +466,7 @@ export default function VideoFormSimpleClient() {
       <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
         <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
         <div className="max-w-xs">
-          <label className="block text-sm font-medium text-white/70 mb-1.5">Nombre de copies</label>
+          <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.videosSimple.copiesLabel")}</label>
           <input type="number" name="count" min={1} defaultValue={1} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90" />
         </div>
       </div>
@@ -467,9 +476,9 @@ export default function VideoFormSimpleClient() {
       {/* Packs */}
       <div>
         <input type="hidden" name="packs" value={packsSelected.join(",")} />
-        <h3 className="text-sm font-semibold text-white/90 mb-3">Packs <span className="text-white/40 font-normal">(cumulables)</span></h3>
+        <h3 className="text-sm font-semibold text-white/90 mb-3">{t("dashboard.videosSimple.packsTitle")} <span className="text-white/40 font-normal">{t("dashboard.videosSimple.packsCumulative")}</span></h3>
 
-        <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">Sans modification visuelle</p>
+        <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">{t("dashboard.videosSimple.noVisualChange")}</p>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 mb-4">
           {(["metadata", "metadata_technical", "pixel_magic", "audio"] as (keyof typeof PACKS)[]).map((k) => (
             <PackCard
@@ -483,7 +492,7 @@ export default function VideoFormSimpleClient() {
           ))}
         </div>
 
-        <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">Avec modification visuelle</p>
+        <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">{t("dashboard.videosSimple.withVisualChange")}</p>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {(["motion", "visual"] as (keyof typeof PACKS)[]).map((k) => (
             <PackCard
@@ -502,22 +511,22 @@ export default function VideoFormSimpleClient() {
 
       {/* Options */}
       <div>
-        <h3 className="text-sm font-semibold text-white/90 mb-3">Options</h3>
+        <h3 className="text-sm font-semibold text-white/90 mb-3">{t("dashboard.videosSimple.optionsTitle")}</h3>
         <div className="flex flex-wrap items-end gap-4">
           <Toggle checked={flip} onChange={setFlip} label="Flip (vertical)" />
           <Toggle checked={reverse} onChange={setReverse} label="Reverse (miroir horizontal)" />
           <div className="flex-1 min-w-[200px] max-w-xs">
-            <label className="block text-sm font-medium text-white/70 mb-1">Localisation pays</label>
+            <label className="block text-sm font-medium text-white/70 mb-1">{t("dashboard.videosSimple.countryLabel")}</label>
             <input
               type="text"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              placeholder="Ex: France, États-Unis, Japon…"
+              placeholder={t("dashboard.videosSimple.countryPlaceholder")}
               className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-white/90 placeholder:text-white/25"
             />
           </div>
-          <Toggle checked={iphoneMeta} onChange={setIphoneMeta} label="⚡ Priorité d'algorithme" />
-          <InfoTooltip>Simule une vidéo provenant d&apos;un iPhone réel en injectant des métadonnées Apple authentiques (appareil, iOS, caméra, GPS, signature).</InfoTooltip>
+          <Toggle checked={iphoneMeta} onChange={setIphoneMeta} label={`⚡ ${t("dashboard.videosSimple.iphoneMetaLabel")}`} />
+          <InfoTooltip>{t("dashboard.videosSimple.iphoneMetaHint")}</InfoTooltip>
         </div>
       </div>
 
@@ -543,5 +552,6 @@ export default function VideoFormSimpleClient() {
         </p>
       )}
     </form>
+    </>
   );
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Header from "@/components/Header";
+import { useTranslation } from "@/lib/i18n/context";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
@@ -11,38 +12,7 @@ const testimonials = [
   { quote: "Le meilleur investissement qu'on ait fait cette année. ROI immédiat.", author: "MediaVibe Agency", role: "Mentor", avatar: "/testimonials/_ (4).jpeg" },
 ];
 
-const sections = [
-  {
-    title: "Dupliquez en masse, sans attendre",
-    text: "Vos campagnes ne peuvent pas attendre. Avec DuupFlow, dupliquez des dizaines de vidéos et d'images en quelques secondes — pas en quelques heures. Chaque copie est générée en parallèle avec des paramètres uniques. Votre équipe passe moins de temps sur la production technique et plus de temps sur la stratégie.",
-    mockupLabel: "Duplication en cours...",
-    mockupDetails: ["video_campagne_01.mp4", "video_campagne_02.mp4", "video_campagne_03.mp4", "32 fichiers — 4.2s"],
-  },
-  {
-    title: "Qualité originale, zéro compromis",
-    text: "Chaque duplication conserve la résolution exacte de votre fichier source. Une vidéo 1080p reste en 1080p. Une vidéo 4K reste en 4K. Aucun downscale automatique, aucune recompression destructrice. Vos clients reçoivent un contenu de qualité professionnelle, identique à l'original pixel par pixel.",
-    mockupLabel: "Analyse qualité",
-    mockupDetails: ["Original: 3840x2160 · HEVC", "Copie: 3840x2160 · H.264", "Résolution: préservée", "Qualité visuelle: identique"],
-  },
-  {
-    title: "Modifiez l'invisible, gardez le visible",
-    text: "Les plateformes analysent bien plus que les pixels visibles. Elles inspectent les métadonnées, le hash, la structure technique, l'empreinte numérique. DuupFlow modifie précisément ces couches invisibles — sans changer un seul pixel de votre contenu. Pour les algorithmes, chaque copie est un fichier totalement nouveau. Pour vos clients, c'est exactement le même contenu.",
-    mockupLabel: "Empreinte modifiée",
-    mockupDetails: ["Hash SHA-256: modifié", "Métadonnées: régénérées", "Structure technique: unique", "Visuel: inchangé"],
-  },
-  {
-    title: "Placez votre contenu du côté de l'algorithme",
-    text: "En un seul clic, DuupFlow injecte des métadonnées Apple authentiques dans vos fichiers — modèle iPhone, version iOS, objectif caméra, coordonnées GPS. Les algorithmes des plateformes traitent votre contenu comme s'il provenait d'un appareil réel. Vous pouvez aussi cibler une localisation précise pour viser un marché spécifique. Résultat : plus de portée, plus d'engagement, plus de performance.",
-    mockupLabel: "Injection métadonnées",
-    mockupDetails: ["Device: iPhone 16 Pro Max", "Lens: 6.86mm f/1.78", "GPS: 48.8566° N, 2.3522° E", "Software: iOS 18.3"],
-  },
-  {
-    title: "Contenus IA ? Plus personne ne le saura",
-    text: "Votre contenu généré par Midjourney, DALL-E ou Stable Diffusion est détecté sur les réseaux ? DuupFlow analyse exactement ce que les algorithmes recherchent pour identifier du contenu IA — signatures EXIF, manifestes C2PA, marqueurs JUMBF — et les efface intégralement. À la place, une identité humaine réaliste est injectée : appareil photo, photographe, logiciel, date. Pour les plateformes, votre contenu est humain.",
-    mockupLabel: "Nettoyage signature IA",
-    mockupDetails: ["C2PA: supprimé ✓", "JUMBF: supprimé ✓", "EXIF IA: remplacé ✓", "Identité: humaine ✓"],
-  },
-];
+// sections moved inside component to use t()
 
 function MockupBox({ label, details }: { label: string; details: string[] }) {
   return (
@@ -71,6 +41,41 @@ function MockupBox({ label, details }: { label: string; details: string[] }) {
 }
 
 export default function AvantagesPage() {
+  const { t } = useTranslation();
+
+  const sections = [
+    {
+      title: t("avantagesPage.section1Title"),
+      text: t("avantagesPage.section1Text"),
+      mockupLabel: "Duplication en cours...",
+      mockupDetails: ["video_campagne_01.mp4", "video_campagne_02.mp4", "video_campagne_03.mp4", "32 fichiers — 4.2s"],
+    },
+    {
+      title: t("avantagesPage.section2Title"),
+      text: t("avantagesPage.section2Text"),
+      mockupLabel: "Analyse qualité",
+      mockupDetails: ["Original: 3840x2160 · HEVC", "Copie: 3840x2160 · H.264", "Resolution: preserved", "Visual quality: identical"],
+    },
+    {
+      title: t("avantagesPage.section3Title"),
+      text: t("avantagesPage.section3Text"),
+      mockupLabel: "Empreinte modifiée",
+      mockupDetails: ["Hash SHA-256: modified", "Metadata: regenerated", "Technical structure: unique", "Visual: unchanged"],
+    },
+    {
+      title: t("avantagesPage.section4Title"),
+      text: t("avantagesPage.section4Text"),
+      mockupLabel: "Injection métadonnées",
+      mockupDetails: ["Device: iPhone 16 Pro Max", "Lens: 6.86mm f/1.78", "GPS: 48.8566° N, 2.3522° E", "Software: iOS 18.3"],
+    },
+    {
+      title: t("avantagesPage.section5Title"),
+      text: t("avantagesPage.section5Text"),
+      mockupLabel: "AI signature cleanup",
+      mockupDetails: ["C2PA: removed ✓", "JUMBF: removed ✓", "EXIF AI: replaced ✓", "Identity: human ✓"],
+    },
+  ];
+
   return (
     <div className="min-h-screen text-white tech-grid">
       <Header />
@@ -86,13 +91,12 @@ export default function AvantagesPage() {
           {/* Left — headline, vertically centered */}
           <div className="px-8 sm:px-16 flex flex-col justify-center pt-24">
             <h1 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight">
-              Découvrez les avantages{" "}
-              <span className={G}>DuupFlow</span>{" "}
-              pour votre agence
+              {t("avantagesPage.title")}{" "}
+              <span className={G}>{t("avantagesPage.titleHighlight")}</span>{" "}
+              {t("avantagesPage.titleSuffix")}
             </h1>
             <p className="mt-4 text-white/50 max-w-md">
-              Plus de rapidité, plus de qualité, plus de performances.
-              Voici pourquoi les meilleures agences nous font confiance.
+              {t("avantagesPage.subtitle")}
             </p>
           </div>
 
@@ -179,7 +183,7 @@ export default function AvantagesPage() {
 
             {/* Bottom text */}
             <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-white/20">
-              Utilisé par <span className="text-white/40 font-medium">500+ agences</span> marketing & créateurs
+              {t("avantagesPage.usedBy", { count: "500" })}
             </p>
           </div>
         </div>
@@ -208,17 +212,17 @@ export default function AvantagesPage() {
       {/* CTA */}
       <section className="py-24 px-6 text-center">
         <h2 className="text-2xl sm:text-4xl font-bold mb-4">
-          Prêt à transformer votre <span className={G}>workflow</span> ?
+          {t("avantagesPage.ctaTitle")} <span className={G}>{t("avantagesPage.ctaTitleHighlight")}</span> ?
         </h2>
         <p className="text-white/40 mb-8 max-w-lg mx-auto">
-          Rejoignez les agences qui produisent plus, plus vite, sans compromis sur la qualité.
+          {t("avantagesPage.ctaSubtitle")}
         </p>
         <Link
           href="/register"
           className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold text-white transition hover:opacity-90"
           style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
         >
-          Commencer gratuitement &rarr;
+          {t("avantagesPage.ctaButton")}
         </Link>
       </section>
     </div>

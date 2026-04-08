@@ -1,12 +1,11 @@
-import Link from "next/link";
-import type { Metadata } from "next";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Mentions légales — DuupFlow",
-  description: "Mentions légales, CGU et politique de confidentialité de DuupFlow.",
-};
+import Link from "next/link";
+import { useTranslation } from "@/lib/i18n/context";
 
 export default function LegalPage() {
+  const { t } = useTranslation();
+
   return (
     <div className="min-h-screen bg-[#0B0F1A] text-white">
       {/* Header */}
@@ -20,9 +19,9 @@ export default function LegalPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-12">
-        <h1 className="text-4xl font-bold text-white mb-3">Mentions légales</h1>
+        <h1 className="text-4xl font-bold text-white mb-3">{t("legal.title")}</h1>
         <p className="text-white/50 text-base mb-12">
-          Informations légales relatives au service DuupFlow.
+          {t("legal.subtitle")}
         </p>
 
         {/* Legal docs links */}
@@ -37,9 +36,9 @@ export default function LegalPage() {
               </svg>
             </div>
             <h2 className="text-base font-semibold text-white mb-1 group-hover:text-indigo-300 transition">
-              Conditions Générales d&apos;Utilisation
+              {t("legal.cguTitle")}
             </h2>
-            <p className="text-sm text-white/40">Règles d&apos;utilisation du service, abonnement, responsabilités.</p>
+            <p className="text-sm text-white/40">{t("legal.cguDesc")}</p>
           </Link>
 
           <Link href="/legal/privacy"
@@ -52,38 +51,38 @@ export default function LegalPage() {
               </svg>
             </div>
             <h2 className="text-base font-semibold text-white mb-1 group-hover:text-indigo-300 transition">
-              Politique de confidentialité
+              {t("legal.privacyTitle")}
             </h2>
-            <p className="text-sm text-white/40">Données collectées, droits RGPD, sous-traitants, cookies.</p>
+            <p className="text-sm text-white/40">{t("legal.privacyDesc")}</p>
           </Link>
         </div>
 
         {/* Publisher info */}
         <div className="rounded-2xl p-6 space-y-4 text-sm text-white/60"
           style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          <h2 className="text-base font-semibold text-white">Informations sur l&apos;éditeur</h2>
+          <h2 className="text-base font-semibold text-white">{t("legal.publisherTitle")}</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">Éditeur</p>
-              <p>DuupFlow</p>
+              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">{t("legal.publisherTitle")}</p>
+              <p>{t("legal.publisher")}</p>
             </div>
             <div>
-              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">Site web</p>
-              <p>duupflow.com</p>
+              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">{t("legal.website")}</p>
+              <p>{t("legal.website")}</p>
             </div>
             <div>
-              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">Contact</p>
+              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">{t("legal.contactLabel")}</p>
               <a href="mailto:hello@duupflow.com" className="text-indigo-400 hover:text-indigo-300">hello@duupflow.com</a>
             </div>
             <div>
-              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">Hébergement</p>
-              <p>Railway Corp., San Francisco, CA, USA</p>
+              <p className="text-white/40 text-xs mb-1 uppercase tracking-wider">Hosting</p>
+              <p>{t("legal.hosting")}</p>
             </div>
           </div>
         </div>
 
         <div className="mt-8 text-sm text-white/40">
-          <Link href="/" className="hover:text-white/70 transition">← Retour à l&apos;accueil</Link>
+          <Link href="/" className="hover:text-white/70 transition">{t("legal.backToHome")}</Link>
         </div>
       </main>
     </div>

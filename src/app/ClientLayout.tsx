@@ -4,15 +4,16 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
+import { LanguageProvider, useTranslation } from "@/lib/i18n/context";
 
 const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
 const LogoPreloader = dynamic(() => import("@/components/LogoPreloader"), { ssr: false });
 
-const PROMO_TEXT = "À l'occasion de la nouvelle version plus optimale de DuupFlow mise à jour récemment — Profite de -15% sur ton abonnement avec le code FLOW15";
-
 function PromoBar() {
+  const { t } = useTranslation();
+  const promoText = t("promo.text");
   // Duplicate text for seamless infinite loop
-  const items = Array(6).fill(PROMO_TEXT);
+  const items = Array(6).fill(promoText);
   return (
     <div
       className="fixed top-0 left-0 right-0 z-[60] h-11 flex items-center overflow-hidden select-none"
@@ -68,6 +69,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isLanding = pathname === "/";
 
   return (
+    <LanguageProvider>
     <>
       {/* ── Fixed background ── */}
 
@@ -125,5 +127,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Logo preloader — only on landing page */}
       {isLanding && <LogoPreloader duration={1.8} logoSize={90} />}
     </>
+    </LanguageProvider>
   );
 }

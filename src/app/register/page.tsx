@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslation } from "@/lib/i18n/context";
 
 function GoogleIcon() {
   return (
@@ -15,26 +16,29 @@ function GoogleIcon() {
   );
 }
 
-const FEATURES = [
-  {
-    icon: "∞",
-    title: "Copies illimitées",
-    desc: "Génère autant de variantes que tu veux depuis un seul fichier source.",
-  },
-  {
-    icon: "🛡️",
-    title: "Indétectable par les plateformes",
-    desc: "Métadonnées uniques à chaque copie — chaque fichier est reconnu comme nouveau.",
-  },
-  {
-    icon: "⚡",
-    title: "Multi-plateformes",
-    desc: "Instagram, TikTok, YouTube, Threads et plus — un seul outil pour tout scaler.",
-  },
-];
+// FEATURES are now defined inside the component to use t()
 
 export default function RegisterPage() {
   const supabase = createClient();
+  const { t } = useTranslation();
+
+  const FEATURES = [
+    {
+      icon: "∞",
+      title: t("register.feature1Title"),
+      desc: t("register.feature1Desc"),
+    },
+    {
+      icon: "\u{1F6E1}\uFE0F",
+      title: t("register.feature2Title"),
+      desc: t("register.feature2Desc"),
+    },
+    {
+      icon: "\u26A1",
+      title: t("register.feature3Title"),
+      desc: t("register.feature3Desc"),
+    },
+  ];
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -85,25 +89,25 @@ export default function RegisterPage() {
                 </svg>
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">Vérifie ta boîte mail</h2>
+                <h2 className="text-xl font-bold text-white mb-1">{t("register.checkEmail")}</h2>
                 <p className="text-white/45 text-sm">
-                  Un lien de connexion a été envoyé à{" "}
+                  {t("register.linkSent")}{" "}
                   <span className="text-white/70 font-medium">{email}</span>
                 </p>
               </div>
-              <p className="text-white/25 text-xs">Expire dans 1 heure · Vérifie tes spams</p>
+              <p className="text-white/25 text-xs">{t("register.expiresIn")}</p>
               <button
                 onClick={() => { setSent(false); setEmail(""); }}
                 className="text-sm text-white/40 hover:text-white/70 transition"
               >
-                Utiliser une autre adresse
+                {t("register.useOtherAddress")}
               </button>
             </div>
           ) : (
             <>
               <div className="mb-8">
-                <h1 className="text-2xl font-bold text-white mb-1.5">Crée ton compte</h1>
-                <p className="text-white/45 text-sm">Commence à scaler ton contenu dès maintenant.</p>
+                <h1 className="text-2xl font-bold text-white mb-1.5">{t("register.title")}</h1>
+                <p className="text-white/45 text-sm">{t("register.subtitle")}</p>
               </div>
 
               {/* Google */}
@@ -112,27 +116,27 @@ export default function RegisterPage() {
                 className="w-full flex items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:text-white transition border border-white/[0.12] hover:border-white/25 hover:bg-white/[0.04] mb-5"
               >
                 <GoogleIcon />
-                Continuer avec Google
+                {t("register.googleButton")}
               </button>
 
               {/* OR divider */}
               <div className="flex items-center gap-3 mb-5">
                 <div className="flex-1 h-px bg-white/[0.08]" />
-                <span className="text-xs text-white/25 uppercase tracking-wider">ou</span>
+                <span className="text-xs text-white/25 uppercase tracking-wider">{t("register.or")}</span>
                 <div className="flex-1 h-px bg-white/[0.08]" />
               </div>
 
               {/* Email form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-white/50 mb-1.5">Adresse email</label>
+                  <label className="block text-xs font-medium text-white/50 mb-1.5">{t("register.emailLabel")}</label>
                   <input
                     type="email"
                     required
                     autoFocus
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="toi@exemple.com"
+                    placeholder={t("register.emailPlaceholder")}
                     className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition"
                     style={{
                       background: "rgba(255,255,255,0.04)",
@@ -155,21 +159,21 @@ export default function RegisterPage() {
                   className="w-full rounded-xl py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
                   style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
                 >
-                  {loading ? "Envoi…" : "Commencer maintenant →"}
+                  {loading ? t("register.submitting") : t("register.submitButton")}
                 </button>
 
                 <p className="text-xs text-white/25 text-center">
-                  En créant un compte, tu acceptes nos{" "}
-                  <Link href="/legal/terms" className="text-white/40 hover:text-white/60 transition">CGU</Link>
-                  {" & "}
-                  <Link href="/legal/privacy" className="text-white/40 hover:text-white/60 transition">Politique de confidentialité</Link>
+                  {t("register.termsText")}{" "}
+                  <Link href="/legal/terms" className="text-white/40 hover:text-white/60 transition">{t("register.cgu")}</Link>
+                  {" "}{t("register.and")}{" "}
+                  <Link href="/legal/privacy" className="text-white/40 hover:text-white/60 transition">{t("register.privacy")}</Link>
                 </p>
               </form>
 
               <p className="text-center text-sm text-white/40 mt-6">
-                Déjà un compte ?{" "}
+                {t("register.hasAccount")}{" "}
                 <Link href="/login" className="text-indigo-400 hover:text-indigo-300 transition font-medium">
-                  Se connecter
+                  {t("register.login")}
                 </Link>
               </p>
             </>
@@ -178,9 +182,9 @@ export default function RegisterPage() {
 
         {/* Footer */}
         <div className="flex gap-4 text-xs text-white/20">
-          <Link href="/legal" className="hover:text-white/40 transition">Mentions légales</Link>
+          <Link href="/legal" className="hover:text-white/40 transition">{t("common.mentionsLegales")}</Link>
           <span>·</span>
-          <Link href="/legal/privacy" className="hover:text-white/40 transition">Confidentialité</Link>
+          <Link href="/legal/privacy" className="hover:text-white/40 transition">{t("common.confidentialite")}</Link>
         </div>
       </div>
 
@@ -213,10 +217,10 @@ export default function RegisterPage() {
         {/* Content */}
         <div className="relative z-10">
           <h2 className="text-4xl font-bold text-white leading-[1.1] mb-4">
-            Scale ton contenu.<br />Sans jamais être détecté.
+            {t("register.panelTitle")}<br />{t("register.panelTitleLine2")}
           </h2>
           <p className="text-white/50 text-base max-w-sm">
-            Rejoins 500+ agences et créateurs qui réutilisent leurs meilleurs contenus à l&apos;infini.
+            {t("register.panelSubtitle")}
           </p>
         </div>
 
@@ -259,7 +263,7 @@ export default function RegisterPage() {
             ))}
           </div>
           <p className="text-xs text-white/45">
-            <span className="text-white font-semibold">500+</span> agences marketing &amp; créateurs
+            {t("register.socialProof")}
           </p>
         </div>
       </div>

@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@/lib/i18n/context";
 
 export default function WelcomePage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [firstName, setFirstName] = useState("");
   const [visible, setVisible] = useState(false);
   const [destination, setDestination] = useState("/checkout");
@@ -61,11 +63,11 @@ export default function WelcomePage() {
         </div>
 
         <p className="text-sm font-medium text-white/40 tracking-[0.15em] uppercase mb-4">
-          Bienvenue sur DuupFlow
+          {t("onboarding.welcomeBadge")}
         </p>
 
         <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
-          Bonjour,{" "}
+          {t("onboarding.welcomeTitle")}{" "}
           <span className="bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent">
             {firstName}
           </span>{" "}
@@ -73,7 +75,7 @@ export default function WelcomePage() {
         </h1>
 
         <p className="text-base text-white/50 max-w-sm mx-auto mb-10">
-          Ton espace est prêt. Découvre les modules qui vont transformer ta stratégie de contenu.
+          {t("onboarding.welcomeSubtitle")}
         </p>
 
         <button
@@ -81,10 +83,10 @@ export default function WelcomePage() {
           className="inline-flex items-center gap-2 rounded-xl px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90"
           style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
         >
-          {destination === "/checkout" ? "Choisir mon offre →" : "Accéder au dashboard →"}
+          {destination === "/checkout" ? t("onboarding.chooseOffer") : t("onboarding.goToDashboard")}
         </button>
 
-        <p className="mt-4 text-xs text-white/25">Redirection automatique dans quelques secondes…</p>
+        <p className="mt-4 text-xs text-white/25">{t("onboarding.autoRedirect")}</p>
       </div>
     </div>
   );

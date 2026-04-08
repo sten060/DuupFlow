@@ -1,7 +1,7 @@
-// src/app/dashboard/generate/page.tsx
 "use client";
 
 import { useMemo, useState, useRef } from "react";
+import { useTranslation } from "@/lib/i18n/context";
 
 type Line = { id: string; text: string };
 
@@ -19,12 +19,18 @@ function Section({
   onChange,
   onAdd,
   onRemove,
+  placeholder,
+  noLinesText,
+  addLabel,
 }: {
-  title: "REMPLACE" | "AJOUTE" | "SUPPRIME";
+  title: string;
   lines: Line[];
   onChange: (id: string, v: string) => void;
   onAdd: () => void;
   onRemove: (id: string) => void;
+  placeholder: string;
+  noLinesText: string;
+  addLabel: string;
 }) {
   return (
     <div className="rounded-xl bg-[#0f1220] border border-white/10 p-4">
@@ -32,7 +38,7 @@ function Section({
       <div className="space-y-2">
         {lines.length === 0 && (
           <div className="text-sm text-white/50">
-            Aucune ligne — clique sur « Ajouter ».
+            {noLinesText}
           </div>
         )}
         {lines.map((l) => (
@@ -40,22 +46,13 @@ function Section({
             <input
               value={l.text}
               onChange={(e) => onChange(l.id, e.target.value)}
-              placeholder={
-                title === "REMPLACE"
-                  ? "ex: le décor actuel par une salle de sport"
-                  : title === "AJOUTE"
-                  ? "ex: un oreiller bleu avec texte blanc"
-                  : "ex: la table basse blanche"
-              }
+              placeholder={placeholder}
               className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-white/30"
             />
             <button
               onClick={() => onRemove(l.id)}
               className="px-3 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/15"
-              title="Supprimer la ligne"
-            >
-              ✕
-            </button>
+            >✕</button>
           </div>
         ))}
       </div>
@@ -64,7 +61,7 @@ function Section({
           onClick={onAdd}
           className="px-3 py-2 text-sm rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500"
         >
-          + Ajouter
+          {addLabel}
         </button>
       </div>
     </div>
@@ -72,6 +69,7 @@ function Section({
 }
 
 export default function Page() {
+  const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -120,8 +118,8 @@ function removeLine(
   async function onGenerate() {
     setErr("");
     setResults([]);
-    if (!file) return setErr("Choisis une image de référence.");
-    if (!prompt) return setErr("Ajoute au moins une ligne (Remplace/Ajoute/Supprime).");
+    if (!file) return setErr(t("dashboard.generate.errorNoImage"));
+    if (!prompt) return setErr(t("dashboard.generate.errorNoPrompt"));
 
     const fd = new FormData();
     fd.append("image", file);
@@ -258,23 +256,23 @@ try {
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-white mb-3 tracking-tight">
-            Module en cours de création
+            {t("dashboard.generate.comingSoonTitle")}
           </h2>
           <p className="text-sm text-white/50 leading-relaxed mb-5">
-            Ce module est actuellement en développement par notre équipe. Tu seras notifié par email dès qu&apos;il sera disponible.
+            {t("dashboard.generate.comingSoonDesc")}
           </p>
           <div
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold"
             style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)", color: "#818CF8" }}
           >
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
-            Bientôt disponible
+            {t("dashboard.generate.comingSoonBadge")}
           </div>
         </div>
       </div>
 
       <div className="mx-auto max-w-6xl p-6">
-        <h1 className="text-3xl font-semibold mb-6">Éditeur d’images</h1>
+        <h1 className="text-3xl font-semibold mb-6">{t("dashboard.generate.title")}</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Colonne gauche */}
@@ -301,13 +299,13 @@ try {
               }}
               onClick={() => inputRef.current?.click()}
             >
-              <div className="text-sm mb-2 opacity-80">Image de référence</div>
+              <div className="text-sm mb-2 opacity-80">{t("dashboard.generate.referenceImage")}</div>
 
               {!preview ? (
                 <div className="flex flex-col items-center justify-center h-40 rounded-lg border border-dashed border-white/15 bg-white/5">
-                  <div className="text-white/80">Glissez votre image ici</div>
+                  <div className="text-white/80">{t("dashboard.generate.dropImage")}</div>
                   <div className="text-xs text-white/50">
-                    ou cliquez pour parcourir (max 1)
+                    {t("dashboard.generate.dropImageSub")}
                   </div>
                 </div>
               ) : (
@@ -325,7 +323,7 @@ try {
                       setPicked(null);
                       if (inputRef.current) inputRef.current.value = "";
                     }}
-                    title="Retirer l’image"
+                    title={t("dashboard.generate.removeImage")}
                     className="absolute top-2 right-2 h-8 w-8 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/70 border border-white/20"
                   >
                     ✕
@@ -352,25 +350,34 @@ try {
 
             {/* Sections */}
             <Section
-              title="REMPLACE"
+              title={t("dashboard.generate.replace")}
               lines={replaces}
               onChange={(id, v) => changeLine(setReplaces, id, v)}
               onAdd={() => addLine(setReplaces)}
               onRemove={(id) => removeLine(setReplaces, id)}
+              placeholder={t("dashboard.generate.replacePlaceholder")}
+              noLinesText={t("dashboard.generate.noLines")}
+              addLabel={t("dashboard.generate.addButton")}
             />
             <Section
-              title="AJOUTE"
+              title={t("dashboard.generate.add")}
               lines={adds}
               onChange={(id, v) => changeLine(setAdds, id, v)}
               onAdd={() => addLine(setAdds)}
               onRemove={(id) => removeLine(setAdds, id)}
+              placeholder={t("dashboard.generate.addPlaceholder")}
+              noLinesText={t("dashboard.generate.noLines")}
+              addLabel={t("dashboard.generate.addButton")}
             />
             <Section
-              title="SUPPRIME"
+              title={t("dashboard.generate.remove")}
               lines={removes}
               onChange={(id, v) => changeLine(setRemoves, id, v)}
               onAdd={() => addLine(setRemoves)}
               onRemove={(id) => removeLine(setRemoves, id)}
+              placeholder={t("dashboard.generate.removePlaceholder")}
+              noLinesText={t("dashboard.generate.noLines")}
+              addLabel={t("dashboard.generate.addButton")}
             />
           </div>
 
@@ -380,7 +387,7 @@ try {
             <div className="rounded-xl bg-[#0f1220] border border-white/10 p-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs opacity-70">Variantes</label>
+                  <label className="text-xs opacity-70">{t("dashboard.generate.variants")}</label>
                   <div className="mt-1 flex items-stretch gap-2">
                     <input
                       value={variants}
@@ -409,7 +416,7 @@ try {
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs opacity-70">Qualité (60–100)</label>
+                  <label className="text-xs opacity-70">{t("dashboard.generate.quality")}</label>
                   <div className="mt-1 flex items-stretch gap-2">
                     <input
                       value={quality}
@@ -438,7 +445,7 @@ try {
                   </div>
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs opacity-70">Seed (optionnel)</label>
+                  <label className="text-xs opacity-70">{t("dashboard.generate.seed")}</label>
                   <input
                     value={seed}
                     onChange={(e) => setSeed(e.target.value)}
@@ -454,7 +461,7 @@ try {
                   disabled={busy}
                   className="px-4 py-2 rounded-lg bg-gradient-to-r from-fuchsia-500 to-indigo-500 disabled:opacity-60"
                 >
-                  {busy ? "Génération..." : "Générer"}
+                  {busy ? t("dashboard.generate.generating") : t("dashboard.generate.generate")}
                 </button>
 
                 <button
@@ -468,7 +475,7 @@ try {
                   }}
                   className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15"
                 >
-                  Vider
+                  {t("dashboard.generate.clear")}
                 </button>
 
                 <button
@@ -477,7 +484,7 @@ try {
                   className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-50"
                   title={!results.length ? "Génère d’abord des images" : "Télécharger toutes les variantes"}
                 >
-                  ⬇️ Télécharger toutes les variantes (.zip)
+                  {t("dashboard.generate.downloadAll")}
                 </button>
               </div>
 
@@ -486,9 +493,9 @@ try {
 
             {/* Résultats */}
             <div className="rounded-xl bg-[#0f1220] border border-white/10 p-4">
-              <div className="text-sm mb-3 opacity-80">Résultats</div>
+              <div className="text-sm mb-3 opacity-80">{t("dashboard.generate.results")}</div>
               {results.length === 0 ? (
-                <div className="text-sm text-white/50">Aucune image pour l’instant.</div>
+                <div className="text-sm text-white/50">{t("dashboard.generate.noResults")}</div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {results.map((u, i) => (
@@ -499,14 +506,14 @@ try {
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={u} alt={`variant-${i + 1}`} className="w-full h-auto" />
                       <div className="flex items-center justify-between px-3 py-2 text-xs">
-                        <span className="opacity-80">Variante {i + 1}</span>
+                        <span className="opacity-80">{t("dashboard.generate.variant")} {i + 1}</span>
                         <button
                           type="button"
                           onClick={() => downloadOne(u, i + 1)}
                           className="px-2 py-1 rounded bg-white/10 hover:bg-white/15"
-                          title="Télécharger cette image"
+                          title={t("dashboard.generate.downloadImage")}
                         >
-                          Télécharger l’image
+                          {t("dashboard.generate.downloadImage")}
                         </button>
                       </div>
                     </div>
