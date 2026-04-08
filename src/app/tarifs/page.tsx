@@ -223,7 +223,7 @@ function PricingCards() {
       <div
         className="relative flex-1 rounded-3xl overflow-hidden flex flex-col"
         style={{
-          background: "rgba(10,14,40,0.90)",
+          background: "rgba(10,14,40,0.35)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
           border: "1px solid rgba(255,255,255,0.10)",
         }}
       >
@@ -273,7 +273,7 @@ function PricingCards() {
       <div
         className="relative flex-1 rounded-3xl overflow-hidden flex flex-col"
         style={{
-          background: "rgba(10,14,40,0.90)",
+          background: "rgba(10,14,40,0.35)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
           border: "1.5px solid rgba(99,102,241,0.40)",
         }}
       >
@@ -328,7 +328,7 @@ function PricingCards() {
       <div
         className="relative flex-1 rounded-3xl overflow-hidden flex flex-col"
         style={{
-          background: "rgba(10,14,40,0.90)",
+          background: "rgba(10,14,40,0.35)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
           border: "1px solid rgba(255,255,255,0.10)",
         }}
       >

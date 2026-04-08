@@ -929,36 +929,105 @@ function FeatureRow({
 const ADVANTAGES = [
   {
     title: "Duplication en masse",
+    desc: "Dupliquez des dizaines de fichiers en quelques secondes. Chaque copie est unique.",
     tags: ["Images & Vidéos", "Illimité", "Parallèle", "Instantané"],
-    gradient: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
+    gradient: "linear-gradient(180deg, #0c1a3a 0%, #162850 40%, #0a1628 100%)",
+    mockup: (
+      <div className="space-y-2">
+        <div className="rounded-lg border border-white/10 bg-white/[0.04] p-2.5 flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-sm">📁</div>
+          <div className="flex-1 min-w-0"><p className="text-xs text-white/70 font-medium truncate">video_campagne.mp4</p><p className="text-[10px] text-white/30">Source · 24.5 MB</p></div>
+        </div>
+        <div className="flex justify-center"><svg className="h-3 w-3 text-white/15" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v14M5 12l7 7 7-7" /></svg></div>
+        {["dup1_47.mp4", "dup2_83.mp4", "dup3_12.mp4"].map((f) => (
+          <div key={f} className="rounded-lg border border-indigo-500/20 bg-indigo-500/[0.04] p-2 flex items-center gap-2">
+            <div className="h-6 w-6 rounded bg-white/[0.06] flex items-center justify-center text-[10px]">🎬</div>
+            <p className="text-[10px] text-white/50 font-mono truncate flex-1">{f}</p>
+            <svg className="h-3 w-3 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>
+          </div>
+        ))}
+      </div>
+    ),
   },
   {
     title: "Qualité préservée",
+    desc: "Résolution identique pixel par pixel. 1080p reste 1080p, 4K reste 4K.",
     tags: ["4K", "Lossless", "Pixel Perfect", "Pro"],
-    gradient: "linear-gradient(135deg, #0f0f1a 0%, #1a1a3e 50%, #2d1b69 100%)",
+    gradient: "linear-gradient(180deg, #0f0f2a 0%, #1a1a45 40%, #0f0f1a 100%)",
+    mockup: (
+      <div className="space-y-2">
+        {[["Original", "3840×2160", "HEVC", "#818CF8"], ["Copie", "3840×2160", "H.264", "#34D399"]].map(([label, res, codec, color]) => (
+          <div key={label} className="rounded-lg border border-white/10 bg-white/[0.04] p-2.5">
+            <p className="text-[10px] font-medium mb-1" style={{ color }}>{label}</p>
+            <div className="flex justify-between"><span className="text-[10px] text-white/40">Résolution</span><span className="text-[10px] text-white/70">{res}</span></div>
+            <div className="flex justify-between"><span className="text-[10px] text-white/40">Codec</span><span className="text-[10px] text-white/70">{codec}</span></div>
+          </div>
+        ))}
+        <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] p-2 text-center"><p className="text-[10px] text-emerald-300">Qualité : identique ✓</p></div>
+      </div>
+    ),
   },
   {
     title: "Invisible pour les algos",
+    desc: "Hash, métadonnées, structure technique — tout est modifié invisiblement.",
     tags: ["Anti-détection", "Hash unique", "EXIF", "Indétectable"],
-    gradient: "linear-gradient(135deg, #1a0a2e 0%, #2d1060 50%, #1a1a4e 100%)",
+    gradient: "linear-gradient(180deg, #1a0a30 0%, #2d1060 40%, #150a28 100%)",
+    mockup: (
+      <div className="space-y-2">
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.04] p-2.5"><p className="text-[10px] text-white/40 font-mono mb-0.5">Hash original</p><p className="text-[10px] text-amber-300 font-mono">a7f3e2d1...9f0a6e3d</p></div>
+        <div className="flex justify-center"><div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-indigo-500/25 bg-indigo-500/[0.08]"><span className="text-[10px]">✨</span><span className="text-[10px] font-semibold text-indigo-300">Pixel magique</span></div></div>
+        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-2.5"><p className="text-[10px] text-white/40 font-mono mb-0.5">Nouveau hash</p><p className="text-[10px] text-emerald-300 font-mono">9b2e8f4a...3b5d2e8f</p></div>
+      </div>
+    ),
   },
   {
     title: "Priorité algorithme",
+    desc: "Métadonnées iPhone injectées. L'algorithme vous priorise.",
     tags: ["iPhone", "GPS", "iOS", "Boost algo"],
-    gradient: "linear-gradient(135deg, #0a1628 0%, #162040 50%, #1e3a5f 100%)",
+    gradient: "linear-gradient(180deg, #0a1830 0%, #162850 40%, #0a1220 100%)",
+    mockup: (
+      <div className="space-y-1.5">
+        {[["Make", "Apple"], ["Model", "iPhone 16 Pro"], ["Software", "iOS 18.3"], ["GPS", "48.86°N, 2.35°E"]].map(([k, v]) => (
+          <div key={k} className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 flex items-center justify-between">
+            <span className="text-[10px] text-white/35 font-mono">{k}</span>
+            <span className="text-[10px] text-emerald-300 font-mono">{v}</span>
+          </div>
+        ))}
+      </div>
+    ),
   },
   {
     title: "Masquage IA",
+    desc: "Effacez les signatures Midjourney, DALL-E. Identité humaine injectée.",
     tags: ["C2PA", "JUMBF", "Anti-IA", "Identité"],
-    gradient: "linear-gradient(135deg, #1a0e30 0%, #261850 50%, #0f2040 100%)",
+    gradient: "linear-gradient(180deg, #1a0e35 0%, #261850 40%, #0f1830 100%)",
+    mockup: (
+      <div className="space-y-1.5">
+        {[["C2PA", "supprimé ✓"], ["JUMBF", "supprimé ✓"], ["EXIF IA", "remplacé ✓"], ["Identité", "humaine ✓"]].map(([k, v]) => (
+          <div key={k} className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 flex items-center justify-between">
+            <span className="text-[10px] text-white/35 font-mono">{k}</span>
+            <span className="text-[10px] text-emerald-400 font-mono">{v}</span>
+          </div>
+        ))}
+      </div>
+    ),
   },
 ];
 
 function AvantagesCarousel() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
+  // Compute flex for each card based on distance from hovered
+  const getFlex = (i: number) => {
+    const active = hoveredIndex ?? 0;
+    if (i === active) return 4;
+    const dist = Math.abs(i - active);
+    if (dist === 1) return 1.8;
+    return 1;
+  };
+
   return (
-    <section id="features" className="px-6 pb-36">
+    <section id="features" className="px-6 pb-20">
       <div className="max-w-6xl mx-auto pt-20">
         <Reveal>
           <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">Avantages</p>
@@ -971,47 +1040,49 @@ function AvantagesCarousel() {
         </Reveal>
 
         <Reveal delay={80}>
-          {/* Desktop: image panels that expand on hover */}
-          <div className="hidden md:flex gap-2 w-full" style={{ height: "520px" }}>
+          {/* Desktop: panels that expand on hover — hovered=large, adjacent=medium, rest=small */}
+          <div className="hidden md:flex gap-2 w-full" style={{ height: "560px" }}>
             {ADVANTAGES.map((adv, i) => {
-              const isHovered = hoveredIndex === i;
-              const isDefault = hoveredIndex === null && i === 0;
-              const isExpanded = isHovered || isDefault;
+              const isActive = i === (hoveredIndex ?? 0);
+              const flex = getFlex(i);
               return (
                 <div
                   key={i}
                   onMouseEnter={() => setHoveredIndex(i)}
                   onMouseLeave={() => setHoveredIndex(null)}
-                  className="relative overflow-hidden cursor-pointer"
+                  className="relative overflow-hidden cursor-pointer flex flex-col"
                   style={{
-                    flex: isExpanded ? 3.5 : 1,
+                    flex,
                     transition: "flex 0.6s cubic-bezier(0.4,0,0.2,1)",
-                    borderRadius: "4px",
+                    borderRadius: "6px",
                   }}
                 >
-                  {/* Background image/gradient */}
+                  {/* Background gradient */}
+                  <div className="absolute inset-0" style={{ background: adv.gradient }} />
                   <div className="absolute inset-0" style={{
-                    background: adv.gradient,
-                    transition: "transform 0.6s cubic-bezier(0.4,0,0.2,1)",
-                    transform: isExpanded ? "scale(1)" : "scale(1.05)",
-                  }} />
-
-                  {/* Dark overlay for non-expanded */}
-                  <div className="absolute inset-0" style={{
-                    background: isExpanded ? "rgba(0,0,0,0.15)" : "rgba(0,0,0,0.5)",
+                    background: isActive ? "rgba(0,0,0,0.1)" : "rgba(0,0,0,0.45)",
                     transition: "background 0.4s",
                   }} />
 
-                  {/* Tags at bottom — only visible when expanded */}
-                  <div className="absolute bottom-0 left-0 right-0 p-5 z-10" style={{
-                    opacity: isExpanded ? 1 : 0,
-                    transform: isExpanded ? "translateY(0)" : "translateY(10px)",
-                    transition: "opacity 0.4s ease, transform 0.4s ease",
+                  {/* Mockup area — top 70% */}
+                  <div className="relative z-10 flex-1 p-4 flex items-center justify-center overflow-hidden" style={{
+                    opacity: isActive ? 1 : 0.3,
+                    transition: "opacity 0.4s",
                   }}>
-                    <h3 className="text-base font-semibold text-white mb-3">{adv.title}</h3>
-                    <div className="flex flex-col gap-1.5">
+                    <div className="w-full max-w-[280px]">{adv.mockup}</div>
+                  </div>
+
+                  {/* Text area — bottom 30% */}
+                  <div className="relative z-10 p-4 pt-0" style={{
+                    opacity: isActive ? 1 : 0,
+                    transform: isActive ? "translateY(0)" : "translateY(8px)",
+                    transition: "opacity 0.35s ease, transform 0.35s ease",
+                  }}>
+                    <h3 className="text-sm font-semibold text-white mb-1">{adv.title}</h3>
+                    <p className="text-[11px] text-white/50 leading-relaxed mb-3">{adv.desc}</p>
+                    <div className="flex flex-wrap gap-1.5">
                       {adv.tags.map((tag) => (
-                        <span key={tag} className="inline-block w-fit text-xs px-3 py-1.5 bg-black/40 backdrop-blur-sm border border-white/10 text-white/80">{tag}</span>
+                        <span key={tag} className="text-[10px] px-2 py-1 bg-black/30 backdrop-blur-sm border border-white/10 text-white/70">{tag}</span>
                       ))}
                     </div>
                   </div>
@@ -1023,19 +1094,38 @@ function AvantagesCarousel() {
           {/* Mobile: vertical stack */}
           <div className="md:hidden flex flex-col gap-3">
             {ADVANTAGES.map((adv, i) => (
-              <div key={i} className="relative overflow-hidden" style={{ height: "200px", borderRadius: "4px" }}>
+              <div key={i} className="relative overflow-hidden flex flex-col" style={{ borderRadius: "6px" }}>
                 <div className="absolute inset-0" style={{ background: adv.gradient }} />
-                <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.25)" }} />
-                <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-                  <h3 className="text-base font-semibold text-white mb-2">{adv.title}</h3>
+                <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.2)" }} />
+                <div className="relative z-10 p-4">{adv.mockup}</div>
+                <div className="relative z-10 p-4 pt-0">
+                  <h3 className="text-sm font-semibold text-white mb-1">{adv.title}</h3>
+                  <p className="text-[11px] text-white/50 leading-relaxed mb-2">{adv.desc}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {adv.tags.map((tag) => (
-                      <span key={tag} className="text-xs px-2.5 py-1 bg-black/40 backdrop-blur-sm border border-white/10 text-white/70">{tag}</span>
+                      <span key={tag} className="text-[10px] px-2 py-1 bg-black/30 border border-white/10 text-white/70">{tag}</span>
                     ))}
                   </div>
                 </div>
               </div>
             ))}
+          </div>
+        </Reveal>
+
+        {/* CTA under avantages */}
+        <Reveal delay={120}>
+          <div className="text-center mt-16">
+            <p className="text-white/60 text-lg mb-6">Envie d&apos;aller plus loin ?</p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link href="/fonctionnalites"
+                className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm">
+                Voir les fonctionnalités
+              </Link>
+              <Link href="/demo"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">
+                Voir la démo
+              </Link>
+            </div>
           </div>
         </Reveal>
       </div>
