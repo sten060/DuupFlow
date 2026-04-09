@@ -367,7 +367,8 @@
     "ctaSubtitle": "Access all DuupFlow modules and start duplicating without limits.",
     "ctaPrimary": "Get Started Now ->",
     "ctaSecondary": "View Pricing",
-    "commencerMaintenant": "Get Started Now ->"
+    "commencerMaintenant": "Get Started Now ->",
+    "videoDisclaimer": "This demo was recorded on the French version of the dashboard. A US English version is now available on the dashboard."
   },
   "avantagesPage": {
     "title": "Discover the benefits of",
