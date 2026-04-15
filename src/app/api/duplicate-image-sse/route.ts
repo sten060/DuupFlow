@@ -34,16 +34,12 @@ async function processImage(
     img = img.flop();
   }
 
-  const MAX_DIM = 3000;
+  // Preserve original resolution — no downscale cap.
+  // 4K stays 4K, 1080p stays 1080p. Only clamp to Sharp's safety limit (16000px).
   const rawW = meta.width  ?? 1024;
   const rawH = meta.height ?? 1024;
-  const scale = Math.min(1, MAX_DIM / Math.max(rawW, rawH));
-  const baseW = clampDim(Math.round(rawW * scale));
-  const baseH = clampDim(Math.round(rawH * scale));
-
-  if (scale < 1) {
-    img = img.resize(baseW, baseH, { fit: "fill", kernel: sharp.kernel.lanczos3 });
-  }
+  const baseW = clampDim(rawW);
+  const baseH = clampDim(rawH);
 
   if (flags.semi) {
     const bigPct  = 0.03 + Math.random() * 0.04;  // 3–7%

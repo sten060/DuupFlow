@@ -583,10 +583,10 @@ async function runFFmpegSafe(
   const useStreamCopy = vfParts.length === 0 && afParts.length === 0 && extraArgs.length === 0;
   const audioOnly     = vfParts.length === 0 && afParts.length > 0  && extraArgs.length === 0;
   // videoCopy: only when extraArgs are audio-compatible output options (like -ar, -b:a).
-  // Video encoder options (-profile:v, -crf, -b:v, -g, -level:v) require a real encode —
+  // Video encoder options (-profile:v, -crf, -b:v, -maxrate, -bufsize, -g, -level:v) require a real encode —
   // passing them with -c:v copy causes FFmpeg to reject them ("Error setting option profile").
   const hasVideoEncodeArgs = extraArgs.some((a) =>
-    ["-crf", "-b:v", "-profile:v", "-level:v", "-g"].includes(a)
+    ["-crf", "-b:v", "-maxrate", "-bufsize", "-profile:v", "-level:v", "-g"].includes(a)
   );
   const videoCopy = vfParts.length === 0 && !useStreamCopy && !audioOnly && !hasVideoEncodeArgs;
 
@@ -866,11 +866,14 @@ export async function processVideos(
           // (visual or motion packs active). Otherwise just vary GOP/fps as
           // metadata-level changes — avoids full re-encode that alters visuals.
           if (vfParts.length > 0) {
-            const crf = 16 + Math.floor(Math.random() * 8); // 16–23 (narrower, high quality)
+            // CRF controls quality; lower = higher quality. 14–18 = visually lossless range.
+            const crf = 14 + Math.floor(Math.random() * 5); // 14–18 (high quality preservation)
             extraArgs.push("-crf", String(crf));
-            const vbit = clamp(3000 + Math.floor(Math.random() * 19001), LIMITS.vbitrate.min, LIMITS.vbitrate.max);
-            extraArgs.push("-b:v", `${vbit}k`);
-            const profiles = ["main", "high"];
+            // Use -maxrate + -bufsize instead of -b:v so CRF remains the primary quality driver,
+            // and bitrate only caps the peak. High floor (20 Mbps) guarantees 1080p/4K clarity.
+            const vbit = clamp(20000 + Math.floor(Math.random() * 25001), LIMITS.vbitrate.min, LIMITS.vbitrate.max);
+            extraArgs.push("-maxrate", `${vbit}k`, "-bufsize", `${vbit * 2}k`);
+            const profiles = ["high"]; // "high" profile preserves quality best on 1080p+
             const levels = ["5.0", "5.1", "5.2"];
             extraArgs.push("-profile:v", profiles[Math.floor(Math.random() * profiles.length)]);
             extraArgs.push("-level:v", levels[Math.floor(Math.random() * levels.length)]);
@@ -936,7 +939,7 @@ export async function processVideos(
           extraArgs.push("-crf", String(15 + Math.floor(Math.random() * 6)));
         }
 
-        // When video will be re-encoded, ensure even dimensions and cap at 1920px.
+        // When video will be re-encoded, ensure even dimensions (no resolution cap).
         if (vfParts.length > 0 || packs.includes("metadata_technical")) {
           // ── HDR → SDR conversion when source is BT.2020 / HLG / PQ ──────────
           // Without this, BT.2020 pixel data encoded as H.264 (BT.709) produces
@@ -1104,7 +1107,7 @@ export async function processVideos(
         // Audio-only / stream-copy extraArgs (-ar, -b:a, -ss, -to) do NOT trigger a full
         // video encode, so they don't need scale and go through the videoCopy tier instead.
         const willFullEncode = vfParts.length > 0 || extraArgs.some((a) =>
-          ["-crf", "-b:v", "-profile:v", "-level:v", "-g"].includes(a)
+          ["-crf", "-b:v", "-maxrate", "-bufsize", "-profile:v", "-level:v", "-g"].includes(a)
         );
         if (willFullEncode) {
           // Same HDR→SDR logic as simple mode.
