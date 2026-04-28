@@ -52,6 +52,22 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="text-white antialiased">
         <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-G81RNL4BGW"
+          strategy="afterInteractive"
+        />
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-G81RNL4BGW');
+            `,
+          }}
+        />
+        <Script
           id="microsoft-clarity"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
