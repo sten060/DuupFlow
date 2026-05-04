@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
-import path from "path";
-import fs from "fs/promises";
 import crypto from "crypto";
 import { buildVariationPrompt, ACTION_VARIATIONS } from "@/lib/ai/variation-prompt";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -55,15 +53,31 @@ async function deleteTempStorage(key: string): Promise<void> {
   }
 }
 
-// Save a remote image URL into our local /public/out so the browser can
-// display it and the user can download it. Returns the local URL.
-async function persistResultUrl(remoteUrl: string, outDir: string): Promise<string> {
+// Mirror the WaveSpeed-hosted result into our own Supabase Storage so:
+//   1. The image survives WaveSpeed's CDN expiration.
+//   2. We have a single, CORS-safe origin for the browser to fetch.
+//   3. Production filesystems (Railway etc., where /public is not writable
+//      at runtime) don't matter — we don't touch local disk.
+// Returns a signed URL valid for 24 h — long enough for a download flow.
+async function persistResultToStorage(remoteUrl: string): Promise<string> {
   const res = await fetch(remoteUrl);
   if (!res.ok) throw new Error(`Failed to fetch generated image: ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());
-  const filename = `ai_${crypto.randomBytes(8).toString("hex")}.png`;
-  await fs.writeFile(path.join(outDir, filename), buf);
-  return `/out/local/ai-generated/${filename}`;
+
+  const admin = createAdminClient();
+  const key = `ai-output/${crypto.randomBytes(8).toString("hex")}.png`;
+  const { error: upErr } = await admin.storage
+    .from(WAVESPEED_BUCKET)
+    .upload(key, buf, { contentType: "image/png", upsert: false });
+  if (upErr) throw new Error(`Output upload failed: ${upErr.message}`);
+
+  const { data, error: signErr } = await admin.storage
+    .from(WAVESPEED_BUCKET)
+    .createSignedUrl(key, 60 * 60 * 24); // 24 h
+  if (signErr || !data?.signedUrl) {
+    throw new Error(`Output signed URL failed: ${signErr?.message ?? "unknown"}`);
+  }
+  return data.signedUrl;
 }
 
 type WaveSpeedCreateResp = {
@@ -190,8 +204,6 @@ export async function POST(req: Request) {
     //    only the prompt changes. In variation mode, each iteration picks
     //    a DIFFERENT random action from ACTION_VARIATIONS so the user gets
     //    visibly different poses across the N outputs.
-    const outDir = path.join(process.cwd(), "public", "out", "local", "ai-generated");
-    await fs.mkdir(outDir, { recursive: true });
 
     // Pre-pick distinct random actions for the variation pool so two variants
     // never accidentally land on the same pose.
@@ -201,29 +213,29 @@ export async function POST(req: Request) {
       for (let i = 0; i < variants; i++) actionIndices.push(shuffled[i % shuffled.length]);
     }
 
-    const localUrls: string[] = [];
+    const resultUrls: string[] = [];
     for (let i = 0; i < variants; i++) {
       const finalPrompt =
         mode === "variation" ? buildVariationPrompt(actionIndices[i]) : userPrompt;
       const outputs = await generateOnce(imageUrl, finalPrompt);
       for (const u of outputs) {
         try {
-          const local = await persistResultUrl(u, outDir);
-          localUrls.push(local);
+          const persisted = await persistResultToStorage(u);
+          resultUrls.push(persisted);
         } catch (err) {
           console.error("[ai-lab] persist failed:", err);
         }
       }
     }
 
-    if (localUrls.length === 0) {
+    if (resultUrls.length === 0) {
       return NextResponse.json<Err>(
         { ok: false, error: "AI returned no usable images. Try again." },
         { status: 502 },
       );
     }
 
-    return NextResponse.json<Ok>({ ok: true, urls: localUrls });
+    return NextResponse.json<Ok>({ ok: true, urls: resultUrls });
   } catch (e: any) {
     console.error("[ai-lab] fatal:", e);
     return NextResponse.json<Err>(
