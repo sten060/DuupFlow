@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore, useState } from "react";
 import { subscribe, snapshot, removeJob, stopJob, Job } from "./jobStore";
+import { useTranslation } from "@/lib/i18n/context";
 import JSZip from "jszip";
 
 async function downloadAllAsZip(files: { name: string; url: string }[], label: string) {
@@ -22,12 +23,14 @@ async function downloadAllAsZip(files: { name: string; url: string }[], label: s
 }
 
 function JobBadge({ job }: { job: Job }) {
+  const { t } = useTranslation();
   const isError   = job.status === "error";
   const isDone    = job.status === "done";
   const isStopped = job.status === "stopped";
   const isRunning = job.status === "running";
   const hasFiles  = job.completedFiles.length > 0;
   const [zipping, setZipping] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const typeLabel =
     job.type === "image"
@@ -38,10 +41,40 @@ function JobBadge({ job }: { job: Job }) {
 
   const statusIcon = isDone ? " ✓" : isError ? " ✗" : isStopped ? " ■" : "";
 
+  const toggleOne = (url: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  };
+
+  const allSelected =
+    hasFiles && selected.size === job.completedFiles.length;
+
+  const toggleAll = () => {
+    setSelected((prev) =>
+      prev.size === job.completedFiles.length
+        ? new Set()
+        : new Set(job.completedFiles.map((f) => f.url)),
+    );
+  };
+
   const handleDownloadAll = async () => {
     setZipping(true);
     try {
       await downloadAllAsZip(job.completedFiles, typeLabel.replace(/\s/g, "_"));
+    } finally {
+      setZipping(false);
+    }
+  };
+
+  const handleDownloadSelection = async () => {
+    setZipping(true);
+    try {
+      const list = job.completedFiles.filter((f) => selected.has(f.url));
+      await downloadAllAsZip(list, typeLabel.replace(/\s/g, "_") + "_selection");
     } finally {
       setZipping(false);
     }
@@ -121,6 +154,22 @@ function JobBadge({ job }: { job: Job }) {
       {/* Completed files list — shown when stopped or done */}
       {hasFiles && (isStopped || isDone) && (
         <div className="mt-2 space-y-1">
+          {/* Download selection (visible only when something is selected) */}
+          {selected.size > 0 && (
+            <button
+              type="button"
+              onClick={handleDownloadSelection}
+              disabled={zipping}
+              className="w-full flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold bg-indigo-700/80 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-wait border border-indigo-400/40 text-white transition"
+            >
+              {zipping ? (
+                <><span className="animate-spin">⟳</span>Préparation ZIP…</>
+              ) : (
+                <>↓ {t("common.downloadSelection", { count: String(selected.size) })}</>
+              )}
+            </button>
+          )}
+
           {/* Download all as ZIP */}
           <button
             type="button"
@@ -138,18 +187,39 @@ function JobBadge({ job }: { job: Job }) {
             )}
           </button>
 
-          {/* Individual file links */}
+          {/* Individual file rows with selection */}
           <div className="space-y-1 max-h-36 overflow-y-auto rounded-lg bg-white/5 p-1">
+            <label className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-white/55 hover:bg-white/[0.04] cursor-pointer rounded">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAll}
+                className="h-3 w-3 accent-indigo-400"
+              />
+              <span>{allSelected ? t("common.deselectAll") : t("common.selectAll")}</span>
+            </label>
             {job.completedFiles.map((f, i) => (
-              <a
+              <div
                 key={i}
-                href={f.url}
-                download={f.name}
-                className="flex items-center gap-1.5 rounded px-2 py-1 text-[10px] bg-white/8 hover:bg-white/15 text-white/75 truncate transition"
+                className="flex items-center gap-1.5 rounded px-2 py-1 text-[10px] bg-white/8 hover:bg-white/15 text-white/75 transition"
               >
-                <span className="shrink-0 text-emerald-400">↓</span>
-                <span className="truncate">{f.name}</span>
-              </a>
+                <input
+                  type="checkbox"
+                  checked={selected.has(f.url)}
+                  onChange={() => toggleOne(f.url)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-3 w-3 accent-indigo-400 shrink-0"
+                  aria-label={f.name}
+                />
+                <a
+                  href={f.url}
+                  download={f.name}
+                  className="flex items-center gap-1.5 flex-1 min-w-0 truncate"
+                >
+                  <span className="shrink-0 text-emerald-400">↓</span>
+                  <span className="truncate">{f.name}</span>
+                </a>
+              </div>
             ))}
           </div>
         </div>
