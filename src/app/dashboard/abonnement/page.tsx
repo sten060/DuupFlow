@@ -34,7 +34,10 @@ export default async function AbonnementPage() {
 
   if (profile?.is_guest) redirect("/dashboard/settings");
 
-  let plan = (profile?.plan as "solo" | "pro" | null) ?? null;
+  // Default to "free" when profile has no plan set (new tier rollout).
+  // Legacy users with has_paid + null plan are treated as "pro" elsewhere
+  // (src/lib/usage.ts). Stripe sync below will overwrite if needed.
+  let plan = (profile?.plan as "free" | "solo" | "pro" | null) ?? "free";
   let stripeCustomerId = profile?.stripe_customer_id ?? null;
   const subscriptionPeriodStart = profile?.subscription_period_start ?? null;
   let cancelAtPeriodEnd = false;

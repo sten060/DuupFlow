@@ -83,7 +83,7 @@ export default function AbonnementClient({
   cancelAtPeriodEnd,
   cancelAt,
 }: {
-  plan: "solo" | "pro" | null;
+  plan: "free" | "solo" | "pro" | null;
   usage: { images: number; videos: number; ai_signatures: number } | null;
   hasStripePortal: boolean;
   subscriptionPeriodStart: string | null;
@@ -110,9 +110,22 @@ export default function AbonnementClient({
   const renewalDate = getRenewalDate(subscriptionPeriodStart);
   const daysLeft = getDaysUntilRenewal(subscriptionPeriodStart);
   const isUnlimited = plan === "pro";
-  const planColor = plan === "solo" ? "#A78BFA" : "#818CF8";
-  const planBg = plan === "solo" ? "rgba(167,139,250,0.10)" : "rgba(99,102,241,0.10)";
-  const planBorder = plan === "solo" ? "rgba(167,139,250,0.22)" : "rgba(99,102,241,0.22)";
+  const isFree = plan === "free" || plan === null;
+
+  // Per-plan visual identity + display strings
+  const planMeta = {
+    free: { color: "#10B981", bg: "rgba(16,185,129,0.10)",  border: "rgba(16,185,129,0.22)",  label: "Free", price: "0 € / mois" },
+    solo: { color: "#A78BFA", bg: "rgba(167,139,250,0.10)", border: "rgba(167,139,250,0.22)", label: "Solo", price: "39 € / mois" },
+    pro:  { color: "#818CF8", bg: "rgba(99,102,241,0.10)",  border: "rgba(99,102,241,0.22)",  label: "Pro",  price: "99 € / mois" },
+  } as const;
+  const meta = planMeta[(plan ?? "free") as "free" | "solo" | "pro"];
+  const { color: planColor, bg: planBg, border: planBorder } = meta;
+
+  // Quotas to display for Solo/Free (Pro shows ∞)
+  const quotaLimits =
+    plan === "solo" ? PLAN_LIMITS.solo
+    : plan === "pro" ? PLAN_LIMITS.pro
+    : PLAN_LIMITS.free;
 
   async function openPortal(flow: "payment") {
     setPortalPaymentLoading(true);
@@ -234,7 +247,7 @@ export default function AbonnementClient({
             className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
             style={{ background: planBg, border: `1px solid ${planBorder}`, color: planColor }}
           >
-            Plan {plan === "solo" ? "Solo" : "Pro"}
+            Plan {meta.label}
           </span>
         </div>
       </div>
@@ -267,11 +280,9 @@ export default function AbonnementClient({
               </div>
               <div>
                 <p className="text-base font-semibold text-white leading-tight">
-                  Plan {plan === "solo" ? "Solo" : "Pro"}
+                  Plan {meta.label}
                 </p>
-                <p className="text-xs text-white/40 mt-0.5">
-                  {plan === "solo" ? "39€ / mois" : "99€ / mois"}
-                </p>
+                <p className="text-xs text-white/40 mt-0.5">{meta.price}</p>
               </div>
             </div>
             <span
@@ -351,7 +362,7 @@ export default function AbonnementClient({
                   </svg>
                 }
                 current={usage?.images ?? 0}
-                limit={PLAN_LIMITS.solo.images}
+                limit={quotaLimits.images}
                 unlimited={isUnlimited}
                 color={planColor}
                 usedText={t("dashboard.subscription.used")}
@@ -365,7 +376,7 @@ export default function AbonnementClient({
                   </svg>
                 }
                 current={usage?.videos ?? 0}
-                limit={PLAN_LIMITS.solo.videos}
+                limit={quotaLimits.videos}
                 unlimited={isUnlimited}
                 color="#38BDF8"
                 usedText={t("dashboard.subscription.used")}
@@ -378,7 +389,7 @@ export default function AbonnementClient({
                   </svg>
                 }
                 current={usage?.ai_signatures ?? 0}
-                limit={PLAN_LIMITS.solo.ai_signatures}
+                limit={quotaLimits.ai_signatures}
                 unlimited={isUnlimited}
                 color="#10B981"
                 usedText={t("dashboard.subscription.used")}
@@ -408,6 +419,19 @@ export default function AbonnementClient({
 
           {/* Actions */}
           <div className="space-y-2.5">
+            {isFree && (
+              <Link
+                href="/tarifs"
+                className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition hover:opacity-90 flex items-center justify-center gap-2"
+                style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+              >
+                <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M8 2l4 4H9v6H7V6H4l4-4z" />
+                </svg>
+                Passer en Solo ou Pro
+              </Link>
+            )}
+
             {plan === "solo" && (
               <button
                 onClick={() => setShowUpgradeModal(true)}
