@@ -151,7 +151,11 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
   let effectiveImageFiles = imageFiles;
   let isPartial = false;
 
-  if (!usageCheck.allowed && usageCheck.plan === "solo") {
+  // Apply partial-fulfillment / hard-block for any quota'd plan (Solo + Free).
+  // Pro is unlimited and never lands here. Free has a 0 ai_signatures quota
+  // so this branch effectively hard-blocks Free users (which is correct —
+  // the page is also gated by /dashboard/ai-detection/page.tsx server view).
+  if (!usageCheck.allowed && usageCheck.plan && usageCheck.plan !== "pro") {
     const remaining = usageCheck.limit - usageCheck.current;
     if (remaining <= 0) {
       return {
@@ -266,7 +270,8 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
 
   // ── Increment usage after successful processing ────────────────────────────
   const imageCount = outFiles.filter((f) => IMAGE_EXTS.some((e) => f.toLowerCase().endsWith(e))).length;
-  if (imageCount > 0 && usageCheck.userId && usageCheck.plan === "solo") {
+  // Count usage for any quota'd plan (Solo + Free). Pro is unlimited.
+  if (imageCount > 0 && usageCheck.userId && usageCheck.plan !== "pro") {
     await incrementUsage(usageCheck.userId, "ai_signatures", imageCount).catch(console.error);
   }
 

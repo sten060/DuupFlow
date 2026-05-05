@@ -639,13 +639,18 @@ export async function duplicateVideos(formData: FormData) {
   let effectiveTotal = totalRequested;
   let isPartial = false;
 
-  if (!usageCheck.allowed && usageCheck.plan === "solo") {
+  // Apply partial-fulfillment / hard-block logic for any quota'd plan
+  // (Solo + Free). Pro is unlimited and never hits this branch.
+  if (!usageCheck.allowed && usageCheck.plan && usageCheck.plan !== "pro") {
     const remaining = usageCheck.limit - usageCheck.current;
     if (remaining <= 0) {
       revalidatePath("/dashboard/videos");
+      const upgradeHint = usageCheck.plan === "free"
+        ? "Passe au plan Solo ou Pro pour augmenter ta limite."
+        : "Attends le renouvellement ou passe au plan Pro.";
       redirect(
         `/dashboard/videos?err=${encodeURIComponent(
-          `Limite mensuelle atteinte (${usageCheck.current}/${usageCheck.limit} vidéos). Attends le renouvellement ou passe au plan Pro.`
+          `Limite mensuelle atteinte (${usageCheck.current}/${usageCheck.limit} vidéos). ${upgradeHint}`
         )}`
       );
     }
@@ -711,8 +716,10 @@ export async function duplicateVideos(formData: FormData) {
     }
   }
 
-  // ---- Increment usage (Solo plan) ----
-  if (done > 0 && usageCheck.userId && usageCheck.plan === "solo") {
+  // ---- Increment usage (any quota'd plan: Solo or Free) ----
+  // Pro is unlimited so it doesn't need tracking. All other plans must
+  // count actual videos generated against their monthly quota.
+  if (done > 0 && usageCheck.userId && usageCheck.plan !== "pro") {
     await incrementUsage(usageCheck.userId, "videos", done).catch(console.error);
   }
 
