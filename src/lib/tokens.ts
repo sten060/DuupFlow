@@ -23,8 +23,7 @@ export const IMAGE_COST_CENTS = {
 } as const;
 
 /** Minimum topup amount in cents (prevents fee-only purchases). */
-// TEMP: lowered to 2 € for testing — restore to 500 (= 5 €) before public launch.
-export const MIN_TOPUP_CENTS = 200; // 2 €
+export const MIN_TOPUP_CENTS = 500; // 5 €
 
 /**
  * Predefined topup packs.
