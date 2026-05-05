@@ -138,6 +138,66 @@ function AnimAIDet() {
   );
 }
 
+function AnimVariation() {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    function play() {
+      setStep(0);
+      const t1 = setTimeout(() => setStep(1), 600);
+      const t2 = setTimeout(() => setStep(2), 1200);
+      const t3 = setTimeout(() => setStep(3), 1800);
+      return [t1, t2, t3];
+    }
+    const timers = play();
+    const loop = setInterval(() => { timers.forEach(clearTimeout); play(); }, 4500);
+    return () => { timers.forEach(clearTimeout); clearInterval(loop); };
+  }, []);
+
+  const variations = [
+    { tag: "Variation 1", hint: "regard sur le côté" },
+    { tag: "Variation 2", hint: "main dans les cheveux" },
+    { tag: "Variation 3", hint: "geste subtil" },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="h-2 w-2 rounded-full bg-fuchsia-400 animate-pulse" />
+        <span className="text-xs text-white/50">{step === 0 ? "Analyse de l'image source…" : step === 3 ? "3 variations générées" : `Variation ${step}/3 en cours…`}</span>
+      </div>
+      <div className="rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/[0.06] p-3 flex items-center gap-3">
+        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-fuchsia-500/25 to-indigo-500/15 flex items-center justify-center text-lg">🖼️</div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-white/80 font-medium truncate">portrait_source.jpg</p>
+          <p className="text-xs text-white/35">Image de référence</p>
+        </div>
+        <span className="text-xs px-2 py-1 rounded-full border border-fuchsia-500/30 bg-fuchsia-500/[0.08] text-fuchsia-300 font-medium">Source</span>
+      </div>
+      <div className="flex justify-center py-0.5">
+        <svg className="h-4 w-4 text-fuchsia-300/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
+      </div>
+      <div className="grid grid-cols-3 gap-2.5">
+        {variations.map((v, i) => (
+          <div
+            key={v.tag}
+            className="rounded-lg border border-fuchsia-500/25 bg-gradient-to-br from-fuchsia-500/[0.10] to-indigo-500/[0.05] px-2 py-2.5 transition-all duration-500"
+            style={{ opacity: step > i ? 1 : 0.25, transform: step > i ? "translateY(0)" : "translateY(8px)" }}
+          >
+            <div className="aspect-square rounded-md bg-white/[0.05] mb-2 flex items-center justify-center">
+              <span className="text-lg opacity-70">✨</span>
+            </div>
+            <p className="text-[10px] text-fuchsia-300 font-semibold text-center">{v.tag}</p>
+            <p className="text-[9px] text-white/40 text-center truncate">{v.hint}</p>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2 text-center">
+        <p className="text-[11px] text-emerald-300/85">Identité, décor, lumière préservés</p>
+      </div>
+    </div>
+  );
+}
+
 function FeatureRow({ badge, badgeColor, title, subtitle, bullets, mockup, reverse = false, first = false }: { badge: string; badgeColor: string; title: React.ReactNode; subtitle: string; bullets: string[]; mockup: React.ReactNode; reverse?: boolean; first?: boolean }) {
   return (
     <Reveal>
@@ -187,11 +247,17 @@ export default function FonctionnalitesPage() {
           bullets={[t("fonctionnalites.feature3Bullet1"), t("fonctionnalites.feature3Bullet2"), t("fonctionnalites.feature3Bullet3")]}
           mockup={<AnimPriority />} />
 
+        <FeatureRow badge={"✨ " + t("fonctionnalites.feature5Badge")} badgeColor="border border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-300"
+          title={<>{t("fonctionnalites.feature5Title")}{" "}<span className={G}>{t("fonctionnalites.feature5TitleHighlight")}</span></>}
+          subtitle={t("fonctionnalites.feature5Subtitle")}
+          bullets={[t("fonctionnalites.feature5Bullet1"), t("fonctionnalites.feature5Bullet2"), t("fonctionnalites.feature5Bullet3")]}
+          mockup={<AnimVariation />} reverse />
+
         <FeatureRow badge={"🤖 " + t("fonctionnalites.feature4Badge")} badgeColor="border border-red-500/25 bg-red-500/[0.08] text-red-300"
           title={<>{t("fonctionnalites.feature4Title")}{" "}<span className={G}>{t("fonctionnalites.feature4TitleHighlight")}</span>{" "}{t("fonctionnalites.feature4TitleSuffix")}</>}
           subtitle={t("fonctionnalites.feature4Subtitle")}
           bullets={[t("fonctionnalites.feature4Bullet1"), t("fonctionnalites.feature4Bullet2"), t("fonctionnalites.feature4Bullet3")]}
-          mockup={<AnimAIDet />} reverse />
+          mockup={<AnimAIDet />} />
 
         <Reveal>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-6 pb-8">

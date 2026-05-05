@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToFreeUser } from "@/lib/brevo";
+import { creditWelcomeTokens } from "@/lib/tokens-server";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
     first_name: firstName.trim(),
     agency_name: agencyName.trim(),
     is_guest: false,
+    plan: "free",                  // default tier; upgraded by Stripe webhook on subscription
     email_sequence: "free",
     email_sequence_updated_at: new Date().toISOString(),
   };
@@ -43,6 +45,10 @@ export async function POST(req: NextRequest) {
     const name = firstName.trim();
     moveToFreeUser(email, name).catch(console.error);
   }
+
+  // Welcome tokens: give the Free user enough for 1 AI variation image.
+  // Idempotent — safe to call again on re-onboarding.
+  creditWelcomeTokens(user.id, "free").catch(console.error);
 
   return NextResponse.json({ ok: true });
 }

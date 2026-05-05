@@ -29,6 +29,7 @@ const PRICING_FAQ_KEYS = [
   { qKey: "tarifs.pricingFaq3Q", aKey: "tarifs.pricingFaq3A" },
   { qKey: "tarifs.pricingFaq4Q", aKey: "tarifs.pricingFaq4A" },
   { qKey: "tarifs.pricingFaq5Q", aKey: "tarifs.pricingFaq5A" },
+  { qKey: "tarifs.pricingFaq8Q", aKey: "tarifs.pricingFaq8A" },
   { qKey: "tarifs.pricingFaq6Q", aKey: "tarifs.pricingFaq6A" },
   { qKey: "tarifs.pricingFaq7Q", aKey: "tarifs.pricingFaq7A" },
 ];
@@ -104,6 +105,16 @@ function CheckIcon({ color }: { color: string }) {
 
 function PricingCards() {
   const { t } = useTranslation();
+  const freeFeatures = [
+    t("tarifs.freeFeature1"),
+    t("tarifs.freeFeature2"),
+    t("tarifs.freeFeature3"),
+    t("tarifs.freeFeature4"),
+    t("tarifs.freeFeature5"),
+    t("tarifs.freeFeature6"),
+    t("tarifs.freeFeature7"),
+  ];
+
   const soloFeatures = [
     t("tarifs.soloFeature1"),
     t("tarifs.soloFeature2"),
@@ -112,6 +123,7 @@ function PricingCards() {
     t("tarifs.soloFeature5"),
     t("tarifs.soloFeature6"),
     t("tarifs.soloFeature7"),
+    t("tarifs.soloFeature8"),
   ];
 
   const proFeatures = [
@@ -122,23 +134,64 @@ function PricingCards() {
     t("tarifs.proFeature5"),
     t("tarifs.proFeature6"),
     t("tarifs.proFeature7"),
-  ];
-
-  const enterpriseFeatures = [
-    t("tarifs.enterpriseFeature1"),
-    t("tarifs.enterpriseFeature2"),
-    t("tarifs.enterpriseFeature3"),
-    t("tarifs.enterpriseFeature4"),
-    t("tarifs.enterpriseFeature5"),
-    t("tarifs.enterpriseFeature6"),
+    t("tarifs.proFeature8"),
   ];
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 justify-center max-w-4xl mx-auto">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+
+      {/* Plan Free */}
+      <div
+        className="relative rounded-3xl overflow-hidden flex flex-col"
+        style={{
+          background: "rgba(10,14,40,0.35)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.10)",
+        }}
+      >
+        <div
+          className="absolute top-0 left-0 right-0 h-40 pointer-events-none"
+          style={{
+            background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(16,185,129,0.22) 0%, transparent 75%)",
+          }}
+        />
+        <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
+          <div className="mb-5 sm:mb-6">
+            <span className="text-sm sm:text-base font-semibold text-white">{t("tarifs.planFree")}</span>
+            <div className="flex items-baseline gap-1.5 mb-1 mt-3 sm:mt-4">
+              <span className="text-4xl sm:text-5xl font-bold text-white">{t("tarifs.freePrice")}</span>
+              <span className="text-white/45 text-sm">{t("tarifs.perMonth")}</span>
+            </div>
+            <p className="text-white/45 text-sm">{t("tarifs.freeDesc")}</p>
+          </div>
+          <div className="h-px bg-white/[0.08] mb-6" />
+          <ul className="space-y-3.5 flex-1 mb-8">
+            {freeFeatures.map((f, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm text-white/70">
+                <CheckIcon color="#10B981" />
+                {f}
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-col gap-3">
+            <Link
+              href="/register"
+              className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/85 hover:text-white transition border border-white/20 hover:border-white/35 hover:bg-white/[0.04]"
+            >
+              {t("tarifs.commencer")}
+            </Link>
+            <Link
+              href="/demo"
+              className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/70 hover:text-white transition border border-white/15 hover:border-white/30 hover:bg-white/[0.04]"
+            >
+              {t("tarifs.voirDemo")}
+            </Link>
+          </div>
+        </div>
+      </div>
 
       {/* Plan Solo */}
       <div
-        className="relative flex-1 rounded-3xl overflow-hidden flex flex-col"
+        className="relative rounded-3xl overflow-hidden flex flex-col"
         style={{
           background: "rgba(10,14,40,0.35)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
           border: "1px solid rgba(255,255,255,0.10)",
@@ -188,7 +241,7 @@ function PricingCards() {
 
       {/* Plan Pro */}
       <div
-        className="relative flex-1 rounded-3xl overflow-hidden flex flex-col"
+        className="relative rounded-3xl overflow-hidden flex flex-col"
         style={{
           background: "rgba(10,14,40,0.35)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
           border: "1.5px solid rgba(99,102,241,0.40)",
@@ -238,48 +291,6 @@ function PricingCards() {
               {t("tarifs.voirDemo")}
             </Link>
           </div>
-        </div>
-      </div>
-
-      {/* Plan Entreprise */}
-      <div
-        className="relative flex-1 rounded-3xl overflow-hidden flex flex-col"
-        style={{
-          background: "rgba(10,14,40,0.35)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid rgba(255,255,255,0.10)",
-        }}
-      >
-        <div
-          className="absolute top-0 left-0 right-0 h-40 pointer-events-none"
-          style={{
-            background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(56,189,248,0.22) 0%, transparent 75%)",
-          }}
-        />
-        <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
-          <div className="mb-5 sm:mb-6">
-            <div className="flex items-center gap-3 mb-3 sm:mb-4">
-              <span className="text-sm sm:text-base font-semibold text-white">{t("tarifs.planEntreprise")}</span>
-            </div>
-            <div className="flex items-baseline gap-1.5 mb-1">
-              <span className="text-3xl sm:text-5xl font-bold text-white">{t("tarifs.surDevis")}</span>
-            </div>
-            <p className="text-white/45 text-sm">{t("tarifs.entrepriseDesc")}</p>
-          </div>
-          <div className="h-px bg-white/[0.08] mb-6" />
-          <ul className="space-y-3.5 flex-1 mb-8">
-            {enterpriseFeatures.map((f, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm text-white/70">
-                <CheckIcon color="#38BDF8" />
-                {f}
-              </li>
-            ))}
-          </ul>
-          <a
-            href="mailto:contact@duupflow.com"
-            className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/80 hover:text-white transition border border-white/20 hover:border-white/35 hover:bg-white/[0.04]"
-          >
-            {t("tarifs.nousContacter")}
-          </a>
         </div>
       </div>
     </div>

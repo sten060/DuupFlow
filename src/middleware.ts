@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
   if (user && pathname === "/login") {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("has_paid, is_guest")
+      .select("has_paid, is_guest, plan")
       .eq("id", user.id)
       .single();
     // Pas de profil du tout → compte affilié uniquement, pas de compte classique
@@ -67,17 +67,20 @@ export async function middleware(request: NextRequest) {
       url.searchParams.set("error", "compte_affilie");
       return NextResponse.redirect(url);
     }
-    const hasAccess = profile.is_guest === true || profile.has_paid === true;
+    // Tout user ayant un profil DuupFlow accède au dashboard (Free, Solo, Pro, Guest)
     const url = request.nextUrl.clone();
-    url.pathname = hasAccess ? "/dashboard" : "/checkout";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
-  // ── Paywall : vérifier que l'utilisateur a payé avant d'accéder au dashboard ──
+  // ── Garde dashboard : laisse passer tout user ayant un profil ──
+  // Free, Solo, Pro, Guest → tous OK. Pas de paywall.
+  // Les limites par plan sont enforce'd côté API (src/lib/usage.ts) et
+  // dans le coût des tokens IA (src/lib/tokens.ts).
   if (user && pathname.startsWith("/dashboard")) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("has_paid, is_guest")
+      .select("id")
       .eq("id", user.id)
       .single();
 
@@ -86,17 +89,6 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("error", "compte_affilie");
-      return NextResponse.redirect(url);
-    }
-
-    // Les invités (guests) héritent du paiement de leur hôte → accès autorisé
-    // Les utilisateurs ayant payé → accès autorisé
-    // Tous les autres → paywall
-    const hasAccess = profile.is_guest === true || profile.has_paid === true;
-
-    if (!hasAccess) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/checkout";
       return NextResponse.redirect(url);
     }
   }

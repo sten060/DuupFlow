@@ -49,14 +49,14 @@ export async function checkUsage(
     .eq("id", user.id)
     .single();
 
-  if (!profile?.has_paid && !profile?.is_guest) {
+  if (!profile) {
     return {
       allowed: false,
       userId: user.id,
       plan: null,
       current: 0,
       limit: 0,
-      message: "Abonnement requis.",
+      message: "Profil introuvable.",
     };
   }
 
@@ -71,13 +71,15 @@ export async function checkUsage(
     effectivePlan = hostProfile?.plan ?? effectivePlan;
   }
 
-  // Fallback: if has_paid but plan is null, treat as 'pro' (legacy users)
-  if (!effectivePlan && profile.has_paid) {
-    effectivePlan = "pro";
+  // Legacy data normalization:
+  //  - has_paid + plan null  → treat as 'pro' (early users without plan column)
+  //  - !has_paid + plan null → treat as 'free' (default tier going forward)
+  if (!effectivePlan) {
+    effectivePlan = profile.has_paid ? "pro" : "free";
   }
 
   // Pro → unlimited
-  if (effectivePlan !== "solo") {
+  if (effectivePlan === "pro") {
     return {
       allowed: true,
       userId: user.id,
@@ -87,8 +89,10 @@ export async function checkUsage(
     };
   }
 
-  // Solo → check limits
-  const limit = PLAN_LIMITS.solo[type === "images" ? "images" : type === "videos" ? "videos" : "ai_signatures"];
+  // Solo / Free → check monthly limits via PLAN_LIMITS
+  const planLimits =
+    effectivePlan === "solo" ? PLAN_LIMITS.solo : PLAN_LIMITS.free;
+  const limit = planLimits[type === "images" ? "images" : type === "videos" ? "videos" : "ai_signatures"];
   const column = `${type}_count` as const;
 
   const { data: usage } = await admin
@@ -105,20 +109,24 @@ export async function checkUsage(
       videos: "duplications vidéos",
       ai_signatures: "modifications signature IA",
     };
+    const upgradeHint =
+      effectivePlan === "free"
+        ? "Passe au plan Solo ou Pro pour augmenter ta limite."
+        : "Attends la date d'anniversaire de ton abonnement ou passe au plan Pro.";
     return {
       allowed: false,
       userId: user.id,
-      plan: "solo",
+      plan: effectivePlan,
       current,
       limit,
-      message: `Limite atteinte (${current}/${limit} ${labels[type]} ce mois). Attends la date d'anniversaire de ton abonnement ou passe au plan Pro.`,
+      message: `Limite atteinte (${current}/${limit} ${labels[type]} ce mois). ${upgradeHint}`,
     };
   }
 
   return {
     allowed: true,
     userId: user.id,
-    plan: "solo",
+    plan: effectivePlan,
     current,
     limit,
   };

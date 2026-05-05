@@ -3,7 +3,7 @@ import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToActiveClient, moveToChurned } from "@/lib/brevo";
 import { resetUsage } from "@/lib/usage";
-import { recordTransaction } from "@/lib/tokens-server";
+import { recordTransaction, creditWelcomeTokens } from "@/lib/tokens-server";
 import Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
@@ -193,6 +193,13 @@ export async function POST(request: NextRequest) {
 
           await markUserPaid(uid, plan, customerId, sub.id);
 
+          // Welcome tokens for new Solo/Pro subscribers (3 images worth).
+          // Idempotent — won't double-credit if the user already received
+          // this plan's welcome on a previous subscription.
+          creditWelcomeTokens(uid, plan).catch((err) =>
+            console.error("[webhook] welcome credit failed:", err),
+          );
+
           const affiliateCode = session.metadata?.affiliate_code;
           const admin = createAdminClient();
 
@@ -251,6 +258,9 @@ export async function POST(request: NextRequest) {
         }
       } else if (session.client_reference_id) {
         await markUserPaid(session.client_reference_id, "pro");
+        creditWelcomeTokens(session.client_reference_id, "pro").catch((err) =>
+          console.error("[webhook] welcome credit (fallback) failed:", err),
+        );
       }
       break;
     }

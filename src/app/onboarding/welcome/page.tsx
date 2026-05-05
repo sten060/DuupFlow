@@ -13,10 +13,10 @@ export default function WelcomePage() {
 
   useEffect(() => {
     const name = sessionStorage.getItem("welcome_first_name") ?? "toi";
-    const isGuest = sessionStorage.getItem("welcome_is_guest") === "1";
     setFirstName(name);
-    // Guests → dashboard (host has paid), regular users → paywall
-    const dest = isGuest ? "/dashboard" : "/checkout";
+    // Free tier — every user lands on the dashboard. They can upgrade
+    // anytime from the abonnement page if they want Solo or Pro.
+    const dest = "/dashboard";
     setDestination(dest);
     sessionStorage.removeItem("welcome_first_name");
     sessionStorage.removeItem("welcome_is_guest");

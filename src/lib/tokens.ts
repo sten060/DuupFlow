@@ -18,8 +18,9 @@ export const CENTS_PER_TOKEN = 40;
 
 /** Cost in cents to generate one image, by user plan. */
 export const IMAGE_COST_CENTS = {
-  solo: 90, // 0.90 € / 2.25 tokens
-  pro: 70,  // 0.70 € / 1.75 tokens
+  free: 110, // 1.10 € / 2.75 tokens — default tier (no subscription)
+  solo: 90,  // 0.90 € / 2.25 tokens
+  pro:  70,  // 0.70 € / 1.75 tokens
 } as const;
 
 /** Minimum topup amount in cents (prevents fee-only purchases). */
@@ -69,9 +70,11 @@ export function formatEur(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-/** Cost (in cents) of one image for the given plan. Falls back to Solo. */
+/** Cost (in cents) of one image for the given plan. Falls back to Free. */
 export function imageCostCents(plan: string | null | undefined): number {
-  return plan === "pro" ? IMAGE_COST_CENTS.pro : IMAGE_COST_CENTS.solo;
+  if (plan === "pro")  return IMAGE_COST_CENTS.pro;
+  if (plan === "solo") return IMAGE_COST_CENTS.solo;
+  return IMAGE_COST_CENTS.free;
 }
 
 /** How many images the user can afford with `cents` at the given plan tier. */

@@ -332,7 +332,40 @@ function MockupAI() {
   );
 }
 
-const MOCKUPS: Record<string, React.ReactNode> = { duplication: <MockupDuplication />, invisible: <MockupInvisible />, priority: <MockupPriority />, ai: <MockupAI /> };
+function MockupVariation() {
+  return (
+    <div className="space-y-2.5 text-xs">
+      <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/[0.04] px-3 py-3 flex items-center gap-2.5">
+        <span className="text-base">🖼️</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-white/70 font-medium truncate">portrait_source.jpg</p>
+          <p className="text-[10px] text-fuchsia-300/70">Image de référence</p>
+        </div>
+      </div>
+      <div className="flex justify-center"><svg className="h-4 w-4 text-fuchsia-300/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 2v6M12 16v6M2 12h6M16 12h6" /></svg></div>
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { tag: "Variation 1", hint: "main dans cheveux" },
+          { tag: "Variation 2", hint: "regard ciel" },
+          { tag: "Variation 3", hint: "geste libre" },
+        ].map((v) => (
+          <div key={v.tag} className="rounded-lg border border-fuchsia-500/25 bg-gradient-to-br from-fuchsia-500/[0.08] to-indigo-500/[0.05] px-2 py-2 text-center">
+            <div className="aspect-square rounded-md bg-white/[0.04] mb-1.5 flex items-center justify-center">
+              <span className="text-base opacity-60">✨</span>
+            </div>
+            <p className="text-[9px] text-fuchsia-300 font-semibold">{v.tag}</p>
+            <p className="text-[8px] text-white/35 truncate">{v.hint}</p>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2 text-center">
+        <p className="text-[10px] text-emerald-300/80">Identité, décor, lumière préservés</p>
+      </div>
+    </div>
+  );
+}
+
+const MOCKUPS: Record<string, React.ReactNode> = { duplication: <MockupDuplication />, invisible: <MockupInvisible />, priority: <MockupPriority />, variation: <MockupVariation />, ai: <MockupAI /> };
 
 function FeatureTabs() {
   const { t } = useTranslation();
@@ -463,6 +496,12 @@ function FeaturesScroller() {
       accent: "#6366F1",
     },
     {
+      title: <><span className={GLOW} style={GS}>{t("featuresScroller.cardVariationIATitle").split(" ")[0]}</span> {t("featuresScroller.cardVariationIATitle").split(" ").slice(1).join(" ")}</>,
+      desc: t("featuresScroller.cardVariationIADesc"),
+      accent: "#6366F1",
+      badge: t("featuresScroller.badgeNew"),
+    },
+    {
       title: <>{t("featuresScroller.card4Title").split(" ")[0]} <span className={GLOW} style={GS}>{t("featuresScroller.card4Title").split(" ").slice(1).join(" ")}</span></>,
       desc: t("featuresScroller.card4Desc"),
       accent: "#6366F1",
@@ -500,7 +539,7 @@ function FeaturesScroller() {
                   <Link href="/register" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">{t("featuresScroller.tryNow")}</Link>
                 </div>
                 <div className="p-6 sm:p-8 flex items-center">
-                  <div className="w-full">{MOCKUPS[["duplication", "invisible", "priority", "ai"][i]]}</div>
+                  <div className="w-full">{MOCKUPS[["duplication", "invisible", "priority", "variation", "ai"][i]]}</div>
                 </div>
               </div>
             </div>
@@ -1040,6 +1079,25 @@ const CAROUSEL_CARD_KEYS = [
       </div>
     </div>`,
   },
+  {
+    titleKey: "avantages.card6Title",
+    descKey: "avantages.card6Desc",
+    tagsKey: "avantages.card6Tags",
+    gradient: "linear-gradient(180deg, #2a0e2a 0%, #4a1758 60%, #1a0a25 100%)",
+    mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(217,70,239,0.20);background:rgba(217,70,239,0.05);">
+        <div style="width:28px;height:28px;border-radius:6px;background:rgba(217,70,239,0.18);display:flex;align-items:center;justify-content:center;font-size:12px;">🖼️</div>
+        <div style="flex:1;"><div style="font-size:10px;color:rgba(255,255,255,0.65);">portrait_source.jpg</div><div style="font-size:8px;color:rgba(217,70,239,0.7);">Image de référence</div></div>
+      </div>
+      <div style="text-align:center;color:rgba(217,70,239,0.45);font-size:11px;">✨</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+        <div style="aspect-ratio:1;border-radius:6px;border:1px solid rgba(217,70,239,0.25);background:linear-gradient(135deg,rgba(217,70,239,0.10),rgba(99,102,241,0.06));display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0.7;">✨</div>
+        <div style="aspect-ratio:1;border-radius:6px;border:1px solid rgba(217,70,239,0.25);background:linear-gradient(135deg,rgba(217,70,239,0.10),rgba(99,102,241,0.06));display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0.7;">✨</div>
+        <div style="aspect-ratio:1;border-radius:6px;border:1px solid rgba(217,70,239,0.25);background:linear-gradient(135deg,rgba(217,70,239,0.10),rgba(99,102,241,0.06));display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0.7;">✨</div>
+      </div>
+      <div style="text-align:center;font-size:9px;color:rgba(255,255,255,0.45);">3 variations · identité préservée</div>
+    </div>`,
+  },
 ];
 
 function AvantagesCarousel() {
@@ -1145,6 +1203,7 @@ function FAQ() {
     { q: t("faq.q3"), a: t("faq.a3") },
     { q: t("faq.q4"), a: t("faq.a4") },
     { q: t("faq.q5"), a: t("faq.a5") },
+    { q: t("faq.q8"), a: t("faq.a8") },
     { q: t("faq.q6"), a: t("faq.a6") },
     { q: t("faq.q7"), a: t("faq.a7") },
   ];

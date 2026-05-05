@@ -6,6 +6,7 @@
  * server actions, webhook handlers).
  */
 import { createAdminClient } from "@/lib/supabase/admin";
+import { IMAGE_COST_CENTS } from "@/lib/tokens";
 
 export type LedgerReason =
   | "topup"            // Stripe checkout success
@@ -13,7 +14,10 @@ export type LedgerReason =
   | "image_solo"       // Image generated for a Solo-plan user
   | "image_pro"        // Image generated for a Pro-plan user
   | "refund_failure"   // Generation failed → tokens refunded
-  | "admin_adjust";    // Manual debug adjustment (dev only)
+  | "admin_adjust"     // Manual debug adjustment (dev only)
+  | "welcome_free"     // Welcome credit on Free signup (1 image)
+  | "welcome_solo"     // Welcome credit on first Solo subscription (3 images)
+  | "welcome_pro";     // Welcome credit on first Pro subscription (3 images)
 
 export type LedgerEntry = {
   id: string;
@@ -105,4 +109,50 @@ export async function recordTransaction(opts: {
   }
 
   return { ok: true, balanceCents: next };
+}
+
+/**
+ * One-time welcome credit per (user, plan).
+ *
+ *   • Free  → 1 image worth (1 × IMAGE_COST_CENTS.free  = 110 cts)
+ *   • Solo  → 3 images worth (3 × IMAGE_COST_CENTS.solo = 270 cts)
+ *   • Pro   → 3 images worth (3 × IMAGE_COST_CENTS.pro  = 210 cts)
+ *
+ * Idempotent: checks the ledger for an existing welcome_<plan> row and
+ * skips if found. Safe to call multiple times (e.g. on plan change,
+ * Stripe webhook retries).
+ */
+export async function creditWelcomeTokens(
+  userId: string,
+  plan: "free" | "solo" | "pro",
+): Promise<{ credited: boolean; balanceCents: number }> {
+  const reason = `welcome_${plan}` as const;
+  const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("ai_token_ledger")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("reason", reason)
+    .limit(1);
+  if (existing && existing.length > 0) {
+    const balance = await fetchBalanceCents(userId);
+    return { credited: false, balanceCents: balance };
+  }
+
+  const imagesPerPlan = { free: 1, solo: 3, pro: 3 } as const;
+  const amount = imagesPerPlan[plan] * IMAGE_COST_CENTS[plan];
+
+  const result = await recordTransaction({
+    userId,
+    deltaCents: amount,
+    reason,
+    metadata: { images: imagesPerPlan[plan], plan },
+  });
+
+  if (!result.ok) {
+    console.error(`[tokens-server] welcome_${plan} credit failed:`, result.error);
+    return { credited: false, balanceCents: result.balanceCents };
+  }
+  return { credited: true, balanceCents: result.balanceCents };
 }
