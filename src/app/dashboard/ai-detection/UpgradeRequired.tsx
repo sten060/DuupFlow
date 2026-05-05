@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
+import UpgradePlanModal from "../components/UpgradePlanModal";
 
 /**
  * Lock screen shown to Free users on /dashboard/ai-detection.
- * Explains what the module does and points to /tarifs to upgrade.
+ * Explains what the module does and opens an in-page Stripe Checkout
+ * modal when the user clicks "upgrade".
  */
 export default function UpgradeRequired() {
   const { t } = useTranslation();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   return (
     <div className="p-8 w-full">
@@ -83,8 +87,9 @@ export default function UpgradeRequired() {
         </div>
 
         <div className="mt-7 flex flex-col sm:flex-row gap-3">
-          <Link
-            href="/tarifs"
+          <button
+            type="button"
+            onClick={() => setShowUpgradeModal(true)}
             className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
             style={{ background: "linear-gradient(135deg,#7C3AED,#6366F1)" }}
           >
@@ -92,7 +97,7 @@ export default function UpgradeRequired() {
               <path d="M8 2l4 4H9v6H7V6H4l4-4z" />
             </svg>
             {t("dashboard.aiDetectionLock.ctaUpgrade")}
-          </Link>
+          </button>
           <Link
             href="/dashboard"
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-5 py-3 text-sm font-medium text-white/70 hover:bg-white/[0.08] transition"
@@ -101,6 +106,11 @@ export default function UpgradeRequired() {
           </Link>
         </div>
       </div>
+
+      <UpgradePlanModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </div>
   );
 }
