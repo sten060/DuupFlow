@@ -3,13 +3,16 @@ import sharp from "sharp";
 import crypto from "crypto";
 import { buildVariationPrompt, ACTION_VARIATIONS } from "@/lib/ai/variation-prompt";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { recordTransaction } from "@/lib/tokens-server";
+import { imageCostCents } from "@/lib/tokens";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 type Mode = "variation" | "prompt";
-type Ok = { ok: true; urls: string[] };
-type Err = { ok: false; error: string };
+type Ok = { ok: true; urls: string[]; balanceCents: number };
+type Err = { ok: false; error: string; code?: string; balanceCents?: number };
 
 const WAVESPEED_ENDPOINT =
   "https://api.wavespeed.ai/api/v3/bytedance/seedream-v4.5/edit";
@@ -85,10 +88,28 @@ type WaveSpeedCreateResp = {
     id: string;
     status?: "created" | "processing" | "completed" | "failed";
     outputs?: string[];
+    /** Per-output NSFW flag, aligned 1:1 with outputs[]. */
+    has_nsfw_contents?: boolean[];
     error?: string;
   };
   message?: string;
 };
+
+/**
+ * Filter WaveSpeed outputs by their NSFW flag. Throws a recognizable error
+ * when EVERY output is flagged so the per-iteration catch in POST() can
+ * refund the user's tokens automatically.
+ */
+function pickCleanOutputs(json: WaveSpeedCreateResp): string[] {
+  const outputs = json.data?.outputs ?? [];
+  if (outputs.length === 0) return [];
+  const flags = json.data?.has_nsfw_contents ?? [];
+  const clean = outputs.filter((_, i) => !flags[i]);
+  if (clean.length === 0 && outputs.length > 0) {
+    throw new Error("WaveSpeed flagged all outputs as NSFW (content rejected).");
+  }
+  return clean;
+}
 
 async function pollWaveSpeed(taskId: string): Promise<string[]> {
   const url = `https://api.wavespeed.ai/api/v3/predictions/${taskId}/result`;
@@ -101,7 +122,7 @@ async function pollWaveSpeed(taskId: string): Promise<string[]> {
     if (!res.ok) continue;
     const json: WaveSpeedCreateResp = await res.json();
     const status = json.data?.status;
-    if (status === "completed" && json.data?.outputs?.length) return json.data.outputs;
+    if (status === "completed" && json.data?.outputs?.length) return pickCleanOutputs(json);
     if (status === "failed") {
       throw new Error(`WaveSpeed task failed: ${json.data?.error || "unknown"}`);
     }
@@ -144,8 +165,9 @@ async function callWaveSpeedOnce(imageUrl: string, prompt: string): Promise<stri
   }
   const json: WaveSpeedCreateResp = await res.json();
 
-  // sync mode → outputs are already there
-  if (json.data?.outputs?.length) return json.data.outputs;
+  // sync mode → outputs are already there (filter NSFW so the user isn't
+  // charged for a flagged image)
+  if (json.data?.outputs?.length) return pickCleanOutputs(json);
   // fallback: if the API decided to switch to async, poll
   if (json.data?.id) return pollWaveSpeed(json.data.id);
 
@@ -171,6 +193,13 @@ async function generateOnce(imageUrl: string, prompt: string): Promise<string[]>
 
 export async function POST(req: Request) {
   let tempKey: string | null = null;
+  // Track tokens debited up-front so we can refund on partial / full failure.
+  let userId: string | null = null;
+  let costPerImage = 0;
+  let totalDebited = 0;
+  let successCount = 0;
+  let variants = 1;
+
   try {
     if (!process.env.WAVESPEED_API_KEY) {
       return NextResponse.json<Err>(
@@ -179,10 +208,22 @@ export async function POST(req: Request) {
       );
     }
 
+    // ── 1. Auth ───────────────────────────────────────────────────────────
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json<Err>(
+        { ok: false, error: "unauthorized", code: "AUTH" },
+        { status: 401 },
+      );
+    }
+    userId = user.id;
+
+    // ── 2. Parse request ──────────────────────────────────────────────────
     const form = await req.formData();
     const file = form.get("image") as File | null;
     const mode = ((form.get("mode") as string) || "variation") as Mode;
-    const variants = Math.max(1, Math.min(3, Number(form.get("variants") || 1)));
+    variants = Math.max(1, Math.min(3, Number(form.get("variants") || 1)));
     const userPrompt = ((form.get("prompt") as string) || "").trim();
 
     if (!file || file.size === 0) {
@@ -195,18 +236,50 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1) Upload reference image to Supabase Storage so WaveSpeed can fetch it
+    // ── 3. Resolve plan + price ──────────────────────────────────────────
+    const { data: profile } = await createAdminClient()
+      .from("profiles")
+      .select("plan, ai_balance_cents")
+      .eq("id", userId)
+      .single();
+    const plan = (profile?.plan as string | null) ?? "solo";
+    costPerImage = imageCostCents(plan);
+    const totalCost = costPerImage * variants;
+    const reason = plan === "pro" ? "image_pro" : "image_solo";
+
+    // ── 4. Pre-debit upfront. recordTransaction returns insufficient_balance
+    //      if not enough — we surface a 402 with the current balance so the
+    //      UI can prompt the user to top up.
+    const debit = await recordTransaction({
+      userId,
+      deltaCents: -totalCost,
+      reason,
+      metadata: { variants, mode, stage: "reserve" },
+    });
+    if (!debit.ok) {
+      return NextResponse.json<Err>(
+        {
+          ok: false,
+          error: debit.error === "insufficient_balance"
+            ? "Solde insuffisant — recharge tes tokens."
+            : (debit.error || "Token debit failed"),
+          code: debit.error,
+          balanceCents: debit.balanceCents,
+        },
+        { status: debit.error === "insufficient_balance" ? 402 : 500 },
+      );
+    }
+    totalDebited = totalCost;
+
+    // ── 5. Upload reference image to Supabase Storage for WaveSpeed ──────
     const buffer = await normalizeImage(file);
     const { key, url: imageUrl } = await uploadToTempStorage(buffer);
     tempKey = key;
 
-    // 2) Generate N variations sequentially. Same model for both modes —
-    //    only the prompt changes. In variation mode, each iteration picks
-    //    a DIFFERENT random action from ACTION_VARIATIONS so the user gets
-    //    visibly different poses across the N outputs.
-
-    // Pre-pick distinct random actions for the variation pool so two variants
-    // never accidentally land on the same pose.
+    // ── 6. Generate N variations. Each iteration tries up to 3 times via
+    //      generateOnce. Failures are caught individually so we can refund
+    //      the right amount. Variation mode pre-picks distinct random actions
+    //      so 2 variants never land on the same pose.
     const actionIndices: number[] = [];
     if (mode === "variation") {
       const shuffled = ACTION_VARIATIONS.map((_, i) => i).sort(() => Math.random() - 0.5);
@@ -214,32 +287,78 @@ export async function POST(req: Request) {
     }
 
     const resultUrls: string[] = [];
+    let lastError: string | null = null;
     for (let i = 0; i < variants; i++) {
       const finalPrompt =
         mode === "variation" ? buildVariationPrompt(actionIndices[i]) : userPrompt;
-      const outputs = await generateOnce(imageUrl, finalPrompt);
-      for (const u of outputs) {
-        try {
-          const persisted = await persistResultToStorage(u);
-          resultUrls.push(persisted);
-        } catch (err) {
-          console.error("[ai-lab] persist failed:", err);
+      try {
+        const outputs = await generateOnce(imageUrl, finalPrompt);
+        let persistedThis = 0;
+        for (const u of outputs) {
+          try {
+            const persisted = await persistResultToStorage(u);
+            resultUrls.push(persisted);
+            persistedThis++;
+          } catch (err) {
+            console.error("[ai-lab] persist failed:", err);
+            lastError = (err as any)?.message ?? "persist_failed";
+          }
         }
+        if (persistedThis > 0) successCount++;
+      } catch (err) {
+        const msg = (err as any)?.message ?? String(err);
+        console.error(`[ai-lab] generation ${i + 1}/${variants} failed:`, msg);
+        lastError = msg;
       }
     }
 
+    // ── 7. Refund unused tokens (failures). Successful images stay debited.
+    const refundCount = variants - successCount;
+    let finalBalance = debit.balanceCents;
+    if (refundCount > 0) {
+      const refundAmount = costPerImage * refundCount;
+      const refund = await recordTransaction({
+        userId,
+        deltaCents: refundAmount,
+        reason: "refund_failure",
+        metadata: { mode, refundedImages: refundCount, totalRequested: variants },
+      });
+      if (refund.ok) finalBalance = refund.balanceCents;
+    }
+
     if (resultUrls.length === 0) {
+      // Surface a clear message when the model rejected for NSFW —
+      // tokens are already refunded above, so the user keeps their balance.
+      const isNsfw = lastError?.toLowerCase().includes("nsfw");
+      const error = isNsfw
+        ? "Contenu rejeté par le filtre NSFW de l'IA. Tokens remboursés."
+        : `Aucune image générée. Tokens remboursés. ${lastError ? `(${lastError})` : ""}`.trim();
       return NextResponse.json<Err>(
-        { ok: false, error: "AI returned no usable images. Try again." },
+        { ok: false, error, code: isNsfw ? "NSFW" : undefined, balanceCents: finalBalance },
         { status: 502 },
       );
     }
 
-    return NextResponse.json<Ok>({ ok: true, urls: resultUrls });
+    return NextResponse.json<Ok>({ ok: true, urls: resultUrls, balanceCents: finalBalance });
   } catch (e: any) {
     console.error("[ai-lab] fatal:", e);
+
+    // Hard failure — refund whatever we debited.
+    let finalBalance: number | undefined;
+    if (userId && totalDebited > 0) {
+      const owed = costPerImage * (variants - successCount);
+      if (owed > 0) {
+        const refund = await recordTransaction({
+          userId,
+          deltaCents: owed,
+          reason: "refund_failure",
+          metadata: { fatal: true, error: String(e?.message || e) },
+        });
+        if (refund.ok) finalBalance = refund.balanceCents;
+      }
+    }
     return NextResponse.json<Err>(
-      { ok: false, error: e?.message || "AI generation failed" },
+      { ok: false, error: e?.message || "AI generation failed", balanceCents: finalBalance },
       { status: 500 },
     );
   } finally {

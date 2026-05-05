@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
+import { formatTokens, formatEur, imageCostCents, imagesAffordable } from "@/lib/tokens";
 
 type Mode = "variation" | "prompt";
 
@@ -59,8 +60,22 @@ export default function AiLabPage() {
   const [results, setResults] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [balanceCents, setBalanceCents] = useState<number | null>(null);
+  const [plan, setPlan] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Fetch balance + plan on mount (and after each generation).
+  async function refreshBalance() {
+    try {
+      const r = await fetch("/api/tokens-lab-q8m4w7", { cache: "no-store" });
+      if (!r.ok) return;
+      const j = await r.json();
+      setBalanceCents(j.balanceCents ?? 0);
+      setPlan(j.plan ?? null);
+    } catch {}
+  }
+  useEffect(() => { refreshBalance(); }, []);
 
   // Load fresh (<24 h) variations from localStorage on mount.
   // Initial state is [] to avoid SSR/hydration mismatch.
@@ -101,6 +116,9 @@ export default function AiLabPage() {
     try {
       const res = await fetch("/api/ai-lab-x7k9p3", { method: "POST", body: fd });
       const j = await res.json();
+      // Refresh balance from response payload (or refetch on missing field).
+      if (typeof j?.balanceCents === "number") setBalanceCents(j.balanceCents);
+      else void refreshBalance();
       if (!res.ok || !j.ok) throw new Error(j?.error || `HTTP ${res.status}`);
       const incoming: string[] = j.urls || [];
       setResults((prev) => [...incoming, ...prev]);
@@ -176,17 +194,32 @@ export default function AiLabPage() {
           </p>
         </div>
 
-        {/* Info button — opens an explanatory modal */}
-        <button
-          type="button"
-          onClick={() => setShowInfo(true)}
-          className="shrink-0 inline-flex items-center gap-2 rounded-full border border-fuchsia-400/25 bg-fuchsia-500/[0.06] px-3 py-1.5 text-xs font-medium text-fuchsia-200/85 hover:bg-fuchsia-500/[0.12] hover:border-fuchsia-400/40 transition"
-        >
-          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-fuchsia-400/40 text-[10px] font-bold text-fuchsia-300">
-            i
-          </span>
-          {t("dashboard.aiLab.infoButton")}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Balance pill */}
+          {balanceCents !== null && (
+            <div
+              className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/[0.06] px-3 py-1.5 text-xs font-medium text-emerald-200/85"
+              title={`Solde : ${formatEur(balanceCents)} · ${imagesAffordable(balanceCents, plan)} image(s) possible(s)`}
+            >
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-emerald-400/40 text-[10px] font-bold text-emerald-300">
+                €
+              </span>
+              {formatTokens(balanceCents)} tokens
+            </div>
+          )}
+
+          {/* Info button — opens an explanatory modal */}
+          <button
+            type="button"
+            onClick={() => setShowInfo(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/25 bg-fuchsia-500/[0.06] px-3 py-1.5 text-xs font-medium text-fuchsia-200/85 hover:bg-fuchsia-500/[0.12] hover:border-fuchsia-400/40 transition"
+          >
+            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-fuchsia-400/40 text-[10px] font-bold text-fuchsia-300">
+              i
+            </span>
+            {t("dashboard.aiLab.infoButton")}
+          </button>
+        </div>
       </div>
 
       {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
@@ -357,6 +390,24 @@ export default function AiLabPage() {
                 </button>
               )}
             </div>
+
+            {/* Cost estimate */}
+            {balanceCents !== null && (
+              <p className="mt-3 text-[11px] text-white/40">
+                Coût estimé&nbsp;:&nbsp;
+                <span className="text-white/70 font-medium">
+                  {formatTokens(imageCostCents(plan) * variants)} tokens
+                </span>
+                &nbsp;·&nbsp;Solde après&nbsp;:&nbsp;
+                <span className={
+                  balanceCents - imageCostCents(plan) * variants < 0
+                    ? "text-red-300 font-medium"
+                    : "text-white/70"
+                }>
+                  {formatTokens(Math.max(0, balanceCents - imageCostCents(plan) * variants))} tokens
+                </span>
+              </p>
+            )}
 
             {err && (
               <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/[0.08] px-3 py-2 text-xs text-red-300">
