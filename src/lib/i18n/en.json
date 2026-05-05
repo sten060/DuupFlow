@@ -703,6 +703,21 @@
       "deleting": "Deleting...",
       "limitError": "Limit exceeded — you selected {count} files, the maximum is {max}. Only the first {max} were kept."
     },
+    "aiDetectionLock": {
+      "eyebrow": "Premium module",
+      "title": "AI Signatures",
+      "lockBadge": "Locked",
+      "headline": "Available with Solo and Pro plans",
+      "whatTitle": "What is it?",
+      "whatBody": "The AI Signatures module strips all AI metadata (EXIF, XMP, IPTC, C2PA, JUMBF) from your files and replaces it with a realistic human identity — camera, software, photographer, date.",
+      "useCaseTitle": "What's it for?",
+      "useCaseBody": "If you publish AI-generated images (Midjourney, DALL-E, Stable Diffusion…), platforms (Meta, Instagram, Threads) automatically detect AI signatures and throttle your reach. This module makes your content look like an authentic human file.",
+      "bullet1": "Works with Midjourney, DALL-E, Stable Diffusion, Runway, Sora",
+      "bullet2": "Full removal of C2PA, JUMBF, EXIF, XMP, IPTC",
+      "bullet3": "Realistic human identity injected automatically",
+      "ctaUpgrade": "See Solo & Pro plans",
+      "ctaBack": "Back to dashboard"
+    },
     "settings": {
       "title": "Settings",
       "profileSection": "Profile",

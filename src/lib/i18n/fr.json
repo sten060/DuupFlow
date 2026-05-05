@@ -703,6 +703,21 @@
       "deleting": "Suppression...",
       "limitError": "Limite depassee — tu as selectionne {count} fichiers, le maximum est {max}. Seuls les {max} premiers ont ete conserves."
     },
+    "aiDetectionLock": {
+      "eyebrow": "Module premium",
+      "title": "Signatures IA",
+      "lockBadge": "Verrouille",
+      "headline": "Disponible avec les plans Solo et Pro",
+      "whatTitle": "C'est quoi ?",
+      "whatBody": "Le module Signatures IA efface toutes les metadonnees IA (EXIF, XMP, IPTC, C2PA, JUMBF) de tes fichiers et les remplace par une identite humaine realiste — appareil photo, logiciel, photographe, date coherente.",
+      "useCaseTitle": "A quoi ca sert ?",
+      "useCaseBody": "Si tu publies des images generees par IA (Midjourney, DALL-E, Stable Diffusion...), les plateformes (Meta, Instagram, Threads) detectent automatiquement les signatures IA et limitent ta portee. Ce module fait passer ton contenu pour un fichier humain authentique.",
+      "bullet1": "Compatible Midjourney, DALL-E, Stable Diffusion, Runway, Sora",
+      "bullet2": "Suppression complete C2PA, JUMBF, EXIF, XMP, IPTC",
+      "bullet3": "Identite humaine realiste injectee automatiquement",
+      "ctaUpgrade": "Voir les plans Solo & Pro",
+      "ctaBack": "Retour au dashboard"
+    },
     "settings": {
       "title": "Parametres",
       "profileSection": "Profil",
