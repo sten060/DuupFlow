@@ -80,8 +80,17 @@ export async function POST(req: Request) {
   }
 
   // ── New job path ──────────────────────────────────────────────────────────
-  const storagePaths = formData.getAll("storagePaths") as string[];
-  const requestedCount = Math.max(1, storagePaths.length || 1);
+  const storagePaths    = formData.getAll("storagePaths") as string[];
+  const directUploadIds = formData.getAll("directUploadIds") as string[];
+  // Total videos that will be generated:
+  //   sourceCount      = number of source files uploaded
+  //   copiesPerSource  = "Nombre de copies" slider chosen by the user
+  //   requestedCount   = sourceCount × copiesPerSource
+  // Without this multiplication, one click counted as 1 against the quota
+  // regardless of how many videos actually got generated.
+  const sourceCount     = directUploadIds.length || storagePaths.length || 1;
+  const copiesPerSource = Math.max(1, Number(formData.get("count") ?? 1));
+  const requestedCount  = Math.max(1, sourceCount * copiesPerSource);
 
   const usageCheck = await checkUsage("videos", requestedCount);
   if (!usageCheck.allowed) {
@@ -107,8 +116,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg, code: "VID-002" }, { status: 500 });
   }
 
-  const fileNames       = formData.getAll("fileNames")       as string[];
-  const directUploadIds = formData.getAll("directUploadIds") as string[];
+  const fileNames        = formData.getAll("fileNames") as string[];
   const hasStoragePaths  = storagePaths.length > 0;
   const hasDirectUploads = directUploadIds.length > 0;
 
