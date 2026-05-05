@@ -3,6 +3,7 @@ import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToActiveClient, moveToChurned } from "@/lib/brevo";
 import { resetUsage } from "@/lib/usage";
+import { recordTransaction } from "@/lib/tokens-server";
 import Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
@@ -125,6 +126,34 @@ export async function POST(request: NextRequest) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       console.log("[webhook] checkout.session.completed:", session.id);
+
+      // ── AI token topup (one-shot, mode: "payment") ──────────────────
+      if (session.metadata?.type === "ai_topup") {
+        const uid = session.metadata?.supabase_user_id ?? session.client_reference_id;
+        const amountCents = Number(session.metadata?.amount_cents);
+        console.log("[webhook] ai_topup uid:", uid, "amount_cents:", amountCents);
+        if (uid && Number.isInteger(amountCents) && amountCents > 0) {
+          const result = await recordTransaction({
+            userId: uid,
+            deltaCents: amountCents,
+            reason: "topup",
+            metadata: {
+              stripe_session_id: session.id,
+              payment_intent: session.payment_intent,
+            },
+          });
+          if (!result.ok) {
+            console.error("[webhook] ai_topup credit failed:", result.error);
+          } else {
+            console.log("[webhook] ai_topup credited; new balance:", result.balanceCents);
+          }
+        } else {
+          console.warn("[webhook] ai_topup invalid metadata, skipping");
+        }
+        // Stop here — this session has no subscription to process.
+        return NextResponse.json({ received: true });
+      }
+
       if (session.subscription) {
         const sub = await getStripe().subscriptions.retrieve(
           session.subscription as string,
