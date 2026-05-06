@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
+import { markOnboardingDone } from "./actions/onboarding";
+import VariationAnnouncementModal from "./VariationAnnouncementModal";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
@@ -392,12 +394,24 @@ function NewsModal({ onClose }: { onClose: () => void }) {
 export default function DashboardHome({
   firstName,
   agencyName,
+  needsOnboarding = false,
+  variationAnnouncementPending = false,
+  effectivePlan = "free",
 }: {
   firstName: string | null;
   agencyName: string | null;
+  /** True only when profile.onboarded_at is NULL (i.e. fresh signup). */
+  needsOnboarding?: boolean;
+  /** True only for legacy users (variation_ia_announced_at IS NULL). */
+  variationAnnouncementPending?: boolean;
+  /** User's effective plan, used by the announcement modal. */
+  effectivePlan?: "free" | "solo" | "pro";
 }) {
   const [showGuide, setShowGuide] = useState(false);
   const [showNews, setShowNews] = useState(false);
+  const [showVariationAnnouncement, setShowVariationAnnouncement] = useState(
+    variationAnnouncementPending,
+  );
   const { t } = useTranslation();
 
   const MODULES = [
@@ -477,15 +491,25 @@ export default function DashboardHome({
     },
   ];
 
+  // Auto-trigger the onboarding tour ONLY for new users (DB-flagged via
+  // `profile.onboarded_at IS NULL`). Existing users were backfilled with
+  // NOW() in migration 020, so they never see this auto-open. The "Guide"
+  // button in the header is still available for everyone to re-watch.
   useEffect(() => {
-    if (!localStorage.getItem(GUIDE_KEY)) {
+    if (needsOnboarding) {
       setShowGuide(true);
     }
-  }, []);
+  }, [needsOnboarding]);
 
   function closeGuide() {
+    // Persist completion server-side so it never reopens automatically.
+    // localStorage kept as best-effort cache to avoid flicker on quick
+    // re-renders before the DB write completes.
     localStorage.setItem(GUIDE_KEY, "1");
     setShowGuide(false);
+    if (needsOnboarding) {
+      void markOnboardingDone().catch(() => {});
+    }
   }
 
   return (
@@ -551,6 +575,14 @@ export default function DashboardHome({
 
       {/* News modal */}
       {showNews && <NewsModal onClose={() => setShowNews(false)} />}
+
+      {/* One-shot AI Variation launch announcement (legacy users only) */}
+      {showVariationAnnouncement && (
+        <VariationAnnouncementModal
+          plan={effectivePlan}
+          onDone={() => setShowVariationAnnouncement(false)}
+        />
+      )}
     </div>
   );
 }

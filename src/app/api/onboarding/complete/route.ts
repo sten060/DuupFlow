@@ -24,6 +24,9 @@ export async function POST(req: NextRequest) {
     plan: "free",                  // default tier; upgraded by Stripe webhook on subscription
     email_sequence: "free",
     email_sequence_updated_at: new Date().toISOString(),
+    // New users skip the AI Variation launch announcement (it targets
+    // legacy users with NULL). They get the regular onboarding tour instead.
+    variation_ia_announced_at: new Date().toISOString(),
   };
 
   if (affiliateCode && typeof affiliateCode === "string") {

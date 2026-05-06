@@ -27,17 +27,14 @@ export default function TokensLabPage() {
   const [state, setState] = useState<ApiState | null>(null);
   const [loading, setLoading] = useState(true);
   const [topupBusy, setTopupBusy] = useState(false);
-  const [adjBusy, setAdjBusy] = useState(false);
   const [customEur, setCustomEur] = useState<number>(MIN_TOPUP_CENTS / 100);
-  const [adjustEur, setAdjustEur] = useState<number>(5);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
-  const isDev = process.env.NODE_ENV !== "production";
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/tokens-lab-q8m4w7", { cache: "no-store" });
+      const res = await fetch("/api/tokens", { cache: "no-store" });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
       setState(j);
@@ -100,38 +97,19 @@ export default function TokensLabPage() {
     }
   }
 
-  async function handleAdminAdjust(deltaCents: number) {
-    setErr(null);
-    setAdjBusy(true);
-    try {
-      const res = await fetch("/api/tokens-lab-q8m4w7/admin-adjust", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deltaCents, reason: "admin_adjust" }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
-      await refresh();
-    } catch (e: any) {
-      setErr(e?.message || "Adjust failed");
-    } finally {
-      setAdjBusy(false);
-    }
-  }
-
   const balanceCents = state?.balanceCents ?? 0;
   const plan = state?.plan ?? "solo";
 
   return (
-    <div className="p-8 w-full max-w-4xl">
+    <div className="p-8 w-full max-w-4xl mx-auto">
       {/* Header — minimal */}
       <div className="mb-8">
         <p className="text-xs font-medium text-white/30 tracking-[0.14em] uppercase mb-2">
-          Lab interne — Admin
+          Dashboard
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">
           <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
-            Tokens IA
+            Mes Tokens
           </span>
         </h1>
       </div>
@@ -230,50 +208,6 @@ export default function TokensLabPage() {
           </p>
         </div>
       </div>
-
-      {/* Dev adjust (gated) */}
-      {isDev && (
-        <div className="mb-6 rounded-xl border border-amber-400/20 bg-amber-500/[0.04] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 bg-amber-500/15 border border-amber-400/30 rounded px-1.5 py-0.5">
-              DEV
-            </span>
-            <h2 className="text-sm font-semibold text-white/85">Ajustement manuel (test)</h2>
-          </div>
-          <div className="flex gap-2 items-center mb-2">
-            <input
-              type="number"
-              min={0.5}
-              step={0.5}
-              value={adjustEur}
-              onChange={(e) => setAdjustEur(Number(e.target.value))}
-              className="w-24 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-white outline-none focus:border-amber-400/40"
-            />
-            <span className="text-xs text-white/45">€</span>
-            <span className="text-xs text-white/30 ml-2">
-              ≈ {formatTokens(adjustEur * 100, 1).replace(/\.0$/, "")} tokens
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={adjBusy || adjustEur <= 0}
-              onClick={() => handleAdminAdjust(Math.round(adjustEur * 100))}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 hover:bg-emerald-500/25 transition disabled:opacity-50"
-            >
-              + Créditer
-            </button>
-            <button
-              type="button"
-              disabled={adjBusy || adjustEur <= 0}
-              onClick={() => handleAdminAdjust(-Math.round(adjustEur * 100))}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-red-500/15 border border-red-400/30 text-red-200 hover:bg-red-500/25 transition disabled:opacity-50"
-            >
-              − Débiter
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* History — collapsible */}
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02]">

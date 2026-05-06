@@ -17,7 +17,8 @@ export type LedgerReason =
   | "admin_adjust"     // Manual debug adjustment (dev only)
   | "welcome_free"     // Welcome credit on Free signup (1 image)
   | "welcome_solo"     // Welcome credit on first Solo subscription (3 images)
-  | "welcome_pro";     // Welcome credit on first Pro subscription (3 images)
+  | "welcome_pro"      // Welcome credit on first Pro subscription (3 images)
+  | "variation_ia_launch"; // One-time bonus to existing users at AI Variation launch
 
 export type LedgerEntry = {
   id: string;

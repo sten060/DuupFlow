@@ -15,7 +15,7 @@ import { MIN_TOPUP_CENTS, TOPUP_PACKS, formatTokens, formatEur } from "@/lib/tok
 
 export const runtime = "nodejs";
 
-const ADMIN_PAGE = "/dashboard/tokens-lab-q8m4w7";
+const ADMIN_PAGE = "/dashboard/tokens";
 
 export async function POST(req: Request) {
   const supabase = await createClient();

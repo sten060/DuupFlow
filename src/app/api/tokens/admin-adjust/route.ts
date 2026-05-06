@@ -1,5 +1,5 @@
 /**
- * POST /api/tokens-lab-q8m4w7/admin-adjust
+ * POST /api/tokens/admin-adjust
  *
  * DEV-ONLY endpoint to manually credit / debit tokens for testing the system
  * without going through Stripe. Hard-blocked in production (404).

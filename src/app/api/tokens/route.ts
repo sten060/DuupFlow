@@ -1,5 +1,5 @@
 /**
- * GET /api/tokens-lab-q8m4w7
+ * GET /api/tokens
  *
  * Returns the authenticated user's AI balance + last ledger entries.
  * Used by the secret admin page to render its dashboard.

@@ -178,6 +178,17 @@ export default function Sidebar() {
         </Link>
 
         <Link
+          href="/dashboard/tokens"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/35 hover:text-white/65 hover:bg-white/[0.04] transition-all w-full mb-1"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v10M9 9h4.5a2 2 0 0 1 0 4H9M9 13h5a2 2 0 0 1 0 4H9" />
+          </svg>
+          <span>{t("dashboard.sidebar.mesTokens")}</span>
+        </Link>
+
+        <Link
           href="/dashboard/support"
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/35 hover:text-white/65 hover:bg-white/[0.04] transition-all w-full mb-1"
         >
