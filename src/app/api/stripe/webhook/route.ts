@@ -58,7 +58,7 @@ async function markUserChurned(userId: string) {
     .from("profiles")
     .update({
       has_paid: false,
-      plan: null,
+      plan: "free",
       stripe_subscription_id: null,
       email_sequence: "churned",
       email_sequence_updated_at: new Date().toISOString(),

@@ -9,6 +9,25 @@ import { useTranslation } from "@/lib/i18n/context";
 
 const MAX_FILES = 50;
 
+// HEIC (iPhone) detection — by extension OR MIME, since some browsers
+// (Safari, Firefox on Windows) don't set the MIME type for HEIC files.
+const HEIC_RE = /\.(heic|heif)$/i;
+function isHeic(file: File): boolean {
+  return HEIC_RE.test(file.name) || file.type === "image/heic" || file.type === "image/heif";
+}
+
+// Convert a HEIC/HEIF file to JPEG client-side via WASM.
+// Server-side sharp can't decode HEIC without a libheif+libde265 system
+// install — converting in the browser keeps the server simple.
+// `heic2any` is lazy-loaded so non-HEIC users never download the WASM bundle.
+async function convertHeicToJpeg(file: File): Promise<File> {
+  const { default: heic2any } = await import("heic2any");
+  const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+  const blob = Array.isArray(out) ? out[0] : out;
+  const newName = file.name.replace(HEIC_RE, "") + ".jpg";
+  return new File([blob as Blob], newName, { type: "image/jpeg" });
+}
+
 // Compress image client-side before upload: PNG/large → JPEG ≤3000px.
 // Reduces a 15MB PNG to ~300KB — 50× smaller upload, instant processing.
 function compressForUpload(file: File): Promise<File> {
@@ -59,6 +78,8 @@ export default function ImageFormClient({ initialImages }: Props) {
   const [progressLabel, setProgressLabel] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  // Number of HEIC files currently being converted — shows a status bar in the dropzone.
+  const [convertingCount, setConvertingCount] = useState(0);
 
   // Persisted download list: initialized from server files, grows as new jobs complete.
   // Survives job cleanup and page navigation (server re-populates via initialImages).
@@ -116,23 +137,51 @@ export default function ImageFormClient({ initialImages }: Props) {
   const abortRef = useRef<AbortController | null>(null);
 
 
+  // Shared ingest: keep only images (by MIME OR by HEIC/HEIF extension), then
+  // convert any HEIC → JPEG in parallel before adding to state. This way the
+  // preview <img> renders the converted JPEG (browsers can't decode HEIC) and
+  // the server only ever receives formats sharp can handle.
+  const ingestFiles = useCallback(async (incoming: File[]) => {
+    const accepted = incoming.filter((f) => f.type.startsWith("image/") || HEIC_RE.test(f.name));
+    if (!accepted.length) return;
+
+    const heics = accepted.filter(isHeic);
+    if (heics.length === 0) {
+      setFiles((prev) => [...prev, ...accepted].slice(0, MAX_FILES));
+      return;
+    }
+
+    setConvertingCount((n) => n + heics.length);
+    try {
+      const converted = await Promise.all(
+        accepted.map(async (f) => {
+          if (!isHeic(f)) return f;
+          try {
+            return await convertHeicToJpeg(f);
+          } catch (err) {
+            console.error("[heic] conversion failed for", f.name, err);
+            return null; // drop on conversion error
+          }
+        }),
+      );
+      const usable = converted.filter((f): f is File => f !== null);
+      setFiles((prev) => [...prev, ...usable].slice(0, MAX_FILES));
+    } finally {
+      setConvertingCount((n) => Math.max(0, n - heics.length));
+    }
+  }, []);
+
   const onPick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files || []);
-    if (!picked.length) return;
-    setFiles((prev) =>
-      [...prev, ...picked].filter((f) => f.type.startsWith("image/")).slice(0, MAX_FILES)
-    );
     e.target.value = "";
-  }, []);
+    if (picked.length) void ingestFiles(picked);
+  }, [ingestFiles]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const dropped = Array.from(e.dataTransfer.files || []);
-    if (!dropped.length) return;
-    setFiles((prev) =>
-      [...prev, ...dropped].filter((f) => f.type.startsWith("image/")).slice(0, MAX_FILES)
-    );
-  }, []);
+    if (dropped.length) void ingestFiles(dropped);
+  }, [ingestFiles]);
 
   const removeAt = useCallback((idx: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== idx));
@@ -337,11 +386,18 @@ export default function ImageFormClient({ initialImages }: Props) {
             ref={inputRef}
             type="file"
             name="files"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             multiple
             className="hidden"
             onChange={onPick}
           />
+
+          {convertingCount > 0 && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-fuchsia-300/80">
+              <span className="inline-block h-3 w-3 rounded-full border-2 border-fuchsia-400/40 border-t-fuchsia-400 animate-spin" />
+              <span>Conversion HEIC en cours… ({convertingCount} fichier{convertingCount > 1 ? "s" : ""})</span>
+            </div>
+          )}
 
           {files.length > 0 && (
             <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -429,10 +485,10 @@ export default function ImageFormClient({ initialImages }: Props) {
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            disabled={processing || files.length === 0}
+            disabled={processing || files.length === 0 || convertingCount > 0}
             className={[
               "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
-              processing || files.length === 0
+              processing || files.length === 0 || convertingCount > 0
                 ? "bg-white/10 text-white/50 cursor-not-allowed"
                 : "bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white hover:shadow-[0_4px_20px_rgba(192,38,211,.35)]",
             ].join(" ")}
