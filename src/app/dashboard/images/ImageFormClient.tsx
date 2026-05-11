@@ -11,27 +11,23 @@ const MAX_FILES = 50;
 
 // HEIC (iPhone) detection — by extension OR MIME, since some browsers
 // (Safari, Firefox on Windows) don't set the MIME type for HEIC files.
+// HEIC files are uploaded raw and converted server-side to preserve
+// color profile (Display P3) and HDR tone-mapping accuracy. Converting
+// in the browser via heic2any drops the ICC profile and lifts highlights.
 const HEIC_RE = /\.(heic|heif)$/i;
 function isHeic(file: File): boolean {
   return HEIC_RE.test(file.name) || file.type === "image/heic" || file.type === "image/heif";
 }
 
-// Convert a HEIC/HEIF file to JPEG client-side via WASM.
-// Server-side sharp can't decode HEIC without a libheif+libde265 system
-// install — converting in the browser keeps the server simple.
-// `heic2any` is lazy-loaded so non-HEIC users never download the WASM bundle.
-async function convertHeicToJpeg(file: File): Promise<File> {
-  const { default: heic2any } = await import("heic2any");
-  const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
-  const blob = Array.isArray(out) ? out[0] : out;
-  const newName = file.name.replace(HEIC_RE, "") + ".jpg";
-  return new File([blob as Blob], newName, { type: "image/jpeg" });
-}
-
 // Compress image client-side before upload: PNG/large → JPEG ≤3000px.
 // Reduces a 15MB PNG to ~300KB — 50× smaller upload, instant processing.
+// HEIC files are excluded because the browser cannot decode them in a
+// <canvas> (Safari can, but Chrome/Firefox cannot) — they go raw to the
+// server which converts via heic-convert.
 function compressForUpload(file: File): Promise<File> {
   const MAX_DIM = 3000;
+  // HEIC: skip — canvas cannot decode them in Chrome/Firefox.
+  if (isHeic(file)) return Promise.resolve(file);
   const isPng = file.type === "image/png" || file.name.toLowerCase().endsWith(".png");
   const isLarge = file.size > 1.5 * 1024 * 1024; // >1.5 MB
   if (!isPng && !isLarge) return Promise.resolve(file);
@@ -78,8 +74,6 @@ export default function ImageFormClient({ initialImages }: Props) {
   const [progressLabel, setProgressLabel] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
-  // Number of HEIC files currently being converted — shows a status bar in the dropzone.
-  const [convertingCount, setConvertingCount] = useState(0);
 
   // Persisted download list: initialized from server files, grows as new jobs complete.
   // Survives job cleanup and page navigation (server re-populates via initialImages).
@@ -137,50 +131,26 @@ export default function ImageFormClient({ initialImages }: Props) {
   const abortRef = useRef<AbortController | null>(null);
 
 
-  // Shared ingest: keep only images (by MIME OR by HEIC/HEIF extension), then
-  // convert any HEIC → JPEG in parallel before adding to state. This way the
-  // preview <img> renders the converted JPEG (browsers can't decode HEIC) and
-  // the server only ever receives formats sharp can handle.
-  const ingestFiles = useCallback(async (incoming: File[]) => {
+  // Shared ingest: keep only images (by MIME OR by HEIC/HEIF extension).
+  // HEIC files are added as-is — the server converts them on upload so the
+  // ICC profile + HDR tone-map are preserved (heic2any in the browser would
+  // wash them out).
+  const ingestFiles = useCallback((incoming: File[]) => {
     const accepted = incoming.filter((f) => f.type.startsWith("image/") || HEIC_RE.test(f.name));
     if (!accepted.length) return;
-
-    const heics = accepted.filter(isHeic);
-    if (heics.length === 0) {
-      setFiles((prev) => [...prev, ...accepted].slice(0, MAX_FILES));
-      return;
-    }
-
-    setConvertingCount((n) => n + heics.length);
-    try {
-      const converted = await Promise.all(
-        accepted.map(async (f) => {
-          if (!isHeic(f)) return f;
-          try {
-            return await convertHeicToJpeg(f);
-          } catch (err) {
-            console.error("[heic] conversion failed for", f.name, err);
-            return null; // drop on conversion error
-          }
-        }),
-      );
-      const usable = converted.filter((f): f is File => f !== null);
-      setFiles((prev) => [...prev, ...usable].slice(0, MAX_FILES));
-    } finally {
-      setConvertingCount((n) => Math.max(0, n - heics.length));
-    }
+    setFiles((prev) => [...prev, ...accepted].slice(0, MAX_FILES));
   }, []);
 
   const onPick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files || []);
     e.target.value = "";
-    if (picked.length) void ingestFiles(picked);
+    if (picked.length) ingestFiles(picked);
   }, [ingestFiles]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const dropped = Array.from(e.dataTransfer.files || []);
-    if (dropped.length) void ingestFiles(dropped);
+    if (dropped.length) ingestFiles(dropped);
   }, [ingestFiles]);
 
   const removeAt = useCallback((idx: number) => {
@@ -208,7 +178,9 @@ export default function ImageFormClient({ initialImages }: Props) {
     const iphoneMeta = formData.get("iphoneMeta") === "1";
     const country = (formData.get("country") as string) || "";
 
-    const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+    // Accept image/* MIME or HEIC/HEIF extension (some browsers don't set
+    // image/heic correctly — Safari/Firefox-Windows may return empty type).
+    const imageFiles = files.filter((f) => f.type.startsWith("image/") || HEIC_RE.test(f.name));
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -224,8 +196,11 @@ export default function ImageFormClient({ initialImages }: Props) {
 
     try {
       // ── 1. Compress + upload all images in parallel ──────────────────────
+      //    The server returns the *resolved* filename — HEIC files come back
+      //    renamed to .jpg after server-side conversion. We thread that name
+      //    into the SSE step so sharp gets the right extension hint.
       let completedUploads = 0;
-      const directUploadIds = await Promise.all(
+      const uploads = await Promise.all(
         imageFiles.map(async (file) => {
           const compressed = await compressForUpload(file);
           const uploadRes = await fetch(
@@ -236,13 +211,15 @@ export default function ImageFormClient({ initialImages }: Props) {
             const j = await uploadRes.json().catch(() => ({}));
             throw new Error(j?.error || `[CLT-006] Erreur upload HTTP ${uploadRes.status}`);
           }
-          const { uploadId } = await uploadRes.json();
+          const { uploadId, name } = await uploadRes.json();
           completedUploads++;
           setProgressLabel(t("dashboard.images.uploadProgress", { done: String(completedUploads), total: String(imageFiles.length) }));
           setProgress(Math.round((completedUploads / imageFiles.length) * 20));
-          return uploadId as string;
+          return { uploadId: uploadId as string, name: (name as string) ?? compressed.name };
         })
       );
+      const directUploadIds = uploads.map((u) => u.uploadId);
+      const resolvedNames   = uploads.map((u) => u.name);
 
       // ── 2. POST to SSE route ─────────────────────────────────────────────
       setProgress(20);
@@ -258,7 +235,9 @@ export default function ImageFormClient({ initialImages }: Props) {
       if (iphoneMeta)   apiForm.append("iphoneMeta", "1");
       if (country)      apiForm.append("country", country);
       for (const id of directUploadIds) apiForm.append("directUploadIds", id);
-      for (const f of imageFiles)       apiForm.append("fileNames", f.name);
+      // Use the server-resolved name (HEIC was renamed to .jpg) so the SSE
+      // route reads the correct extension when feeding sharp.
+      for (const name of resolvedNames)  apiForm.append("fileNames", name);
 
       const res = await fetch("/api/duplicate-image-sse", {
         method: "POST",
@@ -392,17 +371,13 @@ export default function ImageFormClient({ initialImages }: Props) {
             onChange={onPick}
           />
 
-          {convertingCount > 0 && (
-            <div className="mt-3 flex items-center gap-2 text-xs text-fuchsia-300/80">
-              <span className="inline-block h-3 w-3 rounded-full border-2 border-fuchsia-400/40 border-t-fuchsia-400 animate-spin" />
-              <span>Conversion HEIC en cours… ({convertingCount} fichier{convertingCount > 1 ? "s" : ""})</span>
-            </div>
-          )}
-
           {files.length > 0 && (
             <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {files.map((f, i) => {
-                const url = URL.createObjectURL(f);
+                const heic = isHeic(f);
+                // HEIC: no <img> preview (Chrome/Firefox can't decode); show a
+                // labeled placeholder. JPG/PNG: thumbnail via object URL.
+                const url = heic ? null : URL.createObjectURL(f);
                 return (
                   <div key={`${f.name}-${i}`} className="relative rounded-lg overflow-hidden border border-white/10 bg-white/5">
                     <button
@@ -410,19 +385,26 @@ export default function ImageFormClient({ initialImages }: Props) {
                       onClick={(e) => {
                         e.stopPropagation();
                         removeAt(i);
-                        URL.revokeObjectURL(url);
+                        if (url) URL.revokeObjectURL(url);
                       }}
                       className="absolute top-1 right-1 z-10 inline-flex items-center justify-center h-6 w-6 rounded-full bg-black/60 text-white hover:bg-black/80"
                       aria-label="Supprimer"
                     >
                       ×
                     </button>
-                    <img
-                      src={url}
-                      alt={f.name}
-                      className="aspect-video w-full object-cover"
-                      onLoad={() => URL.revokeObjectURL(url)}
-                    />
+                    {heic ? (
+                      <div className="aspect-video w-full flex flex-col items-center justify-center gap-1 bg-fuchsia-500/5 text-fuchsia-300/70">
+                        <span className="text-[10px] uppercase tracking-wider font-semibold">HEIC</span>
+                        <span className="text-[10px] text-white/40">converti à l'envoi</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={url!}
+                        alt={f.name}
+                        className="aspect-video w-full object-cover"
+                        onLoad={() => url && URL.revokeObjectURL(url)}
+                      />
+                    )}
                     <div className="px-2 py-1 text-[11px] text-white/80 truncate">{f.name}</div>
                   </div>
                 );
@@ -485,10 +467,10 @@ export default function ImageFormClient({ initialImages }: Props) {
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            disabled={processing || files.length === 0 || convertingCount > 0}
+            disabled={processing || files.length === 0}
             className={[
               "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
-              processing || files.length === 0 || convertingCount > 0
+              processing || files.length === 0
                 ? "bg-white/10 text-white/50 cursor-not-allowed"
                 : "bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white hover:shadow-[0_4px_20px_rgba(192,38,211,.35)]",
             ].join(" ")}
