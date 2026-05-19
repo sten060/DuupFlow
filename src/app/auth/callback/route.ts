@@ -41,7 +41,35 @@ export async function GET(request: Request) {
           // No profile yet → check for pending invitation (by URL token or by email)
           const adminClient = createAdminClient();
 
-          // Vérifie d'abord si l'utilisateur est un affilié → pas d'onboarding classique
+          // ── 1) Invitation team check FIRST ──────────────────────────────
+          // A pending invitation is an explicit, host-driven action — it
+          // takes priority over a passive affiliate row. Otherwise users
+          // who happen to be both (e.g. a creator we onboarded as affiliate
+          // who later got invited as a guest by one of our customers) get
+          // stuck in /login?error=compte_affilie and never see the invite.
+          let resolvedToken = inviteToken ?? null;
+          if (!resolvedToken && user.email) {
+            const { data: pendingInvite } = await adminClient
+              .from("team_invitations")
+              .select("token")
+              .eq("guest_email", user.email.toLowerCase())
+              .eq("status", "pending")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .single();
+            if (pendingInvite) resolvedToken = pendingInvite.token;
+          }
+
+          if (resolvedToken) {
+            cookieStore.set("invite_token", resolvedToken, {
+              maxAge: 60 * 30,
+              path: "/",
+              httpOnly: true,
+            });
+            return NextResponse.redirect(`${origin}/onboarding?type=guest`);
+          }
+
+          // ── 2) Affiliate check (only if no pending invitation) ──────────
           if (user.email) {
             const { data: affiliate } = await adminClient
               .from("affiliates")
@@ -67,28 +95,6 @@ export async function GET(request: Request) {
             }
           }
 
-          // Resolve invite token: from URL first, otherwise look up by email
-          let resolvedToken = inviteToken ?? null;
-          if (!resolvedToken && user.email) {
-            const { data: pendingInvite } = await adminClient
-              .from("team_invitations")
-              .select("token")
-              .eq("guest_email", user.email.toLowerCase())
-              .eq("status", "pending")
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .single();
-            if (pendingInvite) resolvedToken = pendingInvite.token;
-          }
-
-          if (resolvedToken) {
-            cookieStore.set("invite_token", resolvedToken, {
-              maxAge: 60 * 30,
-              path: "/",
-              httpOnly: true,
-            });
-            return NextResponse.redirect(`${origin}/onboarding?type=guest`);
-          }
           return NextResponse.redirect(`${origin}/onboarding`);
         }
 
