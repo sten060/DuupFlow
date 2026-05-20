@@ -59,12 +59,17 @@ export function LanguageProvider({ children, initialLocale }: LanguageProviderPr
 
   useEffect(() => {
     if (urlDriven) {
-      // URL is the source of truth — also mirror to localStorage so the
-      // dashboard (storage-driven) picks up the visitor's preferred language.
+      // URL is the source of truth — mirror to localStorage so the dashboard
+      // (storage-driven) shows the same language after sign-in.
+      //
+      // IMPORTANT: we do NOT write the cookie here. The cookie is reserved
+      // for an *explicit* user choice (LanguageSwitch toggle). If we wrote
+      // it on every URL visit, a French visitor accidentally landing on /en
+      // would get locked there forever — even if our geo-detect later starts
+      // resolving to FR correctly.
       try {
         localStorage.setItem("duupflow_lang", initialLocale!);
       } catch {}
-      writeLangCookie(initialLocale!);
       document.documentElement.lang = initialLocale!;
       setMounted(true);
       return;
