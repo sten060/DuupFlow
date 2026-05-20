@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import Header from "@/components/Header";
 import { useTranslation } from "@/lib/i18n/context";
 

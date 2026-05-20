@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useTranslation } from "@/lib/i18n/context";
@@ -1146,7 +1146,7 @@ function AvantagesCarousel() {
           <div className="text-center mt-16">
             <p className="text-white/60 text-lg mb-6">{t("avantages.ctaText")}</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/fonctionnalites"
+              <Link href="/features"
                 className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm">
                 {t("avantages.ctaFeatures")}
               </Link>
@@ -1302,7 +1302,7 @@ function Footer() {
           <Link href="/legal" className="hover:text-white/60 transition">{t("footer.mentionsLegales")}</Link>
           <Link href="/legal/terms" className="hover:text-white/60 transition">{t("footer.cgu")}</Link>
           <Link href="/legal/privacy" className="hover:text-white/60 transition">{t("footer.confidentialite")}</Link>
-          <Link href="/partenaire" className="hover:text-white/60 transition">{t("footer.partenaire")}</Link>
+          <Link href="/partners" className="hover:text-white/60 transition">{t("footer.partenaire")}</Link>
           <a href="mailto:hello@duupflow.com" className="hover:text-white/60 transition">{t("footer.contact")}</a>
         </div>
         <div className="mt-4 flex justify-center">

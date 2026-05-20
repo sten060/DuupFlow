@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
 
 function GoogleIcon() {

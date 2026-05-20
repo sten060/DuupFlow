@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import LanguageSwitch from "@/components/LanguageSwitch";
 import { useTranslation } from "@/lib/i18n/context";
+import { useLocalizedHref } from "@/lib/i18n/href";
 
 function NavLink({ href, label, onClick }: { href: string; label: string; onClick?: () => void }) {
   const pathname = usePathname();
@@ -30,6 +31,7 @@ function NavLink({ href, label, onClick }: { href: string; label: string; onClic
 
 export default function Header() {
   const { t } = useTranslation();
+  const lh = useLocalizedHref();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -41,15 +43,15 @@ export default function Header() {
           style={{ maxWidth: "1280px", margin: "0 auto" }}
         >
           {/* Logo */}
-          <Link href="/" className="shrink-0 flex items-center gap-2">
+          <Link href={lh("/")} className="shrink-0 flex items-center gap-2">
             <Image src="/icon.png" alt="DuupFlow" width={160} height={50} className="h-8 sm:h-11 w-auto" />
           </Link>
 
           {/* Nav — desktop only */}
           <nav className="hidden md:flex items-center gap-3">
-            <NavLink href="/fonctionnalites" label={t("nav.fonctionnalites")} />
-            <NavLink href="/tarifs" label={t("nav.tarifs")} />
-            <NavLink href="/#features" label={t("nav.avantages")} />
+            <NavLink href={lh("/features")} label={t("nav.fonctionnalites")} />
+            <NavLink href={lh("/pricing")} label={t("nav.tarifs")} />
+            <NavLink href={lh("/#features")} label={t("nav.avantages")} />
             <NavLink href="https://www.duupflow.com/#faq" label={t("nav.faq")} />
           </nav>
 
@@ -57,7 +59,7 @@ export default function Header() {
             <LanguageSwitch />
             {/* CTA — desktop */}
             <Link
-              href="/register"
+              href={lh("/register")}
               className="btn-glow hidden sm:inline-flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold text-white"
             >
               {t("nav.commencer")}
@@ -93,15 +95,15 @@ export default function Header() {
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
         <nav className="flex flex-col gap-1">
-          <NavLink href="/fonctionnalites" label={t("nav.fonctionnalites")} onClick={() => setMenuOpen(false)} />
-          <NavLink href="/tarifs" label={t("nav.tarifs")} onClick={() => setMenuOpen(false)} />
-          <NavLink href="/#features" label={t("nav.avantages")} onClick={() => setMenuOpen(false)} />
-          <NavLink href="/demo" label={t("nav.demo")} onClick={() => setMenuOpen(false)} />
+          <NavLink href={lh("/features")} label={t("nav.fonctionnalites")} onClick={() => setMenuOpen(false)} />
+          <NavLink href={lh("/pricing")} label={t("nav.tarifs")} onClick={() => setMenuOpen(false)} />
+          <NavLink href={lh("/#features")} label={t("nav.avantages")} onClick={() => setMenuOpen(false)} />
+          <NavLink href={lh("/demo")} label={t("nav.demo")} onClick={() => setMenuOpen(false)} />
           <NavLink href="https://www.duupflow.com/#faq" label={t("nav.faq")} onClick={() => setMenuOpen(false)} />
         </nav>
         <div className="mt-auto pt-6">
           <Link
-            href="/register"
+            href={lh("/register")}
             onClick={() => setMenuOpen(false)}
             className="btn-glow block text-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
           >

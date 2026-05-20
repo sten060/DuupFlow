@@ -62,11 +62,19 @@ function AffiliateRefTracker() {
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isDashboard = pathname.startsWith("/dashboard");
-  const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
+  // Normalize a locale-prefixed pathname so the existing flags keep working.
+  // "/fr/login" → "/login", "/en" → "/", "/dashboard/x" → "/dashboard/x"
+  const stripLocale = (p: string): string => {
+    const m = p.match(/^\/(fr|en)(\/.*)?$/);
+    return m ? (m[2] ?? "/") : p;
+  };
+  const normalized = stripLocale(pathname);
+
+  const isDashboard = normalized.startsWith("/dashboard");
+  const isAuthPage = normalized.startsWith("/login") || normalized.startsWith("/register");
   const isAffiliatePage = pathname.startsWith("/affiliate") || pathname.startsWith("/admin");
   const showHeader = !isDashboard && !isAuthPage && !isAffiliatePage;
-  const isLanding = pathname === "/";
+  const isLanding = normalized === "/";
 
   return (
     <LanguageProvider>

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
 
 const LAST_UPDATED = "19 mars 2026";
