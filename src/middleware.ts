@@ -1,7 +1,125 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// ────────────────────────────────────────────────────────────────────────
+// i18n routing
+// ────────────────────────────────────────────────────────────────────────
+const LOCALES = ["fr", "en"] as const;
+type Locale = (typeof LOCALES)[number];
+
+/** Top-level public/auth paths that must be wrapped in a locale prefix. */
+const LOCALIZED_TOP_LEVEL = new Set([
+  "",            // homepage "/"
+  "features",
+  "how-it-works",
+  "pricing",
+  "benefits",
+  "partners",
+  "demo",
+  "legal",
+  "login",
+  "register",
+  "onboarding",
+]);
+
+/** Legacy URLs → forced locale + new slug. Used for SEO-stable 301 redirects. */
+const LEGACY_REDIRECTS: Record<string, { locale: Locale; slug: string }> = {
+  "/fonctionnalites":     { locale: "fr", slug: "/features" },
+  "/product":             { locale: "en", slug: "/features" },
+  "/comment-ca-marche":   { locale: "fr", slug: "/how-it-works" },
+  "/tarifs":              { locale: "fr", slug: "/pricing" },
+  "/avantages":           { locale: "fr", slug: "/benefits" },
+  "/partenaire":          { locale: "fr", slug: "/partners" },
+};
+
+const LANG_COOKIE = "duupflow_lang";
+
+function pickLocale(req: NextRequest): Locale {
+  // 1) Explicit user override via cookie (set by LanguageSwitch or first visit)
+  const cookieLocale = req.cookies.get(LANG_COOKIE)?.value;
+  if (cookieLocale === "fr" || cookieLocale === "en") return cookieLocale;
+
+  // 2) Geo header — works on Vercel and Railway behind Cloudflare.
+  //    Default rule per product owner: only France gets FR auto, all else EN.
+  const country =
+    req.headers.get("x-vercel-ip-country") ??
+    req.headers.get("cf-ipcountry") ??
+    req.headers.get("x-country-code") ??
+    "";
+  if (country.toUpperCase() === "FR") return "fr";
+
+  return "en";
+}
+
+function topLevelSegment(pathname: string): string {
+  if (pathname === "/" || pathname === "") return "";
+  const trimmed = pathname.startsWith("/") ? pathname.slice(1) : pathname;
+  const slash = trimmed.indexOf("/");
+  return slash === -1 ? trimmed : trimmed.slice(0, slash);
+}
+
+/** Strip /fr or /en prefix; "/fr/login" → "/login", "/dashboard" → "/dashboard". */
+function stripLocale(p: string): string {
+  const m = p.match(/^\/(fr|en)(\/.*)?$/);
+  return m ? (m[2] ?? "/") : p;
+}
+
+function localePrefix(p: string): string {
+  const m = p.match(/^\/(fr|en)(?:\/.*)?$/);
+  return m ? `/${m[1]}` : "";
+}
+
+function handleI18nRouting(request: NextRequest): NextResponse | null {
+  const { pathname, search } = request.nextUrl;
+
+  // 1) Hardcoded legacy URL redirects (preserve SEO intent for old paths)
+  if (LEGACY_REDIRECTS[pathname]) {
+    const { locale, slug } = LEGACY_REDIRECTS[pathname];
+    const url = request.nextUrl.clone();
+    url.pathname = `/${locale}${slug}`;
+    return NextResponse.redirect(url, 301);
+  }
+
+  // 2) Already locale-prefixed → let it through
+  const first = topLevelSegment(pathname);
+  if (first === "fr" || first === "en") return null;
+
+  // 3) Top-level path that should be localized → redirect to picked locale
+  if (LOCALIZED_TOP_LEVEL.has(first)) {
+    const locale = pickLocale(request);
+    const url = request.nextUrl.clone();
+    url.pathname = pathname === "/" ? `/${locale}` : `/${locale}${pathname}`;
+    url.search = search;
+    return NextResponse.redirect(url);
+  }
+
+  return null;
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Existing auth gating (only runs on routes that touch auth state)
+// ────────────────────────────────────────────────────────────────────────
+const AUTH_GATED_PREFIXES = ["/dashboard", "/admin", "/affiliate", "/affiliate-login", "/checkout"];
+
+function needsAuthCheck(pathname: string): boolean {
+  if (AUTH_GATED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
+  // /{locale}/login also needs the "redirect if already authed" check
+  const normalized = stripLocale(pathname);
+  return normalized === "/login";
+}
+
 export async function middleware(request: NextRequest) {
+  // ── i18n first — if a redirect is returned we short-circuit
+  const i18nRedirect = handleI18nRouting(request);
+  if (i18nRedirect) return i18nRedirect;
+
+  const { pathname } = request.nextUrl;
+
+  // Public landing/auth pages don't need a Supabase call
+  if (!needsAuthCheck(pathname)) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -30,12 +148,14 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  const normalized = stripLocale(pathname);
+  const prefix = localePrefix(pathname);
 
-  // Redirige vers /login si non authentifié sur les routes protégées
+  // Redirige vers /{locale}/login si non authentifié sur les routes protégées
   if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin"))) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    const locale = pickLocale(request);
+    url.pathname = `/${locale}/login`;
     return NextResponse.redirect(url);
   }
 
@@ -53,30 +173,25 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirige si déjà connecté et tente d'accéder à /login
-  if (user && pathname === "/login") {
+  // Redirige si déjà connecté et tente d'accéder à /{locale}/login
+  if (user && normalized === "/login") {
     const { data: profile } = await supabase
       .from("profiles")
       .select("has_paid, is_guest, plan")
       .eq("id", user.id)
       .single();
-    // Pas de profil du tout → compte affilié uniquement, pas de compte classique
     if (!profile) {
       const url = request.nextUrl.clone();
-      url.pathname = "/login";
+      url.pathname = `${prefix}/login`;
       url.searchParams.set("error", "compte_affilie");
       return NextResponse.redirect(url);
     }
-    // Tout user ayant un profil DuupFlow accède au dashboard (Free, Solo, Pro, Guest)
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
   // ── Garde dashboard : laisse passer tout user ayant un profil ──
-  // Free, Solo, Pro, Guest → tous OK. Pas de paywall.
-  // Les limites par plan sont enforce'd côté API (src/lib/usage.ts) et
-  // dans le coût des tokens IA (src/lib/tokens.ts).
   if (user && pathname.startsWith("/dashboard")) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -84,10 +199,10 @@ export async function middleware(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    // Pas de profil du tout → compte affilié uniquement, pas de compte classique
     if (!profile) {
+      const locale = pickLocale(request);
       const url = request.nextUrl.clone();
-      url.pathname = "/login";
+      url.pathname = `/${locale}/login`;
       url.searchParams.set("error", "compte_affilie");
       return NextResponse.redirect(url);
     }
@@ -97,5 +212,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/affiliate/:path*", "/admin/:path*", "/login", "/affiliate-login", "/checkout/:path*"],
+  // Match all non-asset pages so we can catch legacy URLs + locale prefixes.
+  // The middleware short-circuits early for public pages so the Supabase
+  // round-trip only happens on auth-gated routes.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|og-image.png|robots.txt|sitemap.xml|api/|auth/|out/).*)",
+  ],
 };

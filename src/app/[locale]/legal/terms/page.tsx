@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
 
 const LAST_UPDATED = "19 mars 2026";
@@ -86,7 +86,7 @@ export default function TermsPage() {
             </ul>
             <p>
               Les tarifs en vigueur sont affichés sur la page{" "}
-              <Link href="/tarifs" className="text-indigo-400 hover:text-indigo-300">/tarifs</Link>.
+              <Link href="/pricing" className="text-indigo-400 hover:text-indigo-300">/tarifs</Link>.
               Toute modification tarifaire vous sera notifiée au moins 30 jours à l&apos;avance.
             </p>
           </Section>

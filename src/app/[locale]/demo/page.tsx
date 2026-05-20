@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
@@ -238,7 +238,7 @@ export default function DemoPage() {
               {t("demo.ctaPrimary")}
             </Link>
             <Link
-              href="/tarifs"
+              href="/pricing"
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-8 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition"
             >
               {t("demo.ctaSecondary")}
