@@ -195,29 +195,34 @@ export default function ImageFormClient({ initialImages }: Props) {
     setProgressLabel(t("dashboard.images.compressing", { count: String(imageFiles.length) }));
 
     try {
-      // ── 1. Compress + upload all images in parallel ──────────────────────
+      // ── 1. Compress + upload all images SEQUENTIALLY ─────────────────────
+      //    Was Promise.all (parallel). The /api/upload-direct route buffers
+      //    each body in RAM via req.arrayBuffer(); uploading N files in
+      //    parallel held N × size in memory and OOM-crashed the Railway
+      //    worker → 502 for the user. Sequential bounds peak RAM to a
+      //    single file's size.
+      //
       //    The server returns the *resolved* filename — HEIC files come back
       //    renamed to .jpg after server-side conversion. We thread that name
       //    into the SSE step so sharp gets the right extension hint.
+      const uploads: { uploadId: string; name: string }[] = [];
       let completedUploads = 0;
-      const uploads = await Promise.all(
-        imageFiles.map(async (file) => {
-          const compressed = await compressForUpload(file);
-          const uploadRes = await fetch(
-            `/api/upload-direct?fileName=${encodeURIComponent(compressed.name)}`,
-            { method: "POST", body: compressed, signal: ctrl.signal },
-          );
-          if (!uploadRes.ok) {
-            const j = await uploadRes.json().catch(() => ({}));
-            throw new Error(j?.error || `[CLT-006] Erreur upload HTTP ${uploadRes.status}`);
-          }
-          const { uploadId, name } = await uploadRes.json();
-          completedUploads++;
-          setProgressLabel(t("dashboard.images.uploadProgress", { done: String(completedUploads), total: String(imageFiles.length) }));
-          setProgress(Math.round((completedUploads / imageFiles.length) * 20));
-          return { uploadId: uploadId as string, name: (name as string) ?? compressed.name };
-        })
-      );
+      for (const file of imageFiles) {
+        const compressed = await compressForUpload(file);
+        const uploadRes = await fetch(
+          `/api/upload-direct?fileName=${encodeURIComponent(compressed.name)}`,
+          { method: "POST", body: compressed, signal: ctrl.signal },
+        );
+        if (!uploadRes.ok) {
+          const j = await uploadRes.json().catch(() => ({}));
+          throw new Error(j?.error || `[CLT-006] Erreur upload HTTP ${uploadRes.status}`);
+        }
+        const { uploadId, name } = await uploadRes.json();
+        completedUploads++;
+        setProgressLabel(t("dashboard.images.uploadProgress", { done: String(completedUploads), total: String(imageFiles.length) }));
+        setProgress(Math.round((completedUploads / imageFiles.length) * 20));
+        uploads.push({ uploadId: uploadId as string, name: (name as string) ?? compressed.name });
+      }
       const directUploadIds = uploads.map((u) => u.uploadId);
       const resolvedNames   = uploads.map((u) => u.name);
 

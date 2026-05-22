@@ -35,11 +35,12 @@ const LEGACY_REDIRECTS: Record<string, { locale: Locale; slug: string }> = {
 const LANG_COOKIE = "duupflow_lang";
 
 function pickLocale(req: NextRequest): Locale {
-  // 1) Explicit user override via cookie (set by LanguageSwitch or first visit)
+  // 1) Explicit user override via cookie (only written by the LanguageSwitch
+  //    toggle, never auto-set — so its presence reflects a real user choice)
   const cookieLocale = req.cookies.get(LANG_COOKIE)?.value;
   if (cookieLocale === "fr" || cookieLocale === "en") return cookieLocale;
 
-  // 2) Geo header — works on Vercel and Railway behind Cloudflare.
+  // 2) Country header — works on Vercel and Cloudflare-proxied setups.
   //    Default rule per product owner: only France gets FR auto, all else EN.
   const country =
     req.headers.get("x-vercel-ip-country") ??
@@ -47,6 +48,12 @@ function pickLocale(req: NextRequest): Locale {
     req.headers.get("x-country-code") ??
     "";
   if (country.toUpperCase() === "FR") return "fr";
+
+  // 3) Fallback — Accept-Language. Railway-edge (current host) doesn't expose
+  //    a country header, so we use the browser's preferred-language list. Any
+  //    "fr" or "fr-*" tag (in any quality position) → FR.
+  const accept = req.headers.get("accept-language") ?? "";
+  if (/(^|,|\s)fr(-[A-Z]{2})?\b/i.test(accept)) return "fr";
 
   return "en";
 }

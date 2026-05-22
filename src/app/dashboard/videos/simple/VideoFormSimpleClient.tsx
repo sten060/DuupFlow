@@ -255,36 +255,38 @@ export default function VideoFormSimpleClient() {
         setProgressMsg(`Envoi vidéo 1/${uploadedFiles.length}…`);
         setProgress(0);
 
-        // Parallel uploads + duration checks (all files simultaneously)
+        // SEQUENTIAL uploads — see VideoFormAdvancedClient for the rationale.
+        // Was Promise.all; the /api/upload-direct route buffers each body in
+        // RAM via req.arrayBuffer(), so parallel uploads OOM the Railway worker
+        // and all in-flight requests return 502.
         setProgressMsg(`Envoi de ${uploadedFiles.length} vidéo(s)…`);
+        const directUploadIds: string[] = [];
         let completedUploads = 0;
-        const directUploadIds = await Promise.all(
-          uploadedFiles.map(async (file) => {
-            // Client-side duration check (50 s max) — no server round-trip needed
-            const duration = await getVideoDuration(file);
-            if (duration > 50) {
-              throw new Error(
-                `La vidéo "${file.name}" dépasse 50 secondes (${Math.round(duration)}s). ` +
-                `Durée maximum autorisée : 50 s. Veuillez rogner la vidéo avant de continuer.`
-              );
-            }
-
-            // Upload directly to Railway server
-            const uploadRes = await fetch(
-              `/api/upload-direct?fileName=${encodeURIComponent(file.name)}`,
-              { method: "POST", body: file, signal: ctrl.signal },
+        for (const file of uploadedFiles) {
+          // Client-side duration check (50 s max) — no server round-trip needed
+          const duration = await getVideoDuration(file);
+          if (duration > 50) {
+            throw new Error(
+              `La vidéo "${file.name}" dépasse 50 secondes (${Math.round(duration)}s). ` +
+              `Durée maximum autorisée : 50 s. Veuillez rogner la vidéo avant de continuer.`
             );
-            if (!uploadRes.ok) {
-              const j = await uploadRes.json().catch(() => ({}));
-              throw new Error(j?.error || `[CLT-006] Erreur upload direct HTTP ${uploadRes.status}`);
-            }
-            const { uploadId } = await uploadRes.json();
-            completedUploads++;
-            setProgressMsg(`${completedUploads}/${uploadedFiles.length} vidéo(s) envoyée(s)…`);
-            setProgress(Math.round((completedUploads / uploadedFiles.length) * 30));
-            return uploadId as string;
-          })
-        );
+          }
+
+          // Upload directly to Railway server
+          const uploadRes = await fetch(
+            `/api/upload-direct?fileName=${encodeURIComponent(file.name)}`,
+            { method: "POST", body: file, signal: ctrl.signal },
+          );
+          if (!uploadRes.ok) {
+            const j = await uploadRes.json().catch(() => ({}));
+            throw new Error(j?.error || `[CLT-006] Erreur upload direct HTTP ${uploadRes.status}`);
+          }
+          const { uploadId } = await uploadRes.json();
+          completedUploads++;
+          setProgressMsg(`${completedUploads}/${uploadedFiles.length} vidéo(s) envoyée(s)…`);
+          setProgress(Math.round((completedUploads / uploadedFiles.length) * 30));
+          directUploadIds.push(uploadId as string);
+        }
 
         setProgress(30);
         setProgressMsg(t("dashboard.videosSimple.sendingToServer"));
