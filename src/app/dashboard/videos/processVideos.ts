@@ -675,7 +675,7 @@ export async function processVideos(
   preResolvedDir?: string,
   preDownloadedFiles?: PreDownloadedFile[],
   onFileReady?: (outPath: string) => Promise<void>,
-): Promise<{ channel: string; outputPaths: string[]; skippedCount: number }> {
+): Promise<{ channel: string; outputPaths: string[]; skippedCount: number; rejectedFiles: string[] }> {
   const channel = (formData.get("channel") as Channel) ?? "simple";
   const mode = (formData.get("mode") as string) ?? "simple";
   const count = Math.max(1, Number(formData.get("count") || 1));
@@ -735,26 +735,39 @@ export async function processVideos(
   );
   type ValidEntry = typeof fileEntries[number] & { color: ColorInfo; duration: number };
   const validEntries: ValidEntry[] = [];
+  // Track filenames that get dropped at this stage so we can show the user
+  // exactly WHICH videos failed (and let the remaining ones go through).
+  // Without this the error message was a generic "Aucune vidéo valide"
+  // even when only one file out of many was actually broken.
+  const rejectedFiles: string[] = [];
+  const reasonFor = (fileName: string, reason: "corrupted" | "too_long", info?: string) =>
+    `"${fileName || "fichier sans nom"}"${reason === "corrupted" ? " (illisible)" : ` (${info})`}`;
+
   for (const { entry, dur, color } of durResults) {
+    const displayName = entry.fileName || path.basename(entry.tmpIn);
     if (dur <= 0) {
       const readable = await canFFmpegReadFile(entry.tmpIn, ffmpegBin);
       if (!readable) {
-        console.warn(`[processVideos] rejected "${entry.fileName}": probe=0 and 1-frame test failed`);
-        await onProgress?.(2, `⚠ "${entry.fileName}" est invalide ou corrompu — ignorée.`);
+        console.warn(`[processVideos] rejected "${displayName}": probe=0 and 1-frame test failed`);
+        await onProgress?.(2, `⚠ "${displayName}" est invalide ou corrompu — ignorée.`);
+        rejectedFiles.push(reasonFor(displayName, "corrupted"));
         if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
       } else {
-        console.log(`[processVideos] accepted "${entry.fileName}": probe=0 but 1-frame test passed (likely HEVC)`);
+        console.log(`[processVideos] accepted "${displayName}": probe=0 but 1-frame test passed (likely HEVC)`);
         validEntries.push({ ...entry, color, duration: dur });
       }
     } else if (dur > MAX_DURATION_S) {
-      await onProgress?.(2, `⚠ "${entry.fileName}" dépasse ${MAX_DURATION_S}s (${Math.round(dur)}s) — ignorée.`);
+      await onProgress?.(2, `⚠ "${displayName}" dépasse ${MAX_DURATION_S}s (${Math.round(dur)}s) — ignorée.`);
+      rejectedFiles.push(reasonFor(displayName, "too_long", `${Math.round(dur)}s > ${MAX_DURATION_S}s`));
       if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
     } else {
       validEntries.push({ ...entry, color, duration: dur });
     }
   }
   if (validEntries.length === 0) {
-    throw new Error(`Aucune vidéo valide : les fichiers sont corrompus ou dépassent la durée maximale de ${MAX_DURATION_S} secondes.`);
+    // Surface the filename(s) so the user knows exactly which video(s) to fix.
+    const list = rejectedFiles.length > 0 ? ` Fichier(s) rejeté(s) : ${rejectedFiles.join(", ")}.` : "";
+    throw new Error(`Aucune vidéo valide à traiter — les fichiers sont corrompus ou dépassent ${MAX_DURATION_S}s.${list}`);
   }
   totalCopies = validEntries.length * count; // recount after filtering
 
@@ -1174,5 +1187,5 @@ export async function processVideos(
     if (ownsTmpIn) await fs.unlink(tmpIn).catch(() => {});
   }
 
-  return { channel, outputPaths, skippedCount: taskErrors.length };
+  return { channel, outputPaths, skippedCount: taskErrors.length, rejectedFiles };
 }

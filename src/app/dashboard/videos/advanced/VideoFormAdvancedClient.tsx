@@ -10,6 +10,7 @@ import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 import CountrySelect from "@/app/dashboard/components/CountrySelect";
 import { setJob, addCompletedFile, removeJob } from "../jobStore";
 import { useTranslation } from "@/lib/i18n/context";
+import { probeVideoFile } from "@/lib/video/probe";
 import {
   getTemplates,
   saveTemplate,
@@ -298,16 +299,9 @@ export default function VideoFormAdvancedClient() {
     Object.fromEntries(groups.map((g) => [g, false]))
   );
 
-  function getVideoDuration(file: File): Promise<number> {
-    return new Promise((resolve) => {
-      const video = document.createElement("video");
-      video.preload = "metadata";
-      const url = URL.createObjectURL(file);
-      video.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(video.duration); };
-      video.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
-      video.src = url;
-    });
-  }
+  // getVideoDuration replaced by probeVideoFile() from @/lib/video/probe.ts
+  // (also detects un-decodable files so we fail fast with a clear message
+  // instead of getting VID-004 on the server).
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -350,11 +344,19 @@ export default function VideoFormAdvancedClient() {
         const directUploadIds: string[] = [];
         let completedUploads = 0;
         for (const file of uploadedFiles) {
-          // Client-side duration check (50 s max)
-          const duration = await getVideoDuration(file);
-          if (duration > 50) {
+          // Client-side pre-check: duration + browser decodability. If the
+          // browser can't load metadata, ffmpeg won't either — fail fast.
+          const probe = await probeVideoFile(file);
+          if (!probe.decodable) {
             throw new Error(
-              `La vidéo "${file.name}" dépasse 50 secondes (${Math.round(duration)}s). ` +
+              `La vidéo "${file.name}" ne peut pas être lue par votre navigateur ` +
+              `(fichier corrompu, codec non supporté, ou extension trompeuse). ` +
+              `Solution : ouvrez-la dans QuickTime → Exporter sous → 1080p, puis réessayez.`
+            );
+          }
+          if (probe.duration > 50) {
+            throw new Error(
+              `La vidéo "${file.name}" dépasse 50 secondes (${Math.round(probe.duration)}s). ` +
               `Durée maximum autorisée : 50 s. Veuillez rogner la vidéo avant de continuer.`
             );
           }

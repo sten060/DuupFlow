@@ -194,7 +194,7 @@ export async function POST(req: Request) {
 
         errorCode = "VID-004";
         const hasVolume = !!process.env.OUT_BASE;
-        const { channel, outputPaths, skippedCount } = await processVideos(
+        const { channel, outputPaths, skippedCount, rejectedFiles } = await processVideos(
           formData,
           async (pct, msg) => { send({ percent: 8 + Math.round(pct * 0.91), msg }); },
           dir,
@@ -230,20 +230,41 @@ export async function POST(req: Request) {
         }
 
         generationSucceeded = true;
-        const warning = skippedCount > 0
-          ? `⚠ ${skippedCount} duplication(s) ont échoué (erreur FFmpeg) — ${outputPaths.length} générée(s) sur ${outputPaths.length + skippedCount} demandée(s). Réessayez pour les vidéos manquantes.`
-          : undefined;
+        // Build a single warning combining (a) files rejected at probe stage
+        // (corrupted / too long) and (b) per-copy FFmpeg failures during
+        // encoding. The user sees one clear message with filenames instead of
+        // having to wonder what happened.
+        const warningParts: string[] = [];
+        if (rejectedFiles.length > 0) {
+          warningParts.push(
+            `⚠ ${rejectedFiles.length} fichier(s) rejeté(s) avant traitement : ${rejectedFiles.join(", ")}.`
+          );
+        }
+        if (skippedCount > 0) {
+          warningParts.push(
+            `⚠ ${skippedCount} duplication(s) ont échoué (erreur FFmpeg) — ${outputPaths.length} générée(s) sur ${outputPaths.length + skippedCount} demandée(s).`
+          );
+        }
+        const warning = warningParts.length > 0 ? warningParts.join(" ") : undefined;
         send({ percent: 100, msg: warning ?? "Terminé ✔", done: true, userId, channel, warning });
 
       } catch (e: any) {
-        const userMsg = errorCode === "VID-004"
+        // For VID-004 we prefer the specific message from processVideos
+        // (which now includes the rejected filename(s)) over the generic
+        // "Contactez le support" — the user can act on it directly.
+        const rawMsg: string = e?.message ?? "";
+        const specificVid004 =
+          errorCode === "VID-004" && rawMsg.startsWith("Aucune vidéo valide");
+        const userMsg = specificVid004
+          ? rawMsg
+          : errorCode === "VID-004"
           ? "Une erreur est survenue pendant le traitement. Contactez le support."
           : errorCode === "VID-005"
           ? "Erreur lors de la sauvegarde du fichier."
           : errorCode === "VID-003"
           ? "Erreur lors du chargement du fichier source."
           : "Une erreur inattendue est survenue.";
-        console.error(`[duplicate-video] ${errorCode}:`, e?.message);
+        console.error(`[duplicate-video] ${errorCode}:`, rawMsg);
         send({ percent: -1, msg: `[${errorCode}] ${userMsg}`, error: true, code: errorCode });
       } finally {
         clearInterval(keepalive);
