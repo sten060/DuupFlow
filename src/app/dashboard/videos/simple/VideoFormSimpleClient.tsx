@@ -258,18 +258,15 @@ export default function VideoFormSimpleClient() {
         const directUploadIds: string[] = [];
         let completedUploads = 0;
         for (const file of uploadedFiles) {
-          // Client-side pre-check: duration + browser decodability. If the
-          // browser can't even load metadata, ffmpeg server-side won't be
-          // able to read it either — fail fast with a clear message instead
-          // of uploading then getting VID-004.
+          // Client-side duration check via probeVideoFile().
+          //
+          // We INTENTIONALLY do NOT reject when probe.decodable=false. iPhone
+          // videos use HEVC/H.265 by default; Chrome and Firefox cannot decode
+          // HEVC in a <video> element (Safari can), but ffmpeg server-side
+          // handles it fine. Rejecting here would block valid iPhone uploads.
+          // The server still rejects truly broken files via its own ffprobe
+          // + 1-frame fallback test (see processVideos.ts).
           const probe = await probeVideoFile(file);
-          if (!probe.decodable) {
-            throw new Error(
-              `La vidéo "${file.name}" ne peut pas être lue par votre navigateur ` +
-              `(fichier corrompu, codec non supporté, ou extension trompeuse). ` +
-              `Solution : ouvrez-la dans QuickTime → Exporter sous → 1080p, puis réessayez.`
-            );
-          }
           if (probe.duration > 50) {
             throw new Error(
               `La vidéo "${file.name}" dépasse 50 secondes (${Math.round(probe.duration)}s). ` +
@@ -445,9 +442,15 @@ export default function VideoFormSimpleClient() {
         }
       } else {
         const rawMsg = (err as Error)?.message || "";
-        const isStorageSize = rawMsg.toLowerCase().includes("trop volumineux") || rawMsg.toLowerCase().includes("maximum allowed size");
+        const lower = rawMsg.toLowerCase();
+        const isStorageSize = lower.includes("trop volumineux") || lower.includes("maximum allowed size");
+        // Client-side validation thrown before the upload even started
+        // (duration > 50 s, etc.) — don't wrap as "Erreur réseau".
+        const isValidation = lower.includes("dépasse 50 secondes") || lower.startsWith("la vidéo \"");
         const errMsg = isStorageSize
           ? `[CLT-006] ${rawMsg}`
+          : isValidation
+          ? `[CLT-007] ${rawMsg}`
           : `[CLT-005] Erreur réseau — ${rawMsg || "connexion interrompue. Réessayez."}`;
         setErrorMsg(errMsg);
         setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });

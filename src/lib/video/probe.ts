@@ -1,23 +1,24 @@
 /**
- * Client-side video pre-check.
+ * Client-side video probe.
  *
- * Loads the file into a hidden <video> element to verify the browser
- * (and therefore ffmpeg server-side too, in 99% of cases) can decode it.
+ * Loads the file into a hidden <video> element to read its duration
+ * metadata. Used to enforce the 50-second limit BEFORE uploading.
  *
- * We use the same metadata-loading trick as the original getVideoDuration
- * helper, but distinguish three outcomes:
+ * IMPORTANT: callers must NOT reject when `decodable` is false. iPhone
+ * videos use HEVC/H.265 by default, which Chrome and Firefox cannot
+ * decode in a <video> element (only Safari supports it natively).
+ * ffmpeg server-side handles HEVC fine, so a `decodable: false` here
+ * does NOT mean the upload will fail — it just means we couldn't read
+ * metadata in the browser. The `decodable` flag is informational.
  *
- *   - decodable: true  + duration > 0   → normal video, OK
- *   - decodable: false + duration = 0   → browser couldn't read the file at all
- *                                         (corrupt, unsupported codec like ProRes,
- *                                         truncated upload, wrong extension)
+ *   - decodable: true  + duration > 0   → normal video, can enforce duration
  *   - decodable: true  + duration = 0   → media loaded but no duration metadata
- *                                         (rare; some HEVC variants). We let it
- *                                         pass — the server's fallback 1-frame
- *                                         test will catch real garbage.
+ *   - decodable: false + duration = 0   → browser can't read (likely HEVC).
+ *                                         Skip the duration check, upload
+ *                                         anyway, let the server decide.
  *
- * The pre-check saves the user a round-trip + the awkward server-side
- * "Aucune vidéo valide" error when their file is obviously broken.
+ * The server has its own ffprobe + 1-frame fallback test for truly
+ * broken files (see processVideos.ts probe phase).
  */
 export type VideoProbe = {
   decodable: boolean;
