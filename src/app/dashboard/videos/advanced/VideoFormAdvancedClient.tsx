@@ -344,16 +344,11 @@ export default function VideoFormAdvancedClient() {
         const directUploadIds: string[] = [];
         let completedUploads = 0;
         for (const file of uploadedFiles) {
-          // Client-side pre-check: duration + browser decodability. If the
-          // browser can't load metadata, ffmpeg won't either — fail fast.
+          // Client-side duration check. We do NOT reject on probe.decodable
+          // because iPhone HEVC videos cannot be decoded by Chrome/Firefox in
+          // a <video> element, yet ffmpeg handles them fine server-side.
+          // The server has its own probe+1-frame fallback for truly broken files.
           const probe = await probeVideoFile(file);
-          if (!probe.decodable) {
-            throw new Error(
-              `La vidéo "${file.name}" ne peut pas être lue par votre navigateur ` +
-              `(fichier corrompu, codec non supporté, ou extension trompeuse). ` +
-              `Solution : ouvrez-la dans QuickTime → Exporter sous → 1080p, puis réessayez.`
-            );
-          }
           if (probe.duration > 50) {
             throw new Error(
               `La vidéo "${file.name}" dépasse 50 secondes (${Math.round(probe.duration)}s). ` +
@@ -523,9 +518,14 @@ export default function VideoFormAdvancedClient() {
         }
       } else {
         const rawMsg = (err as Error)?.message || "";
-        const isStorageSize = rawMsg.toLowerCase().includes("trop volumineux") || rawMsg.toLowerCase().includes("maximum allowed size");
+        const lower = rawMsg.toLowerCase();
+        const isStorageSize = lower.includes("trop volumineux") || lower.includes("maximum allowed size");
+        // Client-side validation (duration > 50 s, etc.) — not a network error.
+        const isValidation = lower.includes("dépasse 50 secondes") || lower.startsWith("la vidéo \"");
         const errMsg = isStorageSize
           ? `[CLT-006] ${rawMsg}`
+          : isValidation
+          ? `[CLT-007] ${rawMsg}`
           : `[CLT-005] Erreur réseau — ${rawMsg || "connexion interrompue. Réessayez."}`;
         setSubmitError(errMsg);
         setJob({ id: jobId, type: "video", channel: "advanced", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
