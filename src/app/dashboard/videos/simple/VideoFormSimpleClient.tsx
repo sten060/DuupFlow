@@ -170,10 +170,10 @@ function PackCard({
 }
 
 /* ---------- Helpers ---------- */
-// getVideoDuration replaced by probeVideoFile() from @/lib/video/probe.ts —
-// the shared helper also detects "browser can't decode this file at all"
-// (corrupt / unsupported codec / truncated) so we reject early with a
-// useful message instead of sending it to the server only to get VID-004.
+// getVideoDuration replaced by probeVideoFile() from @/lib/video/probe.ts.
+// The shared helper also reports whether the browser could decode the file,
+// but we INTENTIONALLY do not act on that flag — iPhone HEVC videos fail to
+// load in <video> on Chrome/Firefox yet are valid server-side.
 
 /* ---------- Composant principal (SIMPLE) ---------- */
 export default function VideoFormSimpleClient() {
