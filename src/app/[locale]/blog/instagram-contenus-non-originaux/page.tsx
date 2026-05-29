@@ -6,11 +6,25 @@
 
 import type { Metadata } from "next";
 import Link from "@/components/LocaleLink";
+import ArticleTOC, { type TocSection } from "../_components/ArticleTOC";
 
 const SLUG = "instagram-contenus-non-originaux";
 const PUBLISHED_AT = "2026-05-23";
 const READING_MIN = 7;
 const CANONICAL_FR = `/fr/blog/${SLUG}`;
+
+/* ── Source of truth for the article's H2 sections.
+ *    Used both as scroll-spy targets (via id) and as TOC items. */
+const SECTIONS: TocSection[] = [
+  { id: "definition",    label: "Ce qu'Instagram considère désormais comme « non original »" },
+  { id: "impactes",      label: "Qui est impacté ?" },
+  { id: "consequences",  label: "Les conséquences concrètes" },
+  { id: "multi-comptes", label: "Le vrai enjeu pour la diffusion multi-comptes" },
+  { id: "conformite",    label: "Comment rester conforme" },
+  { id: "duupflow",      label: "DuupFlow : industrialiser la variation" },
+  { id: "conclusion",    label: "Conclusion" },
+  { id: "faq",           label: "Questions fréquentes" },
+];
 
 const META_TITLE_FR = "Contenus non originaux Instagram : nouveautés 2026";
 const META_DESC_FR =
@@ -146,7 +160,10 @@ export default async function ArticlePage({
       />
 
       <main className="px-6 py-12 md:py-16">
-        <article className="max-w-3xl mx-auto">
+        {/* 12-col grid: article on the left, sticky TOC on the right.
+            On <lg screens the TOC is hidden and the article goes full width. */}
+        <div className="max-w-6xl mx-auto grid grid-cols-12 gap-10 lg:gap-14">
+          <article className="col-span-12 lg:col-span-8 [&_h2]:scroll-mt-28 [&_h3]:scroll-mt-28">
           {/* Breadcrumb */}
           <nav className="text-xs text-white/40 mb-6" aria-label="Fil d'Ariane">
             <Link href="/blog" className="hover:text-white/70 transition">Blog</Link>
@@ -167,28 +184,6 @@ export default async function ArticlePage({
               <span>Algorithme Instagram</span>
             </div>
           </header>
-
-          {/* Cover image — placeholder until art lands.
-              Expected file: /public/blog/instagram-contenus-non-originaux-cover.jpg
-              Alt text already SEO-optimised; replace the placeholder div with
-              <Image src=... alt=... width=1200 height=630 /> when the file ships. */}
-          <figure
-            className="mb-12 aspect-[1200/630] w-full rounded-2xl border border-white/[0.08] overflow-hidden relative"
-            data-cover-src="/blog/instagram-contenus-non-originaux-cover.jpg"
-            data-cover-alt="Capture stylisée du fil de recommandations Instagram illustrant la notion d'originalité du contenu"
-          >
-            <div
-              aria-hidden
-              className="absolute inset-0"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(129,140,248,0.18) 0%, rgba(99,102,241,0.10) 40%, rgba(2,6,23,0.6) 100%)",
-              }}
-            />
-            <div className="absolute inset-0 flex items-center justify-center text-white/35 text-xs uppercase tracking-[0.2em] font-medium">
-              Image de couverture
-            </div>
-          </figure>
 
           {/* Body — Tailwind utilities only (no @tailwindcss/typography dep) */}
           <div className="space-y-6 text-[15px] md:text-base leading-relaxed text-white/80">
@@ -219,7 +214,7 @@ export default async function ArticlePage({
               scaler sans tomber dans le piège des publications cloniques.
             </p>
 
-            <h2 className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
+            <h2 id="definition" className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
               Ce qu&apos;Instagram considère désormais comme « non original »
             </h2>
             <p>
@@ -243,7 +238,7 @@ export default async function ArticlePage({
               post puisse percevoir une intention de création.
             </p>
 
-            <h2 className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
+            <h2 id="impactes" className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
               Qui est impacté ?
             </h2>
             <p>Trois profils encaissent la mise à jour de plein fouet.</p>
@@ -271,7 +266,7 @@ export default async function ArticlePage({
               terme se dégrade.
             </p>
 
-            <h2 className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
+            <h2 id="consequences" className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
               Les conséquences concrètes
             </h2>
             <p>
@@ -304,7 +299,7 @@ export default async function ArticlePage({
               dispositif.
             </p>
 
-            <h2 className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
+            <h2 id="multi-comptes" className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
               Le vrai enjeu pour la diffusion multi-comptes
             </h2>
             <p>
@@ -327,7 +322,7 @@ export default async function ArticlePage({
               l&apos;autre.
             </p>
 
-            <h2 className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
+            <h2 id="conformite" className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
               Comment rester conforme
             </h2>
             <p>
@@ -359,7 +354,7 @@ export default async function ArticlePage({
               dizaines de variantes par jour.
             </p>
 
-            <h2 className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
+            <h2 id="duupflow" className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
               DuupFlow : industrialiser la variation sans sacrifier la conformité
             </h2>
             <p>
@@ -387,7 +382,7 @@ export default async function ArticlePage({
               s&apos;intègre à votre workflow avant tout engagement.
             </p>
 
-            <h2 className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
+            <h2 id="conclusion" className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white">
               Conclusion
             </h2>
             <p>
@@ -420,7 +415,7 @@ export default async function ArticlePage({
 
           {/* FAQ */}
           <section className="mt-16 pt-10 border-t border-white/[0.08]">
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white mb-6">
+            <h2 id="faq" className="scroll-mt-28 text-2xl md:text-3xl font-bold tracking-tight text-white mb-6">
               Questions fréquentes
             </h2>
             <div className="space-y-6">
@@ -440,6 +435,16 @@ export default async function ArticlePage({
             </Link>
           </div>
         </article>
+
+          {/* Sticky TOC — visible on lg+ screens.
+              Sits beside the article and tracks the current heading via
+              IntersectionObserver inside ArticleTOC (client component). */}
+          <aside className="hidden lg:block lg:col-span-4">
+            <div className="sticky top-28">
+              <ArticleTOC sections={SECTIONS} />
+            </div>
+          </aside>
+        </div>
       </main>
     </>
   );
