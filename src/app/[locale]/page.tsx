@@ -1358,6 +1358,7 @@ function Footer() {
               <li><FooterLink href="/pricing">{t("footer.navPricing")}</FooterLink></li>
               <li><FooterLink href="/benefits">{t("footer.navBenefits")}</FooterLink></li>
               <li><FooterLink href="/demo">{t("footer.navDemo")}</FooterLink></li>
+              <li><FooterLink href="/blog">{t("footer.navBlog")}</FooterLink></li>
             </FooterColumn>
           </div>
 

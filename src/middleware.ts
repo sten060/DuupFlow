@@ -16,6 +16,7 @@ const LOCALIZED_TOP_LEVEL = new Set([
   "benefits",
   "partners",
   "demo",
+  "blog",
   "legal",
   "login",
   "register",
