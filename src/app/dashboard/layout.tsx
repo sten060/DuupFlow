@@ -3,11 +3,44 @@ import Sidebar from "./sidebar";
 import GlobalVideoProgress from "./videos/GlobalVideoProgress";
 import ChatBot from "./components/ChatBot";
 import DashboardLangSwitch from "./components/DashboardLangSwitch";
+import PaymentOverdueModal from "./PaymentOverdueModal";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { syncStripeStateIfStale } from "@/lib/billing-sync";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // Fetch overdue status so we can mount the blocking modal globally —
+  // it stays visible on every dashboard page until Stripe confirms payment.
+  let overdue: { since: string | null; pausedPlan: string | null } | null = null;
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      // Self-heal: blocking call (kept fast by 6h cache in syncStripeStateIfStale)
+      // so the modal shows on this very page-load if the user is overdue but
+      // the webhook never fired (e.g. they were past_due before deploy).
+      await syncStripeStateIfStale(user.id);
+
+      const admin = createAdminClient();
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("payment_overdue, payment_overdue_since, paused_plan")
+        .eq("id", user.id)
+        .single();
+      if (profile?.payment_overdue) {
+        overdue = {
+          since: (profile.payment_overdue_since as string | null) ?? null,
+          pausedPlan: (profile.paused_plan as string | null) ?? null,
+        };
+      }
+    }
+  } catch {
+    // Silently ignore — the modal just won't show. Never block the layout.
+  }
+
   return (
     <div
       className="flex h-screen overflow-hidden text-white"
@@ -45,6 +78,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Persistent job progress overlay — survives page navigation */}
       <GlobalVideoProgress />
       <ChatBot />
+
+      {/* Blocking modal shown while payment_overdue=true. Re-mounts on every
+          page navigation so the user can't ignore it for long. */}
+      {overdue && (
+        <PaymentOverdueModal
+          since={overdue.since}
+          pausedPlan={overdue.pausedPlan}
+        />
+      )}
     </div>
   );
 }

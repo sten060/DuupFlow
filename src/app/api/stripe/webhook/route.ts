@@ -52,6 +52,74 @@ async function markUserUnpaid(userId: string) {
   await admin.from("profiles").update({ has_paid: false }).eq("id", userId);
 }
 
+/**
+ * Stripe reported a failed payment / past_due status.
+ *
+ * Snapshot the current plan into `paused_plan`, downgrade the user to Free
+ * (so Free quotas + Free AI variation pricing apply immediately) and raise
+ * the `payment_overdue` flag → triggers the blocking modal in the dashboard.
+ *
+ * Idempotent: re-firing on a user already overdue is a no-op (we don't
+ * overwrite a non-null `paused_plan` so a 2nd webhook doesn't lose the
+ * original plan).
+ */
+async function pauseUserForOverduePayment(userId: string) {
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("plan, payment_overdue, paused_plan")
+    .eq("id", userId)
+    .single();
+  if (!profile) return;
+
+  // Already paused → don't overwrite the snapshot.
+  if (profile.payment_overdue && profile.paused_plan) return;
+
+  const currentPlan = (profile.plan as string | null) ?? null;
+  // If the user is already on Free, there's nothing to downgrade — just
+  // raise the flag so the modal still shows (edge case: Free user with a
+  // ghost subscription).
+  const snapshot = currentPlan && currentPlan !== "free" ? currentPlan : null;
+
+  await admin
+    .from("profiles")
+    .update({
+      payment_overdue: true,
+      paused_plan: snapshot ?? profile.paused_plan ?? null,
+      payment_overdue_since: new Date().toISOString(),
+      plan: "free",
+      has_paid: false,
+    })
+    .eq("id", userId);
+}
+
+/**
+ * Stripe confirmed a payment after a failure — restore the user's original
+ * plan and clear the overdue flag.
+ */
+async function resumeUserFromOverdue(userId: string) {
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("payment_overdue, paused_plan")
+    .eq("id", userId)
+    .single();
+  if (!profile?.payment_overdue) return;
+
+  const restored = (profile.paused_plan as string | null) ?? null;
+  await admin
+    .from("profiles")
+    .update({
+      payment_overdue: false,
+      paused_plan: null,
+      payment_overdue_since: null,
+      // Restore the original plan if we had one; otherwise leave whatever is
+      // there (the `invoice.paid` handler sets has_paid + plan separately).
+      ...(restored ? { plan: restored, has_paid: true } : {}),
+    })
+    .eq("id", userId);
+}
+
 async function markUserChurned(userId: string) {
   const admin = createAdminClient();
   await admin
@@ -305,6 +373,12 @@ export async function POST(request: NextRequest) {
 
       await admin.from("profiles").update(updatePayload).eq("id", uid);
 
+      // If this payment recovers a previously failed cycle, clear the
+      // overdue flag and restore the original plan snapshot.
+      await resumeUserFromOverdue(uid).catch((err) =>
+        console.error("[webhook] resumeUserFromOverdue failed:", err),
+      );
+
       // ── Tracking affiliation (tous les paiements) ─────────────────────
       const { data: profile } = await admin
         .from("profiles")
@@ -363,14 +437,14 @@ export async function POST(request: NextRequest) {
       break;
     }
 
-    // Paiement échoué → révoquer l'accès
+    // Paiement échoué → downgrade auto vers Free + flag pour la modale
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
       const subId = getSubscriptionId(invoice);
       if (subId) {
         const sub = await getStripe().subscriptions.retrieve(subId);
         const uid = sub.metadata?.supabase_user_id;
-        if (uid) await markUserUnpaid(uid);
+        if (uid) await pauseUserForOverduePayment(uid);
       }
       break;
     }
@@ -412,6 +486,21 @@ export async function POST(request: NextRequest) {
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription;
       const uid = sub.metadata?.supabase_user_id;
+
+      // Sync overdue state from Stripe status changes — covers cases
+      // where payment_failed wasn't fired or arrived in another order.
+      if (uid) {
+        if (sub.status === "past_due" || sub.status === "unpaid") {
+          await pauseUserForOverduePayment(uid).catch((err) =>
+            console.error("[webhook] pauseUserForOverduePayment failed:", err),
+          );
+        } else if (sub.status === "active") {
+          await resumeUserFromOverdue(uid).catch((err) =>
+            console.error("[webhook] resumeUserFromOverdue failed:", err),
+          );
+        }
+      }
+
       if (uid && sub.items.data[0]?.price?.id) {
         const plan = resolvePlanFromPriceId(sub.items.data[0].price.id, sub.metadata?.plan);
         if (plan === "pro") {

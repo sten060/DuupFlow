@@ -808,6 +808,17 @@
       "guestNoticeDesc": "You access this workspace as an invited member. Team management is reserved for the account owner.",
       "workspace": "Workspace"
     },
+    "paymentOverdue": {
+      "title": "Payment failed",
+      "body": "Your last payment couldn't be processed. Until it's resolved, your account is on the free plan.",
+      "bodyWithPlan": "Your last payment couldn't be processed. Your {plan} plan is temporarily suspended — you're currently using the free plan.",
+      "since": "Overdue since {date}",
+      "notice": "Update your payment method to reactivate your plan immediately. Stripe will retry the payment automatically.",
+      "cta": "Update my card",
+      "dismiss": "Later",
+      "opening": "Opening Stripe...",
+      "networkError": "Network error. Try again."
+    },
     "subscription": {
       "title": "Subscription",
       "noSubscription": "No active subscription.",

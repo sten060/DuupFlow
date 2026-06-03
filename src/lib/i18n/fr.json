@@ -808,6 +808,17 @@
       "guestNoticeDesc": "Tu accedes a ce workspace en tant que membre invite-e. La gestion de l'equipe est reservee au proprietaire du compte.",
       "workspace": "Workspace"
     },
+    "paymentOverdue": {
+      "title": "Paiement echoue",
+      "body": "Ton dernier paiement n'a pas pu etre traite. Tant que la situation n'est pas regularisee, ton compte bascule sur le plan gratuit.",
+      "bodyWithPlan": "Ton dernier paiement n'a pas pu etre traite. Ton plan {plan} est temporairement suspendu — tu utilises actuellement le plan gratuit.",
+      "since": "En retard depuis le {date}",
+      "notice": "Mets a jour ton moyen de paiement pour reactiver ton plan immediatement. Stripe relancera automatiquement le prelevement.",
+      "cta": "Mettre a jour ma carte",
+      "dismiss": "Plus tard",
+      "opening": "Ouverture de Stripe...",
+      "networkError": "Erreur reseau. Reessaie."
+    },
     "subscription": {
       "title": "Abonnement",
       "noSubscription": "Aucun abonnement actif.",
