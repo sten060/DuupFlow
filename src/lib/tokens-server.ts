@@ -109,6 +109,26 @@ export async function recordTransaction(opts: {
     console.error("[tokens-server] ledger insert failed:", lErr.message);
   }
 
+  // Analytics event log — one row per AI variation actually generated
+  // (debit on image_* reason). Refunds and topups don't generate events.
+  const isImageDebit =
+    opts.deltaCents < 0 &&
+    (opts.reason === "image_free" ||
+      opts.reason === "image_solo" ||
+      opts.reason === "image_pro");
+  if (isImageDebit) {
+    try {
+      await admin.from("usage_events").insert({
+        user_id: opts.userId,
+        kind: "ai_variation",
+        qty: 1,
+        source: "live",
+      });
+    } catch (err) {
+      console.error("[tokens-server] usage_events insert failed:", err);
+    }
+  }
+
   return { ok: true, balanceCents: next };
 }
 

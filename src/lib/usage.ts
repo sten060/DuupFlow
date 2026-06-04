@@ -132,9 +132,20 @@ export async function checkUsage(
   };
 }
 
+/** Map UsageType → usage_events.kind (analytics event log). */
+const USAGE_EVENT_KIND: Record<UsageType, string> = {
+  images: "image_duplication",
+  videos: "video_duplication",
+  ai_signatures: "ai_signature",
+};
+
 /**
- * Atomically increments the usage counter for a given user.
- * Safe to call fire-and-forget.
+ * Atomically increments the monthly counter AND writes one event row to
+ * `usage_events` so analytics views can reconstruct per-action history.
+ *
+ * Safe to call fire-and-forget. The event insert is best-effort — if it
+ * fails (e.g. table missing on an old environment), we log and continue;
+ * counter update is the authoritative one for quota enforcement.
  */
 export async function incrementUsage(
   userId: string,
@@ -164,6 +175,19 @@ export async function incrementUsage(
       [column]: count,
       period_start: new Date().toISOString(),
     });
+  }
+
+  // Event log for analytics — one row per call with qty = count.
+  // Failures here MUST NOT break the quota enforcement above.
+  try {
+    await admin.from("usage_events").insert({
+      user_id: userId,
+      kind: USAGE_EVENT_KIND[type],
+      qty: count,
+      source: "live",
+    });
+  } catch (err) {
+    console.error("[usage] usage_events insert failed:", err);
   }
 }
 
