@@ -11,7 +11,7 @@
 -- Q1. Mon vrai taux de conversion + chiffres globaux
 -- (taux brut + taux réel + détail par segment)
 -- ─────────────────────────────────────────────────────────────
-SELECT * FROM public.v_activity_summary;
+SELECT * FROM analytics.v_activity_summary;
 -- Expected columns:
 --   total_users, fantome, active_one_shot, actif_recurrent, actif_hebdo,
 --   paid_users, activated_users,
@@ -30,7 +30,7 @@ SELECT
   total_volume_live,
   days_since_last_live,
   last_live_at
-FROM public.v_user_activity
+FROM analytics.v_user_activity
 WHERE segment = 'actif_hebdo'
 ORDER BY last_live_at DESC;
 
@@ -49,7 +49,7 @@ SELECT
   ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (
     ORDER BY hours_to_first_action
   )::numeric, 2)                                                   AS p75_hours
-FROM public.v_time_to_value;
+FROM analytics.v_time_to_value;
 
 
 -- ─────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ SELECT
   retention_s1_pct,
   retention_s2_pct,
   retention_s4_pct
-FROM public.v_retention_cohorts
+FROM analytics.v_retention_cohorts
 WHERE users_in_cohort >= 5  -- bruit faible : skip les cohortes trop petites
 ORDER BY cohort_week DESC
 LIMIT 12;
@@ -75,7 +75,7 @@ SELECT
   fantome + active_one_shot + actif_recurrent + actif_hebdo  AS sum_segments,
   total_users
     = (fantome + active_one_shot + actif_recurrent + actif_hebdo) AS sum_matches
-FROM public.v_activity_summary;
+FROM analytics.v_activity_summary;
 
 
 -- ─────────────────────────────────────────────────────────────
