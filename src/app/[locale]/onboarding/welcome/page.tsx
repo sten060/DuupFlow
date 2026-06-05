@@ -3,17 +3,36 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/context";
+import { createClient } from "@/lib/supabase/client";
 
 export default function WelcomePage() {
   const router = useRouter();
   const { t } = useTranslation();
-  const [firstName, setFirstName] = useState("");
+  // Seed with the sessionStorage cache so we never flash "toi" — the DB
+  // fetch below overrides it once authoritative data arrives.
+  const [firstName, setFirstName] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return sessionStorage.getItem("welcome_first_name") ?? "";
+  });
   const [visible, setVisible] = useState(false);
-  const [destination, setDestination] = useState("/checkout");
+  const [destination, setDestination] = useState("/dashboard");
 
   useEffect(() => {
-    const name = sessionStorage.getItem("welcome_first_name") ?? "toi";
-    setFirstName(name);
+    // Source of truth: the profile row written by /api/onboarding/complete.
+    // sessionStorage is only a cache (cleared on hard refresh / new tab),
+    // so always re-fetch to be safe.
+    (async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name")
+        .eq("id", user.id)
+        .single();
+      if (profile?.first_name) setFirstName(profile.first_name);
+    })();
+
     // Free tier — every user lands on the dashboard. They can upgrade
     // anytime from the abonnement page if they want Solo or Pro.
     const dest = "/dashboard";
@@ -67,11 +86,16 @@ export default function WelcomePage() {
         </p>
 
         <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
-          {t("onboarding.welcomeTitle")}{" "}
-          <span className="bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent">
-            {firstName}
-          </span>{" "}
-          👋
+          {t("onboarding.welcomeTitle")}
+          {firstName && (
+            <>
+              {" "}
+              <span className="bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent">
+                {firstName}
+              </span>
+            </>
+          )}
+          {" "}👋
         </h1>
 
         <p className="text-base text-white/50 max-w-sm mx-auto mb-10">

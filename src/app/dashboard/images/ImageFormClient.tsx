@@ -349,10 +349,11 @@ export default function ImageFormClient({ initialImages }: Props) {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.images.title")}</h1>
+      <h1 data-tour-id="img-h1" className="text-3xl font-extrabold tracking-tight">{t("dashboard.images.title")}</h1>
       <form onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6" autoComplete="off">
         {/* Drop zone */}
         <div
+          data-tour-id="img-dropzone"
           onDrop={onDrop}
           onDragOver={(e) => e.preventDefault()}
           onClick={() => !processing && inputRef.current?.click()}
@@ -425,7 +426,7 @@ export default function ImageFormClient({ initialImages }: Props) {
         </div>
 
         {/* Copies */}
-        <div className="max-w-[200px]">
+        <div data-tour-id="img-copies" className="max-w-[200px]">
           <label className="block text-sm font-medium text-white/70 mb-1">{t("dashboard.images.copiesLabel")}</label>
           <input
             type="number"
@@ -450,7 +451,7 @@ export default function ImageFormClient({ initialImages }: Props) {
         <div className="h-px bg-white/[0.06]" />
 
         {/* Filtres */}
-        <div>
+        <div data-tour-id="img-options">
           <h3 className="text-sm font-semibold text-white/90 mb-3">{t("dashboard.images.filtersTitle")} <span className="text-white/40 font-normal">{t("dashboard.images.filtersCumulative")}</span></h3>
 
           <p className="text-xs font-medium text-fuchsia-300/60 uppercase tracking-wide mb-2">{t("dashboard.images.noVisualChange")}</p>
@@ -472,6 +473,7 @@ export default function ImageFormClient({ initialImages }: Props) {
         <div className="flex items-center gap-3">
           <button
             type="submit"
+            data-tour-id="img-submit"
             disabled={processing || files.length === 0}
             className={[
               "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",

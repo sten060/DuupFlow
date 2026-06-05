@@ -13,6 +13,7 @@ function SubmitWithProgress() {
     <>
       <button
         type="submit"
+        data-tour-id="video-submit"
         disabled={pending}
         className={`rounded-lg px-4 py-2 text-white transition ${
           pending ? "bg-gray-500 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-500"
@@ -171,7 +172,9 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
       <input type="hidden" name="mode" value="simple" />
       <input type="hidden" name="singles" value={singlesJSON} />
 
-      <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
+      <div data-tour-id="video-dropzone">
+        <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
+      </div>
 
       <div>
         <label className="block text-sm font-medium mb-2 text-white/80">Nombre de copies</label>
@@ -185,7 +188,7 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
       </div>
 
       {/* Packs */}
-      <fieldset className="space-y-3">
+      <fieldset className="space-y-3" data-tour-id="video-packs">
         <legend className="text-sm font-semibold text-white/90 mb-2">Packs (cumulables)</legend>
         <input type="hidden" name="packs" value={packsSelected.join(",")} />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -314,7 +317,9 @@ function AdvancedTab({ channel }: { channel: "simple" | "advanced" }) {
   return (
     <form action={duplicateVideos} method="post" className="space-y-6">
       <input type="hidden" name="channel" value={channel} />
-      <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
+      <div data-tour-id="video-dropzone">
+        <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
+      </div>
 
       <div>
         <label className="block text-sm font-medium mb-2 text-white/80">Nombre de copies</label>

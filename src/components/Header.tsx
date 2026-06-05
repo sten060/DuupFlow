@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import LanguageSwitch from "@/components/LanguageSwitch";
 import { useTranslation } from "@/lib/i18n/context";
 import { useLocalizedHref } from "@/lib/i18n/href";
 
@@ -36,8 +35,7 @@ export default function Header() {
 
   return (
     <>
-      {/* Desktop: positioned below promo bar. Mobile: at top (no promo bar) */}
-      <header className="fixed top-0 md:top-11 left-0 right-0 z-50 backdrop-blur-md" style={{ background: "rgba(11,15,26,0.2)", boxShadow: "0 1px 0 rgba(99,102,241,0.15), 0 4px 20px rgba(99,102,241,0.06)" }}>
+      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md" style={{ background: "rgba(11,15,26,0.2)", boxShadow: "0 1px 0 rgba(99,102,241,0.15), 0 4px 20px rgba(99,102,241,0.06)" }}>
         <div
           className="flex items-center justify-between px-4 sm:px-10 py-3 sm:py-4"
           style={{ maxWidth: "1280px", margin: "0 auto" }}
@@ -56,7 +54,6 @@ export default function Header() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <LanguageSwitch />
             {/* CTA — desktop */}
             <Link
               href={lh("/register")}

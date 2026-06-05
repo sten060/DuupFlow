@@ -4,15 +4,42 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToFreeUser } from "@/lib/brevo";
 import { creditWelcomeTokens } from "@/lib/tokens-server";
 
+// Whitelists — keep DB writes constrained to known values even if a future
+// front-end change ships a new option without updating the API.
+const ALLOWED_PLATFORMS = new Set([
+  "instagram", "threads", "reddit", "tiktok", "x",
+  "youtube", "facebook", "linkedin", "snapchat", "other",
+]);
+const ALLOWED_SOURCES = new Set([
+  "youtube", "telegram", "friend", "already_knew",
+  "tiktok", "google", "other",
+]);
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
 
-  const { firstName, agencyName, affiliateCode } = await req.json();
+  const { firstName, agencyName, affiliateCode, platforms, source } = await req.json();
   if (!firstName?.trim() || !agencyName?.trim()) {
     return NextResponse.json({ error: "Champs requis." }, { status: 400 });
   }
+
+  // Sanitize platforms[] — must be a non-empty array of known slugs.
+  const cleanPlatforms = Array.isArray(platforms)
+    ? Array.from(new Set(
+        platforms
+          .filter((p: unknown): p is string => typeof p === "string")
+          .map((p: string) => p.toLowerCase())
+          .filter((p: string) => ALLOWED_PLATFORMS.has(p)),
+      ))
+    : [];
+
+  // Sanitize source — must be a known slug. null is acceptable (skipped).
+  const cleanSource =
+    typeof source === "string" && ALLOWED_SOURCES.has(source.toLowerCase())
+      ? source.toLowerCase()
+      : null;
 
   const admin = createAdminClient();
 
@@ -27,6 +54,8 @@ export async function POST(req: NextRequest) {
     // New users skip the AI Variation launch announcement (it targets
     // legacy users with NULL). They get the regular onboarding tour instead.
     variation_ia_announced_at: new Date().toISOString(),
+    onboarding_platforms: cleanPlatforms,
+    onboarding_source: cleanSource,
   };
 
   if (affiliateCode && typeof affiliateCode === "string") {

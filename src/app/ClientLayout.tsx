@@ -4,44 +4,10 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
-import { LanguageProvider, useTranslation } from "@/lib/i18n/context";
+import { LanguageProvider } from "@/lib/i18n/context";
 
 const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
 const LogoPreloader = dynamic(() => import("@/components/LogoPreloader"), { ssr: false });
-
-function PromoBar() {
-  const { t } = useTranslation();
-  const promoText = t("promo.text");
-  // Duplicate text for seamless infinite loop
-  const items = Array(6).fill(promoText);
-  return (
-    <div
-      className="fixed top-0 left-0 right-0 z-[60] h-11 flex items-center overflow-hidden select-none"
-      style={{ background: "linear-gradient(90deg,#4f46e5,#6366f1,#818cf8,#6366f1,#4f46e5)" }}
-    >
-      <div
-        className="flex items-center gap-0 whitespace-nowrap"
-        style={{
-          animation: "promo-scroll 45s linear infinite",
-          willChange: "transform",
-        }}
-      >
-        {items.map((text, i) => (
-          <span key={i} className="inline-flex items-center gap-3 px-10 text-[13.5px] font-medium text-white/90">
-            <span className="text-white/40">✦</span>
-            {text}
-          </span>
-        ))}
-      </div>
-      <style>{`
-        @keyframes promo-scroll {
-          from { transform: translateX(0); }
-          to   { transform: translateX(-50%); }
-        }
-      `}</style>
-    </div>
-  );
-}
 
 function AffiliateRefTracker() {
   const searchParams = useSearchParams();
@@ -73,7 +39,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isDashboard = normalized.startsWith("/dashboard");
   const isAuthPage = normalized.startsWith("/login") || normalized.startsWith("/register");
   const isAffiliatePage = pathname.startsWith("/affiliate") || pathname.startsWith("/admin");
-  const showHeader = !isDashboard && !isAuthPage && !isAffiliatePage;
+  // Onboarding (multi-step wizard + welcome transition) is a standalone flow
+  // — the marketing Header would crowd the centered card and break the
+  // "fixed inset-0 / no-scroll" layout the wizard expects.
+  const isOnboardingPage = normalized.startsWith("/onboarding");
+  const showHeader = !isDashboard && !isAuthPage && !isAffiliatePage && !isOnboardingPage;
   const isLanding = normalized === "/";
 
   return (
@@ -127,9 +97,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <Suspense fallback={null}>
         <AffiliateRefTracker />
       </Suspense>
-      {showHeader && <div className="hidden md:block"><PromoBar /></div>}
       {showHeader && <Header />}
-      {showHeader && <div className="h-16 md:h-[calc(50px+5rem)]" />}
+      {showHeader && <div className="h-16 md:h-20" />}
       {children}
 
       {/* Logo preloader — only on landing page */}

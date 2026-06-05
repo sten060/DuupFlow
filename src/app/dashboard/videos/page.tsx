@@ -27,6 +27,7 @@ export default function VideosHub() {
         {/* Mode Simple — indigo */}
         <Link
           href="/dashboard/videos/simple"
+          data-tour-id="video-mode-simple"
           className="group relative rounded-2xl p-4 transition-all overflow-hidden
                      border border-indigo-500/20 hover:border-indigo-400/40
                      hover:shadow-[0_0_30px_rgba(99,102,241,.15)]"
@@ -54,6 +55,7 @@ export default function VideosHub() {
         {/* Mode Avancé — sky */}
         <Link
           href="/dashboard/videos/advanced"
+          data-tour-id="video-mode-advanced"
           className="group relative rounded-2xl p-4 transition-all overflow-hidden
                      border border-sky-500/20 hover:border-sky-400/40
                      hover:shadow-[0_0_30px_rgba(56,189,248,.15)]"

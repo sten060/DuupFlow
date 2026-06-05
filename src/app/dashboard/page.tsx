@@ -10,7 +10,6 @@ export default async function DashboardPage() {
     agency_name: string | null;
     is_guest: boolean | null;
     host_user_id: string | null;
-    onboarded_at: string | null;
     plan: string | null;
     has_paid: boolean | null;
     variation_ia_announced_at: string | null;
@@ -20,7 +19,7 @@ export default async function DashboardPage() {
   if (user) {
     const { data } = await supabase
       .from("profiles")
-      .select("first_name, agency_name, is_guest, host_user_id, onboarded_at, plan, has_paid, variation_ia_announced_at")
+      .select("first_name, agency_name, is_guest, host_user_id, plan, has_paid, variation_ia_announced_at")
       .eq("id", user.id)
       .single();
 
@@ -38,10 +37,9 @@ export default async function DashboardPage() {
 
   const firstName = profile?.first_name ?? null;
   const agencyName = profile?.is_guest ? hostAgency : profile?.agency_name ?? null;
-  // Auto-open the onboarding tour only for users with NULL onboarded_at.
-  // Migration 020 backfilled all existing users with NOW() so they're
-  // skipped — only signups going forward will see the tour.
-  const needsOnboarding = profile != null && profile.onboarded_at == null;
+
+  // The gamified onboarding tour is now mounted in dashboard/layout.tsx so
+  // it persists across page navigations — no longer driven from this page.
 
   // One-shot AI Variation launch announcement: shown only to LEGACY users
   // (variation_ia_announced_at IS NULL after migration 021). New users get
@@ -60,7 +58,6 @@ export default async function DashboardPage() {
     <DashboardHome
       firstName={firstName}
       agencyName={agencyName}
-      needsOnboarding={needsOnboarding}
       variationAnnouncementPending={variationAnnouncementPending}
       effectivePlan={effectivePlan}
     />

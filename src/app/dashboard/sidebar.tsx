@@ -6,13 +6,14 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
 
-function NavItem({ href, label, icon, badge }: { href: string; label: string; icon: React.ReactNode; badge?: string }) {
+function NavItem({ href, label, icon, badge, tourId }: { href: string; label: string; icon: React.ReactNode; badge?: string; tourId?: string }) {
   const pathname = usePathname();
   const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 
   return (
     <Link
       href={href}
+      data-tour-id={tourId}
       className={[
         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
         active ? "text-white" : "text-white/40 hover:text-white/75 hover:bg-white/[0.04]",
@@ -67,6 +68,7 @@ export default function Sidebar() {
     {
       href: "/dashboard/images",
       label: t("dashboard.sidebar.images"),
+      tourId: "nav-images",
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="3" y="3" width="18" height="18" rx="3" />
@@ -78,6 +80,7 @@ export default function Sidebar() {
     {
       href: "/dashboard/videos",
       label: t("dashboard.sidebar.videos"),
+      tourId: "nav-videos",
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="2" y="5" width="14" height="14" rx="2" />
@@ -88,6 +91,7 @@ export default function Sidebar() {
     {
       href: "/dashboard/similarity",
       label: t("dashboard.sidebar.comparateur"),
+      tourId: "nav-similarity",
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8" />
@@ -99,6 +103,7 @@ export default function Sidebar() {
       href: "/dashboard/generate",
       label: t("dashboard.sidebar.variationIA"),
       badge: t("dashboard.sidebar.beta"),
+      tourId: "nav-variation",
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
@@ -168,6 +173,7 @@ export default function Sidebar() {
 
         <Link
           href="/dashboard/abonnement"
+          data-tour-id="nav-abonnement"
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/35 hover:text-white/65 hover:bg-white/[0.04] transition-all w-full mb-1"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
@@ -179,6 +185,7 @@ export default function Sidebar() {
 
         <Link
           href="/dashboard/tokens"
+          data-tour-id="nav-tokens"
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/35 hover:text-white/65 hover:bg-white/[0.04] transition-all w-full mb-1"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">

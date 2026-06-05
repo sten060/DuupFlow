@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
-import { markOnboardingDone } from "./actions/onboarding";
 import VariationAnnouncementModal from "./VariationAnnouncementModal";
+import { useTour, type TourChapter } from "./TourContext";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
-
-const GUIDE_KEY = "duupflow_guide_v2";
 
 function ModuleCard({ mod }: { mod: { href: string; title: string; desc: string; badge: string | null; icon: React.ReactNode; color: string; colorBg: string; colorBorder: string } }) {
   return (
@@ -59,7 +57,10 @@ function ModuleCard({ mod }: { mod: { href: string; title: string; desc: string;
   );
 }
 
-/* ─── Guide Modal ─── */
+/* ─── Legacy Guide Modal — kept for the "Guide" header button (re-watch on
+ * demand). The auto-onboarding flow has been replaced by CoachmarkTour
+ * (spotlight tour) below. Closing this modal does NOT mark onboarding done,
+ * so it's safe to invoke from the header at any time. */
 function GuideModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const [step, setStep] = useState(0);
@@ -391,23 +392,178 @@ function NewsModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+/* ─── Chapter Picker Modal — drives the rewatch tour ─── */
+function ChapterPickerModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  const { launchRewatch } = useTour();
+
+  const CHAPTERS: {
+    id: TourChapter;
+    title: string;
+    desc: string;
+    color: string;
+    colorBg: string;
+    colorBorder: string;
+    icon: React.ReactNode;
+  }[] = [
+    {
+      id: "images",
+      title: t("dashboard.home.moduleImages"),
+      desc:  t("dashboard.home.moduleImagesDesc"),
+      color: "#C026D3",
+      colorBg: "rgba(192,38,211,0.10)",
+      colorBorder: "rgba(192,38,211,0.30)",
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="3" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+      ),
+    },
+    {
+      id: "videos",
+      title: t("dashboard.home.moduleVideos"),
+      desc:  t("dashboard.home.moduleVideosDesc"),
+      color: "#6366F1",
+      colorBg: "rgba(99,102,241,0.10)",
+      colorBorder: "rgba(99,102,241,0.30)",
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="2" y="5" width="14" height="14" rx="2" />
+          <path d="M16 9l5-3v12l-5-3V9z" />
+        </svg>
+      ),
+    },
+    {
+      id: "similarity",
+      title: t("dashboard.home.moduleComparateur"),
+      desc:  t("dashboard.home.moduleComparateurDesc"),
+      color: "#10B981",
+      colorBg: "rgba(16,185,129,0.10)",
+      colorBorder: "rgba(16,185,129,0.30)",
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+      ),
+    },
+    {
+      id: "variation",
+      title: t("dashboard.home.moduleVariationIA"),
+      desc:  t("dashboard.home.moduleVariationIADesc"),
+      color: "#38BDF8",
+      colorBg: "rgba(56,189,248,0.10)",
+      colorBorder: "rgba(56,189,248,0.30)",
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
+        </svg>
+      ),
+    },
+  ];
+
+  function pick(chapter: TourChapter) {
+    launchRewatch(chapter);
+    onClose();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      style={{ background: "rgba(6,9,24,0.78)", backdropFilter: "blur(6px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-xl rounded-2xl overflow-hidden"
+        style={{
+          background: "rgba(10,14,40,0.98)",
+          border: "1px solid rgba(99,102,241,0.25)",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(99,102,241,0.10)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-7 pt-6 pb-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-white tracking-tight">
+              {t("dashboard.home.chapterPickerTitle")}
+            </h2>
+            <p className="text-sm text-white/45 mt-1">
+              {t("dashboard.home.chapterPickerSubtitle")}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-white/30 hover:text-white/60 transition h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/5 shrink-0"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="px-7 pb-7 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {CHAPTERS.map((c, i) => (
+            <button
+              key={c.id}
+              onClick={() => pick(c.id)}
+              className="group relative rounded-xl p-4 text-left transition-all"
+              style={{
+                background: c.colorBg.replace("0.10", "0.05"),
+                border: `1px solid ${c.colorBorder.replace("0.30", "0.18")}`,
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.borderColor = c.colorBorder;
+                (e.currentTarget as HTMLElement).style.boxShadow = `0 0 30px ${c.colorBg}`;
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.borderColor = c.colorBorder.replace("0.30", "0.18");
+                (e.currentTarget as HTMLElement).style.boxShadow = "none";
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: c.colorBg, border: `1px solid ${c.colorBorder}`, color: c.color }}
+                >
+                  {c.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold tracking-[0.14em] uppercase text-white/30">
+                      {t("dashboard.home.chapterLabel")} {i + 1}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-semibold text-white/90 mt-0.5">{c.title}</h3>
+                  <p className="text-xs text-white/45 mt-1 leading-relaxed">{c.desc}</p>
+                </div>
+                <span className="text-sm opacity-0 group-hover:opacity-100 transition shrink-0 mt-1" style={{ color: c.color }}>→</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardHome({
   firstName,
   agencyName,
-  needsOnboarding = false,
   variationAnnouncementPending = false,
   effectivePlan = "free",
 }: {
   firstName: string | null;
   agencyName: string | null;
-  /** True only when profile.onboarded_at is NULL (i.e. fresh signup). */
-  needsOnboarding?: boolean;
   /** True only for legacy users (variation_ia_announced_at IS NULL). */
   variationAnnouncementPending?: boolean;
   /** User's effective plan, used by the announcement modal. */
   effectivePlan?: "free" | "solo" | "pro";
 }) {
-  const [showGuide, setShowGuide] = useState(false);
+  const [showGuide, setShowGuide]               = useState(false);
+  const [showChapterPicker, setShowChapterPicker] = useState(false);
   const [showNews, setShowNews] = useState(false);
   const [showVariationAnnouncement, setShowVariationAnnouncement] = useState(
     variationAnnouncementPending,
@@ -491,25 +647,11 @@ export default function DashboardHome({
     },
   ];
 
-  // Auto-trigger the onboarding tour ONLY for new users (DB-flagged via
-  // `profile.onboarded_at IS NULL`). Existing users were backfilled with
-  // NOW() in migration 020, so they never see this auto-open. The "Guide"
-  // button in the header is still available for everyone to re-watch.
-  useEffect(() => {
-    if (needsOnboarding) {
-      setShowGuide(true);
-    }
-  }, [needsOnboarding]);
-
+  // The gamified CoachmarkTour is now mounted globally in dashboard/layout.tsx
+  // so it persists across page navigations. The legacy `GuideModal` here
+  // remains available via the "Guide" header button for manual re-watch.
   function closeGuide() {
-    // Persist completion server-side so it never reopens automatically.
-    // localStorage kept as best-effort cache to avoid flicker on quick
-    // re-renders before the DB write completes.
-    localStorage.setItem(GUIDE_KEY, "1");
     setShowGuide(false);
-    if (needsOnboarding) {
-      void markOnboardingDone().catch(() => {});
-    }
   }
 
   return (
@@ -542,7 +684,7 @@ export default function DashboardHome({
               {t("dashboard.home.nouveautes")}
             </button>
             <button
-              onClick={() => setShowGuide(true)}
+              onClick={() => setShowChapterPicker(true)}
               className="text-xs text-indigo-400/70 hover:text-indigo-400 transition flex items-center gap-1"
             >
               <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
@@ -570,8 +712,9 @@ export default function DashboardHome({
         ))}
       </div>
 
-      {/* Guide modal */}
+      {/* Guide modal (manual re-watch from the header button) */}
       {showGuide && <GuideModal onClose={closeGuide} />}
+      {showChapterPicker && <ChapterPickerModal onClose={() => setShowChapterPicker(false)} />}
 
       {/* News modal */}
       {showNews && <NewsModal onClose={() => setShowNews(false)} />}

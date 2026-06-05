@@ -225,7 +225,7 @@ export default function AiLabPage() {
       {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
 
       {/* Mode toggle */}
-      <div className="mb-6 inline-flex rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
+      <div data-tour-id="gen-mode-toggle" className="mb-6 inline-flex rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
         <button
           type="button"
           onClick={() => setMode("variation")}
@@ -257,6 +257,7 @@ export default function AiLabPage() {
         <div className="space-y-4">
           {/* Dropzone */}
           <div
+            data-tour-id="gen-dropzone"
             onClick={() => inputRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
             onDragLeave={() => setIsDragOver(false)}
@@ -368,6 +369,7 @@ export default function AiLabPage() {
             <div className="mt-5 flex items-center gap-3">
               <button
                 type="button"
+                data-tour-id="gen-submit"
                 onClick={handleLaunch}
                 disabled={busy || !file}
                 className={[

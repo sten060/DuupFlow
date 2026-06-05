@@ -167,6 +167,7 @@ export default function SimilarityClient() {
         <div>
           <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.similarity.file1")}</label>
           <div
+            data-tour-id="sim-file1-dropzone"
             onClick={() => ref1.current?.click()}
             onDragOver={handleDragOver}
             onDrop={makeDrop(setFile1, setProbe1)}
@@ -180,6 +181,7 @@ export default function SimilarityClient() {
         <div>
           <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.similarity.file2")}</label>
           <div
+            data-tour-id="sim-file2-dropzone"
             onClick={() => ref2.current?.click()}
             onDragOver={handleDragOver}
             onDrop={makeDrop(setFile2, setProbe2)}
@@ -194,6 +196,7 @@ export default function SimilarityClient() {
 
       <button
         onClick={handleCompare}
+        data-tour-id="sim-submit"
         disabled={loading || !file1 || !file2}
         className={[
           "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",

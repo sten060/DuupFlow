@@ -73,6 +73,7 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
     <div className="flex items-center gap-4">
       <button
         type="submit"
+        data-tour-id="video-submit"
         disabled={pending}
         className={[
           "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
@@ -474,9 +475,9 @@ export default function VideoFormSimpleClient() {
       {iphoneMeta && <input type="hidden" name="iphoneMeta" value="1" />}
 
       {/* Dropzone — seul élément avec bordure */}
-      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
+      <div data-tour-id="video-dropzone" className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
         <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
-        <div className="max-w-xs">
+        <div data-tour-id="video-copies" className="max-w-xs">
           <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.videosSimple.copiesLabel")}</label>
           <input type="number" name="count" min={1} defaultValue={1} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90" />
         </div>
@@ -485,7 +486,7 @@ export default function VideoFormSimpleClient() {
       <div className="h-px bg-white/[0.06]" />
 
       {/* Packs */}
-      <div>
+      <div data-tour-id="video-packs">
         <input type="hidden" name="packs" value={packsSelected.join(",")} />
         <h3 className="text-sm font-semibold text-white/90 mb-3">{t("dashboard.videosSimple.packsTitle")} <span className="text-white/40 font-normal">{t("dashboard.videosSimple.packsCumulative")}</span></h3>
 

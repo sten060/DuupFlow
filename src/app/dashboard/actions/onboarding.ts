@@ -26,6 +26,27 @@ export async function markOnboardingDone(): Promise<void> {
 }
 
 /**
+ * Persist current step of the gamified dashboard tour. Allows resume
+ * on refresh / next visit if the user closes the browser mid-tour.
+ *
+ * Idempotent: safe to call with the same step value (just rewrites).
+ * Best-effort — failures are swallowed so the tour UI keeps working
+ * even if the DB write fails.
+ */
+export async function setTourStep(step: number): Promise<void> {
+  if (!Number.isFinite(step) || step < 0) return;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const admin = createAdminClient();
+  await admin
+    .from("profiles")
+    .update({ tour_step: Math.floor(step) })
+    .eq("id", user.id);
+}
+
+/**
  * Acknowledge the one-shot AI Variation launch announcement.
  *
  * Triggers exactly once per existing user (`variation_ia_announced_at IS NULL`)
