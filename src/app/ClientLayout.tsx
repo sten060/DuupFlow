@@ -5,6 +5,7 @@ import { useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
 import { LanguageProvider } from "@/lib/i18n/context";
+import { captureAcquisition } from "@/lib/acquisition";
 
 const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
 const LogoPreloader = dynamic(() => import("@/components/LogoPreloader"), { ssr: false });
@@ -23,6 +24,18 @@ function AffiliateRefTracker() {
       }).catch(() => {});
     }
   }, [searchParams]);
+  return null;
+}
+
+/**
+ * Runs first-touch UTM/referrer capture on initial mount. captureAcquisition
+ * itself is a no-op when a payload already exists in localStorage, so this
+ * survives client-side navigations / re-renders without overwriting.
+ */
+function AcquisitionTracker() {
+  useEffect(() => {
+    captureAcquisition();
+  }, []);
   return null;
 }
 
@@ -97,6 +110,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <Suspense fallback={null}>
         <AffiliateRefTracker />
       </Suspense>
+      <AcquisitionTracker />
       {showHeader && <Header />}
       {showHeader && <div className="h-16 md:h-20" />}
       {children}

@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
+import { flushAcquisition } from "@/lib/acquisition";
 
 // Multi-step wizard for first-time signup.
 //
@@ -147,6 +148,11 @@ function OnboardingForm() {
 
     sessionStorage.setItem("welcome_first_name", firstName.trim());
     sessionStorage.setItem("welcome_is_guest", isGuest ? "1" : "0");
+
+    // First-touch acquisition flush — fire-and-forget. Errors are swallowed
+    // inside flushAcquisition so they can never block the redirect.
+    void flushAcquisition(supabase, user.id);
+
     router.push("/onboarding/welcome");
   }
 
