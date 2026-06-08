@@ -6,7 +6,7 @@ import ClientLayout from "./ClientLayout";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.duupflow.com"),
-  title: "DuupFlow — Duplicate your content infinitely",
+  title: "DuupFlow — the best spoofer for OFM agencies",
   description:
     "DuupFlow lets you duplicate your content in seconds. Each file becomes unique in the eyes of platform algorithms. Built for agencies looking to scale their social media content.",
   icons: {
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     apple: "/apple-icon.png",
   },
   openGraph: {
-    title: "DuupFlow — Duplicate your content infinitely",
+    title: "DuupFlow — the best spoofer for OFM agencies",
     description:
       "DuupFlow lets you duplicate your content in seconds. Each file becomes unique in the eyes of platform algorithms. Built for agencies looking to scale their social media content.",
     url: "https://www.duupflow.com",
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "DuupFlow — Duplicate your content infinitely",
+    title: "DuupFlow — the best spoofer for OFM agencies",
     description:
       "DuupFlow lets you duplicate your content in seconds. Each file becomes unique in the eyes of platform algorithms. Built for agencies looking to scale their social media content.",
     images: ["/og-image.png"],
