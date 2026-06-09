@@ -48,11 +48,29 @@ export function captureAcquisition(): void {
       return v && v.trim() ? v.trim() : null;
     };
 
-    let source: string | null = utm("utm_source");
-    let medium: string | null = utm("utm_medium");
+    let source: string | null   = utm("utm_source");
+    let medium: string | null   = utm("utm_medium");
+    let campaign: string | null = utm("utm_campaign");
+    let content: string | null  = utm("utm_content");
     const referrer = document.referrer || null;
 
-    // Fallback when no utm_source is present:
+    // Affiliate referral code (`?ref=CODE`) — DuupFlow's affiliate program
+    // uses uppercase codes. Treat the affiliate as an acquisition channel:
+    //   • no UTM at all  → source = "affiliate", campaign = <code>
+    //   • UTM present    → keep UTM as primary, stash <code> in utm_content
+    //                       so we can still see which affiliate sent that UTM
+    const refCode = (params.get("ref") ?? "").trim().toUpperCase() || null;
+    if (refCode) {
+      if (!source) {
+        source   = "affiliate";
+        medium   = medium   ?? "referral";
+        campaign = campaign ?? refCode;
+      } else if (!content) {
+        content = refCode;
+      }
+    }
+
+    // Fallback when no utm_source AND no affiliate ref are present:
     //   • no referrer at all       → "direct"
     //   • referrer from another host → host of referrer (medium "referral")
     //   • referrer from same host   → "direct" (intra-site nav)
@@ -77,8 +95,8 @@ export function captureAcquisition(): void {
     const data: AcquisitionData = {
       source,
       medium,
-      campaign:    utm("utm_campaign"),
-      content:     utm("utm_content"),
+      campaign,
+      content,
       term:        utm("utm_term"),
       referrer,
       landing_path: window.location.pathname || null,
@@ -178,20 +196,33 @@ export function trackClickIfUTM(): void {
       return v && v.trim() ? v.trim() : null;
     };
 
-    const source   = utm("utm_source");
-    const medium   = utm("utm_medium");
-    const campaign = utm("utm_campaign");
-    const content  = utm("utm_content");
+    let source   = utm("utm_source");
+    let medium   = utm("utm_medium");
+    let campaign = utm("utm_campaign");
+    let content  = utm("utm_content");
     const term     = utm("utm_term");
     const referrer = document.referrer || null;
 
-    // Tag Clarity unconditionally when UTMs exist — populates filter dropdowns
-    // even for visitors who never sign up.
+    // Affiliate ref code → counted as an acquisition channel:
+    // alone it becomes the source, alongside a UTM it goes into utm_content.
+    const refCode = (params.get("ref") ?? "").trim().toUpperCase() || null;
+    if (refCode) {
+      if (!source) {
+        source   = "affiliate";
+        medium   = medium   ?? "referral";
+        campaign = campaign ?? refCode;
+      } else if (!content) {
+        content = refCode;
+      }
+    }
+
+    // Tag Clarity unconditionally when any acquisition signal exists —
+    // populates filter dropdowns even for visitors who never sign up.
     if (source || medium || campaign) {
       tagClarityWithUTM({ source, medium, campaign });
     }
 
-    // Skip pure noise: no UTM AND no referrer = direct-typed, not a "click".
+    // Skip pure noise: no UTM, no ref, no referrer = direct-typed, not a "click".
     if (!source && !referrer) return;
 
     // Cooldown: skip if we've already pinged for this UTM combo in the
