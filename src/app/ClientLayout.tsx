@@ -5,7 +5,7 @@ import { useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
 import { LanguageProvider } from "@/lib/i18n/context";
-import { captureAcquisition } from "@/lib/acquisition";
+import { captureAcquisition, trackClickIfUTM } from "@/lib/acquisition";
 
 const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
 const LogoPreloader = dynamic(() => import("@/components/LogoPreloader"), { ssr: false });
@@ -28,13 +28,18 @@ function AffiliateRefTracker() {
 }
 
 /**
- * Runs first-touch UTM/referrer capture on initial mount. captureAcquisition
- * itself is a no-op when a payload already exists in localStorage, so this
- * survives client-side navigations / re-renders without overwriting.
+ * Acquisition tracker — runs three side-effects on mount:
+ *   1. captureAcquisition() — first-touch snapshot in localStorage
+ *      (no-op if already captured), used at signup to write user_acquisition.
+ *   2. trackClickIfUTM()    — sends a click ping to /api/track-click for
+ *      the CURRENT URL's UTMs (throttled per UTM-combo per browser).
+ *   3. Pushes UTM values to Microsoft Clarity as custom tags so the user
+ *      can filter sessions/recordings by source / medium / campaign.
  */
 function AcquisitionTracker() {
   useEffect(() => {
     captureAcquisition();
+    trackClickIfUTM();
   }, []);
   return null;
 }
