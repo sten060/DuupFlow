@@ -289,6 +289,7 @@ export async function POST(req: Request) {
         error: usageCheck.message ?? "Limite de duplications atteinte.",
         code: "IMG-LIMIT",
         limitReached: true,
+        plan: usageCheck.plan,
         current: usageCheck.current,
         limit: usageCheck.limit,
       },
@@ -382,7 +383,7 @@ export async function POST(req: Request) {
         send({ percent: 100, msg: "Terminé ✔", done: true, processedOk });
       } catch (e: any) {
         console.error("[duplicate-image] error:", e?.message);
-        send({ error: true, msg: "[IMG-002] Une erreur est survenue pendant le traitement. Contactez le support.", code: "IMG-002" });
+        send({ error: true, msg: "Une erreur est survenue pendant le traitement. Contactez le support.", code: "IMG-002" });
       } finally {
         clearInterval(keepalive);
         if (generationSucceeded && usageCheck.userId) {

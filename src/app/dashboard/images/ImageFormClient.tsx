@@ -6,6 +6,8 @@ import CountrySelect from "../components/CountrySelect";
 import { setJob, addCompletedFile, removeJob, stopJob } from "../videos/jobStore";
 import ClearImagesButton from "./ClearImagesButton";
 import { useTranslation } from "@/lib/i18n/context";
+import LimitReachedModal from "../components/LimitReachedModal";
+import UpgradePlanModal from "../components/UpgradePlanModal";
 
 const MAX_FILES = 50;
 
@@ -74,6 +76,8 @@ export default function ImageFormClient({ initialImages }: Props) {
   const [progressLabel, setProgressLabel] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [limitPlan, setLimitPlan] = useState<"free" | "solo" | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   // Persisted download list: initialized from server files, grows as new jobs complete.
   // Survives job cleanup and page navigation (server re-populates via initialImages).
@@ -253,10 +257,16 @@ export default function ImageFormClient({ initialImages }: Props) {
       if (!res.ok || !res.body) {
         const text = await res.text().catch(() => "");
         let msg = `HTTP ${res.status}`;
-        try { const j = JSON.parse(text); msg = j?.error || msg; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
-        const errMsg = `[IMG-002] ${msg}`;
-        setErrorMsg(errMsg);
-        setJob({ id: jobId, type: "image", channel: "image", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
+        let parsed: any = null;
+        try { parsed = JSON.parse(text); msg = parsed?.error || msg; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
+        // Monthly limit reached → friendly upgrade modal (no inline red bar / badge).
+        if (parsed?.limitReached) {
+          removeJob(jobId);
+          setLimitPlan(parsed.plan === "solo" ? "solo" : "free");
+          return;
+        }
+        setErrorMsg(msg);
+        setJob({ id: jobId, type: "image", channel: "image", progress: 0, msg, status: "error", errorMsg: msg });
         return;
       }
 
@@ -578,6 +588,20 @@ export default function ImageFormClient({ initialImages }: Props) {
           </div>
         </div>
       )}
+
+      {/* Monthly image limit reached → friendly upgrade modal, then the usual
+          plan picker (UpgradePlanModal). */}
+      <LimitReachedModal
+        open={limitPlan !== null && !showUpgrade}
+        plan={limitPlan ?? "free"}
+        onClose={() => setLimitPlan(null)}
+        onUpgrade={() => setShowUpgrade(true)}
+      />
+      <UpgradePlanModal
+        open={showUpgrade}
+        currentPlan={limitPlan ?? "free"}
+        onClose={() => { setShowUpgrade(false); setLimitPlan(null); }}
+      />
     </div>
   );
 }

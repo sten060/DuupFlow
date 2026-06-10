@@ -104,7 +104,7 @@ export default function SettingsClient({
   invitations: Invitation[];
   userEmail?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, locale, setLocale } = useTranslation();
   const router = useRouter();
   const supabase = createClient();
 
@@ -279,6 +279,36 @@ export default function SettingsClient({
                 </div>
               </form>
             </Card>
+
+            {/* Language */}
+            <div className="mt-6">
+              <SectionTitle>{t("dashboard.settings.languageSection")}</SectionTitle>
+              <Card>
+                <p className="text-xs text-white/40 mb-4 leading-relaxed">
+                  {t("dashboard.settings.languageDesc")}
+                </p>
+                <div className="flex gap-3">
+                  {(["fr", "en"] as const).map((lng) => {
+                    const active = locale === lng;
+                    return (
+                      <button
+                        key={lng}
+                        type="button"
+                        onClick={() => setLocale(lng)}
+                        className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition hover:opacity-90"
+                        style={
+                          active
+                            ? { background: "linear-gradient(135deg,#6366F1,#38BDF8)", color: "#fff" }
+                            : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.55)" }
+                        }
+                      >
+                        {lng === "fr" ? "Français" : "English"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Card>
+            </div>
           </div>
 
           {/* FAQ */}

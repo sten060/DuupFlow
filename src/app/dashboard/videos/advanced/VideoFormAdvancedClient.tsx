@@ -11,6 +11,8 @@ import CountrySelect from "@/app/dashboard/components/CountrySelect";
 import { setJob, addCompletedFile, removeJob } from "../jobStore";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
+import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
+import UpgradePlanModal from "@/app/dashboard/components/UpgradePlanModal";
 import {
   getTemplates,
   saveTemplate,
@@ -211,6 +213,8 @@ export default function VideoFormAdvancedClient() {
   const [progress, setProgress] = useState<number | null>(null);
   const [progressMsg, setProgressMsg] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [limitPlan, setLimitPlan] = useState<"free" | "solo" | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const [ranges, setRanges] = useState<RangeState>(() =>
     Object.fromEntries(CONTROLS.map((c) => [c.key, { enabled: false, min: c.min, max: c.max }]))
@@ -416,7 +420,15 @@ export default function VideoFormAdvancedClient() {
             const text = await res.text().catch(() => "");
             let msg = `HTTP ${res.status}`;
             let code = res.status >= 500 ? "VID-002" : "VID-001";
-            try { const j = JSON.parse(text); msg = j?.error || msg; code = j?.code || code; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
+            let parsed: any = null;
+            try { parsed = JSON.parse(text); msg = parsed?.error || msg; code = parsed?.code || code; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
+            // Monthly limit reached → friendly upgrade modal (no badge / inline error).
+            if (parsed?.limitReached) {
+              removeJob(jobId);
+              setLimitPlan(parsed.plan === "solo" ? "solo" : "free");
+              setProcessing(false);
+              return;
+            }
             const errMsg = `[${code}] ${msg}`;
             setSubmitError(errMsg);
             setJob({ id: jobId, type: "video", channel: "advanced", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
@@ -837,6 +849,21 @@ export default function VideoFormAdvancedClient() {
         </p>
       )}
     </form>
+
+      {/* Monthly video limit reached → friendly upgrade modal, then the usual
+          plan picker (UpgradePlanModal). */}
+      <LimitReachedModal
+        open={limitPlan !== null && !showUpgrade}
+        plan={limitPlan ?? "free"}
+        resource="videos"
+        onClose={() => setLimitPlan(null)}
+        onUpgrade={() => setShowUpgrade(true)}
+      />
+      <UpgradePlanModal
+        open={showUpgrade}
+        currentPlan={limitPlan ?? "free"}
+        onClose={() => { setShowUpgrade(false); setLimitPlan(null); }}
+      />
     </>
   );
 }

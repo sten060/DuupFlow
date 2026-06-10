@@ -10,6 +10,8 @@ import CountrySelect from "@/app/dashboard/components/CountrySelect";
 import { setJob, addCompletedFile, removeJob } from "../jobStore";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
+import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
+import UpgradePlanModal from "@/app/dashboard/components/UpgradePlanModal";
 
 function ProgressBar({ percent, label }: { percent: number; label?: string }) {
   return (
@@ -184,6 +186,8 @@ export default function VideoFormSimpleClient() {
   const [progress, setProgress] = useState<number | null>(null);
   const [progressMsg, setProgressMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [limitPlan, setLimitPlan] = useState<"free" | "solo" | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({
     metadata: false,
@@ -335,7 +339,15 @@ export default function VideoFormSimpleClient() {
           if (!res.ok || !res.body) {
             const text = await res.text().catch(() => "");
             let code = res.status >= 500 ? "VID-002" : "VID-001";
-            try { const j = JSON.parse(text); code = j?.code || code; } catch {}
+            let parsed: any = null;
+            try { parsed = JSON.parse(text); code = parsed?.code || code; } catch {}
+            // Monthly limit reached → friendly upgrade modal (no badge / inline error).
+            if (parsed?.limitReached) {
+              removeJob(jobId);
+              setLimitPlan(parsed.plan === "solo" ? "solo" : "free");
+              setProcessing(false);
+              return;
+            }
             const errMsg = `[${code}] Une erreur est survenue. Réessayez ou contactez le support.`;
             setErrorMsg(errMsg);
             setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
@@ -563,6 +575,21 @@ export default function VideoFormSimpleClient() {
         </p>
       )}
     </form>
+
+      {/* Monthly video limit reached → friendly upgrade modal, then the usual
+          plan picker (UpgradePlanModal). */}
+      <LimitReachedModal
+        open={limitPlan !== null && !showUpgrade}
+        plan={limitPlan ?? "free"}
+        resource="videos"
+        onClose={() => setLimitPlan(null)}
+        onUpgrade={() => setShowUpgrade(true)}
+      />
+      <UpgradePlanModal
+        open={showUpgrade}
+        currentPlan={limitPlan ?? "free"}
+        onClose={() => { setShowUpgrade(false); setLimitPlan(null); }}
+      />
     </>
   );
 }

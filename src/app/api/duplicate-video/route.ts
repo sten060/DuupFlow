@@ -99,6 +99,7 @@ export async function POST(req: Request) {
         error: usageCheck.message ?? "Limite de duplications vidéos atteinte.",
         code: "VID-LIMIT",
         limitReached: true,
+        plan: usageCheck.plan,
         current: usageCheck.current,
         limit: usageCheck.limit,
       },

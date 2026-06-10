@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { useTranslation } from "@/lib/i18n/context";
 import UpgradePlanModal from "../components/UpgradePlanModal";
+import TokensPanel from "./TokensPanel";
 
 function getRenewalDate(periodStart: string | null): string | null {
   if (!periodStart) return null;
@@ -20,8 +21,8 @@ function getDaysUntilRenewal(periodStart: string | null): number | null {
   return Math.max(0, Math.ceil((renewal.getTime() - Date.now()) / 86400000));
 }
 
-function UsageBar({
-  label, icon, current, limit, unlimited, color, usedText,
+function UsageStatCard({
+  label, icon, current, limit, unlimited, color,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -29,47 +30,45 @@ function UsageBar({
   limit: number;
   unlimited?: boolean;
   color: string;
-  usedText?: string;
 }) {
   const pct = unlimited ? 100 : Math.min(100, Math.round((current / limit) * 100));
   const isNearLimit = !unlimited && pct >= 80;
   const isAtLimit = !unlimited && pct >= 100;
   const barColor = isAtLimit ? "#EF4444" : isNearLimit ? "#F59E0B" : color;
-  const barStyle = unlimited
-    ? { background: `linear-gradient(90deg, ${color}, ${color}99)` }
-    : { background: barColor };
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div
-            className="h-6 w-6 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: `${color}18`, border: `1px solid ${color}30` }}
-          >
-            {icon}
-          </div>
-          <span className="text-xs font-medium text-white/70">{label}</span>
-        </div>
-        <span
-          className="text-xs font-semibold tabular-nums"
-          style={{ color: isAtLimit ? "#EF4444" : "rgba(255,255,255,0.65)" }}
+    <div
+      className="rounded-xl p-4"
+      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+    >
+      <div className="flex items-center gap-2 mb-2.5">
+        <div
+          className="h-5 w-5 rounded-md flex items-center justify-center shrink-0"
+          style={{ background: `${color}18`, border: `1px solid ${color}30` }}
         >
-          {unlimited ? (
-            <span className="flex items-center gap-1">
-              <span className="text-white/40 text-[10px]">{current} {usedText}</span>
-              <span className="text-white/25 text-[10px] mx-0.5">·</span>
-              <span style={{ color }}>∞</span>
-            </span>
-          ) : (
-            `${current} / ${limit}`
-          )}
+          {icon}
+        </div>
+        <span className="text-[10px] font-semibold tracking-[0.1em] uppercase text-white/40">
+          {label}
         </span>
       </div>
-      <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+      <p className="text-2xl font-bold text-white tabular-nums leading-none">
+        {current}
+        <span className="text-sm font-medium text-white/35 ml-1.5">
+          / {unlimited ? "∞" : limit}
+        </span>
+      </p>
+      <div
+        className="mt-3 h-1.5 w-full rounded-full overflow-hidden"
+        style={{ background: "rgba(255,255,255,0.06)" }}
+      >
         <div
           className="h-full rounded-full transition-all duration-700 ease-out"
-          style={{ width: `${pct}%`, ...barStyle }}
+          style={
+            unlimited
+              ? { width: "100%", background: `linear-gradient(90deg, ${color}, ${color}55)` }
+              : { width: `${pct}%`, background: barColor }
+          }
         />
       </div>
     </div>
@@ -239,19 +238,18 @@ export default function AbonnementClient({
 
   return (
     <>
-    <main className="p-8 max-w-2xl">
-      {/* Header */}
+    <main className="px-8 py-8 2xl:px-12">
+      {/* Header — screenshot style */}
       <div className="mb-8">
-        <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1.5">Dashboard</p>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-white tracking-tight">{t("dashboard.subscription.title")}</h1>
-          <span
-            className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-            style={{ background: planBg, border: `1px solid ${planBorder}`, color: planColor }}
-          >
-            Plan {meta.label}
-          </span>
-        </div>
+        <p className="text-xs font-medium text-white/30 tracking-[0.14em] uppercase mb-2">
+          {t("dashboard.subscription.eyebrow")}
+        </p>
+        <h1 className="text-3xl font-semibold text-white tracking-tight">
+          {t("dashboard.subscription.pageHeading")}
+        </h1>
+        <p className="text-sm text-white/45 mt-2 max-w-xl leading-relaxed">
+          {t("dashboard.subscription.pageSubtitle")}
+        </p>
       </div>
 
       <div className="space-y-5">
@@ -260,40 +258,34 @@ export default function AbonnementClient({
           className="rounded-2xl p-6"
           style={{ background: "rgba(10,14,40,0.55)", border: "1px solid rgba(255,255,255,0.07)" }}
         >
-          {/* Plan header */}
-          <div className="flex items-start justify-between gap-4 mb-5">
-            <div className="flex items-center gap-3">
-              <div
-                className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: planBg, border: `1px solid ${planBorder}` }}
-              >
-                {plan === "solo" ? (
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke={planColor} strokeWidth="1.8">
-                    <circle cx="12" cy="8" r="4" />
-                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke={planColor} strokeWidth="1.8">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                )}
-              </div>
-              <div>
-                <p className="text-base font-semibold text-white leading-tight">
-                  Plan {meta.label}
-                </p>
-                <p className="text-xs text-white/40 mt-0.5">{meta.price}</p>
-              </div>
-            </div>
-            <span
-              className="text-[10px] font-semibold px-2.5 py-1 rounded-full shrink-0 flex items-center gap-1.5"
-              style={{ background: planBg, border: `1px solid ${planBorder}`, color: planColor }}
+          {/* Plan header — screenshot style: "Plan actuel" badge, plan name
+              (no price, per spec), and the "Changer son plan" CTA beside it. */}
+          <span
+            className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full mb-4"
+            style={{ background: planBg, border: `1px solid ${planBorder}`, color: planColor }}
+          >
+            {t("dashboard.subscription.currentPlan")}
+          </span>
+          <div className="flex items-end justify-between gap-4 mb-6">
+            <p className="text-4xl font-bold text-white leading-none">{meta.label}</p>
+            <button
+              type="button"
+              onClick={() => {
+                if (isFree) setShowFreeUpgradeModal(true);
+                else if (plan === "solo") setShowUpgradeModal(true);
+                else setShowDowngradeModal(true);
+              }}
+              className="shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 flex items-center gap-2"
+              style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-              {t("dashboard.subscription.active")}
-            </span>
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                <path d="M3 21v-5h5" />
+              </svg>
+              {t("dashboard.subscription.changePlan")}
+            </button>
           </div>
 
           {/* Cancellation banner */}
@@ -348,13 +340,13 @@ export default function AbonnementClient({
             </div>
           )}
 
-          {/* Usage */}
-          <div className="mb-5">
+          {/* Usage — screenshot style: 3 stat cards side by side */}
+          <div>
             <p className="text-xs font-semibold tracking-[0.12em] uppercase text-white/25 mb-4">
               {isUnlimited ? t("dashboard.subscription.usageUnlimited") : t("dashboard.subscription.usageThisMonth")}
             </p>
-            <div className="space-y-4">
-              <UsageBar
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <UsageStatCard
                 label={t("dashboard.subscription.imagesDuplication")}
                 icon={
                   <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke={planColor} strokeWidth="2">
@@ -367,9 +359,8 @@ export default function AbonnementClient({
                 limit={quotaLimits.images}
                 unlimited={isUnlimited}
                 color={planColor}
-                usedText={t("dashboard.subscription.used")}
               />
-              <UsageBar
+              <UsageStatCard
                 label={t("dashboard.subscription.videosDuplication")}
                 icon={
                   <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="#38BDF8" strokeWidth="2">
@@ -381,9 +372,8 @@ export default function AbonnementClient({
                 limit={quotaLimits.videos}
                 unlimited={isUnlimited}
                 color="#38BDF8"
-                usedText={t("dashboard.subscription.used")}
               />
-              <UsageBar
+              <UsageStatCard
                 label={t("dashboard.subscription.aiSignatures")}
                 icon={
                   <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="#10B981" strokeWidth="2">
@@ -394,141 +384,87 @@ export default function AbonnementClient({
                 limit={quotaLimits.ai_signatures}
                 unlimited={isUnlimited}
                 color="#10B981"
-                usedText={t("dashboard.subscription.used")}
               />
             </div>
-            {!isUnlimited && (
+            {!isUnlimited && renewalDate && (
               <p className="mt-3 text-[11px] text-white/25 leading-relaxed">
-                Remise à zéro le {renewalDate ?? "prochain renouvellement"}.
+                {t("dashboard.subscription.resetDate", { date: renewalDate })}
               </p>
             )}
           </div>
 
-          <div className="h-px bg-white/[0.06] mb-5" />
+          {/* Billing controls exist only for users with a Stripe customer
+              (paid plans). Free users have none — so we skip the divider and
+              the whole block to avoid an empty gap at the bottom of the card. */}
+          {(hasStripePortal || msg) && (
+            <>
+              <div className="h-px bg-white/[0.06] my-5" />
 
-          {/* Feedback */}
-          {msg && (
-            <p
-              className={`text-xs px-3 py-2 rounded-lg mb-4 ${
-                msg.type === "ok"
-                  ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20"
-                  : "text-red-400 bg-red-500/[0.08] border border-red-500/20"
-              }`}
-            >
-              {msg.text}
-            </p>
+              {msg && (
+                <p
+                  className={`text-xs px-3 py-2 rounded-lg mb-4 ${
+                    msg.type === "ok"
+                      ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20"
+                      : "text-red-400 bg-red-500/[0.08] border border-red-500/20"
+                  }`}
+                >
+                  {msg.text}
+                </p>
+              )}
+
+              {hasStripePortal && (
+                <div className="flex flex-wrap gap-2.5">
+                  <button
+                    onClick={() => openPortal("payment")}
+                    disabled={portalPaymentLoading}
+                    className="rounded-xl px-5 py-2.5 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      color: "rgba(255,255,255,0.60)",
+                    }}
+                  >
+                    {portalPaymentLoading ? (
+                      t("dashboard.subscription.opening")
+                    ) : (
+                      <>
+                        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="1" y="4" width="14" height="9" rx="2" />
+                          <path d="M1 7h14" />
+                        </svg>
+                        {t("dashboard.subscription.managePayment")}
+                      </>
+                    )}
+                  </button>
+
+                  {!isCancelling && (
+                    <button
+                      onClick={() => setShowCancelStep1(true)}
+                      disabled={cancelLoading}
+                      className="rounded-xl px-5 py-2.5 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-red-500/[0.06] hover:border-red-500/20 hover:text-red-400/80"
+                      style={{
+                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid rgba(255,255,255,0.07)",
+                        color: "rgba(255,255,255,0.35)",
+                      }}
+                    >
+                      {cancelLoading ? (
+                        t("dashboard.subscription.cancellingInProgress")
+                      ) : (
+                        <>
+                          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="8" cy="8" r="6" />
+                            <path d="M5 8h6" />
+                          </svg>
+                          {t("dashboard.subscription.cancelSubscription")}
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
           )}
-
-          {/* Actions */}
-          <div className="space-y-2.5">
-            {isFree && (
-              <button
-                type="button"
-                onClick={() => setShowFreeUpgradeModal(true)}
-                className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition hover:opacity-90 flex items-center justify-center gap-2"
-                style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-              >
-                <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M8 2l4 4H9v6H7V6H4l4-4z" />
-                </svg>
-                Passer en Solo ou Pro
-              </button>
-            )}
-
-            {plan === "solo" && (
-              <button
-                onClick={() => setShowUpgradeModal(true)}
-                disabled={upgradeLoading}
-                className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-              >
-                {upgradeLoading ? (
-                  t("dashboard.subscription.redirecting")
-                ) : (
-                  <>
-                    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M8 2l4 4H9v6H7V6H4l4-4z" />
-                    </svg>
-                    {t("dashboard.subscription.upgradeToProPrice")}
-                  </>
-                )}
-              </button>
-            )}
-
-            {plan === "pro" && !isCancelling && (
-              <button
-                onClick={() => setShowDowngradeModal(true)}
-                disabled={downgradeLoading}
-                className="w-full rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
-                style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.09)",
-                  color: "rgba(255,255,255,0.50)",
-                }}
-              >
-                {downgradeLoading ? (
-                  t("dashboard.subscription.changingPlan")
-                ) : (
-                  <>
-                    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M8 14l-4-4h3V4h2v6h3l-4 4z" />
-                    </svg>
-                    {t("dashboard.subscription.downgradeToSoloPrice")}
-                  </>
-                )}
-              </button>
-            )}
-
-            {hasStripePortal && (
-              <button
-                onClick={() => openPortal("payment")}
-                disabled={portalPaymentLoading}
-                className="w-full rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
-                style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  color: "rgba(255,255,255,0.60)",
-                }}
-              >
-                {portalPaymentLoading ? (
-                  t("dashboard.subscription.opening")
-                ) : (
-                  <>
-                    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="1" y="4" width="14" height="9" rx="2" />
-                      <path d="M1 7h14" />
-                    </svg>
-                    {t("dashboard.subscription.managePayment")}
-                  </>
-                )}
-              </button>
-            )}
-
-            {hasStripePortal && !isCancelling && (
-              <button
-                onClick={() => setShowCancelStep1(true)}
-                disabled={cancelLoading}
-                className="w-full rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-red-500/[0.06] hover:border-red-500/20 hover:text-red-400/80"
-                style={{
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  color: "rgba(255,255,255,0.35)",
-                }}
-              >
-                {cancelLoading ? (
-                  t("dashboard.subscription.cancellingInProgress")
-                ) : (
-                  <>
-                    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="8" cy="8" r="6" />
-                      <path d="M5 8h6" />
-                    </svg>
-                    {t("dashboard.subscription.cancelSubscription")}
-                  </>
-                )}
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Pro feature highlight for Solo */}
@@ -537,30 +473,35 @@ export default function AbonnementClient({
             className="rounded-2xl p-5"
             style={{ background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.15)" }}
           >
-            <p className="text-xs font-semibold text-indigo-300/70 uppercase tracking-wider mb-3">Plan Pro — avantages</p>
+            <p className="text-xs font-semibold text-indigo-300/70 uppercase tracking-wider mb-3">{t("dashboard.subscription.proAdvantages")}</p>
             <ul className="space-y-2 text-sm text-white/55">
               <li className="flex items-center gap-2">
                 <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M2 8l4 4 8-8" />
                 </svg>
-                Duplications images, vidéos et signatures IA illimitées
+                {t("dashboard.subscription.proAdvUnlimited")}
               </li>
               <li className="flex items-center gap-2">
                 <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M2 8l4 4 8-8" />
                 </svg>
-                Jusqu&apos;à 3 membres dans ton workspace
+                {t("dashboard.subscription.proAdvMembers")}
               </li>
               <li className="flex items-center gap-2">
                 <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M2 8l4 4 8-8" />
                 </svg>
-                Priorité sur les nouvelles fonctionnalités
+                {t("dashboard.subscription.proAdvPriority")}
               </li>
             </ul>
           </div>
         )}
       </div>
+
+      {/* Tokens — merged in from the former /dashboard/tokens module so the
+          unified "Plan & token" page shows subscription + token balance. */}
+      <div className="h-px bg-white/[0.07] my-8" />
+      <TokensPanel />
     </main>
 
     {/* Upgrade confirmation modal */}

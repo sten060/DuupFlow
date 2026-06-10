@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore, useState } from "react";
+import { useSyncExternalStore, useState, useEffect } from "react";
 import { subscribe, snapshot, removeJob, stopJob, Job } from "./jobStore";
 import { useTranslation } from "@/lib/i18n/context";
 import JSZip from "jszip";
@@ -31,6 +31,25 @@ function JobBadge({ job }: { job: Job }) {
   const hasFiles  = job.completedFiles.length > 0;
   const [zipping, setZipping] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [exiting, setExiting] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const terminal = isDone || isError || isStopped;
+
+  // Auto-dismiss terminal badges (done / error / stopped) after 6s with a
+  // smooth fade. Running jobs stay until they finish. Hovering pauses the
+  // timer so the download buttons stay reachable.
+  useEffect(() => {
+    if (!terminal || paused || exiting) return;
+    const tmr = setTimeout(() => setExiting(true), 5000);
+    return () => clearTimeout(tmr);
+  }, [terminal, paused, exiting]);
+
+  // Once fading out, drop the job from the store after the transition ends.
+  useEffect(() => {
+    if (!exiting) return;
+    const tmr = setTimeout(() => removeJob(job.id), 320);
+    return () => clearTimeout(tmr);
+  }, [exiting, job.id]);
 
   const typeLabel =
     job.type === "image"
@@ -82,9 +101,13 @@ function JobBadge({ job }: { job: Job }) {
 
   return (
     <div
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
       className={[
         "rounded-xl border px-3 py-2 text-xs backdrop-blur-md",
         "bg-[rgba(8,12,35,0.92)] shadow-lg",
+        "transition-all duration-300 ease-out",
+        exiting ? "opacity-0 translate-x-3" : "opacity-100 translate-x-0",
         isError
           ? "border-red-500/40"
           : isDone
@@ -113,7 +136,7 @@ function JobBadge({ job }: { job: Job }) {
           )}
           <button
             type="button"
-            onClick={() => removeJob(job.id)}
+            onClick={() => setExiting(true)}
             className="rounded-full px-1 text-white/40 hover:text-white/80"
             title="Fermer"
           >
@@ -237,11 +260,28 @@ export default function GlobalVideoProgress() {
 
   if (jobs.length === 0) return null;
 
+  // Live duplication progress (running) sits to the LEFT of the chat bubble;
+  // results & notifications (done / error / stopped) stack ABOVE it. The chat
+  // bubble is at bottom-5 right-5 (48px), so both groups stay clear of it.
+  const running = jobs.filter((j) => j.status === "running");
+  const notices = jobs.filter((j) => j.status !== "running");
+
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-      {jobs.map((job) => (
-        <JobBadge key={job.id} job={job} />
-      ))}
-    </div>
+    <>
+      {running.length > 0 && (
+        <div className="fixed bottom-5 right-24 z-50 flex flex-col gap-2">
+          {running.map((job) => (
+            <JobBadge key={job.id} job={job} />
+          ))}
+        </div>
+      )}
+      {notices.length > 0 && (
+        <div className="fixed bottom-24 right-5 z-50 flex flex-col gap-2">
+          {notices.map((job) => (
+            <JobBadge key={job.id} job={job} />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
