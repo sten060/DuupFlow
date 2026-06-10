@@ -59,8 +59,12 @@ export function LanguageProvider({ children, initialLocale }: LanguageProviderPr
 
   useEffect(() => {
     if (urlDriven) {
-      // URL is the source of truth — mirror to localStorage so the dashboard
-      // (storage-driven) shows the same language after sign-in.
+      // URL is the source of truth — keep state in sync when the URL locale
+      // changes via client-side navigation (e.g. /fr → /en) so consumers
+      // mounted above the [locale] segment (the marketing Header) update too.
+      setLocaleState(initialLocale!);
+      // Mirror to localStorage so the dashboard (storage-driven) shows the
+      // same language after sign-in.
       //
       // IMPORTANT: we do NOT write the cookie here. The cookie is reserved
       // for an *explicit* user choice (LanguageSwitch toggle). If we wrote

@@ -1,4 +1,8 @@
 {
+  "videoShowcase": {
+    "title1": "Comment ne plus jamais avoir de bans en OFM",
+    "title2": "LE meilleur SPOOFER - OFM 2026"
+  },
   "nav": {
     "fonctionnalites": "Fonctionnalités",
     "tarifs": "Tarifs",
@@ -7,6 +11,9 @@
     "demo": "Demo",
     "commencer": "Commencer",
     "commencerGratuitement": "Commencer gratuitement",
+    "seConnecter": "Se connecter",
+    "essayer": "Essayer DuupFlow",
+    "voirPlans": "Voir les plans",
     "menuLabel": "Menu",
     "closeLabel": "Fermer"
   },
@@ -18,7 +25,7 @@
     "subtitleMobile": "Chaque copie unique — indetectable par les plateformes.",
     "subtitleDesktop": "Chaque copie est unique et indetectable par les algorithmes des plateformes. Concu pour les agences qui veulent scaler leur production de contenu.",
     "ctaPrimary": "Commencer gratuitement",
-    "ctaSecondary": "Voir la demo"
+    "ctaSecondary": "En savoir plus"
   },
   "problemSolution": {
     "badge": "Pourquoi DuupFlow existe",
@@ -53,7 +60,7 @@
     "card4Desc": "Effacez la signature IA de vos contenus. Remplacez les métadonnées Midjourney, DALL-E, Stable Diffusion par une identite humaine réaliste.",
     "badgeNew": "NEW",
     "tryNow": "Essayer maintenant ->",
-    "seeDemo": "Voir la demo ->"
+    "seeDemo": "En savoir plus ->"
   },
   "howItWorks": {
     "badge": "Comment ça marche",
@@ -98,7 +105,7 @@
     "card6Tags": "IA, Variations, Pay-per-use",
     "ctaText": "Envie d'aller plus loin ?",
     "ctaFeatures": "Voir les fonctionnalités",
-    "ctaDemo": "Voir la demo"
+    "ctaDemo": "En savoir plus"
   },
   "stats": {
     "copies": "Copies par contenu",
@@ -131,7 +138,7 @@
     "title": "Pret a scaler ton contenu ?",
     "subtitle": "Tous les modules DuupFlow. Copies illimitees.",
     "primary": "Commencer maintenant ->",
-    "secondary": "Voir la demo"
+    "secondary": "En savoir plus"
   },
   "footer": {
     "copyright": "© {year} DuupFlow — Tous droits reserves.",
@@ -213,7 +220,7 @@
     "enterpriseFeature5": "Onboarding et formation équipe",
     "enterpriseFeature6": "Facturation sur mesure",
     "commencer": "Commencer ->",
-    "voirDemo": "Voir la demo",
+    "voirDemo": "En savoir plus",
     "nousContacter": "Nous contacter ->",
     "testimonial1": "DuupFlow nous a fait gagner des heures. On reutilise nos meilleurs contenus sans jamais etre penalises par les algorithmes.",
     "testimonial2": "DuupFlow fait ça en quelques secondes et les resultats sont incomparables. Mon reach a explose depuis que je l'utilise.",
@@ -288,7 +295,7 @@
     "feature5Bullet2": "1 a 3 variations différentes par lancement",
     "feature5Bullet3": "Pay-per-use : 0,70 euros a 1,10 euros par image selon le plan",
     "ctaPrimary": "Commencer maintenant ->",
-    "ctaSecondary": "Voir la demo",
+    "ctaSecondary": "En savoir plus",
     "copiesGenerated": "{count} / 4 copies generees",
     "unlimited": "x illimite",
     "sourceFile": "Fichier source",
@@ -319,7 +326,7 @@
     "exportTitle": "Export flexible",
     "exportDesc": "Télécharge fichier par fichier ou tout d'un coup en ZIP. Compatible avec tous les outils de scheduling.",
     "ctaPrimary": "Essayer DuupFlow gratuitement ->",
-    "ctaSecondary": "Voir la demo"
+    "ctaSecondary": "En savoir plus"
   },
   "login": {
     "title": "Bon retour",

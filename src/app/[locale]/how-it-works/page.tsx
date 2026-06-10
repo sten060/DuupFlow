@@ -211,7 +211,7 @@ export default function CommentCaMarche() {
             {t("howItWorksPage.ctaPrimary")}
           </Link>
           <Link
-            href="/demo"
+            href="/#videos"
             className="inline-flex items-center gap-2 px-8 py-4 font-semibold text-white/70 hover:text-white text-sm transition border border-white/15 hover:border-white/30 hover:bg-white/[0.04]"
           >
             {t("howItWorksPage.ctaSecondary")}

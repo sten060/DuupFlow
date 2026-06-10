@@ -104,7 +104,7 @@ const ARTICLE_JSONLD = {
   publisher: {
     "@type": "Organization",
     name: "DuupFlow",
-    logo: { "@type": "ImageObject", url: "https://www.duupflow.com/icon.png" },
+    logo: { "@type": "ImageObject", url: "https://www.duupflow.com/logo-mark.png" },
   },
   mainEntityOfPage: { "@type": "WebPage", "@id": `https://www.duupflow.com${CANONICAL_FR}` },
 };

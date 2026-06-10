@@ -47,6 +47,17 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
   );
 }
 
+// Smooth-scroll to the YouTube videos section. On the landing page (#videos
+// exists) we cancel the link navigation and scroll in-page; on other pages
+// the link's href ("/#videos") navigates to the landing and jumps to it.
+function scrollToVideos(e: { preventDefault: () => void }) {
+  const el = document.getElementById("videos");
+  if (el) {
+    e.preventDefault();
+    el.scrollIntoView({ behavior: "smooth" });
+  }
+}
+
 /* ═══════════════════════════════════════════════════════
  * SECTION 1 — HERO
  * ═══════════════════════════════════════════════════════ */
@@ -59,7 +70,7 @@ function Hero() {
       <Reveal>
         <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-10">
           <div className="flex -space-x-2.5">
-            {["/testimonials/_ (1).jpeg", "/testimonials/_ (2).jpeg", "/testimonials/_ (3).jpeg", "/testimonials/_ (4).jpeg"].map((src, i) => (
+            {["/testimonials/proof-melvin.png", "/testimonials/_ (2).jpeg", "/testimonials/_ (3).jpeg", "/testimonials/_ (4).jpeg"].map((src, i) => (
               <img key={i} src={src} alt="" className="h-6 w-6 sm:h-9 sm:w-9 rounded-full border-2 border-[#0B0F1A] object-cover" />
             ))}
           </div>
@@ -93,7 +104,7 @@ function Hero() {
             className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 sm:px-9 py-3 sm:py-3.5 font-semibold text-white text-sm sm:text-base">
             {t("hero.ctaPrimary")}
           </Link>
-          <Link href="/demo"
+          <Link href="/#videos" onClick={scrollToVideos}
             className="slide-btn slide-btn-outline inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/[0.05] px-7 sm:px-9 py-3 sm:py-3.5 font-medium text-sm sm:text-base text-white/80 transition">
             {t("hero.ctaSecondary")}
           </Link>
@@ -140,7 +151,7 @@ function ProblemSolution() {
   const { t } = useTranslation();
   return (
     <section className="px-6 pb-36">
-      <div className="max-w-6xl mx-auto pt-20">
+      <div className="max-w-7xl mx-auto pt-20">
         <Reveal>
           {/* Two-column layout: cards left, text right */}
           <div className="grid md:grid-cols-2 gap-16 mb-6 items-center">
@@ -204,15 +215,17 @@ function ProblemSolution() {
             </div>
           </div>
 
-          {/* Result banner — full width below */}
-          <div
-            className="rounded-2xl border border-white/[0.10] p-5 text-center"
-            style={{ background: "rgba(8,12,35,0.65)" }}
-          >
-            <p className="text-sm text-white/70">
-              <span className="text-white font-semibold">{t("problemSolution.resultLabel")}</span>{" "}
-              {t("problemSolution.resultText").replace(/\{count\}/g, "50")}
-            </p>
+          {/* Result banner — kept at the original width (must not extend) */}
+          <div className="max-w-6xl mx-auto">
+            <div
+              className="rounded-2xl border border-white/[0.10] p-5 text-center"
+              style={{ background: "rgba(8,12,35,0.65)" }}
+            >
+              <p className="text-sm text-white/70">
+                <span className="text-white font-semibold">{t("problemSolution.resultLabel")}</span>{" "}
+                {t("problemSolution.resultText").replace(/\{count\}/g, "50")}
+              </p>
+            </div>
           </div>
         </Reveal>
       </div>
@@ -436,7 +449,7 @@ function FeatureTabs() {
           </div>
         </Reveal>
         <div className="flex justify-center mt-10">
-          <Link href="/demo"
+          <Link href="/#videos" onClick={scrollToVideos}
             className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3 font-medium text-sm text-white/75 hover:text-white hover:bg-white/[0.08] transition">
             {t("featuresScroller.seeDemo")}
           </Link>
@@ -1150,10 +1163,96 @@ function AvantagesCarousel() {
                 className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm">
                 {t("avantages.ctaFeatures")}
               </Link>
-              <Link href="/demo"
+              <Link href="/#videos" onClick={scrollToVideos}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">
                 {t("avantages.ctaDemo")}
               </Link>
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+ * SECTION 4.5 — VIDEO SHOWCASE (2 YouTube videos, side by side)
+ * ═══════════════════════════════════════════════════════ */
+function VerifiedBadge() {
+  return (
+    <svg viewBox="0 0 40 40" className="w-4 h-4 shrink-0" role="img" aria-label="Vérifié">
+      <path fill="#3897F0" d="M19.998 3.094L14.638 0l-2.972 5.15H5.432v6.354L0 14.64 3.094 20 0 25.359l5.432 3.137v5.905h5.975L14.638 40l5.36-3.094L25.358 40l3.232-5.6h6.162v-6.01L40 25.359 36.905 20 40 14.641l-5.248-3.03v-6.46h-6.419L25.358 0l-5.36 3.094z" />
+      <polygon fill="#fff" points="18.401,26.4 28.331,16.471 26.069,14.207 18.401,21.875 13.835,17.309 11.573,19.572" />
+    </svg>
+  );
+}
+
+function VideoShowcase() {
+  const { t } = useTranslation();
+  return (
+    <section id="videos" className="px-6 scroll-mt-24">
+      <div className="max-w-7xl mx-auto pt-16">
+        <Reveal>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            {/* Left — video + creator */}
+            <div>
+              <div
+                className="relative aspect-video rounded-2xl overflow-hidden border border-white/[0.10]"
+                style={{ background: "rgba(8,12,35,0.70)" }}
+              >
+                <iframe
+                  className="absolute inset-0 w-full h-full"
+                  src="https://www.youtube.com/embed/8PvnDRLYsPk?start=1607"
+                  title={t("videoShowcase.title1")}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+              <div className="mt-4 flex items-center gap-3">
+                <img
+                  src="/Youtube-proof/504025000_17877051597359569_2522827112026218956_n.jpg"
+                  alt="Melvin Nolius"
+                  className="w-10 h-10 rounded-full object-cover border border-white/15"
+                />
+                <a
+                  href="https://www.instagram.com/melvin_ofm/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-white transition hover:text-white/70"
+                >
+                  Melvin Nolius
+                  <VerifiedBadge />
+                </a>
+              </div>
+              <p className="mt-2 text-sm text-white/70">{t("videoShowcase.title1")}</p>
+            </div>
+
+            {/* Right — video + creator */}
+            <div>
+              <div
+                className="relative aspect-video rounded-2xl overflow-hidden border border-white/[0.10]"
+                style={{ background: "rgba(8,12,35,0.70)" }}
+              >
+                <iframe
+                  className="absolute inset-0 w-full h-full"
+                  src="https://www.youtube.com/embed/_wSpVWuJ4No?start=76"
+                  title={t("videoShowcase.title2")}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+              <div className="mt-4 flex items-center gap-3">
+                <img
+                  src="/Youtube-proof/703247543_17974534683041687_7046808109827945299_n.jpg"
+                  alt="S-OFM"
+                  className="w-10 h-10 rounded-full object-cover border border-white/15"
+                />
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white">
+                  S-OFM
+                  <VerifiedBadge />
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-white/70">{t("videoShowcase.title2")}</p>
             </div>
           </div>
         </Reveal>
@@ -1219,7 +1318,7 @@ function FAQ() {
       <div className="absolute top-0 right-0 w-[300px] h-[250px] rounded-full pointer-events-none -z-10"
         style={{ background: "rgba(139,92,246,0.08)", filter: "blur(70px)" }} />
       <div className="px-6 pb-36">
-      <div className="max-w-5xl mx-auto pt-20">
+      <div className="max-w-7xl mx-auto pt-20">
         <Reveal>
           <div className="grid md:grid-cols-[2fr_3fr] gap-16">
             <div className="md:sticky md:top-28 self-start">
@@ -1256,7 +1355,7 @@ function FAQ() {
 function CTABanner() {
   const { t } = useTranslation();
   return (
-    <section className="px-6 pb-36">
+    <section className="px-6 pb-16">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
           <div className="relative rounded-3xl overflow-hidden p-14 text-center"
@@ -1275,7 +1374,7 @@ function CTABanner() {
                 className="btn-glow inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm">
                 {t("cta.primary")}
               </Link>
-              <Link href="/demo"
+              <Link href="/#videos" onClick={scrollToVideos}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-8 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">
                 {t("cta.secondary")}
               </Link>
@@ -1312,7 +1411,7 @@ function Footer() {
   const { t } = useTranslation();
   const year = new Date().getFullYear().toString();
   return (
-    <footer className="relative mt-32 border-t border-white/[0.06]">
+    <footer className="relative mt-12 border-t border-white/[0.06]">
       {/* Subtle top gradient tint to soften the section break */}
       <div
         aria-hidden
@@ -1324,7 +1423,7 @@ function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-8">
           {/* ── Brand column ──────────────────────────────────────────── */}
           <div className="md:col-span-5 space-y-5">
-            <div className="flex items-baseline gap-1.5 text-3xl font-extrabold tracking-tight">
+            <div className="flex items-baseline text-3xl font-extrabold tracking-tight">
               <span style={{ color: "#818CF8" }}>Duup</span>
               <span className="text-white/85">Flow</span>
             </div>
@@ -1392,6 +1491,15 @@ function Footer() {
           </div>
         </div>
 
+        {/* Big brand mark sitting under the Legal / About columns */}
+        <div className="mt-6 flex justify-end">
+          <img
+            src="/logo-mark.png"
+            alt="DuupFlow"
+            className="h-28 w-auto opacity-90 select-none pointer-events-none"
+          />
+        </div>
+
         {/* ── Bottom strip ────────────────────────────────────────────── */}
         <div className="mt-14 pt-6 border-t border-white/[0.06] flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           <p className="text-xs text-white/30">
@@ -1426,6 +1534,7 @@ export default function LandingPage() {
       <FeaturesScroller />
       <HowItWorks />
       <AvantagesCarousel />
+      <VideoShowcase />
       <StatsBanner />
       <FAQ />
       <CTABanner />

@@ -262,7 +262,7 @@ export default function FonctionnalitesPage() {
         <Reveal>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-6 pb-8">
             <Link href="/register" className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm">{t("fonctionnalites.ctaPrimary")}</Link>
-            <Link href="/demo" className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">{t("fonctionnalites.ctaSecondary")}</Link>
+            <Link href="/#videos" className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">{t("fonctionnalites.ctaSecondary")}</Link>
           </div>
         </Reveal>
       </div>

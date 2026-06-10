@@ -9,14 +9,10 @@ export const metadata: Metadata = {
   title: "DuupFlow — the best spoofer for OFM agencies",
   description:
     "DuupFlow lets you duplicate your content in seconds. Each file becomes unique in the eyes of platform algorithms. Built for agencies looking to scale their social media content.",
-  icons: {
-    icon: [
-      { url: "/icon.png", type: "image/png" },
-      { url: "/favicon.ico", type: "image/x-icon" },
-    ],
-    shortcut: "/icon.png",
-    apple: "/apple-icon.png",
-  },
+  // Favicon, icon and apple-touch-icon are emitted automatically from the App
+  // Router metadata files (src/app/favicon.ico, src/app/icon.png,
+  // src/app/apple-icon.png). An explicit `icons` config here only duplicates
+  // those generated <link> tags, so we intentionally omit it.
   openGraph: {
     title: "DuupFlow — the best spoofer for OFM agencies",
     description:

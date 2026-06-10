@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
-import { LanguageProvider } from "@/lib/i18n/context";
+import { LanguageProvider, type Locale } from "@/lib/i18n/context";
 import { captureAcquisition, trackClickIfUTM } from "@/lib/acquisition";
 
 const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
@@ -54,6 +54,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   };
   const normalized = stripLocale(pathname);
 
+  // The marketing Header is rendered here in ClientLayout — OUTSIDE the
+  // [locale] route segment — so it must take its language from the URL.
+  // Without this it falls back to the storage-driven provider and can show
+  // FR nav labels on an /en page (and vice-versa). Non-locale routes
+  // (/dashboard, /checkout, …) yield `undefined` → storage-driven mode,
+  // which is what the dashboard's manual language toggle relies on.
+  const localeMatch = pathname.match(/^\/(fr|en)(\/.*)?$/);
+  const urlLocale: Locale | undefined = localeMatch ? (localeMatch[1] as Locale) : undefined;
+
   const isDashboard = normalized.startsWith("/dashboard");
   const isAuthPage = normalized.startsWith("/login") || normalized.startsWith("/register");
   const isAffiliatePage = pathname.startsWith("/affiliate") || pathname.startsWith("/admin");
@@ -65,7 +74,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isLanding = normalized === "/";
 
   return (
-    <LanguageProvider>
+    <LanguageProvider initialLocale={urlLocale}>
     <>
       {/* ── Fixed background ── */}
 
@@ -117,7 +126,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </Suspense>
       <AcquisitionTracker />
       {showHeader && <Header />}
-      {showHeader && <div className="h-16 md:h-20" />}
+      {showHeader && <div className="h-20 sm:h-24" />}
       {children}
 
       {/* Logo preloader — only on landing page */}

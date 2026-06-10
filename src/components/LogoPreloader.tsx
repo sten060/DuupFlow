@@ -115,7 +115,7 @@ export default function LogoPreloader({
 
       {/* Logo image */}
       <img
-        src="/icon.png"
+        src="/logo-mark.png"
         alt="DuupFlow"
         style={{
           width: logoSize,
