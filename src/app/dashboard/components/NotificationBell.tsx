@@ -15,6 +15,7 @@ import {
   dismissNotification,
   clearNotifications,
   markAllNotificationsRead,
+  SESSION_START,
   type AppNotification,
 } from "./notificationStore";
 
@@ -82,11 +83,15 @@ const DEFAULT_TOAST_MS = 5000;
 // A transient toast that pops out near the bell, then hides itself after its
 // duration. The underlying notification still lives in the panel if persistent.
 function ToastItem({ n, onOpen }: { n: AppNotification; onOpen: () => void }) {
-  const [visible, setVisible] = useState(true);
+  // Notifications restored from a previous session live only in the panel — they
+  // must not re-pop as toasts on every reload.
+  const isFresh = n.createdAt >= SESSION_START;
+  const [visible, setVisible] = useState(isFresh);
   useEffect(() => {
+    if (!isFresh) return;
     const t = setTimeout(() => setVisible(false), n.duration ?? DEFAULT_TOAST_MS);
     return () => clearTimeout(t);
-  }, [n.duration]);
+  }, [isFresh, n.duration]);
   if (!visible) return null;
   const tone =
     n.kind === "success" ? "border-emerald-300/30 bg-emerald-600/90"

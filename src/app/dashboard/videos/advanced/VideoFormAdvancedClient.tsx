@@ -403,20 +403,16 @@ export default function VideoFormAdvancedClient() {
       // Files are uploaded and the encode is about to start server-side — persist
       // the job so progress resumes if the user reloads or leaves the page.
       saveActiveJob(jobId, "advanced");
-      // Upload done, encode about to start → only NOW tell the user they can leave.
-      // Transient 7s toast from the notification bell (longer than other notifs).
-      pushNotification({
-        kind: "info",
-        title: "Tu peux quitter la page",
-        body: "La duplication continue en arrière-plan. Tes vidéos seront dans ta bibliothèque.",
-        duration: 7000,
-      });
 
       // ── SSE phase with automatic reconnection ────────────────────────────────
       // Files are already on Railway (directUploadIds) so re-POSTing is free —
       // no re-upload needed. On a transient network drop we retry up to 3 times.
       const MAX_SSE_RETRIES = 3;
       let sseAttempt = 0;
+      // "Tu peux quitter la page" toast — pushed ONCE, the moment the server
+      // actually starts ENCODING (synced with the visible "Encodage X/Y" so the
+      // user sees it; not during upload, which can't survive a reload).
+      let reassured = false;
 
       sseLoop: while (true) {
         if (sseAttempt > 0) {
@@ -482,6 +478,16 @@ export default function VideoFormAdvancedClient() {
                 if (!line.startsWith("data: ")) continue;
                 try {
                   const evt = JSON.parse(line.slice(6));
+                  // Encoding has visibly started → now tell the user they can leave.
+                  if (!reassured && typeof evt.msg === "string" && evt.msg.includes("Encodage")) {
+                    reassured = true;
+                    pushNotification({
+                      kind: "info",
+                      title: "Tu peux quitter la page",
+                      body: "La duplication continue en arrière-plan. Tes vidéos seront dans ta bibliothèque.",
+                      duration: 7000,
+                    });
+                  }
                   const pct = evt.percent !== undefined ? 30 + Math.round(evt.percent * 0.7) : undefined;
                   if (pct !== undefined) setProgress(pct);
                   if (evt.msg) setProgressMsg(evt.msg);

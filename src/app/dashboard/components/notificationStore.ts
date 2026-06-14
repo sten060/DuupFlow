@@ -24,10 +24,40 @@ const items = new Map<string, AppNotification>();
 const listeners = new Set<() => void>();
 
 let _snapshot: AppNotification[] = [];
+
+// Timestamp of this page load — lets us tell freshly-pushed notifications (which
+// pop as toasts) apart from ones restored from a previous session (which only
+// sit in the panel, so they don't re-pop on every reload).
+export const SESSION_START = typeof window !== "undefined" ? Date.now() : 0;
+
+const STORAGE_KEY = "duup_notifications";
+function persist() {
+  if (typeof window === "undefined") return;
+  try {
+    // Only persistent (no-duration) notifications survive a reload — transient
+    // toasts (the reassurance, etc.) are meant to vanish on their own.
+    const keep = Array.from(items.values()).filter((n) => !n.duration);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(keep));
+  } catch {}
+}
+
 function notify() {
   // Newest first.
   _snapshot = Array.from(items.values()).sort((a, b) => b.createdAt - a.createdAt);
+  persist();
   for (const fn of listeners) fn();
+}
+
+// Restore persisted notifications on load so they survive reloads — only the user
+// (or "Tout effacer") clears them, not a refresh.
+if (typeof window !== "undefined") {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    if (Array.isArray(saved)) {
+      for (const n of saved) if (n && typeof n.id === "string") items.set(n.id, n);
+      _snapshot = Array.from(items.values()).sort((a, b) => b.createdAt - a.createdAt);
+    }
+  } catch {}
 }
 
 let _seq = 0;

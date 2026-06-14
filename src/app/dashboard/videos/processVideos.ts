@@ -533,6 +533,25 @@ const LIMITS: Record<string, { min: number; max: number }> = {
 
 /* ------------------ FFmpeg wrapper ------------------ */
 
+// ── Global encode-slot limiter ──────────────────────────────────────────────
+// MAX_CONCURRENT_ENCODES caps ffmpeg PER request. Without a cross-request cap, N
+// simultaneous duplications each spawn up to that many → N× the load → the box
+// thrashes (uploads + encodes crawl). This module-level semaphore caps the TOTAL
+// concurrent ffmpeg across ALL jobs on this server process; extra encodes wait
+// their turn instead of piling on.
+const GLOBAL_MAX_ENCODES = Math.max(1, parseInt(process.env.MAX_CONCURRENT_ENCODES ?? "2", 10));
+let _activeEncodes = 0;
+const _encodeWaiters: Array<() => void> = [];
+async function acquireEncodeSlot(): Promise<void> {
+  if (_activeEncodes < GLOBAL_MAX_ENCODES) { _activeEncodes++; return; }
+  await new Promise<void>((resolve) => _encodeWaiters.push(resolve)); // slot handed over on release
+}
+function releaseEncodeSlot(): void {
+  const next = _encodeWaiters.shift();
+  if (next) next();        // hand our slot straight to the next waiter (count unchanged)
+  else _activeEncodes--;   // nobody waiting → free the slot
+}
+
 // Run up to `concurrency` async tasks simultaneously.
 // Returns the list of errors from failed tasks (successful tasks still run).
 async function withConcurrency<T>(
@@ -713,6 +732,9 @@ export async function processVideos(
   let totalCopies = files.length * count; // may be reduced after duration check
   let doneCopies = 0;
   const outputPaths: string[] = [];
+  // temp → final renames, applied in one pass once the whole job is done so the
+  // page's "Videos générées" list never shows partial results mid-encode.
+  const renames: { temp: string; final: string }[] = [];
 
   // Pre-warm FFmpeg binary once — cold start (binary download) can take 10-30 s.
   // Sending a message lets users know something is happening, not a blank freeze.
@@ -797,24 +819,16 @@ export async function processVideos(
   );
 
   // ── CPU-aware concurrency ────────────────────────────────────────────────
-  // IMPORTANT: os.cpus() on Railway returns the HOST machine's CPU count (e.g.
-  // 32 or 64), NOT the container's allocated vCPU. Spawning that many FFmpeg
-  // processes on 8 allocated vCPU causes each to run at 1/8 speed + OOM risk.
-  // Fix: hard cap via env var MAX_CONCURRENT_ENCODES (default 8 for Railway
-  // Hobby/Pro 8-vCPU; set to 24 if you upgrade to 24-vCPU replica).
-  // os.cpus() on Railway returns the HOST core count (e.g. 32), NOT the container's
-  // allocated vCPU — sizing threads from it spawned 4×8 = 32 threads on an 8-vCPU box,
-  // so every encode crawled at speed≈0.02 and held memory long enough to OOM.
-  // Size from the REAL vCPU via env instead (default 8 = Railway Pro/Hobby).
+  // os.cpus() on Railway returns the HOST core count (e.g. 32/48), NOT the
+  // container's allocated vCPU — never size from it; use FFMPEG_VCPU. Per-job
+  // concurrency is bounded by the GLOBAL cap, and the global semaphore above
+  // bounds total ffmpeg across ALL jobs, so threads are sized from that cap →
+  // total threads stay within the real vCPU even when several jobs run at once.
   const ncpus = Math.max(1, os.cpus().length);
   const VCPU = Math.max(1, parseInt(process.env.FFMPEG_VCPU ?? "8", 10));
-  const MAX_CONCURRENT = Math.max(1, parseInt(process.env.MAX_CONCURRENT_ENCODES ?? "2", 10));
-  const CONCURRENCY = Math.min(allTasks.length, MAX_CONCURRENT);
-  // Spread the real vCPU budget across the concurrent encodes, capped at 4 threads
-  // per process (libx264 gains little beyond ~4) so we never oversubscribe the CPU.
-  const threadsPerTask = Math.max(1, Math.min(4, Math.floor(VCPU / CONCURRENCY)));
-  // Check for zscale availability (needed for HDR→SDR tone mapping)
-  console.log(`[processVideos] ncpus=${ncpus} MAX_CONCURRENT=${MAX_CONCURRENT} CONCURRENCY=${CONCURRENCY} threadsPerTask=${threadsPerTask} tasks=${allTasks.length}`);
+  const CONCURRENCY = Math.min(allTasks.length, GLOBAL_MAX_ENCODES);
+  const threadsPerTask = Math.max(1, Math.min(4, Math.floor(VCPU / GLOBAL_MAX_ENCODES)));
+  console.log(`[processVideos] ncpus=${ncpus} GLOBAL_MAX=${GLOBAL_MAX_ENCODES} CONCURRENCY=${CONCURRENCY} threadsPerTask=${threadsPerTask} tasks=${allTasks.length}`);
 
   const taskErrors = await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex, color, duration: videoDuration, bitrateKbps }) => {
     const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
@@ -831,6 +845,9 @@ export async function processVideos(
     });
       if (useIphoneMeta) outName = outName.replace(/\.mp4$/, ".mov");
       const outPath = path.join(dir, outName);
+      // Encode into a hidden temp name; renamed to the final name only once the
+      // WHOLE job finishes (filterFinals excludes the __progress_ prefix).
+      const tempOutPath = path.join(dir, `__progress_${outName}`);
 
       const vfParts: string[] = [];
       const afParts: string[] = [];
@@ -1180,18 +1197,26 @@ export async function processVideos(
             } : undefined,
           })
         : [];
-      await runFFmpegSafe(
-        tmpIn, outPath, vfParts, afParts, extraArgs, metaArgs,
-        // Live progress tick: update message with encoded time so users see activity
-        (elapsed) => void onProgress?.(
-          Math.min(99, Math.round((doneCopies / totalCopies) * 100)),
-          `Encodage ${doneCopies + 1}/${totalCopies}… (${elapsed})`,
-        ),
-        ffmpegBin,
-        threadsPerTask,
-        bitrateKbps,
-      );
+      // Acquire a GLOBAL encode slot so concurrent jobs never exceed the server's
+      // ffmpeg budget (per-job concurrency alone wouldn't bound across jobs).
+      await acquireEncodeSlot();
+      try {
+        await runFFmpegSafe(
+          tmpIn, tempOutPath, vfParts, afParts, extraArgs, metaArgs,
+          // Live progress tick: update message with encoded time so users see activity
+          (elapsed) => void onProgress?.(
+            Math.min(99, Math.round((doneCopies / totalCopies) * 100)),
+            `Encodage ${doneCopies + 1}/${totalCopies}… (${elapsed})`,
+          ),
+          ffmpegBin,
+          threadsPerTask,
+          bitrateKbps,
+        );
+      } finally {
+        releaseEncodeSlot();
+      }
       outputPaths.push(outPath);
+      renames.push({ temp: tempOutPath, final: outPath });
       doneCopies++;
       await onFileReady?.(outPath);
       await onProgress?.(
@@ -1199,6 +1224,12 @@ export async function processVideos(
         `Encodage ${doneCopies}/${totalCopies} terminé`,
       );
   });
+
+  // Reveal all outputs at once: rename temp → final so the "Videos générées"
+  // list only shows them once the ENTIRE job is done — never partial, mid-encode.
+  for (const { temp, final } of renames) {
+    await fs.rename(temp, final).catch(() => {});
+  }
 
   // ── Clean up temp input files ─────────────────────────────────────────────
   for (const { tmpIn, ownsTmpIn } of fileEntries) {
