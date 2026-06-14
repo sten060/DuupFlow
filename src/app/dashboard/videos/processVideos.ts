@@ -568,8 +568,11 @@ async function runFFmpegSafe(
   onTick?: (elapsed: string) => void,
   // Pre-resolved ffmpeg binary path — avoids redundant disk/PATH lookups per copy.
   binPath?: string,
-  // Threads to allocate to this FFmpeg process (computed by caller from os.cpus()).
+  // Threads to allocate to this FFmpeg process (computed by caller from the vCPU budget).
   threads = 1,
+  // Source bitrate (kbps). When > 0, the encode is VBV-capped to ~this value so the
+  // output keeps the source's resolution & quality but is never heavier than it.
+  srcBitrateKbps = 0,
 ) {
   const ffmpegBin = binPath ?? await getFFmpegBin();
 
@@ -615,14 +618,23 @@ async function runFFmpegSafe(
     if (afParts.length) args.push("-af", afParts.join(","));
     args.push(
       "-c:v", "libx264",
-      "-preset", "ultrafast",      // ultrafast: prioritise encoding speed (3–5× faster than fast)
-      "-threads", String(threads),  // caller allocates threads based on os.cpus()
-      "-crf", "18",                // CRF 18: high visual quality, same speed with ultrafast preset
+      "-preset", "veryfast",       // veryfast: ~2–3× better compression than ultrafast → smaller files at the same quality, still fast
+      "-threads", String(threads),  // caller allocates threads from the real vCPU budget
+      "-crf", "18",                // CRF 18: visually matches the source
       "-pix_fmt", "yuv420p",       // Safety net — format=yuv420p in filter graph already converts
       "-c:a", "aac",
       "-b:a", "192k",
     );
-    // extraArgs can override crf/bitrate (e.g. technical pack sets its own values)
+    // ── VBV cap = the source's own bitrate ──────────────────────────────────
+    // Without this, CRF 18 on noisy / "Pixel Magique" content explodes to
+    // ~400 Mbit/s → 1 GB+ files, full disk, OOM crash. Capping -maxrate to the
+    // source's measured bitrate keeps the SAME resolution and visual quality as
+    // the original while guaranteeing the copy is never heavier than the source.
+    if (srcBitrateKbps > 0) {
+      const cap = Math.min(60000, Math.max(800, Math.round(srcBitrateKbps * 0.9)));
+      args.push("-maxrate", `${cap}k`, "-bufsize", `${cap * 2}k`);
+    }
+    // extraArgs can override crf (e.g. per-pack values); it no longer re-adds -maxrate.
     if (extraArgs.length) args.push(...extraArgs);
   }
 
@@ -731,9 +743,10 @@ export async function processVideos(
       entry,
       dur: await probeVideoDuration(entry.tmpIn, ffmpegBin),
       color: await probeColorInfo(entry.tmpIn, ffmpegBin),
+      sizeBytes: await fs.stat(entry.tmpIn).then((s) => s.size).catch(() => 0),
     }))
   );
-  type ValidEntry = typeof fileEntries[number] & { color: ColorInfo; duration: number };
+  type ValidEntry = typeof fileEntries[number] & { color: ColorInfo; duration: number; bitrateKbps: number };
   const validEntries: ValidEntry[] = [];
   // Track filenames that get dropped at this stage so we can show the user
   // exactly WHICH videos failed (and let the remaining ones go through).
@@ -743,8 +756,11 @@ export async function processVideos(
   const reasonFor = (fileName: string, reason: "corrupted" | "too_long", info?: string) =>
     `"${fileName || "fichier sans nom"}"${reason === "corrupted" ? " (illisible)" : ` (${info})`}`;
 
-  for (const { entry, dur, color } of durResults) {
+  for (const { entry, dur, color, sizeBytes } of durResults) {
     const displayName = entry.fileName || path.basename(entry.tmpIn);
+    // Source bitrate (kbps) = real file size ÷ duration. This is what we cap the
+    // encode to, so a copy is never heavier than the original (0 = unknown → no cap).
+    const srcKbps = dur > 0 && sizeBytes > 0 ? Math.round((sizeBytes * 8) / dur / 1000) : 0;
     if (dur <= 0) {
       const readable = await canFFmpegReadFile(entry.tmpIn, ffmpegBin);
       if (!readable) {
@@ -754,14 +770,14 @@ export async function processVideos(
         if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
       } else {
         console.log(`[processVideos] accepted "${displayName}": probe=0 but 1-frame test passed (likely HEVC)`);
-        validEntries.push({ ...entry, color, duration: dur });
+        validEntries.push({ ...entry, color, duration: dur, bitrateKbps: srcKbps });
       }
     } else if (dur > MAX_DURATION_S) {
       await onProgress?.(2, `⚠ "${displayName}" dépasse ${MAX_DURATION_S}s (${Math.round(dur)}s) — ignorée.`);
       rejectedFiles.push(reasonFor(displayName, "too_long", `${Math.round(dur)}s > ${MAX_DURATION_S}s`));
       if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
     } else {
-      validEntries.push({ ...entry, color, duration: dur });
+      validEntries.push({ ...entry, color, duration: dur, bitrateKbps: srcKbps });
     }
   }
   if (validEntries.length === 0) {
@@ -773,10 +789,10 @@ export async function processVideos(
 
   // ── Flatten all (file × copy) into one pool so every copy of every file
   // runs concurrently — total time ≈ slowest single copy, not SUM. ───────────
-  type Task = { fileName: string; tmpIn: string; fileIndex: number; copyIndex: number; color: ColorInfo; duration: number };
-  const allTasks: Task[] = validEntries.flatMap(({ fileName, tmpIn, color, duration }, idx) =>
+  type Task = { fileName: string; tmpIn: string; fileIndex: number; copyIndex: number; color: ColorInfo; duration: number; bitrateKbps: number };
+  const allTasks: Task[] = validEntries.flatMap(({ fileName, tmpIn, color, duration, bitrateKbps }, idx) =>
     Array.from({ length: count }, (_, i) => ({
-      fileName, tmpIn, fileIndex: idx + 1, copyIndex: i + 1, color, duration,
+      fileName, tmpIn, fileIndex: idx + 1, copyIndex: i + 1, color, duration, bitrateKbps,
     }))
   );
 
@@ -786,19 +802,21 @@ export async function processVideos(
   // processes on 8 allocated vCPU causes each to run at 1/8 speed + OOM risk.
   // Fix: hard cap via env var MAX_CONCURRENT_ENCODES (default 8 for Railway
   // Hobby/Pro 8-vCPU; set to 24 if you upgrade to 24-vCPU replica).
+  // os.cpus() on Railway returns the HOST core count (e.g. 32), NOT the container's
+  // allocated vCPU — sizing threads from it spawned 4×8 = 32 threads on an 8-vCPU box,
+  // so every encode crawled at speed≈0.02 and held memory long enough to OOM.
+  // Size from the REAL vCPU via env instead (default 8 = Railway Pro/Hobby).
   const ncpus = Math.max(1, os.cpus().length);
-  const MAX_CONCURRENT = Math.min(
-    ncpus,
-    parseInt(process.env.MAX_CONCURRENT_ENCODES ?? "4", 10),
-  );
+  const VCPU = Math.max(1, parseInt(process.env.FFMPEG_VCPU ?? "8", 10));
+  const MAX_CONCURRENT = Math.max(1, parseInt(process.env.MAX_CONCURRENT_ENCODES ?? "2", 10));
   const CONCURRENCY = Math.min(allTasks.length, MAX_CONCURRENT);
-  // Allocate multiple threads per FFmpeg process — libx264 scales well up to ~4 threads.
-  // With fewer concurrent processes, each gets more threads for faster individual encodes.
-  const threadsPerTask = Math.max(1, Math.floor(ncpus / Math.max(1, CONCURRENCY)));
+  // Spread the real vCPU budget across the concurrent encodes, capped at 4 threads
+  // per process (libx264 gains little beyond ~4) so we never oversubscribe the CPU.
+  const threadsPerTask = Math.max(1, Math.min(4, Math.floor(VCPU / CONCURRENCY)));
   // Check for zscale availability (needed for HDR→SDR tone mapping)
   console.log(`[processVideos] ncpus=${ncpus} MAX_CONCURRENT=${MAX_CONCURRENT} CONCURRENCY=${CONCURRENCY} threadsPerTask=${threadsPerTask} tasks=${allTasks.length}`);
 
-  const taskErrors = await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex, color, duration: videoDuration }) => {
+  const taskErrors = await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex, color, duration: videoDuration, bitrateKbps }) => {
     const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
     await onProgress?.(startPct, `Encodage ${doneCopies + 1}/${totalCopies}…`);
 
@@ -886,10 +904,9 @@ export async function processVideos(
             // CRF controls quality; lower = higher quality. 14–18 = visually lossless range.
             const crf = 14 + Math.floor(Math.random() * 5); // 14–18 (high quality preservation)
             extraArgs.push("-crf", String(crf));
-            // Use -maxrate + -bufsize instead of -b:v so CRF remains the primary quality driver,
-            // and bitrate only caps the peak. High floor (20 Mbps) guarantees 1080p/4K clarity.
-            const vbit = clamp(20000 + Math.floor(Math.random() * 25001), LIMITS.vbitrate.min, LIMITS.vbitrate.max);
-            extraArgs.push("-maxrate", `${vbit}k`, "-bufsize", `${vbit * 2}k`);
+            // Bitrate is now capped centrally to the SOURCE's own bitrate in
+            // runFFmpegSafe — so a copy is never heavier than the original. This
+            // replaces the old hard-coded 20–45 Mbps floor that bloated every file.
             const profiles = ["high"]; // "high" profile preserves quality best on 1080p+
             const levels = ["5.0", "5.1", "5.2"];
             extraArgs.push("-profile:v", profiles[Math.floor(Math.random() * profiles.length)]);
@@ -1172,6 +1189,7 @@ export async function processVideos(
         ),
         ffmpegBin,
         threadsPerTask,
+        bitrateKbps,
       );
       outputPaths.push(outPath);
       doneCopies++;

@@ -34,15 +34,18 @@ function JobBadge({ job }: { job: Job }) {
   const [exiting, setExiting] = useState(false);
   const [paused, setPaused] = useState(false);
   const terminal = isDone || isError || isStopped;
+  // An error badge that carries partial results must NOT auto-vanish — the user
+  // needs time to download the copies that succeeded and see which ones to redo.
+  const keepOpen = isError && hasFiles;
 
   // Auto-dismiss terminal badges (done / error / stopped) after 6s with a
   // smooth fade. Running jobs stay until they finish. Hovering pauses the
   // timer so the download buttons stay reachable.
   useEffect(() => {
-    if (!terminal || paused || exiting) return;
+    if (!terminal || paused || exiting || keepOpen) return;
     const tmr = setTimeout(() => setExiting(true), 5000);
     return () => clearTimeout(tmr);
-  }, [terminal, paused, exiting]);
+  }, [terminal, paused, exiting, keepOpen]);
 
   // Once fading out, drop the job from the store after the transition ends.
   useEffect(() => {
@@ -174,9 +177,14 @@ function JobBadge({ job }: { job: Job }) {
           : job.msg || `${job.progress}%`}
       </p>
 
-      {/* Completed files list — shown when stopped or done */}
-      {hasFiles && (isStopped || isDone) && (
+      {/* Completed files list — shown when stopped, done, OR errored with partial results */}
+      {hasFiles && (isStopped || isDone || isError) && (
         <div className="mt-2 space-y-1">
+          {isError && (
+            <p className="text-[10px] leading-snug text-emerald-400/90">
+              ✓ {job.completedFiles.length} copie(s) déjà réussie(s) — téléchargez-les, refaites seulement les manquantes.
+            </p>
+          )}
           {/* Download selection (visible only when something is selected) */}
           {selected.size > 0 && (
             <button

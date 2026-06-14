@@ -431,9 +431,10 @@ export default function VideoFormSimpleClient() {
         sseAttempt++;
         if (sseAttempt > MAX_SSE_RETRIES) {
           if ((sseError as Error)?.message === "stream_closed_no_done") {
-            const errMsg = "[CLT-004] Le serveur n'a pas répondu à temps. Réessayez avec une vidéo plus courte.";
+            const errMsg = "Une erreur est survenue lors de la duplication. Réessayez avec les fichiers manquants.";
             setErrorMsg(errMsg);
             setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
+            router.refresh(); // surface copies that were saved before the connection dropped
           } else {
             throw sseError; // exhausted retries → outer catch → CLT-005
           }
@@ -455,18 +456,20 @@ export default function VideoFormSimpleClient() {
         }
       } else {
         const rawMsg = (err as Error)?.message || "";
+        console.error("[duplicate-video] client error:", rawMsg); // keep diagnostics for support
         const lower = rawMsg.toLowerCase();
         const isStorageSize = lower.includes("trop volumineux") || lower.includes("maximum allowed size");
         // Client-side validation thrown before the upload even started
-        // (duration > 50 s, etc.) — don't wrap as "Erreur réseau".
+        // (duration > 50 s, etc.) — keep its specific, actionable message.
         const isValidation = lower.includes("dépasse 50 secondes") || lower.startsWith("la vidéo \"");
         const errMsg = isStorageSize
           ? `[CLT-006] ${rawMsg}`
           : isValidation
           ? `[CLT-007] ${rawMsg}`
-          : `[CLT-005] Erreur réseau — ${rawMsg || "connexion interrompue. Réessayez."}`;
+          : "Une erreur est survenue lors de la duplication. Réessayez avec les fichiers manquants.";
         setErrorMsg(errMsg);
         setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
+        if (!isStorageSize && !isValidation) router.refresh(); // surface partial successes in the file list
       }
     } finally {
       setProcessing(false);
