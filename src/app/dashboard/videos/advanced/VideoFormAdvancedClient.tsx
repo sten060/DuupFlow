@@ -1,15 +1,16 @@
 // src/app/(dashboard)/videos/advanced/VideoFormAdvancedClient.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 import CountrySelect from "@/app/dashboard/components/CountrySelect";
-import { setJob, addCompletedFile, removeJob } from "../jobStore";
+import { setJob, addCompletedFile, removeJob, subscribe, snapshot } from "../jobStore";
 import { saveActiveJob, removeActiveJob } from "../videoJobResume";
+import { pushNotification } from "../../components/notificationStore";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
 import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
@@ -402,6 +403,14 @@ export default function VideoFormAdvancedClient() {
       // Files are uploaded and the encode is about to start server-side — persist
       // the job so progress resumes if the user reloads or leaves the page.
       saveActiveJob(jobId, "advanced");
+      // Upload done, encode about to start → only NOW tell the user they can leave.
+      // Transient 7s toast from the notification bell (longer than other notifs).
+      pushNotification({
+        kind: "info",
+        title: "Tu peux quitter la page",
+        body: "La duplication continue en arrière-plan. Tes vidéos seront dans ta bibliothèque.",
+        duration: 7000,
+      });
 
       // ── SSE phase with automatic reconnection ────────────────────────────────
       // Files are already on Railway (directUploadIds) so re-POSTing is free —
@@ -602,6 +611,14 @@ export default function VideoFormAdvancedClient() {
         ? "border-red-400/70 focus:outline-none focus:ring-2 focus:ring-red-400/50"
         : "border-white/15 focus:outline-none focus:ring-2 focus:ring-sky-400/40",
     ].join(" ");
+
+  // Mirror a job that resumed in the global store (e.g. after a reload) so the
+  // big inline bar comes back too — not just the floating badge bottom-right.
+  const storeJobs = useSyncExternalStore(subscribe, snapshot, () => []);
+  const resumedJob = storeJobs.find((j) => j.channel === "advanced" && j.status === "running");
+  const busy = processing || !!resumedJob;
+  const shownProgress = processing ? progress : resumedJob ? resumedJob.progress : null;
+  const shownMsg = processing ? progressMsg : resumedJob ? resumedJob.msg : "";
 
   return (
     <>
@@ -847,17 +864,17 @@ export default function VideoFormAdvancedClient() {
         <TemplatesList templates={templates} onLoad={onLoadTpl} onDelete={onDeleteTpl} />
       </Card>
 
-      <SubmitWithProgress pending={processing} />
+      <SubmitWithProgress pending={busy} />
 
-      {processing && progress !== null && (
+      {busy && shownProgress !== null && (
         <div className="mt-2">
           <div className="h-2 w-full rounded bg-white/10 overflow-hidden">
             <div
               className="h-2 bg-sky-500 transition-[width] duration-200"
-              style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
+              style={{ width: `${Math.max(0, Math.min(100, shownProgress))}%` }}
             />
           </div>
-          <p className="mt-1 text-xs text-white/70">{progressMsg || `Progression… ${progress}%`}</p>
+          <p className="mt-1 text-xs text-white/70">{shownMsg || `Progression… ${shownProgress}%`}</p>
         </div>
       )}
 

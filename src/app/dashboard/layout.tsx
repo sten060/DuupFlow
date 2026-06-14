@@ -2,6 +2,7 @@ import "@/app/globals.css";
 import Sidebar from "./sidebar";
 import GlobalVideoProgress from "./videos/GlobalVideoProgress";
 import ChatBot from "./components/ChatBot";
+import NotificationBell from "./components/NotificationBell";
 import PaymentOverdueModal from "./PaymentOverdueModal";
 import ClaritySessionTags, {
   type ClarityPlan,
@@ -120,6 +121,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       {/* Persistent job progress overlay — survives page navigation */}
       <GlobalVideoProgress />
       <ChatBot />
+      <NotificationBell />
 
       {/* Blocking modal shown while payment_overdue=true. Re-mounts on every
           page navigation so the user can't ignore it for long. */}

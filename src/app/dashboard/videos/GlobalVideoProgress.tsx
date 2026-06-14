@@ -178,13 +178,6 @@ function JobBadge({ job }: { job: Job }) {
           : job.msg || `${job.progress}%`}
       </p>
 
-      {/* Reassure the user they don't have to wait on this screen */}
-      {isRunning && (
-        <p className="mt-1 text-[10px] leading-snug text-white/40">
-          ↪ Tu peux quitter la page, la duplication continue en arrière-plan.
-        </p>
-      )}
-
       {/* Completed files list — shown when stopped, done, OR errored with partial results */}
       {hasFiles && (isStopped || isDone || isError) && (
         <div className="mt-2 space-y-1">
@@ -280,30 +273,17 @@ export default function GlobalVideoProgress() {
     for (const j of loadActiveJobs()) void reattachJob(j.jobId, j.channel);
   }, []);
 
-  if (jobs.length === 0) return null;
-
-  // Live duplication progress (running) sits to the LEFT of the chat bubble;
-  // results & notifications (done / error / stopped) stack ABOVE it. The chat
-  // bubble is at bottom-5 right-5 (48px), so both groups stay clear of it.
+  // Only LIVE progress stays on the page (bottom-right, left of the chat bubble).
+  // Terminal states (done / error / stopped) become entries in the notification
+  // bell instead — see NotificationBell + its job→notification bridge.
   const running = jobs.filter((j) => j.status === "running");
-  const notices = jobs.filter((j) => j.status !== "running");
+  if (running.length === 0) return null;
 
   return (
-    <>
-      {running.length > 0 && (
-        <div className="fixed bottom-5 right-24 z-50 flex flex-col gap-2">
-          {running.map((job) => (
-            <JobBadge key={job.id} job={job} />
-          ))}
-        </div>
-      )}
-      {notices.length > 0 && (
-        <div className="fixed bottom-24 right-5 z-50 flex flex-col gap-2">
-          {notices.map((job) => (
-            <JobBadge key={job.id} job={job} />
-          ))}
-        </div>
-      )}
-    </>
+    <div className="fixed bottom-5 right-24 z-50 flex flex-col gap-2">
+      {running.map((job) => (
+        <JobBadge key={job.id} job={job} />
+      ))}
+    </div>
   );
 }
