@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { useTranslation } from "@/lib/i18n/context";
 import JSZip from "jszip";
 import {
   subscribe as subscribeJobs,
@@ -36,6 +38,7 @@ async function downloadAllAsZip(files: { name: string; url: string }[], label: s
 }
 
 function NotifCard({ n }: { n: AppNotification }) {
+  const { t } = useTranslation();
   const [zipping, setZipping] = useState(false);
   const tone =
     n.kind === "success"
@@ -71,7 +74,7 @@ function NotifCard({ n }: { n: AppNotification }) {
           }}
           className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold bg-indigo-600/70 hover:bg-indigo-500/80 disabled:opacity-50 disabled:cursor-wait border border-indigo-400/30 text-white transition"
         >
-          {zipping ? <><span className="animate-spin">⟳</span>Préparation ZIP…</> : <>↓ Tout télécharger ({n.files.length})</>}
+          {zipping ? <><span className="animate-spin">⟳</span>{t("dashboard.videosCommon.preparingZip")}</> : <>↓ {t("dashboard.videosCommon.downloadAll", { count: n.files.length })}</>}
         </button>
       )}
     </div>
@@ -114,12 +117,15 @@ export default function NotificationBell() {
   const notifs = useSyncExternalStore(subscribeNotifications, notificationsSnapshot, () => []);
   const jobs = useSyncExternalStore(subscribeJobs, jobsSnapshot, () => []);
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
+  const router = useRouter();
 
   // ── Bridge: turn finished/failed/stopped jobs into bell notifications ───────
   // Live RUNNING progress stays on the page (GlobalVideoProgress); only the
   // terminal transitions become notifications here, then the job is dropped.
   const seenRef = useRef<Map<string, Job["status"]>>(new Map());
   useEffect(() => {
+    let needsRefresh = false;
     for (const job of jobs) {
       const prev = seenRef.current.get(job.id);
       if (job.status === prev) continue;
@@ -128,27 +134,34 @@ export default function NotificationBell() {
         const n = job.completedFiles.length;
         pushNotification({
           kind: "success",
-          title: "Duplication terminée",
-          body: n > 0 ? `${n} fichier(s) prêt(s).` : job.msg || undefined,
+          title: t("dashboard.videosCommon.doneTitle"),
+          body: n > 0 ? t("dashboard.videosCommon.filesReady", { count: n }) : job.msg || undefined,
           files: job.completedFiles.length ? job.completedFiles : undefined,
         });
         removeJob(job.id);
+        needsRefresh = true;
       } else if (job.status === "error") {
-        pushNotification({ kind: "error", title: "Échec de la duplication", body: job.errorMsg || job.msg });
+        pushNotification({ kind: "error", title: t("dashboard.videosCommon.failTitle"), body: job.errorMsg || job.msg });
         removeJob(job.id);
+        needsRefresh = true;
       } else if (job.status === "stopped") {
         pushNotification({
           kind: "info",
-          title: "Duplication arrêtée",
-          body: job.completedFiles.length ? `${job.completedFiles.length} fichier(s) déjà prêt(s).` : undefined,
+          title: t("dashboard.videosCommon.stoppedTitle"),
+          body: job.completedFiles.length ? t("dashboard.videosCommon.alreadyReadyShort", { count: job.completedFiles.length }) : undefined,
           files: job.completedFiles.length ? job.completedFiles : undefined,
         });
         removeJob(job.id);
+        needsRefresh = true;
       }
     }
     const ids = new Set(jobs.map((j) => j.id));
     for (const id of Array.from(seenRef.current.keys())) if (!ids.has(id)) seenRef.current.delete(id);
-  }, [jobs]);
+    // A finished job just renamed its outputs into place — refresh the page's
+    // server-rendered "Videos générées" list (esp. after a resume, where the
+    // form's own refresh never runs).
+    if (needsRefresh) router.refresh();
+  }, [jobs, router, t]);
 
   const anyRunning = jobs.some((j) => j.status === "running");
   const unread = notifs.filter((n) => !n.read).length;
@@ -165,7 +178,7 @@ export default function NotificationBell() {
       {/* Bell — just above the chat bubble (which sits at bottom-5 right-5) */}
       <button
         onClick={toggle}
-        aria-label="Notifications"
+        aria-label={t("dashboard.videosCommon.notifTitle")}
         className={`fixed bottom-20 right-5 z-50 h-12 w-12 rounded-full bg-white/[0.06] backdrop-blur-xl border border-white/10 text-white flex items-center justify-center shadow-lg hover:bg-white/[0.12] transition-all ${anyRunning ? "ring-2 ring-indigo-400/50 animate-pulse" : ""}`}
       >
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -189,18 +202,18 @@ export default function NotificationBell() {
       {open && (
         <div className="fixed bottom-36 right-5 z-50 w-80 max-h-[28rem] rounded-2xl bg-white/[0.05] backdrop-blur-2xl border border-white/[0.1] flex flex-col overflow-hidden shadow-2xl">
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-            <span className="text-sm font-medium text-white/80">Notifications</span>
+            <span className="text-sm font-medium text-white/80">{t("dashboard.videosCommon.notifTitle")}</span>
             <div className="flex items-center gap-2">
               {notifs.length > 0 && (
-                <button onClick={clearNotifications} className="text-xs text-white/40 hover:text-white/70 transition">Tout effacer</button>
+                <button onClick={clearNotifications} className="text-xs text-white/40 hover:text-white/70 transition">{t("dashboard.videosCommon.clearAll")}</button>
               )}
-              <button onClick={() => setOpen(false)} className="rounded-full px-1 text-white/40 hover:text-white/80" title="Fermer">✕</button>
+              <button onClick={() => setOpen(false)} className="rounded-full px-1 text-white/40 hover:text-white/80" title={t("dashboard.videosCommon.close")}>✕</button>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {notifs.length === 0 && (
-              <p className="px-2 py-8 text-center text-xs text-white/40">Aucune notification</p>
+              <p className="px-2 py-8 text-center text-xs text-white/40">{t("dashboard.videosCommon.noNotifs")}</p>
             )}
             {notifs.map((n) => <NotifCard key={n.id} n={n} />)}
           </div>

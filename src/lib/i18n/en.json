@@ -687,6 +687,36 @@
       "generatedVideos": "Generated videos ({channel})",
       "noVideosYet": "No videos yet."
     },
+    "durationInfo": {
+      "aria": "Why is it sometimes slow?",
+      "title": "Why duration varies",
+      "body": "The longer and higher-quality your files are, the longer duplications take to generate. This is completely normal: DuupFlow works hard to preserve the original quality of your files.",
+      "gotIt": "Got it"
+    },
+    "videosCommon": {
+      "errorGeneric": "Something went wrong during duplication. Retry with the missing files.",
+      "durationExceeded": "The video \"{name}\" exceeds {max} seconds ({dur}s). Maximum allowed duration: {max} s. Please trim the video before continuing.",
+      "canLeaveTitle": "You can leave this page",
+      "canLeaveBody": "The duplication keeps running in the background. Your videos will be in your library.",
+      "interruptedTitle": "Connection lost",
+      "interruptedBody": "It's not your fault — the connection dropped. Your duplication keeps running on our servers; the copies already finished are downloadable below.",
+      "alreadyReady": "{count} copy(ies) already ready",
+      "resumeRest": "Resume the remaining duplications",
+      "cancel": "Cancel",
+      "notifTitle": "Notifications",
+      "clearAll": "Clear all",
+      "close": "Close",
+      "noNotifs": "No notifications",
+      "doneTitle": "Duplication complete",
+      "filesReady": "{count} file(s) ready.",
+      "failTitle": "Duplication failed",
+      "stoppedTitle": "Duplication stopped",
+      "alreadyReadyShort": "{count} file(s) already ready.",
+      "downloadAll": "Download all ({count})",
+      "preparingZip": "Preparing ZIP…",
+      "resuming": "Resuming tracking…",
+      "finished": "Done ✔"
+    },
     "videosSimple": {
       "title": "Video Duplication — Simple",
       "back": "<- Back",

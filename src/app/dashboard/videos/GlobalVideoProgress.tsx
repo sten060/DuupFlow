@@ -265,13 +265,19 @@ function JobBadge({ job }: { job: Job }) {
  * Lives in the dashboard layout so it persists across page navigation.
  */
 export default function GlobalVideoProgress() {
+  const { t } = useTranslation();
   const jobs = useSyncExternalStore(subscribe, snapshot, () => []);
 
   // On (re)load, resume tracking any video job that was in flight — its encode
   // kept running on the server even if the user reloaded or fully left the page.
   useEffect(() => {
-    for (const j of loadActiveJobs()) void reattachJob(j.jobId, j.channel);
-  }, []);
+    const strings = {
+      resuming: t("dashboard.videosCommon.resuming"),
+      finished: t("dashboard.videosCommon.finished"),
+      errorGeneric: t("dashboard.videosCommon.errorGeneric"),
+    };
+    for (const j of loadActiveJobs()) void reattachJob(j.jobId, j.channel, strings);
+  }, [t]);
 
   // Only LIVE progress stays on the page (bottom-right, left of the chat bubble).
   // Terminal states (done / error / stopped) become entries in the notification

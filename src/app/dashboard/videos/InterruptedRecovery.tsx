@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { subscribe, snapshot, removeJob } from "./jobStore";
 import { removeActiveJob } from "./videoJobResume";
+import { useTranslation } from "@/lib/i18n/context";
 
 /**
  * Shown when a duplication's live connection drops and the 3 auto-reconnects all
@@ -17,6 +18,7 @@ export default function InterruptedRecovery({
   jobId: string;
   onDismiss: () => void;
 }) {
+  const { t } = useTranslation();
   const jobs = useSyncExternalStore(subscribe, snapshot, () => []);
   const job = jobs.find((j) => j.id === jobId);
   const files = job?.completedFiles ?? [];
@@ -24,16 +26,13 @@ export default function InterruptedRecovery({
   return (
     <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4 space-y-3">
       <div>
-        <p className="text-sm font-semibold text-amber-300">Connexion interrompue</p>
-        <p className="mt-0.5 text-xs text-white/60">
-          Ce n'est pas de ta faute — la connexion a été coupée. Ta duplication continue sur nos
-          serveurs ; tes copies déjà prêtes sont téléchargeables ci-dessous.
-        </p>
+        <p className="text-sm font-semibold text-amber-300">{t("dashboard.videosCommon.interruptedTitle")}</p>
+        <p className="mt-0.5 text-xs text-white/60">{t("dashboard.videosCommon.interruptedBody")}</p>
       </div>
 
       {files.length > 0 && (
         <div className="space-y-1">
-          <p className="text-[11px] text-emerald-400/90">✓ {files.length} copie(s) déjà prête(s)</p>
+          <p className="text-[11px] text-emerald-400/90">✓ {t("dashboard.videosCommon.alreadyReady", { count: files.length })}</p>
           <div className="max-h-32 overflow-y-auto rounded-lg bg-white/5 p-1 space-y-1">
             {files.map((f, i) => (
               <a
@@ -56,7 +55,7 @@ export default function InterruptedRecovery({
           onClick={() => window.location.reload()}
           className="flex-1 rounded-lg px-3 py-2 text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-500 text-white transition"
         >
-          Reprendre les duplications restantes
+          {t("dashboard.videosCommon.resumeRest")}
         </button>
         <button
           type="button"
@@ -67,7 +66,7 @@ export default function InterruptedRecovery({
           }}
           className="rounded-lg px-3 py-2 text-xs font-semibold bg-white/[0.06] hover:bg-white/[0.12] text-white/70 border border-white/10 transition"
         >
-          Annuler
+          {t("dashboard.videosCommon.cancel")}
         </button>
       </div>
     </div>

@@ -687,6 +687,36 @@
       "generatedVideos": "Videos generees ({channel})",
       "noVideosYet": "Aucune video pour l'instant."
     },
+    "durationInfo": {
+      "aria": "Pourquoi c'est parfois long ?",
+      "title": "Pourquoi la durée varie",
+      "body": "Plus tes fichiers sont longs et de haute qualité, plus les duplications prennent du temps à générer. C'est totalement normal : DuupFlow s'efforce de conserver la qualité d'origine de tes fichiers.",
+      "gotIt": "Compris"
+    },
+    "videosCommon": {
+      "errorGeneric": "Une erreur est survenue lors de la duplication. Réessayez avec les fichiers manquants.",
+      "durationExceeded": "La vidéo \"{name}\" dépasse {max} secondes ({dur}s). Durée maximum autorisée : {max} s. Veuillez rogner la vidéo avant de continuer.",
+      "canLeaveTitle": "Tu peux quitter la page",
+      "canLeaveBody": "La duplication continue en arrière-plan. Tes vidéos seront dans ta bibliothèque.",
+      "interruptedTitle": "Connexion interrompue",
+      "interruptedBody": "Ce n'est pas de ta faute — la connexion a été coupée. Ta duplication continue sur nos serveurs ; tes copies déjà prêtes sont téléchargeables ci-dessous.",
+      "alreadyReady": "{count} copie(s) déjà prête(s)",
+      "resumeRest": "Reprendre les duplications restantes",
+      "cancel": "Annuler",
+      "notifTitle": "Notifications",
+      "clearAll": "Tout effacer",
+      "close": "Fermer",
+      "noNotifs": "Aucune notification",
+      "doneTitle": "Duplication terminée",
+      "filesReady": "{count} fichier(s) prêt(s).",
+      "failTitle": "Échec de la duplication",
+      "stoppedTitle": "Duplication arrêtée",
+      "alreadyReadyShort": "{count} fichier(s) déjà prêt(s).",
+      "downloadAll": "Tout télécharger ({count})",
+      "preparingZip": "Préparation ZIP…",
+      "resuming": "Reprise du suivi…",
+      "finished": "Terminé ✔"
+    },
     "videosSimple": {
       "title": "Duplication Videos — Simple",
       "back": "<- Retour",

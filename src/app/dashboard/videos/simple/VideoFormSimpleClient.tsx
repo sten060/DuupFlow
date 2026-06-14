@@ -2,7 +2,6 @@
 "use client";
 
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
@@ -11,6 +10,7 @@ import { setJob, addCompletedFile, removeJob, subscribe, snapshot } from "../job
 import { saveActiveJob, removeActiveJob } from "../videoJobResume";
 import { pushNotification } from "../../components/notificationStore";
 import InterruptedRecovery from "../InterruptedRecovery";
+import DurationInfoButton from "../DurationInfoButton";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
 import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
@@ -266,7 +266,7 @@ export default function VideoFormSimpleClient() {
         // /api/upload-direct buffers each body in RAM, so we CAP concurrency:
         // 4 × file_size peak RAM is trivial on the 24 GB container, while
         // overlapping the latency gaps makes the upload phase far faster.
-        setProgressMsg(`Envoi de ${uploadedFiles.length} vidéo(s)…`);
+        setProgressMsg(t("dashboard.videosSimple.sendingVideos", { count: uploadedFiles.length }));
         const UPLOAD_CONCURRENCY = 4;
         const directUploadIds: string[] = new Array(uploadedFiles.length);
         let completedUploads = 0;
@@ -281,10 +281,9 @@ export default function VideoFormSimpleClient() {
             // handles it server-side (which has its own probe + 1-frame fallback).
             const probe = await probeVideoFile(file);
             if (probe.duration > 50) {
-              throw new Error(
-                `La vidéo "${file.name}" dépasse 50 secondes (${Math.round(probe.duration)}s). ` +
-                `Durée maximum autorisée : 50 s. Veuillez rogner la vidéo avant de continuer.`
-              );
+              const e = new Error(t("dashboard.videosCommon.durationExceeded", { name: file.name, max: 50, dur: Math.round(probe.duration) }));
+              (e as Error & { validation?: boolean }).validation = true;
+              throw e;
             }
             const uploadRes = await fetch(
               `/api/upload-direct?fileName=${encodeURIComponent(file.name)}`,
@@ -297,7 +296,7 @@ export default function VideoFormSimpleClient() {
             const { uploadId } = await uploadRes.json();
             directUploadIds[i] = uploadId as string; // keep order aligned with fileNames
             completedUploads++;
-            setProgressMsg(`${completedUploads}/${uploadedFiles.length} vidéo(s) envoyée(s)…`);
+            setProgressMsg(t("dashboard.videosSimple.uploadProgress", { done: completedUploads, total: uploadedFiles.length }));
             setProgress(Math.round((completedUploads / uploadedFiles.length) * 30));
           }
         };
@@ -405,8 +404,8 @@ export default function VideoFormSimpleClient() {
                     reassured = true;
                     pushNotification({
                       kind: "info",
-                      title: "Tu peux quitter la page",
-                      body: "La duplication continue en arrière-plan. Tes vidéos seront dans ta bibliothèque.",
+                      title: t("dashboard.videosCommon.canLeaveTitle"),
+                      body: t("dashboard.videosCommon.canLeaveBody"),
                       duration: 7000,
                     });
                   }
@@ -463,7 +462,7 @@ export default function VideoFormSimpleClient() {
             // dead-end. Keep the resume marker and show the recovery panel.
             keepResume = true;
             setInterruptedJobId(jobId);
-            setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: "Connexion interrompue", status: "interrupted" });
+            setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: t("dashboard.videosCommon.interruptedTitle"), status: "interrupted" });
             router.refresh();
           } else {
             throw sseError; // exhausted retries → outer catch → CLT-005
@@ -489,14 +488,14 @@ export default function VideoFormSimpleClient() {
         console.error("[duplicate-video] client error:", rawMsg); // keep diagnostics for support
         const lower = rawMsg.toLowerCase();
         const isStorageSize = lower.includes("trop volumineux") || lower.includes("maximum allowed size");
-        // Client-side validation thrown before the upload even started
-        // (duration > 50 s, etc.) — keep its specific, actionable message.
-        const isValidation = lower.includes("dépasse 50 secondes") || lower.startsWith("la vidéo \"");
+        // Client-side validation (duration > 50 s) carries a `validation` flag and an
+        // already-localized, actionable message — show it as-is.
+        const isValidation = (err as { validation?: boolean })?.validation === true;
         const errMsg = isStorageSize
           ? `[CLT-006] ${rawMsg}`
           : isValidation
-          ? `[CLT-007] ${rawMsg}`
-          : "Une erreur est survenue lors de la duplication. Réessayez avec les fichiers manquants.";
+          ? rawMsg
+          : t("dashboard.videosCommon.errorGeneric");
         setErrorMsg(errMsg);
         setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
         if (!isStorageSize && !isValidation) router.refresh(); // surface partial successes in the file list
@@ -522,7 +521,7 @@ export default function VideoFormSimpleClient() {
     <>
     <div className="flex items-center justify-between">
       <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosSimple.title")}</h1>
-      <Link href="/dashboard/videos" className="text-sm text-white/40 hover:text-white/70 transition">{t("dashboard.videosSimple.back")}</Link>
+      <DurationInfoButton />
     </div>
     <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="channel" value="simple" />

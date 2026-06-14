@@ -59,12 +59,14 @@ const attaching = new Set<string>();
  * Re-attach to a running job and stream its buffered + live progress into the
  * global store. Resolves when the job reaches a terminal state.
  */
-export async function reattachJob(jobId: string, channel: Channel): Promise<void> {
+export type ResumeStrings = { resuming: string; finished: string; errorGeneric: string };
+
+export async function reattachJob(jobId: string, channel: Channel, strings: ResumeStrings): Promise<void> {
   if (attaching.has(jobId)) return;
   attaching.add(jobId);
 
   // Show the badge immediately so the user sees we picked the job back up.
-  setJob({ id: jobId, type: "video", channel, progress: 0, msg: "Reprise du suivi…", status: "running" });
+  setJob({ id: jobId, type: "video", channel, progress: 0, msg: strings.resuming, status: "running" });
 
   try {
     const form = new FormData();
@@ -92,19 +94,19 @@ export async function reattachJob(jobId: string, channel: Channel): Promise<void
         if (evt.stale) {
           // Finished (and aged out of the registry) while we were away — the
           // generated copies are already in the user's library.
-          setJob({ id: jobId, type: "video", channel, progress: 100, msg: "Terminé ✔", status: "done" });
+          setJob({ id: jobId, type: "video", channel, progress: 100, msg: strings.finished, status: "done" });
           removeActiveJob(jobId);
           setTimeout(() => removeJob(jobId), 6000);
           return;
         }
         if (evt.error) {
-          const msg = evt.msg || "Une erreur est survenue lors de la duplication. Réessayez avec les fichiers manquants.";
+          const msg = evt.msg || strings.errorGeneric;
           setJob({ id: jobId, type: "video", channel, progress: 0, msg, status: "error", errorMsg: msg });
           removeActiveJob(jobId);
           return;
         }
         if (evt.done) {
-          setJob({ id: jobId, type: "video", channel, progress: 100, msg: evt.warning || "Terminé ✔", status: "done" });
+          setJob({ id: jobId, type: "video", channel, progress: 100, msg: evt.warning || strings.finished, status: "done" });
           removeActiveJob(jobId);
           setTimeout(() => removeJob(jobId), 6000);
           return;
