@@ -4,7 +4,7 @@
  * React components subscribe via useSyncExternalStore.
  */
 
-export type JobStatus = "running" | "done" | "error" | "stopped";
+export type JobStatus = "running" | "done" | "error" | "stopped" | "interrupted";
 export type JobType   = "video" | "image";
 
 export type CompletedFile = { name: string; url: string };

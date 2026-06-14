@@ -10,6 +10,7 @@ import CountrySelect from "@/app/dashboard/components/CountrySelect";
 import { setJob, addCompletedFile, removeJob, subscribe, snapshot } from "../jobStore";
 import { saveActiveJob, removeActiveJob } from "../videoJobResume";
 import { pushNotification } from "../../components/notificationStore";
+import InterruptedRecovery from "../InterruptedRecovery";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
 import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
@@ -191,6 +192,7 @@ export default function VideoFormSimpleClient() {
   const [limitPlan, setLimitPlan] = useState<"free" | "solo" | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const [interruptedJobId, setInterruptedJobId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({
     metadata: false,
     metadata_technical: false,
@@ -233,6 +235,8 @@ export default function VideoFormSimpleClient() {
 
     // Register job in global store so progress persists across page navigation
     const jobId = Math.random().toString(36).slice(2, 8);
+    let keepResume = false;     // keep the resume marker if the job ends interrupted (recoverable)
+    setInterruptedJobId(null);  // clear any previous recovery panel
     setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: t("dashboard.videosSimple.preparing"), status: "running", ctrl });
 
     try {
@@ -455,10 +459,12 @@ export default function VideoFormSimpleClient() {
         sseAttempt++;
         if (sseAttempt > MAX_SSE_RETRIES) {
           if ((sseError as Error)?.message === "stream_closed_no_done") {
-            const errMsg = "Une erreur est survenue lors de la duplication. Réessayez avec les fichiers manquants.";
-            setErrorMsg(errMsg);
-            setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
-            router.refresh(); // surface copies that were saved before the connection dropped
+            // Connection lost, but the encode keeps running server-side — don't
+            // dead-end. Keep the resume marker and show the recovery panel.
+            keepResume = true;
+            setInterruptedJobId(jobId);
+            setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: "Connexion interrompue", status: "interrupted" });
+            router.refresh();
           } else {
             throw sseError; // exhausted retries → outer catch → CLT-005
           }
@@ -497,9 +503,10 @@ export default function VideoFormSimpleClient() {
       }
     } finally {
       setProcessing(false);
-      // Job reached a terminal state in this tab — stop persisting it. (On a
-      // reload this finally never runs, so the entry survives for resume.)
-      removeActiveJob(jobId);
+      // Stop persisting the job UNLESS it was interrupted (recoverable): keep the
+      // marker so "Reprendre"/reload re-attaches. (On a reload this finally never
+      // runs anyway, so a normal in-flight job also survives for resume.)
+      if (!keepResume) removeActiveJob(jobId);
     }
   }
 
@@ -607,11 +614,13 @@ export default function VideoFormSimpleClient() {
         </div>
       )}
 
-      {errorMsg && (
+      {interruptedJobId ? (
+        <InterruptedRecovery jobId={interruptedJobId} onDismiss={() => setInterruptedJobId(null)} />
+      ) : errorMsg ? (
         <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/[0.06] px-4 py-2 text-sm text-red-400">
           {errorMsg}
         </p>
-      )}
+      ) : null}
     </form>
 
       {/* Monthly video limit reached → friendly upgrade modal, then the usual

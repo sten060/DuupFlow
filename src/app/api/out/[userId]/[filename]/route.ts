@@ -42,7 +42,14 @@ export async function GET(
   try {
     buffer = await fs.readFile(filePath);
   } catch {
-    return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
+    // Fallback: a copy that finished mid-job still carries its hidden temp name
+    // (__progress_<name>) until the whole job completes and renames it. Serving it
+    // here lets already-finished copies download during/after an interrupted job.
+    try {
+      buffer = await fs.readFile(path.join(OUT_BASE, params.userId, `__progress_${filename}`));
+    } catch {
+      return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
+    }
   }
 
   const ext = path.extname(filename).toLowerCase();
