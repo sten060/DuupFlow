@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore, useState, useEffect } from "react";
 import { subscribe, snapshot, removeJob, stopJob, Job } from "./jobStore";
+import { loadActiveJobs, reattachJob } from "./videoJobResume";
 import { useTranslation } from "@/lib/i18n/context";
 import JSZip from "jszip";
 
@@ -177,6 +178,13 @@ function JobBadge({ job }: { job: Job }) {
           : job.msg || `${job.progress}%`}
       </p>
 
+      {/* Reassure the user they don't have to wait on this screen */}
+      {isRunning && (
+        <p className="mt-1 text-[10px] leading-snug text-white/40">
+          ↪ Tu peux quitter la page, la duplication continue en arrière-plan.
+        </p>
+      )}
+
       {/* Completed files list — shown when stopped, done, OR errored with partial results */}
       {hasFiles && (isStopped || isDone || isError) && (
         <div className="mt-2 space-y-1">
@@ -265,6 +273,12 @@ function JobBadge({ job }: { job: Job }) {
  */
 export default function GlobalVideoProgress() {
   const jobs = useSyncExternalStore(subscribe, snapshot, () => []);
+
+  // On (re)load, resume tracking any video job that was in flight — its encode
+  // kept running on the server even if the user reloaded or fully left the page.
+  useEffect(() => {
+    for (const j of loadActiveJobs()) void reattachJob(j.jobId, j.channel);
+  }, []);
 
   if (jobs.length === 0) return null;
 

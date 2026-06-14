@@ -79,6 +79,20 @@ export async function POST(req: Request) {
     );
   }
 
+  // ── Reattach miss ─────────────────────────────────────────────────────────
+  // A reload/leave re-POSTs with reconnectOnly=1. If the job were still live it
+  // was handled by the reconnect path above; reaching here means it's gone
+  // (finished + aged out of the registry, or the process restarted). Tell the
+  // client it's stale so it shows the library instead of starting a new
+  // (file-less) job — which would wrongly fail with "Aucune vidéo valide".
+  const reconnectOnly = formData.get("reconnectOnly") === "1";
+  if (reconnectOnly) {
+    return new Response(
+      encoder.encode(`data: ${JSON.stringify({ done: true, stale: true, msg: "Terminé" })}\n\n`),
+      { headers: SSE_HEADERS },
+    );
+  }
+
   // ── New job path ──────────────────────────────────────────────────────────
   const storagePaths    = formData.getAll("storagePaths") as string[];
   const directUploadIds = formData.getAll("directUploadIds") as string[];

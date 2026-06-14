@@ -8,6 +8,7 @@ import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 import CountrySelect from "@/app/dashboard/components/CountrySelect";
 import { setJob, addCompletedFile, removeJob } from "../jobStore";
+import { saveActiveJob, removeActiveJob } from "../videoJobResume";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
 import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
@@ -255,45 +256,49 @@ export default function VideoFormSimpleClient() {
         setProgressMsg(`Envoi vidéo 1/${uploadedFiles.length}…`);
         setProgress(0);
 
-        // SEQUENTIAL uploads — see VideoFormAdvancedClient for the rationale.
-        // Was Promise.all; the /api/upload-direct route buffers each body in
-        // RAM via req.arrayBuffer(), so parallel uploads OOM the Railway worker
-        // and all in-flight requests return 502.
+        // PARALLEL uploads, bounded to 4 at a time. One-by-one before was safe
+        // but slow — each file waited a full round-trip to the US-West server.
+        // /api/upload-direct buffers each body in RAM, so we CAP concurrency:
+        // 4 × file_size peak RAM is trivial on the 24 GB container, while
+        // overlapping the latency gaps makes the upload phase far faster.
         setProgressMsg(`Envoi de ${uploadedFiles.length} vidéo(s)…`);
-        const directUploadIds: string[] = [];
+        const UPLOAD_CONCURRENCY = 4;
+        const directUploadIds: string[] = new Array(uploadedFiles.length);
         let completedUploads = 0;
-        for (const file of uploadedFiles) {
-          // Client-side duration check via probeVideoFile().
-          //
-          // We INTENTIONALLY do NOT reject when probe.decodable=false. iPhone
-          // videos use HEVC/H.265 by default; Chrome and Firefox cannot decode
-          // HEVC in a <video> element (Safari can), but ffmpeg server-side
-          // handles it fine. Rejecting here would block valid iPhone uploads.
-          // The server still rejects truly broken files via its own ffprobe
-          // + 1-frame fallback test (see processVideos.ts).
-          const probe = await probeVideoFile(file);
-          if (probe.duration > 50) {
-            throw new Error(
-              `La vidéo "${file.name}" dépasse 50 secondes (${Math.round(probe.duration)}s). ` +
-              `Durée maximum autorisée : 50 s. Veuillez rogner la vidéo avant de continuer.`
+        let nextUploadIndex = 0;
+        const uploadWorker = async () => {
+          while (true) {
+            const i = nextUploadIndex++;
+            if (i >= uploadedFiles.length) return;
+            const file = uploadedFiles[i];
+            // Client-side duration check. We do NOT reject on probe.decodable=false:
+            // iPhone HEVC can't decode in a <video> on Chrome/Firefox, but ffmpeg
+            // handles it server-side (which has its own probe + 1-frame fallback).
+            const probe = await probeVideoFile(file);
+            if (probe.duration > 50) {
+              throw new Error(
+                `La vidéo "${file.name}" dépasse 50 secondes (${Math.round(probe.duration)}s). ` +
+                `Durée maximum autorisée : 50 s. Veuillez rogner la vidéo avant de continuer.`
+              );
+            }
+            const uploadRes = await fetch(
+              `/api/upload-direct?fileName=${encodeURIComponent(file.name)}`,
+              { method: "POST", body: file, signal: ctrl.signal },
             );
+            if (!uploadRes.ok) {
+              const j = await uploadRes.json().catch(() => ({}));
+              throw new Error(j?.error || `[CLT-006] Erreur upload direct HTTP ${uploadRes.status}`);
+            }
+            const { uploadId } = await uploadRes.json();
+            directUploadIds[i] = uploadId as string; // keep order aligned with fileNames
+            completedUploads++;
+            setProgressMsg(`${completedUploads}/${uploadedFiles.length} vidéo(s) envoyée(s)…`);
+            setProgress(Math.round((completedUploads / uploadedFiles.length) * 30));
           }
-
-          // Upload directly to Railway server
-          const uploadRes = await fetch(
-            `/api/upload-direct?fileName=${encodeURIComponent(file.name)}`,
-            { method: "POST", body: file, signal: ctrl.signal },
-          );
-          if (!uploadRes.ok) {
-            const j = await uploadRes.json().catch(() => ({}));
-            throw new Error(j?.error || `[CLT-006] Erreur upload direct HTTP ${uploadRes.status}`);
-          }
-          const { uploadId } = await uploadRes.json();
-          completedUploads++;
-          setProgressMsg(`${completedUploads}/${uploadedFiles.length} vidéo(s) envoyée(s)…`);
-          setProgress(Math.round((completedUploads / uploadedFiles.length) * 30));
-          directUploadIds.push(uploadId as string);
-        }
+        };
+        await Promise.all(
+          Array.from({ length: Math.min(UPLOAD_CONCURRENCY, uploadedFiles.length) }, uploadWorker)
+        );
 
         setProgress(30);
         setProgressMsg(t("dashboard.videosSimple.sendingToServer"));
@@ -310,6 +315,10 @@ export default function VideoFormSimpleClient() {
         // No files or empty — send as-is (fallback / local dev)
         apiForm = rawForm;
       }
+
+      // Files are uploaded and the encode is about to start server-side — persist
+      // the job so progress resumes if the user reloads or leaves the page.
+      saveActiveJob(jobId, "simple");
 
       // ── SSE phase with automatic reconnection ────────────────────────────────
       // Files are already on Railway (directUploadIds) so re-POSTing is free —
@@ -473,6 +482,9 @@ export default function VideoFormSimpleClient() {
       }
     } finally {
       setProcessing(false);
+      // Job reached a terminal state in this tab — stop persisting it. (On a
+      // reload this finally never runs, so the entry survives for resume.)
+      removeActiveJob(jobId);
     }
   }
 
