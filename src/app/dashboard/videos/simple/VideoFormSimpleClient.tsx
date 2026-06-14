@@ -267,7 +267,10 @@ export default function VideoFormSimpleClient() {
         // 4 × file_size peak RAM is trivial on the 24 GB container, while
         // overlapping the latency gaps makes the upload phase far faster.
         setProgressMsg(t("dashboard.videosSimple.sendingVideos", { count: uploadedFiles.length }));
-        const UPLOAD_CONCURRENCY = 4;
+        // Adaptive: 4 in parallel normally (fast), but 2 when a file is large
+        // (> 1 GB) — /api/upload-direct buffers each whole file in RAM, so this
+        // caps peak upload memory regardless of file size.
+        const UPLOAD_CONCURRENCY = uploadedFiles.some((f) => f.size > 1024 * 1024 * 1024) ? 2 : 4;
         const directUploadIds: string[] = new Array(uploadedFiles.length);
         let completedUploads = 0;
         let nextUploadIndex = 0;
