@@ -330,9 +330,12 @@ export async function POST(req: Request) {
       // Surface a clear message when the model rejected for NSFW —
       // tokens are already refunded above, so the user keeps their balance.
       const isNsfw = lastError?.toLowerCase().includes("nsfw");
+      // Never surface the raw provider error (e.g. "WaveSpeed 401: ...") to the
+      // user — it's logged here for support, the user sees a clean message.
+      if (!isNsfw) console.error("[ai-lab] no images generated (tokens refunded). lastError:", lastError);
       const error = isNsfw
         ? "Contenu rejeté par le filtre NSFW de l'IA. Tokens remboursés."
-        : `Aucune image générée. Tokens remboursés. ${lastError ? `(${lastError})` : ""}`.trim();
+        : "Une erreur est survenue. Vos tokens ont été remboursés. Veuillez contacter le support.";
       return NextResponse.json<Err>(
         { ok: false, error, code: isNsfw ? "NSFW" : undefined, balanceCents: finalBalance },
         { status: 502 },
@@ -358,7 +361,8 @@ export async function POST(req: Request) {
       }
     }
     return NextResponse.json<Err>(
-      { ok: false, error: e?.message || "AI generation failed", balanceCents: finalBalance },
+      // Raw error already logged above ("[ai-lab] fatal") — show the user a clean message.
+      { ok: false, error: "Une erreur est survenue. Vos tokens ont été remboursés. Veuillez contacter le support.", balanceCents: finalBalance },
       { status: 500 },
     );
   } finally {
