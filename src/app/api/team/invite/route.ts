@@ -20,16 +20,18 @@ export async function POST(req: NextRequest) {
 
   const adminClient = createAdminClient();
 
-  // Block invitations for Solo plan users
+  // Only the Pro plan can invite team members. Checking `=== "solo"` was a bug:
+  // it let FREE users (and any non-solo plan) invite. Allow ONLY "pro" so free +
+  // solo are blocked, and fail-closed if the profile can't be read.
   const { data: hostProfile } = await adminClient
     .from("profiles")
     .select("plan")
     .eq("id", user.id)
     .single();
 
-  if (hostProfile?.plan === "solo") {
+  if (hostProfile?.plan !== "pro") {
     return NextResponse.json(
-      { error: "Le plan Solo ne permet pas d'inviter des membres. Passe au plan Pro pour inviter jusqu'à 3 collaborateurs." },
+      { error: "Ton plan actuel ne permet pas d'inviter des membres. Passe au plan Pro pour inviter jusqu'à 3 collaborateurs." },
       { status: 403 }
     );
   }
