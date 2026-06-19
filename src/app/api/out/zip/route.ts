@@ -66,6 +66,12 @@ export async function GET(req: Request) {
   const abort = (reason: unknown) => {
     if (aborted) return;
     aborted = true;
+    // Log EXACTLY ONCE per aborted stream. A client disconnect rejects every
+    // in-flight writer.write() at the same instant; logging in that catch (or
+    // per chunk) produced thousands of identical lines per cancel and blew past
+    // Railway's 500 logs/sec cap — which then dropped real errors. Centralising
+    // the log here (guarded by `aborted`) keeps it to one line per download.
+    console.warn(`[zip] stream aborted (${String((reason as Error)?.message ?? reason)})`);
     try { archive.destroy(reason as Error | undefined); } catch {}
     writer.abort(reason).catch(() => {});
   };
@@ -81,18 +87,12 @@ export async function GET(req: Request) {
   }
 
   archive.on("warning", () => {});
-  archive.on("error", (err) => {
-    console.error("[zip] archiver error:", err.message);
-    abort(err);
-  });
+  // No per-event logging below — every abort path funnels through abort(),
+  // which logs once. Logging per chunk here is what flooded Railway.
+  archive.on("error", (err) => abort(err));
   archive.on("data", (chunk) => {
     if (aborted) return;
-    writer.write(chunk).catch((err) => {
-      // Most common cause: client closed the connection while we were
-      // still streaming data — perfectly normal, just stop cleanly.
-      console.warn("[zip] writer.write failed (likely client closed):", err?.message);
-      abort(err);
-    });
+    writer.write(chunk).catch(abort);
   });
   archive.on("end", () => {
     if (aborted) return;
