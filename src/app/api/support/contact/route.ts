@@ -5,10 +5,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendBrevoEmail } from "@/lib/brevo";
+import { getServerT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const t = await getServerT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
 
@@ -16,7 +18,7 @@ export async function POST(req: NextRequest) {
   const { contact, subject, message } = body as Record<string, string>;
 
   if (!contact?.trim() || !subject?.trim() || !message?.trim()) {
-    return NextResponse.json({ error: "Tous les champs sont requis." }, { status: 400 });
+    return NextResponse.json({ error: t("errors.support.allFieldsRequired") }, { status: 400 });
   }
 
   const userEmail = user?.email ?? null;
@@ -80,7 +82,7 @@ export async function POST(req: NextRequest) {
   // Fail only if neither channel worked
   if (!emailSent && !dbSaved) {
     console.error("[support/contact] Both DB and email failed");
-    return NextResponse.json({ error: "Impossible d'envoyer le message. Réessayez plus tard." }, { status: 500 });
+    return NextResponse.json({ error: t("errors.support.sendFailed") }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, emailSent, dbSaved });

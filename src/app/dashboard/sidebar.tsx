@@ -288,11 +288,6 @@ export default function Sidebar() {
 
       <div className="flex flex-col flex-1 min-h-0">
         <nav className="flex-1 px-3 pb-4 space-y-0.5 overflow-y-auto pt-1">
-          {!collapsed && (
-            <p className="text-[10px] tracking-[0.14em] text-white/20 uppercase px-3 mb-2.5">
-              {t("dashboard.sidebar.navigation")}
-            </p>
-          )}
           {NAV_GROUPS.map((group, gi) => (
             <div key={gi} className="space-y-0.5">
               {gi > 0 && (

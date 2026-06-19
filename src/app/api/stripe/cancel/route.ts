@@ -3,17 +3,19 @@ import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail } from "@/lib/mailer";
+import { getServerT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const t = await getServerT();
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    return NextResponse.json({ error: t("errors.auth.notAuthenticated") }, { status: 401 });
   }
 
   const body = await req.json().catch(() => ({}));
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   if (!subscriptionId) {
     return NextResponse.json(
-      { error: "Aucun abonnement actif trouvé." },
+      { error: t("errors.billing.noActiveSubscription") },
       { status: 400 }
     );
   }

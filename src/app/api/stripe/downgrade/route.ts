@@ -2,17 +2,19 @@ import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getServerT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST() {
+  const t = await getServerT();
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    return NextResponse.json({ error: t("errors.auth.notAuthenticated") }, { status: 401 });
   }
 
   const admin = createAdminClient();
@@ -24,7 +26,7 @@ export async function POST() {
 
   if (profile?.plan === "solo") {
     return NextResponse.json(
-      { error: "Vous êtes déjà sur le plan Solo." },
+      { error: t("errors.billing.alreadyOnSolo") },
       { status: 400 }
     );
   }
@@ -58,7 +60,7 @@ export async function POST() {
 
   if (!subscriptionId) {
     return NextResponse.json(
-      { error: "Aucun abonnement actif trouvé." },
+      { error: t("errors.billing.noActiveSubscription") },
       { status: 400 }
     );
   }
@@ -70,7 +72,7 @@ export async function POST() {
   const itemId = sub.items.data[0]?.id;
   if (!itemId) {
     return NextResponse.json(
-      { error: "Impossible de trouver l'item d'abonnement." },
+      { error: t("errors.billing.subscriptionItemNotFound") },
       { status: 500 }
     );
   }

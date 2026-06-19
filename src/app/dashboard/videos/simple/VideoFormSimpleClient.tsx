@@ -1,13 +1,15 @@
 // src/app/dashboard/videos/simple/VideoFormSimpleClient.tsx
 "use client";
 
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Dropzone from "../../Dropzone";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 import CountrySelect from "@/app/dashboard/components/CountrySelect";
 import { setJob, addCompletedFile, removeJob, subscribe, snapshot } from "../jobStore";
 import { saveActiveJob, removeActiveJob } from "../videoJobResume";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
+import { saveSettings, loadSettings } from "@/lib/formMemory";
 import { pushNotification } from "../../components/notificationStore";
 import InterruptedRecovery from "../InterruptedRecovery";
 import DurationInfoButton from "../DurationInfoButton";
@@ -159,6 +161,7 @@ export default function VideoFormSimpleClient() {
   const [limitPlan, setLimitPlan] = useState<"free" | "solo" | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const [interruptedJobId, setInterruptedJobId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({
     metadata: false,
@@ -190,6 +193,27 @@ export default function VideoFormSimpleClient() {
     dims: { enabled: dimEnabled, w_factor: dimW, h_factor: dimH },
   });
 
+  // Restore the user's last-used settings (remembered per module).
+  useEffect(() => {
+    const s = loadSettings<{ count?: number; packs?: string[]; flip?: boolean; reverse?: boolean; country?: string; iphoneMeta?: boolean }>("videoSimple");
+    if (!s) return;
+    if (Array.isArray(s.packs)) {
+      setSelected((prev) => {
+        const next = { ...prev };
+        for (const k of Object.keys(next)) next[k] = s.packs!.includes(k);
+        return next;
+      });
+    }
+    if (typeof s.flip === "boolean") setFlip(s.flip);
+    if (typeof s.reverse === "boolean") setReverse(s.reverse);
+    if (typeof s.country === "string") setCountry(s.country);
+    if (typeof s.iphoneMeta === "boolean") setIphoneMeta(s.iphoneMeta);
+    if (typeof s.count === "number" && formRef.current) {
+      const el = formRef.current.elements.namedItem("count");
+      if (el instanceof HTMLInputElement) el.value = String(s.count);
+    }
+  }, []);
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setProcessing(true);
@@ -209,6 +233,12 @@ export default function VideoFormSimpleClient() {
     try {
       const rawForm = new FormData(e.currentTarget);
       const uploadedFiles = rawForm.getAll("files") as File[];
+      // Remember these settings for next time.
+      saveSettings("videoSimple", {
+        count: Math.max(1, Number(rawForm.get("count")) || 1),
+        packs: packsSelected,
+        flip, reverse, country, iphoneMeta,
+      });
 
       // Client-side size guard — 5 GB max per file
       const MAX_FILE_BYTES = 5 * 1024 * 1024 * 1024;
@@ -239,6 +269,7 @@ export default function VideoFormSimpleClient() {
         // caps peak upload memory regardless of file size.
         const UPLOAD_CONCURRENCY = uploadedFiles.some((f) => f.size > 1024 * 1024 * 1024) ? 2 : 4;
         const directUploadIds: string[] = new Array(uploadedFiles.length);
+        const perFile: number[] = new Array(uploadedFiles.length).fill(0);
         let completedUploads = 0;
         let nextUploadIndex = 0;
         const uploadWorker = async () => {
@@ -255,9 +286,17 @@ export default function VideoFormSimpleClient() {
               (e as Error & { validation?: boolean }).validation = true;
               throw e;
             }
-            const uploadRes = await fetch(
+            const uploadRes = await uploadWithProgress(
               `/api/upload-direct?fileName=${encodeURIComponent(file.name)}`,
-              { method: "POST", body: file, signal: ctrl.signal },
+              file,
+              {
+                signal: ctrl.signal,
+                onProgress: (frac) => {
+                  perFile[i] = frac;
+                  const overall = perFile.reduce((a, b) => a + b, 0) / uploadedFiles.length;
+                  setProgress(Math.round(overall * 30)); // upload phase = 0–30%
+                },
+              },
             );
             if (!uploadRes.ok) {
               const j = await uploadRes.json().catch(() => ({}));
@@ -265,9 +304,10 @@ export default function VideoFormSimpleClient() {
             }
             const { uploadId } = await uploadRes.json();
             directUploadIds[i] = uploadId as string; // keep order aligned with fileNames
+            perFile[i] = 1;
             completedUploads++;
             setProgressMsg(t("dashboard.videosSimple.uploadProgress", { done: completedUploads, total: uploadedFiles.length }));
-            setProgress(Math.round((completedUploads / uploadedFiles.length) * 30));
+            setProgress(Math.round((perFile.reduce((a, b) => a + b, 0) / uploadedFiles.length) * 30));
           }
         };
         await Promise.all(
@@ -495,7 +535,7 @@ export default function VideoFormSimpleClient() {
       <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosSimple.title")}</h1>
       <DurationInfoButton />
     </div>
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="channel" value="simple" />
       <input type="hidden" name="mode" value="simple" />
       <input type="hidden" name="singles" value={singlesJSON} />

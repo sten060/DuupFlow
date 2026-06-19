@@ -3,6 +3,7 @@
 import { useSyncExternalStore, useState, useEffect } from "react";
 import { subscribe, snapshot, removeJob, stopJob, Job } from "./jobStore";
 import { loadActiveJobs, reattachJob } from "./videoJobResume";
+import { loadActiveImageJobs, reattachImageJob } from "../images/imageJobResume";
 import { useTranslation } from "@/lib/i18n/context";
 import JSZip from "jszip";
 
@@ -277,6 +278,7 @@ export default function GlobalVideoProgress() {
       errorGeneric: t("dashboard.videosCommon.errorGeneric"),
     };
     for (const j of loadActiveJobs()) void reattachJob(j.jobId, j.channel, strings);
+    for (const j of loadActiveImageJobs()) void reattachImageJob(j.jobId, strings);
   }, [t]);
 
   // Only LIVE progress stays on the page (bottom-right, left of the chat bubble).

@@ -7,6 +7,7 @@ import sharp from "sharp";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 import { checkUsage, incrementUsage } from "@/lib/usage";
 import { runImageOp } from "@/lib/imageProcessingLimiter";
+import { getServerT } from "@/lib/i18n/server";
 
 /* ── constants ── */
 const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp"];
@@ -166,10 +167,11 @@ async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetad
  * et réinjecte une identité humaine réaliste.
  * ───────────────────────────────────────────── */
 export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean; count: number; files: string[]; error?: string; limitReached?: boolean; current?: number; limit?: number }> {
+  const t = await getServerT();
   const files = formData.getAll("files") as File[];
   console.log(`[ai-detection] maskAiMetadata called — ${files.length} file(s)`);
 
-  if (!files.length) return { ok: false, count: 0, files: [], error: "[AI-001] Aucun fichier reçu." };
+  if (!files.length) return { ok: false, count: 0, files: [], error: `[AI-001] ${t("errors.aiDetection.noFile")}` };
 
   // ── Usage check (Solo plan limits) ────────────────────────────────────────
   const imageFiles = files.filter((f) => IMAGE_EXTS.includes(extOf(f.name)));
@@ -189,7 +191,7 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
         ok: false,
         count: 0,
         files: [],
-        error: usageCheck.message ?? "Limite de modifications signature IA atteinte.",
+        error: usageCheck.message ?? t("errors.aiDetection.signatureLimitReached"),
         limitReached: true,
         current: usageCheck.current,
         limit: usageCheck.limit,
@@ -205,7 +207,7 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
     ({ dir } = await getOutDirForCurrentUser());
   } catch (e: any) {
     console.error("[ai-detection] getOutDirForCurrentUser failed:", e?.message);
-    return { ok: false, count: 0, files: [], error: "[AI-002] Erreur répertoire utilisateur." };
+    return { ok: false, count: 0, files: [], error: `[AI-002] ${t("errors.aiDetection.userDirError")}` };
   }
   await fs.mkdir(dir, { recursive: true });
 
@@ -331,7 +333,14 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
       limitReached: true,
       current: usageCheck.limit,
       limit: usageCheck.limit,
-      error: `${count} fichier${count > 1 ? "s" : ""} traité${count > 1 ? "s" : ""} — limite atteinte. ${skipped} image${skipped > 1 ? "s" : ""} annulée${skipped > 1 ? "s" : ""} (quota mensuel épuisé).`,
+      error: t("errors.aiDetection.partialLimit", {
+        count,
+        skipped,
+        fileS: count > 1 ? "s" : "",
+        processedS: count > 1 ? "s" : "",
+        imageS: skipped > 1 ? "s" : "",
+        cancelledS: skipped > 1 ? "s" : "",
+      }),
     };
   }
 

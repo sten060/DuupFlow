@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getServerT } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -96,16 +97,18 @@ async function convertHeicBufferToJpeg(buf: Buffer): Promise<Buffer> {
 }
 
 export async function POST(req: NextRequest) {
+  const t = await getServerT();
+
   // Auth check
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   if (!user) {
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    return NextResponse.json({ error: t("errors.upload.notAuthenticated") }, { status: 401 });
   }
 
   const body = req.body;
   if (!body) {
-    return NextResponse.json({ error: "Corps de la requête manquant" }, { status: 400 });
+    return NextResponse.json({ error: t("errors.upload.missingBody") }, { status: 400 });
   }
 
   const rawFileName = safeName(req.nextUrl.searchParams.get("fileName") || "upload.bin");
@@ -116,7 +119,7 @@ export async function POST(req: NextRequest) {
     await acquireUploadSlot(req.signal);
   } catch {
     // Client aborted before we started — nothing written, nothing to release.
-    return NextResponse.json({ error: "Envoi annulé" }, { status: 499 });
+    return NextResponse.json({ error: t("errors.upload.cancelled") }, { status: 499 });
   }
 
   // A slot is now held → it MUST be released exactly once, in the finally below.
@@ -163,7 +166,7 @@ export async function POST(req: NextRequest) {
     if (received === 0) {
       await fs.unlink(tmpPath).catch(() => {});
       return NextResponse.json(
-        { error: "Fichier reçu vide (0 octet) — vérifiez la taille du fichier ou la connexion." },
+        { error: t("errors.upload.emptyFile") },
         { status: 400 }
       );
     }
@@ -193,7 +196,7 @@ export async function POST(req: NextRequest) {
         console.error(`[upload-direct] HEIC conversion failed for "${rawFileName}":`, heicErr?.message);
         await fs.unlink(tmpPath).catch(() => {});
         return NextResponse.json(
-          { error: `Impossible de décoder le HEIC "${rawFileName}" — convertissez-le en JPEG manuellement.` },
+          { error: t("errors.upload.heicDecodeFailed", { name: rawFileName }) },
           { status: 422 }
         );
       }
@@ -205,10 +208,10 @@ export async function POST(req: NextRequest) {
     // never leave a truncated source for the encoder to choke on.
     if (wrote && tmpPath) await fs.unlink(tmpPath).catch(() => {});
     if (e?.name === "AbortError" || req.signal.aborted) {
-      return NextResponse.json({ error: "Envoi annulé" }, { status: 499 });
+      return NextResponse.json({ error: t("errors.upload.cancelled") }, { status: 499 });
     }
     console.error(`[upload-direct] write failed for "${rawFileName}":`, e?.message);
-    return NextResponse.json({ error: `Erreur écriture : ${e?.message ?? e}` }, { status: 500 });
+    return NextResponse.json({ error: t("errors.upload.writeError", { message: e?.message ?? e }) }, { status: 500 });
   } finally {
     releaseUploadSlot();
   }

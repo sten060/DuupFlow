@@ -2,6 +2,7 @@ import os from "os";
 import path from "path";
 import fs from "fs/promises";
 import { NextResponse } from "next/server";
+import { getServerT } from "@/lib/i18n/server";
 import { processVideos } from "@/app/dashboard/videos/processVideos";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -25,13 +26,15 @@ const SSE_HEADERS = {
 // NO FFmpeg restart, NO temp re-read, NO duplicate outputs.
 
 export async function POST(req: Request) {
+  const t = await getServerT();
+
   void cleanupOldFiles(1 * 60 * 60 * 1000);
 
   let formData: FormData;
   try {
     formData = await req.formData();
   } catch (e: any) {
-    const msg = e?.message || String(e) || "Erreur lecture formulaire";
+    const msg = e?.message || String(e) || t("errors.video.formReadError");
     console.error("[duplicate-video] formData error:", msg);
     return NextResponse.json({ error: msg, code: "VID-001" }, { status: 400 });
   }
@@ -103,7 +106,7 @@ export async function POST(req: Request) {
   if (!usageCheck.allowed) {
     return NextResponse.json(
       {
-        error: usageCheck.message ?? "Limite de duplications vidéos atteinte.",
+        error: usageCheck.message ?? t("errors.video.limitReached"),
         code: "VID-LIMIT",
         limitReached: true,
         plan: usageCheck.plan,
@@ -119,7 +122,7 @@ export async function POST(req: Request) {
   try {
     ({ dir, userId } = await getOutDirForCurrentUser());
   } catch (e: any) {
-    const msg = e?.message || String(e) || "Erreur authentification";
+    const msg = e?.message || String(e) || t("errors.video.authError");
     console.error("[duplicate-video] getOutDir error:", msg);
     return NextResponse.json({ error: msg, code: "VID-002" }, { status: 500 });
   }
@@ -284,14 +287,14 @@ export async function POST(req: Request) {
         const specificVid004 =
           errorCode === "VID-004" && rawMsg.startsWith("Aucune vidéo valide");
         const userMsg = specificVid004
-          ? rawMsg
+          ? t("errors.video.noValidVideo")
           : errorCode === "VID-004"
-          ? "Une erreur est survenue pendant le traitement. Contactez le support."
+          ? t("errors.video.vid004")
           : errorCode === "VID-005"
-          ? "Erreur lors de la sauvegarde du fichier."
+          ? t("errors.video.vid005")
           : errorCode === "VID-003"
-          ? "Erreur lors du chargement du fichier source."
-          : "Une erreur inattendue est survenue.";
+          ? t("errors.video.vid003")
+          : t("errors.video.unexpected");
         console.error(`[duplicate-video] ${errorCode}:`, rawMsg);
         send({ percent: -1, msg: `[${errorCode}] ${userMsg}`, error: true, code: errorCode });
       } finally {

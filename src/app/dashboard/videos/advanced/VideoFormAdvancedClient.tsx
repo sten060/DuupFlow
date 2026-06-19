@@ -14,6 +14,7 @@ import InterruptedRecovery from "../InterruptedRecovery";
 import DurationInfoButton from "../DurationInfoButton";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
 import UpgradePlanModal from "@/app/dashboard/components/UpgradePlanModal";
 import {
@@ -323,6 +324,7 @@ export default function VideoFormAdvancedClient() {
         // caps peak upload memory regardless of file size.
         const UPLOAD_CONCURRENCY = uploadedFiles.some((f) => f.size > 1024 * 1024 * 1024) ? 2 : 4;
         const directUploadIds: string[] = new Array(uploadedFiles.length);
+        const perFile: number[] = new Array(uploadedFiles.length).fill(0);
         let completedUploads = 0;
         let nextUploadIndex = 0;
         const uploadWorker = async () => {
@@ -339,9 +341,17 @@ export default function VideoFormAdvancedClient() {
               (e as Error & { validation?: boolean }).validation = true;
               throw e;
             }
-            const uploadRes = await fetch(
+            const uploadRes = await uploadWithProgress(
               `/api/upload-direct?fileName=${encodeURIComponent(file.name)}`,
-              { method: "POST", body: file, signal: ctrl.signal },
+              file,
+              {
+                signal: ctrl.signal,
+                onProgress: (frac) => {
+                  perFile[i] = frac;
+                  const overall = perFile.reduce((a, b) => a + b, 0) / uploadedFiles.length;
+                  setProgress(Math.round(overall * 30)); // upload phase = 0–30%
+                },
+              },
             );
             if (!uploadRes.ok) {
               const j = await uploadRes.json().catch(() => ({}));
@@ -349,9 +359,10 @@ export default function VideoFormAdvancedClient() {
             }
             const { uploadId } = await uploadRes.json();
             directUploadIds[i] = uploadId as string; // keep order aligned with fileNames
+            perFile[i] = 1;
             completedUploads++;
             setProgressMsg(t("dashboard.videosAdvanced.uploadProgress", { done: completedUploads, total: uploadedFiles.length }));
-            setProgress(Math.round((completedUploads / uploadedFiles.length) * 30));
+            setProgress(Math.round((perFile.reduce((a, b) => a + b, 0) / uploadedFiles.length) * 30));
           }
         };
         await Promise.all(

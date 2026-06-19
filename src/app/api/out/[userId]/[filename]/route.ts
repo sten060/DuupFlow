@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs/promises";
 import os from "os";
 import { createClient } from "@/lib/supabase/server";
+import { getServerT } from "@/lib/i18n/server";
 
 // Must match the OUT_BASE logic in src/app/dashboard/utils.ts
 const IS_VERCEL = !!process.env.VERCEL;
@@ -17,16 +18,17 @@ export async function GET(
   { params }: { params: { userId: string; filename: string } }
 ) {
   // Authenticate the request
+  const t = await getServerT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    return NextResponse.json({ error: t("errors.auth.notAuthenticated") }, { status: 401 });
   }
 
   // Only allow users to access their own files
   if (user.id !== params.userId) {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    return NextResponse.json({ error: t("errors.auth.accessDenied") }, { status: 403 });
   }
 
   const filename = decodeURIComponent(params.filename);

@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { maskAiMetadata, deleteAiFiles } from "./actions";
 import { useTranslation } from "@/lib/i18n/context";
+import { pushNotification } from "../components/notificationStore";
 
 const MAX_FILES = 30;
 
@@ -46,7 +47,13 @@ function Accordion({
 }
 
 /* ── Preview grid ── */
-function FilePreviewGrid({ files }: { files: File[] }) {
+function FilePreviewGrid({
+  files, onRemove, t,
+}: {
+  files: File[];
+  onRemove: (index: number) => void;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
   const [previews, setPreviews] = useState<Array<{ url: string; isVideo: boolean; name: string }>>([]);
 
   useEffect(() => {
@@ -76,22 +83,24 @@ function FilePreviewGrid({ files }: { files: File[] }) {
           title={p.name}
         >
           {p.isVideo ? (
-            <div className="flex items-center justify-center h-full">
-              <svg
-                className="text-white/40"
-                style={{ width: size * 0.38, height: size * 0.38 }}
-                viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
-              >
-                <rect x="3" y="5" width="14" height="14" rx="2" />
-                <path d="M17 8l4-2v12l-4-2z" />
-              </svg>
-            </div>
+            // Real video cover (first frame) — like the duplication modules.
+            <video src={p.url} muted playsInline preload="metadata" className="w-full h-full object-cover" />
           ) : (
             <img src={p.url} alt={p.name} className="w-full h-full object-cover" />
           )}
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-end p-1">
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-end p-1 pointer-events-none">
             <span className="text-white/80 text-[9px] leading-tight font-mono line-clamp-2 break-all">{p.name}</span>
           </div>
+          {/* per-file remove */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRemove(i); }}
+            aria-label={t("img.removeFileAria")}
+            title={t("img.removeFileAria")}
+            className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/70 text-white/90 hover:bg-red-500/80 flex items-center justify-center text-xs leading-none"
+          >
+            ✕
+          </button>
         </div>
       ))}
     </div>
@@ -100,10 +109,11 @@ function FilePreviewGrid({ files }: { files: File[] }) {
 
 /* ── Dropzone ── */
 function FileDropzone({
-  files, onChange, limitError, t,
+  files, onChange, onRemove, limitError, t,
 }: {
   files: File[];
   onChange: (f: File[]) => void;
+  onRemove: (index: number) => void;
   t: (key: string, vars?: Record<string, string | number>) => string;
   limitError?: string;
 }) {
@@ -138,7 +148,7 @@ function FileDropzone({
           multiple
           accept="image/*,video/mp4,video/quicktime,video/x-matroska,video/avi,video/webm"
           className="hidden"
-          onChange={(e) => onChange(Array.from(e.target.files ?? []))}
+          onChange={(e) => { const picked = Array.from(e.target.files ?? []); e.currentTarget.value = ""; onChange(picked); }}
         />
         <svg className="h-8 w-8 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M4 16l4-4 4 4 4-6 4 6" />
@@ -164,7 +174,7 @@ function FileDropzone({
         </div>
       )}
 
-      {files.length > 0 && <FilePreviewGrid files={files} />}
+      {files.length > 0 && <FilePreviewGrid files={files} onRemove={onRemove} t={t} />}
     </div>
   );
 }
@@ -180,16 +190,31 @@ export default function AiDetectionClient() {
   const [deleting, setDeleting] = useState(false);
   const pendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function handleFilesChange(newFiles: File[]) {
-    if (newFiles.length > MAX_FILES) {
+  // Accumulate (don't replace): merge new files with the existing selection,
+  // de-duped by name+size+lastModified — same behaviour as the duplication modules.
+  function handleAddFiles(incoming: File[]) {
+    const keyOf = (f: File) => `${f.name}::${f.size}::${f.lastModified}`;
+    const seen = new Set(files.map(keyOf));
+    const merged = [...files];
+    for (const f of incoming) {
+      if (seen.has(keyOf(f))) continue;
+      seen.add(keyOf(f));
+      merged.push(f);
+    }
+    if (merged.length > MAX_FILES) {
       setLimitError(
-        t("det.limitExceeded", { count: String(newFiles.length), max: String(MAX_FILES), maxKept: String(MAX_FILES) })
+        t("det.limitExceeded", { count: String(merged.length), max: String(MAX_FILES), maxKept: String(MAX_FILES) })
       );
-      setFiles(newFiles.slice(0, MAX_FILES));
+      setFiles(merged.slice(0, MAX_FILES));
     } else {
       setLimitError("");
-      setFiles(newFiles);
+      setFiles(merged);
     }
+  }
+
+  function handleRemoveFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setLimitError("");
   }
 
   function handleSubmit() {
@@ -216,11 +241,26 @@ export default function AiDetectionClient() {
           setFiles([]);
           setLimitError("");
           if (res.files?.length) setSessionFiles((prev) => [...prev, ...res.files]);
+          // Notification (bell + toast) — like the duplication modules.
+          if (res.limitReached) {
+            pushNotification({ kind: "info", title: t("dashboard.toast.warningTitle"), body: res.error });
+          } else {
+            const n = res.count ?? 0;
+            pushNotification({
+              kind: "success",
+              title: t("dashboard.toast.duplicationDone"),
+              body: n > 1 ? t("det.resultSuccessPlural", { count: String(n) }) : t("det.resultSuccessSingular", { count: String(n) }),
+            });
+          }
+        } else {
+          pushNotification({ kind: "error", title: t("dashboard.toast.errorTitle"), body: res.error });
         }
       })
       .catch((err) => {
         if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
-        setResult({ ok: false, error: `[CLT-007] ${err?.message || t("det.errorServer")}` });
+        const msg = `[CLT-007] ${err?.message || t("det.errorServer")}`;
+        setResult({ ok: false, error: msg });
+        pushNotification({ kind: "error", title: t("dashboard.toast.errorTitle"), body: msg });
       })
       .finally(() => setPending(false));
   }
@@ -311,7 +351,7 @@ export default function AiDetectionClient() {
           </div>
         </div>
 
-        <FileDropzone files={files} onChange={handleFilesChange} limitError={limitError} t={t} />
+        <FileDropzone files={files} onChange={handleAddFiles} onRemove={handleRemoveFile} limitError={limitError} t={t} />
 
         <button
           onClick={handleSubmit}

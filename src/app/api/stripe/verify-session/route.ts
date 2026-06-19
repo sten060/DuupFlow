@@ -3,16 +3,18 @@ import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToActiveClient } from "@/lib/brevo";
+import { getServerT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  const t = await getServerT();
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
     console.error("[verify-session] Auth error:", authError?.message ?? "no user");
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    return NextResponse.json({ error: t("errors.auth.notAuthenticated") }, { status: 401 });
   }
 
   let body: unknown;
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("[verify-session] Stripe retrieve error:", err);
-    return NextResponse.json({ error: "Session Stripe introuvable" }, { status: 404 });
+    return NextResponse.json({ error: t("errors.billing.stripeSessionNotFound") }, { status: 404 });
   }
 
   console.log(`[verify-session] client_reference_id=${session.client_reference_id} payment_status=${session.payment_status}`);
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
   // Vérifier que la session appartient bien à cet utilisateur
   if (session.client_reference_id !== user.id) {
     console.error(`[verify-session] ID mismatch: session has ${session.client_reference_id}, user is ${user.id}`);
-    return NextResponse.json({ error: "Session non autorisée" }, { status: 403 });
+    return NextResponse.json({ error: t("errors.billing.sessionUnauthorized") }, { status: 403 });
   }
 
   if (session.payment_status !== "paid") {
@@ -111,7 +113,7 @@ export async function POST(request: NextRequest) {
 
   if (updateError) {
     console.error("[verify-session] Supabase update error:", updateError);
-    return NextResponse.json({ error: "Erreur mise à jour Supabase", detail: updateError.message }, { status: 500 });
+    return NextResponse.json({ error: t("errors.billing.supabaseUpdateFailed"), detail: updateError.message }, { status: 500 });
   }
 
   if (!updatedRows || updatedRows.length === 0) {
@@ -129,7 +131,7 @@ export async function POST(request: NextRequest) {
     });
     if (upsertError) {
       console.error("[verify-session] Supabase upsert error:", upsertError);
-      return NextResponse.json({ error: "Erreur création profil", detail: upsertError.message }, { status: 500 });
+      return NextResponse.json({ error: t("errors.billing.profileCreateFailed"), detail: upsertError.message }, { status: 500 });
     }
   }
 

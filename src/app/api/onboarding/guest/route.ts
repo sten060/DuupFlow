@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cookies } from "next/headers";
+import { getServerT } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
+  const t = await getServerT();
   const { firstName, userId } = await req.json();
 
   if (!firstName || !userId) {
-    return NextResponse.json({ error: "Données manquantes." }, { status: 400 });
+    return NextResponse.json({ error: t("errors.team.dataMissing") }, { status: 400 });
   }
 
   // Get invite token from cookie
@@ -15,7 +17,7 @@ export async function POST(req: NextRequest) {
   const inviteToken = cookieStore.get("invite_token")?.value;
 
   if (!inviteToken) {
-    return NextResponse.json({ error: "Token d'invitation introuvable." }, { status: 400 });
+    return NextResponse.json({ error: t("errors.team.inviteTokenNotFound") }, { status: 400 });
   }
 
   const adminClient = createAdminClient();
@@ -28,11 +30,11 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (invErr || !invitation) {
-    return NextResponse.json({ error: "Invitation introuvable ou expirée." }, { status: 404 });
+    return NextResponse.json({ error: t("errors.team.inviteNotFoundOrExpired") }, { status: 404 });
   }
 
   if (invitation.status === "accepted") {
-    return NextResponse.json({ error: "Invitation déjà utilisée." }, { status: 400 });
+    return NextResponse.json({ error: t("errors.team.inviteUsed") }, { status: 400 });
   }
 
   // Create guest profile linked to host
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (profileErr) {
-    return NextResponse.json({ error: "Erreur création profil." }, { status: 500 });
+    return NextResponse.json({ error: t("errors.team.profileCreateFailed") }, { status: 500 });
   }
 
   // Update invitation status

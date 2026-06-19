@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getServerT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 /** Sauvegarde les coordonnées de paiement d'un partenaire (IBAN, BIC, PayPal). */
 export async function PATCH(req: NextRequest) {
+  const t = await getServerT();
   const admin = createAdminClient();
 
   const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-  if (!token) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!token) return NextResponse.json({ error: t("errors.auth.notAuthorized") }, { status: 401 });
 
   const { data: { user }, error: authError } = await admin.auth.getUser(token);
-  if (authError || !user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (authError || !user) return NextResponse.json({ error: t("errors.auth.notAuthorized") }, { status: 401 });
 
   // Vérifier que l'utilisateur est bien un affilié
   const { data: affiliate } = await admin
@@ -20,7 +22,7 @@ export async function PATCH(req: NextRequest) {
     .eq("user_id", user.id)
     .single();
 
-  if (!affiliate) return NextResponse.json({ error: "Partenaire introuvable" }, { status: 404 });
+  if (!affiliate) return NextResponse.json({ error: t("errors.auth.partnerNotFound") }, { status: 404 });
 
   const { iban, bic, account_name, paypal } = await req.json();
 

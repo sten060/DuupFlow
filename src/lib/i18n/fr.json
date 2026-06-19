@@ -1631,5 +1631,100 @@
     "errorConnectionLost": "connexion interrompue.",
     "clearing": "Nettoyage…",
     "clearImages": "Vider les images"
+  },
+  "errors": {
+    "team": {
+      "alreadyInvited": "Cette personne a déjà été invitée.",
+      "inviteUsed": "Invitation déjà utilisée.",
+      "inviteNotFoundOrExpired": "Invitation introuvable ou expirée.",
+      "inviteNotFound": "Invitation introuvable.",
+      "inviteTokenNotFound": "Token d'invitation introuvable.",
+      "sendInviteFailed": "Impossible d'envoyer l'invitation.",
+      "createInviteFailed": "Erreur lors de la création de l'invitation.",
+      "inviteLimitReached": "Limite de 3 invitations atteinte.",
+      "planCannotInvite": "Ton plan actuel ne permet pas d'inviter des membres. Passe au plan Pro pour inviter jusqu'à {max} collaborateurs.",
+      "emailRequired": "Email requis.",
+      "profileCreateFailed": "Erreur création profil.",
+      "dataMissing": "Données manquantes."
+    },
+    "support": {
+      "sendFailed": "Impossible d'envoyer le message. Réessayez plus tard.",
+      "allFieldsRequired": "Tous les champs sont requis.",
+      "fieldsRequired": "Champs requis."
+    },
+    "billing": {
+      "noStripeSubscription": "Aucun abonnement Stripe trouvé pour ce compte.",
+      "noActiveSubscription": "Aucun abonnement actif trouvé.",
+      "alreadyOnPro": "Vous êtes déjà sur le plan Pro.",
+      "alreadyOnSolo": "Vous êtes déjà sur le plan Solo.",
+      "subscriptionItemNotFound": "Impossible de trouver l'item d'abonnement.",
+      "stripeSessionNotFound": "Session Stripe introuvable",
+      "sessionUnauthorized": "Session non autorisée",
+      "supabaseUpdateFailed": "Erreur mise à jour Supabase",
+      "profileCreateFailed": "Erreur création profil"
+    },
+    "auth": {
+      "notAuthenticated": "Non authentifié",
+      "notAuthorized": "Non autorisé",
+      "accessDenied": "Accès refusé",
+      "partnerNotFound": "Partenaire introuvable"
+    },
+    "upload": {
+      "notAuthenticated": "Non authentifié",
+      "missingBody": "Corps de la requête manquant",
+      "cancelled": "Envoi annulé",
+      "emptyFile": "Fichier reçu vide (0 octet) — vérifiez la taille du fichier ou la connexion.",
+      "heicDecodeFailed": "Impossible de décoder le HEIC \"{name}\" — convertissez-le en JPEG manuellement.",
+      "writeError": "Erreur écriture : {message}"
+    },
+    "video": {
+      "formReadError": "Erreur lecture formulaire",
+      "authError": "Erreur authentification",
+      "limitReached": "Limite de duplications vidéos atteinte.",
+      "noValidVideo": "Aucune vidéo valide à traiter.",
+      "vid004": "Une erreur est survenue pendant le traitement. Contactez le support.",
+      "vid005": "Erreur lors de la sauvegarde du fichier.",
+      "vid003": "Erreur lors du chargement du fichier source.",
+      "unexpected": "Une erreur inattendue est survenue."
+    },
+    "image": {
+      "invalidForm": "Formulaire invalide",
+      "noImage": "Aucune image reçue.",
+      "limitReached": "Limite de duplications atteinte.",
+      "authError": "Erreur authentification",
+      "invalidId": "ID invalide : {id}",
+      "invalidPath": "Chemin invalide.",
+      "readFailed": "Impossible de lire le fichier : {name}",
+      "copyFailed": "Échec sur une copie de {name}",
+      "processingFailed": "Une erreur est survenue pendant le traitement. Contactez le support."
+    },
+    "quota": {
+      "notAuthenticated": "Non authentifié.",
+      "profileNotFound": "Profil introuvable.",
+      "labelImages": "duplications images",
+      "labelVideos": "duplications vidéos",
+      "labelAiSignatures": "modifications signature IA",
+      "upgradeHintFree": "Passe au plan Solo ou Pro pour augmenter ta limite.",
+      "upgradeHintSolo": "Attends la date d'anniversaire de ton abonnement ou passe au plan Pro.",
+      "limitReached": "Limite atteinte ({current}/{limit} {label} ce mois). {hint}"
+    },
+    "aiDetection": {
+      "noFile": "Aucun fichier reçu.",
+      "userDirError": "Erreur répertoire utilisateur.",
+      "signatureLimitReached": "Limite de modifications signature IA atteinte.",
+      "partialLimit": "{count} fichier{fileS} traité{processedS} — limite atteinte. {skipped} image{imageS} annulée{cancelledS} (quota mensuel épuisé)."
+    },
+    "aiLab": {
+      "insufficientBalance": "Solde insuffisant — recharge tes tokens.",
+      "nsfwRejected": "Contenu rejeté par le filtre NSFW de l'IA. Tokens remboursés.",
+      "refunded": "Une erreur est survenue. Vos tokens ont été remboursés. Veuillez contacter le support.",
+      "noImage": "Aucune image fournie.",
+      "promptRequired": "Une description est requise en mode prompt."
+    },
+    "comparator": {
+      "noFile": "Aucun fichier reçu.",
+      "analyzeImage": "Erreur analyse image",
+      "analyzeFile": "Erreur analyse fichier"
+    }
   }
 }

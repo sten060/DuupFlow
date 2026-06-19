@@ -3,19 +3,21 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createAnonClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
+import { getServerT } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
+  const t = await getServerT();
   const { guestEmail } = await req.json();
 
   if (!guestEmail || typeof guestEmail !== "string") {
-    return NextResponse.json({ error: "Email requis." }, { status: 400 });
+    return NextResponse.json({ error: t("errors.team.emailRequired") }, { status: 400 });
   }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+    return NextResponse.json({ error: t("errors.auth.notAuthenticated") }, { status: 401 });
   }
 
   const adminClient = createAdminClient();
@@ -31,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   if (hostProfile?.plan !== "pro") {
     return NextResponse.json(
-      { error: "Ton plan actuel ne permet pas d'inviter des membres. Passe au plan Pro pour inviter jusqu'à 3 collaborateurs." },
+      { error: t("errors.team.planCannotInvite", { max: 3 }) },
       { status: 403 }
     );
   }
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
     .in("status", ["pending", "accepted"]);
 
   if (existing && existing.length >= 3) {
-    return NextResponse.json({ error: "Limite de 3 invitations atteinte." }, { status: 400 });
+    return NextResponse.json({ error: t("errors.team.inviteLimitReached") }, { status: 400 });
   }
 
   // Check if already invited
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (dupCheck) {
-    return NextResponse.json({ error: "Cette personne a déjà été invitée." }, { status: 400 });
+    return NextResponse.json({ error: t("errors.team.alreadyInvited") }, { status: 400 });
   }
 
   // Create invitation record
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (insertErr) {
-    return NextResponse.json({ error: "Erreur lors de la création de l'invitation." }, { status: 500 });
+    return NextResponse.json({ error: t("errors.team.createInviteFailed") }, { status: 500 });
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? `https://${req.headers.get("host")}`;
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
     });
     if (otpErr) {
       console.error("[team/invite] signInWithOtp error:", otpErr.message);
-      return NextResponse.json({ error: "Impossible d'envoyer l'invitation." }, { status: 500 });
+      return NextResponse.json({ error: t("errors.team.sendInviteFailed") }, { status: 500 });
     }
   }
 

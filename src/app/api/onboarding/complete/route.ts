@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToFreeUser } from "@/lib/brevo";
 import { creditWelcomeTokens } from "@/lib/tokens-server";
+import { getServerT } from "@/lib/i18n/server";
 
 // Whitelists — keep DB writes constrained to known values even if a future
 // front-end change ships a new option without updating the API.
@@ -16,13 +17,14 @@ const ALLOWED_SOURCES = new Set([
 ]);
 
 export async function POST(req: NextRequest) {
+  const t = await getServerT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  if (!user) return NextResponse.json({ error: t("errors.auth.notAuthenticated") }, { status: 401 });
 
   const { firstName, agencyName, affiliateCode, platforms, source } = await req.json();
   if (!firstName?.trim() || !agencyName?.trim()) {
-    return NextResponse.json({ error: "Champs requis." }, { status: 400 });
+    return NextResponse.json({ error: t("errors.support.fieldsRequired") }, { status: 400 });
   }
 
   // Sanitize platforms[] — must be a non-empty array of known slugs.

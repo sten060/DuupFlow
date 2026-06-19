@@ -1,13 +1,17 @@
 "use client";
 
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import ToggleChip from "../ToggleChip";
 import CountrySelect from "../components/CountrySelect";
-import { setJob, addCompletedFile, removeJob, stopJob } from "../videos/jobStore";
+import { setJob, addCompletedFile, removeJob, stopJob, subscribe, snapshot } from "../videos/jobStore";
 import ClearImagesButton from "./ClearImagesButton";
 import { useTranslation } from "@/lib/i18n/context";
 import LimitReachedModal from "../components/LimitReachedModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
+import { saveActiveImageJob, removeActiveImageJob } from "./imageJobResume";
+import { pushNotification } from "../components/notificationStore";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
+import { saveSettings, loadSettings } from "@/lib/formMemory";
 
 const MAX_FILES = 50;
 
@@ -133,6 +137,7 @@ export default function ImageFormClient({ initialImages }: Props) {
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
 
   // Shared ingest: keep only images (by MIME OR by HEIC/HEIF extension).
@@ -163,11 +168,44 @@ export default function ImageFormClient({ initialImages }: Props) {
 
   const totalSize = useMemo(() => files.reduce((s, f) => s + f.size, 0), [files]);
 
+  // Mirror the global job store so the big progress bar reappears when the user
+  // returns to this page while an image job is still running (after navigating
+  // away or reloading — it kept running server-side and was resumed).
+  const storeJobs = useSyncExternalStore(subscribe, snapshot, () => []);
+  const resumedJob = storeJobs.find((j) => j.type === "image" && j.status === "running");
+  const busy = processing || !!resumedJob;
+  const shownProgress = processing ? progress : resumedJob ? resumedJob.progress : 0;
+  const shownMsg = processing ? progressLabel : resumedJob ? resumedJob.msg : "";
+
   function handleStop() {
-    if (activeJobId) stopJob(activeJobId);
+    const id = activeJobId ?? resumedJob?.id ?? null;
+    if (id) stopJob(id);
     abortRef.current?.abort("stopped");
     setProcessing(false);
   }
+
+  // Restore the user's last-used settings (remembered per module). The form is
+  // uncontrolled, so we set the field values directly via the form ref.
+  useEffect(() => {
+    const s = loadSettings<{ count?: number; fundamentals?: boolean; visuals?: boolean; semi?: boolean; reverse?: boolean; iphoneMeta?: boolean; country?: string }>("images");
+    const form = formRef.current;
+    if (!s || !form) return;
+    const setCheck = (name: string, v?: boolean) => {
+      const el = form.elements.namedItem(name);
+      if (el instanceof HTMLInputElement && typeof v === "boolean") el.checked = v;
+    };
+    const setVal = (name: string, v?: string) => {
+      const el = form.elements.namedItem(name);
+      if ((el instanceof HTMLInputElement || el instanceof HTMLSelectElement) && v != null) el.value = String(v);
+    };
+    if (typeof s.count === "number") setVal("count", String(s.count));
+    setCheck("fundamentals", s.fundamentals);
+    setCheck("visuals", s.visuals);
+    setCheck("semi", s.semi);
+    setCheck("reverse", s.reverse);
+    setCheck("iphoneMeta", s.iphoneMeta);
+    setVal("country", s.country);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -181,6 +219,8 @@ export default function ImageFormClient({ initialImages }: Props) {
     const reverse = formData.has("reverse");
     const iphoneMeta = formData.get("iphoneMeta") === "1";
     const country = (formData.get("country") as string) || "";
+    // Remember these settings for next time.
+    saveSettings("images", { count, fundamentals, visuals, semi, reverse, iphoneMeta, country });
 
     // Accept image/* MIME or HEIC/HEIF extension (some browsers don't set
     // image/heic correctly — Safari/Firefox-Windows may return empty type).
@@ -213,9 +253,14 @@ export default function ImageFormClient({ initialImages }: Props) {
       let completedUploads = 0;
       for (const file of imageFiles) {
         const compressed = await compressForUpload(file);
-        const uploadRes = await fetch(
+        const uploadRes = await uploadWithProgress(
           `/api/upload-direct?fileName=${encodeURIComponent(compressed.name)}`,
-          { method: "POST", body: compressed, signal: ctrl.signal },
+          compressed,
+          {
+            signal: ctrl.signal,
+            onProgress: (frac) =>
+              setProgress(Math.round(((completedUploads + frac) / imageFiles.length) * 20)), // upload phase = 0–20%
+          },
         );
         if (!uploadRes.ok) {
           const j = await uploadRes.json().catch(() => ({}));
@@ -243,6 +288,7 @@ export default function ImageFormClient({ initialImages }: Props) {
       if (reverse)      apiForm.append("reverse", "1");
       if (iphoneMeta)   apiForm.append("iphoneMeta", "1");
       if (country)      apiForm.append("country", country);
+      apiForm.append("jobId", jobId);
       for (const id of directUploadIds) apiForm.append("directUploadIds", id);
       // Use the server-resolved name (HEIC was renamed to .jpg) so the SSE
       // route reads the correct extension when feeding sharp.
@@ -269,6 +315,16 @@ export default function ImageFormClient({ initialImages }: Props) {
         setJob({ id: jobId, type: "image", channel: "image", progress: 0, msg, status: "error", errorMsg: msg });
         return;
       }
+
+      // Processing has started server-side and survives a reload / leaving the
+      // page — persist for resume + reassure the user they can leave.
+      saveActiveImageJob(jobId);
+      pushNotification({
+        kind: "info",
+        title: t("dashboard.videosCommon.canLeaveTitle"),
+        body: t("dashboard.videosCommon.canLeaveBody"),
+        duration: 7000,
+      });
 
       // ── 3. Read SSE stream ───────────────────────────────────────────────
       const INACTIVITY_MS = 10 * 60 * 1000; // 10 min
@@ -354,13 +410,14 @@ export default function ImageFormClient({ initialImages }: Props) {
       }
     } finally {
       setProcessing(false);
+      removeActiveImageJob(jobId);
     }
   }
 
   return (
     <div className="space-y-6">
       <h1 data-tour-id="img-h1" className="text-3xl font-extrabold tracking-tight">{t("dashboard.images.title")}</h1>
-      <form onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6" autoComplete="off">
+      <form ref={formRef} onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6" autoComplete="off">
         {/* Drop zone */}
         <div
           data-tour-id="img-dropzone"
@@ -484,18 +541,18 @@ export default function ImageFormClient({ initialImages }: Props) {
           <button
             type="submit"
             data-tour-id="img-submit"
-            disabled={processing || files.length === 0}
+            disabled={busy || files.length === 0}
             className={[
               "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
-              processing || files.length === 0
+              busy || files.length === 0
                 ? "bg-white/10 text-white/50 cursor-not-allowed"
                 : "bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white hover:shadow-[0_4px_20px_rgba(192,38,211,.35)]",
             ].join(" ")}
           >
-            {processing ? t("dashboard.images.duplicating") : t("dashboard.images.duplicateButton")}
+            {busy ? t("dashboard.images.duplicating") : t("dashboard.images.duplicateButton")}
           </button>
 
-          {processing && (
+          {busy && (
             <button
               type="button"
               onClick={handleStop}
@@ -506,16 +563,17 @@ export default function ImageFormClient({ initialImages }: Props) {
           )}
         </div>
 
-        {/* Progress bar */}
-        {processing && (
+        {/* Progress bar — while processing locally OR when a resumed job (after
+            reload / returning to the page) is still running. */}
+        {busy && (
           <div className="space-y-1">
             <div className="w-full bg-white/[0.06] rounded-full h-1.5 overflow-hidden">
               <div
                 className="h-1.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-pink-500 transition-all duration-300"
-                style={{ width: `${progress}%` }}
+                style={{ width: `${shownProgress}%` }}
               />
             </div>
-            <p className="text-xs text-white/50">{progressLabel}</p>
+            <p className="text-xs text-white/50">{shownMsg}</p>
           </div>
         )}
 

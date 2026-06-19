@@ -246,8 +246,10 @@ async function probeImage(buf: Buffer, realSize: number, fileName: string): Prom
  * or use sharp for images to read EXIF data.
  */
 export async function probeFile(formData: FormData): Promise<{ format: Record<string, any>; streams?: Record<string, any>[] } | { error: string }> {
+  const { getServerT } = await import("@/lib/i18n/server");
+  const t = await getServerT();
   const file = formData.get("file") as File | null;
-  if (!file || file.size === 0) return { error: "Aucun fichier reçu." };
+  if (!file || file.size === 0) return { error: t("errors.comparator.noFile") };
 
   const realSize = parseInt(formData.get("realSize") as string, 10) || file.size;
   const ext = path.extname(file.name).toLowerCase() || ".mp4";
@@ -263,7 +265,7 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
       return result;
     } catch (e: any) {
       console.error(`[probe] image error:`, e);
-      return { error: e?.message || "Erreur analyse image" };
+      return { error: e?.message || t("errors.comparator.analyzeImage") };
     }
   }
 
@@ -285,7 +287,7 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
 
     return parseFfmpegInfo(stderr, realSize);
   } catch (e: any) {
-    return { error: e?.message || "Erreur analyse fichier" };
+    return { error: e?.message || t("errors.comparator.analyzeFile") };
   } finally {
     await fs.unlink(tmpPath).catch(() => {});
   }

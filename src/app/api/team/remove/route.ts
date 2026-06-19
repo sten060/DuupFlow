@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getServerT } from "@/lib/i18n/server";
 
 export async function DELETE(req: NextRequest) {
+  const t = await getServerT();
   const { invitationId } = await req.json();
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  if (!user) return NextResponse.json({ error: t("errors.auth.notAuthenticated") }, { status: 401 });
 
   const adminClient = createAdminClient();
 
@@ -20,7 +22,7 @@ export async function DELETE(req: NextRequest) {
     .single();
 
   if (fetchErr || !invitation) {
-    return NextResponse.json({ error: "Invitation introuvable." }, { status: 404 });
+    return NextResponse.json({ error: t("errors.team.inviteNotFound") }, { status: 404 });
   }
 
   // Delete invitation record

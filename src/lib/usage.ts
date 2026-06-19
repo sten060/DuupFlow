@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getServerT } from "@/lib/i18n/server";
 import { PLAN_LIMITS } from "./plans";
 
 export type UsageType = "images" | "videos" | "ai_signatures";
@@ -46,6 +47,7 @@ export async function checkUsage(
   type: UsageType,
   requestedCount = 1
 ): Promise<UsageCheck> {
+  const t = await getServerT();
   const supabase = await createClient();
   const {
     data: { user },
@@ -58,7 +60,7 @@ export async function checkUsage(
       plan: null,
       current: 0,
       limit: 0,
-      message: "Non authentifié.",
+      message: t("errors.quota.notAuthenticated"),
     };
   }
 
@@ -78,7 +80,7 @@ export async function checkUsage(
       plan: null,
       current: 0,
       limit: 0,
-      message: "Profil introuvable.",
+      message: t("errors.quota.profileNotFound"),
     };
   }
 
@@ -147,21 +149,26 @@ export async function checkUsage(
 
   if (current + requestedCount > limit) {
     const labels: Record<UsageType, string> = {
-      images: "duplications images",
-      videos: "duplications vidéos",
-      ai_signatures: "modifications signature IA",
+      images: t("errors.quota.labelImages"),
+      videos: t("errors.quota.labelVideos"),
+      ai_signatures: t("errors.quota.labelAiSignatures"),
     };
     const upgradeHint =
       effectivePlan === "free"
-        ? "Passe au plan Solo ou Pro pour augmenter ta limite."
-        : "Attends la date d'anniversaire de ton abonnement ou passe au plan Pro.";
+        ? t("errors.quota.upgradeHintFree")
+        : t("errors.quota.upgradeHintSolo");
     return {
       allowed: false,
       userId: user.id,
       plan: effectivePlan,
       current,
       limit,
-      message: `Limite atteinte (${current}/${limit} ${labels[type]} ce mois). ${upgradeHint}`,
+      message: t("errors.quota.limitReached", {
+        current,
+        limit,
+        label: labels[type],
+        hint: upgradeHint,
+      }),
     };
   }
 

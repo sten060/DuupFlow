@@ -1631,5 +1631,100 @@
     "errorConnectionLost": "connection lost.",
     "clearing": "Clearing…",
     "clearImages": "Clear images"
+  },
+  "errors": {
+    "team": {
+      "alreadyInvited": "This person has already been invited.",
+      "inviteUsed": "This invitation has already been used.",
+      "inviteNotFoundOrExpired": "Invitation not found or expired.",
+      "inviteNotFound": "Invitation not found.",
+      "inviteTokenNotFound": "Invitation token not found.",
+      "sendInviteFailed": "Could not send the invitation.",
+      "createInviteFailed": "An error occurred while creating the invitation.",
+      "inviteLimitReached": "Limit of 3 invitations reached.",
+      "planCannotInvite": "Your current plan doesn't allow inviting members. Upgrade to the Pro plan to invite up to {max} collaborators.",
+      "emailRequired": "Email is required.",
+      "profileCreateFailed": "Error creating profile.",
+      "dataMissing": "Missing data."
+    },
+    "support": {
+      "sendFailed": "Couldn't send the message. Please try again later.",
+      "allFieldsRequired": "All fields are required.",
+      "fieldsRequired": "Required fields."
+    },
+    "billing": {
+      "noStripeSubscription": "No Stripe subscription found for this account.",
+      "noActiveSubscription": "No active subscription found.",
+      "alreadyOnPro": "You're already on the Pro plan.",
+      "alreadyOnSolo": "You're already on the Solo plan.",
+      "subscriptionItemNotFound": "Couldn't find the subscription item.",
+      "stripeSessionNotFound": "Stripe session not found.",
+      "sessionUnauthorized": "Session not authorized.",
+      "supabaseUpdateFailed": "Supabase update error.",
+      "profileCreateFailed": "Error creating profile."
+    },
+    "auth": {
+      "notAuthenticated": "Not authenticated.",
+      "notAuthorized": "Not authorized.",
+      "accessDenied": "Access denied.",
+      "partnerNotFound": "Partner not found."
+    },
+    "upload": {
+      "notAuthenticated": "Not authenticated",
+      "missingBody": "Missing request body",
+      "cancelled": "Upload cancelled",
+      "emptyFile": "Received an empty file (0 bytes) — check the file size or your connection.",
+      "heicDecodeFailed": "Could not decode the HEIC file \"{name}\" — please convert it to JPEG manually.",
+      "writeError": "Write error: {message}"
+    },
+    "video": {
+      "formReadError": "Error reading form data",
+      "authError": "Authentication error",
+      "limitReached": "Video duplication limit reached.",
+      "noValidVideo": "No valid video to process.",
+      "vid004": "An error occurred during processing. Please contact support.",
+      "vid005": "Error while saving the file.",
+      "vid003": "Error while loading the source file.",
+      "unexpected": "An unexpected error occurred."
+    },
+    "image": {
+      "invalidForm": "Invalid form",
+      "noImage": "No image received.",
+      "limitReached": "Duplication limit reached.",
+      "authError": "Authentication error",
+      "invalidId": "Invalid ID: {id}",
+      "invalidPath": "Invalid path.",
+      "readFailed": "Could not read the file: {name}",
+      "copyFailed": "Failed on a copy of {name}",
+      "processingFailed": "An error occurred during processing. Please contact support."
+    },
+    "quota": {
+      "notAuthenticated": "Not authenticated.",
+      "profileNotFound": "Profile not found.",
+      "labelImages": "image duplications",
+      "labelVideos": "video duplications",
+      "labelAiSignatures": "AI signature edits",
+      "upgradeHintFree": "Upgrade to the Solo or Pro plan to increase your limit.",
+      "upgradeHintSolo": "Wait for your subscription renewal date or upgrade to the Pro plan.",
+      "limitReached": "Limit reached ({current}/{limit} {label} this month). {hint}"
+    },
+    "aiDetection": {
+      "noFile": "No file received.",
+      "userDirError": "User directory error.",
+      "signatureLimitReached": "AI signature edit limit reached.",
+      "partialLimit": "{count} file{fileS} processed — limit reached. {skipped} image{cancelledS} cancelled (monthly quota exhausted)."
+    },
+    "aiLab": {
+      "insufficientBalance": "Insufficient balance — top up your tokens.",
+      "nsfwRejected": "Content rejected by the AI's NSFW filter. Tokens refunded.",
+      "refunded": "An error occurred. Your tokens have been refunded. Please contact support.",
+      "noImage": "No image provided.",
+      "promptRequired": "Prompt is required in prompt mode."
+    },
+    "comparator": {
+      "noFile": "No file received.",
+      "analyzeImage": "Image analysis error",
+      "analyzeFile": "File analysis error"
+    }
   }
 }

@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { recordTransaction } from "@/lib/tokens-server";
 import { imageCostCents } from "@/lib/tokens";
+import { getServerT } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -199,6 +200,7 @@ export async function POST(req: Request) {
   let totalDebited = 0;
   let successCount = 0;
   let variants = 1;
+  const t = await getServerT();
 
   try {
     if (!process.env.WAVESPEED_API_KEY) {
@@ -227,11 +229,11 @@ export async function POST(req: Request) {
     const userPrompt = ((form.get("prompt") as string) || "").trim();
 
     if (!file || file.size === 0) {
-      return NextResponse.json<Err>({ ok: false, error: "No image provided." }, { status: 400 });
+      return NextResponse.json<Err>({ ok: false, error: t("errors.aiLab.noImage") }, { status: 400 });
     }
     if (mode === "prompt" && !userPrompt) {
       return NextResponse.json<Err>(
-        { ok: false, error: "Prompt is required in prompt mode." },
+        { ok: false, error: t("errors.aiLab.promptRequired") },
         { status: 400 },
       );
     }
@@ -261,7 +263,7 @@ export async function POST(req: Request) {
         {
           ok: false,
           error: debit.error === "insufficient_balance"
-            ? "Solde insuffisant — recharge tes tokens."
+            ? t("errors.aiLab.insufficientBalance")
             : (debit.error || "Token debit failed"),
           code: debit.error,
           balanceCents: debit.balanceCents,
@@ -334,8 +336,8 @@ export async function POST(req: Request) {
       // user — it's logged here for support, the user sees a clean message.
       if (!isNsfw) console.error("[ai-lab] no images generated (tokens refunded). lastError:", lastError);
       const error = isNsfw
-        ? "Contenu rejeté par le filtre NSFW de l'IA. Tokens remboursés."
-        : "Une erreur est survenue. Vos tokens ont été remboursés. Veuillez contacter le support.";
+        ? t("errors.aiLab.nsfwRejected")
+        : t("errors.aiLab.refunded");
       return NextResponse.json<Err>(
         { ok: false, error, code: isNsfw ? "NSFW" : undefined, balanceCents: finalBalance },
         { status: 502 },
@@ -362,7 +364,7 @@ export async function POST(req: Request) {
     }
     return NextResponse.json<Err>(
       // Raw error already logged above ("[ai-lab] fatal") — show the user a clean message.
-      { ok: false, error: "Une erreur est survenue. Vos tokens ont été remboursés. Veuillez contacter le support.", balanceCents: finalBalance },
+      { ok: false, error: t("errors.aiLab.refunded"), balanceCents: finalBalance },
       { status: 500 },
     );
   } finally {
