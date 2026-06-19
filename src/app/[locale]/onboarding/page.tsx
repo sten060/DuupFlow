@@ -34,14 +34,12 @@ const PLATFORMS: { id: Platform; key: string }[] = [
   { id: "x",         key: "onboarding.platformX" },
   { id: "facebook",  key: "onboarding.platformFacebook" },
   { id: "reddit",    key: "onboarding.platformReddit" },
-  { id: "linkedin",  key: "onboarding.platformLinkedin" },
   { id: "snapchat",  key: "onboarding.platformSnapchat" },
   { id: "other",     key: "onboarding.platformOther" },
 ];
 
 const SOURCES: { id: Source; key: string }[] = [
   { id: "youtube",      key: "onboarding.sourceYoutube" },
-  { id: "tiktok",       key: "onboarding.sourceTiktok" },
   { id: "telegram",     key: "onboarding.sourceTelegram" },
   { id: "friend",       key: "onboarding.sourceFriend" },
   { id: "google",       key: "onboarding.sourceGoogle" },
