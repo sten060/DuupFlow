@@ -98,6 +98,18 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${origin}/onboarding`);
         }
 
+        // Keep profiles.email in sync with the auth email. Runs on every
+        // sign-in and, crucially, right after an email-change confirmation
+        // lands here — so admin views that read profiles.email never show a
+        // stale address. Best-effort: it resolves with { error } (never
+        // throws) so it can't block sign-in even if the column is absent.
+        if (user.email) {
+          await supabase
+            .from("profiles")
+            .update({ email: user.email })
+            .eq("id", user.id);
+        }
+
         // User already has a profile but arrived via invitation link
         if (inviteToken) {
           const adminClient = createAdminClient();

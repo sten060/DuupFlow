@@ -95,7 +95,7 @@ export default function SettingsClient({
   isGuest,
   plan,
   invitations,
-  userEmail: _userEmail,
+  userEmail,
 }: {
   initialFirstName: string;
   initialAgencyName: string;
@@ -110,6 +110,7 @@ export default function SettingsClient({
 
   const [firstName, setFirstName] = useState(initialFirstName);
   const [agencyName, setAgencyName] = useState(initialAgencyName);
+  const [email, setEmail] = useState(userEmail ?? "");
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -129,16 +130,57 @@ export default function SettingsClient({
     if (!firstName.trim()) return;
     setProfileLoading(true);
     setProfileMsg(null);
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setProfileLoading(false); return; }
-    const { error } = await supabase
+
+    // 1) Name + agency — same as before.
+    const { error: profileErr } = await supabase
       .from("profiles")
       .update({ first_name: firstName.trim(), agency_name: agencyName.trim() })
       .eq("id", user.id);
-    setProfileMsg(error
-      ? { type: "err", text: t("dashboard.settings.profileError") }
-      : { type: "ok", text: t("dashboard.settings.profileUpdated") }
-    );
+    if (profileErr) {
+      setProfileMsg({ type: "err", text: t("dashboard.settings.profileError") });
+      setProfileLoading(false);
+      return;
+    }
+
+    // 2) Email change — only when it actually changed. We go through Supabase's
+    // confirmation flow (auth.updateUser): a link is sent to the NEW address and
+    // the email only switches once the user clicks it. Login here is magic-link
+    // only, so this is essential — a typo can never lock the user out, and the
+    // current email keeps working until the new one is confirmed. The link lands
+    // on /auth/callback, which exchanges the code and refreshes the session with
+    // the new email.
+    const newEmail = email.trim().toLowerCase();
+    const currentEmail = (userEmail ?? "").trim().toLowerCase();
+    if (newEmail && newEmail !== currentEmail) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+        setProfileMsg({ type: "err", text: t("dashboard.settings.emailInvalid") });
+        setProfileLoading(false);
+        return;
+      }
+      const { error: emailErr } = await supabase.auth.updateUser(
+        { email: newEmail },
+        { emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard/settings` },
+      );
+      if (emailErr) {
+        const inUse = /already|registered|exists|taken/i.test(emailErr.message);
+        setProfileMsg({
+          type: "err",
+          text: t(inUse ? "dashboard.settings.emailInUse" : "dashboard.settings.emailError"),
+        });
+        setProfileLoading(false);
+        return;
+      }
+      setProfileMsg({ type: "ok", text: t("dashboard.settings.emailConfirmSent", { email: newEmail }) });
+      setProfileLoading(false);
+      router.refresh();
+      return;
+    }
+
+    // 3) No email change.
+    setProfileMsg({ type: "ok", text: t("dashboard.settings.profileUpdated") });
     setProfileLoading(false);
     router.refresh();
   }
@@ -261,6 +303,17 @@ export default function SettingsClient({
                       style={INPUT_STYLE}
                     />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-white/40 mb-1.5">{t("dashboard.settings.emailLabel")}</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                    style={INPUT_STYLE}
+                  />
+                  <p className="mt-1.5 text-[11px] text-white/25">{t("dashboard.settings.emailHint")}</p>
                 </div>
                 {profileMsg && (
                   <p className={`text-xs px-3 py-2 rounded-lg ${profileMsg.type === "ok" ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20" : "text-red-400 bg-red-500/[0.08] border border-red-500/20"}`}>
