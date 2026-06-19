@@ -417,6 +417,9 @@ export default function CoachmarkTour({
   const [rect, setRect]             = useState<Rect | null>(null);
   const [closed, setClosed]         = useState(false);
   const [actionDone, setActionDone] = useState(false);
+  // Off-page reminder visibility — gated behind a short delay (see effect
+  // below) so a quick detour to another module doesn't nag the user instantly.
+  const [showOffPage, setShowOffPage] = useState(false);
   // Panel side is decided ONCE per step from the first rect we observe.
   // Subsequent rect updates (scroll, resize) re-position the spotlight ring
   // but never move the panel — the explanation stays anchored where it was
@@ -461,6 +464,17 @@ export default function CoachmarkTour({
 
   // Reset actionDone on step change.
   useEffect(() => { setActionDone(false); }, [step]);
+
+  // Off-page reminder is delayed ~3s: when the user leaves the step's expected
+  // module for another page, we wait before nagging so a quick detour doesn't
+  // trigger the popup. Returning to the page (or the step becoming centered)
+  // resets the timer and hides the reminder immediately.
+  const offPage = !isCentered && !onMatchingPage;
+  useEffect(() => {
+    if (!offPage) { setShowOffPage(false); return; }
+    const id = window.setTimeout(() => setShowOffPage(true), 3000);
+    return () => window.clearTimeout(id);
+  }, [offPage]);
 
   // Lock the panel side the first time we get a rect for this step. Subsequent
   // rect changes (the user scrolling, viewport resize) do NOT move the panel.
@@ -683,7 +697,11 @@ export default function CoachmarkTour({
   // reminder. Replaces the step-specific copy with a kind message + a button
   // that navigates the user back to the step's expected page. The current
   // step is paused (not advanced) and the user can resume by clicking back.
-  if (!isCentered && !onMatchingPage) {
+  if (offPage) {
+    // Delay gate: stay hidden until the user has been off the step's page for
+    // ~3s (timer lives in the effect above). Avoids nagging on quick detours.
+    if (!showOffPage) return null;
+
     // Resolve the destination URL for the "Back to module" button.
     // For "any" pages (e.g. nav-* steps) there's no specific target → button
     // is hidden (this branch normally doesn't fire for "any" steps anyway).
