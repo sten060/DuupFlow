@@ -736,7 +736,15 @@
       "uploadProgress": "{done}/{total} video(s) uploaded...",
       "sendingToServer": "Sending to server...",
       "sendingVideos": "Uploading {count} video(s)...",
-      "progression": "Progress... {percent}%"
+      "progression": "Progress... {percent}%",
+      "packs": {
+        "metadata":           { "label": "Metadata",           "hint": "Date, encoder, brand, uid",              "help": "Injects random metadata: date, editing software, brand container, unique identifier. No visual change." },
+        "metadata_technical": { "label": "Technical metadata", "hint": "video bitrate, GOP, fps, H.264 profile",  "help": "Video bitrate 3–22 Mb/s • GOP 30–500 • H.264 profile (baseline/main/high) • Random FPS." },
+        "pixel_magic":        { "label": "Magic pixel",        "hint": "Imperceptible luma noise — unique hash", "help": "Adds imperceptible luma noise to every pixel, every frame. Changes the file hash with no visible change." },
+        "audio":              { "label": "Audio",              "hint": "volume / light EQ / bitrate",            "help": "Volume ±2 dB • Small random EQ peak (100–8,000 Hz, +1.5 dB) • Audio bitrate 96–192 kb/s. Stays subtle." },
+        "motion":             { "label": "Motion",             "hint": "zoom, slight rotation",                  "help": "Tiny non-visual changes:\nZoom 1.01×–1.04× • Micro pan 0–10% • Speed ±1–3% (audio synced).\nImperceptible to the eye, enough to diversify the digital fingerprint." },
+        "visual":             { "label": "Visuals",            "hint": "EQ, hue, unsharp",                       "help": "Imperceptible variations:\nBrightness ±3% • Contrast ±5% • Saturation ±5% • Gamma ±3% • Hue ±3° • Very soft unsharp." }
+      }
     },
     "videosAdvanced": {
       "title": "Video Duplication — Advanced",

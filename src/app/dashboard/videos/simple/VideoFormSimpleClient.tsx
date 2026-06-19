@@ -91,69 +91,35 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
   );
 }
 
-/* ---------- Packs + Aide ---------- */
-const PACKS: Record<
-  "metadata" | "metadata_technical" | "pixel_magic" | "audio" | "motion" | "visual",
-  { label: string; hint: string; filters: string[] }
-> = {
-  metadata:           { label: "Métadonnées",           hint: "Date, encodeur, brand, uid",               filters: [] },
-  metadata_technical: { label: "Métadonnées technique", hint: "bitrate vidéo, GOP, fps, profil H.264",    filters: ["bitrate", "gop", "profile", "fps"] },
-  pixel_magic:        { label: "Pixel magique",         hint: "Bruit luma imperceptible — hash unique",   filters: [] },
-  audio:              { label: "Audio",                 hint: "volume / petite EQ / bitrate",              filters: ["volume", "waveformshift", "audiobitrate"] },
-  motion:             { label: "Mouvement",             hint: "zoom, légère rotation",                     filters: ["speed", "zoom", "rotation", "pixelshift"] },
-  visual:             { label: "Visuels",               hint: "EQ, hue, unsharp",                          filters: ["eq", "hue", "unsharp", "vignette", "lens"] },
-};
+/* ---------- Packs ---------- */
+type PackKey =
+  | "metadata"
+  | "metadata_technical"
+  | "pixel_magic"
+  | "audio"
+  | "motion"
+  | "visual";
 
-const PACK_HELP: Record<keyof typeof PACKS, React.ReactNode> = {
-  metadata: (
-    <div>
-      Injecte des métadonnées aléatoires : date, logiciel de montage, brand container, identifiant unique. Aucune modification visuelle.
-    </div>
-  ),
-  metadata_technical: (
-    <div>
-      Bitrate vidéo 3–22 Mb/s • GOP 30–500 • Profil H.264 (baseline/main/high) • FPS aléatoire.
-    </div>
-  ),
-  pixel_magic: (
-    <div>
-      Ajoute du bruit luma imperceptible à chaque pixel, chaque frame. Change le hash du fichier sans modification visible.
-    </div>
-  ),
-  visual: (
-    <div>
-      Variations imperceptibles :<br />
-      Luminosité ±3% • Contraste ±5% • Saturation ±5% • Gamma ±3% •
-      Hue ±3° • Unsharp très doux.
-    </div>
-  ),
-  motion: (
-    <div>
-      Modifications infimes non visuelles :<br />
-      Zoom 1.01×–1.04× • Micro panoramique 0–10% • Vitesse ±1–3% (audio synchronisé).<br />
-      Imperceptible à l&apos;œil, suffisant pour diversifier l&apos;empreinte numérique.
-    </div>
-  ),
-  audio: (
-    <div>
-      Volume ±2 dB • Petit <i>EQ peak</i> aléatoire (100–8 000 Hz, +1.5 dB) •
-      Bitrate audio 96–192 kb/s. Reste discret.
-    </div>
-  ),
-};
+// Labels, hints and help text live in the i18n dictionaries
+// (dashboard.videosSimple.packs.*) so they follow the user's EN/FR choice
+// instead of being hard-coded in French.
+const NO_VISUAL_PACKS: PackKey[] = ["metadata", "metadata_technical", "pixel_magic", "audio"];
+const VISUAL_PACKS: PackKey[] = ["motion", "visual"];
 
 function PackCard({
   name,
   label,
   hint,
+  help,
   selected,
   onToggle,
 }: {
-  name: keyof typeof PACKS;
+  name: PackKey;
   label: string;
   hint: string;
+  help: string;
   selected: boolean;
-  onToggle: (n: keyof typeof PACKS) => void;
+  onToggle: (n: PackKey) => void;
 }) {
   return (
     <button
@@ -168,7 +134,7 @@ function PackCard({
     >
       <div className="font-medium text-sm text-white/85 inline-flex items-center gap-2">
         {label}
-        <InfoTooltip>{PACK_HELP[name]}</InfoTooltip>
+        <InfoTooltip><span className="whitespace-pre-line">{help}</span></InfoTooltip>
       </div>
       <div className="text-xs text-white/45 mt-0.5">{hint}</div>
     </button>
@@ -551,12 +517,13 @@ export default function VideoFormSimpleClient() {
 
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">{t("dashboard.videosSimple.noVisualChange")}</p>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 mb-4">
-          {(["metadata", "metadata_technical", "pixel_magic", "audio"] as (keyof typeof PACKS)[]).map((k) => (
+          {NO_VISUAL_PACKS.map((k) => (
             <PackCard
               key={k}
               name={k}
-              label={PACKS[k].label}
-              hint={PACKS[k].hint}
+              label={t(`dashboard.videosSimple.packs.${k}.label`)}
+              hint={t(`dashboard.videosSimple.packs.${k}.hint`)}
+              help={t(`dashboard.videosSimple.packs.${k}.help`)}
               selected={selected[k]}
               onToggle={(n) => setSelected((s) => ({ ...s, [n]: !s[n] }))}
             />
@@ -565,12 +532,13 @@ export default function VideoFormSimpleClient() {
 
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">{t("dashboard.videosSimple.withVisualChange")}</p>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-          {(["motion", "visual"] as (keyof typeof PACKS)[]).map((k) => (
+          {VISUAL_PACKS.map((k) => (
             <PackCard
               key={k}
               name={k}
-              label={PACKS[k].label}
-              hint={PACKS[k].hint}
+              label={t(`dashboard.videosSimple.packs.${k}.label`)}
+              hint={t(`dashboard.videosSimple.packs.${k}.hint`)}
+              help={t(`dashboard.videosSimple.packs.${k}.help`)}
               selected={selected[k]}
               onToggle={(n) => setSelected((s) => ({ ...s, [n]: !s[n] }))}
             />
