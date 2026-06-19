@@ -4,6 +4,28 @@ import { PLAN_LIMITS } from "./plans";
 
 export type UsageType = "images" | "videos" | "ai_signatures";
 
+/**
+ * Free plan: the monthly quota window is anchored on the user's `period_start`
+ * (their free "subscription" / first-usage date). Returns the start of the
+ * current month-window when at least one monthly anniversary has elapsed since
+ * `periodStart` — i.e. the counters are stale and should be reset to 0 — or
+ * null when we're still inside the same window.
+ */
+function rolledPeriodStart(periodStart: Date, now: Date): Date | null {
+  if (isNaN(periodStart.getTime())) return null;
+  let cur = new Date(periodStart);
+  let rolled = false;
+  // Advance whole months from the anchor until the next step would pass `now`.
+  while (true) {
+    const next = new Date(cur);
+    next.setMonth(next.getMonth() + 1);
+    if (next.getTime() > now.getTime()) break;
+    cur = next;
+    rolled = true;
+  }
+  return rolled ? cur : null;
+}
+
 export interface UsageCheck {
   allowed: boolean;
   userId: string | null;
@@ -97,11 +119,31 @@ export async function checkUsage(
 
   const { data: usage } = await admin
     .from("usage_tracking")
-    .select("images_count, videos_count, ai_signatures_count")
+    .select("images_count, videos_count, ai_signatures_count, period_start")
     .eq("user_id", user.id)
     .single();
 
-  const current = (usage as any)?.[column] ?? 0;
+  let current = (usage as any)?.[column] ?? 0;
+
+  // Free plan: reset the monthly counters once a new period has begun, anchored
+  // on the user's period_start (their free "subscription" date). Solo/Pro reset
+  // via Stripe billing cycles, so the lazy calendar reset is scoped to Free.
+  if (effectivePlan === "free" && (usage as any)?.period_start) {
+    const newStart = rolledPeriodStart(new Date((usage as any).period_start), new Date());
+    if (newStart) {
+      current = 0;
+      await admin
+        .from("usage_tracking")
+        .update({
+          images_count: 0,
+          videos_count: 0,
+          ai_signatures_count: 0,
+          period_start: newStart.toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", user.id);
+    }
+  }
 
   if (current + requestedCount > limit) {
     const labels: Record<UsageType, string> = {

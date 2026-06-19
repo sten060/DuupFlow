@@ -58,7 +58,7 @@ function NotifCard({ n }: { n: AppNotification }) {
         <button
           onClick={() => dismissNotification(n.id)}
           className="shrink-0 rounded-full px-1 text-white/30 hover:text-white/80"
-          title="Fermer"
+          title={t("dashboard.videosCommon.close")}
         >
           ✕
         </button>
@@ -132,16 +132,22 @@ export default function NotificationBell() {
       seenRef.current.set(job.id, job.status);
       if (job.status === "done") {
         const n = job.completedFiles.length;
+        // Body is derived from STATUS, never from job.msg — that field can carry
+        // a raw French SSE message from the server (evt.warning / evt.msg), which
+        // would leak to English users. We show the localized file-count instead,
+        // or the generic "done" line when no count is available.
         pushNotification({
           kind: "success",
           title: t("dashboard.videosCommon.doneTitle"),
-          body: n > 0 ? t("dashboard.videosCommon.filesReady", { count: n }) : job.msg || undefined,
+          body: n > 0 ? t("dashboard.videosCommon.filesReady", { count: n }) : t("dashboard.notif.doneGeneric"),
           files: job.completedFiles.length ? job.completedFiles : undefined,
         });
         removeJob(job.id);
         needsRefresh = true;
       } else if (job.status === "error") {
-        pushNotification({ kind: "error", title: t("dashboard.videosCommon.failTitle"), body: job.errorMsg || job.msg });
+        // Do NOT surface job.errorMsg / job.msg — those are raw server SSE
+        // strings (French). Show a localized, status-derived error body instead.
+        pushNotification({ kind: "error", title: t("dashboard.videosCommon.failTitle"), body: t("dashboard.notif.errorBody") });
         removeJob(job.id);
         needsRefresh = true;
       } else if (job.status === "stopped") {

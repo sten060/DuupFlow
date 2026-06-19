@@ -216,7 +216,7 @@ export default function AbonnementClient({
     return (
       <main className="p-8 max-w-2xl">
         <div className="mb-8">
-          <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1.5">Dashboard</p>
+          <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1.5">{t("dashboard.home.dashboard")}</p>
           <h1 className="text-2xl font-semibold text-white tracking-tight">{t("dashboard.subscription.title")}</h1>
         </div>
         <div
@@ -517,9 +517,9 @@ export default function AbonnementClient({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="space-y-1">
-            <h2 className="text-base font-semibold text-white">Passer au plan Pro</h2>
+            <h2 className="text-base font-semibold text-white">{t("dashboard.subscription.upgradeModalTitle")}</h2>
             <p className="text-sm text-white/50">
-              Vous êtes sur le point de passer au plan Pro à 99€/mois.
+              {t("dashboard.subscription.upgradeModalDesc")}
             </p>
           </div>
           <ul className="space-y-2 text-sm text-white/60">
@@ -527,19 +527,19 @@ export default function AbonnementClient({
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M2 8l4 4 8-8" />
               </svg>
-              Paiement immédiat du prorata pour les jours restants du mois
+              {t("dashboard.subscription.upgradeModalProrata")}
             </li>
             <li className="flex items-start gap-2">
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-green-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M2 8l4 4 8-8" />
               </svg>
-              Accès illimité (images, vidéos, signatures IA) activé immédiatement
+              {t("dashboard.subscription.upgradeModalUnlimited")}
             </li>
             <li className="flex items-start gap-2">
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-green-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M2 8l4 4 8-8" />
               </svg>
-              Jusqu&apos;à 3 membres dans votre workspace
+              {t("dashboard.subscription.upgradeModalMembers")}
             </li>
           </ul>
           <div className="flex gap-3 pt-1">
@@ -576,9 +576,9 @@ export default function AbonnementClient({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="space-y-1">
-            <h2 className="text-base font-semibold text-white">Résilier l&apos;abonnement</h2>
+            <h2 className="text-base font-semibold text-white">{t("dashboard.subscription.cancelModalTitle")}</h2>
             <p className="text-sm text-white/50">
-              Vous êtes sur le point de résilier votre abonnement DuupFlow.
+              {t("dashboard.subscription.cancelModalDesc")}
             </p>
           </div>
           <ul className="space-y-2 text-sm text-white/60">
@@ -586,13 +586,13 @@ export default function AbonnementClient({
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
               </svg>
-              Votre accès reste actif jusqu&apos;à la fin de la période en cours
+              {t("dashboard.subscription.cancelModalAccessUntilEnd")}
             </li>
             <li className="flex items-start gap-2">
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M4 4l8 8M12 4l-8 8" />
               </svg>
-              Toutes vos données et copies seront inaccessibles après l&apos;expiration
+              {t("dashboard.subscription.cancelModalDataLost")}
             </li>
           </ul>
           <div className="flex gap-3 pt-1">
@@ -628,17 +628,17 @@ export default function AbonnementClient({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="space-y-1">
-            <h2 className="text-base font-semibold text-white">Avant de partir…</h2>
+            <h2 className="text-base font-semibold text-white">{t("dashboard.subscription.feedbackTitle")}</h2>
             <p className="text-sm text-white/50">
-              Dites-nous pourquoi vous résiliez. Votre avis nous aide à améliorer DuupFlow.
+              {t("dashboard.subscription.feedbackDesc")}
             </p>
           </div>
           <div>
-            <label className="block text-xs text-white/40 mb-2">Votre avis <span className="text-red-400">*</span></label>
+            <label className="block text-xs text-white/40 mb-2">{t("dashboard.subscription.feedbackLabel")} <span className="text-red-400">*</span></label>
             <textarea
               value={cancelFeedback}
               onChange={(e) => setCancelFeedback(e.target.value)}
-              placeholder="Ex: Trop cher, fonctionnalité manquante, je n'utilise plus le service…"
+              placeholder={t("dashboard.subscription.feedbackPlaceholder")}
               rows={4}
               className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition resize-none"
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}
@@ -678,9 +678,9 @@ export default function AbonnementClient({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="space-y-1">
-            <h2 className="text-base font-semibold text-white">Passer au plan Solo</h2>
+            <h2 className="text-base font-semibold text-white">{t("dashboard.subscription.downgradeModalTitle")}</h2>
             <p className="text-sm text-white/50">
-              Votre abonnement Stripe sera mis à jour immédiatement.
+              {t("dashboard.subscription.downgradeModalDesc")}
             </p>
           </div>
 
@@ -689,19 +689,19 @@ export default function AbonnementClient({
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-green-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M2 8l4 4 8-8" />
               </svg>
-              Vous gardez l&apos;accès Pro jusqu&apos;à la fin de votre période en cours
+              {t("dashboard.subscription.downgradeModalKeepAccess")}
             </li>
             <li className="flex items-start gap-2">
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
               </svg>
-              Votre prochain paiement sera de 39€ (plan Solo)
+              {t("dashboard.subscription.downgradeModalNextPayment")}
             </li>
             <li className="flex items-start gap-2">
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M4 4l8 8M12 4l-8 8" />
               </svg>
-              Les limites Solo s&apos;activeront au début du prochain cycle
+              {t("dashboard.subscription.downgradeModalLimits")}
             </li>
           </ul>
 

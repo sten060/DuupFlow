@@ -71,30 +71,58 @@ export async function recordTransaction(opts: {
 > {
   const admin = createAdminClient();
 
-  const { data: profile, error: pErr } = await admin
-    .from("profiles")
-    .select("ai_balance_cents")
-    .eq("id", opts.userId)
-    .single();
-  if (pErr || !profile) {
-    return { ok: false, balanceCents: 0, error: pErr?.message ?? "user not found" };
-  }
+  // Atomic balance change via the apply_ai_balance_delta function (migration 032):
+  // a single conditional UPDATE so two concurrent debits can't both read the same
+  // balance and double-spend / go negative. Returns the new balance, or null when
+  // the change would overdraw the account (or the user row is missing).
+  let next: number;
+  const rpc = await admin.rpc("apply_ai_balance_delta", {
+    p_user_id: opts.userId,
+    p_delta: opts.deltaCents,
+  });
 
-  const current = profile.ai_balance_cents ?? 0;
-  const next = current + opts.deltaCents;
-  if (next < 0) {
-    return { ok: false, balanceCents: current, error: "insufficient_balance" };
-  }
-
-  const { error: uErr } = await admin
-    .from("profiles")
-    .update({
-      ai_balance_cents: next,
-      ai_balance_updated_at: new Date().toISOString(),
-    })
-    .eq("id", opts.userId);
-  if (uErr) {
-    return { ok: false, balanceCents: current, error: uErr.message };
+  if (!rpc.error) {
+    if (rpc.data === null || rpc.data === undefined) {
+      // Overdraw or missing user — read current balance for the caller's display.
+      const { data: p } = await admin
+        .from("profiles")
+        .select("ai_balance_cents")
+        .eq("id", opts.userId)
+        .single();
+      return { ok: false, balanceCents: p?.ai_balance_cents ?? 0, error: "insufficient_balance" };
+    }
+    next = rpc.data as number;
+  } else {
+    // Fallback: the function isn't live yet (migration not applied / PostgREST
+    // schema-cache lag). Degrade to the previous read-modify-write so token ops
+    // never hard-break during the deploy window. Only used when the function is
+    // genuinely missing — other RPC errors are surfaced.
+    const code = (rpc.error as { code?: string }).code;
+    const missingFn = code === "PGRST202" || /could not find|schema cache|does not exist|function/i.test(rpc.error.message || "");
+    if (!missingFn) {
+      return { ok: false, balanceCents: 0, error: rpc.error.message };
+    }
+    const { data: profile, error: pErr } = await admin
+      .from("profiles")
+      .select("ai_balance_cents")
+      .eq("id", opts.userId)
+      .single();
+    if (pErr || !profile) {
+      return { ok: false, balanceCents: 0, error: pErr?.message ?? "user not found" };
+    }
+    const current = profile.ai_balance_cents ?? 0;
+    const computed = current + opts.deltaCents;
+    if (computed < 0) {
+      return { ok: false, balanceCents: current, error: "insufficient_balance" };
+    }
+    const { error: uErr } = await admin
+      .from("profiles")
+      .update({ ai_balance_cents: computed, ai_balance_updated_at: new Date().toISOString() })
+      .eq("id", opts.userId);
+    if (uErr) {
+      return { ok: false, balanceCents: current, error: uErr.message };
+    }
+    next = computed;
   }
 
   const { error: lErr } = await admin.from("ai_token_ledger").insert({

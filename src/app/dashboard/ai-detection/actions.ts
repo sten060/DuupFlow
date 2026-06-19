@@ -6,6 +6,7 @@ import crypto from "crypto";
 import sharp from "sharp";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 import { checkUsage, incrementUsage } from "@/lib/usage";
+import { runImageOp } from "@/lib/imageProcessingLimiter";
 
 /* ── constants ── */
 const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp"];
@@ -89,48 +90,74 @@ async function withConcurrency<T>(items: T[], limit: number, fn: (item: T) => Pr
  * DCT coefficients, and metadata — reproducing what happens when you take a
  * phone screenshot of an AI image and post it.
  * ───────────────────────────────────────────────────────────────────────────── */
-async function processImage(buf: Buffer, ext: string, outPath: string, meta: sharp.WriteableMetadata): Promise<void> {
+async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetadata): Promise<{ data: Buffer; outExt: string }> {
   // Step 1 — Lens-like Gaussian blur (σ 0.3–0.7, randomised per image)
   const blurSigma = 0.3 + Math.random() * 0.4;
 
-  const { data, info } = await sharp(buf, { failOn: "none" })
+  const { data: blurred, info } = await sharp(buf, { failOn: "none" })
     .blur(blurSigma)
     .raw()
     .toBuffer({ resolveWithObject: true });
-
-  // Step 2 — Sensor noise: Gaussian approximation via sum of two uniforms (CLT)
-  // Skips the alpha channel to preserve transparency in PNGs.
-  const noiseStrength = 2 + Math.random() * 2.5;  // σ ≈ 2–4.5
   const hasAlpha = info.channels === 4;
-  for (let i = 0; i < data.length; i++) {
-    if (hasAlpha && (i + 1) % 4 === 0) continue;  // skip alpha
-    const n = Math.round((Math.random() + Math.random() - 1) * noiseStrength * 2);
-    data[i] = Math.max(0, Math.min(255, data[i] + n));
+
+  // ISP params fixed once so re-encode attempts reproduce the same look.
+  const sharpenParams = { sigma: 0.5 + Math.random() * 0.5, m1: 0.4 + Math.random() * 0.7, m2: 0.3 };
+  const modParams = {
+    brightness: 0.99 + Math.random() * 0.02,  // ±1%
+    saturation: 0.97 + Math.random() * 0.06,  // ±3%
+    hue: Math.round(Math.random() * 6 - 3),   // ±3°
+  };
+
+  // Sensor noise applied to a fresh copy of the blurred pixels at a given strength.
+  const withNoise = (strength: number): Buffer => {
+    const d = Buffer.from(blurred);
+    for (let i = 0; i < d.length; i++) {
+      if (hasAlpha && (i + 1) % 4 === 0) continue;  // skip alpha
+      const n = Math.round((Math.random() + Math.random() - 1) * strength * 2);
+      d[i] = Math.max(0, Math.min(255, d[i] + n));
+    }
+    return d;
+  };
+
+  const pipeline = (d: Buffer) =>
+    sharp(d, { raw: { width: info.width, height: info.height, channels: info.channels } })
+      .sharpen(sharpenParams)
+      .modulate(modParams)
+      .withMetadata(meta);
+
+  const baseNoise = 2 + Math.random() * 2.5;  // σ ≈ 2–4.5
+  const isJpeg = ext === ".jpg" || ext === ".jpeg";
+  const isWebp = ext === ".webp";
+
+  // Output ALWAYS keeps the original format + resolution, stays visually lossless,
+  // and is never heavier than the source.
+  if (isJpeg || isWebp) {
+    // Lossy formats: full noise, step quality down (floor 82) until <= source.
+    const d = withNoise(baseNoise);
+    const enc = (q: number) =>
+      isJpeg
+        ? pipeline(d).jpeg({ quality: q, mozjpeg: true }).toBuffer()
+        : pipeline(d).webp({ quality: q }).toBuffer();
+    let out = await enc(92);
+    for (const q of [88, 85, 82]) {
+      if (out.length <= buf.length) break;
+      out = await enc(q);
+    }
+    return { data: out, outExt: ext };
   }
 
-  // Step 3–5 — ISP: sharpen + color modulation + encode
-  const sharpened = sharp(data, {
-    raw: { width: info.width, height: info.height, channels: info.channels },
-  })
-    .sharpen({
-      sigma: 0.5 + Math.random() * 0.5,
-      m1: 0.4 + Math.random() * 0.7,
-      m2: 0.3,
-    })
-    .modulate({
-      brightness: 0.99 + Math.random() * 0.02,      // ±1%
-      saturation: 0.97 + Math.random() * 0.06,      // ±3%
-      hue: Math.round(Math.random() * 6 - 3),       // ±3°
-    })
-    .withMetadata(meta);
-
-  const isJpeg = [".jpg", ".jpeg"].includes(ext);
-  if (isJpeg) {
-    const quality = 82 + Math.floor(Math.random() * 12);  // 82–94
-    await sharpened.jpeg({ quality, mozjpeg: false }).toFile(outPath);
-  } else {
-    await sharpened.toFile(outPath);
+  // PNG: prioritise a LIGHT file (product decision) — a lossless codec can't
+  // compress noise, so we start with light noise and step it down to zero until
+  // the output is no heavier than the source. Anti-detection on PNG then relies on
+  // blur + sharpen + colour modulation + fake metadata (noise is minimal by design,
+  // and `baseNoise` above intentionally only drives the lossy JPEG/WebP path).
+  const encPng = (d: Buffer) => pipeline(d).png({ compressionLevel: 9 }).toBuffer();
+  let out = await encPng(withNoise(1));
+  for (const strength of [0.5, 0.25, 0]) {
+    if (out.length <= buf.length) break;
+    out = await encPng(withNoise(strength));
   }
+  return { data: out, outExt: ext };
 }
 
 /* ─────────────────────────────────────────────
@@ -206,9 +233,6 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
       return;
     }
 
-    const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${ext}`;
-    const outPath = path.join(dir, outName);
-
     if (IMAGE_EXTS.includes(ext)) {
       // Build fake human identity (randomised per image)
       const cam = pick(HUMAN_CAMERAS);
@@ -235,35 +259,58 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
         },
       };
 
+      let result: { data: Buffer; outExt: string };
       try {
-        await Promise.race([
-          processImage(buf, ext, outPath, meta),
-          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 45_000)),
-        ]);
-        console.log(`[ai-detection] image OK: ${outName}`);
+        // ONE global slot covers both the main pass and the fallback, so a timed-out
+        // (but still-running) libvips pipeline can't be joined by a second pipeline
+        // under a fresh slot — keeps the OOM cap honest. runImageOp caps concurrent
+        // sharp pipelines across ALL requests.
+        result = await runImageOp(async () => {
+          try {
+            return await Promise.race([
+              processImage(buf, ext, meta),
+              new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 45_000)),
+            ]);
+          } catch (inner: any) {
+            console.warn(`[ai-detection] processImage failed for ${f.name} (${inner?.message}), fallback to strip-only`);
+            // Fallback within the SAME slot: strip metadata + light, visually-lossless
+            // re-encode (format preserved), minus the anti-detection pixel pass.
+            const pipe = sharp(buf, { failOn: "none" }).withMetadata(meta);
+            if (ext === ".jpg" || ext === ".jpeg")
+              return { data: await pipe.jpeg({ quality: 92, mozjpeg: true }).toBuffer(), outExt: ext };
+            if (ext === ".webp")
+              return { data: await pipe.webp({ quality: 92 }).toBuffer(), outExt: ext };
+            return { data: await pipe.png({ compressionLevel: 9 }).toBuffer(), outExt: ext };
+          }
+        });
       } catch (e: any) {
-        console.warn(`[ai-detection] processImage failed for ${f.name} (${e?.message}), fallback to strip-only`);
-        // Fallback: at minimum strip all metadata + basic re-encode
-        try {
-          await sharp(buf, { failOn: "none" }).withMetadata(meta).toFile(outPath);
-        } catch (fe: any) {
-          console.error(`[ai-detection] fallback failed: ${fe?.message}`);
-          return;
-        }
+        console.error(`[ai-detection] image failed for ${f.name}: ${e?.message}`);
+        return;
       }
-    } else {
-      // Videos: simple copy (exiftool not available at runtime)
+
+      const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${result.outExt}`;
       try {
-        await fs.writeFile(outPath, buf);
+        await fs.writeFile(path.join(dir, outName), result.data);
+      } catch (e: any) {
+        console.error(`[ai-detection] image write failed for ${f.name}:`, e?.message);
+        return;
+      }
+      console.log(`[ai-detection] image OK: ${outName}`);
+      outFiles.push(outName);
+      count++;
+    } else {
+      // Videos: byte-for-byte copy — quality and size preserved exactly.
+      const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${ext}`;
+      try {
+        await fs.writeFile(path.join(dir, outName), buf);
         console.log(`[ai-detection] video copy OK: ${outName}`);
       } catch (e: any) {
         console.error(`[ai-detection] video write failed for ${f.name}:`, e?.message);
         return;
       }
+      outFiles.push(outName);
+      count++;
     }
-
-    outFiles.push(outName);
-    count++;
   });
 
   console.log(`[ai-detection] done — ${count}/${files.length} file(s) processed`);

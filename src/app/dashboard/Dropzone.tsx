@@ -7,6 +7,7 @@ const genId = () =>
     : Math.random().toString(36).slice(2); // fallback
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "@/lib/i18n/context";
 
 type Props = {
   /** name du champ côté formulaire (ex: "files") */
@@ -31,6 +32,7 @@ export default function Dropzone({
   multiple = true,
   maxFiles = 25,
 }: Props) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [items, setItems] = useState<Item[]>([]);
 
@@ -104,9 +106,9 @@ export default function Dropzone({
                    hover:border-white/[0.15] transition cursor-pointer"
         onClick={() => inputRef.current?.click()}
       >
-        <div className="text-lg font-medium">Glissez vos fichiers ici</div>
+        <div className="text-lg font-medium">{t("vid.drop.title")}</div>
         <div className="text-sm opacity-70">
-          ou cliquez pour parcourir {maxFiles ? `(max ${maxFiles})` : ""}
+          {t("vid.drop.browse")} {maxFiles ? t("vid.drop.max", { max: maxFiles }) : ""}
         </div>
 
         <input
@@ -124,7 +126,7 @@ export default function Dropzone({
       {items.length > 0 && (
         <>
           <div className="text-sm text-white/70 mb-2">
-            {items.length} fichier(s) sélectionné(s)
+            {t("vid.drop.selectedCount", { count: items.length })}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -168,7 +170,7 @@ export default function Dropzone({
                   onClick={() => removeOne(it.id)}
                   className="absolute top-1 right-1 rounded-full bg-black/60 px-2 py-1 text-xs
                              text-white/90 hover:bg-black/80"
-                  aria-label={`Retirer ${it.file.name}`}
+                  aria-label={t("vid.drop.remove", { name: it.file.name })}
                 >
                   ✕
                 </button>

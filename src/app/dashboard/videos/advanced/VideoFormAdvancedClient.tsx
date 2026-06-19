@@ -164,48 +164,15 @@ const LIMITS: Record<
 };
 
 /* ============ Infos packs (infobulles) ============ */
-const HELP_ADVANCED: Record<Group, React.ReactNode> = {
-  "Tags": (
-    <div>
-      Active individuellement chaque métadonnée à injecter. Si aucun bouton n'est activé, les métadonnées originales sont préservées.
-    </div>
-  ),
-  Visuel: (
-    <div>
-      <b>Valeurs subtiles (imperceptibles)</b><br />
-      Saturation/Contraste/Gamma&nbsp;: <b>0.99 → 1.01</b> (neutre&nbsp;1.0) •
-      Luminosité&nbsp;: <b>−0.01 → +0.01</b> (neutre&nbsp;0) •
-      Hue&nbsp;: <b>−0.05 → +0.05</b> •
-      Vignette&nbsp;: <b>0 → 0.1</b> •
-      Grain&nbsp;: <b>0 → 4</b> •
-      k&nbsp;: <b>−0.05 → +0.05</b> •
-      Netteté&nbsp;: <b>0 → 0.3</b>.
-    </div>
-  ),
-  Mouvement: (
-    <div>
-      Vitesse (x) <b>0.98 → 1.02</b> (neutre&nbsp;1.0) • Zoom <b>0.98 → 1.02</b> • Pixel shift <b>0 → 4</b> •
-      Rotation <b>−1 → +1</b> • FPS <b>24 → 30</b>.
-    </div>
-  ),
-  Techniques: (
-    <div>
-      Dimensions (W/H %) <b>−10 → +10</b> • Bordure <b>0 → 40</b> •
-      Bitrate vidéo <b>8 000 → 12 000</b> • GOP <b>48 → 60</b> •
-      Cut&nbsp;: <b>to ≥ start + 0.05s</b>.
-    </div>
-  ),
-  Audio: (
-    <div>
-      Volume <b>−6 → +6</b> dB • EQ peak (f) <b>50 → 12000</b> Hz •
-      Bitrate audio <b>96 → 256</b> kb/s (AAC).
-    </div>
-  ),
-  Options: (
-    <div>
-      <b>Flip</b> : vertical. <b>Reverse</b> : miroir horizontal. <b>Localisation</b> : pays injecté dans les métadonnées. <b>Priorité d'algorithme</b> : métadonnées iPhone réalistes.
-    </div>
-  ),
+// Stable i18n token for each filter group (group display names stay French in
+// the data model but are localized at render via t("vid.group.<token>")).
+const GROUP_TOKEN: Record<Group, string> = {
+  Tags: "tags",
+  Visuel: "visual",
+  Mouvement: "motion",
+  Techniques: "technical",
+  Audio: "audio",
+  Options: "options",
 };
 
 /* ========================= Page ========================= */
@@ -336,13 +303,13 @@ export default function VideoFormAdvancedClient() {
       const oversized = uploadedFiles.filter(f => f.size > MAX_FILE_BYTES);
       if (oversized.length > 0) {
         const names = oversized.map(f => f.name).join(", ");
-        throw new Error(`[CLT-006] Fichier(s) trop volumineux (max 5 Go) : ${names}`);
+        throw new Error(`[CLT-006] ${t("vid.err.tooLarge", { names })}`);
       }
 
       // All files go directly to Railway — reliable, no Supabase size limits
       let apiForm: FormData;
       if (uploadedFiles.length > 0 && uploadedFiles[0].size > 0) {
-        setProgressMsg(`Envoi vidéos (0/${uploadedFiles.length})…`);
+        setProgressMsg(t("vid.upload.startCount", { total: uploadedFiles.length }));
         setProgress(0);
 
         // PARALLEL uploads, bounded to 4 at a time. One-by-one before was safe
@@ -423,7 +390,7 @@ export default function VideoFormAdvancedClient() {
       sseLoop: while (true) {
         if (sseAttempt > 0) {
           const delay = sseAttempt * 3000; // 3 s → 6 s → 9 s
-          const reconnMsg = `Reconnexion (${sseAttempt}/${MAX_SSE_RETRIES})…`;
+          const reconnMsg = t("vid.sse.reconnecting", { attempt: sseAttempt, max: MAX_SSE_RETRIES });
           setProgressMsg(reconnMsg);
           setJob({ id: jobId, type: "video", channel: "advanced", progress: 0, msg: reconnMsg, status: "running" });
           await new Promise(r => setTimeout(r, delay));
@@ -441,10 +408,9 @@ export default function VideoFormAdvancedClient() {
 
           if (!res.ok || !res.body) {
             const text = await res.text().catch(() => "");
-            let msg = `HTTP ${res.status}`;
             let code = res.status >= 500 ? "VID-002" : "VID-001";
             let parsed: any = null;
-            try { parsed = JSON.parse(text); msg = parsed?.error || msg; code = parsed?.code || code; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
+            try { parsed = JSON.parse(text); code = parsed?.code || code; } catch {}
             // Monthly limit reached → friendly upgrade modal (no badge / inline error).
             if (parsed?.limitReached) {
               removeJob(jobId);
@@ -452,7 +418,9 @@ export default function VideoFormAdvancedClient() {
               setProcessing(false);
               return;
             }
-            const errMsg = `[${code}] ${msg}`;
+            // Clean, generic message — never surface raw server text to the user
+            // (mirrors the simple form).
+            const errMsg = `[${code}] ${t("vid.err.generic")}`;
             setSubmitError(errMsg);
             setJob({ id: jobId, type: "video", channel: "advanced", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
             setProcessing(false);
@@ -505,7 +473,7 @@ export default function VideoFormAdvancedClient() {
                   }
                   if (evt.error) {
                     const code = evt.code || "VID-004";
-                    const errMsg = `[${code}] ${evt.msg || "Erreur FFmpeg"}`;
+                    const errMsg = `[${code}] ${evt.msg || t("vid.err.ffmpeg")}`;
                     setSubmitError(errMsg);
                     setJob({ id: jobId, type: "video", channel: "advanced", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
                     setProcessing(false);
@@ -556,7 +524,7 @@ export default function VideoFormAdvancedClient() {
     } catch (err: any) {
       if (err?.name === "AbortError") {
         if (ctrl.signal.reason === "timeout") {
-          const errMsg = "[CLT-003] Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.";
+          const errMsg = `[CLT-003] ${t("vid.err.timeout")}`;
           setSubmitError(errMsg);
           setJob({ id: jobId, type: "video", channel: "advanced", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
         } else if (ctrl.signal.reason === "stopped") {
@@ -568,12 +536,14 @@ export default function VideoFormAdvancedClient() {
         const rawMsg = (err as Error)?.message || "";
         console.error("[duplicate-video] client error:", rawMsg); // keep diagnostics for support
         const lower = rawMsg.toLowerCase();
-        const isStorageSize = lower.includes("trop volumineux") || lower.includes("maximum allowed size");
+        // Detect the client-side size guard by its error CODE (locale-independent —
+        // the message itself is now translated) plus the Supabase storage phrase.
+        const isStorageSize = rawMsg.includes("CLT-006") || lower.includes("maximum allowed size");
         // Client-side validation (duration > 50 s) carries a `validation` flag and an
         // already-localized, actionable message — show it as-is.
         const isValidation = (err as { validation?: boolean })?.validation === true;
         const errMsg = isStorageSize
-          ? `[CLT-006] ${rawMsg}`
+          ? (rawMsg.includes("CLT-006") ? rawMsg : `[CLT-006] ${rawMsg}`)
           : isValidation
           ? rawMsg
           : t("dashboard.videosCommon.errorGeneric");
@@ -603,18 +573,20 @@ export default function VideoFormAdvancedClient() {
     return n >= lim.lo && n <= lim.hi;
   };
 
+  const limLabel = (key: string) => (LIMITS[key] ? t(`vid.lim.${key}`) : "");
+
   const errorMsg = (key: string, min: number, max: number): string | null => {
     const lim = LIMITS[key];
     if (!lim) return null;
-    if (min > max) return "Min doit être ≤ Max.";
+    if (min > max) return t("vid.valid.minLeMax");
     if (!inLimit(key, min) || !inLimit(key, max)) {
-      return `Hors bornes : ${lim.label ?? `${lim.lo} à ${lim.hi}`}`;
+      return t("vid.valid.outOfRange", { range: limLabel(key) });
     }
     // règle spéciale cut_end ≥ cut_start + 0.05 si les deux activés
     if (key === "cut_end") {
       const s = ranges["cut_start"];
       if (s?.enabled && s.min !== undefined && max !== undefined && max < s.min + 0.05) {
-        return "Cut end doit être ≥ start + 0.05 s.";
+        return t("vid.valid.cutEnd");
       }
     }
     return null;
@@ -673,8 +645,8 @@ export default function VideoFormAdvancedClient() {
               onClick={() => setOpen((o) => ({ ...o, [g]: !o[g] }))}
               className="inline-flex items-center gap-2 cursor-pointer select-none"
             >
-              {g}
-              <InfoTooltip>{HELP_ADVANCED[g]}</InfoTooltip>
+              {t(`vid.group.${GROUP_TOKEN[g]}`)}
+              <InfoTooltip><span className="whitespace-pre-line">{t(`vid.help.${GROUP_TOKEN[g]}`)}</span></InfoTooltip>
               <span className="text-[10px] text-white/40">{open[g] ? "▲" : "▼"}</span>
             </button>
           }
@@ -688,7 +660,7 @@ export default function VideoFormAdvancedClient() {
                 // Dimensions
                 if (c.type === "dims") {
                   const key = "dimensions_wh";
-                  const limText = "Conseil : −10 % → +10 %";
+                  const limText = t("vid.dims.hint");
                   return (
                     <div
                       key={key}
@@ -697,7 +669,7 @@ export default function VideoFormAdvancedClient() {
                       }`}
                     >
                       <label className="mb-2 flex items-center justify-between gap-3">
-                        <span className="text-sm font-medium">Dimensions — Width × Height</span>
+                        <span className="text-sm font-medium">{t("vid.dims.label")}</span>
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] text-white/60">%</span>
                           <input
@@ -760,7 +732,7 @@ export default function VideoFormAdvancedClient() {
                     }`}
                   >
                     <label className="mb-2 flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium">{c.label}</span>
+                      <span className="text-sm font-medium">{t(`vid.ctrl.${c.key}.label`)}</span>
                       <div className="flex items-center gap-2">
                         {c.unit && <span className="text-[11px] text-white/60">{c.unit}</span>}
                         <input
@@ -774,7 +746,7 @@ export default function VideoFormAdvancedClient() {
                     </label>
 
                     {isToggle ? (
-                      <div className="text-[11px] text-white/60">Activé</div>
+                      <div className="text-[11px] text-white/60">{t("vid.ctrl.enabled")}</div>
                     ) : (
                       <>
                         <div className="flex items-center gap-2">
@@ -809,7 +781,7 @@ export default function VideoFormAdvancedClient() {
                             <span className="text-red-400">{msg}</span>
                           ) : lim ? (
                             <span className="text-white/55">
-                              Bornes conseillées : {lim.label ?? `${lim.lo} à ${lim.hi}`}
+                              {t("vid.range.recommended", { range: limLabel(c.key) })}
                             </span>
                           ) : (
                             <span className="text-white/55">—</span>
@@ -890,7 +862,7 @@ export default function VideoFormAdvancedClient() {
               style={{ width: `${Math.max(0, Math.min(100, shownProgress))}%` }}
             />
           </div>
-          <p className="mt-1 text-xs text-white/70">{shownMsg || `Progression… ${shownProgress}%`}</p>
+          <p className="mt-1 text-xs text-white/70">{shownMsg || t("vid.progress.percent", { percent: shownProgress })}</p>
         </div>
       )}
 
@@ -931,8 +903,8 @@ function TemplatesList({
   onLoad: (t: Template) => void;
   onDelete: (n: string) => void;
 }) {
-  const { t } = useTranslation();
-  if (templates.length === 0) return <p className="text-sm text-white/55">{t("dashboard.videosAdvanced.noTemplates")}</p>;
+  const { t: tr } = useTranslation();
+  if (templates.length === 0) return <p className="text-sm text-white/55">{tr("dashboard.videosAdvanced.noTemplates")}</p>;
 
   return (
     <div className="mt-3 flex flex-wrap gap-2">
@@ -941,14 +913,14 @@ function TemplatesList({
           key={t.name}
           className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-sm"
         >
-          <button type="button" onClick={() => onLoad(t)} className="underline" title="Charger">
+          <button type="button" onClick={() => onLoad(t)} className="underline" title={tr("vid.tpl.load")}>
             {t.name}
           </button>
           <button
             type="button"
             onClick={() => onDelete(t.name)}
             className="rounded-full bg-white/10 px-2 hover:bg-white/20"
-            title="Supprimer"
+            title={tr("vid.tpl.delete")}
           >
             ×
           </button>

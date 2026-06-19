@@ -1,9 +1,11 @@
 "use client";
 import React from "react";
+import { useTranslation } from "@/lib/i18n/context";
 
 type Props = { userId?: string; jobId?: string; onComplete?: () => void; onError?: (msg: string) => void };
 
 export default function ProgressWatcher({ userId, jobId, onComplete, onError }: Props) {
+  const { t } = useTranslation();
   const [p, setP]   = React.useState<number | null>(null);
   const [msg, setMsg] = React.useState("");
 
@@ -24,8 +26,8 @@ export default function ProgressWatcher({ userId, jobId, onComplete, onError }: 
         if (!alive) return;
         if ((j.percent ?? 0) < 0) {  // erreur
           setP(-1);
-          setMsg(j.msg ?? "Erreur");
-          onError?.(j.msg ?? "Erreur");
+          setMsg(j.msg ?? t("vid.watch.error"));
+          onError?.(j.msg ?? t("vid.watch.error"));
           return;
         }
         setP(j.percent ?? 0);
@@ -39,7 +41,7 @@ export default function ProgressWatcher({ userId, jobId, onComplete, onError }: 
 
     tick();
     return () => { alive = false; };
-  }, [userId, jobId]);
+  }, [userId, jobId, t]);
 
   // rendu
   if (!userId || !jobId) return null;
@@ -54,7 +56,7 @@ export default function ProgressWatcher({ userId, jobId, onComplete, onError }: 
         />
       </div>
       <p className={["mt-2 text-xs", p < 0 ? "text-red-400" : "text-white/70"].join(" ")}>
-        {p >= 100 ? "Terminé ✅" : p < 0 ? `Erreur : ${msg}` : msg || `Progression… ${p}%`}
+        {p >= 100 ? t("vid.watch.done") : p < 0 ? t("vid.watch.errorMsg", { msg }) : msg || t("vid.progress.percent", { percent: p })}
       </p>
     </div>
   );

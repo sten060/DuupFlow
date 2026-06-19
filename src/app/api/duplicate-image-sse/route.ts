@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 import { checkUsage, incrementUsage } from "@/lib/usage";
 import { pickLocation } from "@/lib/locations";
+import { runImageOp } from "@/lib/imageProcessingLimiter";
 
 export const maxDuration = 300;
 
@@ -312,7 +313,6 @@ export async function POST(req: Request) {
   const now = new Date();
   const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
 
-  let generationSucceeded = false;
   let processedOk = 0;
 
   const stream = new ReadableStream({
@@ -355,38 +355,50 @@ export async function POST(req: Request) {
           }
 
           for (let c = 0; c < count; c++) {
-            const rand = randHex(4);
-            const { data, outExt } = await processImage(buf, ext, flags, { country: userCountry || undefined, iphoneMeta: useIphoneMeta });
-            const outName = `DuupFlow_${stamp}_img${i + 1}_c${c + 1}_${Date.now()}${rand}${outExt}`;
-            const outPath = path.join(dir, outName);
+            try {
+              const rand = randHex(4);
+              // runImageOp caps how many sharp pipelines run at once across ALL
+              // requests → prevents a burst of image jobs from OOM-ing the box.
+              const { data, outExt } = await runImageOp(() =>
+                processImage(buf, ext, flags, { country: userCountry || undefined, iphoneMeta: useIphoneMeta })
+              );
+              const outName = `DuupFlow_${stamp}_img${i + 1}_c${c + 1}_${Date.now()}${rand}${outExt}`;
+              const outPath = path.join(dir, outName);
 
-            await fs.mkdir(dir, { recursive: true }).catch(() => {});
-            await fs.writeFile(outPath, data);
+              await fs.mkdir(dir, { recursive: true }).catch(() => {});
+              await fs.writeFile(outPath, data);
 
-            done++;
-            processedOk++;
-            const pct = Math.round((done / totalTasks) * 100);
-            const url = `/api/out/${userId}/${outName}`;
+              done++;
+              processedOk++;
+              const pct = Math.round((done / totalTasks) * 100);
+              const url = `/api/out/${userId}/${outName}`;
 
-            send({
-              percent: pct,
-              msg: `${done}/${totalTasks} image(s) traitée(s)…`,
-              fileReady: { name: outName, url },
-            });
+              send({
+                percent: pct,
+                msg: `${done}/${totalTasks} image(s) traitée(s)…`,
+                fileReady: { name: outName, url },
+              });
+            } catch (e: any) {
+              // Per-copy isolation: one bad image/copy must not abort the whole
+              // batch (and the copies that DID succeed are still billed below).
+              console.error(`[duplicate-image] copy failed (${fileName}):`, e?.message);
+              send({ error: true, msg: `Échec sur une copie de ${fileName}` });
+            }
           }
 
           // Clean up temp input file after all copies of this image are done
           await fs.unlink(tmpPath).catch(() => {});
         }
 
-        generationSucceeded = true;
         send({ percent: 100, msg: "Terminé ✔", done: true, processedOk });
       } catch (e: any) {
         console.error("[duplicate-image] error:", e?.message);
         send({ error: true, msg: "Une erreur est survenue pendant le traitement. Contactez le support.", code: "IMG-002" });
       } finally {
         clearInterval(keepalive);
-        if (generationSucceeded && usageCheck.userId) {
+        // Bill for whatever actually succeeded, even if the batch threw partway —
+        // otherwise already-produced copies would be free (quota bypass).
+        if (processedOk > 0 && usageCheck.userId) {
           incrementUsage(usageCheck.userId, "images", processedOk).catch(console.error);
         }
         try { controller.close(); } catch {}

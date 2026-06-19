@@ -75,6 +75,19 @@ export function stopJob(id: string): void {
   const job = jobs.get(id);
   if (!job) return;
   job.ctrl?.abort("stopped");
+  // The encode runs in-process server-side and survives client disconnect by
+  // design, so aborting the local fetch isn't enough — tell the server to halt
+  // the actual ffmpeg work. (Video only; images don't use the job registry.)
+  if (job.type === "video") {
+    try {
+      fetch("/api/duplicate-video/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: id }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {}
+  }
   const n = job.completedFiles.length;
   jobs.set(id, {
     ...job,

@@ -5,9 +5,11 @@ import { useFormStatus } from "react-dom";
 import Dropzone from "../Dropzone";
 import ToggleChip from "../ToggleChip";
 import { duplicateVideos } from "../actions";
+import { useTranslation } from "@/lib/i18n/context";
 
 /* ---------- UI helpers ---------- */
 function SubmitWithProgress() {
+  const { t } = useTranslation();
   const { pending } = useFormStatus();
   return (
     <>
@@ -19,7 +21,7 @@ function SubmitWithProgress() {
           pending ? "bg-gray-500 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-500"
         }`}
       >
-        {pending ? "Duplication en cours…" : "Dupliquer les vidéos"}
+        {pending ? t("vid.legacy.duplicating") : t("vid.legacy.duplicateButton")}
       </button>
 
       {pending && (
@@ -107,6 +109,15 @@ const ADVANCED_CONTROLS: {
 type Template = { name: string; ranges: Record<string, { min: number; max: number; enabled: boolean }> };
 const TEMPL_KEY = "duupflow_video_templates_v1";
 
+// Stable i18n tokens for the legacy advanced-tab group legends (group names stay
+// in the data model but are localized at render via t("vid.legacyGroup.<token>")).
+const LEGACY_GROUP_TOKEN: Record<string, string> = {
+  "Visuel": "visual",
+  "Temps/Mouvement": "motion",
+  "Technique (vidéo)": "technical",
+  "Audio": "audio",
+};
+
 /* ---------- Composants ---------- */
 function PackCard({
   name,
@@ -137,6 +148,7 @@ function PackCard({
 
 /* ---------- Onglet SIMPLE (avec Filtres seuls) ---------- */
 function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<Record<string, boolean>>({
     metadata: true,
     audio: false,
@@ -177,7 +189,7 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2 text-white/80">Nombre de copies</label>
+        <label className="block text-sm font-medium mb-2 text-white/80">{t("vid.legacy.copiesLabel")}</label>
         <input
           type="number"
           name="count"
@@ -189,37 +201,37 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
 
       {/* Packs */}
       <fieldset className="space-y-3" data-tour-id="video-packs">
-        <legend className="text-sm font-semibold text-white/90 mb-2">Packs (cumulables)</legend>
+        <legend className="text-sm font-semibold text-white/90 mb-2">{t("vid.legacy.packsLegend")}</legend>
         <input type="hidden" name="packs" value={packsSelected.join(",")} />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {(Object.keys(PACKS) as (keyof typeof PACKS)[]).map((k) => (
             <PackCard
               key={k}
               name={k}
-              label={PACKS[k].label}
-              hint={PACKS[k].hint}
+              label={t(`vid.legacyPacks.${k}.label`)}
+              hint={t(`vid.legacyPacks.${k}.hint`)}
               selected={selected[k]}
               onToggle={(n) => setSelected((s) => ({ ...s, [n]: !s[n] }))}
             />
           ))}
         </div>
         <div className="text-xs text-white/50">
-          Note : ces packs restent <b>très légers</b>. Les filtres ci-dessous s’appliquent en plus.
+          {t("vid.legacy.packsNotePre")} <b>{t("vid.legacy.packsNoteBold")}</b>{t("vid.legacy.packsNotePost")}
         </div>
       </fieldset>
 
       {/* Filtres seuls (cumulables) */}
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4">
-        <h3 className="font-semibold">Filtres seuls (cumulables)</h3>
+        <h3 className="font-semibold">{t("vid.legacy.filtersOnly")}</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="checkbox" checked={flip} onChange={(e)=>setFlip(e.target.checked)} />
-            <span>Flip (vertical)</span>
+            <span>{t("vid.opt.flip")}</span>
           </label>
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="checkbox" checked={reverse} onChange={(e)=>setReverse(e.target.checked)} />
-            <span>Reverse (miroir horizontal)</span>
+            <span>{t("vid.opt.reverse")}</span>
           </label>
         </div>
 
@@ -227,8 +239,8 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
           {/* Rotation */}
           <div>
             <div className="flex items-center justify-between text-sm">
-              <label className="font-medium">Rotation (°)</label>
-              <span className="text-white/70">Valeur : {rot.toFixed(1)}°</span>
+              <label className="font-medium">{t("vid.legacy.rotationLabel")}</label>
+              <span className="text-white/70">{t("vid.legacy.value", { value: `${rot.toFixed(1)}°` })}</span>
             </div>
             <input type="range" min={-10} max={10} step={0.1} value={rot} onChange={(e)=>setRot(Number(e.target.value))}
               className="w-full" />
@@ -238,15 +250,15 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between text-sm">
-                <label className="font-medium">Dimension – Largeur (%)</label>
-                <span className="text-white/70">Valeur : {dimW.toFixed(1)}%</span>
+                <label className="font-medium">{t("vid.legacy.dimWidth")}</label>
+                <span className="text-white/70">{t("vid.legacy.value", { value: `${dimW.toFixed(1)}%` })}</span>
               </div>
               <input type="range" min={-20} max={20} step={0.1} value={dimW} onChange={(e)=>setDimW(Number(e.target.value))} className="w-full" />
             </div>
             <div>
               <div className="flex items-center justify-between text-sm">
-                <label className="font-medium">Dimension – Hauteur (%)</label>
-                <span className="text-white/70">Valeur : {dimH.toFixed(1)}%</span>
+                <label className="font-medium">{t("vid.legacy.dimHeight")}</label>
+                <span className="text-white/70">{t("vid.legacy.value", { value: `${dimH.toFixed(1)}%` })}</span>
               </div>
               <input type="range" min={-20} max={20} step={0.1} value={dimH} onChange={(e)=>setDimH(Number(e.target.value))} className="w-full" />
             </div>
@@ -255,8 +267,8 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
           {/* Bordure */}
           <div>
             <div className="flex items-center justify-between text-sm">
-              <label className="font-medium">Bordure (pad) [px]</label>
-              <span className="text-white/70">Valeur : {border.toFixed(0)}px</span>
+              <label className="font-medium">{t("vid.legacy.borderLabel")}</label>
+              <span className="text-white/70">{t("vid.legacy.value", { value: `${border.toFixed(0)}px` })}</span>
             </div>
             <input type="range" min={0} max={40} step={1} value={border} onChange={(e)=>setBorder(Number(e.target.value))}
               className="w-full" />
@@ -271,6 +283,7 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
 
 /* ---------- Onglet AVANCÉ (inchangé ici) ---------- */
 function AdvancedTab({ channel }: { channel: "simple" | "advanced" }) {
+  const { t } = useTranslation();
   const [ranges, setRanges] = useState<Record<string, { min: number; max: number; enabled: boolean }>>(
     () =>
       Object.fromEntries(
@@ -322,7 +335,7 @@ function AdvancedTab({ channel }: { channel: "simple" | "advanced" }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2 text-white/80">Nombre de copies</label>
+        <label className="block text-sm font-medium mb-2 text-white/80">{t("vid.legacy.copiesLabel")}</label>
         <input type="number" name="count" min={1} defaultValue={1}
           className="block w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-white/90" />
       </div>
@@ -332,27 +345,27 @@ function AdvancedTab({ channel }: { channel: "simple" | "advanced" }) {
 
       {groups.map((g) => (
         <fieldset key={g} className="space-y-3">
-          <legend className="text-sm font-semibold text-white/90">{g}</legend>
+          <legend className="text-sm font-semibold text-white/90">{LEGACY_GROUP_TOKEN[g] ? t(`vid.legacyGroup.${LEGACY_GROUP_TOKEN[g]}`) : g}</legend>
           {/* ... tes cartes de contrôles comme avant ... */}
         </fieldset>
       ))}
 
       {/* Templates */}
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
-        <h3 className="font-semibold">Templates</h3>
+        <h3 className="font-semibold">{t("vid.legacy.templatesTitle")}</h3>
         <div className="flex gap-2">
-          <input value={tplName} onChange={(e)=>setTplName(e.target.value)} placeholder="Nom de la template…" className="flex-1 rounded-md border border-white/15 bg-transparent px-3 py-2 text-sm" />
-          <button type="button" onClick={onSaveTpl} className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-2">Enregistrer</button>
-          <button type="button" onClick={onReset} className="rounded-lg border border-white/20 px-3 py-2 text-sm hover:bg-white/10">Reset</button>
+          <input value={tplName} onChange={(e)=>setTplName(e.target.value)} placeholder={t("vid.legacy.templatePlaceholder")} className="flex-1 rounded-md border border-white/15 bg-transparent px-3 py-2 text-sm" />
+          <button type="button" onClick={onSaveTpl} className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-2">{t("vid.legacy.save")}</button>
+          <button type="button" onClick={onReset} className="rounded-lg border border-white/20 px-3 py-2 text-sm hover:bg-white/10">{t("vid.legacy.reset")}</button>
         </div>
         {templates.length === 0 ? (
-          <p className="text-sm text-white/50">Aucune template sauvegardée.</p>
+          <p className="text-sm text-white/50">{t("vid.legacy.noTemplates")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {templates.map((t) => (
-              <span key={t.name} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1 text-sm bg-white/5">
-                <button type="button" onClick={()=>onLoadTpl(t)} className="underline">{t.name}</button>
-                <button type="button" onClick={()=>onDeleteTpl(t.name)} className="rounded-full bg-white/10 hover:bg-white/20 px-2" title="Supprimer">×</button>
+            {templates.map((tpl) => (
+              <span key={tpl.name} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1 text-sm bg-white/5">
+                <button type="button" onClick={()=>onLoadTpl(tpl)} className="underline">{tpl.name}</button>
+                <button type="button" onClick={()=>onDeleteTpl(tpl.name)} className="rounded-full bg-white/10 hover:bg-white/20 px-2" title={t("vid.tpl.delete")}>×</button>
               </span>
             ))}
           </div>
@@ -374,6 +387,7 @@ export default function VideoFormClient({
   forceTab?: "simple" | "advanced";
   channel?: "simple" | "advanced";
 }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<"simple" | "advanced">(forceTab);
 
   return (
@@ -387,7 +401,7 @@ export default function VideoFormClient({
             onClick={() => setTab("simple")}
             type="button"
           >
-            Simple
+            {t("vid.legacy.tabSimple")}
           </button>
           <button
             className={`px-4 py-2 rounded-lg text-sm ${
@@ -396,7 +410,7 @@ export default function VideoFormClient({
             onClick={() => setTab("advanced")}
             type="button"
           >
-            Avancé
+            {t("vid.legacy.tabAdvanced")}
           </button>
         </div>
       )}

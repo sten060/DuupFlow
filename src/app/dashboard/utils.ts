@@ -45,20 +45,16 @@ export { OUT_BASE };
  */
 export async function cleanupOldFiles(maxAgeMs = 1 * 60 * 60 * 1000): Promise<number> {
   let deleted = 0;
+  const now = Date.now();
+
+  // 1) Output files under OUT_BASE/<userId>/ (the user's generated results).
   try {
-    const base = OUT_BASE;
-    let userDirs: import("fs").Dirent[];
-    try {
-      userDirs = await fs.readdir(base, { withFileTypes: true });
-    } catch {
-      return 0; // base dir doesn't exist yet
-    }
-    const now = Date.now();
+    const userDirs = await fs.readdir(OUT_BASE, { withFileTypes: true });
     await Promise.all(
       userDirs
         .filter((e) => e.isDirectory())
         .map(async (e) => {
-          const dir = path.join(base, e.name);
+          const dir = path.join(OUT_BASE, e.name);
           let files: import("fs").Dirent[];
           try { files = await fs.readdir(dir, { withFileTypes: true }); } catch { return; }
           await Promise.all(
@@ -68,15 +64,35 @@ export async function cleanupOldFiles(maxAgeMs = 1 * 60 * 60 * 1000): Promise<nu
                 const fp = path.join(dir, f.name);
                 try {
                   const stat = await fs.stat(fp);
-                  if (now - stat.mtimeMs > maxAgeMs) {
-                    await fs.unlink(fp);
-                    deleted++;
-                  }
+                  if (now - stat.mtimeMs > maxAgeMs) { await fs.unlink(fp); deleted++; }
                 } catch {}
               })
           );
         })
     );
+  } catch { /* OUT_BASE not created yet */ }
+
+  // 2) Orphaned source/temp files in the OS temp dir (duup_direct_*, duup_in_*,
+  //    duup_probe_*). They're normally deleted when a job finishes, but leak on
+  //    crash / restart / abandoned upload — and nothing else ever reclaims them,
+  //    slowly filling the container disk. A conservative 6 h floor guarantees we
+  //    never delete the source temps of a long-running (but still live) job.
+  try {
+    const TMP_ORPHAN_MS = Math.max(maxAgeMs, 6 * 60 * 60 * 1000);
+    const tmp = os.tmpdir();
+    const entries = await fs.readdir(tmp, { withFileTypes: true });
+    await Promise.all(
+      entries
+        .filter((e) => e.isFile() && e.name.startsWith("duup_"))
+        .map(async (e) => {
+          const fp = path.join(tmp, e.name);
+          try {
+            const stat = await fs.stat(fp);
+            if (now - stat.mtimeMs > TMP_ORPHAN_MS) { await fs.unlink(fp); deleted++; }
+          } catch {}
+        })
+    );
   } catch {}
+
   return deleted;
 }

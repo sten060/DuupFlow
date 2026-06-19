@@ -251,8 +251,8 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => { if (collapsed) setCollapsed(false); }}
-          title={collapsed ? "Déplier le menu" : undefined}
-          aria-label={collapsed ? "Déplier le menu" : "DuupFlow"}
+          title={collapsed ? t("dashboard.sidebar.expandMenu") : undefined}
+          aria-label={collapsed ? t("dashboard.sidebar.expandMenu") : "DuupFlow"}
           className={collapsed ? "cursor-pointer transition-transform hover:scale-105" : "cursor-default"}
         >
           <Image
@@ -268,8 +268,8 @@ export default function Sidebar() {
           <button
             type="button"
             onClick={() => setCollapsed(true)}
-            title="Réduire le menu"
-            aria-label="Réduire le menu"
+            title={t("dashboard.sidebar.collapseMenu")}
+            aria-label={t("dashboard.sidebar.collapseMenu")}
             className="text-white/30 hover:text-white/70 transition p-1 -mr-1"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">

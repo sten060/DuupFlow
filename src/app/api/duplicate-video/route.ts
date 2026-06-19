@@ -6,6 +6,7 @@ import { processVideos } from "@/app/dashboard/videos/processVideos";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkUsage, incrementUsage } from "@/lib/usage";
+import { jobRegistry, type JobEntry } from "./jobRegistry";
 
 const INPUT_BUCKET = "video-uploads";
 const OUTPUT_BUCKET = "video-outputs";
@@ -19,17 +20,9 @@ const SSE_HEADERS = {
   "X-Accel-Buffering": "no",
 };
 
-// ── Server-side job registry ────────────────────────────────────────────────
-// Module-level singleton: survives across requests in the same Railway process.
-// When a client's SSE connection drops and reconnects with the same jobId,
-// we replay buffered events + forward live ones — NO FFmpeg restart, NO temp
-// file re-read, NO duplicate output files.
-type JobEntry = {
-  events: object[];   // all SSE data events buffered (keepalives excluded)
-  done: boolean;
-  tmpPaths: string[]; // source temp files — only deleted once job.done = true
-};
-const jobRegistry = new Map<string, JobEntry>();
+// Job registry + explicit-stop signalling live in ./jobRegistry (shared with the
+// /stop route). On reconnect with the same jobId we replay buffered events —
+// NO FFmpeg restart, NO temp re-read, NO duplicate outputs.
 
 export async function POST(req: Request) {
   void cleanupOldFiles(1 * 60 * 60 * 1000);
@@ -137,8 +130,11 @@ export async function POST(req: Request) {
 
   const usageUserId = usageCheck.userId;
 
-  // Register job — reconnects will find it here
-  const jobEntry: JobEntry = { events: [], done: false, tmpPaths: [] };
+  // Register job — reconnects will find it here. jobAbort is fired by the /stop
+  // route to actually halt server-side encoding (which otherwise survives a
+  // client disconnect by design).
+  const jobAbort = new AbortController();
+  const jobEntry: JobEntry = { events: [], done: false, tmpPaths: [], abort: jobAbort };
   if (jobId) jobRegistry.set(jobId, jobEntry);
 
   const stream = new ReadableStream({
@@ -159,6 +155,8 @@ export async function POST(req: Request) {
 
       let errorCode = "VID-004";
       let generationSucceeded = false;
+      let stopped = false;
+      let deliveredCount = 0;
 
       try {
         type PreDownloaded = { name: string; tmpPath: string };
@@ -209,7 +207,7 @@ export async function POST(req: Request) {
 
         errorCode = "VID-004";
         const hasVolume = !!process.env.OUT_BASE;
-        const { channel, outputPaths, skippedCount, rejectedFiles } = await processVideos(
+        const { channel, outputPaths, skippedCount, rejectedFiles, stopped: jobStopped } = await processVideos(
           formData,
           async (pct, msg) => { send({ percent: 8 + Math.round(pct * 0.91), msg }); },
           dir,
@@ -220,7 +218,10 @@ export async function POST(req: Request) {
                 send({ fileReady: { name, url: `/api/out/${userId}/${name}` } });
               }
             : undefined,
+          jobAbort.signal,
         );
+        stopped = jobStopped;
+        deliveredCount = outputPaths.length;
 
         errorCode = "VID-005";
         if (!hasVolume && (hasStoragePaths || hasDirectUploads) && outputPaths.length > 0) {
@@ -245,23 +246,35 @@ export async function POST(req: Request) {
         }
 
         generationSucceeded = true;
-        // Build a single warning combining (a) files rejected at probe stage
-        // (corrupted / too long) and (b) per-copy FFmpeg failures during
-        // encoding. The user sees one clear message with filenames instead of
-        // having to wonder what happened.
-        const warningParts: string[] = [];
-        if (rejectedFiles.length > 0) {
-          warningParts.push(
-            `⚠ ${rejectedFiles.length} fichier(s) rejeté(s) avant traitement : ${rejectedFiles.join(", ")}.`
-          );
+        if (stopped) {
+          // Explicit Stop: deliver whatever finished before the halt.
+          send({
+            percent: 100,
+            msg: deliveredCount > 0 ? `Arrêté — ${deliveredCount} fichier(s) prêt(s)` : "Arrêté",
+            done: true,
+            stopped: true,
+            userId,
+            channel,
+          });
+        } else {
+          // Build a single warning combining (a) files rejected at probe stage
+          // (corrupted / too long) and (b) per-copy FFmpeg failures during
+          // encoding. The user sees one clear message with filenames instead of
+          // having to wonder what happened.
+          const warningParts: string[] = [];
+          if (rejectedFiles.length > 0) {
+            warningParts.push(
+              `⚠ ${rejectedFiles.length} fichier(s) rejeté(s) avant traitement : ${rejectedFiles.join(", ")}.`
+            );
+          }
+          if (skippedCount > 0) {
+            warningParts.push(
+              `⚠ ${skippedCount} duplication(s) ont échoué (erreur FFmpeg) — ${outputPaths.length} générée(s) sur ${outputPaths.length + skippedCount} demandée(s).`
+            );
+          }
+          const warning = warningParts.length > 0 ? warningParts.join(" ") : undefined;
+          send({ percent: 100, msg: warning ?? "Terminé ✔", done: true, userId, channel, warning });
         }
-        if (skippedCount > 0) {
-          warningParts.push(
-            `⚠ ${skippedCount} duplication(s) ont échoué (erreur FFmpeg) — ${outputPaths.length} générée(s) sur ${outputPaths.length + skippedCount} demandée(s).`
-          );
-        }
-        const warning = warningParts.length > 0 ? warningParts.join(" ") : undefined;
-        send({ percent: 100, msg: warning ?? "Terminé ✔", done: true, userId, channel, warning });
 
       } catch (e: any) {
         // For VID-004 we prefer the specific message from processVideos
@@ -294,7 +307,11 @@ export async function POST(req: Request) {
         if (jobId) setTimeout(() => jobRegistry.delete(jobId), 120_000);
 
         if (generationSucceeded && usageUserId) {
-          incrementUsage(usageUserId, "videos", requestedCount).catch(console.error);
+          // Bill only the copies actually generated — never the requested count.
+          // Rejected files (probe stage) and per-copy ffmpeg failures must not be
+          // charged, and an explicit Stop bills just what was delivered. checkUsage
+          // already gate-kept on the requested count up front.
+          if (deliveredCount > 0) incrementUsage(usageUserId, "videos", deliveredCount).catch(console.error);
         }
 
         try { controller.close(); } catch {}

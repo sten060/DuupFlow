@@ -197,11 +197,11 @@ export default function SettingsClient({
     });
     const data = await res.json();
     if (res.ok) {
-      setInviteMsg({ type: "ok", text: `Invitation envoyée à ${guestEmail.trim()}.` });
+      setInviteMsg({ type: "ok", text: t("dashboard.settings.inviteSent", { email: guestEmail.trim() }) });
       setLocalInvitations((prev) => [...prev, { id: "pending-" + Date.now(), guest_email: guestEmail.trim(), status: "pending" }]);
       setGuestEmail("");
     } else {
-      setInviteMsg({ type: "err", text: data.error ?? "Erreur." });
+      setInviteMsg({ type: "err", text: data.error ?? t("dashboard.settings.inviteError") });
     }
     setInviteLoading(false);
   }
@@ -237,10 +237,10 @@ export default function SettingsClient({
         setSupportSubject("");
         setSupportMessage("");
       } else {
-        setSupportMsg({ type: "err", text: data.error ?? "Erreur lors de l'envoi." });
+        setSupportMsg({ type: "err", text: data.error ?? t("dashboard.settings.supportSendError") });
       }
     } catch {
-      setSupportMsg({ type: "err", text: "Erreur réseau." });
+      setSupportMsg({ type: "err", text: t("dashboard.settings.supportNetworkError") });
     }
     setSupportLoading(false);
   }
@@ -256,7 +256,7 @@ export default function SettingsClient({
     <div className="p-8 max-w-5xl">
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1.5">Dashboard</p>
+        <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1.5">{t("dashboard.home.dashboard")}</p>
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold text-white tracking-tight">{t("dashboard.settings.title")}</h1>
           {planLabel && (
@@ -415,7 +415,7 @@ export default function SettingsClient({
                         <button
                           onClick={() => removeInvitation(inv.id)}
                           className="text-white/20 hover:text-red-400/70 transition p-1"
-                          title="Retirer"
+                          title={t("dashboard.settings.removeInvite")}
                         >
                           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10H3z" />
@@ -454,8 +454,7 @@ export default function SettingsClient({
                 </p>
               )}
               <p className="mt-4 text-[11px] text-white/25 leading-relaxed">
-                La personne invitée recevra un lien magique par email pour rejoindre ton workspace.
-                Elle pourra utiliser tous les modules sous son propre prénom.
+                {t("dashboard.settings.teamInviteInfo")}
               </p>
             </Card>
           </div>

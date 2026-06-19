@@ -17,10 +17,11 @@ import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
 import UpgradePlanModal from "@/app/dashboard/components/UpgradePlanModal";
 
 function ProgressBar({ percent, label }: { percent: number; label?: string }) {
+  const { t } = useTranslation();
   return (
     <div className="w-full">
       <div className="mb-1 flex items-center justify-between text-xs text-white/70">
-        <span>{label ?? "Progress"}</span>
+        <span>{label ?? t("vid.progress.label")}</span>
         <span>{percent}%</span>
       </div>
       <div className="h-2.5 w-full rounded-full bg-white/10 overflow-hidden">
@@ -214,7 +215,7 @@ export default function VideoFormSimpleClient() {
       const oversized = uploadedFiles.filter(f => f.size > MAX_FILE_BYTES);
       if (oversized.length > 0) {
         const names = oversized.map(f => f.name).join(", ");
-        const errMsg = `[CLT-006] Fichier(s) trop volumineux (max 5 Go) : ${names}`;
+        const errMsg = `[CLT-006] ${t("vid.err.tooLarge", { names })}`;
         setErrorMsg(errMsg);
         setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
         setProcessing(false);
@@ -224,7 +225,7 @@ export default function VideoFormSimpleClient() {
       // All files go directly to Railway — reliable, no Supabase size limits
       let apiForm: FormData;
       if (uploadedFiles.length > 0 && uploadedFiles[0].size > 0) {
-        setProgressMsg(`Envoi vidéo 1/${uploadedFiles.length}…`);
+        setProgressMsg(t("vid.upload.start", { total: uploadedFiles.length }));
         setProgress(0);
 
         // PARALLEL uploads, bounded to 4 at a time. One-by-one before was safe
@@ -306,7 +307,7 @@ export default function VideoFormSimpleClient() {
       sseLoop: while (true) {
         if (sseAttempt > 0) {
           const delay = sseAttempt * 3000; // 3 s → 6 s → 9 s
-          const reconnMsg = `Reconnexion (${sseAttempt}/${MAX_SSE_RETRIES})…`;
+          const reconnMsg = t("vid.sse.reconnecting", { attempt: sseAttempt, max: MAX_SSE_RETRIES });
           setProgressMsg(reconnMsg);
           setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: reconnMsg, status: "running" });
           await new Promise(r => setTimeout(r, delay));
@@ -334,7 +335,7 @@ export default function VideoFormSimpleClient() {
               setProcessing(false);
               return;
             }
-            const errMsg = `[${code}] Une erreur est survenue. Réessayez ou contactez le support.`;
+            const errMsg = `[${code}] ${t("vid.err.generic")}`;
             setErrorMsg(errMsg);
             setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
             setProcessing(false);
@@ -390,7 +391,7 @@ export default function VideoFormSimpleClient() {
                   }
                   if (evt.error) {
                     const code = evt.code || "VID-004";
-                    const errMsg = `[${code}] ${evt.msg || "Erreur FFmpeg"}`;
+                    const errMsg = `[${code}] ${evt.msg || t("vid.err.ffmpeg")}`;
                     setErrorMsg(errMsg);
                     setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
                     setProcessing(false);
@@ -443,7 +444,7 @@ export default function VideoFormSimpleClient() {
     } catch (err: any) {
       if (err?.name === "AbortError") {
         if (ctrl.signal.reason === "timeout") {
-          const errMsg = "[CLT-003] Délai dépassé — la vidéo est trop longue ou le serveur est surchargé.";
+          const errMsg = `[CLT-003] ${t("vid.err.timeout")}`;
           setErrorMsg(errMsg);
           setJob({ id: jobId, type: "video", channel: "simple", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
         } else if (ctrl.signal.reason === "stopped") {
@@ -456,12 +457,14 @@ export default function VideoFormSimpleClient() {
         const rawMsg = (err as Error)?.message || "";
         console.error("[duplicate-video] client error:", rawMsg); // keep diagnostics for support
         const lower = rawMsg.toLowerCase();
-        const isStorageSize = lower.includes("trop volumineux") || lower.includes("maximum allowed size");
+        // Detect the client-side size guard by its error CODE (locale-independent —
+        // the message itself is now translated) plus the Supabase storage phrase.
+        const isStorageSize = rawMsg.includes("CLT-006") || lower.includes("maximum allowed size");
         // Client-side validation (duration > 50 s) carries a `validation` flag and an
         // already-localized, actionable message — show it as-is.
         const isValidation = (err as { validation?: boolean })?.validation === true;
         const errMsg = isStorageSize
-          ? `[CLT-006] ${rawMsg}`
+          ? (rawMsg.includes("CLT-006") ? rawMsg : `[CLT-006] ${rawMsg}`)
           : isValidation
           ? rawMsg
           : t("dashboard.videosCommon.errorGeneric");
@@ -552,8 +555,8 @@ export default function VideoFormSimpleClient() {
       <div>
         <h3 className="text-sm font-semibold text-white/90 mb-3">{t("dashboard.videosSimple.optionsTitle")}</h3>
         <div className="flex flex-wrap items-end gap-4">
-          <Toggle checked={flip} onChange={setFlip} label="Flip (vertical)" />
-          <Toggle checked={reverse} onChange={setReverse} label="Reverse (miroir horizontal)" />
+          <Toggle checked={flip} onChange={setFlip} label={t("vid.opt.flip")} />
+          <Toggle checked={reverse} onChange={setReverse} label={t("vid.opt.reverse")} />
           <div className="flex-1 min-w-[200px] max-w-xs">
             <label className="block text-sm font-medium text-white/70 mb-1">{t("dashboard.videosSimple.countryLabel")}</label>
             <CountrySelect
@@ -580,7 +583,7 @@ export default function VideoFormSimpleClient() {
               style={{ width: `${Math.max(0, Math.min(100, shownProgress))}%` }}
             />
           </div>
-          <p className="mt-1 text-xs text-white/50">{shownMsg || `Progression… ${shownProgress}%`}</p>
+          <p className="mt-1 text-xs text-white/50">{shownMsg || t("vid.progress.percent", { percent: shownProgress })}</p>
         </div>
       )}
 

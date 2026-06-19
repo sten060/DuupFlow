@@ -219,7 +219,7 @@ export default function ImageFormClient({ initialImages }: Props) {
         );
         if (!uploadRes.ok) {
           const j = await uploadRes.json().catch(() => ({}));
-          throw new Error(j?.error || `[CLT-006] Erreur upload HTTP ${uploadRes.status}`);
+          throw new Error(j?.error || `[CLT-006] ${t("img.errorUploadHttp", { status: String(uploadRes.status) })}`);
         }
         const { uploadId, name } = await uploadRes.json();
         completedUploads++;
@@ -312,7 +312,7 @@ export default function ImageFormClient({ initialImages }: Props) {
                 );
               }
               if (evt.error) {
-                const errMsg = `[IMG-003] ${evt.msg || "Erreur traitement image"}`;
+                const errMsg = `[IMG-003] ${evt.msg || t("img.errorProcessing")}`;
                 setErrorMsg(errMsg);
                 setJob({ id: jobId, type: "image", channel: "image", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
                 return;
@@ -332,14 +332,14 @@ export default function ImageFormClient({ initialImages }: Props) {
       }
 
       if (!receivedDone) {
-        const errMsg = "[CLT-004] Le serveur n'a pas répondu. Réessayez.";
+        const errMsg = `[CLT-004] ${t("img.errorNoResponse")}`;
         setErrorMsg(errMsg);
         setJob({ id: jobId, type: "image", channel: "image", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
       }
     } catch (err: any) {
       if (err?.name === "AbortError") {
         if (ctrl.signal.reason === "timeout") {
-          const errMsg = "[CLT-003] Délai dépassé — traitement trop long.";
+          const errMsg = `[CLT-003] ${t("img.errorTimeout")}`;
           setErrorMsg(errMsg);
           setJob({ id: jobId, type: "image", channel: "image", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
         } else if (ctrl.signal.reason === "stopped") {
@@ -348,7 +348,7 @@ export default function ImageFormClient({ initialImages }: Props) {
           removeJob(jobId);
         }
       } else {
-        const errMsg = `[CLT-005] Erreur réseau — ${err?.message || "connexion interrompue."}`;
+        const errMsg = `[CLT-005] ${t("img.errorNetwork", { msg: err?.message || t("img.errorConnectionLost") })}`;
         setErrorMsg(errMsg);
         setJob({ id: jobId, type: "image", channel: "image", progress: 0, msg: errMsg, status: "error", errorMsg: errMsg });
       }
@@ -369,7 +369,7 @@ export default function ImageFormClient({ initialImages }: Props) {
           onClick={() => !processing && inputRef.current?.click()}
           className="group relative rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 transition
                      hover:border-fuchsia-500/30 cursor-pointer"
-          aria-label="Zone de dépôt"
+          aria-label={t("img.dropzoneAria")}
         >
           <div className="pointer-events-none select-none">
             <p className="text-sm text-white/70">
@@ -404,14 +404,14 @@ export default function ImageFormClient({ initialImages }: Props) {
                         if (url) URL.revokeObjectURL(url);
                       }}
                       className="absolute top-1 right-1 z-10 inline-flex items-center justify-center h-6 w-6 rounded-full bg-black/60 text-white hover:bg-black/80"
-                      aria-label="Supprimer"
+                      aria-label={t("img.removeFileAria")}
                     >
                       ×
                     </button>
                     {heic ? (
                       <div className="aspect-video w-full flex flex-col items-center justify-center gap-1 bg-fuchsia-500/5 text-fuchsia-300/70">
                         <span className="text-[10px] uppercase tracking-wider font-semibold">HEIC</span>
-                        <span className="text-[10px] text-white/40">converti à l'envoi</span>
+                        <span className="text-[10px] text-white/40">{t("img.heicConverted")}</span>
                       </div>
                     ) : (
                       <img

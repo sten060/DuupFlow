@@ -183,7 +183,7 @@ export default function AiDetectionClient() {
   function handleFilesChange(newFiles: File[]) {
     if (newFiles.length > MAX_FILES) {
       setLimitError(
-        `Limite dépassée — tu as sélectionné ${newFiles.length} fichiers, le maximum est ${MAX_FILES}. Seuls les ${MAX_FILES} premiers ont été conservés.`
+        t("det.limitExceeded", { count: String(newFiles.length), max: String(MAX_FILES), maxKept: String(MAX_FILES) })
       );
       setFiles(newFiles.slice(0, MAX_FILES));
     } else {
@@ -205,7 +205,7 @@ export default function AiDetectionClient() {
     if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
     pendingTimeoutRef.current = setTimeout(() => {
       setPending(false);
-      setResult({ ok: false, error: "[CLT-003] Délai dépassé — réessaie avec moins de fichiers." });
+      setResult({ ok: false, error: `[CLT-003] ${t("det.errorTimeout")}` });
     }, timeoutMs);
 
     maskAiMetadata(fd)
@@ -220,7 +220,7 @@ export default function AiDetectionClient() {
       })
       .catch((err) => {
         if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
-        setResult({ ok: false, error: `[CLT-007] ${err?.message || "Erreur serveur."}` });
+        setResult({ ok: false, error: `[CLT-007] ${err?.message || t("det.errorServer")}` });
       })
       .finally(() => setPending(false));
   }
@@ -264,9 +264,11 @@ export default function AiDetectionClient() {
           </svg>
         }
       >
-        Ce module supprime toutes les métadonnées IA — y compris les manifestes C2PA utilisés par Meta/Threads.
-        Certaines plateformes utilisent aussi une <span className="text-amber-200/90">détection basée sur le contenu visuel</span> (pixels, patterns) indépendante des métadonnées.
-        Pour contourner cette couche, utilise le module <strong className="text-amber-200/80">Duplication Images</strong> afin d'appliquer des micro-variations visuelles.
+        {t("det.platformNoticeBody1")}{" "}
+        <span className="text-amber-200/90">{t("det.platformNoticeContentDetection")}</span>{" "}
+        {t("det.platformNoticeBody2")}{" "}
+        <strong className="text-amber-200/80">{t("det.platformNoticeImageModule")}</strong>{" "}
+        {t("det.platformNoticeBody3")}
       </Accordion>
 
       {/* info processus — accordion */}
@@ -283,12 +285,12 @@ export default function AiDetectionClient() {
         }
       >
         <p>
-          Traitement en <strong className="text-white/70">3 étapes</strong> qui simule un workflow photographique humain :
+          {t("det.howItWorksIntro1")} <strong className="text-white/70">{t("det.howItWorksSteps")}</strong> {t("det.howItWorksIntro2")}
         </p>
         <ol className="mt-2 space-y-1 list-decimal list-inside">
-          <li><strong className="text-white/70">Suppression totale</strong> — EXIF, XMP, IPTC, C2PA/JUMBF, tous les manifestes IA effacés.</li>
-          <li><strong className="text-white/70">Traitement pixel</strong> — légère simulation de capture photo (flou objectif → bruit capteur → netteté ISP → re-compression JPEG).</li>
-          <li><strong className="text-white/70">Injection identité humaine</strong> — appareil photo réaliste, logiciel, photographe, date cohérente.</li>
+          <li><strong className="text-white/70">{t("det.step1Title")}</strong> — {t("det.step1Body")}</li>
+          <li><strong className="text-white/70">{t("det.step2Title")}</strong> — {t("det.step2Body")}</li>
+          <li><strong className="text-white/70">{t("det.step3Title")}</strong> — {t("det.step3Body")}</li>
         </ol>
       </Accordion>
 
@@ -331,7 +333,9 @@ export default function AiDetectionClient() {
             }`}
           >
             {result.ok && !result.limitReached
-              ? `✓ ${result.count} fichier${(result.count ?? 0) > 1 ? "s" : ""} traité${(result.count ?? 0) > 1 ? "s" : ""} — métadonnées effacées et réécrites.`
+              ? `✓ ${(result.count ?? 0) > 1
+                  ? t("det.resultSuccessPlural", { count: String(result.count) })
+                  : t("det.resultSuccessSingular", { count: String(result.count) })}`
               : result.ok && result.limitReached
               ? `⚠ ${result.error}`
               : `✗ ${result.error}`}

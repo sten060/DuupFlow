@@ -57,10 +57,10 @@ function JobBadge({ job }: { job: Job }) {
 
   const typeLabel =
     job.type === "image"
-      ? "Images"
+      ? t("vid.badge.images")
       : job.channel === "simple"
-      ? "Vidéo Simple"
-      : "Vidéo Avancé";
+      ? t("vid.badge.videoSimple")
+      : t("vid.badge.videoAdvanced");
 
   const statusIcon = isDone ? " ✓" : isError ? " ✗" : isStopped ? " ■" : "";
 
@@ -133,16 +133,16 @@ function JobBadge({ job }: { job: Job }) {
               type="button"
               onClick={() => stopJob(job.id)}
               className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-red-950/70 hover:bg-red-900 border border-red-700/40 text-red-300 transition"
-              title="Arrêter les duplications"
+              title={t("vid.badge.stopTitle")}
             >
-              ■ Arrêter
+              ■ {t("vid.badge.stop")}
             </button>
           )}
           <button
             type="button"
             onClick={() => setExiting(true)}
             className="rounded-full px-1 text-white/40 hover:text-white/80"
-            title="Fermer"
+            title={t("vid.badge.close")}
           >
             ×
           </button>
@@ -170,9 +170,9 @@ function JobBadge({ job }: { job: Job }) {
         ].join(" ")}
       >
         {isError
-          ? job.errorMsg || "Erreur"
+          ? job.errorMsg || t("vid.badge.error")
           : isDone
-          ? `Terminé — ${job.completedFiles.length} fichier(s)`
+          ? t("vid.badge.done", { count: job.completedFiles.length })
           : isStopped
           ? job.msg
           : job.msg || `${job.progress}%`}
@@ -183,7 +183,7 @@ function JobBadge({ job }: { job: Job }) {
         <div className="mt-2 space-y-1">
           {isError && (
             <p className="text-[10px] leading-snug text-emerald-400/90">
-              ✓ {job.completedFiles.length} copie(s) déjà réussie(s) — téléchargez-les, refaites seulement les manquantes.
+              ✓ {t("vid.badge.partialSuccess", { count: job.completedFiles.length })}
             </p>
           )}
           {/* Download selection (visible only when something is selected) */}
@@ -195,7 +195,7 @@ function JobBadge({ job }: { job: Job }) {
               className="w-full flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold bg-indigo-700/80 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-wait border border-indigo-400/40 text-white transition"
             >
               {zipping ? (
-                <><span className="animate-spin">⟳</span>Préparation ZIP…</>
+                <><span className="animate-spin">⟳</span>{t("vid.zip.preparing")}</>
               ) : (
                 <>↓ {t("common.downloadSelection", { count: String(selected.size) })}</>
               )}
@@ -212,10 +212,10 @@ function JobBadge({ job }: { job: Job }) {
             {zipping ? (
               <>
                 <span className="animate-spin">⟳</span>
-                Préparation ZIP…
+                {t("vid.zip.preparing")}
               </>
             ) : (
-              <>↓ Tout télécharger ({job.completedFiles.length})</>
+              <>↓ {t("vid.zip.downloadAll", { count: job.completedFiles.length })}</>
             )}
           </button>
 

@@ -52,13 +52,13 @@ export default function SimilarityClient() {
       fd2.append("realSize", String(file2.size));
       const r2 = await probeFile(fd2);
 
-      if ("error" in r1) { setError(`Fichier 1 : ${r1.error}`); return; }
-      if ("error" in r2) { setError(`Fichier 2 : ${r2.error}`); return; }
+      if ("error" in r1) { setError(t("cmp.file1Error", { error: r1.error })); return; }
+      if ("error" in r2) { setError(t("cmp.file2Error", { error: r2.error })); return; }
 
       setProbe1(r1);
       setProbe2(r2);
     } catch (e: any) {
-      setError(e?.message || "Erreur");
+      setError(e?.message || t("cmp.genericError"));
     } finally {
       setLoading(false);
     }
@@ -187,7 +187,7 @@ export default function SimilarityClient() {
             onDrop={makeDrop(setFile2, setProbe2)}
             className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 cursor-pointer hover:border-emerald-400/30 transition text-sm text-white/60"
           >
-            {file2 ? file2.name : "Cliquer ou glisser-déposer…"}
+            {file2 ? file2.name : t("dashboard.similarity.clickOrDrop")}
             <input ref={ref2} type="file" className="hidden" accept="video/*,image/*"
               onChange={(e) => { setFile2(e.target.files?.[0] ?? null); setProbe2(null); }} />
           </div>
@@ -274,8 +274,8 @@ export default function SimilarityClient() {
                 <thead>
                   <tr className="border-b border-white/[0.06]">
                     <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.tagColumn")}</th>
-                    <th className="text-left py-2 pr-4 text-white/50 font-medium">Fichier 1</th>
-                    <th className="text-left py-2 text-white/50 font-medium">Fichier 2</th>
+                    <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.file1Column")}</th>
+                    <th className="text-left py-2 text-white/50 font-medium">{t("dashboard.similarity.file2Column")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -309,9 +309,9 @@ export default function SimilarityClient() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-white/[0.06]">
-                        <th className="text-left py-2 pr-4 text-white/50 font-medium">Champ</th>
-                        <th className="text-left py-2 pr-4 text-white/50 font-medium">Fichier 1</th>
-                        <th className="text-left py-2 text-white/50 font-medium">Fichier 2</th>
+                        <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.fieldColumn")}</th>
+                        <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.file1Column")}</th>
+                        <th className="text-left py-2 text-white/50 font-medium">{t("dashboard.similarity.file2Column")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -344,9 +344,9 @@ export default function SimilarityClient() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-white/[0.06]">
-                        <th className="text-left py-2 pr-4 text-white/50 font-medium">Champ</th>
-                        <th className="text-left py-2 pr-4 text-white/50 font-medium">Fichier 1</th>
-                        <th className="text-left py-2 text-white/50 font-medium">Fichier 2</th>
+                        <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.fieldColumn")}</th>
+                        <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.file1Column")}</th>
+                        <th className="text-left py-2 text-white/50 font-medium">{t("dashboard.similarity.file2Column")}</th>
                       </tr>
                     </thead>
                     <tbody>

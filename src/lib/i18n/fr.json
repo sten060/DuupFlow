@@ -458,7 +458,9 @@
       "support": "Support",
       "parametres": "Paramètres",
       "deconnexion": "Deconnexion",
-      "beta": "BETA"
+      "beta": "BETA",
+      "expandMenu": "Déplier le menu",
+      "collapseMenu": "Réduire le menu"
     },
     "limitModal": {
       "title": "Oups… tu as atteint ta limite 😅",
@@ -738,12 +740,36 @@
       "sendingVideos": "Envoi de {count} video(s)...",
       "progression": "Progression... {percent}%",
       "packs": {
-        "metadata":           { "label": "Métadonnées",           "hint": "Date, encodeur, brand, uid",              "help": "Injecte des métadonnées aléatoires : date, logiciel de montage, brand container, identifiant unique. Aucune modification visuelle." },
-        "metadata_technical": { "label": "Métadonnées technique", "hint": "bitrate vidéo, GOP, fps, profil H.264",   "help": "Bitrate vidéo 3–22 Mb/s • GOP 30–500 • Profil H.264 (baseline/main/high) • FPS aléatoire." },
-        "pixel_magic":        { "label": "Pixel magique",         "hint": "Bruit luma imperceptible — hash unique",  "help": "Ajoute du bruit luma imperceptible à chaque pixel, chaque frame. Change le hash du fichier sans modification visible." },
-        "audio":              { "label": "Audio",                 "hint": "volume / petite EQ / bitrate",            "help": "Volume ±2 dB • Petit EQ peak aléatoire (100–8 000 Hz, +1.5 dB) • Bitrate audio 96–192 kb/s. Reste discret." },
-        "motion":             { "label": "Mouvement",             "hint": "zoom, légère rotation",                   "help": "Modifications infimes non visuelles :\nZoom 1.01×–1.04× • Micro panoramique 0–10% • Vitesse ±1–3% (audio synchronisé).\nImperceptible à l'œil, suffisant pour diversifier l'empreinte numérique." },
-        "visual":             { "label": "Visuels",               "hint": "EQ, hue, unsharp",                        "help": "Variations imperceptibles :\nLuminosité ±3% • Contraste ±5% • Saturation ±5% • Gamma ±3% • Hue ±3° • Unsharp très doux." }
+        "metadata": {
+          "label": "Métadonnées",
+          "hint": "Date, encodeur, brand, uid",
+          "help": "Injecte des métadonnées aléatoires : date, logiciel de montage, brand container, identifiant unique. Aucune modification visuelle."
+        },
+        "metadata_technical": {
+          "label": "Métadonnées technique",
+          "hint": "bitrate vidéo, GOP, fps, profil H.264",
+          "help": "Bitrate vidéo 3–22 Mb/s • GOP 30–500 • Profil H.264 (baseline/main/high) • FPS aléatoire."
+        },
+        "pixel_magic": {
+          "label": "Pixel magique",
+          "hint": "Bruit luma imperceptible — hash unique",
+          "help": "Ajoute du bruit luma imperceptible à chaque pixel, chaque frame. Change le hash du fichier sans modification visible."
+        },
+        "audio": {
+          "label": "Audio",
+          "hint": "volume / petite EQ / bitrate",
+          "help": "Volume ±2 dB • Petit EQ peak aléatoire (100–8 000 Hz, +1.5 dB) • Bitrate audio 96–192 kb/s. Reste discret."
+        },
+        "motion": {
+          "label": "Mouvement",
+          "hint": "zoom, légère rotation",
+          "help": "Modifications infimes non visuelles :\nZoom 1.01×–1.04× • Micro panoramique 0–10% • Vitesse ±1–3% (audio synchronisé).\nImperceptible à l'œil, suffisant pour diversifier l'empreinte numérique."
+        },
+        "visual": {
+          "label": "Visuels",
+          "hint": "EQ, hue, unsharp",
+          "help": "Variations imperceptibles :\nLuminosité ±3% • Contraste ±5% • Saturation ±5% • Gamma ±3% • Hue ±3° • Unsharp très doux."
+        }
       }
     },
     "videosAdvanced": {
@@ -918,7 +944,11 @@
       "soloNoInviteDesc": "Le plan Solo est personnel. Passe au plan Pro pour inviter jusqu'à 3 collaborateurs dans ton workspace.",
       "guestNotice": "Tu es membre invité·e",
       "guestNoticeDesc": "Tu accedes a ce workspace en tant que membre invité·e. La gestion de l'équipe est reservee au proprietaire du compte.",
-      "workspace": "Workspace"
+      "workspace": "Workspace",
+      "inviteSent": "Invitation envoyée à {email}.",
+      "inviteError": "Erreur.",
+      "supportSendError": "Erreur lors de l'envoi.",
+      "supportNetworkError": "Erreur réseau."
     },
     "paymentOverdue": {
       "title": "Paiement échoué",
@@ -1016,6 +1046,15 @@
       "faq2A": "Elle injecte des métadonnées réalistes d'iPhone dans tes fichiers pour que les plateformes pensent que le contenu vient d'un appareil reel.",
       "faq3Q": "Quels packs ne modifient pas le visuel ?",
       "faq3A": "Les packs Métadonnées, Audio, Mouvement et Technique ne touchent pas le visuel. Seul le pack Visuels applique des changements visibles (très subtils)."
+    },
+    "toast": {
+      "errorTitle": "Erreur",
+      "warningTitle": "Attention",
+      "duplicationDone": "Duplication terminée ✔️"
+    },
+    "notif": {
+      "doneGeneric": "Duplication terminée.",
+      "errorBody": "La duplication a échoué. Réessaie."
     }
   },
   "onboarding": {
@@ -1303,5 +1342,294 @@
       "ok": "OK !",
       "cool": "Cool !"
     }
+  },
+  "vid": {
+    "drop": {
+      "title": "Glissez vos fichiers ici",
+      "browse": "ou cliquez pour parcourir",
+      "max": "(max {max})",
+      "selectedCount": "{count} fichier(s) sélectionné(s)",
+      "remove": "Retirer {name}"
+    },
+    "progress": {
+      "label": "Progression",
+      "percent": "Progression… {percent}%"
+    },
+    "opt": {
+      "flip": "Flip (vertical)",
+      "reverse": "Reverse (miroir horizontal)"
+    },
+    "upload": {
+      "start": "Envoi vidéo 1/{total}…",
+      "startCount": "Envoi vidéos (0/{total})…"
+    },
+    "sse": {
+      "reconnecting": "Reconnexion ({attempt}/{max})…"
+    },
+    "err": {
+      "tooLarge": "Fichier(s) trop volumineux (max 5 Go) : {names}",
+      "generic": "Une erreur est survenue. Réessayez ou contactez le support.",
+      "ffmpeg": "Erreur FFmpeg",
+      "timeout": "Délai dépassé — la vidéo est trop longue ou le serveur est surchargé."
+    },
+    "valid": {
+      "minLeMax": "Min doit être ≤ Max.",
+      "outOfRange": "Hors bornes : {range}",
+      "cutEnd": "Cut end doit être ≥ start + 0.05 s."
+    },
+    "range": {
+      "recommended": "Bornes conseillées : {range}"
+    },
+    "ctrl": {
+      "enabled": "Activé",
+      "meta_creation_time": {
+        "label": "Date de création"
+      },
+      "meta_encoder": {
+        "label": "Encodeur / Logiciel"
+      },
+      "meta_brand": {
+        "label": "Brand / Format container"
+      },
+      "meta_uid": {
+        "label": "Identifiant unique (UID)"
+      },
+      "flip": {
+        "label": "Flip (vertical)"
+      },
+      "reverse": {
+        "label": "Reverse (miroir horizontal)"
+      },
+      "saturation": {
+        "label": "Saturation"
+      },
+      "contrast": {
+        "label": "Contraste"
+      },
+      "brightness": {
+        "label": "Luminosité"
+      },
+      "gamma": {
+        "label": "Gamma"
+      },
+      "hue_rad": {
+        "label": "Teinte (Hue)"
+      },
+      "vignette": {
+        "label": "Vignette (angle)"
+      },
+      "noise": {
+        "label": "Grain (Noise)"
+      },
+      "lens_k": {
+        "label": "Correction optique (k)"
+      },
+      "unsharp": {
+        "label": "Netteté douce"
+      },
+      "speed": {
+        "label": "Vitesse"
+      },
+      "zoom": {
+        "label": "Zoom"
+      },
+      "pixelshift": {
+        "label": "Pixel shift"
+      },
+      "rotation_deg": {
+        "label": "Rotation"
+      },
+      "fps": {
+        "label": "Framerate"
+      },
+      "dimensions_wh": {
+        "label": "Dimensions"
+      },
+      "border_px": {
+        "label": "Bordure (pad)"
+      },
+      "vbitrate": {
+        "label": "Bitrate vidéo"
+      },
+      "gop": {
+        "label": "GOP"
+      },
+      "cut_start": {
+        "label": "Cut start"
+      },
+      "cut_end": {
+        "label": "Cut end"
+      },
+      "volume_db": {
+        "label": "Volume"
+      },
+      "afreq_hz": {
+        "label": "Waveform shift"
+      },
+      "abitrate_k": {
+        "label": "Bitrate audio"
+      }
+    },
+    "lim": {
+      "brightness": "neutre 0 — subtil : −0.01 → +0.01",
+      "saturation": "neutre 1.0 — subtil : 0.99 → 1.01",
+      "contrast": "neutre 1.0 — subtil : 0.99 → 1.01",
+      "gamma": "neutre 1.0 — subtil : 0.99 → 1.01",
+      "hue_rad": "neutre 0 — subtil : −0.05 → +0.05",
+      "vignette": "subtil : 0 → 0.1",
+      "noise": "subtil : 0 → 4",
+      "lens_k": "neutre 0 — subtil : −0.05 → +0.05",
+      "unsharp": "subtil : 0 → 0.3",
+      "speed": "neutre 1.0 — subtil : 0.98 → 1.02",
+      "zoom": "neutre 1.0 — subtil : 0.98 → 1.02",
+      "pixelshift": "0 à 200 px",
+      "rotation_deg": "−180 à +180 °",
+      "fps": "10 à 60 fps",
+      "border_px": "0 à 200 px",
+      "vbitrate": "500 à 50000 kb/s",
+      "gop": "10 à 300",
+      "cut_start": "≥ 0 s",
+      "cut_end": "≥ 0 s (et > start + 0.05)",
+      "volume_db": "−30 à +30 dB",
+      "afreq_hz": "20 à 16000 Hz",
+      "abitrate_k": "32 à 320 kb/s"
+    },
+    "group": {
+      "tags": "Tags",
+      "visual": "Visuel",
+      "motion": "Mouvement",
+      "technical": "Techniques",
+      "audio": "Audio",
+      "options": "Options"
+    },
+    "help": {
+      "tags": "Active individuellement chaque métadonnée à injecter. Si aucun bouton n'est activé, les métadonnées originales sont préservées.",
+      "visual": "Valeurs subtiles (imperceptibles)\nSaturation/Contraste/Gamma : 0.99 → 1.01 (neutre 1.0) • Luminosité : −0.01 → +0.01 (neutre 0) • Hue : −0.05 → +0.05 • Vignette : 0 → 0.1 • Grain : 0 → 4 • k : −0.05 → +0.05 • Netteté : 0 → 0.3.",
+      "motion": "Vitesse (x) 0.98 → 1.02 (neutre 1.0) • Zoom 0.98 → 1.02 • Pixel shift 0 → 4 • Rotation −1 → +1 • FPS 24 → 30.",
+      "technical": "Dimensions (W/H %) −10 → +10 • Bordure 0 → 40 • Bitrate vidéo 8 000 → 12 000 • GOP 48 → 60 • Cut : to ≥ start + 0.05s.",
+      "audio": "Volume −6 → +6 dB • EQ peak (f) 50 → 12000 Hz • Bitrate audio 96 → 256 kb/s (AAC).",
+      "options": "Flip : vertical. Reverse : miroir horizontal. Localisation : pays injecté dans les métadonnées. Priorité d'algorithme : métadonnées iPhone réalistes."
+    },
+    "dims": {
+      "label": "Dimensions — Width × Height",
+      "hint": "Conseil : −10 % → +10 %"
+    },
+    "tpl": {
+      "load": "Charger",
+      "delete": "Supprimer"
+    },
+    "badge": {
+      "images": "Images",
+      "videoSimple": "Vidéo Simple",
+      "videoAdvanced": "Vidéo Avancé",
+      "stop": "Arrêter",
+      "stopTitle": "Arrêter les duplications",
+      "close": "Fermer",
+      "error": "Erreur",
+      "done": "Terminé — {count} fichier(s)",
+      "partialSuccess": "{count} copie(s) déjà réussie(s) — téléchargez-les, refaites seulement les manquantes."
+    },
+    "zip": {
+      "preparing": "Préparation ZIP…",
+      "downloadAll": "Tout télécharger ({count})"
+    },
+    "clear": {
+      "pending": "Nettoyage…",
+      "label": "Vider les vidéos"
+    },
+    "watch": {
+      "error": "Erreur",
+      "errorMsg": "Erreur : {msg}",
+      "done": "Terminé ✅"
+    },
+    "legacy": {
+      "duplicating": "Duplication en cours…",
+      "duplicateButton": "Dupliquer les vidéos",
+      "copiesLabel": "Nombre de copies",
+      "packsLegend": "Packs (cumulables)",
+      "packsNotePre": "Note : ces packs restent",
+      "packsNoteBold": "très légers",
+      "packsNotePost": ". Les filtres ci-dessous s'appliquent en plus.",
+      "filtersOnly": "Filtres seuls (cumulables)",
+      "rotationLabel": "Rotation (°)",
+      "dimWidth": "Dimension – Largeur (%)",
+      "dimHeight": "Dimension – Hauteur (%)",
+      "borderLabel": "Bordure (pad) [px]",
+      "value": "Valeur : {value}",
+      "templatesTitle": "Templates",
+      "templatePlaceholder": "Nom de la template…",
+      "save": "Enregistrer",
+      "reset": "Reset",
+      "noTemplates": "Aucune template sauvegardée.",
+      "tabSimple": "Simple",
+      "tabAdvanced": "Avancé"
+    },
+    "legacyGroup": {
+      "visual": "Visuel",
+      "motion": "Temps/Mouvement",
+      "technical": "Technique (vidéo)",
+      "audio": "Audio"
+    },
+    "legacyPacks": {
+      "metadata": {
+        "label": "Métadonnées",
+        "hint": "invisible (titres/commentaires, encodage neutre)"
+      },
+      "audio": {
+        "label": "Audio",
+        "hint": "volume ±1 dB, shift fréquentiel léger, débit audio"
+      },
+      "motion": {
+        "label": "Mouvement",
+        "hint": "vitesse ±1.5%, zoom léger, rotation minime, pixel shift"
+      },
+      "visual": {
+        "label": "Visuels",
+        "hint": "eq (B/C/S), hue, unsharp doux, noise doux, vignette/lens"
+      },
+      "technical": {
+        "label": "Technique",
+        "hint": "bitrate vidéo, GOP, profil/level H.264, framerate"
+      }
+    }
+  },
+  "det": {
+    "platformNoticeBody1": "Ce module supprime toutes les métadonnées IA — y compris les manifestes C2PA utilisés par Meta/Threads.",
+    "platformNoticeContentDetection": "détection basée sur le contenu visuel",
+    "platformNoticeBody2": "Certaines plateformes utilisent aussi une (pixels, patterns) indépendante des métadonnées.",
+    "platformNoticeImageModule": "Duplication Images",
+    "platformNoticeBody3": "Pour contourner cette couche, utilise le module afin d'appliquer des micro-variations visuelles.",
+    "howItWorksIntro1": "Traitement en",
+    "howItWorksSteps": "3 étapes",
+    "howItWorksIntro2": "qui simule un workflow photographique humain :",
+    "step1Title": "Suppression totale",
+    "step1Body": "EXIF, XMP, IPTC, C2PA/JUMBF, tous les manifestes IA effacés.",
+    "step2Title": "Traitement pixel",
+    "step2Body": "légère simulation de capture photo (flou objectif → bruit capteur → netteté ISP → re-compression JPEG).",
+    "step3Title": "Injection identité humaine",
+    "step3Body": "appareil photo réaliste, logiciel, photographe, date cohérente.",
+    "limitExceeded": "Limite dépassée — tu as sélectionné {count} fichiers, le maximum est {max}. Seuls les {maxKept} premiers ont été conservés.",
+    "errorTimeout": "Délai dépassé — réessaie avec moins de fichiers.",
+    "errorServer": "Erreur serveur.",
+    "resultSuccessSingular": "{count} fichier traité — métadonnées effacées et réécrites.",
+    "resultSuccessPlural": "{count} fichiers traités — métadonnées effacées et réécrites."
+  },
+  "cmp": {
+    "file1Error": "Fichier 1 : {error}",
+    "file2Error": "Fichier 2 : {error}",
+    "genericError": "Erreur"
+  },
+  "img": {
+    "dropzoneAria": "Zone de dépôt",
+    "removeFileAria": "Supprimer",
+    "heicConverted": "converti à l'envoi",
+    "errorUploadHttp": "Erreur upload HTTP {status}",
+    "errorProcessing": "Erreur traitement image",
+    "errorNoResponse": "Le serveur n'a pas répondu. Réessayez.",
+    "errorTimeout": "Délai dépassé — traitement trop long.",
+    "errorNetwork": "Erreur réseau — {msg}",
+    "errorConnectionLost": "connexion interrompue.",
+    "clearing": "Nettoyage…",
+    "clearImages": "Vider les images"
   }
 }

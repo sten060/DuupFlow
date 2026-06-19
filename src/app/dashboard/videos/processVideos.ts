@@ -558,11 +558,13 @@ async function withConcurrency<T>(
   items: T[],
   concurrency: number,
   fn: (item: T) => Promise<void>,
+  signal?: AbortSignal,
 ): Promise<Error[]> {
   const queue = [...items];
   const errors: Error[] = [];
   const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
     while (queue.length > 0) {
+      if (signal?.aborted) break; // Stop requested → stop pulling new copies
       try {
         await fn(queue.shift()!);
       } catch (err) {
@@ -592,6 +594,8 @@ async function runFFmpegSafe(
   // Source bitrate (kbps). When > 0, the encode is VBV-capped to ~this value so the
   // output keeps the source's resolution & quality but is never heavier than it.
   srcBitrateKbps = 0,
+  // Fired by the Stop button → SIGKILL the running ffmpeg child.
+  signal?: AbortSignal,
 ) {
   const ffmpegBin = binPath ?? await getFFmpegBin();
 
@@ -668,6 +672,19 @@ async function runFFmpegSafe(
   await new Promise<void>((resolve, reject) => {
     const p = spawn(ffmpegBin, args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
+    const timer = setTimeout(() => {
+      p.kill("SIGKILL");
+      reject(new Error("FFmpeg timed out after 15 minutes"));
+    }, 15 * 60 * 1000);
+    // Stop button → kill the running encode and reject so the job halts.
+    const onAbort = () => {
+      try { p.kill("SIGKILL"); } catch {}
+      reject(new Error("stopped"));
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      if (signal) signal.removeEventListener("abort", onAbort);
+    };
     p.stderr.on("data", (d) => {
       const chunk = String(d);
       stderr += chunk;
@@ -678,19 +695,19 @@ async function runFFmpegSafe(
       }
     });
     p.on("error", (err) => {
-      clearTimeout(timer);
+      cleanup();
       reject(new Error(`FFmpeg introuvable ou inaccessible : ${err.message}`));
     });
     p.on("close", (code) => {
-      clearTimeout(timer);
+      cleanup();
       if (code === 0) return resolve();
       console.error("[FFmpeg] stderr:", stderr);
       reject(new Error(`FFmpeg failed (${code})`));
     });
-    const timer = setTimeout(() => {
-      p.kill("SIGKILL");
-      reject(new Error("FFmpeg timed out after 15 minutes"));
-    }, 15 * 60 * 1000);
+    if (signal) {
+      if (signal.aborted) onAbort();
+      else signal.addEventListener("abort", onAbort, { once: true });
+    }
   });
 }
 
@@ -706,7 +723,8 @@ export async function processVideos(
   preResolvedDir?: string,
   preDownloadedFiles?: PreDownloadedFile[],
   onFileReady?: (outPath: string) => Promise<void>,
-): Promise<{ channel: string; outputPaths: string[]; skippedCount: number; rejectedFiles: string[] }> {
+  signal?: AbortSignal,
+): Promise<{ channel: string; outputPaths: string[]; skippedCount: number; rejectedFiles: string[]; stopped: boolean }> {
   const channel = (formData.get("channel") as Channel) ?? "simple";
   const mode = (formData.get("mode") as string) ?? "simple";
   const count = Math.max(1, Number(formData.get("count") || 1));
@@ -1197,6 +1215,8 @@ export async function processVideos(
             } : undefined,
           })
         : [];
+      // Stop requested mid-job → skip remaining copies (already-finished ones kept).
+      if (signal?.aborted) return;
       // Acquire a GLOBAL encode slot so concurrent jobs never exceed the server's
       // ffmpeg budget (per-job concurrency alone wouldn't bound across jobs).
       await acquireEncodeSlot();
@@ -1211,6 +1231,7 @@ export async function processVideos(
           ffmpegBin,
           threadsPerTask,
           bitrateKbps,
+          signal,
         );
       } finally {
         releaseEncodeSlot();
@@ -1223,7 +1244,7 @@ export async function processVideos(
         Math.min(99, Math.round((doneCopies / totalCopies) * 100)),
         `Encodage ${doneCopies}/${totalCopies} terminé`,
       );
-  });
+  }, signal);
 
   // Reveal all outputs at once: rename temp → final so the "Videos générées"
   // list only shows them once the ENTIRE job is done — never partial, mid-encode.
@@ -1236,5 +1257,5 @@ export async function processVideos(
     if (ownsTmpIn) await fs.unlink(tmpIn).catch(() => {});
   }
 
-  return { channel, outputPaths, skippedCount: taskErrors.length, rejectedFiles };
+  return { channel, outputPaths, skippedCount: taskErrors.length, rejectedFiles, stopped: !!signal?.aborted };
 }
