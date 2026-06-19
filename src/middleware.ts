@@ -123,11 +123,25 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Public landing/auth pages don't need a Supabase call
-  if (!needsAuthCheck(pathname)) {
+  // Cheap, no-network check: does this request already carry a Supabase auth
+  // cookie? Anonymous visitors on public pages skip the Supabase round-trip
+  // entirely (marketing pages stay fast). A logged-in user, on the other hand,
+  // ALWAYS goes through the session refresh below — even on public pages — so
+  // their access token is refreshed on every navigation and never goes stale.
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+
+  if (!hasAuthCookie && !needsAuthCheck(pathname)) {
     return NextResponse.next({ request });
   }
 
+  // ── Rafraîchissement de session — pattern @supabase/ssr canonique. ──
+  // getUser() vérifie le token ET rafraîchit un token expiré ; setAll() réécrit
+  // alors les nouveaux cookies sur supabaseResponse. Ça DOIT tourner sur chaque
+  // requête authentifiée : sinon le refresh token tourne sans être persisté et
+  // l'utilisateur est déconnecté au hasard. NE RIEN mettre entre
+  // createServerClient et getUser().
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -151,7 +165,6 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: toujours utiliser getUser() (vérifie le token côté serveur)
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -159,26 +172,44 @@ export async function middleware(request: NextRequest) {
   const normalized = stripLocale(pathname);
   const prefix = localePrefix(pathname);
 
+  // Tout redirect doit emporter les cookies de session rafraîchis, sinon le
+  // navigateur et le serveur se désynchronisent et la session est invalidée
+  // prématurément (exigence @supabase/ssr).
+  const redirectWithSession = (url: URL) => {
+    const res = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach((c) => res.cookies.set(c));
+    return res;
+  };
+
+  // ── « Tape le nom → tu es direct dans l'app » : un utilisateur déjà connecté
+  //    qui arrive sur la page d'accueil est envoyé droit au dashboard. Le garde
+  //    dashboard plus bas gère le cas des comptes sans profil (ex. affiliés). ──
+  if (user && normalized === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return redirectWithSession(url);
+  }
+
   // Redirige vers /{locale}/login si non authentifié sur les routes protégées
   if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin"))) {
     const url = request.nextUrl.clone();
     const locale = pickLocale(request);
     url.pathname = `/${locale}/login`;
-    return NextResponse.redirect(url);
+    return redirectWithSession(url);
   }
 
   // Redirige vers /affiliate-login si non authentifié sur le dashboard affilié
   if (!user && pathname.startsWith("/affiliate/")) {
     const url = request.nextUrl.clone();
     url.pathname = "/affiliate-login";
-    return NextResponse.redirect(url);
+    return redirectWithSession(url);
   }
 
   // Redirige si déjà connecté et tente d'accéder à /affiliate-login
   if (user && pathname === "/affiliate-login") {
     const url = request.nextUrl.clone();
     url.pathname = "/affiliate/dashboard";
-    return NextResponse.redirect(url);
+    return redirectWithSession(url);
   }
 
   // Redirige si déjà connecté et tente d'accéder à /{locale}/login
@@ -192,11 +223,11 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = `${prefix}/login`;
       url.searchParams.set("error", "compte_affilie");
-      return NextResponse.redirect(url);
+      return redirectWithSession(url);
     }
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    return redirectWithSession(url);
   }
 
   // ── Garde dashboard : laisse passer tout user ayant un profil ──
@@ -212,7 +243,7 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = `/${locale}/login`;
       url.searchParams.set("error", "compte_affilie");
-      return NextResponse.redirect(url);
+      return redirectWithSession(url);
     }
   }
 
