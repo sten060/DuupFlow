@@ -569,7 +569,8 @@ async function withConcurrency<T>(
         await fn(queue.shift()!);
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
-        console.error("[withConcurrency] task failed, continuing:", e.message);
+        // "stopped" = deliberate Stop (logged once at the job level) — stay quiet.
+        if (e.message !== "stopped") console.error("[withConcurrency] task failed, continuing:", e.message);
         errors.push(e);
       }
     }
@@ -701,6 +702,8 @@ async function runFFmpegSafe(
     p.on("close", (code) => {
       cleanup();
       if (code === 0) return resolve();
+      // Stopped by the user → stay quiet (no stderr dump); the job logs one line.
+      if (signal?.aborted) return reject(new Error("stopped"));
       console.error("[FFmpeg] stderr:", stderr);
       reject(new Error(`FFmpeg failed (${code})`));
     });

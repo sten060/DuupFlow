@@ -190,8 +190,8 @@
     "soloDesc": "For independent creators",
     "proDesc": "For creators and agencies",
     "entrepriseDesc": "Custom solutions for teams",
-    "freeFeature1": "40 image duplications / month",
-    "freeFeature2": "20 video duplications / month",
+    "freeFeature1": "20 image duplications / month",
+    "freeFeature2": "10 video duplications / month",
     "freeFeature3": "AI Variation: 2.75 tokens / image",
     "freeFeature4": "Free tokens for 1 image to start",
     "freeFeature5": "JPG, PNG, WEBP, MP4, MOV, MKV formats",
@@ -1055,6 +1055,13 @@
     "notif": {
       "doneGeneric": "Duplication complete.",
       "errorBody": "The duplication failed. Please try again."
+    },
+    "quotaWarn": {
+      "title": "You're approaching your limit 👋",
+      "body": "You've used {current}/{limit} {dup} this month — {remaining} left. {hint}",
+      "hintFree": "Upgrade to Solo to keep going without interruption.",
+      "hintSolo": "Upgrade to Pro for unlimited.",
+      "continue": "Continue"
     }
   },
   "onboarding": {

@@ -251,6 +251,7 @@ export async function POST(req: Request) {
         generationSucceeded = true;
         if (stopped) {
           // Explicit Stop: deliver whatever finished before the halt.
+          console.log(`[duplicate-video] stopped by user — ${deliveredCount} copy(ies) delivered`);
           send({
             percent: 100,
             msg: deliveredCount > 0 ? `Arrêté — ${deliveredCount} fichier(s) prêt(s)` : "Arrêté",
@@ -276,7 +277,15 @@ export async function POST(req: Request) {
             );
           }
           const warning = warningParts.length > 0 ? warningParts.join(" ") : undefined;
-          send({ percent: 100, msg: warning ?? "Terminé ✔", done: true, userId, channel, warning });
+          // Gentle 80% heads-up (free/solo only) once this run lands in the 80–99% zone.
+          const _lim = usageCheck.limit;
+          const _newCount = (usageCheck.current ?? 0) + deliveredCount;
+          const usageWarning =
+            (usageCheck.plan === "free" || usageCheck.plan === "solo") &&
+            Number.isFinite(_lim) && _lim > 0 && _newCount >= _lim * 0.8 && _newCount < _lim
+              ? { current: _newCount, limit: _lim, plan: usageCheck.plan }
+              : undefined;
+          send({ percent: 100, msg: warning ?? "Terminé ✔", done: true, userId, channel, warning, usageWarning });
         }
 
       } catch (e: any) {

@@ -7,6 +7,7 @@ import { setJob, addCompletedFile, removeJob, stopJob, subscribe, snapshot } fro
 import ClearImagesButton from "./ClearImagesButton";
 import { useTranslation } from "@/lib/i18n/context";
 import LimitReachedModal from "../components/LimitReachedModal";
+import QuotaWarningModal from "../components/QuotaWarningModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import { saveActiveImageJob, removeActiveImageJob } from "./imageJobResume";
 import { pushNotification } from "../components/notificationStore";
@@ -81,6 +82,7 @@ export default function ImageFormClient({ initialImages }: Props) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [limitPlan, setLimitPlan] = useState<"free" | "solo" | null>(null);
+  const [quotaWarn, setQuotaWarn] = useState<{ current: number; limit: number; plan: "free" | "solo" } | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
 
   // Persisted download list: initialized from server files, grows as new jobs complete.
@@ -375,6 +377,7 @@ export default function ImageFormClient({ initialImages }: Props) {
               }
               if (evt.done) {
                 receivedDone = true;
+                if (evt.usageWarning) setQuotaWarn(evt.usageWarning);
                 setJob({ id: jobId, type: "image", channel: "image", progress: 100, msg: t("dashboard.images.done"), status: "done" });
                 setTimeout(() => removeJob(jobId), 8000);
                 setFiles([]);
@@ -659,6 +662,16 @@ export default function ImageFormClient({ initialImages }: Props) {
         open={showUpgrade}
         currentPlan={limitPlan ?? "free"}
         onClose={() => { setShowUpgrade(false); setLimitPlan(null); }}
+      />
+      {/* Gentle 80% heads-up (free/solo) — same design, non-blocking. */}
+      <QuotaWarningModal
+        open={quotaWarn !== null && limitPlan === null && !showUpgrade}
+        plan={quotaWarn?.plan ?? "free"}
+        resource="images"
+        current={quotaWarn?.current ?? 0}
+        limit={quotaWarn?.limit ?? 0}
+        onClose={() => setQuotaWarn(null)}
+        onUpgrade={() => { setLimitPlan(quotaWarn?.plan ?? "free"); setShowUpgrade(true); setQuotaWarn(null); }}
       />
     </div>
   );

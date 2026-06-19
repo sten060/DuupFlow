@@ -16,6 +16,7 @@ import DurationInfoButton from "../DurationInfoButton";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
 import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
+import QuotaWarningModal from "@/app/dashboard/components/QuotaWarningModal";
 import UpgradePlanModal from "@/app/dashboard/components/UpgradePlanModal";
 
 function ProgressBar({ percent, label }: { percent: number; label?: string }) {
@@ -159,6 +160,7 @@ export default function VideoFormSimpleClient() {
   const [progressMsg, setProgressMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [limitPlan, setLimitPlan] = useState<"free" | "solo" | null>(null);
+  const [quotaWarn, setQuotaWarn] = useState<{ current: number; limit: number; plan: "free" | "solo" } | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -439,6 +441,7 @@ export default function VideoFormSimpleClient() {
                   }
                   if (evt.done) {
                     receivedDone = true;
+                    if (evt.usageWarning) setQuotaWarn(evt.usageWarning);
                     if (evt.warning) {
                       setErrorMsg(evt.warning);
                       setJob({ id: jobId, type: "video", channel: "simple", progress: 100, msg: evt.warning, status: "done" });
@@ -649,6 +652,16 @@ export default function VideoFormSimpleClient() {
         open={showUpgrade}
         currentPlan={limitPlan ?? "free"}
         onClose={() => { setShowUpgrade(false); setLimitPlan(null); }}
+      />
+      {/* Gentle 80% heads-up (free/solo) — same design, non-blocking. */}
+      <QuotaWarningModal
+        open={quotaWarn !== null && limitPlan === null && !showUpgrade}
+        plan={quotaWarn?.plan ?? "free"}
+        resource="videos"
+        current={quotaWarn?.current ?? 0}
+        limit={quotaWarn?.limit ?? 0}
+        onClose={() => setQuotaWarn(null)}
+        onUpgrade={() => { setLimitPlan(quotaWarn?.plan ?? "free"); setShowUpgrade(true); setQuotaWarn(null); }}
       />
     </>
   );

@@ -8,8 +8,8 @@
  */
 export const PLAN_LIMITS = {
   free: {
-    images: 40,
-    videos: 20,
+    images: 20,
+    videos: 10,
     ai_signatures: 0,
     members: 0,
   },

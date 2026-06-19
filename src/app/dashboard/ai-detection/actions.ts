@@ -1,6 +1,7 @@
 "use server";
 
 import path from "path";
+import os from "os";
 import fs from "fs/promises";
 import crypto from "crypto";
 import sharp from "sharp";
@@ -166,15 +167,17 @@ async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetad
  * applique un pipeline pixel anti-fingerprint,
  * et réinjecte une identité humaine réaliste.
  * ───────────────────────────────────────────── */
-export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean; count: number; files: string[]; error?: string; limitReached?: boolean; current?: number; limit?: number }> {
+export async function maskAiMetadata(uploads: { uploadId: string; name: string }[]): Promise<{ ok: boolean; count: number; files: string[]; error?: string; limitReached?: boolean; current?: number; limit?: number }> {
   const t = await getServerT();
-  const files = formData.getAll("files") as File[];
-  console.log(`[ai-detection] maskAiMetadata called — ${files.length} file(s)`);
+  // Files are streamed to disk via /api/upload-direct first (RAM-safe), then
+  // processed here by id — no large in-memory multipart payload.
+  const items = (uploads ?? []).filter((u) => u && typeof u.uploadId === "string" && typeof u.name === "string");
+  console.log(`[ai-detection] maskAiMetadata called — ${items.length} file(s)`);
 
-  if (!files.length) return { ok: false, count: 0, files: [], error: `[AI-001] ${t("errors.aiDetection.noFile")}` };
+  if (!items.length) return { ok: false, count: 0, files: [], error: `[AI-001] ${t("errors.aiDetection.noFile")}` };
 
   // ── Usage check (Solo plan limits) ────────────────────────────────────────
-  const imageFiles = files.filter((f) => IMAGE_EXTS.includes(extOf(f.name)));
+  const imageFiles = items.filter((u) => IMAGE_EXTS.includes(extOf(u.name)));
   const usageCheck = await checkUsage("ai_signatures", imageFiles.length);
 
   let effectiveImageFiles = imageFiles;
@@ -216,106 +219,118 @@ export async function maskAiMetadata(formData: FormData): Promise<{ ok: boolean;
   const outFiles: string[] = [];
 
   // Filter unsupported files early — images capped by remaining quota, videos pass through
+  const VALID_PREFIX = path.join(os.tmpdir(), "duup_direct_");
   const validImageFiles = effectiveImageFiles;
-  const validVideoFiles = files.filter((f) => VIDEO_EXTS.includes(extOf(f.name)));
+  const validVideoFiles = items.filter((u) => VIDEO_EXTS.includes(extOf(u.name)));
   const validFiles = [...validImageFiles, ...validVideoFiles];
 
-  type Task = { f: File };
-  const tasks: Task[] = validFiles.map((f) => ({ f }));
+  type Task = { u: { uploadId: string; name: string } };
+  const tasks: Task[] = validFiles.map((u) => ({ u }));
 
-  await withConcurrency(tasks, MAX_CONCURRENCY, async ({ f }) => {
-    const ext = extOf(f.name);
-    console.log(`[ai-detection] processing: ${f.name} (${f.size} bytes)`);
+  await withConcurrency(tasks, MAX_CONCURRENCY, async ({ u }) => {
+    const ext = extOf(u.name);
+    console.log(`[ai-detection] processing: ${u.name}`);
 
-    let buf: Buffer;
-    try {
-      buf = Buffer.from(await f.arrayBuffer());
-    } catch (e: any) {
-      console.error(`[ai-detection] buffer read failed for ${f.name}:`, e?.message);
+    // Validate the upload id (path-traversal guard) + locate the streamed temp file.
+    if (!/^duup_direct_[\w.-]+$/.test(u.uploadId)) {
+      console.error(`[ai-detection] invalid uploadId: ${u.uploadId}`);
       return;
     }
+    const tmpPath = path.join(os.tmpdir(), u.uploadId);
+    if (!tmpPath.startsWith(VALID_PREFIX)) return;
 
-    if (IMAGE_EXTS.includes(ext)) {
-      // Build fake human identity (randomised per image)
-      const cam = pick(HUMAN_CAMERAS);
-      const software = pick(HUMAN_SOFTWARE);
-      const artist = pick(HUMAN_NAMES);
-      const randomDaysAgo = Math.floor(Math.random() * 180);
-      const randomHoursAgo = Math.floor(Math.random() * 24);
-      const photoDate = new Date(Date.now() - randomDaysAgo * 86400000 - randomHoursAgo * 3600000);
-      const exifDate = toExifDate(photoDate);
+    try {
+      if (IMAGE_EXTS.includes(ext)) {
+        // Images need their bytes in memory for sharp — bounded by runImageOp.
+        let buf: Buffer;
+        try {
+          buf = await fs.readFile(tmpPath);
+        } catch (e: any) {
+          console.error(`[ai-detection] read failed for ${u.name}:`, e?.message);
+          return;
+        }
 
-      const meta: sharp.WriteableMetadata = {
-        icc: "sRGB IEC61966-2.1",
-        exif: {
-          IFD0: {
-            Make: cam.make,
-            Model: cam.model,
-            Software: software,
-            Artist: artist,
-            Copyright: `© ${photoDate.getFullYear()} ${artist}`,
-            DateTime: exifDate,
-            DateTimeOriginal: exifDate,
-            DateTimeDigitized: exifDate,
+        // Build fake human identity (randomised per image)
+        const cam = pick(HUMAN_CAMERAS);
+        const software = pick(HUMAN_SOFTWARE);
+        const artist = pick(HUMAN_NAMES);
+        const randomDaysAgo = Math.floor(Math.random() * 180);
+        const randomHoursAgo = Math.floor(Math.random() * 24);
+        const photoDate = new Date(Date.now() - randomDaysAgo * 86400000 - randomHoursAgo * 3600000);
+        const exifDate = toExifDate(photoDate);
+
+        const meta: sharp.WriteableMetadata = {
+          icc: "sRGB IEC61966-2.1",
+          exif: {
+            IFD0: {
+              Make: cam.make,
+              Model: cam.model,
+              Software: software,
+              Artist: artist,
+              Copyright: `© ${photoDate.getFullYear()} ${artist}`,
+              DateTime: exifDate,
+              DateTimeOriginal: exifDate,
+              DateTimeDigitized: exifDate,
+            },
           },
-        },
-      };
+        };
 
-      let result: { data: Buffer; outExt: string };
-      try {
-        // ONE global slot covers both the main pass and the fallback, so a timed-out
-        // (but still-running) libvips pipeline can't be joined by a second pipeline
-        // under a fresh slot — keeps the OOM cap honest. runImageOp caps concurrent
-        // sharp pipelines across ALL requests.
-        result = await runImageOp(async () => {
-          try {
-            return await Promise.race([
-              processImage(buf, ext, meta),
-              new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 45_000)),
-            ]);
-          } catch (inner: any) {
-            console.warn(`[ai-detection] processImage failed for ${f.name} (${inner?.message}), fallback to strip-only`);
-            // Fallback within the SAME slot: strip metadata + light, visually-lossless
-            // re-encode (format preserved), minus the anti-detection pixel pass.
-            const pipe = sharp(buf, { failOn: "none" }).withMetadata(meta);
-            if (ext === ".jpg" || ext === ".jpeg")
-              return { data: await pipe.jpeg({ quality: 92, mozjpeg: true }).toBuffer(), outExt: ext };
-            if (ext === ".webp")
-              return { data: await pipe.webp({ quality: 92 }).toBuffer(), outExt: ext };
-            return { data: await pipe.png({ compressionLevel: 9 }).toBuffer(), outExt: ext };
-          }
-        });
-      } catch (e: any) {
-        console.error(`[ai-detection] image failed for ${f.name}: ${e?.message}`);
-        return;
-      }
+        let result: { data: Buffer; outExt: string };
+        try {
+          // ONE global slot covers both the main pass and the fallback, so a timed-out
+          // (but still-running) libvips pipeline can't be joined by a second pipeline
+          // under a fresh slot — keeps the OOM cap honest.
+          result = await runImageOp(async () => {
+            try {
+              return await Promise.race([
+                processImage(buf, ext, meta),
+                new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 45_000)),
+              ]);
+            } catch (inner: any) {
+              console.warn(`[ai-detection] processImage failed for ${u.name} (${inner?.message}), fallback to strip-only`);
+              const pipe = sharp(buf, { failOn: "none" }).withMetadata(meta);
+              if (ext === ".jpg" || ext === ".jpeg")
+                return { data: await pipe.jpeg({ quality: 92, mozjpeg: true }).toBuffer(), outExt: ext };
+              if (ext === ".webp")
+                return { data: await pipe.webp({ quality: 92 }).toBuffer(), outExt: ext };
+              return { data: await pipe.png({ compressionLevel: 9 }).toBuffer(), outExt: ext };
+            }
+          });
+        } catch (e: any) {
+          console.error(`[ai-detection] image failed for ${u.name}: ${e?.message}`);
+          return;
+        }
 
-      const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${result.outExt}`;
-      try {
-        await fs.writeFile(path.join(dir, outName), result.data);
-      } catch (e: any) {
-        console.error(`[ai-detection] image write failed for ${f.name}:`, e?.message);
-        return;
+        const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${result.outExt}`;
+        try {
+          await fs.writeFile(path.join(dir, outName), result.data);
+        } catch (e: any) {
+          console.error(`[ai-detection] image write failed for ${u.name}:`, e?.message);
+          return;
+        }
+        console.log(`[ai-detection] image OK: ${outName}`);
+        outFiles.push(outName);
+        count++;
+      } else {
+        // Videos: zero-RAM byte copy on disk — quality and size preserved exactly.
+        const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${ext}`;
+        try {
+          await fs.copyFile(tmpPath, path.join(dir, outName));
+          console.log(`[ai-detection] video copy OK: ${outName}`);
+        } catch (e: any) {
+          console.error(`[ai-detection] video copy failed for ${u.name}:`, e?.message);
+          return;
+        }
+        outFiles.push(outName);
+        count++;
       }
-      console.log(`[ai-detection] image OK: ${outName}`);
-      outFiles.push(outName);
-      count++;
-    } else {
-      // Videos: byte-for-byte copy — quality and size preserved exactly.
-      const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${ext}`;
-      try {
-        await fs.writeFile(path.join(dir, outName), buf);
-        console.log(`[ai-detection] video copy OK: ${outName}`);
-      } catch (e: any) {
-        console.error(`[ai-detection] video write failed for ${f.name}:`, e?.message);
-        return;
-      }
-      outFiles.push(outName);
-      count++;
+    } finally {
+      // Always drop the uploaded source temp (lives in os.tmpdir()).
+      await fs.unlink(tmpPath).catch(() => {});
     }
   });
 
-  console.log(`[ai-detection] done — ${count}/${files.length} file(s) processed`);
+  console.log(`[ai-detection] done — ${count}/${items.length} file(s) processed`);
 
   // ── Increment usage after successful processing ────────────────────────────
   const imageCount = outFiles.filter((f) => IMAGE_EXTS.some((e) => f.toLowerCase().endsWith(e))).length;

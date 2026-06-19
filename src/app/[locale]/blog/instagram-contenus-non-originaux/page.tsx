@@ -378,7 +378,7 @@ export default async function ArticlePage({
             <p>
               L&apos;outil est testable gratuitement via le{" "}
               <Link href="/pricing" className="text-indigo-300 hover:text-indigo-200 underline underline-offset-2">plan Free</Link>
-              {" "}(40 duplications d&apos;images et 20 vidéos par mois), suffisant pour valider qu&apos;il
+              {" "}(20 duplications d&apos;images et 10 vidéos par mois), suffisant pour valider qu&apos;il
               s&apos;intègre à votre workflow avant tout engagement.
             </p>
 

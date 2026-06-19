@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import { maskAiMetadata, deleteAiFiles } from "./actions";
 import { useTranslation } from "@/lib/i18n/context";
 import { pushNotification } from "../components/notificationStore";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
 
 const MAX_FILES = 30;
 
@@ -187,6 +188,7 @@ export default function AiDetectionClient() {
   const [result, setResult] = useState<{ ok: boolean; count?: number; error?: string; limitReached?: boolean } | null>(null);
   const [sessionFiles, setSessionFiles] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const pendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -217,52 +219,72 @@ export default function AiDetectionClient() {
     setLimitError("");
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!files.length || pending) return;
-    const fd = new FormData();
-    files.forEach((f) => fd.append("files", f));
+    const toUpload = files;
 
     setPending(true);
     setResult(null);
+    setUploadPct(0);
 
-    // Timeout: ~4s per file (parallel) + 15s buffer
-    const timeoutMs = Math.max(60_000, files.length * 4_000 + 15_000);
+    // Timeout: ~4s per file + 15s buffer
+    const timeoutMs = Math.max(60_000, toUpload.length * 4_000 + 15_000);
     if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
     pendingTimeoutRef.current = setTimeout(() => {
       setPending(false);
       setResult({ ok: false, error: `[CLT-003] ${t("det.errorTimeout")}` });
     }, timeoutMs);
 
-    maskAiMetadata(fd)
-      .then((res) => {
-        if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
-        setResult(res);
-        if (res.ok) {
-          setFiles([]);
-          setLimitError("");
-          if (res.files?.length) setSessionFiles((prev) => [...prev, ...res.files]);
-          // Notification (bell + toast) — like the duplication modules.
-          if (res.limitReached) {
-            pushNotification({ kind: "info", title: t("dashboard.toast.warningTitle"), body: res.error });
-          } else {
-            const n = res.count ?? 0;
-            pushNotification({
-              kind: "success",
-              title: t("dashboard.toast.duplicationDone"),
-              body: n > 1 ? t("det.resultSuccessPlural", { count: String(n) }) : t("det.resultSuccessSingular", { count: String(n) }),
-            });
-          }
-        } else {
-          pushNotification({ kind: "error", title: t("dashboard.toast.errorTitle"), body: res.error });
+    try {
+      // Stream each file to disk server-side first (RAM-safe, like the other
+      // modules), then process by id — no big in-memory upload.
+      const uploads: { uploadId: string; name: string }[] = [];
+      let done = 0;
+      for (const file of toUpload) {
+        const up = await uploadWithProgress(
+          `/api/upload-direct?fileName=${encodeURIComponent(file.name)}`,
+          file,
+          { onProgress: (frac) => setUploadPct(Math.round(((done + frac) / toUpload.length) * 100)) },
+        );
+        if (!up.ok) {
+          const j = await up.json().catch(() => ({}));
+          throw new Error(j?.error || `[CLT-006] ${t("det.errorServer")}`);
         }
-      })
-      .catch((err) => {
-        if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
-        const msg = `[CLT-007] ${err?.message || t("det.errorServer")}`;
-        setResult({ ok: false, error: msg });
-        pushNotification({ kind: "error", title: t("dashboard.toast.errorTitle"), body: msg });
-      })
-      .finally(() => setPending(false));
+        const { uploadId, name } = await up.json();
+        uploads.push({ uploadId: uploadId as string, name: (name as string) ?? file.name });
+        done++;
+        setUploadPct(Math.round((done / toUpload.length) * 100));
+      }
+
+      const res = await maskAiMetadata(uploads);
+      if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
+      setResult(res);
+      if (res.ok) {
+        setFiles([]);
+        setLimitError("");
+        if (res.files?.length) setSessionFiles((prev) => [...prev, ...res.files]);
+        // Notification (bell + toast) — like the duplication modules.
+        if (res.limitReached) {
+          pushNotification({ kind: "info", title: t("dashboard.toast.warningTitle"), body: res.error });
+        } else {
+          const n = res.count ?? 0;
+          pushNotification({
+            kind: "success",
+            title: t("dashboard.toast.duplicationDone"),
+            body: n > 1 ? t("det.resultSuccessPlural", { count: String(n) }) : t("det.resultSuccessSingular", { count: String(n) }),
+          });
+        }
+      } else {
+        pushNotification({ kind: "error", title: t("dashboard.toast.errorTitle"), body: res.error });
+      }
+    } catch (err: any) {
+      if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
+      const msg = `[CLT-007] ${err?.message || t("det.errorServer")}`;
+      setResult({ ok: false, error: msg });
+      pushNotification({ kind: "error", title: t("dashboard.toast.errorTitle"), body: msg });
+    } finally {
+      setPending(false);
+    }
   }
 
   function handleDelete() {
@@ -359,7 +381,7 @@ export default function AiDetectionClient() {
           className="h-11 rounded-xl font-medium text-sm transition disabled:opacity-40 disabled:cursor-not-allowed text-white"
           style={{ background: "linear-gradient(90deg,#6366F1,#818CF8)" }}
         >
-          {pending ? t("dashboard.aiDetection.processing") : files.length ? t("dashboard.aiDetection.maskButtonFiles", { count: String(files.length) }) : t("dashboard.aiDetection.maskButton")}
+          {pending ? `${t("dashboard.aiDetection.processing")}${uploadPct > 0 && uploadPct < 100 ? ` ${uploadPct}%` : ""}` : files.length ? t("dashboard.aiDetection.maskButtonFiles", { count: String(files.length) }) : t("dashboard.aiDetection.maskButton")}
         </button>
 
         {result && (
