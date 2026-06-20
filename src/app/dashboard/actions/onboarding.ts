@@ -6,43 +6,51 @@ import { recordTransaction } from "@/lib/tokens-server";
 import { CENTS_PER_TOKEN } from "@/lib/tokens";
 
 /**
- * Marks the current user's onboarding tour as completed.
- * Called when the user finishes or skips the multi-step tour shown
- * on first dashboard visit.
+ * Areas of the self-paced onboarding. Each one is shown exactly once:
+ *   • "overview"        — the app overview card on the dashboard home
+ *   • module keys       — the short coach shown the first time a module opens
  *
- * Idempotent: setting `onboarded_at` again just bumps the timestamp,
- * which is harmless (tour won't reopen since the column is non-null).
+ * Whitelisted so a stray client call can never write arbitrary JSON keys.
  */
-export async function markOnboardingDone(): Promise<void> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  const admin = createAdminClient();
-  await admin
-    .from("profiles")
-    .update({ onboarded_at: new Date().toISOString() })
-    .eq("id", user.id);
-}
+const ONBOARDING_AREAS = [
+  "overview",
+  "images",
+  "videos",
+  "videos-simple",
+  "videos-advanced",
+  "similarity",
+  "generate",
+  "ai-detection",
+] as const;
 
 /**
- * Persist current step of the gamified dashboard tour. Allows resume
- * on refresh / next visit if the user closes the browser mid-tour.
+ * Mark one onboarding area as seen so it never auto-shows again.
  *
- * Idempotent: safe to call with the same step value (just rewrites).
- * Best-effort — failures are swallowed so the tour UI keeps working
- * even if the DB write fails.
+ * Merges the single key into profiles.onboarding_progress (read-modify-write
+ * so other keys are preserved). Best-effort and idempotent — a failed write
+ * just means the area may show once more; the UI never blocks on it.
  */
-export async function setTourStep(step: number): Promise<void> {
-  if (!Number.isFinite(step) || step < 0) return;
+export async function markOnboardingSeen(area: string): Promise<void> {
+  if (!ONBOARDING_AREAS.includes(area as (typeof ONBOARDING_AREAS)[number])) return;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
   const admin = createAdminClient();
+  const { data: row } = await admin
+    .from("profiles")
+    .select("onboarding_progress")
+    .eq("id", user.id)
+    .single();
+
+  const current =
+    (row?.onboarding_progress as Record<string, boolean> | null) ?? {};
+  if (current[area] === true) return; // already seen — skip the write
+
   await admin
     .from("profiles")
-    .update({ tour_step: Math.floor(step) })
+    .update({ onboarding_progress: { ...current, [area]: true } })
     .eq("id", user.id);
 }
 

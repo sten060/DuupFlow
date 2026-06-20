@@ -595,7 +595,7 @@ export default function VideoFormSimpleClient() {
       <div className="h-px bg-white/[0.06]" />
 
       {/* Options */}
-      <div>
+      <div data-tour-id="video-options">
         <h3 className="text-sm font-semibold text-white/90 mb-3">{t("dashboard.videosSimple.optionsTitle")}</h3>
         <div className="flex flex-wrap items-end gap-4">
           <Toggle checked={flip} onChange={setFlip} label={t("vid.opt.flip")} />

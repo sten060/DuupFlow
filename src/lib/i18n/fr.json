@@ -1064,6 +1064,82 @@
       "continue": "Continuer"
     }
   },
+  "onb": {
+    "skip": "Passer",
+    "back": "Retour",
+    "next": "Suivant",
+    "done": "C'est parti",
+    "replayCta": "Revoir la visite",
+    "replayTitle": "Revoir la visite",
+    "replaySubtitle": "Relance la présentation générale ou réexplique un module.",
+    "replayOverview": "Présentation générale",
+    "replayOverviewDesc": "Revois la vue d'ensemble de DuupFlow.",
+    "overview": {
+      "title": "Bienvenue sur DuupFlow",
+      "subtitle": "Voici tes modules. On t'explique chacun quand tu le découvres.",
+      "cta": "Commencer",
+      "foot": "Clique sur un module pour le découvrir."
+    },
+    "modules": {
+      "images": { "name": "Images", "tagline": "Duplique tes images en plusieurs versions uniques." },
+      "videos": { "name": "Vidéos", "tagline": "Génère des copies de tes vidéos prêtes à publier." },
+      "similarity": { "name": "Comparateur", "tagline": "Mesure la ressemblance entre deux fichiers." },
+      "generate": { "name": "Variation IA", "tagline": "Crée des variations de tes images avec l'IA." },
+      "aidetection": { "name": "Détection IA", "tagline": "Supprime les métadonnées IA de tes fichiers." }
+    },
+    "coach": {
+      "images": {
+        "s1t": "Dépose ton image",
+        "s1b": "Glisse un fichier ou clique pour l'importer. Tu peux en mettre plusieurs.",
+        "s2t": "Choisis tes copies",
+        "s2b": "Indique combien de versions uniques tu veux générer.",
+        "s3t": "Règle tes filtres",
+        "s3b": "Choisis le pays, la priorité d'algorithme et les filtres voulus, juste avant de dupliquer.",
+        "s4t": "Lance la duplication",
+        "s4b": "Clique ici, on s'occupe du reste."
+      },
+      "videos": {
+        "s1t": "Deux façons de dupliquer",
+        "s1b": "Simple va à l'essentiel et reste rapide. Avancé te donne le contrôle total. Choisis selon ton besoin."
+      },
+      "videosSimple": {
+        "s1t": "Dépose ta vidéo",
+        "s1b": "Glisse un fichier ou clique pour l'importer. Tu peux en mettre plusieurs.",
+        "s2t": "Choisis tes copies",
+        "s2b": "Indique combien de versions uniques tu veux générer.",
+        "s3t": "Règle tes filtres",
+        "s3b": "Choisis les packs et les options voulus, juste avant de dupliquer.",
+        "s4t": "Lance la duplication",
+        "s4b": "Clique ici, on s'occupe du reste."
+      },
+      "videosAdvanced": {
+        "s1t": "Bienvenue en mode avancé",
+        "s1b": "Ici tu as le contrôle total sur les métadonnées. Dépose ta vidéo pour commencer.",
+        "s2t": "Règle tes paramètres",
+        "s2b": "Déplie les groupes et ajuste les réglages avancés selon ton besoin, juste avant de dupliquer.",
+        "s3t": "Lance la duplication",
+        "s3b": "Clique ici, on s'occupe du reste."
+      },
+      "similarity": {
+        "s1t": "Dépose deux fichiers",
+        "s1b": "Place les deux fichiers à comparer dans les zones prévues.",
+        "s2t": "Lance la comparaison",
+        "s2b": "On analyse les deux et on te donne un score de ressemblance."
+      },
+      "generate": {
+        "s1t": "Dépose ton image",
+        "s1b": "Importe l'image que tu veux décliner.",
+        "s2t": "Choisis ton mode",
+        "s2b": "Variation pure pour rester fidèle, ou guidée par un texte pour orienter le rendu.",
+        "s3t": "Lance la génération",
+        "s3b": "L'IA crée tes variations en quelques secondes."
+      },
+      "aidetection": {
+        "s1t": "Masque la signature IA",
+        "s1b": "Dépose tes fichiers, on remplace les métadonnées IA par une identité humaine réaliste."
+      }
+    }
+  },
   "onboarding": {
     "createSpace": "Créer ton espace",
     "joinWorkspace": "Rejoindre le workspace",

@@ -130,6 +130,7 @@ function FileDropzone({
   return (
     <div className="space-y-0">
       <div
+        data-tour-id="aidetect-dropzone"
         className={[
           "relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 cursor-pointer transition",
           drag

@@ -510,7 +510,7 @@ export default function ImageFormClient({ initialImages }: Props) {
         <div className="h-px bg-white/[0.06]" />
 
         {/* Localisation + Priorité algorithme */}
-        <div className="max-w-md">
+        <div data-tour-id="img-country" className="max-w-md">
           <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.images.countryLabel")} <span className="text-white/30">{t("dashboard.images.countryOptional")}</span></label>
           <CountrySelect name="country" />
         </div>

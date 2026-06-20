@@ -8,8 +8,9 @@ import ClaritySessionTags, {
   type ClarityPlan,
   type ClaritySegment,
 } from "./ClaritySessionTags";
-import CoachmarkTour from "./CoachmarkTour";
-import { TourProvider } from "./TourContext";
+import { OnboardingProvider } from "./onboarding/OnboardingProvider";
+import AppOverview from "./onboarding/AppOverview";
+import ModuleCoach from "./onboarding/ModuleCoach";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncStripeStateIfStale } from "@/lib/billing-sync";
@@ -28,11 +29,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     | { userId: string; plan: ClarityPlan; segment: ClaritySegment }
     | null = null;
 
-  // Gamified spotlight tour — auto-mounted (here, in the layout, so it
-  // persists across page navigations) when the user has never completed
-  // onboarding (onboarded_at IS NULL). tour_step (mig 030) lets the user
-  // resume where they left off if they close the browser mid-tour.
-  let tour: { initialStep: number } | null = null;
+  // Self-paced onboarding — the overview card (dashboard home) + a short
+  // per-module coach on first open. Enabled for non-guest users; gated
+  // per-area by profiles.onboarding_progress (mig 033). Mounted in the layout
+  // so it persists across navigations.
+  let onboarding: { enabled: boolean; progress: Record<string, boolean> } | null = null;
 
   try {
     const supabase = await createClient();
@@ -47,7 +48,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       const { data: profile } = await admin
         .from("profiles")
         .select(
-          "plan, has_paid, payment_overdue, payment_overdue_since, paused_plan, onboarded_at, tour_step, is_guest",
+          "plan, has_paid, payment_overdue, payment_overdue_since, paused_plan, is_guest",
         )
         .eq("id", user.id)
         .single();
@@ -58,14 +59,24 @@ export default async function DashboardLayout({ children }: { children: React.Re
         };
       }
 
-      // Tour only for fresh signups (onboarded_at IS NULL). Existing users
-      // and guests skip it.
-      if (
-        profile != null &&
-        profile.onboarded_at == null &&
-        profile.is_guest !== true
-      ) {
-        tour = { initialStep: (profile.tour_step as number | null) ?? 0 };
+      // Onboarding state — separate query so a missing column (e.g. before
+      // mig 033 is applied) can't break overdue / Clarity above. Default to
+      // grandfathered (= nothing shows) on any miss.
+      try {
+        const { data: onb } = await admin
+          .from("profiles")
+          .select("onboarding_progress")
+          .eq("id", user.id)
+          .single();
+        onboarding = {
+          enabled: profile != null && profile.is_guest !== true,
+          progress:
+            (onb?.onboarding_progress as Record<string, boolean> | null) ?? {
+              grandfathered: true,
+            },
+        };
+      } catch {
+        onboarding = null;
       }
 
       // Compute Clarity segment.
@@ -105,7 +116,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <TourProvider>
+    <OnboardingProvider
+      enabled={onboarding?.enabled ?? false}
+      initialProgress={onboarding?.progress ?? { grandfathered: true }}
+    >
     <div
       className="flex h-screen overflow-hidden text-white"
       style={{ background: "#050816" }}
@@ -141,15 +155,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
         />
       )}
 
-      {/* Gamified tour — mounted on every dashboard page so it can persist
-          across navigations. Renders for:
-            • first-time onboarding (driven by `tour` from server)
-            • on-demand chapter rewatch (driven by TourContext) */}
-      <CoachmarkTour
-        initialStep={tour?.initialStep ?? 0}
-        isOnboardingActive={tour != null}
-      />
+      {/* Self-paced onboarding — overview card (dashboard home) + per-module
+          coach on first open. Mounted here so both persist across navigations. */}
+      <AppOverview />
+      <ModuleCoach />
     </div>
-    </TourProvider>
+    </OnboardingProvider>
   );
 }

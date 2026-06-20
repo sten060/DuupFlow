@@ -633,7 +633,7 @@ export default function VideoFormAdvancedClient() {
       <input type="hidden" name="mode" value="advanced" />
       <input type="hidden" name="advancedRanges" value={JSON.stringify(serialRanges)} />
       {/* Dropzone + Copies */}
-      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
+      <div data-tour-id="vadv-dropzone" className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
         <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
         <div className="max-w-xs">
           <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.videosAdvanced.copiesLabel")}</label>
@@ -650,6 +650,7 @@ export default function VideoFormAdvancedClient() {
       <div className="h-px bg-white/[0.06]" />
 
       {/* Groupes de filtres */}
+      <div data-tour-id="vadv-settings" className="space-y-6">
       {groups.map((g) => (
         <Card
           key={g}
@@ -837,6 +838,7 @@ export default function VideoFormAdvancedClient() {
           )}
         </Card>
       ))}
+      </div>
 
       {/* Templates + Reset */}
       <Card title={t("dashboard.videosAdvanced.templatesTitle")}>
@@ -866,7 +868,9 @@ export default function VideoFormAdvancedClient() {
         <TemplatesList templates={templates} onLoad={onLoadTpl} onDelete={onDeleteTpl} />
       </Card>
 
-      <SubmitWithProgress pending={busy} />
+      <div data-tour-id="vadv-submit">
+        <SubmitWithProgress pending={busy} />
+      </div>
 
       {busy && shownProgress !== null && (
         <div className="mt-2">

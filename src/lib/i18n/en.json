@@ -1064,6 +1064,82 @@
       "continue": "Continue"
     }
   },
+  "onb": {
+    "skip": "Skip",
+    "back": "Back",
+    "next": "Next",
+    "done": "Got it",
+    "replayCta": "Replay tour",
+    "replayTitle": "Replay the tour",
+    "replaySubtitle": "Restart the overview or re-open a module's coach.",
+    "replayOverview": "Overview",
+    "replayOverviewDesc": "See the DuupFlow overview again.",
+    "overview": {
+      "title": "Welcome to DuupFlow",
+      "subtitle": "Here are your modules. We explain each one as you discover it.",
+      "cta": "Get started",
+      "foot": "Click a module to discover it."
+    },
+    "modules": {
+      "images": { "name": "Images", "tagline": "Duplicate your images into several unique versions." },
+      "videos": { "name": "Videos", "tagline": "Generate copies of your videos ready to post." },
+      "similarity": { "name": "Comparator", "tagline": "Measure how alike two files are." },
+      "generate": { "name": "AI Variation", "tagline": "Create AI variations of your images." },
+      "aidetection": { "name": "AI Detection", "tagline": "Strip the AI metadata from your files." }
+    },
+    "coach": {
+      "images": {
+        "s1t": "Drop your image",
+        "s1b": "Drag a file or click to import. You can add several.",
+        "s2t": "Choose your copies",
+        "s2b": "Set how many unique versions to generate.",
+        "s3t": "Set your filters",
+        "s3b": "Pick the country, the algorithm priority and the filters you want, right before duplicating.",
+        "s4t": "Run the duplication",
+        "s4b": "Click here and we handle the rest."
+      },
+      "videos": {
+        "s1t": "Two ways to duplicate",
+        "s1b": "Simple keeps it quick and to the point. Advanced gives you full control. Pick what fits."
+      },
+      "videosSimple": {
+        "s1t": "Drop your video",
+        "s1b": "Drag a file or click to import. You can add several.",
+        "s2t": "Choose your copies",
+        "s2b": "Set how many unique versions to generate.",
+        "s3t": "Set your filters",
+        "s3b": "Pick the packs and options you want, right before duplicating.",
+        "s4t": "Run the duplication",
+        "s4b": "Click here and we handle the rest."
+      },
+      "videosAdvanced": {
+        "s1t": "Welcome to advanced mode",
+        "s1b": "Here you get full control over the metadata. Drop your video to get started.",
+        "s2t": "Set your parameters",
+        "s2b": "Expand the groups and tune the advanced settings as needed, right before duplicating.",
+        "s3t": "Run the duplication",
+        "s3b": "Click here and we handle the rest."
+      },
+      "similarity": {
+        "s1t": "Drop two files",
+        "s1b": "Place the two files to compare in the zones provided.",
+        "s2t": "Run the comparison",
+        "s2b": "We analyze both and give you a similarity score."
+      },
+      "generate": {
+        "s1t": "Drop your image",
+        "s1b": "Import the image you want to vary.",
+        "s2t": "Choose your mode",
+        "s2b": "Pure variation to stay faithful, or text guided to steer the result.",
+        "s3t": "Run the generation",
+        "s3b": "The AI creates your variations in seconds."
+      },
+      "aidetection": {
+        "s1t": "Hide the AI signature",
+        "s1b": "Drop your files and we replace the AI metadata with a realistic human identity."
+      }
+    }
+  },
   "onboarding": {
     "createSpace": "Create your workspace",
     "joinWorkspace": "Join the workspace",
