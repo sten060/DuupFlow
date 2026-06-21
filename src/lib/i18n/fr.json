@@ -792,7 +792,16 @@
       "saveTemplate": "Enregistrer",
       "resetFilters": "Reset filtres",
       "noTemplates": "Aucune template.",
-      "enabled": "Active"
+      "enabled": "Active",
+      "mirrorHintTitle": "Astuce anti-détection",
+      "mirrorHintBody": "Si vos vidéos ne contiennent pas de texte, activez aussi « Reverse (miroir horizontal) » dans Options — c'est l'un des effets les plus efficaces contre la détection."
+    },
+    "tiktokGuide": {
+      "aria": "Guide TikTok",
+      "title": "Guide TikTok",
+      "subtitle": "Comment maximiser tes chances de rester éligible — et ce qu'il faut vérifier avant de blâmer le « non-original ».",
+      "toc": "Sur cette page",
+      "back": "Retour à la duplication avancée"
     },
     "similarity": {
       "title": "Comparateur de métadonnées",
@@ -1551,6 +1560,21 @@
       },
       "abitrate_k": {
         "label": "Bitrate audio"
+      },
+      "dyn_crop": {
+        "label": "Recadrage dynamique"
+      },
+      "prog_rotate": {
+        "label": "Rotation progressive"
+      },
+      "prog_zoom": {
+        "label": "Zoom progressif"
+      },
+      "shake": {
+        "label": "Shake léger"
+      },
+      "pitch": {
+        "label": "Pitch (tonalité)"
       }
     },
     "lim": {
@@ -1575,7 +1599,8 @@
       "cut_end": "≥ 0 s (et > start + 0.05)",
       "volume_db": "−30 à +30 dB",
       "afreq_hz": "20 à 16000 Hz",
-      "abitrate_k": "32 à 320 kb/s"
+      "abitrate_k": "32 à 320 kb/s",
+      "pitch": "−6 à +6 demi-tons (subtil : −2 → +2)"
     },
     "group": {
       "tags": "Tags",
@@ -1583,7 +1608,8 @@
       "motion": "Mouvement",
       "technical": "Techniques",
       "audio": "Audio",
-      "options": "Options"
+      "options": "Options",
+      "motionPro": "Mouvement poussé"
     },
     "help": {
       "tags": "Active individuellement chaque métadonnée à injecter. Si aucun bouton n'est activé, les métadonnées originales sont préservées.",
@@ -1591,7 +1617,12 @@
       "motion": "Vitesse (x) 0.98 → 1.02 (neutre 1.0) • Zoom 0.98 → 1.02 • Pixel shift 0 → 4 • Rotation −1 → +1 • FPS 24 → 30.",
       "technical": "Dimensions (W/H %) −10 → +10 • Bordure 0 → 40 • Bitrate vidéo 8 000 → 12 000 • GOP 48 → 60 • Cut : to ≥ start + 0.05s.",
       "audio": "Volume −6 → +6 dB • EQ peak (f) 50 → 12000 Hz • Bitrate audio 96 → 256 kb/s (AAC).",
-      "options": "Flip : vertical. Reverse : miroir horizontal. Localisation : pays injecté dans les métadonnées. Priorité d'algorithme : métadonnées iPhone réalistes."
+      "options": "Flip : vertical. Reverse : miroir horizontal. Localisation : pays injecté dans les métadonnées. Priorité d'algorithme : métadonnées iPhone réalistes.",
+      "motionPro": "Mouvements de caméra dans le temps. Chaque effet a un curseur de force (subtil → marqué), borné pour rester propre même au maximum.\nRecadrage dynamique : le cadre glisse • Rotation progressive : légère inclinaison • Zoom progressif : resserre / ouvre • Shake : micro-tremblement."
+    },
+    "force": {
+      "subtle": "Subtil",
+      "strong": "Marqué"
     },
     "dims": {
       "label": "Dimensions — Width × Height",

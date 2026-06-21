@@ -792,7 +792,16 @@
       "saveTemplate": "Save",
       "resetFilters": "Reset filters",
       "noTemplates": "No templates.",
-      "enabled": "Enabled"
+      "enabled": "Enabled",
+      "mirrorHintTitle": "Anti-detection tip",
+      "mirrorHintBody": "If your videos contain no text, also enable “Reverse (horizontal mirror)” under Options — it's one of the most effective effects against detection."
+    },
+    "tiktokGuide": {
+      "aria": "TikTok guide",
+      "title": "TikTok Guide",
+      "subtitle": "How to maximise your odds of staying eligible — and what to check before blaming “non-original”.",
+      "toc": "On this page",
+      "back": "Back to advanced duplication"
     },
     "similarity": {
       "title": "Metadata Comparator",
@@ -1551,6 +1560,21 @@
       },
       "abitrate_k": {
         "label": "Audio bitrate"
+      },
+      "dyn_crop": {
+        "label": "Dynamic reframe"
+      },
+      "prog_rotate": {
+        "label": "Progressive rotation"
+      },
+      "prog_zoom": {
+        "label": "Progressive zoom"
+      },
+      "shake": {
+        "label": "Light shake"
+      },
+      "pitch": {
+        "label": "Pitch (tone)"
       }
     },
     "lim": {
@@ -1575,7 +1599,8 @@
       "cut_end": "≥ 0 s (and > start + 0.05)",
       "volume_db": "−30 to +30 dB",
       "afreq_hz": "20 to 16000 Hz",
-      "abitrate_k": "32 to 320 kb/s"
+      "abitrate_k": "32 to 320 kb/s",
+      "pitch": "−6 to +6 semitones (subtle: −2 → +2)"
     },
     "group": {
       "tags": "Tags",
@@ -1583,7 +1608,8 @@
       "motion": "Motion",
       "technical": "Technical",
       "audio": "Audio",
-      "options": "Options"
+      "options": "Options",
+      "motionPro": "Advanced motion"
     },
     "help": {
       "tags": "Enable each metadata field to inject individually. If no button is enabled, the original metadata is preserved.",
@@ -1591,7 +1617,12 @@
       "motion": "Speed (x) 0.98 → 1.02 (neutral 1.0) • Zoom 0.98 → 1.02 • Pixel shift 0 → 4 • Rotation −1 → +1 • FPS 24 → 30.",
       "technical": "Dimensions (W/H %) −10 → +10 • Border 0 → 40 • Video bitrate 8,000 → 12,000 • GOP 48 → 60 • Cut: to ≥ start + 0.05s.",
       "audio": "Volume −6 → +6 dB • EQ peak (f) 50 → 12000 Hz • Audio bitrate 96 → 256 kb/s (AAC).",
-      "options": "Flip: vertical. Reverse: horizontal mirror. Location: country injected into the metadata. Algorithm priority: realistic iPhone metadata."
+      "options": "Flip: vertical. Reverse: horizontal mirror. Location: country injected into the metadata. Algorithm priority: realistic iPhone metadata.",
+      "motionPro": "Camera moves over time. Each effect has a strength slider (subtle → strong), bounded to stay clean even at max.\nDynamic reframe: the frame glides • Progressive rotation: slight tilt • Progressive zoom: tightens / opens • Shake: micro handheld jitter."
+    },
+    "force": {
+      "subtle": "Subtle",
+      "strong": "Strong"
     },
     "dims": {
       "label": "Dimensions — Width × Height",

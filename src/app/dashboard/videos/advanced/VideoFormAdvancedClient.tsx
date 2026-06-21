@@ -12,6 +12,7 @@ import { saveActiveJob, removeActiveJob } from "../videoJobResume";
 import { pushNotification } from "../../components/notificationStore";
 import InterruptedRecovery from "../InterruptedRecovery";
 import DurationInfoButton from "../DurationInfoButton";
+import TikTokGuideButton from "../TikTokGuideButton";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
@@ -71,7 +72,7 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
 }
 
 /* ================== Définition des filtres ================== */
-type Group = "Tags" | "Visuel" | "Mouvement" | "Techniques" | "Audio" | "Options";
+type Group = "Tags" | "Visuel" | "Mouvement" | "Mouvement poussé" | "Techniques" | "Audio" | "Options";
 
 type Ctrl = {
   key: string;
@@ -81,7 +82,7 @@ type Ctrl = {
   min: number;
   max: number;
   step?: number;
-  type?: "toggle" | "dims";
+  type?: "toggle" | "dims" | "force";
   hint?: string;
 };
 
@@ -114,6 +115,13 @@ const CONTROLS: Ctrl[] = [
   { key: "rotation_deg", label: "Rotation", unit: "°", group: "Mouvement", min: 0, max: 0, step: 0.1 },
   { key: "fps",          label: "Framerate", unit: "fps", group: "Mouvement", min: 0, max: 0, step: 0.1 },
 
+  // Mouvement poussé — single "force" slider (0–100) per effect. The force is stored
+  // in `.min`; the server maps it to safe, time-varying ffmpeg expressions.
+  { key: "dyn_crop",    label: "Recadrage dynamique", group: "Mouvement poussé", min: 0, max: 100, step: 1, type: "force" },
+  { key: "prog_rotate", label: "Rotation progressive", group: "Mouvement poussé", min: 0, max: 100, step: 1, type: "force" },
+  { key: "prog_zoom",   label: "Zoom progressif",      group: "Mouvement poussé", min: 0, max: 100, step: 1, type: "force" },
+  { key: "shake",       label: "Shake léger",          group: "Mouvement poussé", min: 0, max: 100, step: 1, type: "force" },
+
   { key: "dimensions_wh", label: "Dimensions", group: "Techniques", unit: "%", min: 0, max: 0, step: 0.1, type: "dims" },
   { key: "border_px", label: "Bordure (pad)", unit: "px", group: "Techniques", min: 0, max: 0, step: 1 },
   { key: "vbitrate",  label: "Bitrate vidéo", unit: "kb/s", group: "Techniques", min: 9000, max: 12000, step: 50 },
@@ -124,6 +132,7 @@ const CONTROLS: Ctrl[] = [
   { key: "volume_db",  label: "Volume",         unit: "dB",  group: "Audio", min: 0, max: 0, step: 0.1 },
   { key: "afreq_hz",   label: "Waveform shift", unit: "Hz",  group: "Audio", min: 0, max: 0, step: 1 },
   { key: "abitrate_k", label: "Bitrate audio",  unit: "kb/s", group: "Audio", min: 0, max: 0, step: 16 },
+  { key: "pitch",      label: "Pitch (tonalité)", unit: "demi-tons", group: "Audio", min: 0, max: 0, step: 0.5 },
 ];
 
 type RangeState = Record<string, { enabled: boolean; min: number; max: number }>;
@@ -150,6 +159,12 @@ const LIMITS: Record<
 
   speed:        { lo: 0.5, hi: 2, label: "neutre 1.0 — subtil : 0.98 → 1.02" },
   zoom:         { lo: 0.5, hi: 3, label: "neutre 1.0 — subtil : 0.98 → 1.02" },
+
+  // Mouvement poussé — force 0–100 (mapped to safe bounds server-side)
+  dyn_crop:     { lo: 0, hi: 100 },
+  prog_rotate:  { lo: 0, hi: 100 },
+  prog_zoom:    { lo: 0, hi: 100 },
+  shake:        { lo: 0, hi: 100 },
   pixelshift:   { lo: 0, hi: 200, label: "0 à 200 px" },
   rotation_deg: { lo: -180, hi: 180, label: "−180 à +180 °" },
   fps:          { lo: 10, hi: 60, label: "10 à 60 fps" },
@@ -163,6 +178,7 @@ const LIMITS: Record<
   volume_db:  { lo: -30, hi: 30, label: "−30 à +30 dB" },
   afreq_hz:   { lo: 20, hi: 16000, label: "20 à 16000 Hz" },
   abitrate_k: { lo: 32, hi: 320, label: "32 à 320 kb/s" },
+  pitch:      { lo: -6, hi: 6, label: "−6 à +6 demi-tons" },
 };
 
 /* ============ Infos packs (infobulles) ============ */
@@ -172,10 +188,64 @@ const GROUP_TOKEN: Record<Group, string> = {
   Tags: "tags",
   Visuel: "visual",
   Mouvement: "motion",
+  "Mouvement poussé": "motionPro",
   Techniques: "technical",
   Audio: "audio",
   Options: "options",
 };
+
+/* Default range state: every control off; force controls default to 50. */
+function makeDefaultRanges(): RangeState {
+  return Object.fromEntries(
+    CONTROLS.map((c) => [c.key, { enabled: false, min: c.type === "force" ? 50 : c.min, max: c.max }]),
+  );
+}
+
+/* ============ Built-in templates (offered by default) ============ */
+// TikTok anti-detection presets. Built primarily on "Mouvement poussé" (changes the
+// framing/motion the algorithm sees frame-by-frame) + temporal de-sync (cut/speed) +
+// mirror (HARD). No metadata/gop/bitrate/fps/stretch — those don't help content
+// detection. Force lives in `.min`; classic controls use min/max ranges (randomized
+// per copy). Loaded read-only; users can tweak then save their own copy.
+const BUILTIN_TEMPLATES: Template[] = [
+  {
+    // SOFT — high edge of imperceptible: present & effective, no visible degradation.
+    name: "TikTok SOFT",
+    ranges: {
+      cut_start:   { enabled: true, min: 0.10, max: 0.30 }, // invisible temporal de-sync
+      cut_end:     { enabled: true, min: 0.10, max: 0.30 },
+      speed:       { enabled: true, min: 0.98, max: 1.02 }, // ±2% timing + audio tempo (inaudible)
+      pitch:       { enabled: true, min: -0.5, max: 0.5  }, // tiny pitch shift (borderline audible)
+      dyn_crop:    { enabled: true, min: 22,   max: 22   }, // slow drift, ~1.08 reframe
+      prog_zoom:   { enabled: true, min: 18,   max: 18   }, // gentle Ken-Burns
+      prog_rotate: { enabled: true, min: 18,   max: 18   }, // ~1.4° sweep
+      dim_h:       { enabled: true, min: 2,    max: 2    }, // light height stretch (~slimmer), shifts aspect a hair
+      // shake intentionally OFF — it is the only effect the eye catches.
+    },
+  },
+  {
+    // HARD — visibly transformed but subject stays clearly recognizable & publishable.
+    name: "TikTok HARD",
+    ranges: {
+      cut_start:   { enabled: true, min: 0.15, max: 0.50 }, // lighter than before (was 0.40–1.00)
+      cut_end:     { enabled: true, min: 0.15, max: 0.50 },
+      speed:       { enabled: true, min: 0.95, max: 1.05 }, // ±5% timing + audio tempo
+      pitch:       { enabled: true, min: -1.5, max: 1.5  }, // subtle but effective (floor 0.75 st); tempo+EQ back it up
+      dyn_crop:    { enabled: true, min: 70,   max: 70   }, // strong drift + reframe
+      prog_zoom:   { enabled: true, min: 45,   max: 45   },
+      prog_rotate: { enabled: true, min: 70,   max: 70   }, // ~2.4° sweep
+      shake:       { enabled: true, min: 1,    max: 1    }, // barely-there (force 1)
+      dim_h:       { enabled: true, min: 4,    max: 4    }, // light height stretch
+      volume_db:   { enabled: true, min: -3,   max: 3    }, // audio fingerprint disruption
+      afreq_hz:    { enabled: true, min: 300,  max: 3000 }, // EQ peak shift
+      noise:       { enabled: true, min: 2,    max: 3    }, // light grain — frame-hash hedge
+      saturation:  { enabled: true, min: 0.95, max: 1.05 }, // visible grade shift (HARD only)
+      contrast:    { enabled: true, min: 0.96, max: 1.04 },
+      hue_rad:     { enabled: true, min: -0.04, max: 0.04 },
+      // mirror (reverse) intentionally NOT preset — advised via a tip on load (text-safe only).
+    },
+  },
+];
 
 /* ========================= Page ========================= */
 export default function VideoFormAdvancedClient() {
@@ -191,7 +261,7 @@ export default function VideoFormAdvancedClient() {
   const abortRef = useRef<AbortController | null>(null);
   const [interruptedJobId, setInterruptedJobId] = useState<string | null>(null);
   const [ranges, setRanges] = useState<RangeState>(() =>
-    Object.fromEntries(CONTROLS.map((c) => [c.key, { enabled: false, min: c.min, max: c.max }]))
+    makeDefaultRanges()
   );
 
   // Dimensions
@@ -249,11 +319,22 @@ export default function VideoFormAdvancedClient() {
     setTplName("");
   };
 
-  const onLoadTpl = (t: Template) => {
-    setRanges(t.ranges);
-    setDimsEnabled(Boolean(t.ranges.dim_w?.enabled || t.ranges.dim_h?.enabled));
-    setDimW(Number(t.ranges.dim_w?.min ?? 0));
-    setDimH(Number(t.ranges.dim_h?.min ?? 0));
+  const onLoadTpl = (tpl: Template) => {
+    // Merge over defaults so partial templates (e.g. built-ins that only set a few
+    // keys) load cleanly and any not-yet-known keys fall back to "off".
+    setRanges({ ...makeDefaultRanges(), ...tpl.ranges });
+    setDimsEnabled(Boolean(tpl.ranges.dim_w?.enabled || tpl.ranges.dim_h?.enabled));
+    setDimW(Number(tpl.ranges.dim_w?.min ?? 0));
+    setDimH(Number(tpl.ranges.dim_h?.min ?? 0));
+    // Built-in preset → gentle tip: mirror is the strongest extra lever but flips text.
+    if (BUILTIN_TEMPLATES.some((b) => b.name === tpl.name)) {
+      pushNotification({
+        kind: "info",
+        title: t("dashboard.videosAdvanced.mirrorHintTitle"),
+        body: t("dashboard.videosAdvanced.mirrorHintBody"),
+        duration: 9000,
+      });
+    }
   };
 
   const onDeleteTpl = async (name: string) => {
@@ -269,7 +350,7 @@ export default function VideoFormAdvancedClient() {
   };
 
   const groups = useMemo(() => {
-    const wanted: Group[] = ["Tags", "Visuel", "Mouvement", "Techniques", "Audio", "Options"];
+    const wanted: Group[] = ["Tags", "Visuel", "Mouvement", "Mouvement poussé", "Techniques", "Audio", "Options"];
     return wanted.filter((g) => CONTROLS.some((c) => c.group === g));
   }, []);
 
@@ -626,7 +707,10 @@ export default function VideoFormAdvancedClient() {
     <>
     <div className="flex items-center justify-between">
       <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosAdvanced.title")}</h1>
-      <DurationInfoButton />
+      <div className="flex items-center gap-2">
+        <TikTokGuideButton />
+        <DurationInfoButton />
+      </div>
     </div>
     <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="channel" value="advanced" />
@@ -714,6 +798,51 @@ export default function VideoFormAdvancedClient() {
                         />
                       </div>
                       <div className="mt-1 text-[11px] text-white/60">{limText}</div>
+                    </div>
+                  );
+                }
+
+                // Mouvement poussé — curseur de force unique (0–100)
+                if (c.type === "force") {
+                  const fv = ranges[c.key];
+                  const val = Number(fv?.min ?? 50);
+                  return (
+                    <div
+                      key={c.key}
+                      className={`rounded-xl border p-3 ${
+                        fv?.enabled ? "border-sky-300 bg-sky-400/10" : "border-white/15 bg-white/[.03]"
+                      }`}
+                    >
+                      <label className="mb-2 flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium">{t(`vid.ctrl.${c.key}.label`)}</span>
+                        <input
+                          type="checkbox"
+                          checked={!!fv?.enabled}
+                          onChange={(e) =>
+                            setRanges((r) => ({ ...r, [c.key]: { ...r[c.key], enabled: e.target.checked } }))
+                          }
+                        />
+                      </label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={val}
+                        disabled={!fv?.enabled}
+                        onChange={(e) =>
+                          setRanges((r) => ({
+                            ...r,
+                            [c.key]: { ...r[c.key], min: Number(e.target.value), max: Number(e.target.value) },
+                          }))
+                        }
+                        className="w-full accent-sky-400 disabled:opacity-40"
+                      />
+                      <div className="mt-1 flex justify-between text-[11px] text-white/55">
+                        <span>{t("vid.force.subtle")}</span>
+                        <span className="text-white/80">{val}</span>
+                        <span>{t("vid.force.strong")}</span>
+                      </div>
                     </div>
                   );
                 }
@@ -865,7 +994,7 @@ export default function VideoFormAdvancedClient() {
           </button>
         </div>
 
-        <TemplatesList templates={templates} onLoad={onLoadTpl} onDelete={onDeleteTpl} />
+        <TemplatesList builtins={BUILTIN_TEMPLATES} templates={templates} onLoad={onLoadTpl} onDelete={onDeleteTpl} />
       </Card>
 
       <div data-tour-id="vadv-submit">
@@ -923,19 +1052,32 @@ export default function VideoFormAdvancedClient() {
 
 /* ================= Templates UI ================= */
 function TemplatesList({
+  builtins,
   templates,
   onLoad,
   onDelete,
 }: {
+  builtins: Template[];
   templates: Template[];
   onLoad: (t: Template) => void;
   onDelete: (n: string) => void;
 }) {
   const { t: tr } = useTranslation();
-  if (templates.length === 0) return <p className="text-sm text-white/55">{tr("dashboard.videosAdvanced.noTemplates")}</p>;
 
   return (
     <div className="mt-3 flex flex-wrap gap-2">
+      {builtins.map((t) => (
+        <button
+          key={t.name}
+          type="button"
+          onClick={() => onLoad(t)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/40 bg-sky-400/10 px-3 py-1 text-sm hover:bg-sky-400/20"
+          title={tr("vid.tpl.load")}
+        >
+          <span aria-hidden>★</span>
+          {t.name}
+        </button>
+      ))}
       {templates.map((t) => (
         <span
           key={t.name}

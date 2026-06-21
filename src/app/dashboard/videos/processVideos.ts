@@ -122,9 +122,13 @@ type ColorInfo = {
   colorTransfer: string; // e.g. "arib-std-b67" (HLG), "smpte2084" (PQ), "bt709"
   colorPrimaries: string; // e.g. "bt2020", "bt709"
   pixFmt: string;        // e.g. "yuv420p10le", "yuv420p"
+  width: number;         // source pixel width (0 if unknown) — used by "Mouvement poussé"
+  height: number;        // source pixel height (0 if unknown)
+  fps: number;           // source frame rate (0 if unknown) — needed by zoompan
+  audioRate: number;     // source audio sample rate in Hz (0 if none/unknown) — needed by pitch shift
 };
 async function probeColorInfo(input: string, binPath: string): Promise<ColorInfo> {
-  const defaults: ColorInfo = { isHDR: false, colorSpace: "unknown", colorTransfer: "unknown", colorPrimaries: "unknown", pixFmt: "unknown" };
+  const defaults: ColorInfo = { isHDR: false, colorSpace: "unknown", colorTransfer: "unknown", colorPrimaries: "unknown", pixFmt: "unknown", width: 0, height: 0, fps: 0, audioRate: 0 };
   return new Promise((resolve) => {
     let stderr = "";
     let settled = false;
@@ -149,6 +153,23 @@ async function probeColorInfo(input: string, binPath: string): Promise<ColorInfo
         info.colorSpace = cm[1].trim();     // bt2020nc, bt709, smpte170m, etc.
         info.colorPrimaries = cm[2].trim(); // bt2020, bt709, etc.
         info.colorTransfer = cm[3].trim();  // arib-std-b67 (HLG), smpte2084 (PQ), bt709, etc.
+      }
+
+      // Resolution + fps (used by "Mouvement poussé"). Parsed from the same
+      // Video: line — the resolution is the first NxN token; the codec tag
+      // (e.g. "0x31637661") can't match because it has <2 digits before the "x".
+      const vline = stderr.match(/Stream #\d+:\d+.*?: Video:[^\n]*/);
+      if (vline) {
+        const dim = vline[0].match(/(\d{2,5})x(\d{2,5})/);
+        if (dim) { info.width = parseInt(dim[1], 10); info.height = parseInt(dim[2], 10); }
+        const f = vline[0].match(/(\d+(?:\.\d+)?)\s*fps/);
+        if (f) info.fps = parseFloat(f[1]);
+      }
+      // Audio sample rate (used by the pitch shift). e.g. "Audio: aac ..., 48000 Hz, ..."
+      const aline = stderr.match(/Stream #\d+:\d+.*?: Audio:[^\n]*/);
+      if (aline) {
+        const ar = aline[0].match(/(\d{4,6})\s*Hz/);
+        if (ar) info.audioRate = parseInt(ar[1], 10);
       }
 
       // Detect HDR: BT.2020 color space OR HLG/PQ transfer function OR 10-bit HEVC
@@ -1170,8 +1191,125 @@ export async function processVideos(
         const abr = get("abitrate_k", 0, 0, 32, 320);
         if (abr.enabled) extraArgs.push("-b:a", `${Math.round(abr.value)}k`);
 
+        // Pitch shift (semitones) WITHOUT changing duration — one of the strongest
+        // levers vs TikTok's audio fingerprint. asetrate raises pitch+tempo together,
+        // aresample restores the sample rate, atempo restores the original duration.
+        // Needs the source sample rate (from the probe); skipped if unknown / no audio.
+        const pit = get("pitch", 0, 0, -6, 6);
+        if (pit.enabled && color.audioRate > 0) {
+          // A near-zero random pick is inaudible & useless — a symmetric range like
+          // ±2.5 lands ~0 on some copies. Floor the magnitude at half the configured
+          // max so EVERY copy is clearly shifted, keeping its sign + per-copy variety.
+          const bound = Math.max(Math.abs(Number(ranges?.pitch?.min) || 0), Math.abs(Number(ranges?.pitch?.max) || 0));
+          let semis = pit.value;
+          const floor = bound * 0.5;
+          if (Math.abs(semis) < floor) {
+            const sign = semis < 0 ? -1 : semis > 0 ? 1 : (Math.random() < 0.5 ? -1 : 1);
+            semis = sign * floor;
+          }
+          if (Math.abs(semis) >= 0.1) {
+            const factor = Math.pow(2, semis / 12);
+            afParts.push(`asetrate=${Math.round(color.audioRate * factor)}`);
+            afParts.push(`aresample=${color.audioRate}`);
+            afParts.push(`atempo=${(1 / factor).toFixed(6)}`);
+          }
+        }
+
         if (Boolean(ranges?.flip?.enabled))    vfParts.push("vflip");
         if (Boolean(ranges?.reverse?.enabled)) vfParts.push("hflip");
+
+        // ── Mouvement poussé — time-varying camera moves ────────────────────────
+        // 4 independent "force" sliders (0–100), each mapped to SAFE bounds so even
+        // max force stays clean and keeps the subject in-frame. All stack in THIS
+        // single -vf pass (unshifted to run first, on clean pixels) → they inherit
+        // the global encode semaphore + bitrate cap like every other filter. When
+        // every force is off, geoParts stays empty → zero impact on existing filters.
+        {
+          const mpForce = (key: string): number => {
+            const r = ranges?.[key];
+            if (!r?.enabled) return 0;
+            const v = Number(r.min);
+            return Number.isFinite(v) ? _clamp(v, 0, 100) : 0;
+          };
+          const DUR = videoDuration > 0 ? videoDuration : 0;
+          const geoParts: string[] = [];
+
+          if (DUR > 0) {
+            // 1) Rotation progressive — slow lean 0 → ±θmax. A CONSTANT pre-scale hides
+            //    the black corners; a time-varying angle cannot use rotw/roth (that would
+            //    change the output size per frame and break the encoder).
+            const fRot = mpForce("prog_rotate");
+            if (fRot > 0) {
+              // Sweep -θmax → +θmax across the clip → tilt visible from the FIRST frame
+              // (not a slow ramp from 0). Max |angle| = θmax ≤ 3° → subject never distorted.
+              const theta = ((1.0 + 2.0 * (fRot / 100)) * Math.PI) / 180; // 1.0° → 3.0° each side
+              const dir = Math.random() < 0.5 ? "-" : "";
+              const P = Math.min(1.14, 1 + 2.0 * Math.sin(theta)).toFixed(5); // covers corners @ ≤3°, any aspect
+              geoParts.push(`scale=iw*${P}:ih*${P}:flags=bicubic`);
+              geoParts.push(`rotate=a='${dir}${theta.toFixed(6)}*(2*(t/${DUR.toFixed(3)})-1)':ow=iw:oh=ih:c=black`);
+              geoParts.push(`crop=iw/${P}:ih/${P}:(iw-iw/${P})/2:(ih-ih/${P})/2`);
+            }
+
+            // 2) Zoom progressif — needs source W/H (+ fps) → zoompan. Skipped if the
+            //    probe couldn't read them. z stays ≥ 1 by construction (no clamp needed).
+            const fZoom = mpForce("prog_zoom");
+            if (fZoom > 0 && color.width > 1 && color.height > 1) {
+              const zmax = 1.06 + 0.14 * (fZoom / 100); // 1.06 → 1.20
+              const fps = color.fps > 0 ? color.fps : 30;
+              const totf = Math.max(1, Math.round(DUR * fps) + 2); // +2 → on/totf < 1 always
+              const dz = (zmax - 1).toFixed(5);
+              const z = Math.random() < 0.5
+                ? `1+${dz}*on/${totf}`                    // zoom in
+                : `${zmax.toFixed(5)}-${dz}*on/${totf}`;  // zoom out (opens up)
+              geoParts.push(
+                `zoompan=z='${z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${color.width}x${color.height}:fps=${fps}`
+              );
+            }
+
+            // 3) Recadrage dynamique (pan) + Shake — one crop+scale, x/y animated.
+            //    In-bounds BY CONSTRUCTION: a base zoom gives room, and the shake
+            //    amplitude is capped to whatever room the pan leaves → no clamp and
+            //    no commas in the expressions (avoids filtergraph-escaping bugs).
+            const fPan = mpForce("dyn_crop");
+            const fShake = mpForce("shake");
+            if (fPan > 0 || fShake > 0) {
+              const np = fPan / 100;
+              const ns = fShake / 100;
+              // Motion as fractions of the frame. The pan travel is much larger than
+              // before so the drift is clearly visible; capped so the base zoom never
+              // exceeds ~1.20 (subject stays framed). Shake reserves its swing first,
+              // so both stay visible when combined.
+              const shakeAmp0 = fShake > 0 ? 0.001 + 0.003 * ns : 0;        // ±0.1% → ±0.4% (gentler default)
+              const CAP = 0.166;                                            // ⇒ base zoom ≤ ~1.20
+              const shakeRoom = 2 * shakeAmp0;
+              const panTravel = fPan > 0 ? Math.min(0.05 + 0.13 * np, Math.max(0, CAP - shakeRoom - 0.01)) : 0; // up to ~15%
+              const avail = Math.min(panTravel + shakeRoom + 0.01, CAP);    // movement room (fraction of dim)
+              const Z = 1 / (1 - avail);
+              const Zf = Z.toFixed(5);
+              const trav = panTravel;                                       // pan travel band
+              const mid = avail / 2;
+              const amp = Math.min(shakeAmp0, Math.max(0, (avail - trav) / 2)); // shake that still fits
+              const tnorm = `(t/${DUR.toFixed(3)})`;
+              const half = (trav / 2).toFixed(5);
+              const dirX = Math.random() < 0.5 ? "-" : "+";
+              const dirY = Math.random() < 0.5 ? "-" : "+";
+              const fx = (3 + Math.random() * 3).toFixed(3);
+              const fy = (3 + Math.random() * 3).toFixed(3);
+              const phx = (Math.random() * 6.283).toFixed(3);
+              const phy = (Math.random() * 6.283).toFixed(3);
+              const shX = amp > 0 ? `+${amp.toFixed(5)}*sin(2*PI*${fx}*t+${phx})` : "";
+              const shY = amp > 0 ? `+${amp.toFixed(5)}*sin(2*PI*${fy}*t+${phy})` : "";
+              const xExpr = `in_w*(${mid.toFixed(5)}${dirX}${half}*(2*${tnorm}-1)${shX})`;
+              const yExpr = `in_h*(${mid.toFixed(5)}${dirY}${half}*(2*${tnorm}-1)${shY})`;
+              geoParts.push(`crop=iw/${Zf}:ih/${Zf}:x='${xExpr}':y='${yExpr}'`);
+              geoParts.push(`scale=iw*${Zf}:ih*${Zf}:flags=bicubic`);
+            }
+          }
+
+          // Camera moves run FIRST (clean pixels), before colour/grain. Empty when all
+          // forces are off → a true no-op, existing behaviour untouched.
+          if (geoParts.length) vfParts.unshift(...geoParts);
+        }
 
         // Add scale helpers whenever a full video encode will happen.
         // video filters → full encode via libx264 (vfParts non-empty)
