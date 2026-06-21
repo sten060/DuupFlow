@@ -6,6 +6,7 @@
 import NextLink from "next/link";
 import Link from "@/components/LocaleLink";
 import ArticleTOC, { type TocSection } from "./ArticleTOC";
+import YouTubeLazy from "./YouTubeLazy";
 
 export type Lang = "fr" | "en";
 
@@ -33,6 +34,7 @@ export const META: Record<Lang, { title: string; description: string }> = {
 };
 
 const IMG_SRC = "/SEO-page/tiktok-ineligibility-notice.png";
+const VIDEO_ID = "HMGMmpnEUSk";
 
 const SECTIONS: Record<Lang, TocSection[]> = {
   fr: [
@@ -110,6 +112,10 @@ const C = {
     readLabel: "min de lecture",
     standfirst:
       "Tes vues sont passées de plusieurs milliers à presque rien du jour au lendemain. Une notice est apparue : contenu non original, de mauvaise qualité ou QR. Voici ce qui se passe vraiment, pourquoi faire appel ne suffit presque jamais, et ce qui remet réellement ton contenu dans le feed.",
+    videoIntro: "Tu préfères la version vidéo ? On t'explique tout ici 👇",
+    videoTitle: "Pourquoi ton TikTok est « inéligible aux recommandations » — et comment régler le problème",
+    videoDesc:
+      "Explication vidéo : ce que veut vraiment dire l'inéligibilité aux recommandations TikTok, pourquoi les métadonnées et les appels ne suffisent pas, et la seule chose qui remet ton contenu dans le feed.",
     imgAlt:
       "Notice TikTok d'inéligibilité aux recommandations indiquant un contenu non original, de mauvaise qualité ou avec QR code",
     imgCaption:
@@ -176,6 +182,10 @@ const C = {
     readLabel: "min read",
     standfirst:
       "Your views went from thousands to almost nothing overnight. A notice appeared: unoriginal, low-quality, or QR content. Here's what's really happening, why appealing almost never works, and what actually puts your content back in the feed.",
+    videoIntro: "Prefer the video version? We break it all down here 👇",
+    videoTitle: "Why your TikTok is “ineligible for recommendation” — and how to fix it",
+    videoDesc:
+      "Video explainer: what TikTok's “ineligible for recommendation” really means, why metadata and appeals aren't enough, and the only thing that actually puts your content back in the feed.",
     imgAlt:
       "TikTok ineligible-for-recommendation notice stating unoriginal, low-quality, and QR code content",
     imgCaption:
@@ -264,14 +274,29 @@ function jsonLd(lang: Lang) {
       acceptedAnswer: { "@type": "Answer", text: f.a },
     })),
   };
-  return [article, faq];
+  const video = {
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: c.videoTitle,
+    description: c.videoDesc,
+    thumbnailUrl: [`https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`],
+    uploadDate: PUBLISHED_AT,
+    contentUrl: `https://www.youtube.com/watch?v=${VIDEO_ID}`,
+    embedUrl: `https://www.youtube-nocookie.com/embed/${VIDEO_ID}`,
+    publisher: {
+      "@type": "Organization",
+      name: "DuupFlow",
+      logo: { "@type": "ImageObject", url: "https://www.duupflow.com/logo-mark.png" },
+    },
+  };
+  return [article, faq, video];
 }
 
 export default function TikTokArticle({ lang }: { lang: Lang }) {
   const c = C[lang];
   const sections = SECTIONS[lang];
   const faq = FAQ[lang];
-  const [articleLd, faqLd] = jsonLd(lang);
+  const [articleLd, faqLd, videoLd] = jsonLd(lang);
   const ctaHref = `/${lang}?utm_source=blog&utm_medium=organic&utm_campaign=tiktok_ineligible`;
   const dateLabel = new Date(PUBLISHED_AT).toLocaleDateString(lang === "fr" ? "fr-FR" : "en-US", {
     day: "numeric",
@@ -284,6 +309,7 @@ export default function TikTokArticle({ lang }: { lang: Lang }) {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(videoLd) }} />
 
       <main className="px-6 py-12 md:py-16">
         <div className="max-w-6xl mx-auto grid grid-cols-12 gap-10 lg:gap-14">
@@ -309,6 +335,12 @@ export default function TikTokArticle({ lang }: { lang: Lang }) {
 
             <div className="space-y-6 text-[15px] md:text-base leading-relaxed text-white/80">
               <p className="text-lg md:text-xl text-white/90 leading-relaxed">{c.standfirst}</p>
+
+              {/* Video explainer — lazy-loaded (thumbnail → iframe on click) for page speed */}
+              <div className="my-8">
+                <p className="mb-3 text-sm font-medium text-white/60">{c.videoIntro}</p>
+                <YouTubeLazy videoId={VIDEO_ID} title={c.videoTitle} />
+              </div>
 
               {/* Proof image */}
               <figure className="my-8">
