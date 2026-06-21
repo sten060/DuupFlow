@@ -382,6 +382,22 @@ export default function TarifsPage() {
       {/* ── PRICING CARDS ── */}
       <section className="px-6 pb-24">
         <PricingCards />
+
+        {/* TikTok solution reassurance badge — accent matches the landing announcement bar */}
+        <div className="mt-8 flex justify-center">
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm">
+            <span
+              className="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white"
+              style={{ background: "linear-gradient(90deg,#6366F1,#38BDF8)" }}
+            >
+              {t("tarifs.tiktokBadgeNew")}
+            </span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" className="shrink-0 text-white/80">
+              <path d="M16.6 3c.27 2.07 1.43 3.3 3.4 3.43v2.32c-1.14.11-2.14-.26-3.3-.96v6.13c0 3.12-2.27 5.55-5.3 5.55-2.93 0-5.0-2.26-5.0-4.92 0-2.94 2.35-4.92 5.49-4.62v2.55c-.46-.1-.95-.16-1.43-.08-1.15.18-1.9.96-1.82 2.2.08 1.15.95 1.94 2.11 1.94.9 0 1.65-.58 1.87-1.45.06-.27.08-.62.08-.94V3h3.43z" />
+            </svg>
+            <span className="font-medium text-white/85">{t("tarifs.tiktokBadge")}</span>
+          </div>
+        </div>
       </section>
 
       {/* ── FAQ ── */}

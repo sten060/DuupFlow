@@ -46,6 +46,24 @@ export default async function DashboardPage() {
   // the column auto-set at signup so they skip this and see the tour instead.
   const variationAnnouncementPending =
     profile != null && profile.variation_ia_announced_at == null;
+
+  // One-shot TikTok launch pop-up. Read in a SEPARATE query so a missing column
+  // (migration 034 not yet applied) can't break the main profile fetch above.
+  // When the column is absent we default to "pending" (show it) — the client also
+  // keeps a localStorage guard so it never loops before the migration runs.
+  let tiktokAnnouncementPending = false;
+  if (user) {
+    try {
+      const { data: tk, error } = await supabase
+        .from("profiles")
+        .select("tiktok_announce_seen_at")
+        .eq("id", user.id)
+        .single();
+      tiktokAnnouncementPending = error ? true : (tk as { tiktok_announce_seen_at: string | null })?.tiktok_announce_seen_at == null;
+    } catch {
+      tiktokAnnouncementPending = true;
+    }
+  }
   // Effective plan for the announcement modal (drives bonus token wording).
   const effectivePlan = ((): "free" | "solo" | "pro" => {
     if (profile?.plan === "solo") return "solo";
@@ -59,6 +77,7 @@ export default async function DashboardPage() {
       firstName={firstName}
       agencyName={agencyName}
       variationAnnouncementPending={variationAnnouncementPending}
+      tiktokAnnouncementPending={tiktokAnnouncementPending}
       effectivePlan={effectivePlan}
     />
   );

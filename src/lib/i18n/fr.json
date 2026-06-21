@@ -170,6 +170,11 @@
     "navSupport": "Support Telegram",
     "navContact": "Nous contacter"
   },
+  "announce": {
+    "text": "Nouveau — Reste éligible sur TikTok : la solution anti-détection est dans DuupFlow.",
+    "textShort": "Reste éligible sur TikTok",
+    "cta": "Voir les plans"
+  },
   "tarifs": {
     "badge": "Tarif unique — tout inclus",
     "title": "Nos Tarifs",
@@ -183,6 +188,8 @@
     "planPro": "Plan Pro",
     "planEntreprise": "Plan Entreprise",
     "mostPopular": "Le plus populaire",
+    "tiktokBadgeNew": "Nouveau",
+    "tiktokBadge": "Solution TikTok incluse",
     "perMonth": "/ mois",
     "surDevis": "Sur devis",
     "freePrice": "0 €",
@@ -803,6 +810,19 @@
       "toc": "Sur cette page",
       "back": "Retour à la duplication avancée"
     },
+    "tiktokAnnounce": {
+      "pill": "Nouveau",
+      "title": "Reste éligible sur TikTok",
+      "lead": "TikTok rend inéligibles les vidéos qu'il juge « non originales ». DuupFlow y répond : des transformations qui changent ce que l'algorithme perçoit, pour maximiser tes chances de rester dans le For You.",
+      "bullet1": "Templates TikTok SOFT & HARD prêts à l'emploi",
+      "bullet2": "Recadrage, rotation, zoom et shake — « Mouvement poussé »",
+      "bullet3": "Chaque copie réellement différente des autres",
+      "cta": "Découvrir la solution",
+      "newsTitle": "Solution anti-détection TikTok",
+      "newsBody": "Templates SOFT/HARD + « Mouvement poussé » dans le mode avancé, pour rester éligible sur TikTok.",
+      "notifTitle": "Reste éligible sur TikTok",
+      "notifBody": "Les templates SOFT/HARD et le « Mouvement poussé » t'attendent dans le mode avancé."
+    },
     "similarity": {
       "title": "Comparateur de métadonnées",
       "subtitle": "Upload deux fichiers pour comparer leurs métadonnées (ffprobe). Les différences sont surlignees en vert.",
@@ -1063,7 +1083,8 @@
     },
     "notif": {
       "doneGeneric": "Duplication terminée.",
-      "errorBody": "La duplication a échoué. Réessaie."
+      "errorBody": "La duplication a échoué. Réessaie.",
+      "discover": "Découvrir"
     },
     "quotaWarn": {
       "title": "Tu approches de ta limite 👋",

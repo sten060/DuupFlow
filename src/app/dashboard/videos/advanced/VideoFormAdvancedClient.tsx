@@ -349,6 +349,27 @@ export default function VideoFormAdvancedClient() {
     setDimH(0);
   };
 
+  // Deep-link target for the TikTok announcement (pop-up / notif / What's New):
+  // when the URL ends with #tiktok-templates, scroll to + briefly flash the
+  // Templates section (where the SOFT/HARD chips live).
+  useEffect(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#tiktok-templates") return;
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      const el = document.getElementById("tiktok-templates");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        el.classList.add("duup-tiktok-flash");
+        setTimeout(() => el.classList.remove("duup-tiktok-flash"), 2600);
+        return;
+      }
+      if (tries++ < 15) timer = setTimeout(tick, 200); // retry until the section mounts
+    };
+    timer = setTimeout(tick, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
   const groups = useMemo(() => {
     const wanted: Group[] = ["Tags", "Visuel", "Mouvement", "Mouvement poussé", "Techniques", "Audio", "Options"];
     return wanted.filter((g) => CONTROLS.some((c) => c.group === g));
@@ -705,6 +726,7 @@ export default function VideoFormAdvancedClient() {
 
   return (
     <>
+    <style>{`@keyframes duupTiktokFlash{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,0)}30%{box-shadow:0 0 0 3px rgba(56,189,248,.55),0 0 32px rgba(56,189,248,.25)}}.duup-tiktok-flash{animation:duupTiktokFlash 1.3s ease-in-out 2}`}</style>
     <div className="flex items-center justify-between">
       <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosAdvanced.title")}</h1>
       <div className="flex items-center gap-2">
@@ -969,7 +991,8 @@ export default function VideoFormAdvancedClient() {
       ))}
       </div>
 
-      {/* Templates + Reset */}
+      {/* Templates + Reset — anchor target for the TikTok announcement deep-link */}
+      <div id="tiktok-templates" className="scroll-mt-24 rounded-2xl">
       <Card title={t("dashboard.videosAdvanced.templatesTitle")}>
         <div className="flex flex-wrap gap-2">
           <input
@@ -996,6 +1019,7 @@ export default function VideoFormAdvancedClient() {
 
         <TemplatesList builtins={BUILTIN_TEMPLATES} templates={templates} onLoad={onLoadTpl} onDelete={onDeleteTpl} />
       </Card>
+      </div>
 
       <div data-tour-id="vadv-submit">
         <SubmitWithProgress pending={busy} />

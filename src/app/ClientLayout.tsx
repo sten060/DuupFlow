@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
+import AnnouncementBar from "@/components/AnnouncementBar";
 import { LanguageProvider, type Locale } from "@/lib/i18n/context";
 import { captureAcquisition, trackClickIfUTM } from "@/lib/acquisition";
 
@@ -125,8 +126,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <AffiliateRefTracker />
       </Suspense>
       <AcquisitionTracker />
+      {showHeader && isLanding && <AnnouncementBar />}
       {showHeader && <Header />}
-      {showHeader && <div className="h-20 sm:h-24" />}
+      {/* Spacer clears the fixed header (+ the announcement bar on the landing page). */}
+      {showHeader && <div className={isLanding ? "h-[116px] sm:h-[132px]" : "h-20 sm:h-24"} />}
       {children}
 
       {/* Logo preloader — only on landing page */}

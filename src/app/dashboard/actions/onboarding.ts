@@ -106,3 +106,41 @@ export async function acknowledgeVariationAnnouncement(): Promise<{
 
   return { credited: bonusCents > 0, bonusTokens };
 }
+
+/**
+ * Acknowledge the one-shot TikTok launch announcement pop-up.
+ *
+ * Sets `tiktok_announce_seen_at = NOW()` so the pop-up never re-opens (per user,
+ * DB-backed, cross-device). Best-effort: if the column doesn't exist yet
+ * (migration 034 not applied), the write simply no-ops — the client also keeps a
+ * localStorage guard so the pop-up still won't loop in that case.
+ */
+export async function acknowledgeTikTokAnnouncement(): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const admin = createAdminClient();
+  try {
+    await admin
+      .from("profiles")
+      .update({ tiktok_announce_seen_at: new Date().toISOString() })
+      .eq("id", user.id);
+  } catch { /* column missing (pre-migration) — localStorage guard covers it */ }
+}
+
+/**
+ * Mark the 12h TikTok reminder notification as sent — once per user, DB-backed.
+ * Best-effort / resilient like acknowledgeTikTokAnnouncement.
+ */
+export async function markTikTokReminderSent(): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const admin = createAdminClient();
+  try {
+    await admin
+      .from("profiles")
+      .update({ tiktok_reminder_sent_at: new Date().toISOString() })
+      .eq("id", user.id);
+  } catch { /* column missing (pre-migration) */ }
+}

@@ -170,6 +170,11 @@
     "navSupport": "Telegram Support",
     "navContact": "Contact us"
   },
+  "announce": {
+    "text": "New — Stay eligible on TikTok: the anti-detection solution is in DuupFlow.",
+    "textShort": "Stay eligible on TikTok",
+    "cta": "See plans"
+  },
   "tarifs": {
     "badge": "Simple pricing — all-inclusive",
     "title": "Our Pricing",
@@ -183,6 +188,8 @@
     "planPro": "Pro Plan",
     "planEntreprise": "Enterprise Plan",
     "mostPopular": "Most Popular",
+    "tiktokBadgeNew": "New",
+    "tiktokBadge": "TikTok solution included",
     "perMonth": "/ month",
     "surDevis": "Custom Quote",
     "freePrice": "0 €",
@@ -803,6 +810,19 @@
       "toc": "On this page",
       "back": "Back to advanced duplication"
     },
+    "tiktokAnnounce": {
+      "pill": "New",
+      "title": "Stay eligible on TikTok",
+      "lead": "TikTok makes videos it deems “non-original” ineligible. DuupFlow answers with transformations that change what the algorithm sees — to maximise your chances of staying in the For You feed.",
+      "bullet1": "Ready-made TikTok SOFT & HARD templates",
+      "bullet2": "Reframe, rotation, zoom & shake — “Advanced motion”",
+      "bullet3": "Every copy genuinely different from the others",
+      "cta": "Discover the solution",
+      "newsTitle": "TikTok anti-detection solution",
+      "newsBody": "SOFT/HARD templates + “Advanced motion” in advanced mode, to stay eligible on TikTok.",
+      "notifTitle": "Stay eligible on TikTok",
+      "notifBody": "The SOFT/HARD templates and “Advanced motion” are waiting for you in advanced mode."
+    },
     "similarity": {
       "title": "Metadata Comparator",
       "subtitle": "Upload two files to compare their metadata (ffprobe). Differences are highlighted in green.",
@@ -1063,7 +1083,8 @@
     },
     "notif": {
       "doneGeneric": "Duplication complete.",
-      "errorBody": "The duplication failed. Please try again."
+      "errorBody": "The duplication failed. Please try again.",
+      "discover": "Discover"
     },
     "quotaWarn": {
       "title": "You're approaching your limit 👋",

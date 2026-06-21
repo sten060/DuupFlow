@@ -12,6 +12,7 @@ export type AppNotification = {
   title: string;
   body?: string;
   files?: { name: string; url: string }[]; // optional downloadable results
+  href?: string; // optional click-through link (e.g. the TikTok launch reminder)
   // If set, the notification auto-dismisses after this many ms (transient, e.g.
   // the "you can leave the page" reassurance). If unset, it persists in the
   // panel until manually dismissed (e.g. a finished-with-downloads result).
@@ -67,7 +68,7 @@ export function pushNotification(
   n: Omit<AppNotification, "id" | "createdAt" | "read"> & { id?: string },
 ): string {
   const id = n.id ?? `ntf_${Date.now().toString(36)}_${_seq++}`;
-  items.set(id, { kind: n.kind, title: n.title, body: n.body, files: n.files, duration: n.duration, id, createdAt: Date.now(), read: false });
+  items.set(id, { kind: n.kind, title: n.title, body: n.body, files: n.files, href: n.href, duration: n.duration, id, createdAt: Date.now(), read: false });
   notify();
   // Transient notifications remove themselves from the panel after their duration.
   if (n.duration && n.duration > 0) {

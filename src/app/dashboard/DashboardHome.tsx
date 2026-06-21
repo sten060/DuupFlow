@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import VariationAnnouncementModal from "./VariationAnnouncementModal";
+import TikTokAnnouncementModal, { TIKTOK_DEST, TIKTOK_SEEN_KEY } from "./TikTokAnnouncementModal";
 import ReplayMenu from "./onboarding/ReplayMenu";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
@@ -131,6 +132,31 @@ function NewsModal({ onClose }: { onClose: () => void }) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-8 pb-8 space-y-6">
+          {/* Featured: TikTok solution — permanent entry. Plain <a> = full nav so the
+              redirect can't be cancelled by closing the modal (App-Router gotcha). */}
+          <a
+            href={TIKTOK_DEST}
+            className="block rounded-xl p-4 transition hover:opacity-95"
+            style={{
+              background: "linear-gradient(135deg, rgba(99,102,241,0.16), rgba(56,189,248,0.12))",
+              border: "1px solid rgba(56,189,248,0.30)",
+            }}
+          >
+            <div className="flex items-center gap-2 mb-1.5">
+              <span
+                className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
+                style={{ background: "linear-gradient(90deg,#6366F1,#38BDF8)" }}
+              >
+                {t("dashboard.tiktokAnnounce.pill")}
+              </span>
+              <span className="text-sm font-semibold text-white">{t("dashboard.tiktokAnnounce.newsTitle")}</span>
+            </div>
+            <p className="text-[13px] text-white/70 leading-relaxed">{t("dashboard.tiktokAnnounce.newsBody")}</p>
+            <span className="mt-2 inline-block text-[12px] font-semibold text-sky-300">
+              {t("dashboard.tiktokAnnounce.cta")} →
+            </span>
+          </a>
+
           {NEWS_SECTIONS.map((section) => (
             <div key={section.title}>
               <h3
@@ -172,12 +198,15 @@ export default function DashboardHome({
   firstName,
   agencyName,
   variationAnnouncementPending = false,
+  tiktokAnnouncementPending = false,
   effectivePlan = "free",
 }: {
   firstName: string | null;
   agencyName: string | null;
   /** True only for legacy users (variation_ia_announced_at IS NULL). */
   variationAnnouncementPending?: boolean;
+  /** True while tiktok_announce_seen_at IS NULL (one-shot TikTok launch pop-up). */
+  tiktokAnnouncementPending?: boolean;
   /** User's effective plan, used by the announcement modal. */
   effectivePlan?: "free" | "solo" | "pro";
 }) {
@@ -186,6 +215,19 @@ export default function DashboardHome({
   const [showVariationAnnouncement, setShowVariationAnnouncement] = useState(
     variationAnnouncementPending,
   );
+  // TikTok pop-up: gated by the server flag AND a localStorage guard (so it never
+  // re-loops in local/dev before migration 034 runs). Init false → set in effect
+  // to avoid an SSR/hydration mismatch on the localStorage read.
+  const [showTikTok, setShowTikTok] = useState(false);
+  useEffect(() => {
+    if (tiktokAnnouncementPending && localStorage.getItem(TIKTOK_SEEN_KEY) !== "1") {
+      setShowTikTok(true);
+    }
+  }, [tiktokAnnouncementPending]);
+  const closeTikTok = () => {
+    try { localStorage.setItem(TIKTOK_SEEN_KEY, "1"); } catch {}
+    setShowTikTok(false);
+  };
   const { t } = useTranslation();
 
   const MODULES = [
@@ -336,6 +378,9 @@ export default function DashboardHome({
           onDone={() => setShowVariationAnnouncement(false)}
         />
       )}
+
+      {/* One-shot TikTok solution launch announcement */}
+      {showTikTok && <TikTokAnnouncementModal onDone={closeTikTok} />}
     </div>
   );
 }

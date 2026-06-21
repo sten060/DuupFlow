@@ -11,6 +11,7 @@ import ClaritySessionTags, {
 import { OnboardingProvider } from "./onboarding/OnboardingProvider";
 import AppOverview from "./onboarding/AppOverview";
 import ModuleCoach from "./onboarding/ModuleCoach";
+import TikTokReminder from "./TikTokReminder";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncStripeStateIfStale } from "@/lib/billing-sync";
@@ -34,6 +35,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // per-area by profiles.onboarding_progress (mig 033). Mounted in the layout
   // so it persists across navigations.
   let onboarding: { enabled: boolean; progress: Record<string, boolean> } | null = null;
+
+  // TikTok launch reminder — fires once, 12h after the pop-up was seen. Read
+  // resiliently below (migration 034 may not be applied yet).
+  let tiktok: { seenAt: string | null; reminderSent: boolean } | null = null;
 
   try {
     const supabase = await createClient();
@@ -77,6 +82,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
         };
       } catch {
         onboarding = null;
+      }
+
+      // TikTok 12h reminder state — separate query so a missing column (mig 034
+      // not applied) can't break the layout; just yields no reminder.
+      try {
+        const { data: tk } = await admin
+          .from("profiles")
+          .select("tiktok_announce_seen_at, tiktok_reminder_sent_at")
+          .eq("id", user.id)
+          .single();
+        if (tk) {
+          tiktok = {
+            seenAt: (tk as { tiktok_announce_seen_at: string | null }).tiktok_announce_seen_at ?? null,
+            reminderSent:
+              (tk as { tiktok_reminder_sent_at: string | null }).tiktok_reminder_sent_at != null,
+          };
+        }
+      } catch {
+        tiktok = null;
       }
 
       // Compute Clarity segment.
@@ -136,6 +160,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <GlobalVideoProgress />
       <ChatBot />
       <NotificationBell />
+      {tiktok && <TikTokReminder seenAt={tiktok.seenAt} reminderSent={tiktok.reminderSent} />}
 
       {/* Blocking modal shown while payment_overdue=true. Re-mounts on every
           page navigation so the user can't ignore it for long. */}

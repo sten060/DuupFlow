@@ -31,11 +31,15 @@ function NavLink({ href, label, onClick }: { href: string; label: string; onClic
 export default function Header() {
   const { t } = useTranslation();
   const lh = useLocalizedHref();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Landing page ("/", "/fr", "/en") shows the announcement bar above the header,
+  // so the header drops by the bar's height there. Everywhere else stays at top-0.
+  const isLanding = /^\/(?:fr|en)?\/?$/.test(pathname);
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md" style={{ background: "rgba(11,15,26,0.2)", boxShadow: "0 1px 0 rgba(99,102,241,0.15), 0 4px 20px rgba(99,102,241,0.06)" }}>
+      <header className={`fixed left-0 right-0 z-50 backdrop-blur-md ${isLanding ? "top-9" : "top-0"}`} style={{ background: "rgba(11,15,26,0.2)", boxShadow: "0 1px 0 rgba(99,102,241,0.15), 0 4px 20px rgba(99,102,241,0.06)" }}>
         <div
           className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4"
           style={{ maxWidth: "1440px", margin: "0 auto" }}

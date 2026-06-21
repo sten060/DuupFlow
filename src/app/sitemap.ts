@@ -27,6 +27,15 @@ const FR_ARTICLES: Array<{ slug: string; lastModified: string }> = [
   { slug: "instagram-contenus-non-originaux", lastModified: "2026-05-23" },
 ];
 
+// Fully bilingual articles — distinct slug per language, each its own canonical.
+const BILINGUAL_ARTICLES: Array<{ frSlug: string; enSlug: string; lastModified: string }> = [
+  {
+    frSlug: "tiktok-ineligible-recommandations",
+    enSlug: "tiktok-ineligible-for-recommendation",
+    lastModified: "2026-06-21",
+  },
+];
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
 
@@ -46,5 +55,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  return [...localizedEntries, ...articleEntries];
+  const bilingualEntries: MetadataRoute.Sitemap = BILINGUAL_ARTICLES.flatMap((a) => [
+    {
+      url: `${BASE_URL}/fr/blog/${a.frSlug}`,
+      lastModified: new Date(a.lastModified),
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/en/blog/${a.enSlug}`,
+      lastModified: new Date(a.lastModified),
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    },
+  ]);
+
+  return [...localizedEntries, ...articleEntries, ...bilingualEntries];
 }

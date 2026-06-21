@@ -13,17 +13,33 @@ import Link from "@/components/LocaleLink";
 import { notFound } from "next/navigation";
 
 type Article = {
-  slug: string;
-  /** Locale in which the article is authored. Visitors landing on another
-   *  locale see a stub with a link to the canonical version. */
+  slug: string;          // FR / default slug
+  slugEn?: string;       // EN slug when it differs from the FR one
+  /** Locale in which the article is authored. Bilingual articles set both
+   *  the *En fields; FR-only ones fall back to the FR copy under /en. */
   locale: "fr" | "en";
   title: string;
+  titleEn?: string;
   excerpt: string;
+  excerptEn?: string;
   publishedAt: string;   // ISO date
   readingMinutes: number;
 };
 
 const ARTICLES: Article[] = [
+  {
+    slug: "tiktok-ineligible-recommandations",
+    slugEn: "tiktok-ineligible-for-recommendation",
+    locale: "fr",
+    title: "Pourquoi ton TikTok est « inéligible aux recommandations » — et comment vraiment régler le problème",
+    titleEn: "Why your TikTok is “ineligible for recommendation” — and how to actually fix it",
+    excerpt:
+      "Tes vues TikTok ont chuté et tu es flag pour « contenu non original, de mauvaise qualité ou QR » ? Ce que ça veut vraiment dire, pourquoi faire appel ne suffit pas, et ce qui remet ton contenu dans le feed.",
+    excerptEn:
+      "Your TikTok views collapsed and you were flagged for “unoriginal, low-quality, or QR content”? What it really means, why appealing isn't enough, and what puts your content back in the feed.",
+    publishedAt: "2026-06-21",
+    readingMinutes: 8,
+  },
   {
     slug: "instagram-contenus-non-originaux",
     locale: "fr",
@@ -83,22 +99,25 @@ export default async function BlogIndex({
               isFr ? "fr-FR" : "en-US",
               { day: "numeric", month: "long", year: "numeric" },
             );
+            const slug = isFr ? a.slug : a.slugEn ?? a.slug;
+            const title = isFr ? a.title : a.titleEn ?? a.title;
+            const excerpt = isFr ? a.excerpt : a.excerptEn ?? a.excerpt;
             return (
               <li
                 key={a.slug}
                 className="group rounded-2xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] transition p-6 md:p-8"
               >
-                <Link href={`/blog/${a.slug}`} className="block">
+                <Link href={`/blog/${slug}`} className="block">
                   <div className="flex items-center gap-3 text-[11px] uppercase tracking-wider text-white/40 mb-3">
                     <span>{dateLabel}</span>
                     <span className="text-white/20">•</span>
                     <span>{a.readingMinutes} min</span>
                   </div>
                   <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white/95 group-hover:text-white transition">
-                    {a.title}
+                    {title}
                   </h2>
                   <p className="mt-3 text-sm md:text-base text-white/55 leading-relaxed">
-                    {a.excerpt}
+                    {excerpt}
                   </p>
                   <div className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-300 group-hover:text-indigo-200 transition">
                     {isFr ? "Lire l'article" : "Read article"}

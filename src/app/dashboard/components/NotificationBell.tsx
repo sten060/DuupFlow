@@ -48,13 +48,31 @@ function NotifCard({ n }: { n: AppNotification }) {
       : "border-white/10 bg-white/[0.04]";
   const icon = n.kind === "success" ? "✓" : n.kind === "error" ? "✗" : "•";
 
+  const head = (
+    <>
+      <p className="text-xs font-semibold text-white/85">
+        <span className="mr-1">{icon}</span>
+        {n.title}
+      </p>
+      {n.body && <p className="mt-0.5 text-[11px] leading-snug text-white/55 whitespace-pre-line">{n.body}</p>}
+      {n.href && (
+        <span className="mt-1.5 inline-block text-[11px] font-semibold text-sky-300 group-hover:text-sky-200">
+          {t("dashboard.notif.discover")} →
+        </span>
+      )}
+    </>
+  );
+
   return (
     <div className={`rounded-xl border px-3 py-2 ${tone}`}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-semibold text-white/85">
-          <span className="mr-1">{icon}</span>
-          {n.title}
-        </p>
+        {n.href ? (
+          <a href={n.href} className="group min-w-0 flex-1 block">
+            {head}
+          </a>
+        ) : (
+          <div className="min-w-0 flex-1">{head}</div>
+        )}
         <button
           onClick={() => dismissNotification(n.id)}
           className="shrink-0 rounded-full px-1 text-white/30 hover:text-white/80"
@@ -63,7 +81,6 @@ function NotifCard({ n }: { n: AppNotification }) {
           ✕
         </button>
       </div>
-      {n.body && <p className="mt-0.5 text-[11px] leading-snug text-white/55 whitespace-pre-line">{n.body}</p>}
       {n.files && n.files.length > 0 && (
         <button
           type="button"
@@ -101,15 +118,19 @@ function ToastItem({ n, onOpen }: { n: AppNotification; onOpen: () => void }) {
     : n.kind === "error" ? "border-rose-300/30 bg-rose-600/90"
     : "border-indigo-300/30 bg-indigo-600/90";
   const icon = n.kind === "success" ? "✓" : n.kind === "error" ? "✗" : "↪";
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={`pointer-events-auto w-full text-left rounded-xl border px-3 py-2 text-white shadow-xl backdrop-blur-md transition ${tone}`}
-    >
+  const inner = (
+    <>
       <p className="text-xs font-semibold"><span className="mr-1">{icon}</span>{n.title}</p>
       {n.body && <p className="mt-0.5 text-[11px] leading-snug text-white/85">{n.body}</p>}
-    </button>
+    </>
+  );
+  const cls = `pointer-events-auto block w-full text-left rounded-xl border px-3 py-2 text-white shadow-xl backdrop-blur-md transition ${tone}`;
+  // href toasts navigate on click (full nav so it can't be cancelled); the rest
+  // just open the bell panel.
+  return n.href ? (
+    <a href={n.href} className={cls}>{inner}</a>
+  ) : (
+    <button type="button" onClick={onOpen} className={cls}>{inner}</button>
   );
 }
 
