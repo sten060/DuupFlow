@@ -44,14 +44,14 @@ time_buckets AS (
 visites_by_date AS (
   SELECT
     CASE p_range
-      WHEN 'week' THEN DATE_TRUNC('day', ac.created_at)::DATE
-      WHEN 'month' THEN DATE_TRUNC('week', ac.created_at)::DATE
-      WHEN 'year' THEN DATE_TRUNC('month', ac.created_at)::DATE
-      ELSE DATE_TRUNC('day', ac.created_at)::DATE
+      WHEN 'week' THEN DATE_TRUNC('day', ac.captured_at)::DATE
+      WHEN 'month' THEN DATE_TRUNC('week', ac.captured_at)::DATE
+      WHEN 'year' THEN DATE_TRUNC('month', ac.captured_at)::DATE
+      ELSE DATE_TRUNC('day', ac.captured_at)::DATE
     END AS bucket_date,
     COUNT(DISTINCT ac.visitor_id) AS visites
   FROM public.acquisition_clicks ac
-  WHERE ac.created_at >= (SELECT start_date FROM date_range)
+  WHERE ac.captured_at >= (SELECT start_date FROM date_range)
   GROUP BY bucket_date
 ),
 signups_by_date AS (
