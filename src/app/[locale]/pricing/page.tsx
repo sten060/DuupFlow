@@ -297,6 +297,116 @@ function PricingCards() {
   );
 }
 
+/* ─── Plans comparison table (Gaating-style) ─── */
+function CmpCheck() {
+  return (
+    <span
+      className="inline-flex h-6 w-6 items-center justify-center rounded-full shrink-0"
+      style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+    >
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth="3">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+    </span>
+  );
+}
+
+function PlansComparison() {
+  const { t } = useTranslation();
+  const U = t("tarifs.cmpUnlimited");
+
+  const groups: { label: string; rows: { label: string; values: (string | boolean)[] }[] }[] = [
+    {
+      label: t("tarifs.cmpGroupDuplication"),
+      rows: [
+        { label: t("tarifs.cmpRowDupImages"), values: ["20", "400", U] },
+        { label: t("tarifs.cmpRowDupVideos"), values: ["10", "300", U] },
+        { label: t("tarifs.cmpRowExportZip"), values: [true, true, true] },
+      ],
+    },
+    {
+      label: t("tarifs.cmpGroupUnicite"),
+      rows: [
+        { label: t("tarifs.cmpRowMetadata"), values: [false, true, true] },
+        { label: t("tarifs.cmpRowSignatureIA"), values: [false, "200", U] },
+        { label: t("tarifs.cmpRowVariationIA"), values: [t("tarifs.cmpVarFree"), t("tarifs.cmpVarSolo"), t("tarifs.cmpVarPro")] },
+        { label: t("tarifs.cmpRowTokens"), values: [t("tarifs.cmpTokens1"), t("tarifs.cmpTokens3"), t("tarifs.cmpTokens3")] },
+      ],
+    },
+    {
+      label: t("tarifs.cmpGroupFormats"),
+      rows: [
+        { label: t("tarifs.cmpRowFormats"), values: [true, true, true] },
+        { label: t("tarifs.cmpRowBatch"), values: [true, true, true] },
+        { label: t("tarifs.cmpRowPresets"), values: [false, false, true] },
+      ],
+    },
+    {
+      label: t("tarifs.cmpGroupTeam"),
+      rows: [{ label: t("tarifs.cmpRowMembers"), values: [false, false, t("tarifs.cmpMembers3")] }],
+    },
+    {
+      label: t("tarifs.cmpGroupSupport"),
+      rows: [
+        { label: t("tarifs.cmpRowSupportEmail"), values: [true, true, true] },
+        { label: t("tarifs.cmpRowSupportTelegram"), values: [false, true, true] },
+        { label: t("tarifs.cmpRowSupportPriority"), values: [false, false, true] },
+      ],
+    },
+  ];
+
+  const plans = [t("tarifs.cmpColFree"), t("tarifs.cmpColSolo"), t("tarifs.cmpColPro")];
+  const cols = "grid grid-cols-[minmax(0,1.7fr)_repeat(3,minmax(0,1fr))]";
+
+  const cell = (v: string | boolean) => {
+    if (v === true) return <CmpCheck />;
+    if (v === false) return <span className="text-white/20">—</span>;
+    return <span className="text-xs sm:text-sm text-white/85 font-medium text-center">{v}</span>;
+  };
+
+  return (
+    <section className="px-6 pt-10 pb-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-10 sm:mb-14">
+          <h2 className="text-3xl sm:text-5xl md:text-[3.5rem] font-light tracking-tight text-white leading-[1.05]">
+            {t("tarifs.cmpTitle")}
+          </h2>
+          <p className="text-white/55 text-sm sm:text-lg mt-4 max-w-xl mx-auto leading-relaxed">
+            {t("tarifs.cmpSubtitle")}
+          </p>
+        </div>
+
+        {/* Sticky column header */}
+        <div className={`${cols} sticky top-16 z-30 items-end backdrop-blur-md`} style={{ background: "rgba(8,12,30,0.85)" }}>
+          <div className="py-4 text-sm font-semibold text-white/90">{t("tarifs.cmpFeature")}</div>
+          {plans.map((p, i) => (
+            <div key={i} className={`py-4 text-center text-sm sm:text-base font-semibold ${i === 2 ? "text-white" : "text-white/80"}`}>
+              {p}
+            </div>
+          ))}
+        </div>
+        <div className="h-px" style={{ background: "rgba(255,255,255,0.14)" }} />
+
+        {/* Groups */}
+        {groups.map((g, gi) => (
+          <div key={gi}>
+            <div className="pt-7 pb-1 text-[11px] font-semibold tracking-[0.15em] uppercase text-white/35">{g.label}</div>
+            {g.rows.map((row, ri) => (
+              <div key={ri} className={`${cols} items-center border-t border-white/[0.06] hover:bg-white/[0.02] transition-colors`}>
+                <div className="py-4 pr-3 text-xs sm:text-sm text-white/75 leading-snug">{row.label}</div>
+                {row.values.map((v, vi) => (
+                  <div key={vi} className="py-4 flex items-center justify-center">{cell(v)}</div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function PricingFAQ() {
   const { t } = useTranslation();
   const [open, setOpen] = useState<number | null>(null);
@@ -399,6 +509,9 @@ export default function TarifsPage() {
           </div>
         </div>
       </section>
+
+      {/* ── PLANS COMPARISON ── */}
+      <PlansComparison />
 
       {/* ── FAQ ── */}
       <PricingFAQ />

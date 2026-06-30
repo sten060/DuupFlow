@@ -6,17 +6,17 @@ import ClientLayout from "./ClientLayout";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.duupflow.com"),
-  title: "DuupFlow — the best spoofer for OFM agencies",
+  title: "DuupFlow — Republie tes meilleurs contenus, partout",
   description:
-    "DuupFlow lets you duplicate your content in seconds. Each file becomes unique in the eyes of platform algorithms. Built for agencies looking to scale their social media content.",
+    "Rends chaque copie unique aux yeux des algos et reposte ce qui a déjà cartonné, sans détection de doublon. Pour créateurs et agences.",
   // Favicon, icon and apple-touch-icon are emitted automatically from the App
   // Router metadata files (src/app/favicon.ico, src/app/icon.png,
   // src/app/apple-icon.png). An explicit `icons` config here only duplicates
   // those generated <link> tags, so we intentionally omit it.
   openGraph: {
-    title: "DuupFlow — the best spoofer for OFM agencies",
+    title: "DuupFlow — Republie tes meilleurs contenus, partout",
     description:
-      "DuupFlow lets you duplicate your content in seconds. Each file becomes unique in the eyes of platform algorithms. Built for agencies looking to scale their social media content.",
+      "Rends chaque copie unique aux yeux des algos et reposte ce qui a déjà cartonné, sans détection de doublon. Pour créateurs et agences.",
     url: "https://www.duupflow.com",
     siteName: "DuupFlow",
     images: [
@@ -32,9 +32,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "DuupFlow — the best spoofer for OFM agencies",
+    title: "DuupFlow — Republie tes meilleurs contenus, partout",
     description:
-      "DuupFlow lets you duplicate your content in seconds. Each file becomes unique in the eyes of platform algorithms. Built for agencies looking to scale their social media content.",
+      "Rends chaque copie unique aux yeux des algos et reposte ce qui a déjà cartonné, sans détection de doublon. Pour créateurs et agences.",
     images: ["/og-image.png"],
   },
 };

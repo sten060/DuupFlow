@@ -84,8 +84,8 @@ function Hero() {
       <Reveal delay={80}>
         <h1 className="max-w-5xl text-[2.5rem] sm:text-[3.5rem] md:text-[5rem] font-light leading-[1.08] tracking-[-0.02em] text-white/90 mb-6 sm:mb-7">
           {t("hero.titleLine1")}{" "}<br className="hidden sm:block" />
-          <span className={G}>{t("hero.titleLine2")}</span>{" "}<br className="hidden sm:block" />
-          {t("hero.titleLine3")}
+          <span className={G}>{t("hero.titleLine2")}</span>
+          {t("hero.titleLine3") && <>{" "}<br className="hidden sm:block" />{t("hero.titleLine3")}</>}
         </h1>
       </Reveal>
 
@@ -149,78 +149,112 @@ function Hero() {
  * ═══════════════════════════════════════════════════════ */
 function ProblemSolution() {
   const { t } = useTranslation();
+  const problemStats = [
+    { big: t("problemSolution.psStat1Big"), cap: t("problemSolution.psStat1Cap") },
+    { big: t("problemSolution.psStat2Big"), cap: t("problemSolution.psStat2Cap") },
+  ];
+  const solutionTags = [
+    t("problemSolution.psTag1"),
+    t("problemSolution.psTag2"),
+    t("problemSolution.psTag3"),
+    t("problemSolution.psTag4"),
+    t("problemSolution.psTag5"),
+  ];
   return (
-    <section className="px-6 pb-36">
-      <div className="max-w-7xl mx-auto pt-20">
+    <section className="relative px-6 pb-36 overflow-hidden">
+      <div className="max-w-6xl mx-auto pt-20">
         <Reveal>
-          {/* Two-column layout: cards left, text right */}
-          <div className="grid md:grid-cols-2 gap-16 mb-6 items-center">
-            {/* LEFT — stacked Problem + Solution cards */}
-            <div className="space-y-4">
-              {/* Problem */}
-              <div className="rounded-xl border border-red-500/25 p-5" style={{ background: "rgba(30,5,5,0.70)" }}>
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="h-9 w-9 rounded-xl bg-red-500/15 border border-red-500/25 flex items-center justify-center">
-                    <svg className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="font-semibold text-white text-base">{t("problemSolution.problemTitle")}</h3>
-                </div>
-                <p className="text-white/75 text-sm leading-relaxed mb-5">
-                  {t("problemSolution.problemText")}
-                </p>
-                <div className="rounded-xl border border-red-500/15 bg-red-500/[0.06] px-4 py-3">
-                  <p className="text-sm font-semibold text-red-300">
-                    {t("problemSolution.problemHighlight")}
-                  </p>
-                </div>
-              </div>
+          {/* Centered header */}
+          <div className="text-center mb-14 sm:mb-24">
+            <p className="text-[13px] font-medium tracking-[0.15em] uppercase text-indigo-400 mb-4">
+              {t("problemSolution.badge")}
+            </p>
+            <h2 className="font-semibold text-white tracking-tight" style={{ fontSize: "clamp(34px, 5vw, 52px)", lineHeight: 1.05 }}>
+              {t("problemSolution.title")} <span className={G}>{t("problemSolution.titleHighlight")}</span>
+            </h2>
+            <p className="text-white/55 text-base sm:text-lg mt-5 max-w-2xl mx-auto leading-relaxed">
+              {t("problemSolution.description")}
+            </p>
+          </div>
 
-              {/* Solution */}
-              <div className="rounded-xl border border-indigo-500/25 p-5" style={{ background: "rgba(5,8,40,0.75)" }}>
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="h-9 w-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
-                    <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="font-semibold text-white text-base">{t("problemSolution.solutionTitle")}</h3>
-                </div>
-                <p className="text-white/75 text-sm leading-relaxed mb-5">
-                  {t("problemSolution.solutionText")}
-                </p>
-                <div className="rounded-xl border border-indigo-500/15 bg-indigo-500/[0.06] px-4 py-3">
-                  <p className="text-sm font-semibold text-indigo-300">
-                    {t("problemSolution.solutionHighlight")}
-                  </p>
-                </div>
+          {/* Split layout — Problem (left) / Solution (right), DuupFlow logo straddling the divide */}
+          <div className="relative grid md:grid-cols-2 gap-14 md:gap-0">
+
+            {/* Center logo + glow */}
+            <div className="hidden md:flex absolute inset-y-0 left-1/2 -translate-x-1/2 z-20 items-center pointer-events-none">
+              <div
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] h-[440px] rounded-full"
+                style={{
+                  background:
+                    "radial-gradient(circle at 32% 50%, rgba(239,68,68,0.22), transparent 55%), radial-gradient(circle at 68% 50%, rgba(99,102,241,0.22), transparent 55%)",
+                  filter: "blur(40px)",
+                }}
+              />
+              <div
+                className="relative h-28 w-28 rounded-[28px] flex items-center justify-center border border-white/10"
+                style={{ background: "rgba(10,14,40,0.72)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", boxShadow: "0 0 60px rgba(99,102,241,0.25)" }}
+              >
+                <img src="/logo-mark.png" alt="DuupFlow" className="h-16 w-16 object-contain" />
               </div>
             </div>
 
-            {/* RIGHT — title + description text */}
-            <div>
-              <div className="mb-5">
-                <span className="inline-flex items-center gap-2 rounded-full border border-indigo-500/25 bg-indigo-500/[0.08] px-4 py-1.5 text-xs font-semibold text-indigo-400 tracking-wide uppercase">
-                  {t("problemSolution.badge")}
-                </span>
+            {/* LEFT — Problem */}
+            <div className="md:pr-24 md:border-r md:border-white/[0.08]">
+              <div className="flex items-center gap-2.5 mb-5">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-500 shrink-0" />
+                <span className="text-lg sm:text-xl font-semibold text-white">{t("problemSolution.problemTitle")}</span>
               </div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
-                {t("problemSolution.title")}{" "}
-                <span className={G}>{t("problemSolution.titleHighlight")}</span>
-              </h2>
-              <p className="text-white/65 text-sm sm:text-base leading-relaxed">
-                {t("problemSolution.description")}
+              <p className="text-white/55 text-sm leading-relaxed max-w-md mb-12">
+                {t("problemSolution.problemText")}
               </p>
+              <div className="space-y-10">
+                {problemStats.map((s, i) => (
+                  <div key={i}>
+                    <div className="flex items-center gap-4">
+                      <span className="text-4xl sm:text-5xl font-bold text-white tracking-tight whitespace-nowrap leading-none">{s.big}</span>
+                      <span className="flex-1 h-px bg-white/[0.12]" />
+                      <span className="h-2.5 w-2.5 rounded-full border border-white/25 shrink-0" />
+                    </div>
+                    <p className="text-white/55 text-sm mt-3.5 max-w-sm">{s.cap}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT — Solution */}
+            <div className="md:pl-24">
+              <div className="mb-6">
+                <div
+                  className="h-16 w-16 rounded-2xl flex items-center justify-center border border-indigo-400/20"
+                  style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(56,189,248,0.10))" }}
+                >
+                  <img src="/logo-mark.png" alt="DuupFlow" className="h-10 w-10 object-contain" />
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5 mb-5">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shrink-0" />
+                <span className="text-lg sm:text-xl font-semibold text-white">{t("problemSolution.solutionTitle")}</span>
+              </div>
+              <p className="text-white/55 text-sm leading-relaxed max-w-md mb-8">
+                {t("problemSolution.solutionText")}
+              </p>
+              <div className="flex flex-wrap gap-2.5">
+                {solutionTags.map((tag, i) => (
+                  <span
+                    key={i}
+                    className={`rounded-full px-4 py-2 text-sm font-medium border ${i === 3 ? "text-white border-transparent" : "text-white/70 border-white/[0.12] bg-white/[0.04]"}`}
+                    style={i === 3 ? { background: "linear-gradient(135deg,#6366F1,#38BDF8)" } : undefined}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Result banner — kept at the original width (must not extend) */}
-          <div className="max-w-6xl mx-auto">
-            <div
-              className="rounded-2xl border border-white/[0.10] p-5 text-center"
-              style={{ background: "rgba(8,12,35,0.65)" }}
-            >
+          {/* Result strip — existing copy retained */}
+          <div className="max-w-3xl mx-auto mt-16">
+            <div className="rounded-2xl border border-white/[0.10] p-5 text-center" style={{ background: "rgba(8,12,35,0.65)" }}>
               <p className="text-sm text-white/70">
                 <span className="text-white font-semibold">{t("problemSolution.resultLabel")}</span>{" "}
                 {t("problemSolution.resultText").replace(/\{count\}/g, "50")}
@@ -617,11 +651,11 @@ function HowItWorks() {
     <section id="how-it-works" className="px-6 pb-36">
       <div className="max-w-5xl mx-auto pt-20">
         <Reveal>
-          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">{t("howItWorks.badge")}</p>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
+          <p className="text-[13px] font-medium tracking-[0.15em] uppercase text-indigo-400 mb-3">{t("howItWorks.badge")}</p>
+          <h2 className="font-semibold text-white mb-4 tracking-tight" style={{ fontSize: "clamp(40px, 5vw, 56px)", lineHeight: 1.05 }}>
             {t("howItWorks.title")} <span className={G}>{t("howItWorks.titleHighlight")}</span>
           </h2>
-          <p className="text-white/45 text-sm sm:text-base mb-12 max-w-xl">
+          <p className="text-white/70 text-[18px] leading-relaxed mb-12 max-w-[560px]">
             {t("howItWorks.subtitle")}
           </p>
         </Reveal>
@@ -630,10 +664,10 @@ function HowItWorks() {
           {isMobile ? (
             <div className="flex flex-col gap-4">
               {howSteps.map((card, i) => (
-                <div key={i} className="border border-white/[0.08] p-5" style={{ background: "rgba(8,12,35,0.6)" }}>
-                  <div className="text-3xl font-bold text-indigo-400/40 mb-3 tracking-tight">{card.num}</div>
-                  <h3 className="text-lg font-semibold text-white mb-2">{card.title}</h3>
-                  <p className="text-sm text-white/50 leading-relaxed mb-3">{card.desc}</p>
+                <div key={i} className="border border-white/[0.08]" style={{ background: "rgba(8,12,35,0.6)", padding: "32px" }}>
+                  <div className="font-semibold tracking-tight mb-4" style={{ fontSize: "40px", lineHeight: 1, color: "rgba(129,140,248,0.4)" }}>{card.num}</div>
+                  <h3 className="font-semibold text-white mb-3" style={{ fontSize: "20px" }}>{card.title}</h3>
+                  <p className="leading-[1.6] mb-4" style={{ fontSize: "16px", color: "rgba(255,255,255,0.72)" }}>{card.desc}</p>
                   <span className="text-xs text-indigo-400 font-medium">{card.tag}</span>
                 </div>
               ))}
@@ -644,17 +678,21 @@ function HowItWorks() {
                 const isActive = i === activeIndex;
                 return (
                   <div key={i} onClick={() => handleClick(i)}
-                    className="relative cursor-pointer border border-white/[0.08] p-6 overflow-hidden"
-                    style={{ background: "rgba(8,12,35,0.6)", flex: isActive ? 2.5 : 1, transition: "flex 0.5s ease-in-out", display: "flex", flexDirection: "column" }}>
+                    className="relative cursor-pointer border border-white/[0.08] overflow-hidden"
+                    style={{ background: "rgba(8,12,35,0.6)", flex: isActive ? 2.5 : 1, transition: "flex 0.5s ease-in-out", display: "flex", flexDirection: "column", padding: "36px" }}>
                     <div className="absolute bottom-0 left-0 w-[2px]" style={{ height: "100%", background: "rgba(255,255,255,0.06)" }}>
                       {isActive && <div className="absolute bottom-0 left-0 w-full" style={{ height: `${progress}%`, background: "linear-gradient(to top, #6366F1, #818CF8)", transition: "height 16ms linear" }} />}
                     </div>
-                    <div className="text-4xl font-bold tracking-tight mb-3" style={{ color: isActive ? "rgba(129,140,248,0.6)" : "rgba(129,140,248,0.25)", transition: "color 0.3s" }}>{card.num}</div>
-                    <h3 className="text-lg font-semibold mb-3" style={{ color: isActive ? "white" : "rgba(255,255,255,0.5)", transition: "color 0.3s" }}>{card.title}</h3>
-                    <div style={{ opacity: isActive ? 1 : 0, maxHeight: isActive ? "300px" : "0px", overflow: "hidden", transition: "opacity 0.3s ease, max-height 0.4s ease", display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}>
-                      <p className="text-sm text-white/60 leading-relaxed">{card.desc}</p>
-                      <span className="text-xs text-indigo-400 font-medium mt-4">{card.tag}</span>
+                    {/* Group: number + title + body — vertically centered on the active card to kill the empty gap */}
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: isActive ? "center" : "flex-start", minHeight: 0 }}>
+                      <div className="font-semibold tracking-tight" style={{ fontSize: "48px", lineHeight: 1, color: isActive ? "rgba(129,140,248,0.6)" : "rgba(129,140,248,0.25)", transition: "color 0.3s" }}>{card.num}</div>
+                      <h3 className="font-semibold" style={{ fontSize: "23px", marginTop: "16px", color: isActive ? "white" : "rgba(255,255,255,0.5)", transition: "color 0.3s" }}>{card.title}</h3>
+                      <div style={{ opacity: isActive ? 1 : 0, maxHeight: isActive ? "300px" : "0px", overflow: "hidden", transition: "opacity 0.3s ease, max-height 0.4s ease", marginTop: isActive ? "16px" : "0px" }}>
+                        <p className="leading-[1.6]" style={{ fontSize: "16px", color: "rgba(255,255,255,0.72)", maxWidth: "42ch" }}>{card.desc}</p>
+                      </div>
                     </div>
+                    {/* Micro label — pinned to the bottom of the card */}
+                    <span className="text-xs text-indigo-400 font-medium" style={{ opacity: isActive ? 1 : 0, transition: "opacity 0.3s" }}>{card.tag}</span>
                   </div>
                 );
               })}
@@ -1302,9 +1340,9 @@ function FAQ() {
     { q: t("faq.q3"), a: t("faq.a3") },
     { q: t("faq.q4"), a: t("faq.a4") },
     { q: t("faq.q5"), a: t("faq.a5") },
-    { q: t("faq.q8"), a: t("faq.a8") },
     { q: t("faq.q6"), a: t("faq.a6") },
     { q: t("faq.q7"), a: t("faq.a7") },
+    { q: t("faq.q8"), a: t("faq.a8") },
   ];
   return (
     <section id="faq" className="relative overflow-hidden">
