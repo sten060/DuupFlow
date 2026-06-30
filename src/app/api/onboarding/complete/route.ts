@@ -56,6 +56,9 @@ export async function POST(req: NextRequest) {
     // New users skip the AI Variation launch announcement (it targets
     // legacy users with NULL). They get the regular onboarding tour instead.
     variation_ia_announced_at: new Date().toISOString(),
+    // Same for the TikTok launch pop-up: future signups skip it so it can't
+    // interrupt the gamified onboarding. Only legacy users (NULL) still see it.
+    tiktok_announce_seen_at: new Date().toISOString(),
     onboarding_platforms: cleanPlatforms,
     onboarding_source: cleanSource,
   };
