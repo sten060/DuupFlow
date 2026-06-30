@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Dropzone from "../../Dropzone";
+import DriveImportButton from "@/app/dashboard/components/DriveImportButton";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 import CountrySelect from "@/app/dashboard/components/CountrySelect";
 import { setJob, addCompletedFile, removeJob, subscribe, snapshot } from "../jobStore";
@@ -259,6 +260,7 @@ export default function VideoFormAdvancedClient() {
   const [quotaWarn, setQuotaWarn] = useState<{ current: number; limit: number; plan: "free" | "solo" } | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const dzAddRef = useRef<((files: File[]) => void) | null>(null);
   const [interruptedJobId, setInterruptedJobId] = useState<string | null>(null);
   const [ranges, setRanges] = useState<RangeState>(() =>
     makeDefaultRanges()
@@ -440,8 +442,8 @@ export default function VideoFormAdvancedClient() {
             // iPhone HEVC can't decode in a <video> on Chrome/Firefox, but ffmpeg
             // handles it server-side (which has its own probe + 1-frame fallback).
             const probe = await probeVideoFile(file);
-            if (probe.duration > 50) {
-              const e = new Error(t("dashboard.videosCommon.durationExceeded", { name: file.name, max: 50, dur: Math.round(probe.duration) }));
+            if (probe.duration > 59) {
+              const e = new Error(t("dashboard.videosCommon.durationExceeded", { name: file.name, max: 59, dur: Math.round(probe.duration) }));
               (e as Error & { validation?: boolean }).validation = true;
               throw e;
             }
@@ -655,7 +657,7 @@ export default function VideoFormAdvancedClient() {
         // Detect the client-side size guard by its error CODE (locale-independent —
         // the message itself is now translated) plus the Supabase storage phrase.
         const isStorageSize = rawMsg.includes("CLT-006") || lower.includes("maximum allowed size");
-        // Client-side validation (duration > 50 s) carries a `validation` flag and an
+        // Client-side validation (duration > 59 s) carries a `validation` flag and an
         // already-localized, actionable message — show it as-is.
         const isValidation = (err as { validation?: boolean })?.validation === true;
         const errMsg = isStorageSize
@@ -740,7 +742,8 @@ export default function VideoFormAdvancedClient() {
       <input type="hidden" name="advancedRanges" value={JSON.stringify(serialRanges)} />
       {/* Dropzone + Copies */}
       <div data-tour-id="vadv-dropzone" className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
-        <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
+        <DriveImportButton accept="video" maxVideoSec={59} onFiles={(fs) => dzAddRef.current?.(fs)} />
+        <Dropzone name="files" accept="video/*" multiple maxFiles={40} addFilesRef={dzAddRef} />
         <div className="max-w-xs">
           <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.videosAdvanced.copiesLabel")}</label>
           <input

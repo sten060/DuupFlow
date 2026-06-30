@@ -2,7 +2,7 @@
  * Client-side video probe.
  *
  * Loads the file into a hidden <video> element to read its duration
- * metadata. Used to enforce the 50-second limit BEFORE uploading.
+ * metadata. Used to enforce the 59-second limit BEFORE uploading.
  *
  * IMPORTANT: callers must NOT reject when `decodable` is false. iPhone
  * videos use HEVC/H.265 by default, which Chrome and Firefox cannot

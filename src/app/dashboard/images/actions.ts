@@ -30,6 +30,7 @@ export async function listOutImages(): Promise<string[]> {
         !n.startsWith("__in__") &&
         !n.endsWith(".part") &&
         !n.startsWith("__progress_") &&
+        !n.startsWith("CMP_") && // compressor outputs live in their own library
         IMAGE_EXTS.includes(extOf(n))
     );
 
@@ -50,7 +51,7 @@ export async function clearImages() {
     const toDelete = names
       .filter((d) => d.isFile())
       .map((d) => d.name)
-      .filter((n) => IMAGE_EXTS.includes(extOf(n)));
+      .filter((n) => !n.startsWith("CMP_") && IMAGE_EXTS.includes(extOf(n)));
     await Promise.all(
       toDelete.map((n) => fs.unlink(path.join(dir, n)).catch(() => {}))
     );

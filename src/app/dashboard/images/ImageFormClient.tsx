@@ -13,6 +13,8 @@ import { saveActiveImageJob, removeActiveImageJob } from "./imageJobResume";
 import { pushNotification } from "../components/notificationStore";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import { saveSettings, loadSettings } from "@/lib/formMemory";
+import DriveImportButton from "../components/DriveImportButton";
+import DriveSaveButton from "../components/DriveSaveButton";
 
 const MAX_FILES = 50;
 
@@ -421,6 +423,9 @@ export default function ImageFormClient({ initialImages }: Props) {
     <div className="space-y-6">
       <h1 data-tour-id="img-h1" className="text-3xl font-extrabold tracking-tight">{t("dashboard.images.title")}</h1>
       <form ref={formRef} onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6" autoComplete="off">
+        {/* Import depuis Google Drive (alternative à la dropzone locale) */}
+        <DriveImportButton accept="image" onFiles={ingestFiles} onError={setErrorMsg} disabled={busy} />
+
         {/* Drop zone */}
         <div
           data-tour-id="img-dropzone"
@@ -596,6 +601,10 @@ export default function ImageFormClient({ initialImages }: Props) {
               {t("dashboard.images.readyToDownload", { count: String(persistedFiles.length) })}
             </p>
             <ClearImagesButton onCleared={() => { setPersistedFiles([]); setSelectedUrls(new Set()); }} />
+            <DriveSaveButton
+              files={selectedUrls.size > 0 ? persistedFiles.filter((f) => selectedUrls.has(f.url)) : persistedFiles}
+              disabled={busy}
+            />
             {selectedUrls.size > 0 && (
               <button
                 type="button"

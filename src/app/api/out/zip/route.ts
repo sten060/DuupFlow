@@ -36,6 +36,9 @@ export async function GET(req: Request) {
   function matchesFilters(name: string) {
     if (name.startsWith(".") || name.startsWith("tmp_") || name.startsWith("__in__") || name.startsWith("__progress_") || name.endsWith(".part")) return false;
     if (specificFiles) return specificFiles.includes(name);
+    // Compressor outputs have their own library + client-side zip — never fold
+    // them into a scope/channel listing (Images / Videos / "download all").
+    if (name.startsWith("CMP_")) return false;
     if (scope === "images" && !IMAGE_EXTS.includes(extOf(name))) return false;
     if (scope === "videos" && !VIDEO_EXTS.includes(extOf(name))) return false;
     if (channel === "simple" && !name.startsWith("SIMPLE_DuupFlow_")) return false;

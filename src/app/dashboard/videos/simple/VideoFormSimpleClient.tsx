@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Dropzone from "../../Dropzone";
+import DriveImportButton from "@/app/dashboard/components/DriveImportButton";
 import InfoTooltip from "@/app/dashboard/components/InfoTooltip";
 import CountrySelect from "@/app/dashboard/components/CountrySelect";
 import { setJob, addCompletedFile, removeJob, subscribe, snapshot } from "../jobStore";
@@ -164,6 +165,7 @@ export default function VideoFormSimpleClient() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const dzAddRef = useRef<((files: File[]) => void) | null>(null);
   const [interruptedJobId, setInterruptedJobId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({
     metadata: false,
@@ -283,8 +285,8 @@ export default function VideoFormSimpleClient() {
             // iPhone HEVC can't decode in a <video> on Chrome/Firefox, but ffmpeg
             // handles it server-side (which has its own probe + 1-frame fallback).
             const probe = await probeVideoFile(file);
-            if (probe.duration > 50) {
-              const e = new Error(t("dashboard.videosCommon.durationExceeded", { name: file.name, max: 50, dur: Math.round(probe.duration) }));
+            if (probe.duration > 59) {
+              const e = new Error(t("dashboard.videosCommon.durationExceeded", { name: file.name, max: 59, dur: Math.round(probe.duration) }));
               (e as Error & { validation?: boolean }).validation = true;
               throw e;
             }
@@ -503,7 +505,7 @@ export default function VideoFormSimpleClient() {
         // Detect the client-side size guard by its error CODE (locale-independent —
         // the message itself is now translated) plus the Supabase storage phrase.
         const isStorageSize = rawMsg.includes("CLT-006") || lower.includes("maximum allowed size");
-        // Client-side validation (duration > 50 s) carries a `validation` flag and an
+        // Client-side validation (duration > 59 s) carries a `validation` flag and an
         // already-localized, actionable message — show it as-is.
         const isValidation = (err as { validation?: boolean })?.validation === true;
         const errMsg = isStorageSize
@@ -547,7 +549,8 @@ export default function VideoFormSimpleClient() {
 
       {/* Dropzone — seul élément avec bordure */}
       <div data-tour-id="video-dropzone" className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
-        <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
+        <DriveImportButton accept="video" maxVideoSec={59} onFiles={(fs) => dzAddRef.current?.(fs)} />
+        <Dropzone name="files" accept="video/*" multiple maxFiles={40} addFilesRef={dzAddRef} />
         <div data-tour-id="video-copies" className="max-w-xs">
           <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.videosSimple.copiesLabel")}</label>
           <input type="number" name="count" min={1} defaultValue={1} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90" />

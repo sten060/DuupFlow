@@ -3,6 +3,7 @@
 import { useRef, useState, DragEvent } from "react";
 import { probeFile } from "./probeActions";
 import { useTranslation } from "@/lib/i18n/context";
+import DriveImportButton from "../components/DriveImportButton";
 
 type ProbeResult = Record<string, any> | null;
 
@@ -165,7 +166,11 @@ export default function SimilarityClient() {
       {/* File inputs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.similarity.file1")}</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-sm font-medium text-white/70">{t("dashboard.similarity.file1")}</label>
+            <DriveImportButton compact single disabled={loading} onError={setError}
+              onFiles={(fs) => { if (fs[0]) { setFile1(fs[0]); setProbe1(null); } }} />
+          </div>
           <div
             data-tour-id="sim-file1-dropzone"
             onClick={() => ref1.current?.click()}
@@ -179,7 +184,11 @@ export default function SimilarityClient() {
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.similarity.file2")}</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-sm font-medium text-white/70">{t("dashboard.similarity.file2")}</label>
+            <DriveImportButton compact single disabled={loading} onError={setError}
+              onFiles={(fs) => { if (fs[0]) { setFile2(fs[0]); setProbe2(null); } }} />
+          </div>
           <div
             data-tour-id="sim-file2-dropzone"
             onClick={() => ref2.current?.click()}

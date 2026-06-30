@@ -5,6 +5,7 @@ import { maskAiMetadata, deleteAiFiles } from "./actions";
 import { useTranslation } from "@/lib/i18n/context";
 import { pushNotification } from "../components/notificationStore";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
+import DriveImportButton from "../components/DriveImportButton";
 
 const MAX_FILES = 30;
 
@@ -129,6 +130,9 @@ function FileDropzone({
 
   return (
     <div className="space-y-0">
+      <div className="mb-3">
+        <DriveImportButton onFiles={onChange} />
+      </div>
       <div
         data-tour-id="aidetect-dropzone"
         className={[

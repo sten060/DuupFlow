@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearVideosSimpleAction, clearVideosAdvancedAction } from "./actions";
 import { useTranslation } from "@/lib/i18n/context";
+import DriveSaveButton from "../components/DriveSaveButton";
 
 type Channel = "simple" | "advanced";
 
@@ -98,6 +99,11 @@ export default function VideoFilesClient({
           >
             {t("common.downloadSelection", { count: String(selected.size) })}
           </a>
+        )}
+        {files.length > 0 && (
+          <DriveSaveButton
+            files={(selected.size > 0 ? files.filter((u) => selected.has(u)) : files).map((u) => ({ url: u, name: fileNameFromUrl(u) }))}
+          />
         )}
       </div>
 

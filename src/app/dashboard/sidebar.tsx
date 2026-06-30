@@ -99,7 +99,7 @@ export default function Sidebar() {
   const skipPersist = useRef(true);
 
   // Nav grouped per spec — a separator is drawn between each group:
-  //   Accueil · [Images, Vidéos] · Comparateur · Variation IA · Détection IA
+  //   Accueil · [Images, Vidéos] · [Compresseur, Comparateur] · [Variation IA, Détection IA]
   const NAV_GROUPS: Array<
     Array<{ href: string; label: string; icon: React.ReactNode; badge?: string; tourId?: string }>
   > = [
@@ -142,6 +142,19 @@ export default function Sidebar() {
     ],
     [
       {
+        href: "/dashboard/compress",
+        label: t("dashboard.sidebar.compresseur"),
+        tourId: "nav-compress",
+        icon: (
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="4 14 10 14 10 20" />
+            <polyline points="20 10 14 10 14 4" />
+            <line x1="14" y1="10" x2="21" y2="3" />
+            <line x1="3" y1="21" x2="10" y2="14" />
+          </svg>
+        ),
+      },
+      {
         href: "/dashboard/similarity",
         label: t("dashboard.sidebar.comparateur"),
         tourId: "nav-similarity",
@@ -165,8 +178,6 @@ export default function Sidebar() {
           </svg>
         ),
       },
-    ],
-    [
       {
         href: "/dashboard/ai-detection",
         label: t("dashboard.sidebar.detectionIA"),

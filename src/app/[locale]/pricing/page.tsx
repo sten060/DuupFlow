@@ -103,6 +103,23 @@ function CheckIcon({ color }: { color: string }) {
   );
 }
 
+/* Features available on every plan — Google Drive import (with logo) + file compressor */
+function UniversalFeatures({ color }: { color: string }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <li className="flex items-start gap-3 text-sm text-white/70">
+        <img src="/app/icons8-google-drive-96.png" alt="Google Drive" className="h-5 w-5 object-contain shrink-0 mt-0.5" />
+        {t("tarifs.featGoogleDrive")}
+      </li>
+      <li className="flex items-start gap-3 text-sm text-white/70">
+        <CheckIcon color={color} />
+        {t("tarifs.featCompressor")}
+      </li>
+    </>
+  );
+}
+
 function PricingCards() {
   const { t } = useTranslation();
   const freeFeatures = [
@@ -171,6 +188,7 @@ function PricingCards() {
                 {f}
               </li>
             ))}
+            <UniversalFeatures color="#10B981" />
           </ul>
           <div className="flex flex-col gap-3">
             <Link
@@ -220,6 +238,7 @@ function PricingCards() {
                 {f}
               </li>
             ))}
+            <UniversalFeatures color="#A78BFA" />
           </ul>
           <div className="flex flex-col gap-3">
             <Link
@@ -275,6 +294,7 @@ function PricingCards() {
                 {f}
               </li>
             ))}
+            <UniversalFeatures color="#818CF8" />
           </ul>
           <div className="flex flex-col gap-3">
             <Link
@@ -315,7 +335,7 @@ function PlansComparison() {
   const { t } = useTranslation();
   const U = t("tarifs.cmpUnlimited");
 
-  const groups: { label: string; rows: { label: string; values: (string | boolean)[] }[] }[] = [
+  const groups: { label: string; rows: { label: string; values: (string | boolean)[]; logo?: string }[] }[] = [
     {
       label: t("tarifs.cmpGroupDuplication"),
       rows: [
@@ -339,6 +359,8 @@ function PlansComparison() {
         { label: t("tarifs.cmpRowFormats"), values: [true, true, true] },
         { label: t("tarifs.cmpRowBatch"), values: [true, true, true] },
         { label: t("tarifs.cmpRowPresets"), values: [false, false, true] },
+        { label: t("tarifs.featGoogleDrive"), logo: "/app/icons8-google-drive-96.png", values: [true, true, true] },
+        { label: t("tarifs.featCompressor"), values: [true, true, true] },
       ],
     },
     {
@@ -394,7 +416,10 @@ function PlansComparison() {
             <div className="pt-7 pb-1 text-[11px] font-semibold tracking-[0.15em] uppercase text-white/35">{g.label}</div>
             {g.rows.map((row, ri) => (
               <div key={ri} className={`${cols} items-center border-t border-white/[0.06] hover:bg-white/[0.02] transition-colors`}>
-                <div className="py-4 pr-3 text-xs sm:text-sm text-white/75 leading-snug">{row.label}</div>
+                <div className="py-4 pr-3 text-xs sm:text-sm text-white/75 leading-snug flex items-center gap-2">
+                  {row.logo && <img src={row.logo} alt="" className="h-4 w-4 object-contain shrink-0" />}
+                  {row.label}
+                </div>
                 {row.values.map((v, vi) => (
                   <div key={vi} className="py-4 flex items-center justify-center">{cell(v)}</div>
                 ))}

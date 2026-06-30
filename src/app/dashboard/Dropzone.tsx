@@ -6,7 +6,7 @@ const genId = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2); // fallback
 
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 
 type Props = {
@@ -18,6 +18,13 @@ type Props = {
   multiple?: boolean;
   /** nombre max de fichiers à garder */
   maxFiles?: number;
+  /**
+   * Optional escape hatch: the parent passes a ref that Dropzone keeps pointed
+   * at its internal addFiles(). Lets external sources (e.g. Google Drive import)
+   * inject File objects straight into the dropzone — they sync into the hidden
+   * <input> exactly like a local drop, so the form POST carries them too.
+   */
+  addFilesRef?: React.MutableRefObject<((files: File[]) => void) | null>;
 };
 
 type Item = {
@@ -31,6 +38,7 @@ export default function Dropzone({
   accept = "*/*",
   multiple = true,
   maxFiles = 25,
+  addFilesRef,
 }: Props) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -70,6 +78,12 @@ export default function Dropzone({
     },
     [items, maxFiles, syncInputFiles]
   );
+
+  // Keep the parent's ref pointed at the latest addFiles so external sources
+  // (Google Drive import) can inject files into this dropzone.
+  useEffect(() => {
+    if (addFilesRef) addFilesRef.current = addFiles;
+  }, [addFiles, addFilesRef]);
 
   /** Suppression d’un fichier */
   const removeOne = useCallback(

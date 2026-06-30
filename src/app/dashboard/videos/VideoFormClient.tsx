@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Dropzone from "../Dropzone";
 import ToggleChip from "../ToggleChip";
 import { duplicateVideos } from "../actions";
 import { useTranslation } from "@/lib/i18n/context";
+import DriveImportButton from "../components/DriveImportButton";
+
+// Keep only video files when injecting from Drive (the picker also allows images).
+const VIDEO_FILE_RE = /\.(mp4|mov|mkv|avi|webm)$/i;
+const onlyVideos = (fs: File[]) => fs.filter((f) => f.type.startsWith("video/") || VIDEO_FILE_RE.test(f.name));
 
 /* ---------- UI helpers ---------- */
 function SubmitWithProgress() {
@@ -178,14 +183,18 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
     border_px: border,
   });
 
+  const dzAddRef = useRef<((files: File[]) => void) | null>(null);
+
   return (
     <form action={duplicateVideos} method="post" className="space-y-6">
       <input type="hidden" name="channel" value={channel} />
       <input type="hidden" name="mode" value="simple" />
       <input type="hidden" name="singles" value={singlesJSON} />
 
+      <DriveImportButton onFiles={(fs) => dzAddRef.current?.(onlyVideos(fs))} />
+
       <div data-tour-id="video-dropzone">
-        <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
+        <Dropzone name="files" accept="video/*" multiple maxFiles={40} addFilesRef={dzAddRef} />
       </div>
 
       <div>
@@ -327,11 +336,14 @@ function AdvancedTab({ channel }: { channel: "simple" | "advanced" }) {
   const rangesJSON = JSON.stringify(ranges);
   const groups = Array.from(new Set(ADVANCED_CONTROLS.map((c) => c.group))) as (typeof ADVANCED_CONTROLS[number]["group"])[];
 
+  const dzAddRef = useRef<((files: File[]) => void) | null>(null);
+
   return (
     <form action={duplicateVideos} method="post" className="space-y-6">
       <input type="hidden" name="channel" value={channel} />
+      <DriveImportButton onFiles={(fs) => dzAddRef.current?.(onlyVideos(fs))} />
       <div data-tour-id="video-dropzone">
-        <Dropzone name="files" accept="video/*" multiple maxFiles={40} />
+        <Dropzone name="files" accept="video/*" multiple maxFiles={40} addFilesRef={dzAddRef} />
       </div>
 
       <div>

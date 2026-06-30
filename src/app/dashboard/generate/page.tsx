@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import { formatTokens, formatEur, imageCostCents, imagesAffordable } from "@/lib/tokens";
+import DriveImportButton from "../components/DriveImportButton";
 
 type Mode = "variation" | "prompt";
 
@@ -255,6 +256,9 @@ export default function AiLabPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left — input */}
         <div className="space-y-4">
+          {/* Import depuis Google Drive (image de référence unique) */}
+          <DriveImportButton accept="image" onFiles={(fs) => fs[0] && setPicked(fs[0])} onError={setErr} disabled={busy} single />
+
           {/* Dropzone */}
           <div
             data-tour-id="gen-dropzone"
