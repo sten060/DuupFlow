@@ -32,11 +32,13 @@ export const track: Track = (name, context) => {
 
 /**
  * Mount global autocapture once. Emits:
- *   • scroll_depth { path, surface, depth }  at 25/50/75/90% of the page
+ *   • scroll_depth { path, surface, depth }  on the FIRST scroll (palier "any",
+ *     dès scrollY>150 ou pct>=10) puis aux paliers 25/50/75/90%.
  *   • click        { path, surface, label, href? }  on any a/button/[role=button]/[data-track]
  *   • click        { path, surface, label:"(clic mort) …", dead:true }  on non-interactive
  *     elements — a strong UX-friction signal.
- * Resets the scroll marks on SPA navigation (pushState / popstate).
+ * Objectif : un visiteur qui scrolle un peu ou clique quoi que ce soit n'est
+ * plus compté comme inactif. Resets on SPA navigation (pushState / popstate).
  */
 export function startAutocapture(track: Track) {
   if (typeof window === "undefined") return;
@@ -46,25 +48,29 @@ export function startAutocapture(track: Track) {
 
   const base = () => ({ path: location.pathname, surface: "marketing" });
 
-  // SCROLL : 25/50/75/90 % (seuil bas = capte même un petit scroll)
-  let marks: Record<number, boolean> = {};
+  const fired = new Set<string>();
   let t: ReturnType<typeof setTimeout>;
   const onScroll = () => {
     const el = document.documentElement;
     const max = el.scrollHeight - el.clientHeight;
     if (max <= 0) return;
     const pct = Math.round((window.scrollY / max) * 100);
-    for (const m of [25, 50, 75, 90])
-      if (pct >= m && !marks[m]) {
-        marks[m] = true;
+    if (!fired.has("any") && (window.scrollY > 150 || pct >= 10)) {
+      fired.add("any");
+      track("scroll_depth", { ...base(), depth: Math.max(pct, 1) });
+    }
+    for (const m of [25, 50, 75, 90]) {
+      if (pct >= m && !fired.has(String(m))) {
+        fired.add(String(m));
         track("scroll_depth", { ...base(), depth: m });
       }
+    }
   };
   window.addEventListener(
     "scroll",
     () => {
       clearTimeout(t);
-      t = setTimeout(onScroll, 250);
+      t = setTimeout(onScroll, 200);
     },
     { passive: true }
   );
@@ -95,7 +101,7 @@ export function startAutocapture(track: Track) {
   );
 
   const reset = () => {
-    marks = {};
+    fired.clear();
   };
   const push = history.pushState;
   history.pushState = function (...a) {
