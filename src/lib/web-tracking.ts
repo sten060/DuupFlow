@@ -13,6 +13,20 @@ import { getOrCreateVisitorId } from "@/lib/acquisition";
 
 export type Track = (name: string, context: Record<string, unknown>) => void;
 
+/**
+ * Classify a path into a surface. App/connected pages (/dashboard, /admin,
+ * /affiliate — locale prefix tolerated) are "app"; everything else (the
+ * marketing site / LP) is "marketing".
+ */
+export function surfaceFor(path: string): "app" | "marketing" {
+  const p = (path || "").replace(/^\/(fr|en)(?=\/|$)/, "") || "/";
+  return p.startsWith("/dashboard") ||
+    p.startsWith("/admin") ||
+    p.startsWith("/affiliate")
+    ? "app"
+    : "marketing";
+}
+
 /** Fire-and-forget an event with the shared visitor_id. */
 export const track: Track = (name, context) => {
   if (typeof window === "undefined") return;
@@ -46,7 +60,7 @@ export function startAutocapture(track: Track) {
   if (w.__ac) return;
   w.__ac = true;
 
-  const base = () => ({ path: location.pathname, surface: "marketing" });
+  const base = () => ({ path: location.pathname, surface: surfaceFor(location.pathname) });
 
   const fired = new Set<string>();
   let t: ReturnType<typeof setTimeout>;

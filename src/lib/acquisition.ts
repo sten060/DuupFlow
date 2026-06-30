@@ -190,6 +190,19 @@ function tagClarityWithUTM(payload: {
 export function trackClickIfUTM(): void {
   if (typeof window === "undefined") return;
   try {
+    // Never record acquisition on the app / connected pages — only the
+    // marketing site. A logged-in user navigating /dashboard with a same-site
+    // referrer would otherwise pollute acquisition_clicks (counted as a new
+    // "(direct)" visitor landing on /dashboard).
+    const _path = (window.location.pathname || "").replace(/^\/(fr|en)(?=\/|$)/, "");
+    if (
+      _path.startsWith("/dashboard") ||
+      _path.startsWith("/admin") ||
+      _path.startsWith("/affiliate")
+    ) {
+      return;
+    }
+
     const params = new URLSearchParams(window.location.search);
     const utm = (k: string): string | null => {
       const v = params.get(k);
@@ -224,6 +237,17 @@ export function trackClickIfUTM(): void {
 
     // Skip pure noise: no UTM, no ref, no referrer = direct-typed, not a "click".
     if (!source && !referrer) return;
+
+    // Intra-site navigation (same-host referrer, no real source) is not a new
+    // arrival — skip it so we keep ~one acquisition_click per visitor's first
+    // marketing landing instead of one row per internal page view.
+    if (!source) {
+      try {
+        if (referrer && new URL(referrer).hostname === window.location.hostname) return;
+      } catch {
+        // malformed referrer → fall through and record as before
+      }
+    }
 
     // Cooldown: skip if we've already pinged for this UTM combo in the
     // last CLICK_COOLDOWN_MS for this browser.
