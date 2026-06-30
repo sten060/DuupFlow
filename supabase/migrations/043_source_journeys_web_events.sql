@@ -1,0 +1,121 @@
+-- ============================================================
+-- get_source_journeys v3 — enrich with web_events (anonymous LP behaviour)
+-- ============================================================
+-- base = acquisition_clicks (one arrival per visitor_id) → every visitor shows.
+-- steps = web_events (page_viewed/scroll_depth/click, same visitor_id) within a
+--         2h window, PLUS post-signup events (Inscription, usage_events) for the
+--         resolved user. No web_events at all → a single page_viewed arrival.
+-- Each step projects: name, path, surface, label, depth, at.
+-- Matching tolerant to NULL: coalesce(nullif(x,''),'(none)').
+-- Output: [{person, last_seen, is_user, steps:[{name,path,surface,label,depth,at}]}]
+-- ============================================================
+
+create or replace function public.get_source_journeys(
+  p_source   text,
+  p_medium   text default null,
+  p_campaign text default null,
+  p_days     int  default 30,
+  p_limit    int  default 500
+)
+returns jsonb language sql security definer set search_path = '' as $fn$
+with arrivals as (
+  select * from (
+    select distinct on (visitor_id)
+      visitor_id,
+      captured_at as started,
+      coalesce(nullif(split_part(coalesce(landing_path, '/'), '?', 1), ''), '/') as landing_path
+    from public.acquisition_clicks
+    where captured_at >= now() - make_interval(days => p_days)
+      -- normalize source the SAME way get_traffic_sources does, so the UI's
+      -- value ('(direct)' for NULL source) matches what we filter on here.
+      and lower(coalesce(nullif(source, ''), '(direct)')) = lower(coalesce(nullif(p_source, ''), '(direct)'))
+      and coalesce(nullif(medium, ''),   '(none)') = coalesce(nullif(p_medium, ''),   '(none)')
+      and coalesce(nullif(campaign, ''), '(none)') = coalesce(nullif(p_campaign, ''), '(none)')
+    order by visitor_id, captured_at desc
+  ) u
+  order by started desc
+  limit p_limit
+),
+resolved as (
+  -- bridge visitor -> user (same tuple, signup within the 2h window) for is_user
+  select a.visitor_id, a.started, a.started + interval '2 hours' as ended, a.landing_path,
+         usr.id as user_id, usr.email
+  from arrivals a
+  left join lateral (
+    select ua.user_id
+    from public.user_acquisition ua
+    where lower(coalesce(nullif(ua.source, ''), '(direct)')) = lower(coalesce(nullif(p_source, ''), '(direct)'))
+      and coalesce(nullif(ua.medium, ''),   '(none)') = coalesce(nullif(p_medium, ''),   '(none)')
+      and coalesce(nullif(ua.campaign, ''), '(none)') = coalesce(nullif(p_campaign, ''), '(none)')
+      and ua.created_at >= a.started and ua.created_at < a.started + interval '2 hours'
+    order by ua.created_at asc
+    limit 1
+  ) ru on true
+  left join auth.users usr on usr.id = ru.user_id
+),
+ev as (
+  -- anonymous LP events by visitor_id, within window
+  select r.visitor_id,
+         jsonb_build_object(
+           'name', e.name, 'path', e.context->>'path', 'surface', e.context->>'surface',
+           'label', e.context->>'label', 'depth', e.context->>'depth', 'at', e.occurred_at
+         ) as step,
+         e.occurred_at as at
+  from resolved r
+  join public.web_events e
+    on e.visitor_id = r.visitor_id
+   and e.occurred_at >= r.started and e.occurred_at < r.ended
+  union all
+  -- post-signup: inscription
+  select r.visitor_id,
+         jsonb_build_object('name', 'Inscription', 'path', '/register', 'surface', 'auth',
+                            'label', null, 'depth', null, 'at', p.created_at) as step,
+         p.created_at as at
+  from resolved r
+  join public.profiles p on p.id = r.user_id
+  where r.user_id is not null and p.created_at >= r.started and p.created_at < r.ended
+  union all
+  -- post-signup: in-app actions
+  select r.visitor_id,
+         jsonb_build_object(
+           'name', case ue.kind
+                     when 'image_duplication' then 'Duplication image'
+                     when 'video_duplication' then 'Duplication vidéo'
+                     when 'ai_signature'      then 'Signature IA'
+                     when 'ai_variation'      then 'Variation IA'
+                     else ue.kind end,
+           'path', case ue.kind
+                     when 'ai_signature' then '/dashboard/ai-detection'
+                     when 'ai_variation' then '/dashboard/generate'
+                     else '/dashboard' end,
+           'surface', 'app', 'label', null, 'depth', null, 'at', ue.created_at
+         ) as step,
+         ue.created_at as at
+  from resolved r
+  join public.usage_events ue on ue.user_id = r.user_id and ue.source = 'live'
+  where r.user_id is not null and ue.created_at >= r.started and ue.created_at < r.ended
+),
+built as (
+  select r.visitor_id,
+         coalesce(r.email, 'anon:' || left(r.visitor_id, 8)) as person,
+         (r.user_id is not null) as is_user,
+         r.started,
+         coalesce(
+           (select jsonb_agg(ev.step order by ev.at) from ev where ev.visitor_id = r.visitor_id),
+           jsonb_build_array(jsonb_build_object(
+             'name', 'page_viewed', 'path', r.landing_path, 'surface', 'marketing',
+             'label', null, 'depth', null, 'at', r.started))
+         ) as steps,
+         coalesce(
+           (select max(ev.at) from ev where ev.visitor_id = r.visitor_id),
+           r.started
+         ) as last_seen
+  from resolved r
+)
+select coalesce(jsonb_agg(jsonb_build_object(
+  'person', person, 'last_seen', last_seen, 'is_user', is_user, 'steps', steps
+) order by started desc), '[]'::jsonb)
+from built;
+$fn$;
+
+grant execute on function public.get_source_journeys(text, text, text, int, int) to service_role;

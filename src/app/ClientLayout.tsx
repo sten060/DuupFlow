@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import { LanguageProvider, type Locale } from "@/lib/i18n/context";
 import { captureAcquisition, trackClickIfUTM } from "@/lib/acquisition";
+import { track, startAutocapture } from "@/lib/web-tracking";
 
 const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
 const LogoPreloader = dynamic(() => import("@/components/LogoPreloader"), { ssr: false });
@@ -42,6 +43,28 @@ function AcquisitionTracker() {
     captureAcquisition();
     trackClickIfUTM();
   }, []);
+  return null;
+}
+
+/**
+ * Web behaviour tracker — marketing/LP surfaces only.
+ * On every marketing-page view: emits page_viewed and (once) starts the
+ * autocapture listeners (scroll_depth / click). Skips app surfaces
+ * (dashboard / admin / affiliate) so we don't mislabel in-app activity as
+ * "marketing". All events carry the same visitor_id as acquisition_clicks.
+ */
+function WebTracker() {
+  const pathname = usePathname();
+  useEffect(() => {
+    const stripped = pathname.replace(/^\/(fr|en)(?=\/|$)/, "") || "/";
+    const isApp =
+      stripped.startsWith("/dashboard") ||
+      stripped.startsWith("/admin") ||
+      stripped.startsWith("/affiliate");
+    if (isApp) return;
+    startAutocapture(track);
+    track("page_viewed", { path: pathname, surface: "marketing" });
+  }, [pathname]);
   return null;
 }
 
@@ -126,6 +149,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <AffiliateRefTracker />
       </Suspense>
       <AcquisitionTracker />
+      <WebTracker />
       {showHeader && isLanding && <AnnouncementBar />}
       {showHeader && <Header />}
       {/* Spacer clears the fixed header (+ the announcement bar on the landing page). */}
