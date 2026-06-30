@@ -10,7 +10,6 @@ import { captureAcquisition, trackClickIfUTM } from "@/lib/acquisition";
 import { track, startAutocapture, surfaceFor } from "@/lib/web-tracking";
 
 const LightPillar = dynamic(() => import("@/components/LightPillar"), { ssr: false });
-const LogoPreloader = dynamic(() => import("@/components/LogoPreloader"), { ssr: false });
 
 function AffiliateRefTracker() {
   const searchParams = useSearchParams();
@@ -154,9 +153,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Spacer clears the fixed header (+ the announcement bar on the landing page). */}
       {showHeader && <div className={isLanding ? "h-[116px] sm:h-[132px]" : "h-20 sm:h-24"} />}
       {children}
-
-      {/* Logo preloader — only on landing page */}
-      {isLanding && <LogoPreloader duration={1.8} logoSize={90} />}
     </>
     </LanguageProvider>
   );

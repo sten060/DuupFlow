@@ -21,6 +21,7 @@
     "archiver": "^7.0.1",
     "clsx": "^2.1.0",
     "crypto": "^1.0.1",
+    "disposable-email-domains": "^1.0.62",
     "execa": "^8.0.1",
     "exif-reader": "^2.0.3",
     "file-saver": "^2.0.5",

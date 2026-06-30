@@ -190,10 +190,17 @@ export default function Sidebar() {
     ],
   ];
 
-  // Restore persisted collapse state on mount.
+  // Restore persisted collapse state on mount. With no saved preference yet,
+  // start collapsed on mobile only (≤767px, below Tailwind's md breakpoint);
+  // desktop/tablet keep the expanded default.
   useEffect(() => {
     try {
-      if (localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
+      const stored = localStorage.getItem(COLLAPSE_KEY);
+      if (stored === "1") {
+        setCollapsed(true);
+      } else if (stored === null && window.matchMedia("(max-width: 767px)").matches) {
+        setCollapsed(true);
+      }
     } catch {}
   }, []);
 

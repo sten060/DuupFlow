@@ -39,11 +39,18 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    // Magic-link sign-in can also create an account (shouldCreateUser defaults
+    // to true), so it goes through the same server-side disposable-email gate.
+    const res = await fetch("/api/auth/otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      }),
     });
-    if (error) setError(error.message);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) setError(data.error || "Une erreur est survenue. Réessaie.");
     else setSent(true);
     setLoading(false);
   }
