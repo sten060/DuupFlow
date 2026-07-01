@@ -33,9 +33,16 @@ export default function WelcomePage() {
       if (profile?.first_name) setFirstName(profile.first_name);
     })();
 
-    // Free tier — every user lands on the dashboard. They can upgrade
-    // anytime from the abonnement page if they want Solo or Pro.
-    const dest = "/dashboard";
+    // Paid-plan signups (?plan=solo|pro captured at /register) must hit the
+    // Stripe paywall before entering the app. Free signups — and guests
+    // joining a team — go straight to the dashboard.
+    const isGuest = sessionStorage.getItem("welcome_is_guest") === "1";
+    const plan = localStorage.getItem("duupflow_selected_plan");
+    const dest =
+      !isGuest && (plan === "solo" || plan === "pro")
+        ? `/checkout?plan=${plan}`
+        : "/dashboard";
+    localStorage.removeItem("duupflow_selected_plan");
     setDestination(dest);
     sessionStorage.removeItem("welcome_first_name");
     sessionStorage.removeItem("welcome_is_guest");
@@ -107,7 +114,7 @@ export default function WelcomePage() {
           className="inline-flex items-center gap-2 rounded-xl px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90"
           style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
         >
-          {destination === "/checkout" ? t("onboarding.chooseOffer") : t("onboarding.goToDashboard")}
+          {destination.startsWith("/checkout") ? t("onboarding.chooseOffer") : t("onboarding.goToDashboard")}
         </button>
 
         <p className="mt-4 text-xs text-white/25">{t("onboarding.autoRedirect")}</p>

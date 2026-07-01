@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
 
@@ -44,6 +44,17 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Persist the plan picked on the pricing page (?plan=solo|pro) so we can send
+  // the user to the Stripe paywall right after onboarding. localStorage — not a
+  // query param / sessionStorage — because the magic-link (and Google OAuth)
+  // round-trip reloads the app on a fresh page where those don't survive.
+  useEffect(() => {
+    const plan = new URLSearchParams(window.location.search).get("plan");
+    if (plan === "solo" || plan === "pro") {
+      localStorage.setItem("duupflow_selected_plan", plan);
+    }
+  }, []);
 
   async function handleGoogle() {
     await supabase.auth.signInWithOAuth({
