@@ -56,9 +56,11 @@ export async function POST(req: NextRequest) {
     // New users skip the AI Variation launch announcement (it targets
     // legacy users with NULL). They get the regular onboarding tour instead.
     variation_ia_announced_at: new Date().toISOString(),
-    // Same for the TikTok launch pop-up: future signups skip it so it can't
-    // interrupt the gamified onboarding. Only legacy users (NULL) still see it.
-    tiktok_announce_seen_at: new Date().toISOString(),
+    // NOTE: do NOT write tiktok_announce_seen_at here — that column comes from
+    // migration 034, which is not applied in prod. Writing it makes the whole
+    // upsert fail ("column not found in schema cache") and blocks signup. New
+    // users are kept out of the TikTok pop-up by the dashboard-page fallback
+    // instead (see src/app/dashboard/page.tsx).
     onboarding_platforms: cleanPlatforms,
     onboarding_source: cleanSource,
   };

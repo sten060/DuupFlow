@@ -48,9 +48,11 @@ export default async function DashboardPage() {
     profile != null && profile.variation_ia_announced_at == null;
 
   // One-shot TikTok launch pop-up. Read in a SEPARATE query so a missing column
-  // (migration 034 not yet applied) can't break the main profile fetch above.
-  // When the column is absent we default to "pending" (show it) — the client also
-  // keeps a localStorage guard so it never loops before the migration runs.
+  // (migration 034 not applied in prod) can't break the main profile fetch above.
+  // When the column is absent / the query errors we default to "not pending"
+  // (DON'T show it): the pop-up interrupts the gamified onboarding, so a missing
+  // column must never resurface it — especially for new users. It only shows
+  // when the column exists AND is explicitly NULL (legacy users).
   let tiktokAnnouncementPending = false;
   if (user) {
     try {
@@ -59,9 +61,9 @@ export default async function DashboardPage() {
         .select("tiktok_announce_seen_at")
         .eq("id", user.id)
         .single();
-      tiktokAnnouncementPending = error ? true : (tk as { tiktok_announce_seen_at: string | null })?.tiktok_announce_seen_at == null;
+      tiktokAnnouncementPending = error ? false : (tk as { tiktok_announce_seen_at: string | null })?.tiktok_announce_seen_at == null;
     } catch {
-      tiktokAnnouncementPending = true;
+      tiktokAnnouncementPending = false;
     }
   }
   // Effective plan for the announcement modal (drives bonus token wording).
