@@ -188,7 +188,6 @@ export default function Sidebar() {
       {
         href: "/dashboard/generate",
         label: t("dashboard.sidebar.variationIA"),
-        badge: t("dashboard.sidebar.beta"),
         tourId: "nav-variation",
         icon: (
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">

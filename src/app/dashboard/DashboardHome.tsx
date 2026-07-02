@@ -263,6 +263,23 @@ export default function DashboardHome({
       colorBorder: "rgba(99,102,241,0.22)",
     },
     {
+      href: "/dashboard/compress",
+      title: t("dashboard.home.moduleCompresseur"),
+      desc: t("dashboard.home.moduleCompresseurDesc"),
+      badge: null,
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="4 14 10 14 10 20" />
+          <polyline points="20 10 14 10 14 4" />
+          <line x1="14" y1="10" x2="21" y2="3" />
+          <line x1="3" y1="21" x2="10" y2="14" />
+        </svg>
+      ),
+      color: "#14B8A6",
+      colorBg: "rgba(20,184,166,0.10)",
+      colorBorder: "rgba(20,184,166,0.22)",
+    },
+    {
       href: "/dashboard/similarity",
       title: t("dashboard.home.moduleComparateur"),
       desc: t("dashboard.home.moduleComparateurDesc"),
@@ -281,7 +298,7 @@ export default function DashboardHome({
       href: "/dashboard/generate",
       title: t("dashboard.home.moduleVariationIA"),
       desc: t("dashboard.home.moduleVariationIADesc"),
-      badge: "BETA",
+      badge: null,
       icon: (
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />

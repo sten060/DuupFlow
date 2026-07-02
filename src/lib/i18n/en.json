@@ -669,6 +669,8 @@
       "moduleImagesDesc": "Generate unique copies of each image — EXIF/XMP metadata, visual micro-variations, batch export.",
       "moduleVideos": "Video Duplication",
       "moduleVideosDesc": "Re-encode each video copy with unique parameters — FPS, GOP, bitrate, codec. Undetectable.",
+      "moduleCompresseur": "Compressor",
+      "moduleCompresseurDesc": "Shrink your images and videos with no visible loss. Never heavier than the original.",
       "moduleComparateur": "Comparator",
       "moduleComparateurDesc": "Measure visual similarity between two files. Precise score to validate undetectability.",
       "moduleVariationIA": "AI Variation",
