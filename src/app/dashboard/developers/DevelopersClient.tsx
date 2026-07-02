@@ -199,7 +199,7 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
               <h2 className="text-sm font-semibold text-white/90">Documentation de l'API</h2>
               <p className="text-xs text-white/50 mt-1">
                 Base : <code className="text-white/70">{origin}/api/v1</code> · Auth : en-tête{" "}
-                <code className="text-white/70">Authorization: Bearer dflw_live_…</code> · Limite : <b>60 requêtes/min</b> par clé.
+                <code className="text-white/70">Authorization: Bearer dflw_live_…</code> · Limite : <b>300 requêtes/min</b> par clé.
               </p>
             </div>
 

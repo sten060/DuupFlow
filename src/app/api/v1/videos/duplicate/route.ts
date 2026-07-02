@@ -31,7 +31,8 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 const MAX_BYTES = 150 * 1024 * 1024; // 150 MB source cap (MVP)
-const MAX_PENDING_JOBS = 10; // per user — bounds queue depth / resource use
+const MAX_PENDING_JOBS = 100; // per user — generous queue depth; the serial worker
+                              // (one ffmpeg at a time) is what actually caps load.
 const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
 const VALID_PACKS = ["visual", "motion", "metadata_technical", "pixel_magic"];
 

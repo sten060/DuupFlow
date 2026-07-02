@@ -10,8 +10,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/api-rate-limit";
 import type { PlanType } from "@/lib/plans";
 
-// Per-key request cap. Generous for automation, low enough to blunt abuse.
-const RATE_LIMIT = 60;
+// Per-key request cap. Deliberately generous (users run batch automations that
+// burst). The real resource protection is the serial video worker (one ffmpeg at
+// a time) + the sharp limiter, not this — so this is just a backstop against a
+// runaway loop, kept high so it never gets in a legit user's way.
+const RATE_LIMIT = 300;
 const RATE_WINDOW_MS = 60_000;
 
 export type ApiActor = { userId: string; keyId: string; plan: PlanType };
