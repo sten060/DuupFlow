@@ -61,6 +61,12 @@ export async function updateJob(
   await admin.from("api_jobs").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", jobId);
 }
 
+/** Delete job rows past their expiry (their files are cleaned separately). */
+export async function cleanupExpiredJobs(): Promise<void> {
+  const admin = createAdminClient();
+  await admin.from("api_jobs").delete().lt("expires_at", new Date().toISOString());
+}
+
 /**
  * Fail any job stuck in `processing` with no update for `staleMs` — covers a
  * server restart that killed an in-flight in-process worker. Best-effort;

@@ -1,66 +1,81 @@
-// Durable storage for API job outputs (Supabase Storage). Video results can't
-// live in /tmp (wiped on restart / after 1h) — the client may poll minutes
-// later — so completed outputs are uploaded to a private bucket and served via
-// short-lived signed URLs.
+// Durable storage for API job outputs — on the Railway persistent volume (via
+// OUT_BASE) rather than an external service. Files live under
+// OUT_BASE/api-outputs/<userId>/<jobId>/ and are served by the authenticated
+// download route (/api/v1/jobs/:id/files/:name). A cleaner (cleanupApiOutputs)
+// deletes anything older than the retention window so the volume can't fill up.
+//
+// IMPORTANT: in production OUT_BASE must point at the Railway VOLUME (a
+// persistent dir like /data/…), not /tmp — otherwise async results wouldn't
+// survive a restart.
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import fs from "fs/promises";
+import path from "path";
+import { OUT_BASE } from "@/app/dashboard/utils";
 
-const BUCKET = "api-outputs";
-const SIGNED_URL_TTL = 24 * 60 * 60; // 24h
+const API_DIR = path.join(OUT_BASE, "api-outputs");
+const RETENTION_MS = 24 * 60 * 60 * 1000; // 24h
 
-let _bucketReady = false;
-
-/** Ensure the private outputs bucket exists (idempotent, cached per process). */
-export async function ensureBucket(): Promise<void> {
-  if (_bucketReady) return;
-  const admin = createAdminClient();
-  const { error } = await admin.storage.createBucket(BUCKET, { public: false });
-  // "already exists" is the expected happy path after the first call ever.
-  if (error && !/already exists/i.test(error.message)) {
-    throw new Error(`Storage bucket setup failed: ${error.message}`);
-  }
-  _bucketReady = true;
+/** Reject anything that could escape the job folder. */
+function safeName(name: string): boolean {
+  return !!name && !name.includes("/") && !name.includes("\\") && !name.includes("..");
 }
 
-const CONTENT_TYPES: Record<string, string> = {
-  ".mp4": "video/mp4",
-  ".mov": "video/quicktime",
-  ".mkv": "video/x-matroska",
-  ".webm": "video/webm",
-  ".avi": "video/x-msvideo",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".webp": "image/webp",
-  ".zip": "application/zip",
-};
-
-const extOf = (name: string) => {
-  const i = name.lastIndexOf(".");
-  return i >= 0 ? name.slice(i).toLowerCase() : "";
-};
-
-/**
- * Upload one output buffer and return a signed download URL (24h).
- * Files are namespaced by user + job so nothing collides or leaks across users.
- */
-export async function uploadJobOutput(
+/** Save one output buffer under the job's folder. Returns display metadata. */
+export async function saveJobOutput(
   userId: string,
   jobId: string,
   filename: string,
   data: Buffer,
-): Promise<{ name: string; url: string; bytes: number }> {
-  await ensureBucket();
-  const admin = createAdminClient();
-  const key = `${userId}/${jobId}/${filename}`;
-  const { error: upErr } = await admin.storage.from(BUCKET).upload(key, data, {
-    contentType: CONTENT_TYPES[extOf(filename)] ?? "application/octet-stream",
-    upsert: true,
-  });
-  if (upErr) throw new Error(`Upload failed for "${filename}": ${upErr.message}`);
+): Promise<{ name: string; bytes: number }> {
+  const dir = path.join(API_DIR, userId, jobId);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, filename), data);
+  return { name: filename, bytes: data.length };
+}
 
-  const { data: signed, error: sErr } = await admin.storage.from(BUCKET).createSignedUrl(key, SIGNED_URL_TTL);
-  if (sErr || !signed) throw new Error(`Signed URL failed for "${filename}": ${sErr?.message}`);
+/** Read a stored output (path-traversal safe). Returns null if missing/expired. */
+export async function readJobOutput(userId: string, jobId: string, filename: string): Promise<Buffer | null> {
+  if (!safeName(filename) || !safeName(userId) || !safeName(jobId)) return null;
+  try {
+    return await fs.readFile(path.join(API_DIR, userId, jobId, filename));
+  } catch {
+    return null;
+  }
+}
 
-  return { name: filename, url: signed.signedUrl, bytes: data.length };
+/**
+ * Delete API output files older than the retention window (the "auto-cleaner").
+ * Walks OUT_BASE/api-outputs/<user>/<job>/* and removes stale files + empty
+ * folders. Best-effort — never throws. Returns how many files were deleted.
+ */
+export async function cleanupApiOutputs(maxAgeMs = RETENTION_MS): Promise<number> {
+  const now = Date.now();
+  let deleted = 0;
+  let userDirs: string[];
+  try {
+    userDirs = await fs.readdir(API_DIR);
+  } catch {
+    return 0; // nothing created yet
+  }
+  for (const u of userDirs) {
+    const uDir = path.join(API_DIR, u);
+    let jobDirs: string[];
+    try { jobDirs = await fs.readdir(uDir); } catch { continue; }
+    for (const j of jobDirs) {
+      const jDir = path.join(uDir, j);
+      let files: string[];
+      try { files = await fs.readdir(jDir); } catch { continue; }
+      for (const f of files) {
+        const fp = path.join(jDir, f);
+        try {
+          const st = await fs.stat(fp);
+          if (now - st.mtimeMs > maxAgeMs) { await fs.unlink(fp); deleted++; }
+        } catch {}
+      }
+      // Remove the job folder if it's now empty.
+      try { if ((await fs.readdir(jDir)).length === 0) await fs.rmdir(jDir); } catch {}
+    }
+    try { if ((await fs.readdir(uDir)).length === 0) await fs.rmdir(uDir); } catch {}
+  }
+  return deleted;
 }

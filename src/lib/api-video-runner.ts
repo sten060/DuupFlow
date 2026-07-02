@@ -11,7 +11,7 @@ import os from "os";
 import path from "path";
 import { processVideos, type PreDownloadedFile } from "@/app/dashboard/videos/processVideos";
 import { updateJob } from "@/lib/api-jobs";
-import { uploadJobOutput } from "@/lib/api-storage";
+import { saveJobOutput } from "@/lib/api-storage";
 
 export type VideoJobOpts = {
   jobId: string;
@@ -59,13 +59,15 @@ export async function runVideoDuplicateJob(opts: VideoJobOpts): Promise<void> {
       throw new Error(res.rejectedFiles.length ? res.rejectedFiles.join("; ") : "No valid output was produced.");
     }
 
-    await updateJob(jobId, { progress: 99, message: "Uploading results…" });
-    const files: { name: string; url: string; bytes: number }[] = [];
+    await updateJob(jobId, { progress: 99, message: "Saving results…" });
+    const files: { name: string; bytes: number }[] = [];
     for (const p of res.outputPaths) {
       const buf = await fs.readFile(p);
-      files.push(await uploadJobOutput(userId, jobId, path.basename(p), buf));
+      files.push(await saveJobOutput(userId, jobId, path.basename(p), buf));
     }
 
+    // Store filenames only — the poll endpoint builds the download URLs (so they
+    // always carry the correct request origin).
     await updateJob(jobId, { status: "completed", progress: 100, message: "Done", result: { files } });
   } catch (e: any) {
     console.error(`[api-video-runner] job ${jobId} failed:`, e?.message);

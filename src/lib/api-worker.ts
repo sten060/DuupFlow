@@ -9,7 +9,8 @@
 // load to one ffmpeg job at a time → protects the box from OOM.
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { reapStaleJobs } from "@/lib/api-jobs";
+import { reapStaleJobs, cleanupExpiredJobs } from "@/lib/api-jobs";
+import { cleanupApiOutputs } from "@/lib/api-storage";
 import { runVideoDuplicateJob } from "@/lib/api-video-runner";
 
 type ClaimedJob = { id: string; user_id: string; type: string; params: Record<string, any> };
@@ -68,7 +69,13 @@ export function startApiWorker(): void {
     _busy = true;
     try {
       // Reap stranded jobs every ~2 min.
-      if (_ticks++ % 30 === 0) await reapStaleJobs().catch(() => {});
+      if (_ticks % 30 === 0) await reapStaleJobs().catch(() => {});
+      // The "auto-cleaner": every ~30 min, delete expired output files + job rows.
+      if (_ticks % 450 === 0) {
+        cleanupApiOutputs().then((n) => n && console.log(`[api-worker] cleaned ${n} old output(s)`)).catch(() => {});
+        cleanupExpiredJobs().catch(() => {});
+      }
+      _ticks++;
       const job = await claimNextJob();
       if (job) await processJob(job);
     } catch (e: any) {
