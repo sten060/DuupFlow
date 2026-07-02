@@ -4,7 +4,7 @@
 // When done:      { status: "completed", result: { files: [{ name, url, bytes }] } }
 // On failure:     { status: "failed", error }
 //
-// Download each file via its `url` with your Bearer key. Files are kept 24h.
+// Download each file via its `url` with your Bearer key. Files are kept 16h.
 //
 // Example:
 //   curl -H "Authorization: Bearer dflw_live_…" https://duupflow.com/api/v1/jobs/JOB_ID

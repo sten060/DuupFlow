@@ -37,7 +37,7 @@ export async function GET(req: Request, { params }: { params: { id: string; name
 
   const name = decodeURIComponent(params.name);
   const buf = await readJobOutput(auth.actor.userId, params.id, name);
-  if (!buf) return apiError(404, "file_not_found", "File not found (it may have expired after 24h).");
+  if (!buf) return apiError(404, "file_not_found", "File not found (it may have expired after 16h).");
 
   const ct = CONTENT_TYPES[path.extname(name).toLowerCase()] ?? "application/octet-stream";
   return new Response(buf, {

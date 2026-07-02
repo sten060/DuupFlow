@@ -2,6 +2,7 @@
 // Isolated: touches only the new `api_jobs` table via the service-role client.
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { RETENTION_MS } from "@/lib/api-storage";
 
 export type JobStatus = "queued" | "processing" | "completed" | "failed";
 
@@ -27,7 +28,9 @@ export async function createJob(userId: string, type: string, params: Record<str
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("api_jobs")
-    .insert({ user_id: userId, type, status: "queued", params })
+    // Set expiry explicitly so it always matches the file retention window
+    // (rather than relying on the table's default).
+    .insert({ user_id: userId, type, status: "queued", params, expires_at: new Date(Date.now() + RETENTION_MS).toISOString() })
     .select(SELECT)
     .single();
   if (error) throw new Error(error.message);

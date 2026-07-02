@@ -251,7 +251,7 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
 
             <div className="space-y-1">
               <p className="text-xs font-semibold text-white/70">Dupliquer une vidéo (async → polling)</p>
-              <p className="text-[11px] text-white/45">1. Lancer le job → renvoie un <code className="text-white/70">job_id</code>. 2. Poller <code className="text-white/70">/jobs/:id</code> jusqu'à <code className="text-white/70">status: "completed"</code> → URLs de téléchargement (valables 24h).</p>
+              <p className="text-[11px] text-white/45">1. Lancer le job → renvoie un <code className="text-white/70">job_id</code>. 2. Poller <code className="text-white/70">/jobs/:id</code> jusqu'à <code className="text-white/70">status: "completed"</code> → URLs de téléchargement (valables 16h).</p>
               <code className="block rounded-lg bg-black/40 px-3 py-2 text-[11px] text-white/90 font-mono break-all whitespace-pre-wrap">
 {`# 1) lancer
 curl -X POST ${origin}/api/v1/videos/duplicate \\

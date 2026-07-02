@@ -13,7 +13,10 @@ import path from "path";
 import { OUT_BASE } from "@/app/dashboard/utils";
 
 const API_DIR = path.join(OUT_BASE, "api-outputs");
-const RETENTION_MS = 24 * 60 * 60 * 1000; // 24h
+// How long API results stay available for download after a job completes.
+// Storage isn't the constraint (large volume, billed per data stored) — this is
+// just the download window. Keep the job-row expiry (api-jobs.ts) in sync.
+export const RETENTION_MS = 16 * 60 * 60 * 1000; // 16h
 
 /** Reject anything that could escape the job folder. */
 function safeName(name: string): boolean {
