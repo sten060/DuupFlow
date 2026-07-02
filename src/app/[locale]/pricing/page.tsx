@@ -127,8 +127,6 @@ function PricingCards() {
     t("tarifs.freeFeature2"),
     t("tarifs.freeFeature3"),
     t("tarifs.freeFeature4"),
-    t("tarifs.freeFeature5"),
-    t("tarifs.freeFeature6"),
     t("tarifs.freeFeature7"),
   ];
 
@@ -139,7 +137,6 @@ function PricingCards() {
     t("tarifs.soloFeature4"),
     t("tarifs.soloFeature5"),
     t("tarifs.soloFeature6"),
-    t("tarifs.soloFeature7"),
     t("tarifs.soloFeature8"),
   ];
 

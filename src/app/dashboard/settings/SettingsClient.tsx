@@ -119,12 +119,6 @@ export default function SettingsClient({
   const [inviteMsg, setInviteMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [localInvitations, setLocalInvitations] = useState<Invitation[]>(invitations);
 
-  const [supportContact, setSupportContact] = useState("");
-  const [supportSubject, setSupportSubject] = useState("");
-  const [supportMessage, setSupportMessage] = useState("");
-  const [supportLoading, setSupportLoading] = useState(false);
-  const [supportMsg, setSupportMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!firstName.trim()) return;
@@ -213,36 +207,6 @@ export default function SettingsClient({
       body: JSON.stringify({ invitationId: id }),
     });
     if (res.ok) setLocalInvitations((prev) => prev.filter((inv) => inv.id !== id));
-  }
-
-  async function sendSupport(e: React.FormEvent) {
-    e.preventDefault();
-    if (!supportContact.trim() || !supportSubject.trim() || !supportMessage.trim()) return;
-    setSupportLoading(true);
-    setSupportMsg(null);
-    try {
-      const res = await fetch("/api/support/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contact: supportContact.trim(),
-          subject: supportSubject.trim(),
-          message: supportMessage.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.ok) {
-        setSupportMsg({ type: "ok", text: t("dashboard.settings.supportSent") });
-        setSupportContact("");
-        setSupportSubject("");
-        setSupportMessage("");
-      } else {
-        setSupportMsg({ type: "err", text: data.error ?? t("dashboard.settings.supportSendError") });
-      }
-    } catch {
-      setSupportMsg({ type: "err", text: t("dashboard.settings.supportNetworkError") });
-    }
-    setSupportLoading(false);
   }
 
   const activeInvitations = localInvitations.filter((i) => i.status !== "removed");
@@ -513,68 +477,6 @@ export default function SettingsClient({
             </Card>
           </div>
         )}
-
-        {/* Support */}
-        <div>
-          <SectionTitle>{t("dashboard.settings.supportSection")}</SectionTitle>
-          <Card>
-            <p className="text-xs text-white/40 mb-5 leading-relaxed">
-              {t("dashboard.settings.supportIntro")}
-            </p>
-            <form onSubmit={sendSupport} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-white/40 mb-1.5">{t("dashboard.settings.supportContactLabel")}</label>
-                  <input
-                    type="text"
-                    value={supportContact}
-                    onChange={(e) => setSupportContact(e.target.value)}
-                    placeholder={t("dashboard.settings.supportContactPlaceholder")}
-                    className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
-                    style={INPUT_STYLE}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-white/40 mb-1.5">{t("dashboard.settings.supportSubjectLabel")}</label>
-                  <input
-                    type="text"
-                    value={supportSubject}
-                    onChange={(e) => setSupportSubject(e.target.value)}
-                    placeholder={t("dashboard.settings.supportSubjectPlaceholder")}
-                    className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
-                    style={INPUT_STYLE}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-white/40 mb-1.5">{t("dashboard.settings.supportMessageLabel")}</label>
-                <textarea
-                  value={supportMessage}
-                  onChange={(e) => setSupportMessage(e.target.value)}
-                  placeholder={t("dashboard.settings.supportMessagePlaceholder")}
-                  rows={4}
-                  className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition resize-none"
-                  style={INPUT_STYLE}
-                />
-              </div>
-              {supportMsg && (
-                <p className={`text-xs px-3 py-2 rounded-lg ${supportMsg.type === "ok" ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20" : "text-red-400 bg-red-500/[0.08] border border-red-500/20"}`}>
-                  {supportMsg.text}
-                </p>
-              )}
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={supportLoading || !supportContact.trim() || !supportSubject.trim() || !supportMessage.trim()}
-                  className="rounded-xl px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
-                  style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-                >
-                  {supportLoading ? t("dashboard.settings.supportSending") : t("dashboard.settings.supportSend")}
-                </button>
-              </div>
-            </form>
-          </Card>
-        </div>
 
       </div>
     </div>

@@ -103,6 +103,7 @@ export default function AbonnementClient({
   const [showCancelStep2, setShowCancelStep2] = useState(false);
   const [cancelFeedback, setCancelFeedback] = useState("");
   const [showFreeUpgradeModal, setShowFreeUpgradeModal] = useState(false);
+  const [view, setView] = useState<"plan" | "tokens">("plan");
 
   const cancelEndDate = cancelAt
     ? new Date(cancelAt * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
@@ -252,6 +253,31 @@ export default function AbonnementClient({
         </p>
       </div>
 
+      {/* Segmented toggle — switch the page between the plan view and the token view. */}
+      <div
+        className="inline-flex items-center gap-1 p-1 rounded-xl mb-6"
+        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+      >
+        {(["plan", "tokens"] as const).map((v) => {
+          const active = view === v;
+          return (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={[
+                "px-4 py-1.5 text-sm font-semibold rounded-lg transition-all",
+                active ? "text-white" : "text-white/45 hover:text-white/70",
+              ].join(" ")}
+              style={active ? { background: "linear-gradient(135deg,#6366F1,#38BDF8)" } : undefined}
+            >
+              {v === "plan" ? t("dashboard.subscription.tabPlan") : t("dashboard.subscription.tabTokens")}
+            </button>
+          );
+        })}
+      </div>
+
+      {view === "plan" && (
       <div className="space-y-5">
         {/* Plan card */}
         <div
@@ -497,11 +523,11 @@ export default function AbonnementClient({
           </div>
         )}
       </div>
+      )}
 
       {/* Tokens — merged in from the former /dashboard/tokens module so the
           unified "Plan & token" page shows subscription + token balance. */}
-      <div className="h-px bg-white/[0.07] my-8" />
-      <TokensPanel />
+      {view === "tokens" && <TokensPanel />}
     </main>
 
     {/* Upgrade confirmation modal */}

@@ -36,7 +36,7 @@ export default function SupportPage() {
 
         {/* Email */}
         <a
-          href="mailto:support@duupflow.com"
+          href="mailto:hello@duupflow.com"
           className="flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 hover:bg-white/[0.06] transition-all"
         >
           <div className="h-10 w-10 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0">

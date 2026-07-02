@@ -29,6 +29,12 @@ const MIME_TYPES = [
 
 type DriveDoc = { id: string; name: string; mimeType: string; sizeBytes?: number };
 
+/** Thrown when the user dismisses the Google auth popup — a cancel, not a failure.
+ *  Callers swallow it and reset silently instead of surfacing an error. */
+class DriveCancelled extends Error {
+  constructor() { super("cancelled"); this.name = "DriveCancelled"; }
+}
+
 /** Run async tasks with bounded concurrency (parallel, but capped). */
 async function runPool<T>(items: T[], limit: number, task: (item: T, index: number) => Promise<void>): Promise<void> {
   let i = 0;
@@ -146,6 +152,10 @@ export function useDrivePicker() {
           if (resp?.error) return reject(new Error(resp.error));
           resolve(resp.access_token as string);
         },
+        // Fires when the consent popup is closed by the user or fails to open.
+        // Without this the Promise would hang forever, leaving the button stuck
+        // on "Ouverture de Drive…" until a page refresh. Treat it as a cancel.
+        error_callback: () => reject(new DriveCancelled()),
       });
       client.requestAccessToken({ prompt: "" });
     });
@@ -273,7 +283,13 @@ export function useDrivePicker() {
       setLoading(true);
       try {
         await ensureSDK();
-        const token = await getToken();
+        let token: string;
+        try {
+          token = await getToken();
+        } catch (e) {
+          if (e instanceof DriveCancelled) return { files: [], failedNames: [], tooLongNames: [] };
+          throw e;
+        }
         const picked = await openPicker(token);
         if (picked.length === 0) return { files: [], failedNames: [], tooLongNames: [] };
 
@@ -340,7 +356,13 @@ export function useDrivePicker() {
       setLoading(true);
       try {
         await ensureSDK();
-        const token = await getToken();
+        let token: string;
+        try {
+          token = await getToken();
+        } catch (e) {
+          if (e instanceof DriveCancelled) return { ok: 0, failed: 0, folderName: "" };
+          throw e;
+        }
         const folder = await pickFolder(token);
         if (!folder) return { ok: 0, failed: 0, folderName: "" }; // user cancelled
 

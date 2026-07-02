@@ -17,9 +17,12 @@ type Props = {
   disabled?: boolean;
   /** Compact icon-only button. */
   compact?: boolean;
+  /** Override the (non-compact) button's size/style classes so it can match a
+   *  host module's neighbouring buttons. The icon layout is always kept. */
+  className?: string;
 };
 
-export default function DriveSaveButton({ files, disabled, compact }: Props) {
+export default function DriveSaveButton({ files, disabled, compact, className }: Props) {
   const { t } = useTranslation();
   const { saveToDrive, loading, configured } = useDrivePicker();
   const [msg, setMsg] = useState<string | null>(null);
@@ -77,8 +80,11 @@ export default function DriveSaveButton({ files, disabled, compact }: Props) {
         type="button"
         onClick={handle}
         disabled={loading || disabled || files.length === 0}
-        className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold
-                   bg-white/10 hover:bg-white/20 text-white/85 transition disabled:opacity-50"
+        className={
+          className
+            ? `inline-flex items-center gap-2 ${className}`
+            : "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white/85 transition disabled:opacity-50"
+        }
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={DRIVE_ICON} alt="" className={loading ? "h-3.5 w-3.5 animate-pulse" : "h-3.5 w-3.5"} />

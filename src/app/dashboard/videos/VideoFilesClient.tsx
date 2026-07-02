@@ -103,6 +103,7 @@ export default function VideoFilesClient({
         {files.length > 0 && (
           <DriveSaveButton
             files={(selected.size > 0 ? files.filter((u) => selected.has(u)) : files).map((u) => ({ url: u, name: fileNameFromUrl(u) }))}
+            className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
           />
         )}
       </div>
