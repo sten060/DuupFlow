@@ -376,7 +376,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
       {/* Ready files — leave a right gap on wider screens so the download row and
           file list don't sit under the floating notif / chatbot buttons. */}
       {persistedFiles.length > 0 && (
-        <div className="space-y-3 lg:mr-20 xl:mr-24">
+        <div className="space-y-3 lg:mr-28 xl:mr-32">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-semibold text-white/80 mr-auto">
               {t("compress.readyToDownload", { count: String(persistedFiles.length) })}
