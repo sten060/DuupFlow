@@ -1,4 +1,10 @@
 {
+  "developers": {
+    "comingSoonBadge": "Bientôt disponible",
+    "comingSoonTitle": "API DuupFlow",
+    "comingSoonBody": "Automatise DuupFlow depuis tes propres outils (Make, n8n, scripts…). Duplique, compresse et masque la signature IA par programmation. L'API arrive très bientôt.",
+    "comingSoonNote": "Reste à l'affût — on te préviendra dès l'ouverture."
+  },
   "drive": {
     "import": "Importer depuis Google Drive",
     "importing": "Ouverture de Drive…",

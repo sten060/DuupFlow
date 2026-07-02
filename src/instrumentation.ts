@@ -10,5 +10,9 @@ export async function register() {
       // Non-fatal: the route handler will retry and surface any error to the user.
       console.warn("[instrumentation] FFmpeg pre-warm failed:", err);
     });
+
+    // Start the API job worker — polls api_jobs for queued async jobs (video).
+    const { startApiWorker } = await import("@/lib/api-worker");
+    startApiWorker();
   }
 }
