@@ -410,8 +410,9 @@ export default function AiDetectionClient() {
         )}
       </div>
 
-      {/* téléchargement + suppression */}
-      <div className="space-y-3">
+      {/* téléchargement + suppression — right gap on wide screens so it clears
+          the floating notif/chatbot buttons (same as the other download blocks). */}
+      <div className="space-y-3 lg:mr-28 xl:mr-32">
         {sessionFiles.length > 0 && (
           <div className="rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
             <p className="text-xs text-white/40 uppercase tracking-wider mb-2">

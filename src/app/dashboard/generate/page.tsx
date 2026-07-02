@@ -345,8 +345,9 @@ export default function AiLabPage() {
           )}
         </div>
 
-        {/* Right — controls + results */}
-        <div className="space-y-4">
+        {/* Right — controls + results. Right gap on wide screens so the results
+            grid / ZIP button clear the floating notif/chatbot buttons. */}
+        <div className="space-y-4 xl:mr-24">
           {/* Controls */}
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5">
             <label className="block text-sm font-medium text-white/80 mb-3">

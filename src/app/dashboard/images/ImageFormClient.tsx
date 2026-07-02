@@ -593,9 +593,10 @@ export default function ImageFormClient({ initialImages }: Props) {
         )}
       </form>
 
-      {/* Ready files — shown as they arrive via SSE and persist across navigation */}
+      {/* Ready files — shown as they arrive via SSE and persist across navigation.
+          Right gap on wide screens so the block clears the floating notif/chatbot buttons. */}
       {persistedFiles.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-3 lg:mr-28 xl:mr-32">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-semibold text-white/80 mr-auto">
               {t("dashboard.images.readyToDownload", { count: String(persistedFiles.length) })}

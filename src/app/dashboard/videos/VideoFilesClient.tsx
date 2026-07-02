@@ -76,7 +76,7 @@ export default function VideoFilesClient({
       : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:mr-28 xl:mr-32">
       <div className="flex items-center gap-3 flex-wrap">
         <button
           type="button"
