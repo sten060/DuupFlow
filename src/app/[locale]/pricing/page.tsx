@@ -152,6 +152,7 @@ function PricingCards() {
     t("tarifs.proFeature6"),
     t("tarifs.proFeature7"),
     t("tarifs.proFeature8"),
+    t("tarifs.proFeature9"),
   ];
 
   return (
@@ -361,6 +362,7 @@ function PlansComparison() {
         { label: t("tarifs.cmpRowPresets"), values: [false, false, true] },
         { label: t("tarifs.featGoogleDrive"), logo: "/app/icons8-google-drive-96.png", values: [true, true, true] },
         { label: t("tarifs.featCompressor"), values: [true, true, true] },
+        { label: t("tarifs.featApi"), values: [false, false, true] },
       ],
     },
     {
