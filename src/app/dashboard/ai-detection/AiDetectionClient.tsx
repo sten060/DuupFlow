@@ -6,47 +6,10 @@ import { useTranslation } from "@/lib/i18n/context";
 import { pushNotification } from "../components/notificationStore";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import DriveImportButton from "../components/DriveImportButton";
+import DocsDrawer from "../components/DocsDrawer";
+import { buildDetectionDocs } from "../components/docs-content";
 
 const MAX_FILES = 30;
-
-/* ── Accordion ── */
-function Accordion({
-  title, icon, children, borderCls, bgCls, headerTextCls, bodyTextCls,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  borderCls: string;
-  bgCls: string;
-  headerTextCls: string;
-  bodyTextCls: string;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className={`rounded-xl border ${borderCls} ${bgCls} overflow-hidden`}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          {icon}
-          <span className={`text-sm font-medium ${headerTextCls}`}>{title}</span>
-        </div>
-        <svg
-          className={`h-4 w-4 shrink-0 ${headerTextCls} transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-        >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-      {open && (
-        <div className={`px-5 pb-4 text-sm ${bodyTextCls} border-t ${borderCls}`}>
-          <div className="pt-3">{children}</div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ── Preview grid ── */
 function FilePreviewGrid({
@@ -308,58 +271,17 @@ export default function AiDetectionClient() {
   return (
     <main className="p-6 md:p-10 space-y-8 max-w-3xl mx-auto">
       {/* header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-white">
-          {t("dashboard.aiDetection.title")}
-        </h1>
-        <p className="text-sm text-white/50 mt-1">
-          {t("dashboard.aiDetection.subtitle")}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">
+            {t("dashboard.aiDetection.title")}
+          </h1>
+          <p className="text-sm text-white/50 mt-1">
+            {t("dashboard.aiDetection.subtitle")}
+          </p>
+        </div>
+        <DocsDrawer docs={buildDetectionDocs(t)} />
       </div>
-
-      {/* notice : détection contenu — accordion */}
-      <Accordion
-        title={t("dashboard.aiDetection.platformNotice")}
-        borderCls="border-amber-500/20"
-        bgCls="bg-amber-500/[0.04]"
-        headerTextCls="text-amber-200/80"
-        bodyTextCls="text-amber-200/70"
-        icon={
-          <svg className="h-4 w-4 shrink-0 text-amber-400/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-            <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-          </svg>
-        }
-      >
-        {t("det.platformNoticeBody1")}{" "}
-        <span className="text-amber-200/90">{t("det.platformNoticeContentDetection")}</span>{" "}
-        {t("det.platformNoticeBody2")}{" "}
-        <strong className="text-amber-200/80">{t("det.platformNoticeImageModule")}</strong>{" "}
-        {t("det.platformNoticeBody3")}
-      </Accordion>
-
-      {/* info processus — accordion */}
-      <Accordion
-        title={t("dashboard.aiDetection.howItWorks")}
-        borderCls="border-white/10"
-        bgCls="bg-white/[0.025]"
-        headerTextCls="text-white/55"
-        bodyTextCls="text-white/50"
-        icon={
-          <svg className="h-4 w-4 shrink-0 text-white/35" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
-          </svg>
-        }
-      >
-        <p>
-          {t("det.howItWorksIntro1")} <strong className="text-white/70">{t("det.howItWorksSteps")}</strong> {t("det.howItWorksIntro2")}
-        </p>
-        <ol className="mt-2 space-y-1 list-decimal list-inside">
-          <li><strong className="text-white/70">{t("det.step1Title")}</strong> — {t("det.step1Body")}</li>
-          <li><strong className="text-white/70">{t("det.step2Title")}</strong> — {t("det.step2Body")}</li>
-          <li><strong className="text-white/70">{t("det.step3Title")}</strong> — {t("det.step3Body")}</li>
-        </ol>
-      </Accordion>
 
       {/* panel */}
       <div className="rounded-2xl border border-indigo-500/20 bg-white/[0.03] p-6 flex flex-col gap-5">

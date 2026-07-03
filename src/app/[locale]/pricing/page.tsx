@@ -247,10 +247,10 @@ function PricingCards() {
               {t("tarifs.commencer")}
             </Link>
             <Link
-              href="/#videos"
+              href="/demo-request?plan=solo"
               className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/70 hover:text-white transition border border-white/15 hover:border-white/30 hover:bg-white/[0.04]"
             >
-              {t("tarifs.voirDemo")}
+              {t("tarifs.demoPerso")}
             </Link>
           </div>
         </div>
@@ -303,10 +303,10 @@ function PricingCards() {
               {t("tarifs.commencer")}
             </Link>
             <Link
-              href="/#videos"
+              href="/demo-request?plan=pro"
               className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/70 hover:text-white transition border border-white/15 hover:border-white/30 hover:bg-white/[0.04]"
             >
-              {t("tarifs.voirDemo")}
+              {t("tarifs.demoPerso")}
             </Link>
           </div>
         </div>

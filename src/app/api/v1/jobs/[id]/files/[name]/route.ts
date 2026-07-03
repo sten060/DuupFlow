@@ -40,10 +40,13 @@ export async function GET(req: Request, { params }: { params: { id: string; name
   if (!buf) return apiError(404, "file_not_found", "File not found (it may have expired after 16h).");
 
   const ct = CONTENT_TYPES[path.extname(name).toLowerCase()] ?? "application/octet-stream";
+  // Sanitise the filename before putting it in a header: strip quotes/control
+  // chars for the legacy quoted form, and provide an RFC 5987 encoded variant.
+  const asciiName = name.replace(/["\\\r\n]/g, "").replace(/[^\x20-\x7E]/g, "_");
   return new Response(buf, {
     headers: {
       "Content-Type": ct,
-      "Content-Disposition": `attachment; filename="${name}"`,
+      "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(name)}`,
       "Content-Length": String(buf.length),
     },
   });

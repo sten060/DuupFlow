@@ -133,6 +133,7 @@ function CheckoutContent() {
     t("tarifs.proFeature5"),
     t("tarifs.proFeature6"),
     t("tarifs.proFeature7"),
+    t("tarifs.proFeature9"),
   ];
 
   const [selectedPlan, setSelectedPlan] = useState<Plan>(defaultPlan);

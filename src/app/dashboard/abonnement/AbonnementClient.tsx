@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { useTranslation } from "@/lib/i18n/context";
@@ -113,6 +113,18 @@ export default function AbonnementClient({
   const daysLeft = getDaysUntilRenewal(subscriptionPeriodStart);
   const isUnlimited = plan === "pro";
   const isFree = plan === "free" || plan === null;
+
+  // Auto-open the plan picker when arriving with ?upgrade=1 (e.g. from the API
+  // page's "Passer au plan Pro" CTA). Same routing as the "Changer son plan"
+  // button, then clean the URL so it doesn't re-open on refresh.
+  useEffect(() => {
+    let want = false;
+    try { want = new URLSearchParams(window.location.search).get("upgrade") === "1"; } catch {}
+    if (!want) return;
+    if (isFree) setShowFreeUpgradeModal(true);
+    else if (plan === "solo") setShowUpgradeModal(true);
+    try { window.history.replaceState({}, "", window.location.pathname); } catch {}
+  }, [isFree, plan]);
 
   // Per-plan visual identity + display strings
   const planMeta = {

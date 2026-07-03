@@ -19,7 +19,7 @@
 //     -F "file=@ai_image.png" -o masked.png
 
 import path from "path";
-import { authenticateApiRequest, apiError } from "@/lib/api-auth";
+import { authenticateApiRequest, apiError, contentLengthGuard } from "@/lib/api-auth";
 import { maskAiImage } from "@/lib/ai-detection-pipeline";
 import { runImageOp } from "@/lib/imageProcessingLimiter";
 import { incrementUsage } from "@/lib/usage";
@@ -36,6 +36,9 @@ const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
 export async function POST(req: Request) {
   const auth = await authenticateApiRequest(req);
   if (!auth.ok) return auth.response;
+
+  const oversize = contentLengthGuard(req, MAX_BYTES);
+  if (oversize) return oversize;
 
   let form: FormData;
   try {

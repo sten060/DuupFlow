@@ -26,6 +26,23 @@ export function apiError(status: number, code: string, message: string): Respons
 }
 
 /**
+ * Reject an over-sized upload by its Content-Length header BEFORE the route
+ * buffers the whole body into memory via req.formData(). The box has an OOM
+ * history, so this is a cheap first line of defence. `maxBytes` should be the
+ * per-file cap; we add multipart overhead slack on top. Honest clients always
+ * send Content-Length; a chunked upload that omits it still hits the route's
+ * post-parse file.size check, so nothing gets through unbounded either way.
+ */
+export function contentLengthGuard(req: Request, maxBytes: number): Response | null {
+  const cl = Number(req.headers.get("content-length") || 0);
+  const ceiling = maxBytes + 2 * 1024 * 1024; // +2 MB for multipart boundaries/fields
+  if (cl > ceiling) {
+    return apiError(413, "file_too_large", `Request body exceeds the ${Math.round(maxBytes / (1024 * 1024))} MB limit.`);
+  }
+  return null;
+}
+
+/**
  * Resolve the effective plan for a user. Mirrors the logic in usage.ts:
  * guests inherit their host's plan; legacy `has_paid` without a plan → pro.
  * Replicated here (rather than imported) to keep the API layer isolated.

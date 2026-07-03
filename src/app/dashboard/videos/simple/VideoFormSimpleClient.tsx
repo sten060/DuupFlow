@@ -13,7 +13,8 @@ import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import { saveSettings, loadSettings } from "@/lib/formMemory";
 import { pushNotification } from "../../components/notificationStore";
 import InterruptedRecovery from "../InterruptedRecovery";
-import DurationInfoButton from "../DurationInfoButton";
+import DocsDrawer from "../../components/DocsDrawer";
+import { buildVideoDocs } from "../../components/docs-content";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
 import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
@@ -538,7 +539,7 @@ export default function VideoFormSimpleClient() {
     <>
     <div className="flex items-center justify-between">
       <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosSimple.title")}</h1>
-      <DurationInfoButton />
+      <DocsDrawer docs={buildVideoDocs(t)} />
     </div>
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="channel" value="simple" />

@@ -12,6 +12,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const KEY_PREFIX = "dflw_live_";
 
+// Max live keys per user. Generous for real use (rotate, one-per-integration),
+// but bounded so nobody can spam thousands of rows or multiply their per-key
+// rate-limit budget by minting keys endlessly.
+export const MAX_KEYS_PER_USER = 20;
+
 export type ApiKeyRow = {
   id: string;
   name: string;
@@ -36,6 +41,17 @@ export function generateApiKey() {
 /** Create a key for a user. Returns the plaintext key (show once) + row metadata. */
 export async function createApiKey(userId: string, name: string): Promise<{ key: string; row: ApiKeyRow }> {
   const admin = createAdminClient();
+
+  // Bound the number of keys a single account can hold.
+  const { count } = await admin
+    .from("api_keys")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if ((count ?? 0) >= MAX_KEYS_PER_USER) {
+    // Sentinel — the caller (server action) translates it for the user.
+    throw new Error("MAX_KEYS_REACHED");
+  }
+
   const { key, hash, prefix, last4 } = generateApiKey();
   const { data, error } = await admin
     .from("api_keys")
@@ -63,15 +79,19 @@ export async function listApiKeys(userId: string): Promise<ApiKeyRow[]> {
   return (data as ApiKeyRow[] | null) ?? [];
 }
 
-/** Revoke one of the user's keys (scoped to user_id so users can't revoke others'). */
-export async function revokeApiKey(userId: string, keyId: string): Promise<void> {
+/**
+ * Delete one of the user's keys permanently (scoped to user_id so users can't
+ * delete others'). We hard-delete rather than soft-revoke: once a user removes a
+ * key there's no reason to keep its hash around, and a deleted row can never
+ * authenticate again (validateApiKey finds nothing → null).
+ */
+export async function deleteApiKey(userId: string, keyId: string): Promise<void> {
   const admin = createAdminClient();
   await admin
     .from("api_keys")
-    .update({ revoked_at: new Date().toISOString() })
+    .delete()
     .eq("id", keyId)
-    .eq("user_id", userId)
-    .is("revoked_at", null);
+    .eq("user_id", userId);
 }
 
 /** Validate a raw key from an incoming API request. Returns the owner or null. */
