@@ -10,6 +10,7 @@ export default function PartenairePage() {
   const [form, setForm] = useState({ nom: "", prenom: "", email: "", agence: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -18,10 +19,29 @@ export default function PartenairePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    // Simulate sending — replace with actual server action / API call later
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
-    setSubmitted(true);
+    setError(null);
+    try {
+      // Reuse the support channel: saved in Supabase + emailed to hello@duupflow.com.
+      const res = await fetch("/api/support/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contact: `${form.prenom.trim()} ${form.nom.trim()} — ${form.email.trim()}`,
+          subject: `Demande partenaire / affiliation${form.agence.trim() ? ` — ${form.agence.trim()}` : ""}`,
+          message: `Agence : ${form.agence.trim() || "—"}\n\n${form.message.trim() || "(aucun message)"}`,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        setSubmitted(true);
+      } else {
+        setError(data.error || t("partenaire.errorGeneric"));
+      }
+    } catch {
+      setError(t("partenaire.errorGeneric"));
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -133,6 +153,9 @@ export default function PartenairePage() {
                   onChange={handleChange}
                   className="w-full rounded-lg border border-white/[0.1] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-indigo-500/50 transition resize-none"
                 />
+                {error && (
+                  <p className="text-xs text-red-400 bg-red-500/[0.08] border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
+                )}
                 <button
                   type="submit"
                   disabled={loading}

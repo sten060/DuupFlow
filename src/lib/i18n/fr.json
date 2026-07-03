@@ -1564,7 +1564,8 @@
     "messagePlaceholder": "Message (optionnel)",
     "submitButton": "Envoyer ma demande",
     "submitting": "Envoi en cours...",
-    "successMessage": "Votre demande a été envoyée. Nous vous répondrons dans moins de 24h."
+    "successMessage": "Votre demande a été envoyée. Nous vous répondrons dans moins de 24h.",
+    "errorGeneric": "Une erreur est survenue. Réessaie ou écris-nous sur Telegram."
   },
   "common": {
     "loading": "Chargement...",

@@ -1564,7 +1564,8 @@
     "messagePlaceholder": "Message (optional)",
     "submitButton": "Submit my application",
     "submitting": "Sending...",
-    "successMessage": "Your application has been submitted. We'll respond within 24 hours."
+    "successMessage": "Your application has been submitted. We'll respond within 24 hours.",
+    "errorGeneric": "Something went wrong. Try again or reach us on Telegram."
   },
   "common": {
     "loading": "Loading...",
