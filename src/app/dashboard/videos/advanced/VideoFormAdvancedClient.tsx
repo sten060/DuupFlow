@@ -731,7 +731,7 @@ export default function VideoFormAdvancedClient() {
     <style>{`@keyframes duupTiktokFlash{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,0)}30%{box-shadow:0 0 0 3px rgba(56,189,248,.55),0 0 32px rgba(56,189,248,.25)}}.duup-tiktok-flash{animation:duupTiktokFlash 1.3s ease-in-out 2}`}</style>
     <div className="flex items-center justify-between">
       <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosAdvanced.title")}</h1>
-      <DocsDrawer docs={buildVideoDocs(t, { tiktok: true })} />
+      <DocsDrawer docs={buildVideoDocs(t, { advanced: true })} />
     </div>
     <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="channel" value="advanced" />

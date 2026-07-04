@@ -6,6 +6,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import VariationAnnouncementModal from "./VariationAnnouncementModal";
 import TikTokAnnouncementModal, { TIKTOK_DEST, TIKTOK_SEEN_KEY } from "./TikTokAnnouncementModal";
 import ReplayMenu from "./onboarding/ReplayMenu";
+import GlobalDocsDrawer from "./components/GlobalDocsDrawer";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
@@ -344,6 +345,7 @@ export default function DashboardHome({
             {t("dashboard.home.chooseModule")}
           </p>
           <div className="flex items-center gap-3">
+            <GlobalDocsDrawer />
             <button
               onClick={() => setShowNews(true)}
               className="text-xs text-sky-400/70 hover:text-sky-400 transition flex items-center gap-1"

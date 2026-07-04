@@ -4,6 +4,8 @@ import { useRef, useState, DragEvent } from "react";
 import { probeFile } from "./probeActions";
 import { useTranslation } from "@/lib/i18n/context";
 import DriveImportButton from "../components/DriveImportButton";
+import DocsDrawer from "../components/DocsDrawer";
+import { buildComparatorDocs } from "../components/docs-content";
 
 type ProbeResult = Record<string, any> | null;
 
@@ -160,8 +162,13 @@ export default function SimilarityClient() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.similarity.title")}</h1>
-      <p className="text-sm text-white/50">{t("dashboard.similarity.subtitle")}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.similarity.title")}</h1>
+          <p className="text-sm text-white/50">{t("dashboard.similarity.subtitle")}</p>
+        </div>
+        <DocsDrawer docs={buildComparatorDocs(t)} />
+      </div>
       <div className="h-px bg-white/[0.06]" />
       {/* File inputs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

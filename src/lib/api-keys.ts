@@ -12,10 +12,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const KEY_PREFIX = "dflw_live_";
 
-// Max live keys per user. Generous for real use (rotate, one-per-integration),
-// but bounded so nobody can spam thousands of rows or multiply their per-key
-// rate-limit budget by minting keys endlessly.
-export const MAX_KEYS_PER_USER = 20;
+// Max live keys per user. Enough for a couple of integrations while keeping
+// abuse (row spam / per-key rate-limit multiplication) firmly bounded.
+export const MAX_KEYS_PER_USER = 3;
 
 export type ApiKeyRow = {
   id: string;

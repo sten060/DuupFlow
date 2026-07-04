@@ -281,37 +281,28 @@ export default function Sidebar() {
     >
       {/* Brand — logo doubles as the "expand" trigger when collapsed; the
           chevron button (expanded only) collapses it. */}
-      <div className={["shrink-0 flex items-center pt-6 pb-5", collapsed ? "justify-center px-2" : "justify-between px-5"].join(" ")}>
+      <div className={["shrink-0 flex items-center pt-6 pb-5", collapsed ? "justify-center px-2" : "gap-2.5 px-5"].join(" ")}>
         <button
           type="button"
           onClick={() => { if (collapsed) setCollapsed(false); }}
           title={collapsed ? t("dashboard.sidebar.expandMenu") : undefined}
           aria-label={collapsed ? t("dashboard.sidebar.expandMenu") : "DuupFlow"}
-          className={collapsed ? "cursor-pointer transition-transform hover:scale-105" : "cursor-default"}
+          className={collapsed ? "cursor-pointer transition-transform hover:scale-105" : "cursor-default shrink-0"}
         >
           <Image
             src="/logo-mark.png"
             alt="DuupFlow"
             width={200}
             height={200}
-            className={collapsed ? "h-8 w-8 object-contain" : "h-12 w-auto"}
+            className={collapsed ? "h-8 w-8 object-contain" : "h-9 w-auto object-contain"}
             priority
           />
         </button>
         {!collapsed && (
-          <button
-            type="button"
-            onClick={() => setCollapsed(true)}
-            title={t("dashboard.sidebar.collapseMenu")}
-            aria-label={t("dashboard.sidebar.collapseMenu")}
-            className="text-white/30 hover:text-white/70 transition p-1 -mr-1"
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M9 3v18" />
-              <path d="M15 9l-3 3 3 3" />
-            </svg>
-          </button>
+          <span className="text-2xl font-extrabold tracking-tight leading-none whitespace-nowrap">
+            <span style={{ color: "#818CF8" }}>Duup</span>
+            <span className="text-white/55">Flow</span>
+          </span>
         )}
       </div>
 

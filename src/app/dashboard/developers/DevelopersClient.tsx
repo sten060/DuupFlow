@@ -6,6 +6,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import { createKeyAction, deleteKeyAction } from "./actions";
+import DocsDrawer from "../components/DocsDrawer";
+import { buildApiDocs } from "../components/docs-content";
 
 // Local type (structurally matches lib/api-keys ApiKeyRow) so this client file
 // never imports the service-role module — belt-and-suspenders, not a fix.
@@ -85,11 +87,14 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.developers.title")}</h1>
-        <p className="text-sm text-white/50 mt-1">
-          {t("dashboard.developers.subtitle")}
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.developers.title")}</h1>
+          <p className="text-sm text-white/50 mt-1">
+            {t("dashboard.developers.subtitle")}
+          </p>
+        </div>
+        <DocsDrawer docs={buildApiDocs(t)} />
       </header>
 
       <div className="h-px bg-white/[0.06]" />

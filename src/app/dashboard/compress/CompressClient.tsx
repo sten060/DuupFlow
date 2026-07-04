@@ -8,6 +8,8 @@ import type { CompressedFile } from "./actions";
 import ClearCompressedButton from "./ClearCompressedButton";
 import DriveImportButton from "../components/DriveImportButton";
 import DriveSaveButton from "../components/DriveSaveButton";
+import DocsDrawer from "../components/DocsDrawer";
+import { buildCompressDocs } from "../components/docs-content";
 
 const MAX_FILES = 30;
 const IMAGE_RE = /\.(png|jpe?g|webp|heic|heif)$/i;
@@ -229,9 +231,12 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-extrabold tracking-tight">{t("compress.title")}</h1>
-        <p className="text-sm text-white/50 mt-1">{t("compress.subtitle")}</p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight">{t("compress.title")}</h1>
+          <p className="text-sm text-white/50 mt-1">{t("compress.subtitle")}</p>
+        </div>
+        <DocsDrawer docs={buildCompressDocs(t)} />
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-6">

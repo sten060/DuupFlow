@@ -139,7 +139,7 @@ export default function UpgradePlanModal({
       onClick={() => loading === null && onClose()}
     >
       <div
-        className="w-full max-w-2xl rounded-2xl p-6 space-y-5"
+        className="w-full max-w-3xl rounded-2xl p-7 space-y-6"
         style={{ background: "#0b0e1a", border: "1px solid rgba(255,255,255,0.10)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -171,10 +171,10 @@ export default function UpgradePlanModal({
 
         {promoFor === null ? (
         <>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Solo card */}
           <div
-            className="relative rounded-2xl overflow-hidden flex flex-col p-5"
+            className="relative rounded-2xl overflow-hidden flex flex-col p-6"
             style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.20)" }}
           >
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/45 mb-1">{t("dashboard.plans.soloName")}</p>
@@ -182,7 +182,7 @@ export default function UpgradePlanModal({
               <span className="text-3xl font-bold text-white">39 €</span>
               <span className="text-white/40 text-xs">{t("dashboard.plans.perMonth")}</span>
             </div>
-            <ul className="space-y-1.5 text-xs text-white/65 mb-5 flex-1">
+            <ul className="space-y-2.5 text-sm text-white/70 mb-6 flex-1 leading-relaxed">
               {soloFeatures.map((f, i) => (
                 <li key={i}>• {f}</li>
               ))}
@@ -204,7 +204,7 @@ export default function UpgradePlanModal({
 
           {/* Pro card */}
           <div
-            className="relative rounded-2xl overflow-hidden flex flex-col p-5"
+            className="relative rounded-2xl overflow-hidden flex flex-col p-6"
             style={{ background: "rgba(99,102,241,0.06)", border: "1.5px solid rgba(99,102,241,0.40)" }}
           >
             <span className="absolute top-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 uppercase tracking-wide">
@@ -215,7 +215,7 @@ export default function UpgradePlanModal({
               <span className="text-3xl font-bold text-white">99 €</span>
               <span className="text-white/40 text-xs">{t("dashboard.plans.perMonth")}</span>
             </div>
-            <ul className="space-y-1.5 text-xs text-white/65 mb-5 flex-1">
+            <ul className="space-y-2.5 text-sm text-white/70 mb-6 flex-1 leading-relaxed">
               {proFeatures.map((f, i) => (
                 <li key={i}>• {f}</li>
               ))}
@@ -298,7 +298,7 @@ export default function UpgradePlanModal({
           {/* Continue to Stripe */}
           <button
             type="button"
-            onClick={() => startCheckout(promoFor, promoState === "valid" ? promoInput.trim().toUpperCase() : undefined)}
+            onClick={() => startCheckout(promoFor, promoInput.trim() ? promoInput.trim().toUpperCase() : undefined)}
             disabled={loading !== null}
             className="w-full rounded-xl py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
             style={{ background: promoFor === "solo" ? "linear-gradient(135deg,#7C3AED,#6366F1)" : "linear-gradient(135deg,#6366F1,#38BDF8)" }}
