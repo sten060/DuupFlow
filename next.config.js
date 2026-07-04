@@ -62,6 +62,23 @@ const nextConfig = {
         destination: "https://www.duupflow.com/:path*",
         permanent: true,
       },
+      // 1b) Short tracking links — /go/<source>/<medium>[/<campaign>] → www
+      //     with utm_* stamped from the path (fully dynamic; params come from
+      //     the URL, not a fixed table). Temporary (307) so they're never
+      //     cached as a canonical. 3-segment variant first (order-independent
+      //     — different segment counts can't overlap — but explicit for clarity).
+      {
+        source: "/go/:source/:medium/:campaign",
+        destination:
+          "https://www.duupflow.com/?utm_source=:source&utm_medium=:medium&utm_campaign=:campaign",
+        permanent: false,
+      },
+      {
+        source: "/go/:source/:medium",
+        destination:
+          "https://www.duupflow.com/?utm_source=:source&utm_medium=:medium",
+        permanent: false,
+      },
       // 2) UTM short URLs — single-source-of-truth lives in
       //    src/lib/utm-redirects.ts; the array above is its build-time mirror.
       ...UTM_REDIRECTS.map((r) => ({
@@ -74,12 +91,14 @@ const nextConfig = {
   async headers() {
     // Every UTM short URL gets X-Robots-Tag: noindex, nofollow so any crawler
     // that does reach one (via an external link) drops it from the index.
-    return UTM_REDIRECTS.map((r) => ({
-      source: `/${r.source}`,
-      headers: [
-        { key: "X-Robots-Tag", value: "noindex, nofollow" },
-      ],
-    }));
+    const noindex = [{ key: "X-Robots-Tag", value: "noindex, nofollow" }];
+    return [
+      ...UTM_REDIRECTS.map((r) => ({ source: `/${r.source}`, headers: noindex })),
+      // Short tracking links (/go/*) are the same class of URL — keep them out
+      // of the index too.
+      { source: "/go/:source/:medium/:campaign", headers: noindex },
+      { source: "/go/:source/:medium", headers: noindex },
+    ];
   },
   experimental: {
     serverActions: {
