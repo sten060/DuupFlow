@@ -42,7 +42,7 @@ export default function TermsPage() {
           <Section title="1. Présentation du service">
             <p>
               DuupFlow est une plateforme SaaS permettant aux créateurs de contenu et agences de marketing de dupliquer et varier leurs fichiers médias (vidéos, images) afin de les distribuer sur plusieurs plateformes. Le service est accessible à l&apos;adresse{" "}
-              <a href="https://duupflow.com" className="text-indigo-400 hover:text-indigo-300">duupflow.com</a>.
+              <a href="https://www.duupflow.com" className="text-indigo-400 hover:text-indigo-300">www.duupflow.com</a>.
             </p>
             <p>
               Le service est édité et exploité par <strong className="text-white">DuupFlow</strong>.

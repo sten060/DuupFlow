@@ -23,16 +23,25 @@ const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthl
 
 // FR-only articles. EN URL serves a stub linking to FR, so we only list FR
 // in the sitemap to keep the canonical signal clean.
-const FR_ARTICLES: Array<{ slug: string; lastModified: string }> = [
-  { slug: "instagram-contenus-non-originaux", lastModified: "2026-05-23" },
-];
+const FR_ARTICLES: Array<{ slug: string; lastModified: string }> = [];
 
-// Fully bilingual articles — distinct slug per language, each its own canonical.
+// Fully bilingual articles — both FR and EN indexed (each self-canonical, linked
+// via hreflang). Articles that share one slug across locales set frSlug === enSlug.
 const BILINGUAL_ARTICLES: Array<{ frSlug: string; enSlug: string; lastModified: string }> = [
   {
     frSlug: "tiktok-ineligible-recommandations",
     enSlug: "tiktok-ineligible-for-recommendation",
     lastModified: "2026-06-21",
+  },
+  {
+    frSlug: "instagram-contenus-non-originaux",
+    enSlug: "instagram-contenus-non-originaux",
+    lastModified: "2026-05-23",
+  },
+  {
+    frSlug: "automatiser-production-contenu-api-duupflow",
+    enSlug: "automatiser-production-contenu-api-duupflow",
+    lastModified: "2026-07-04",
   },
 ];
 

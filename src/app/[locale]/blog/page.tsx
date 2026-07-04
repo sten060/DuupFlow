@@ -28,6 +28,18 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    slug: "automatiser-production-contenu-api-duupflow",
+    locale: "fr",
+    title: "Automatiser toute sa production de contenu avec l'API DuupFlow",
+    titleEn: "Automate your entire content production with the DuupFlow API",
+    excerpt:
+      "Un pipeline qui tourne seul : Google Drive → tri IA → duplication DuupFlow → dispatch par compte → planning. Le guide complet, avec un prompt Claude Code à copier-coller pour tout reproduire.",
+    excerptEn:
+      "A pipeline that runs itself: Google Drive → AI sort → DuupFlow duplication → per-account dispatch → schedule. The full guide, with a copy-paste Claude Code prompt to reproduce it all.",
+    publishedAt: "2026-07-04",
+    readingMinutes: 9,
+  },
+  {
     slug: "tiktok-ineligible-recommandations",
     slugEn: "tiktok-ineligible-for-recommendation",
     locale: "fr",
@@ -44,8 +56,11 @@ const ARTICLES: Article[] = [
     slug: "instagram-contenus-non-originaux",
     locale: "fr",
     title: "Instagram et les contenus non originaux : ce qui change pour vos comptes en 2026",
+    titleEn: "Instagram and unoriginal content: what changes for your accounts in 2026",
     excerpt:
       "Instagram limite la portée des comptes qui republient du contenu sans transformation. Décryptage de la mise à jour, des comptes impactés, et de la stratégie multi-comptes à adopter.",
+    excerptEn:
+      "Instagram limits the reach of accounts that repost content without transformation. A breakdown of the update, who's affected, and the multi-account strategy to adopt.",
     publishedAt: "2026-05-23",
     readingMinutes: 7,
   },
