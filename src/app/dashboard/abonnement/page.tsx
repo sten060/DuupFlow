@@ -42,6 +42,10 @@ export default async function AbonnementPage() {
   const subscriptionPeriodStart = profile?.subscription_period_start ?? null;
   let cancelAtPeriodEnd = false;
   let cancelAt: number | null = null;
+  // Trial-aware billing: for a trialing sub, current_period_end === trial_end
+  // (the date of the FIRST charge), not the monthly renewal a month out.
+  let currentPeriodEnd: number | null = null;
+  let isTrialing = false;
 
   // Sync plan & customer_id from Stripe (fixes wrong plan in DB)
   if (profile?.stripe_subscription_id || stripeCustomerId || profile?.has_paid) {
@@ -113,6 +117,12 @@ export default async function AbonnementPage() {
         // Read cancellation-at-period-end state
         cancelAtPeriodEnd = sub.cancel_at_period_end;
         cancelAt = sub.cancel_at ?? null;
+        // Billing period end (= next charge date) + trial state, straight from Stripe.
+        // current_period_end isn't on the pinned Stripe type — read it via cast
+        // (same pattern as the webhook route for version-shifted fields).
+        currentPeriodEnd =
+          (sub as unknown as { current_period_end?: number }).current_period_end ?? null;
+        isTrialing = sub.status === "trialing";
 
         const updates: Record<string, unknown> = {};
         if (stripePlan && stripePlan !== plan) { updates.plan = stripePlan; plan = stripePlan; }
@@ -156,6 +166,8 @@ export default async function AbonnementPage() {
       subscriptionPeriodStart={subscriptionPeriodStart2}
       cancelAtPeriodEnd={cancelAtPeriodEnd}
       cancelAt={cancelAt}
+      currentPeriodEnd={currentPeriodEnd}
+      isTrialing={isTrialing}
     />
   );
 }

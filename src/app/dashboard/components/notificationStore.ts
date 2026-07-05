@@ -31,14 +31,29 @@ let _snapshot: AppNotification[] = [];
 // sit in the panel, so they don't re-pop on every reload).
 export const SESSION_START = typeof window !== "undefined" ? Date.now() : 0;
 
-const STORAGE_KEY = "duup_notifications";
+// Notifications are scoped per signed-in user (`duup_notifications:<uid>`) so a
+// different account on the same browser never inherits another user's
+// notifications. The store is bound to a user via bindNotificationsUser() on
+// dashboard mount and unbound (null) on logout.
+const STORAGE_PREFIX = "duup_notifications";
+// Pre-scoping key — a single global bucket shared across every account on the
+// browser. Removed on bind so its leaked contents never resurface.
+const LEGACY_GLOBAL_KEY = "duup_notifications";
+let currentUserId: string | null = null;
+
+function storageKey(): string | null {
+  return currentUserId ? `${STORAGE_PREFIX}:${currentUserId}` : null;
+}
+
 function persist() {
   if (typeof window === "undefined") return;
+  const key = storageKey();
+  if (!key) return; // no user bound yet → never write to a shared key
   try {
     // Only persistent (no-duration) notifications survive a reload — transient
     // toasts (the reassurance, etc.) are meant to vanish on their own.
     const keep = Array.from(items.values()).filter((n) => !n.duration);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(keep));
+    localStorage.setItem(key, JSON.stringify(keep));
   } catch {}
 }
 
@@ -49,17 +64,9 @@ function notify() {
   for (const fn of listeners) fn();
 }
 
-// Restore persisted notifications on load so they survive reloads — only the user
-// (or "Tout effacer") clears them, not a refresh.
-if (typeof window !== "undefined") {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    if (Array.isArray(saved)) {
-      for (const n of saved) if (n && typeof n.id === "string") items.set(n.id, n);
-      _snapshot = Array.from(items.values()).sort((a, b) => b.createdAt - a.createdAt);
-    }
-  } catch {}
-}
+// Notifications are restored per-user via bindNotificationsUser() (called on
+// dashboard mount), NOT at module load — loading here used a global key and
+// leaked one account's notifications to the next account on the same browser.
 
 let _seq = 0;
 
@@ -84,6 +91,31 @@ export function dismissNotification(id: string): void {
 export function clearNotifications(): void {
   if (items.size === 0) return;
   items.clear();
+  notify();
+}
+
+/**
+ * Scope the store to a signed-in user. Loads that user's persisted
+ * notifications and routes future writes to their per-user key. Pass null on
+ * logout to empty the panel. No-op when already bound to the same user.
+ */
+export function bindNotificationsUser(userId: string | null): void {
+  if (typeof window === "undefined") return;
+  if (userId === currentUserId) return;
+  currentUserId = userId;
+  // Drop whatever is in memory (belongs to the previous user / pre-bind state).
+  items.clear();
+  // One-time cleanup of the old unscoped bucket — the cross-account leak source.
+  try { localStorage.removeItem(LEGACY_GLOBAL_KEY); } catch {}
+  const key = storageKey();
+  if (key) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) || "[]");
+      if (Array.isArray(saved)) {
+        for (const n of saved) if (n && typeof n.id === "string") items.set(n.id, n);
+      }
+    } catch {}
+  }
   notify();
 }
 

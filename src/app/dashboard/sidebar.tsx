@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
+import { bindNotificationsUser } from "./components/notificationStore";
 
 const COLLAPSE_KEY = "duupflow_sidebar_collapsed";
 
@@ -259,6 +260,9 @@ export default function Sidebar() {
   }, []);
 
   async function handleLogout() {
+    // Empty the (per-user) notification panel immediately so it can't flash to
+    // the next account that signs in on this browser.
+    bindNotificationsUser(null);
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();

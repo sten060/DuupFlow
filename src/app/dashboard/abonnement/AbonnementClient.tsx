@@ -21,6 +21,17 @@ function getDaysUntilRenewal(periodStart: string | null): number | null {
   return Math.max(0, Math.ceil((renewal.getTime() - Date.now()) / 86400000));
 }
 
+// Stripe gives the exact end-of-period timestamp (in seconds). During a trial
+// this is the FIRST charge date (trial_end), not a month out — so we prefer it
+// over the period_start + 1 month estimate whenever it's available.
+function formatUnixDate(ts: number): string {
+  return new Date(ts * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function getDaysUntilUnix(ts: number): number {
+  return Math.max(0, Math.ceil((ts * 1000 - Date.now()) / 86400000));
+}
+
 function UsageStatCard({
   label, icon, current, limit, unlimited, color,
 }: {
@@ -82,6 +93,8 @@ export default function AbonnementClient({
   subscriptionPeriodStart,
   cancelAtPeriodEnd,
   cancelAt,
+  currentPeriodEnd,
+  isTrialing,
 }: {
   plan: "free" | "solo" | "pro" | null;
   usage: { images: number; videos: number; ai_signatures: number } | null;
@@ -89,6 +102,8 @@ export default function AbonnementClient({
   subscriptionPeriodStart: string | null;
   cancelAtPeriodEnd: boolean;
   cancelAt: number | null;
+  currentPeriodEnd: number | null;
+  isTrialing: boolean;
 }) {
   const { t } = useTranslation();
   const [portalPaymentLoading, setPortalPaymentLoading] = useState(false);
@@ -109,8 +124,14 @@ export default function AbonnementClient({
     ? new Date(cancelAt * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
     : null;
 
-  const renewalDate = getRenewalDate(subscriptionPeriodStart);
-  const daysLeft = getDaysUntilRenewal(subscriptionPeriodStart);
+  // Prefer Stripe's exact period end (accurate during a trial → first-charge
+  // date); fall back to the period_start + 1 month estimate if it's missing.
+  const renewalDate = currentPeriodEnd != null
+    ? formatUnixDate(currentPeriodEnd)
+    : getRenewalDate(subscriptionPeriodStart);
+  const daysLeft = currentPeriodEnd != null
+    ? getDaysUntilUnix(currentPeriodEnd)
+    : getDaysUntilRenewal(subscriptionPeriodStart);
   const isUnlimited = plan === "pro";
   const isFree = plan === "free" || plan === null;
 
@@ -312,7 +333,18 @@ export default function AbonnementClient({
             {t("dashboard.subscription.currentPlan")}
           </span>
           <div className="flex items-end justify-between gap-4 mb-6">
-            <p className="text-4xl font-bold text-white leading-none">{meta.label}</p>
+            <div className="flex items-center gap-3">
+              <p className="text-4xl font-bold text-white leading-none">{meta.label}</p>
+              {isTrialing && (
+                <span
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+                  style={{ background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.28)", color: "#34D399" }}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {t("dashboard.subscription.trialBadge")}
+                </span>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => {
@@ -366,7 +398,9 @@ export default function AbonnementClient({
                   <path d="M16 2v4M8 2v4M3 10h18" />
                 </svg>
                 <div>
-                  <p className="text-xs text-white/50">{t("dashboard.subscription.nextRenewal")}</p>
+                  <p className="text-xs text-white/50">
+                    {isTrialing ? t("dashboard.subscription.firstPayment") : t("dashboard.subscription.nextRenewal")}
+                  </p>
                   <p className="text-xs font-semibold text-white/80 mt-0.5">{renewalDate}</p>
                 </div>
               </div>

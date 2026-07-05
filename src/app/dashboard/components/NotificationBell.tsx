@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/context";
+import { createClient } from "@/lib/supabase/client";
 import JSZip from "jszip";
 import {
   subscribe as subscribeJobs,
@@ -17,6 +18,7 @@ import {
   dismissNotification,
   clearNotifications,
   markAllNotificationsRead,
+  bindNotificationsUser,
   SESSION_START,
   type AppNotification,
 } from "./notificationStore";
@@ -140,6 +142,17 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
   const router = useRouter();
+
+  // Scope the notification store to the signed-in user so a fresh account on
+  // this browser never inherits a previous user's notifications.
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!cancelled) bindNotificationsUser(data.user?.id ?? null);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // ── Bridge: turn finished/failed/stopped jobs into bell notifications ───────
   // Live RUNNING progress stays on the page (GlobalVideoProgress); only the

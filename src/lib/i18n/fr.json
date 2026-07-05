@@ -1282,6 +1282,8 @@
       "cancelScheduledDesc": "Accès garanti jusqu'au {date}. Après cette date, votre compte sera désactivé.",
       "cancelScheduledDescGeneric": "Votre abonnement ne sera pas renouvelé. Vous gardez l'accès jusqu'à la fin de la période.",
       "nextRenewal": "Prochain renouvellement",
+      "firstPayment": "Premier paiement",
+      "trialBadge": "Période d'essai",
       "usage": "Utilisation",
       "usageUnlimited": "Utilisation, Illimitée",
       "usageThisMonth": "Utilisation ce mois",

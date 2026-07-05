@@ -1282,6 +1282,8 @@
       "cancelScheduledDesc": "Access guaranteed until {date}. After this date, your account will be deactivated.",
       "cancelScheduledDescGeneric": "Your subscription will not be renewed. You keep access until the end of the current period.",
       "nextRenewal": "Next renewal",
+      "firstPayment": "First payment",
+      "trialBadge": "Free trial",
       "usage": "Usage",
       "usageUnlimited": "Usage — Unlimited",
       "usageThisMonth": "Usage this month",
