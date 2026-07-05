@@ -53,6 +53,44 @@ async function markUserUnpaid(userId: string) {
 }
 
 /**
+ * Sync the raw Stripe subscription state onto the profile so analytics can
+ * tell trialing / active / canceled apart (has_paid alone can't — it flips
+ * true the moment a trial starts).
+ *
+ * Guard: ignore events for a stale subscription. After an upgrade the DB
+ * points at the NEW sub, and Stripe may still emit `updated`/`deleted` on the
+ * OLD one — writing its status would corrupt the profile. We sync only when
+ * the event's sub is the active one (or none is stored yet, e.g. the trial's
+ * `created` racing ahead of checkout.session.completed).
+ */
+async function syncSubscriptionState(userId: string, sub: Stripe.Subscription) {
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("stripe_subscription_id")
+    .eq("id", userId)
+    .single();
+
+  if (
+    profile?.stripe_subscription_id &&
+    profile.stripe_subscription_id !== sub.id
+  ) {
+    return; // event belongs to a superseded subscription — ignore
+  }
+
+  await admin
+    .from("profiles")
+    .update({
+      subscription_status: sub.status,
+      trial_end: sub.trial_end
+        ? new Date(sub.trial_end * 1000).toISOString()
+        : null,
+      cancel_at_period_end: sub.cancel_at_period_end ?? false,
+    })
+    .eq("id", userId);
+}
+
+/**
  * Stripe reported a failed payment / past_due status.
  *
  * Snapshot the current plan into `paused_plan`, downgrade the user to Free
@@ -449,6 +487,18 @@ export async function POST(request: NextRequest) {
       break;
     }
 
+    // Nouvel abonnement (inclut le démarrage d'un essai Solo) → sync l'état brut
+    case "customer.subscription.created": {
+      const sub = event.data.object as Stripe.Subscription;
+      const uid = sub.metadata?.supabase_user_id;
+      if (uid) {
+        await syncSubscriptionState(uid, sub).catch((err) =>
+          console.error("[webhook] syncSubscriptionState (created) failed:", err),
+        );
+      }
+      break;
+    }
+
     // Abonnement annulé → révoquer l'accès + séquence Churned
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
@@ -469,6 +519,10 @@ export async function POST(request: NextRequest) {
         //    qui vient d'être accordé.
         const isCurrentSub = profile?.stripe_subscription_id === sub.id;
         if (isCurrentSub) {
+          // Persist the canceled status / cancel_at_period_end before churning.
+          await syncSubscriptionState(uid, sub).catch((err) =>
+            console.error("[webhook] syncSubscriptionState (deleted) failed:", err),
+          );
           await markUserChurned(uid);
         } else {
           console.log(
@@ -486,6 +540,14 @@ export async function POST(request: NextRequest) {
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription;
       const uid = sub.metadata?.supabase_user_id;
+
+      // Persist raw subscription state (trialing/active/canceled, trial_end,
+      // cancel_at_period_end) so analytics can distinguish trial from paid.
+      if (uid) {
+        await syncSubscriptionState(uid, sub).catch((err) =>
+          console.error("[webhook] syncSubscriptionState (updated) failed:", err),
+        );
+      }
 
       // Sync overdue state from Stripe status changes — covers cases
       // where payment_failed wasn't fired or arrived in another order.
