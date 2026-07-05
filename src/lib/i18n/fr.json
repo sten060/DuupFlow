@@ -490,6 +490,19 @@
     "feature3Desc": "Instagram, TikTok, YouTube, Threads et plus, un seul outil pour tout scaler.",
     "socialProof": "500+ agences marketing & créateurs"
   },
+  "promoPopup": {
+    "title": "C'est le moment de franchir le pas 🚀",
+    "intro": "Grande nouvelle ! La nouvelle mise à jour DuupFlow vient d'arriver 🎉",
+    "feat1": "Import direct depuis Google Drive",
+    "feat2": "Compresseur de fichiers intégré",
+    "feat3": "Clé API pour tout automatiser",
+    "offer": "Pour fêter ça, profite de -15 % sur tous les abonnements DuupFlow ! 🎁",
+    "codeLabel": "Ton code promo",
+    "clickToCopy": "Clique pour copier",
+    "copied": "Copié ! ✅",
+    "countdownLabel": "⏳ Offre valable encore",
+    "cta": "J'en profite — voir les plans →"
+  },
   "demoRequest": {
     "backHome": "Retour à l'accueil",
     "title": "Demande de démo personnalisée",

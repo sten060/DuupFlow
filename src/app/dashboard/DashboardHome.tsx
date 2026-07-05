@@ -7,6 +7,7 @@ import VariationAnnouncementModal from "./VariationAnnouncementModal";
 import TikTokAnnouncementModal, { TIKTOK_DEST, TIKTOK_SEEN_KEY } from "./TikTokAnnouncementModal";
 import ReplayMenu from "./onboarding/ReplayMenu";
 import GlobalDocsDrawer from "./components/GlobalDocsDrawer";
+import PromoPopup from "./PromoPopup";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
@@ -201,6 +202,8 @@ export default function DashboardHome({
   variationAnnouncementPending = false,
   tiktokAnnouncementPending = false,
   effectivePlan = "free",
+  promoEligible = false,
+  promoLoginKey = null,
 }: {
   firstName: string | null;
   agencyName: string | null;
@@ -210,6 +213,10 @@ export default function DashboardHome({
   tiktokAnnouncementPending?: boolean;
   /** User's effective plan, used by the announcement modal. */
   effectivePlan?: "free" | "solo" | "pro";
+  /** True for activated free users → shows the -15% launch promo pop-up. */
+  promoEligible?: boolean;
+  /** Changes on every sign-in (last_sign_in_at) so the promo re-shows per login. */
+  promoLoginKey?: string | null;
 }) {
   const [showReplay, setShowReplay] = useState(false);
   const [showNews, setShowNews] = useState(false);
@@ -400,6 +407,9 @@ export default function DashboardHome({
 
       {/* One-shot TikTok solution launch announcement */}
       {showTikTok && <TikTokAnnouncementModal onDone={closeTikTok} />}
+
+      {/* -15% launch promo — activated free users only (slides in from the right). */}
+      {promoEligible && <PromoPopup loginKey={promoLoginKey} />}
     </div>
   );
 }

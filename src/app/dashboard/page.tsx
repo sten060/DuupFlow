@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import DashboardHome from "./DashboardHome";
+
+// Emails that always see the launch promo pop-up (testing / demo), regardless of
+// the "used at least once" requirement.
+const PROMO_ALLOWLIST = ["stv863624@gmail.com"];
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -74,6 +79,26 @@ export default async function DashboardPage() {
     return profile?.has_paid ? "pro" : "free"; // legacy fallback
   })();
 
+  // -15% launch promo: shown only to ACTIVATED FREE users — free plan, not a
+  // guest, and who have already used the product at least once (a usage_tracking
+  // row with any count > 0). Read via the admin client so RLS can't hide it.
+  let promoEligible = false;
+  if (user && !profile?.is_guest && effectivePlan === "free") {
+    try {
+      const admin = createAdminClient();
+      const { data: usage } = await admin
+        .from("usage_tracking")
+        .select("images_count, videos_count, ai_signatures_count")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const u = usage as { images_count?: number; videos_count?: number; ai_signatures_count?: number } | null;
+      const total = (u?.images_count ?? 0) + (u?.videos_count ?? 0) + (u?.ai_signatures_count ?? 0);
+      promoEligible = total > 0 || (user.email ? PROMO_ALLOWLIST.includes(user.email.toLowerCase()) : false);
+    } catch {
+      promoEligible = false;
+    }
+  }
+
   return (
     <DashboardHome
       firstName={firstName}
@@ -81,6 +106,8 @@ export default async function DashboardPage() {
       variationAnnouncementPending={variationAnnouncementPending}
       tiktokAnnouncementPending={tiktokAnnouncementPending}
       effectivePlan={effectivePlan}
+      promoEligible={promoEligible}
+      promoLoginKey={user?.last_sign_in_at ?? null}
     />
   );
 }
