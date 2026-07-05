@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -112,7 +112,12 @@ function PlanCard({
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const defaultPlan = (searchParams.get("plan") as Plan) === "solo" ? "solo" : "pro";
+  const planParam = searchParams.get("plan");
+  const defaultPlan = (planParam as Plan) === "solo" ? "solo" : "pro";
+  // When the user reaches /checkout with an explicit ?plan= (i.e. straight
+  // out of onboarding, plan already chosen on the pricing page) we skip the
+  // re-selection screen and fire the Stripe redirect immediately.
+  const skipSelection = planParam === "solo" || planParam === "pro";
   const { t } = useTranslation();
 
   const SOLO_FEATURES = [
@@ -138,6 +143,8 @@ function CheckoutContent() {
 
   const [selectedPlan, setSelectedPlan] = useState<Plan>(defaultPlan);
   const [loading, setLoading] = useState(false);
+  const [autoLaunching, setAutoLaunching] = useState(skipSelection);
+  const autoFired = useRef(false);
   const [error, setError] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [promoInput, setPromoInput] = useState("");
@@ -159,6 +166,15 @@ function CheckoutContent() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Straight-to-Stripe when the plan is already chosen (post-onboarding).
+  // Fires once; on any error we fall back to the manual selection screen.
+  useEffect(() => {
+    if (!skipSelection || autoFired.current) return;
+    autoFired.current = true;
+    handleCheckout();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function validatePromoCode(code: string) {
     if (!code.trim()) { setPromoState("idle"); setPromoMessage(""); return; }
@@ -204,18 +220,39 @@ function CheckoutContent() {
       if (!res.ok || !data.url) {
         setError(data.error ?? t("checkout.sessionError"));
         setLoading(false);
+        setAutoLaunching(false);
         return;
       }
       window.location.href = data.url;
     } catch {
       setError(t("checkout.networkError"));
       setLoading(false);
+      setAutoLaunching(false);
     }
   }
 
   const basePrice = selectedPlan === "solo" ? "39€" : "99€";
   const discountedPrice = selectedPlan === "solo" ? "29€" : "89€";
   const price = promoState === "valid" ? discountedPrice : basePrice;
+
+  // Post-onboarding: plan already chosen → show a redirect loader while we
+  // hand off to Stripe, instead of the plan re-selection screen.
+  if (autoLaunching) {
+    return (
+      <div className="w-full max-w-md relative text-center">
+        <div className="mb-8">
+          <span className="text-2xl font-extrabold tracking-tight" style={{ color: "#818CF8" }}>Duup</span>
+          <span className="text-2xl font-extrabold tracking-tight text-white/50">Flow</span>
+        </div>
+        <div
+          className="h-10 w-10 mx-auto rounded-full border-2 border-white/15 border-t-indigo-400 animate-spin"
+          aria-hidden
+        />
+        <p className="mt-6 text-sm font-medium text-white/70">{t("checkout.redirecting")}</p>
+        <p className="mt-1.5 text-xs text-white/35">{t("checkout.securePayment")}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-2xl relative">
