@@ -110,9 +110,18 @@ export async function syncStripeStateIfStale(
     // canceled / incomplete / incomplete_expired → leave existing webhook
     // handlers do their thing (`customer.subscription.deleted`).
 
+    // Persist the raw Stripe subscription state alongside the sync stamp so
+    // analytics can tell trial / active / canceled apart (has_paid can't).
     await admin
       .from("profiles")
-      .update({ last_stripe_sync_at: new Date().toISOString() })
+      .update({
+        subscription_status: status,
+        trial_end: sub.trial_end
+          ? new Date(sub.trial_end * 1000).toISOString()
+          : null,
+        cancel_at_period_end: sub.cancel_at_period_end ?? false,
+        last_stripe_sync_at: new Date().toISOString(),
+      })
       .eq("id", userId);
   } catch (err) {
     // Never throw from a lazy sync — silently log and move on.
