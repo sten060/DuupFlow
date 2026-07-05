@@ -32,12 +32,15 @@ export async function POST(req: NextRequest) {
   let subscriptionId = profile?.stripe_subscription_id ?? null;
 
   if (!subscriptionId && profile?.stripe_customer_id) {
+    // "all" (not "active") so a trialing subscription is still found.
     const list = await getStripe().subscriptions.list({
       customer: profile.stripe_customer_id,
-      status: "active",
-      limit: 1,
+      status: "all",
+      limit: 10,
     });
-    const found = list.data[0];
+    const found = list.data.find(
+      (s) => s.status === "active" || s.status === "trialing"
+    );
     if (found) {
       subscriptionId = found.id;
       // Persist for future calls

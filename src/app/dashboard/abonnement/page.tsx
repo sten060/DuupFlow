@@ -60,17 +60,22 @@ export default async function AbonnementPage() {
         }
       }
 
-      // Fetch ALL active subscriptions for this customer to detect duplicates
-      // Also include "active" subs with cancel_at_period_end=true (they are still active)
+      // Fetch subscriptions for this customer to detect duplicates.
+      // NOTE: status must NOT be "active" — that filter EXCLUDES trialing
+      // subscriptions, so trial users lost their real period end / trial state
+      // (and fell back to the wrong "period_start + 1 month" date). We list all
+      // and keep the ones that grant access (active or trialing).
       let allActiveSubs: import("stripe").default.Subscription[] = [];
       if (stripeCustomerId) {
         const list = await getStripe().subscriptions.list({
           customer: stripeCustomerId,
-          status: "active",
+          status: "all",
           limit: 10,
           expand: ["data.items.data.price"],
         });
-        allActiveSubs = list.data;
+        allActiveSubs = list.data.filter(
+          (s) => s.status === "active" || s.status === "trialing"
+        );
       } else if (profile?.stripe_subscription_id) {
         // Fallback: retrieve the known subscription directly
         const sub = await getStripe().subscriptions.retrieve(
