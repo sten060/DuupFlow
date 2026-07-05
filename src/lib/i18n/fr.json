@@ -84,7 +84,7 @@
     "titleLine3": "",
     "subtitleMobile": "Reposte tes meilleurs contenus sans déclencher la détection de doublon. Les algos les redistribuent comme du neuf, les vues reviennent.",
     "subtitleDesktop": "Reposte tes meilleurs contenus sans déclencher la détection de doublon. Les algos les redistribuent comme du neuf, les vues reviennent.",
-    "ctaPrimary": "Commencer gratuitement",
+    "ctaPrimary": "Commencer maintenant",
     "ctaSecondary": "En savoir plus"
   },
   "problemSolution": {
@@ -332,6 +332,8 @@
     "enterpriseFeature5": "Onboarding et formation équipe",
     "enterpriseFeature6": "Facturation sur mesure",
     "commencer": "Commencer",
+    "essayerGratuit": "Essayer gratuitement",
+    "trialNote": "3 jours d'essai gratuit. Sans engagement.",
     "voirDemo": "En savoir plus",
     "demoPerso": "Démo personnalisée",
     "nousContacter": "Nous contacter",

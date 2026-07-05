@@ -82,6 +82,10 @@ export async function POST(request: Request) {
     success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${baseUrl}/checkout`,
     subscription_data: {
+      // Plan Solo : 3 jours d'essai gratuit (carte requise, débit auto à la fin).
+      // Le webhook checkout.session.completed débloque déjà l'accès dès le
+      // démarrage de l'essai ; customer.subscription.deleted le révoque si annulé.
+      ...(plan === "solo" ? { trial_period_days: 3 } : {}),
       metadata: {
         supabase_user_id: user.id,
         plan,

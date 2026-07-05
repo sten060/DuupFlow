@@ -100,7 +100,7 @@ function Hero() {
       {/* CTA buttons — slide-in hover effect (CSS in globals.css) */}
       <Reveal delay={240}>
         <div className="flex flex-row gap-3 sm:gap-4 mb-16 sm:mb-24 justify-center">
-          <Link href="/register"
+          <Link href="/pricing#plans"
             className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 sm:px-9 py-3 sm:py-3.5 font-semibold text-white text-sm sm:text-base">
             {t("hero.ctaPrimary")}
           </Link>
@@ -475,7 +475,7 @@ function FeatureTabs() {
             <div className="py-4">
               <h3 className="text-2xl font-semibold text-white mb-3">{tabs.find(tab => tab.id === active)?.label}</h3>
               <p className="text-white/75 leading-relaxed mb-6">{desc}</p>
-              <Link href="/register" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">{t("featuresScroller.tryNow")}</Link>
+              <Link href="/pricing#plans" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">{t("featuresScroller.tryNow")}</Link>
             </div>
             <div className="rounded-2xl border border-white/[0.12] p-4 sm:p-5 backdrop-blur-sm overflow-hidden min-h-[300px] sm:min-h-[480px]" style={{ background: "rgba(8,12,35,0.75)" }}>
               {MOCKUPS[active]}
@@ -583,7 +583,7 @@ function FeaturesScroller() {
                     )}
                   </div>
                   <p className="text-sm sm:text-base text-white/50 leading-relaxed mb-6">{card.desc}</p>
-                  <Link href="/register" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">{t("featuresScroller.tryNow")}</Link>
+                  <Link href="/pricing#plans" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">{t("featuresScroller.tryNow")}</Link>
                 </div>
                 <div className="p-6 sm:p-8 flex items-center">
                   <div className="w-full">{MOCKUPS[["duplication", "invisible", "priority", "variation", "ai"][i]]}</div>
@@ -1408,7 +1408,7 @@ function CTABanner() {
               {t("cta.subtitle")}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 relative">
-              <Link href="/register"
+              <Link href="/pricing#plans"
                 className="btn-glow inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm">
                 {t("cta.primary")}
               </Link>
@@ -1470,7 +1470,7 @@ function Footer() {
             </p>
             <div className="pt-1">
               <Link
-                href="/register"
+                href="/pricing#plans"
                 className="group inline-flex items-center gap-1.5 text-sm font-medium text-white/85 hover:text-white transition"
               >
                 {t("footer.ctaTry")}

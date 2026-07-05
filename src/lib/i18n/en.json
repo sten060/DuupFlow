@@ -84,7 +84,7 @@
     "titleLine3": "in the eyes of algorithms",
     "subtitleMobile": "Every copy unique — undetectable by platforms.",
     "subtitleDesktop": "Every copy is unique and undetectable by platform algorithms. Built for agencies looking to scale their content production.",
-    "ctaPrimary": "Start for Free",
+    "ctaPrimary": "Get Started Now",
     "ctaSecondary": "Learn more"
   },
   "problemSolution": {
@@ -331,7 +331,9 @@
     "enterpriseFeature4": "Guaranteed custom SLA",
     "enterpriseFeature5": "Team onboarding and training",
     "enterpriseFeature6": "Custom billing",
-    "commencer": "Get Started ->",
+    "commencer": "Get Started",
+    "essayerGratuit": "Try for free",
+    "trialNote": "3-day free trial. Cancel anytime.",
     "voirDemo": "Learn more",
     "demoPerso": "Personalized demo",
     "nousContacter": "Contact Us ->",

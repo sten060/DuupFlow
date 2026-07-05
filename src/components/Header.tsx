@@ -75,7 +75,7 @@ export default function Header() {
 
             {/* Try — outlined, desktop */}
             <Link
-              href={lh("/register")}
+              href={lh("/pricing")}
               className="hidden xl:inline-flex items-center whitespace-nowrap rounded-xl border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/[0.08] hover:border-white/35"
             >
               {t("nav.essayer")}
@@ -131,7 +131,7 @@ export default function Header() {
             {t("nav.seConnecter")}
           </Link>
           <Link
-            href={lh("/register")}
+            href={lh("/pricing")}
             onClick={() => setMenuOpen(false)}
             className="block text-center rounded-xl border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/[0.08] hover:border-white/35"
           >

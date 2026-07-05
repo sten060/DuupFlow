@@ -120,15 +120,52 @@ function UniversalFeatures({ color }: { color: string }) {
   );
 }
 
+/* Plan icons — sit in a rounded-square badge at the top of each card (screen-2 layout) */
+function PlanIcon({ plan, color }: { plan: "solo" | "pro"; color: string }) {
+  return (
+    <div
+      className="h-11 w-11 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shrink-0"
+      style={{ background: `${color}1F`, border: `1px solid ${color}3D` }}
+    >
+      <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        {plan === "solo" ? (
+          /* Two interlocking rings — an original and its copy (DuupFlow duplication motif) */
+          <>
+            <circle cx="9" cy="12" r="5" />
+            <circle cx="15" cy="12" r="5" />
+          </>
+        ) : (
+          /* Three interconnected rings — duplication at scale for creators & agencies */
+          <>
+            <circle cx="12" cy="8" r="4.3" />
+            <circle cx="8" cy="15" r="4.3" />
+            <circle cx="16" cy="15" r="4.3" />
+          </>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+type Plan = {
+  id: "solo" | "pro";
+  name: string;
+  desc: string;
+  price: string;
+  color: string;
+  btnShadow: string;
+  cardBorder: string;
+  btnBg: string;
+  cta: string;
+  note?: string;
+  href: string;
+  demoHref: string;
+  popular: boolean;
+  features: string[];
+};
+
 function PricingCards() {
   const { t } = useTranslation();
-  const freeFeatures = [
-    t("tarifs.freeFeature1"),
-    t("tarifs.freeFeature2"),
-    t("tarifs.freeFeature3"),
-    t("tarifs.freeFeature4"),
-    t("tarifs.freeFeature7"),
-  ];
 
   const soloFeatures = [
     t("tarifs.soloFeature1"),
@@ -152,165 +189,110 @@ function PricingCards() {
     t("tarifs.proFeature9"),
   ];
 
+  const plans: Plan[] = [
+    {
+      id: "solo",
+      name: t("tarifs.planSolo"),
+      desc: t("tarifs.soloDesc"),
+      price: "39€",
+      color: "#A78BFA",
+      btnShadow: "0 16px 30px -8px rgba(124,58,237,0.55), 0 6px 12px -4px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.28)",
+      cardBorder: "1px solid rgba(255,255,255,0.09)",
+      btnBg: "linear-gradient(135deg,#7C3AED,#6366F1)",
+      cta: t("tarifs.essayerGratuit"),
+      note: t("tarifs.trialNote"),
+      href: "/register?plan=solo",
+      demoHref: "/demo-request?plan=solo",
+      popular: false,
+      features: soloFeatures,
+    },
+    {
+      id: "pro",
+      name: t("tarifs.planPro"),
+      desc: t("tarifs.proDesc"),
+      price: "99€",
+      color: "#818CF8",
+      btnShadow: "0 16px 30px -8px rgba(56,189,248,0.45), 0 6px 12px -4px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.28)",
+      cardBorder: "1.5px solid rgba(99,102,241,0.35)",
+      btnBg: "linear-gradient(135deg,#6366F1,#38BDF8)",
+      cta: t("tarifs.commencer"),
+      href: "/register?plan=pro",
+      demoHref: "/demo-request?plan=pro",
+      popular: true,
+      features: proFeatures,
+    },
+  ];
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-
-      {/* Plan Free */}
-      <div
-        className="relative rounded-3xl overflow-hidden flex flex-col"
-        style={{
-          background: "rgba(10,14,40,0.35)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid rgba(255,255,255,0.10)",
-        }}
-      >
+    <div id="plans" className="scroll-mt-24 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+      {plans.map((p) => (
         <div
-          className="absolute top-0 left-0 right-0 h-40 pointer-events-none"
+          key={p.id}
+          className="relative rounded-3xl flex flex-col"
           style={{
-            background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(16,185,129,0.22) 0%, transparent 75%)",
+            background: "#0f1436",
+            border: p.cardBorder,
+            boxShadow: "0 24px 50px -24px rgba(0,0,0,0.65)",
           }}
-        />
-        <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
-          <div className="mb-5 sm:mb-6">
-            <span className="text-sm sm:text-base font-semibold text-white">{t("tarifs.planFree")}</span>
-            <div className="flex items-baseline gap-1.5 mb-1 mt-3 sm:mt-4">
-              <span className="text-4xl sm:text-5xl font-bold text-white">{t("tarifs.freePrice")}</span>
-              <span className="text-white/45 text-sm">{t("tarifs.perMonth")}</span>
-            </div>
-            <p className="text-white/45 text-sm">{t("tarifs.freeDesc")}</p>
-          </div>
-          <div className="h-px bg-white/[0.08] mb-6" />
-          <ul className="space-y-3.5 flex-1 mb-8">
-            {freeFeatures.map((f, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm text-white/70">
-                <CheckIcon color="#10B981" />
-                {f}
-              </li>
-            ))}
-            <UniversalFeatures color="#10B981" />
-          </ul>
-          <div className="flex flex-col gap-3">
-            <Link
-              href="/register"
-              className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/85 hover:text-white transition border border-white/20 hover:border-white/35 hover:bg-white/[0.04]"
-            >
-              {t("tarifs.commencer")}
-            </Link>
-            <Link
-              href="/#videos"
-              className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/70 hover:text-white transition border border-white/15 hover:border-white/30 hover:bg-white/[0.04]"
-            >
-              {t("tarifs.voirDemo")}
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Plan Solo */}
-      <div
-        className="relative rounded-3xl overflow-hidden flex flex-col"
-        style={{
-          background: "rgba(10,14,40,0.35)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid rgba(255,255,255,0.10)",
-        }}
-      >
-        <div
-          className="absolute top-0 left-0 right-0 h-40 pointer-events-none"
-          style={{
-            background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(139,92,246,0.28) 0%, transparent 75%)",
-          }}
-        />
-        <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
-          <div className="mb-5 sm:mb-6">
-            <span className="text-sm sm:text-base font-semibold text-white">{t("tarifs.planSolo")}</span>
-            <div className="flex items-baseline gap-1.5 mb-1 mt-3 sm:mt-4">
-              <span className="text-4xl sm:text-5xl font-bold text-white">39€</span>
-              <span className="text-white/45 text-sm">{t("tarifs.perMonth")}</span>
-            </div>
-            <p className="text-white/45 text-sm">{t("tarifs.soloDesc")}</p>
-          </div>
-          <div className="h-px bg-white/[0.08] mb-6" />
-          <ul className="space-y-3.5 flex-1 mb-8">
-            {soloFeatures.map((f, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm text-white/70">
-                <CheckIcon color="#A78BFA" />
-                {f}
-              </li>
-            ))}
-            <UniversalFeatures color="#A78BFA" />
-          </ul>
-          <div className="flex flex-col gap-3">
-            <Link
-              href="/register?plan=solo"
-              className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white transition hover:opacity-90"
-              style={{ background: "linear-gradient(135deg,#7C3AED,#6366F1)" }}
-            >
-              {t("tarifs.commencer")}
-            </Link>
-            <Link
-              href="/demo-request?plan=solo"
-              className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/70 hover:text-white transition border border-white/15 hover:border-white/30 hover:bg-white/[0.04]"
-            >
-              {t("tarifs.demoPerso")}
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Plan Pro */}
-      <div
-        className="relative rounded-3xl overflow-hidden flex flex-col"
-        style={{
-          background: "rgba(10,14,40,0.35)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-          border: "1.5px solid rgba(99,102,241,0.40)",
-        }}
-      >
-        <div
-          className="absolute top-0 left-0 right-0 h-40 pointer-events-none"
-          style={{
-            background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.40) 0%, transparent 75%)",
-          }}
-        />
-        <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
-          <div className="mb-5 sm:mb-6">
-            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-              <span className="text-sm sm:text-base font-semibold text-white">{t("tarifs.planPro")}</span>
-              <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 uppercase tracking-wide">
+        >
+          {/* Popular badge — large, tilted, overflowing the top-right edge (screen-2 style) */}
+          {p.popular && (
+            <div className="absolute -top-4 -right-3 sm:-right-4 z-20 rotate-[10deg]">
+              <span
+                className="inline-block rounded-2xl px-4 sm:px-5 py-2 text-sm sm:text-base font-bold text-white"
+                style={{
+                  background: "linear-gradient(135deg,#6366F1,#38BDF8)",
+                  boxShadow: "0 12px 24px -6px rgba(56,189,248,0.55), 0 4px 10px -2px rgba(0,0,0,0.5)",
+                }}
+              >
                 {t("tarifs.mostPopular")}
               </span>
             </div>
-            <div className="flex items-baseline gap-1.5 mb-1">
-              <span className="text-4xl sm:text-5xl font-bold text-white">99€</span>
+          )}
+
+          <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
+            {/* Icon + title + subtitle + price */}
+            <PlanIcon plan={p.id} color={p.color} />
+            <h3 className="mt-5 text-lg sm:text-xl font-bold text-white">{p.name}</h3>
+            <p className="text-white/45 text-sm mt-1">{p.desc}</p>
+            <div className="flex items-baseline gap-1.5 mt-4 mb-6">
+              <span className="text-4xl sm:text-5xl font-bold text-white">{p.price}</span>
               <span className="text-white/45 text-sm">{t("tarifs.perMonth")}</span>
             </div>
-            <p className="text-white/45 text-sm">{t("tarifs.proDesc")}</p>
-          </div>
-          <div className="h-px bg-white/[0.08] mb-6" />
-          <ul className="space-y-3.5 flex-1 mb-8">
-            {proFeatures.map((f, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm text-white/70">
-                <CheckIcon color="#818CF8" />
-                {f}
-              </li>
-            ))}
-            <UniversalFeatures color="#818CF8" />
-          </ul>
-          <div className="flex flex-col gap-3">
+
+            {/* Primary CTA — raised/embossed relief, sits above the feature list */}
             <Link
-              href="/register?plan=pro"
-              className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white transition hover:opacity-90"
-              style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+              href={p.href}
+              className="w-full flex items-center justify-center rounded-2xl py-4 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:brightness-105"
+              style={{ background: p.btnBg, boxShadow: p.btnShadow }}
             >
-              {t("tarifs.commencer")}
+              {p.cta}
             </Link>
+            {p.note && (
+              <p className="mt-2.5 text-center text-xs text-white/45">{p.note}</p>
+            )}
+
+            {/* Features */}
+            <ul className="space-y-3.5 flex-1 mt-7">
+              {p.features.map((f, i) => (
+                <li key={i} className="flex items-start gap-3 text-sm text-white/70">
+                  <CheckIcon color={p.color} />
+                  {f}
+                </li>
+              ))}
+              <UniversalFeatures color={p.color} />
+            </ul>
+
+            {/* Secondary — personalized demo */}
             <Link
-              href="/demo-request?plan=pro"
-              className="w-full flex items-center justify-center rounded-2xl py-3.5 text-sm font-semibold text-white/70 hover:text-white transition border border-white/15 hover:border-white/30 hover:bg-white/[0.04]"
+              href={p.demoHref}
+              className="mt-7 w-full flex items-center justify-center rounded-2xl py-3 text-sm font-medium text-white/60 hover:text-white transition border border-white/15 hover:border-white/30 hover:bg-white/[0.04]"
             >
               {t("tarifs.demoPerso")}
             </Link>
           </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }
@@ -337,47 +319,47 @@ function PlansComparison() {
     {
       label: t("tarifs.cmpGroupDuplication"),
       rows: [
-        { label: t("tarifs.cmpRowDupImages"), values: ["20", "400", U] },
-        { label: t("tarifs.cmpRowDupVideos"), values: ["10", "300", U] },
-        { label: t("tarifs.cmpRowExportZip"), values: [true, true, true] },
+        { label: t("tarifs.cmpRowDupImages"), values: ["400", U] },
+        { label: t("tarifs.cmpRowDupVideos"), values: ["300", U] },
+        { label: t("tarifs.cmpRowExportZip"), values: [true, true] },
       ],
     },
     {
       label: t("tarifs.cmpGroupUnicite"),
       rows: [
-        { label: t("tarifs.cmpRowMetadata"), values: [false, true, true] },
-        { label: t("tarifs.cmpRowSignatureIA"), values: [false, "200", U] },
-        { label: t("tarifs.cmpRowVariationIA"), values: [t("tarifs.cmpVarFree"), t("tarifs.cmpVarSolo"), t("tarifs.cmpVarPro")] },
-        { label: t("tarifs.cmpRowTokens"), values: [t("tarifs.cmpTokens1"), t("tarifs.cmpTokens3"), t("tarifs.cmpTokens3")] },
+        { label: t("tarifs.cmpRowMetadata"), values: [true, true] },
+        { label: t("tarifs.cmpRowSignatureIA"), values: ["200", U] },
+        { label: t("tarifs.cmpRowVariationIA"), values: [t("tarifs.cmpVarSolo"), t("tarifs.cmpVarPro")] },
+        { label: t("tarifs.cmpRowTokens"), values: [t("tarifs.cmpTokens3"), t("tarifs.cmpTokens3")] },
       ],
     },
     {
       label: t("tarifs.cmpGroupFormats"),
       rows: [
-        { label: t("tarifs.cmpRowFormats"), values: [true, true, true] },
-        { label: t("tarifs.cmpRowBatch"), values: [true, true, true] },
-        { label: t("tarifs.cmpRowPresets"), values: [false, false, true] },
-        { label: t("tarifs.featGoogleDrive"), logo: "/app/icons8-google-drive-96.png", values: [true, true, true] },
-        { label: t("tarifs.featCompressor"), values: [true, true, true] },
-        { label: t("tarifs.featApi"), values: [false, false, true] },
+        { label: t("tarifs.cmpRowFormats"), values: [true, true] },
+        { label: t("tarifs.cmpRowBatch"), values: [true, true] },
+        { label: t("tarifs.cmpRowPresets"), values: [false, true] },
+        { label: t("tarifs.featGoogleDrive"), logo: "/app/icons8-google-drive-96.png", values: [true, true] },
+        { label: t("tarifs.featCompressor"), values: [true, true] },
+        { label: t("tarifs.featApi"), values: [false, true] },
       ],
     },
     {
       label: t("tarifs.cmpGroupTeam"),
-      rows: [{ label: t("tarifs.cmpRowMembers"), values: [false, false, t("tarifs.cmpMembers3")] }],
+      rows: [{ label: t("tarifs.cmpRowMembers"), values: [false, t("tarifs.cmpMembers3")] }],
     },
     {
       label: t("tarifs.cmpGroupSupport"),
       rows: [
-        { label: t("tarifs.cmpRowSupportEmail"), values: [true, true, true] },
-        { label: t("tarifs.cmpRowSupportTelegram"), values: [false, true, true] },
-        { label: t("tarifs.cmpRowSupportPriority"), values: [false, false, true] },
+        { label: t("tarifs.cmpRowSupportEmail"), values: [true, true] },
+        { label: t("tarifs.cmpRowSupportTelegram"), values: [true, true] },
+        { label: t("tarifs.cmpRowSupportPriority"), values: [false, true] },
       ],
     },
   ];
 
-  const plans = [t("tarifs.cmpColFree"), t("tarifs.cmpColSolo"), t("tarifs.cmpColPro")];
-  const cols = "grid grid-cols-[minmax(0,1.7fr)_repeat(3,minmax(0,1fr))]";
+  const plans = [t("tarifs.cmpColSolo"), t("tarifs.cmpColPro")];
+  const cols = "grid grid-cols-[minmax(0,1.7fr)_repeat(2,minmax(0,1fr))]";
 
   const cell = (v: string | boolean) => {
     if (v === true) return <CmpCheck />;
@@ -402,7 +384,7 @@ function PlansComparison() {
         <div className={`${cols} sticky top-16 z-30 items-end backdrop-blur-md`} style={{ background: "rgba(8,12,30,0.85)" }}>
           <div className="py-4 text-sm font-semibold text-white/90">{t("tarifs.cmpFeature")}</div>
           {plans.map((p, i) => (
-            <div key={i} className={`py-4 text-center text-sm sm:text-base font-semibold ${i === 2 ? "text-white" : "text-white/80"}`}>
+            <div key={i} className={`py-4 text-center text-sm sm:text-base font-semibold ${i === 1 ? "text-white" : "text-white/80"}`}>
               {p}
             </div>
           ))}
