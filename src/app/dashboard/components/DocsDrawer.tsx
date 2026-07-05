@@ -51,26 +51,29 @@ export default function DocsDrawer({ docs }: { docs: DocEntry[] }) {
       <button
         type="button"
         onClick={() => { setActive(0); setOpen(true); }}
-        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3.5 py-2 text-sm font-medium text-white/70 hover:bg-white/[0.09] hover:text-white transition"
+        aria-label={t("dashboard.docs.button")}
+        title={t("dashboard.docs.button")}
+        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] p-2 sm:px-3.5 sm:py-2 text-sm font-medium text-white/70 hover:bg-white/[0.09] hover:text-white transition"
       >
         <DocIcon className="h-4 w-4 shrink-0" />
-        {t("dashboard.docs.button")}
+        {/* Label hidden on mobile — icon-only to save space. */}
+        <span className="hidden sm:inline">{t("dashboard.docs.button")}</span>
       </button>
 
       {mounted && open && createPortal(
-        <div className={`fixed inset-0 z-[120] flex items-center justify-center p-4 ${docsFont.className}`}>
+        <div className={`fixed inset-0 z-[120] flex items-center justify-center p-0 sm:p-4 ${docsFont.className}`}>
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
 
-          {/* Window — bigger, two-pane */}
+          {/* Window — full-screen on mobile, two-pane on desktop */}
           <div
-            className="relative flex w-full max-w-[1000px] h-[84vh] rounded-2xl overflow-hidden shadow-2xl animate-[duupDocsIn_.2s_ease-out]"
+            className="relative flex w-full h-full max-w-[1000px] sm:h-[84vh] rounded-none sm:rounded-2xl overflow-hidden shadow-2xl animate-[duupDocsIn_.2s_ease-out]"
             style={{ background: "#0b1024", border: "1px solid rgba(255,255,255,0.10)" }}
           >
             <style>{`@keyframes duupDocsIn{from{transform:scale(.98);opacity:.5}to{transform:scale(1);opacity:1}}`}</style>
 
-            {/* Left — topic sidebar */}
-            <aside className="w-[230px] shrink-0 flex flex-col border-r border-white/[0.08]">
+            {/* Left — topic sidebar (hidden on mobile; replaced by a topic dropdown) */}
+            <aside className="hidden sm:flex w-[230px] shrink-0 flex-col border-r border-white/[0.08]">
               <div className="px-5 pt-5 pb-3">
                 <h2 className="text-base font-bold text-white">{t("dashboard.docs.title")}</h2>
               </div>
@@ -134,7 +137,32 @@ export default function DocsDrawer({ docs }: { docs: DocEntry[] }) {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-6 md:px-8 py-7 text-[14.5px] leading-[1.9] text-white/70">
+              {/* Mobile topic navigation — the left sidebar is hidden on phones,
+                  so pick the topic here + a quick support shortcut. */}
+              <div className="sm:hidden flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.08] shrink-0">
+                <select
+                  value={active}
+                  onChange={(e) => setActive(Number(e.target.value))}
+                  className="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm text-white outline-none"
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}
+                >
+                  {docs.map((d, i) => (
+                    <option key={i} value={i} style={{ background: "#0b1024" }}>{d.title}</option>
+                  ))}
+                </select>
+                <a
+                  href={TELEGRAM_SUPPORT}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={t("dashboard.docs.contactSupport")}
+                  className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg"
+                  style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="#fff"><path d="M21.9 4.3 2.8 11.6c-1 .4-1 1.4-.2 1.6l4.9 1.5 1.9 5.7c.2.6.4.7 1 .4l2.7-2 5 3.7c.5.3 1 .1 1.1-.5l3-14.5c.2-.9-.4-1.3-1.3-1.2z" /></svg>
+                </a>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-5 sm:px-6 md:px-8 py-6 sm:py-7 text-[14.5px] leading-[1.9] text-white/70">
                 {current?.body}
               </div>
             </div>

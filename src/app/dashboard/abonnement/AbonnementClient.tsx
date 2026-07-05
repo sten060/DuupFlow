@@ -279,7 +279,7 @@ export default function AbonnementClient({
 
   return (
     <>
-    <main className="px-8 py-8 2xl:px-12">
+    <main className="px-4 py-6 sm:px-8 sm:py-8 2xl:px-12">
       {/* Header — screenshot style */}
       <div className="mb-8">
         <p className="text-xs font-medium text-white/30 tracking-[0.14em] uppercase mb-2">
@@ -332,7 +332,7 @@ export default function AbonnementClient({
           >
             {t("dashboard.subscription.currentPlan")}
           </span>
-          <div className="flex items-end justify-between gap-4 mb-6">
+          <div className="flex flex-col items-start gap-3 mb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
             <div className="flex items-center gap-3">
               <p className="text-4xl font-bold text-white leading-none">{meta.label}</p>
               {isTrialing && (
@@ -352,7 +352,7 @@ export default function AbonnementClient({
                 else if (plan === "solo") setShowUpgradeModal(true);
                 else setShowDowngradeModal(true);
               }}
-              className="shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 flex items-center gap-2"
+              className="shrink-0 w-full sm:w-auto justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 flex items-center gap-2"
               style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">

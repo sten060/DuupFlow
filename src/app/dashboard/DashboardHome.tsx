@@ -15,7 +15,7 @@ function ModuleCard({ mod }: { mod: { href: string; title: string; desc: string;
   return (
     <Link
       href={mod.href}
-      className="group relative rounded-2xl p-5 transition-all overflow-hidden"
+      className="group relative rounded-2xl p-4 sm:p-5 transition-all overflow-hidden"
       style={{
         background: mod.colorBg.replace("0.10", "0.04"),
         border: `1px solid ${mod.colorBorder.replace("0.22", "0.15")}`,
@@ -33,7 +33,8 @@ function ModuleCard({ mod }: { mod: { href: string; title: string; desc: string;
       <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
            style={{ background: `radial-gradient(400px at 30% 20%, ${mod.colorBg}, transparent 70%)` }} />
 
-      <div className="relative flex items-start gap-4">
+      {/* Mobile: compact icon + name only (centered). Desktop: icon + name + description row. */}
+      <div className="relative flex flex-col items-center text-center gap-2 sm:flex-row sm:items-start sm:text-left sm:gap-4">
         <div
           className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
           style={{ background: mod.colorBg, border: `1px solid ${mod.colorBorder}`, color: mod.color }}
@@ -41,7 +42,7 @@ function ModuleCard({ mod }: { mod: { href: string; title: string; desc: string;
           {mod.icon}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center sm:justify-start gap-2">
             <h3 className="text-sm font-semibold text-white/90">{mod.title}</h3>
             {mod.badge && (
               <span
@@ -52,9 +53,10 @@ function ModuleCard({ mod }: { mod: { href: string; title: string; desc: string;
               </span>
             )}
           </div>
-          <p className="text-xs text-white/45 mt-1 leading-relaxed">{mod.desc}</p>
+          {/* Description hidden on mobile — the card stays small (icon + name). */}
+          <p className="hidden sm:block text-xs text-white/45 mt-1 leading-relaxed">{mod.desc}</p>
         </div>
-        <span className="text-sm opacity-0 group-hover:opacity-100 transition shrink-0 mt-1" style={{ color: mod.color }}>→</span>
+        <span className="hidden sm:block text-sm opacity-0 group-hover:opacity-100 transition shrink-0 mt-1" style={{ color: mod.color }}>→</span>
       </div>
     </Link>
   );
@@ -333,25 +335,27 @@ export default function DashboardHome({
   ];
 
   return (
-    <div className="p-8 w-full">
+    <div className="p-4 sm:p-8 w-full">
 
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <p className="text-xs font-medium text-white/30 tracking-[0.14em] uppercase mb-2">
           {agencyName ?? t("dashboard.home.dashboard")}
         </p>
-        <h1 className="text-3xl font-semibold text-white tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
           {firstName ? (
             <>{t("dashboard.home.bonjour")} <span className={G}>{firstName}</span></>
           ) : (
             <>{t("dashboard.home.tableauDeBord")}</>
           )}
         </h1>
-        <div className="flex items-center justify-between mt-1.5">
+        {/* Stacks on mobile so the subtitle keeps a full line and the action
+            links wrap underneath instead of squeezing the row off-screen. */}
+        <div className="flex flex-col items-start gap-2 mt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:mt-1.5">
           <p className="text-sm text-white/40">
             {t("dashboard.home.chooseModule")}
           </p>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <GlobalDocsDrawer />
             <button
               onClick={() => setShowNews(true)}
@@ -384,8 +388,8 @@ export default function DashboardHome({
         {t("dashboard.home.modulesDisponibles")}
       </p>
 
-      {/* Module grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Module grid — 2 compact tiles per row on mobile, wider cards on desktop */}
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {MODULES.map((mod) => (
           <ModuleCard key={mod.href} mod={mod} />
         ))}

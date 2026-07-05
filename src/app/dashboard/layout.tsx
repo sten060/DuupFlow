@@ -151,8 +151,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
       {/* Sidebar — owns its own collapse state, brand & width animation */}
       <Sidebar />
 
-      {/* Main content */}
-      <div className="flex-1 overflow-y-auto relative">
+      {/* Main content. overflow-x-hidden: a bare overflow-y-auto promotes the
+          x-axis to "auto" too, which let the whole dashboard be dragged
+          sideways on mobile — pin it so only vertical scrolling is possible. */}
+      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden relative pt-14 md:pt-0">
         {children}
       </div>
 

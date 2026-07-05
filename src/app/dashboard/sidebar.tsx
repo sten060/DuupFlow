@@ -111,7 +111,20 @@ export default function Sidebar() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [hostAgency, setHostAgency] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
   const { t } = useTranslation();
+
+  // Close the mobile drawer whenever the route changes (a nav link was tapped).
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  // Lock body scroll while the mobile drawer is open.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [mobileOpen]);
 
   // Skip the persist write on the very first effect pass (before we've read
   // the stored value).
@@ -272,9 +285,11 @@ export default function Sidebar() {
   const displayAgency = profile?.is_guest ? hostAgency : profile?.agency_name;
 
   return (
+    <>
+    {/* ===== Desktop sidebar (hidden on mobile — replaced by the hamburger) ===== */}
     <aside
       className={[
-        "shrink-0 flex flex-col overflow-y-auto relative z-10 transition-[width] duration-300 ease-out",
+        "hidden md:flex shrink-0 flex-col overflow-y-auto relative z-10 transition-[width] duration-300 ease-out",
         collapsed ? "w-16" : "w-56",
       ].join(" ")}
       style={{
@@ -439,5 +454,118 @@ export default function Sidebar() {
         </div>
       </div>
     </aside>
+
+    {/* ===== Mobile top bar (hamburger) — visible below md ===== */}
+    <div
+      className="md:hidden fixed top-0 inset-x-0 z-[90] h-14 flex items-center gap-3 px-4"
+      style={{ background: "rgba(8,12,30,0.92)", borderBottom: "1px solid rgba(255,255,255,0.06)", backdropFilter: "blur(20px)" }}
+    >
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        aria-label={t("nav.menuLabel")}
+        className="flex flex-col items-center justify-center gap-[5px] h-9 w-9 rounded-lg border border-white/[0.12] bg-white/[0.04]"
+      >
+        <span className="block w-4 h-0.5 bg-white/70 rounded-full" />
+        <span className="block w-4 h-0.5 bg-white/70 rounded-full" />
+        <span className="block w-4 h-0.5 bg-white/70 rounded-full" />
+      </button>
+      <Link href="/dashboard" className="flex items-center gap-2">
+        <Image src="/logo-mark.png" alt="DuupFlow" width={64} height={64} className="h-7 w-7 object-contain" />
+        <span className="text-lg font-extrabold tracking-tight">
+          <span style={{ color: "#818CF8" }}>Duup</span><span className="text-white/55">Flow</span>
+        </span>
+      </Link>
+    </div>
+
+    {/* Overlay */}
+    {mobileOpen && (
+      <div className="md:hidden fixed inset-0 z-[95] bg-black/50 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+    )}
+
+    {/* ===== Mobile slide-in drawer ===== */}
+    <aside
+      className={[
+        "md:hidden fixed top-0 left-0 bottom-0 z-[100] w-[80%] max-w-[300px] flex flex-col overflow-y-auto transition-transform duration-300 ease-out",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
+      ].join(" ")}
+      style={{ background: "rgba(8,12,30,0.98)", borderRight: "1px solid rgba(255,255,255,0.08)" }}
+    >
+      <div className="flex items-center justify-between px-5 pt-5 pb-4">
+        <div className="flex items-center gap-2.5">
+          <Image src="/logo-mark.png" alt="DuupFlow" width={64} height={64} className="h-8 w-8 object-contain" />
+          <span className="text-xl font-extrabold tracking-tight">
+            <span style={{ color: "#818CF8" }}>Duup</span><span className="text-white/55">Flow</span>
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setMobileOpen(false)}
+          aria-label={t("nav.closeLabel")}
+          className="text-white/50 hover:text-white transition"
+        >
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <div className="mx-4 mb-3 h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
+
+      <nav className="flex-1 px-3 pb-4 space-y-0.5">
+        {NAV_GROUPS.map((group, gi) => (
+          <div key={gi} className="space-y-0.5">
+            {gi > 0 && <div className="mx-3 my-2 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />}
+            {group.map((item) => (
+              <NavItem key={item.href} {...item} collapsed={false} />
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      <div className="px-3 pb-6 shrink-0">
+        <div className="mx-2 mb-3 h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
+        <BottomLink
+          href="/dashboard/abonnement"
+          label={t("dashboard.sidebar.abonnement")}
+          collapsed={false}
+          icon={<svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" /><path d="M1 10h22" /></svg>}
+        />
+        <BottomLink
+          href="/dashboard/developers"
+          label="API"
+          badge={t("dashboard.sidebar.nouveau")}
+          collapsed={false}
+          icon={<svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>}
+        />
+        <BottomLink
+          href="/dashboard/support"
+          label={t("dashboard.sidebar.support")}
+          collapsed={false}
+          icon={<svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>}
+        />
+
+        <Link
+          href="/dashboard/settings"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl mt-1 transition-colors hover:bg-white/[0.06]"
+          style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <div className="h-7 w-7 rounded-lg shrink-0 flex items-center justify-center text-white/85" style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
+            <UserIcon />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-white/80 truncate leading-none mb-0.5">{displayName}</p>
+            {displayAgency && <p className="text-[10px] text-white/30 truncate leading-none">{displayAgency}</p>}
+          </div>
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/25" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+        </Link>
+
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/30 hover:text-red-400/70 hover:bg-red-500/[0.05] transition-all w-full mt-1"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+          <span>{t("dashboard.sidebar.deconnexion")}</span>
+        </button>
+      </div>
+    </aside>
+    </>
   );
 }
