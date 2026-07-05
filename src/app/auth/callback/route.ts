@@ -9,6 +9,9 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const inviteToken = searchParams.get("invite_token");
   const next = searchParams.get("next") ?? "/dashboard";
+  // Set by the LOGIN screen's Google button (?flow=login). Used below to reject
+  // a brand-new OAuth user who tried to *sign in* without an existing account.
+  const flow = searchParams.get("flow");
 
   if (code) {
     const cookieStore = await cookies();
@@ -93,6 +96,20 @@ export async function GET(request: Request) {
               }
               return NextResponse.redirect(`${origin}/affiliate/dashboard`);
             }
+          }
+
+          // Brand-new user, no profile, no invite, no affiliate. If they came
+          // from the LOGIN screen (flow=login), they have no account to sign
+          // into — don't silently create one. Remove the just-provisioned auth
+          // user and send them back to log in with a clear "no account" notice.
+          if (flow === "login") {
+            await supabase.auth.signOut();
+            try {
+              await createAdminClient().auth.admin.deleteUser(user.id);
+            } catch {
+              /* best-effort cleanup — never block the redirect */
+            }
+            return NextResponse.redirect(`${origin}/login?error=no_account`);
           }
 
           return NextResponse.redirect(`${origin}/onboarding`);

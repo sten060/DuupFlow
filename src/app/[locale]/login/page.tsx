@@ -27,11 +27,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set when a sign-in attempt (magic link or Google) matches no existing
+  // account — the user must register instead. Also raised via ?error=no_account
+  // (the Google callback redirect).
+  const [noAccount, setNoAccount] = useState(urlError === "no_account");
 
   async function handleGoogle() {
+    // flow=login → the callback rejects a brand-new OAuth user (no account).
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/auth/callback?flow=login` },
     });
   }
 
@@ -39,18 +44,21 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    // Magic-link sign-in can also create an account (shouldCreateUser defaults
-    // to true), so it goes through the same server-side disposable-email gate.
+    setNoAccount(false);
+    // Login mode → the server sets shouldCreateUser:false, so a missing account
+    // comes back as { code: "no_account" } instead of silently signing up.
     const res = await fetch("/api/auth/otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email,
+        mode: "login",
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) setError(data.error || "Une erreur est survenue. Réessaie.");
+    if (data?.code === "no_account") setNoAccount(true);
+    else if (!res.ok) setError(data.error || "Une erreur est survenue. Réessaie.");
     else setSent(true);
     setLoading(false);
   }
@@ -119,7 +127,23 @@ export default function LoginPage() {
                   {t("login.affiliateErrorDesc")}
                 </p>
                 <Link
-                  href="/register"
+                  href="/pricing#plans"
+                  className="inline-block mt-2 text-xs font-semibold text-amber-300 hover:text-amber-200 transition underline underline-offset-2"
+                >
+                  {t("login.createAccount")}
+                </Link>
+              </div>
+            )}
+
+            {noAccount && (
+              <div
+                className="rounded-xl px-4 py-4 mb-6 text-sm space-y-1"
+                style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)" }}
+              >
+                <p className="font-semibold text-amber-300">{t("login.noAccountTitle")}</p>
+                <p className="text-white/55 text-xs leading-relaxed">{t("login.noAccountDesc")}</p>
+                <Link
+                  href="/pricing#plans"
                   className="inline-block mt-2 text-xs font-semibold text-amber-300 hover:text-amber-200 transition underline underline-offset-2"
                 >
                   {t("login.createAccount")}
@@ -187,7 +211,7 @@ export default function LoginPage() {
 
             <p className="text-center text-sm text-white/40 mt-6">
               {t("login.noAccount")}{" "}
-              <Link href="/register" className="text-indigo-400 hover:text-indigo-300 transition font-medium">
+              <Link href="/pricing#plans" className="text-indigo-400 hover:text-indigo-300 transition font-medium">
                 {t("login.startNow")}
               </Link>
             </p>

@@ -460,7 +460,9 @@
     "useOtherAddress": "Use a different address",
     "affiliateError": "No DuupFlow account found",
     "affiliateErrorDesc": "You only have a partner affiliate account. To access the DuupFlow dashboard, create a separate standard account.",
-    "createAccount": "Create a DuupFlow account ->"
+    "createAccount": "Create a DuupFlow account ->",
+    "noAccountTitle": "No account found",
+    "noAccountDesc": "This address has no DuupFlow account. Create one to get started."
   },
   "register": {
     "title": "Create your account",
