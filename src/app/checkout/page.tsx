@@ -151,6 +151,14 @@ function CheckoutContent() {
   const [promoState, setPromoState] = useState<"idle" | "validating" | "valid" | "invalid">("idle");
   const [promoMessage, setPromoMessage] = useState("");
 
+  // Stamp reached_paywall_at once, the moment the paywall mounts (before the
+  // auto-launch redirect in the skip-selection case). keepalive lets the ping
+  // finish even as the browser navigates to Stripe. Server-side write is
+  // write-once, so re-mounts are harmless.
+  useEffect(() => {
+    fetch("/api/paywall-reached", { method: "POST", keepalive: true }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     const ref = searchParams.get("ref");
     if (ref) {
