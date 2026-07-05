@@ -1315,6 +1315,7 @@
       "cancelModalTitle": "Cancel subscription",
       "cancelModalDesc": "You are about to cancel your DuupFlow subscription.",
       "cancelModalAccessUntilEnd": "Your access remains active until the end of the current period",
+      "cancelModalTrialAccess": "Your access stays active until your trial ends ({date}). You won't be charged.",
       "cancelModalDataLost": "All your data and copies will be inaccessible after expiration",
       "continueButton": "Continue",
       "cancelButton": "Cancel",

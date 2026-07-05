@@ -665,7 +665,9 @@ export default function AbonnementClient({
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
               </svg>
-              {t("dashboard.subscription.cancelModalAccessUntilEnd")}
+              {isTrialing && renewalDate
+                ? t("dashboard.subscription.cancelModalTrialAccess", { date: renewalDate })
+                : t("dashboard.subscription.cancelModalAccessUntilEnd")}
             </li>
             <li className="flex items-start gap-2">
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">

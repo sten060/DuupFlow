@@ -1315,6 +1315,7 @@
       "cancelModalTitle": "Résilier l'abonnement",
       "cancelModalDesc": "Vous êtes sur le point de résilier votre abonnement DuupFlow.",
       "cancelModalAccessUntilEnd": "Votre accès reste actif jusqu'à la fin de la période en cours",
+      "cancelModalTrialAccess": "Ton accès reste actif jusqu'à la fin de ton essai ({date}). Aucun montant ne sera prélevé.",
       "cancelModalDataLost": "Toutes vos données et copies seront inaccessibles après l'expiration",
       "continueButton": "Continuer",
       "cancelButton": "Annuler",
