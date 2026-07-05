@@ -124,6 +124,10 @@ function OnboardingForm() {
       }
     } else {
       const affiliateCode = localStorage.getItem("duupflow_ref") ?? undefined;
+      // The paid plan picked on the pricing page (?plan=solo|pro). Persisted
+      // server-side so the checkout paywall survives logout: a user who quits
+      // before paying stays gated and resumes at checkout on next login.
+      const selectedPlan = localStorage.getItem("duupflow_selected_plan") ?? undefined;
       const res = await fetch("/api/onboarding/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -133,6 +137,7 @@ function OnboardingForm() {
           affiliateCode,
           platforms,
           source,
+          selectedPlan,
         }),
       });
       if (!res.ok) {

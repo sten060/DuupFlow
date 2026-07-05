@@ -12,6 +12,7 @@ import { OnboardingProvider } from "./onboarding/OnboardingProvider";
 import AppOverview from "./onboarding/AppOverview";
 import ModuleCoach from "./onboarding/ModuleCoach";
 import TikTokReminder from "./TikTokReminder";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncStripeStateIfStale } from "@/lib/billing-sync";
@@ -40,6 +41,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // resiliently below (migration 034 may not be applied yet).
   let tiktok: { seenAt: string | null; reminderSent: boolean } | null = null;
 
+  // Paywall gate — a paid-plan signup that hasn't paid yet must finish Stripe
+  // checkout before entering the app. Holds the plan to resume, else null.
+  let gateToCheckout: string | null = null;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -53,7 +58,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       const { data: profile } = await admin
         .from("profiles")
         .select(
-          "plan, has_paid, payment_overdue, payment_overdue_since, paused_plan, is_guest",
+          "plan, has_paid, payment_overdue, payment_overdue_since, paused_plan, is_guest, stripe_customer_id",
         )
         .eq("id", user.id)
         .single();
@@ -103,6 +108,31 @@ export default async function DashboardLayout({ children }: { children: React.Re
         tiktok = null;
       }
 
+      // Paywall gate — a user who picked a paid plan (pending_plan) but hasn't
+      // paid (no has_paid, and never any Stripe customer → excludes churned
+      // users who legitimately become free) must finish checkout first. Read in
+      // a separate query so a missing pending_plan column (mig 048 not applied)
+      // can't break the layout — it just means no gate.
+      try {
+        const { data: pp } = await admin
+          .from("profiles")
+          .select("pending_plan")
+          .eq("id", user.id)
+          .single();
+        const pending = (pp as { pending_plan: string | null } | null)?.pending_plan ?? null;
+        if (
+          profile != null &&
+          profile.is_guest !== true &&
+          profile.has_paid !== true &&
+          !profile.stripe_customer_id &&
+          (pending === "solo" || pending === "pro")
+        ) {
+          gateToCheckout = pending;
+        }
+      } catch {
+        gateToCheckout = null;
+      }
+
       // Compute Clarity segment.
       // Same definition as analytics views (mig. 025):
       //   payant  = has_paid AND NOT payment_overdue AND plan IN (solo,pro)
@@ -137,6 +167,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
   } catch {
     // Silently ignore — the modal just won't show. Never block the layout.
+  }
+
+  // Enforce the paywall outside the try so redirect()'s control-flow throw
+  // isn't swallowed by the catch above.
+  if (gateToCheckout) {
+    redirect(`/checkout?plan=${gateToCheckout}`);
   }
 
   return (

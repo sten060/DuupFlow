@@ -22,10 +22,14 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: t("errors.auth.notAuthenticated") }, { status: 401 });
 
-  const { firstName, agencyName, affiliateCode, platforms, source } = await req.json();
+  const { firstName, agencyName, affiliateCode, platforms, source, selectedPlan } = await req.json();
   if (!firstName?.trim() || !agencyName?.trim()) {
     return NextResponse.json({ error: t("errors.support.fieldsRequired") }, { status: 400 });
   }
+
+  // Paid plan chosen on the pricing page — the account stays gated at checkout
+  // until it's paid (see the dashboard-layout paywall).
+  const pendingPlan = selectedPlan === "solo" || selectedPlan === "pro" ? selectedPlan : null;
 
   // Sanitize platforms[] — must be a non-empty array of known slugs.
   const cleanPlatforms = Array.isArray(platforms)
@@ -78,6 +82,19 @@ export async function POST(req: NextRequest) {
   const { error } = await admin.from("profiles").upsert(profileData);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Persist the pending paid plan in a SEPARATE update — never in the upsert
+  // above — so that if the pending_plan column isn't applied yet (migration
+  // 048), the error is contained here and can't break signup.
+  if (pendingPlan) {
+    const { error: pendingErr } = await admin
+      .from("profiles")
+      .update({ pending_plan: pendingPlan })
+      .eq("id", user.id);
+    if (pendingErr) {
+      console.error("[onboarding] pending_plan update failed (migration 048?):", pendingErr.message);
+    }
+  }
 
   if (user.email) {
     const email = user.email;
