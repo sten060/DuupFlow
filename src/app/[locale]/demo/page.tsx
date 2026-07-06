@@ -144,7 +144,7 @@ export default function DemoPage() {
                 The block + backdrop keep the same size. */}
             <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-10 lg:p-16">
               <video
-                src="/videos/demo-duupflow.mp4"
+                src="https://nqynhiizspsdrdglhbjd.supabase.co/storage/v1/object/public/videos/demo-duupflow.mp4"
                 className="max-h-full max-w-full w-auto h-auto rounded-xl"
                 style={{ boxShadow: "0 24px 70px rgba(0,0,0,0.55)" }}
                 controls
