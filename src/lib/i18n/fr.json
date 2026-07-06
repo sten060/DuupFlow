@@ -174,7 +174,7 @@
     "card6Tags": "IA, Variations, Pay-per-use",
     "ctaText": "Envie d'aller plus loin ?",
     "ctaFeatures": "Voir les fonctionnalités",
-    "ctaDemo": "En savoir plus"
+    "ctaDemo": "Voir la démo"
   },
   "stats": {
     "copies": "Copies par contenu",
@@ -207,7 +207,7 @@
     "title": "Prêt à scaler ton contenu ?",
     "subtitle": "Tous les modules DuupFlow. Copies illimitées.",
     "primary": "Commencer maintenant",
-    "secondary": "En savoir plus"
+    "secondary": "Voir la démo"
   },
   "footer": {
     "copyright": "© {year} DuupFlow, Tous droits réservés.",
@@ -547,7 +547,7 @@
     "step4Title": "Télécharge et publie",
     "step4Desc": "Export ZIP en un clic. Prêt à diffuser sur toutes les plateformes.",
     "modulesBadge": "Les modules",
-    "modulesTitle": "4 modules,",
+    "modulesTitle": "6 modules,",
     "modulesTitleHighlight": "un seul objectif",
     "module1Title": "Duplication Images",
     "module1Desc": "Génère des copies infinies d'une image, chacune avec des métadonnées EXIF/XMP uniques, invisible pour les algorithmes.",
@@ -557,6 +557,10 @@
     "module3Desc": "Score de similarité en temps réel, valide que tes copies sont bien uniques avant de publier.",
     "module4Title": "Détection IA",
     "module4Desc": "Remplace les métadonnées IA par une identité humaine réaliste. Aucune modification visuelle.",
+    "module5Title": "Compresseur",
+    "module5Desc": "Réduis le poids de tes images et vidéos sans perte visible. Jamais plus lourd que l'original.",
+    "module6Title": "Variation IA",
+    "module6Desc": "Crée des variantes automatiques de tes contenus grâce à l'intelligence artificielle.",
     "stat1Val": "Inf",
     "stat1Label": "Copies illimitées",
     "stat2Val": "< 3s",

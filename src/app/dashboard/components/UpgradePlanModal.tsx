@@ -98,7 +98,9 @@ export default function UpgradePlanModal({
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: targetPlan, ...(promoCode ? { promo_code: promoCode } : {}) }),
+        // noTrial: this is an in-app upgrade by an existing (free) user — the
+        // 3-day trial is a new-signup acquisition offer only.
+        body: JSON.stringify({ plan: targetPlan, noTrial: true, ...(promoCode ? { promo_code: promoCode } : {}) }),
       });
       const data = await res.json();
       if (res.ok && data.url) {

@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
+import SiteFooter from "@/components/SiteFooter";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
@@ -63,6 +65,33 @@ export default function DemoPage() {
       title: t("demo.module4Title"),
       desc: t("demo.module4Desc"),
     },
+    {
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="4 14 10 14 10 20" />
+          <polyline points="20 10 14 10 14 4" />
+          <line x1="14" y1="10" x2="21" y2="3" />
+          <line x1="3" y1="21" x2="10" y2="14" />
+        </svg>
+      ),
+      color: "#14B8A6",
+      bg: "rgba(20,184,166,0.10)",
+      border: "rgba(20,184,166,0.22)",
+      title: t("demo.module5Title"),
+      desc: t("demo.module5Desc"),
+    },
+    {
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
+        </svg>
+      ),
+      color: "#8B5CF6",
+      bg: "rgba(139,92,246,0.10)",
+      border: "rgba(139,92,246,0.22)",
+      title: t("demo.module6Title"),
+      desc: t("demo.module6Desc"),
+    },
   ];
 
   const STEPS = [
@@ -87,29 +116,10 @@ export default function DemoPage() {
         }}
       />
 
-      {/* Nav */}
-      <header className="relative z-10 flex items-center justify-between px-8 py-5 border-b border-white/[0.07]">
-        <Link href="/" className="text-xl font-extrabold tracking-tight">
-          <span style={{ color: "#818CF8" }}>Duup</span>
-          <span className="text-white/55">Flow</span>
-        </Link>
-        <Link
-          href="/register"
-          className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-          style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-        >
-          {t("demo.commencerMaintenant")}
-        </Link>
-      </header>
-
       <div className="relative z-10 max-w-5xl mx-auto px-6 py-16">
 
         {/* Hero */}
         <div className="text-center mb-16">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-4 py-1.5 text-sm text-white/70">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            {t("demo.badge")}
-          </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-4 leading-[1.08]">
             {t("demo.title")} <span className={G}>{t("demo.titleHighlight")}</span>
           </h1>
@@ -118,19 +128,47 @@ export default function DemoPage() {
           </p>
         </div>
 
-        {/* Demo Video — single panel */}
-        <div className="mb-20 rounded-3xl overflow-hidden" style={{ border: "1px solid rgba(99,102,241,0.20)", boxShadow: "0 0 60px rgba(99,102,241,0.08), 0 24px 60px rgba(0,0,0,0.4)", background: "rgba(8,12,35,0.85)" }}>
+        {/* Demo Video — single panel (slightly wider than the surrounding text) */}
+        <div className="mb-6 md:-mx-8 lg:-mx-16 rounded-3xl overflow-hidden" style={{ border: "1px solid rgba(99,102,241,0.20)", boxShadow: "0 0 60px rgba(99,102,241,0.08), 0 24px 60px rgba(0,0,0,0.4)", background: "rgba(8,12,35,0.85)" }}>
           <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
-            <iframe
-              src="https://www.youtube.com/embed/OEj9wxKF_TA?autoplay=1&mute=1&loop=1&playlist=OEj9wxKF_TA&controls=1&rel=0"
-              className="absolute inset-0 w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
+            {/* Image = aesthetic frame/backdrop, fills the block */}
+            <Image
+              src="/videos/069c168477871ddaf88252c114b5cfe9.jpg"
+              alt=""
+              fill
+              priority
+              sizes="(max-width: 1024px) 100vw, 1024px"
+              className="object-cover"
             />
+            {/* Demo video — smaller and centered; the image forms its borders.
+                The block + backdrop keep the same size. */}
+            <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-10 lg:p-16">
+              <video
+                src="/videos/demo-duupflow.mp4"
+                className="max-h-full max-w-full w-auto h-auto rounded-xl"
+                style={{ boxShadow: "0 24px 70px rgba(0,0,0,0.55)" }}
+                controls
+                autoPlay
+                muted
+                playsInline
+                preload="metadata"
+              />
+            </div>
           </div>
           <p className="text-center text-xs text-white/30 py-3 px-4 italic">
             {t("demo.videoDisclaimer")}
           </p>
+        </div>
+
+        {/* CTA right below the demo → pricing */}
+        <div className="text-center mb-20">
+          <Link
+            href="/pricing#plans"
+            className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
+            style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+          >
+            {t("demo.ctaPrimary")}
+          </Link>
         </div>
 
         {/* How it works */}
@@ -249,9 +287,9 @@ export default function DemoPage() {
       </div>
 
       {/* Footer */}
-      <footer className="relative z-10 px-8 py-8 border-t border-white/[0.06] text-center">
-        <p className="text-xs text-white/25">{t("footer.copyright", { year: new Date().getFullYear().toString() })}</p>
-      </footer>
+      <div className="relative z-10">
+        <SiteFooter />
+      </div>
     </div>
   );
 }

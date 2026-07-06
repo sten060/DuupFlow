@@ -3,6 +3,7 @@
 import Link from "@/components/LocaleLink";
 import { useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
+import SiteFooter from "@/components/SiteFooter";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
 
@@ -523,20 +524,7 @@ export default function TarifsPage() {
       <PricingFAQ />
 
       {/* ── FOOTER ── */}
-      <footer className="px-6 pb-10 border-t border-white/[0.06]">
-        <div className="max-w-5xl mx-auto pt-10 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="text-sm font-bold tracking-tight">
-            <span style={{ color: "#818CF8" }}>Duup</span>
-            <span className="text-white/50">Flow</span>
-          </div>
-          <p className="text-xs text-white/25">{t("footer.copyright").replace("{year}", new Date().getFullYear().toString())}</p>
-          <div className="flex gap-5 text-xs text-white/30">
-            <Link href="/legal" className="hover:text-white/60 transition">{t("footer.mentionsLegales")}</Link>
-            <Link href="/legal/terms" className="hover:text-white/60 transition">{t("footer.cgu")}</Link>
-            <Link href="/legal/privacy" className="hover:text-white/60 transition">{t("footer.confidentialite")}</Link>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
