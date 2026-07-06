@@ -30,6 +30,25 @@ const DISPOSABLE = new Set<string>(
   (disposableDomains as string[]).map((d) => d.toLowerCase()),
 );
 
+// Supplementary blocklist — throwaway domains the npm package hasn't caught yet
+// (new temp-mail services appear constantly). Add offenders as they show up.
+const EXTRA_DISPOSABLE = new Set<string>([
+  "freetemporarymail.com",
+  "temporarymail.com",
+  "temp-mail.io",
+  "tempmail.plus",
+  "tempmailo.com",
+  "minuteinbox.com",
+  "internxt.com",
+  "mailtemp.net",
+  "temporary-mail.net",
+]);
+
+// Heuristic net for the long tail — domains whose name screams "throwaway".
+// Keeps specific service tokens so legit domains aren't caught by accident.
+const DISPOSABLE_PATTERN =
+  /(tempo?rary?mail|temp-?mail|throwaway|disposable|trash-?mail|guerrillamail|mailinator|10minutemail|minute-?mail|yopmail|fake-?(inbox|mail)|sharklasers|mohmal|emailondeck|moakt|inboxkitten|drop-?mail|maildrop|getnada|burner-?mail|discard\.?mail)/i;
+
 /** Extract the lowercased domain from an email, or null if it's malformed. */
 export function emailDomain(email: string): string | null {
   const at = email.lastIndexOf("@");
@@ -46,5 +65,6 @@ export function isDisposableEmail(email: string): boolean {
   const domain = emailDomain(email);
   if (!domain) return false;
   if (ALLOWLIST.has(domain)) return false;
-  return DISPOSABLE.has(domain);
+  if (DISPOSABLE.has(domain) || EXTRA_DISPOSABLE.has(domain)) return true;
+  return DISPOSABLE_PATTERN.test(domain);
 }

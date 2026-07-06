@@ -67,6 +67,13 @@ function OnboardingForm() {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) router.push("/login");
     });
+    // Recover the chosen plan carried through the auth link (?plan=solo|pro).
+    // Critical when a magic link is opened in another browser: localStorage was
+    // empty there, so without this the paywall was silently skipped.
+    const p = searchParams.get("plan");
+    if (p === "solo" || p === "pro") {
+      localStorage.setItem("duupflow_selected_plan", p);
+    }
   }, []);
 
   function togglePlatform(id: Platform) {

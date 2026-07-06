@@ -12,6 +12,11 @@ export async function GET(request: Request) {
   // Set by the LOGIN screen's Google button (?flow=login). Used below to reject
   // a brand-new OAuth user who tried to *sign in* without an existing account.
   const flow = searchParams.get("flow");
+  // Chosen paid plan carried through the auth round-trip (magic link / OAuth) so
+  // it survives even when the link is opened in another browser — passed on to
+  // onboarding so pending_plan gets set and the paywall applies.
+  const planParam = searchParams.get("plan");
+  const planQuery = planParam === "solo" || planParam === "pro" ? `?plan=${planParam}` : "";
 
   if (code) {
     const cookieStore = await cookies();
@@ -112,7 +117,7 @@ export async function GET(request: Request) {
             return NextResponse.redirect(`${origin}/login?error=no_account`);
           }
 
-          return NextResponse.redirect(`${origin}/onboarding`);
+          return NextResponse.redirect(`${origin}/onboarding${planQuery}`);
         }
 
         // Keep profiles.email in sync with the auth email. Runs on every

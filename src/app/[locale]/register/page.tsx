@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
@@ -20,28 +21,46 @@ function GoogleIcon() {
 
 export default function RegisterPage() {
   const supabase = createClient();
-  const { t } = useTranslation();
+  const router = useRouter();
+  const { t, locale } = useTranslation();
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Gate: registration requires a chosen plan. null = deciding, true = show
+  // form, false = redirecting to pricing.
+  const [allowed, setAllowed] = useState<boolean | null>(null);
 
-  // Persist the plan picked on the pricing page (?plan=solo|pro) so we can send
-  // the user to the Stripe paywall right after onboarding. localStorage — not a
-  // query param / sessionStorage — because the magic-link (and Google OAuth)
-  // round-trip reloads the app on a fresh page where those don't survive.
+  // A plan MUST be picked to register — /register without ?plan=solo|pro sends
+  // the user to pricing (no free direct signup). The plan is persisted so the
+  // Stripe paywall applies right after onboarding.
   useEffect(() => {
     const plan = new URLSearchParams(window.location.search).get("plan");
     if (plan === "solo" || plan === "pro") {
       localStorage.setItem("duupflow_selected_plan", plan);
+      setAllowed(true);
+    } else {
+      setAllowed(false);
+      router.replace(`/${locale}/pricing#plans`);
     }
   }, []);
+
+  // Carry the chosen plan THROUGH the auth round-trip in the callback URL.
+  // localStorage alone is lost when a magic link is opened in another browser
+  // (e.g. a webmail tab) — which let users reach the app without the paywall.
+  function authCallbackUrl() {
+    const p =
+      new URLSearchParams(window.location.search).get("plan") ??
+      localStorage.getItem("duupflow_selected_plan");
+    const q = p === "solo" || p === "pro" ? `?plan=${p}` : "";
+    return `${window.location.origin}/auth/callback${q}`;
+  }
 
   async function handleGoogle() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: authCallbackUrl() },
     });
   }
 
@@ -56,13 +75,19 @@ export default function RegisterPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email,
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: authCallbackUrl(),
       }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) setError(data.error || "Une erreur est survenue. Réessaie.");
     else setSent(true);
     setLoading(false);
+  }
+
+  // While deciding / redirecting a no-plan visitor, render an empty shell so the
+  // form never flashes before the pricing redirect.
+  if (allowed !== true) {
+    return <div className="min-h-screen bg-[#0B0F1A]" />;
   }
 
   return (
