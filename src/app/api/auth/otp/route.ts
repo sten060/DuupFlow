@@ -8,12 +8,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isDisposableEmail, emailDomain } from "@/lib/email-validation";
+import { hasDisposableMx } from "@/lib/email-validation-server";
+import { getServerT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-const DISPOSABLE_MESSAGE = "Merci d'utiliser une adresse email permanente.";
-
 export async function POST(req: NextRequest) {
+  const t = await getServerT();
   const body = await req.json().catch(() => ({}));
   const email = typeof body.email === "string" ? body.email.trim() : "";
   const emailRedirectTo =
@@ -31,9 +32,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Disposable-domain gate.
-  if (isDisposableEmail(email)) {
-    return NextResponse.json({ error: DISPOSABLE_MESSAGE }, { status: 422 });
+  // Disposable-domain gate — static list/heuristic PLUS an MX-server check that
+  // catches rotating throwaway domains a static list can't keep up with. Runs
+  // BEFORE signInWithOtp so no magic link is ever sent to a throwaway address.
+  if (isDisposableEmail(email) || (await hasDisposableMx(email))) {
+    return NextResponse.json({ error: t("errors.disposableEmail") }, { status: 422 });
   }
 
   const supabase = await createClient();

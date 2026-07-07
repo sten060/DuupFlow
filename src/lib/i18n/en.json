@@ -2054,6 +2054,7 @@
     "clearImages": "Clear images"
   },
   "errors": {
+    "disposableEmail": "This type of email address isn't accepted. Please try another one.",
     "team": {
       "alreadyInvited": "This person has already been invited.",
       "inviteUsed": "This invitation has already been used.",

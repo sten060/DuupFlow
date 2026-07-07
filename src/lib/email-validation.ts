@@ -42,6 +42,17 @@ const EXTRA_DISPOSABLE = new Set<string>([
   "internxt.com",
   "mailtemp.net",
   "temporary-mail.net",
+  // Rotating throwaway domains seen abusing signup (also caught by their MX,
+  // see email-validation-server.ts — kept here as a fast static fallback).
+  "adsprite.com",
+  "cadebek.com",
+  "aratrin.com",
+  "fishnone.com",
+  "afterdo.com",
+  "asitrai.com",
+  "doefy.com",
+  "luxudata.com",
+  "missyoutoo.fun",
 ]);
 
 // Heuristic net for the long tail — domains whose name screams "throwaway".
