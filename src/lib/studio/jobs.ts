@@ -17,7 +17,7 @@ import {
 import { computeRevealTimes } from "./captions";
 import { planClipsWithLLM } from "./llm";
 import { renderCaptionsWithRemotion } from "./remotion-render";
-import { pickSegments } from "./segments";
+import { buildEditPlan, pickSegments } from "./segments";
 import {
   pickHookFromTranscript,
   transcribeVideo,
@@ -219,20 +219,45 @@ async function runJob(
             await generateVariant({ ...baseParams, outputPath: basePath, omitText: true });
             const baseProbe = await probeVideo(basePath);
             const layout = recipes[0]?.layout ?? null;
+
+            // ── Montage au rythme de la ref (Phase 2) : jump cuts qui
+            // reproduisent le pattern de plans de la ref. La durée de sortie
+            // devient la somme des segments.
+            const rhythm = recipes[0]?.rhythm ?? null;
+            let segments = null;
+            let outDur = baseProbe.durationSec;
+            if (rhythm && rhythm.cutTimestampsSec.length > 0) {
+              segments = buildEditPlan(
+                rhythm,
+                layout?.refDurationSec ?? baseProbe.durationSec,
+                baseProbe.durationSec
+              );
+              if (segments) {
+                outDur = segments.reduce((a, s) => a + s.durationSec, 0);
+                console.log(
+                  `[studio] montage rythme ref : ${segments.length} plans (` +
+                    segments.map((s) => `${s.durationSec}s`).join(", ") +
+                    `) — sortie ${outDur.toFixed(1)}s`
+                );
+              }
+            }
+
             // Timings en secondes ABSOLUES via la règle unique (proportionnel
-            // si durées proches, rythme de la ref conservé si user ≫ ref).
+            // si durées proches, rythme de la ref conservé si user ≫ ref) —
+            // calculés sur la durée de SORTIE (après montage).
             const revealAtSec = layout
-              ? computeRevealTimes(layout, baseProbe.durationSec)
+              ? computeRevealTimes(layout, outDur)
               : clip.reveals.map(
                   (_, i) =>
                     (0.15 + (0.65 * i) / Math.max(1, clip.reveals.length - 1)) *
-                    baseProbe.durationSec
+                    outDur
                 );
             rendered = await renderCaptionsWithRemotion({
               videoUrl: `${origin}/api/studio/media/${baseName}`,
-              durationSec: baseProbe.durationSec,
+              durationSec: outDur,
               hook: clip.hook,
               reveals: clip.reveals,
+              segments,
               revealAtSec,
               captionMode: layout?.mode ?? "stack",
               layout,

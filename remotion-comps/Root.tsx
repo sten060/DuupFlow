@@ -29,6 +29,7 @@ export const RemotionRoot: React.FC = () => {
         durationSec: 10,
         hook: "Hook de test",
         reveals: [],
+        segments: null,
         revealAtSec: [],
         captionMode: "stack" as const,
         layout: null,

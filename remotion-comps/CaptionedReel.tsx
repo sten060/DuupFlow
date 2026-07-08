@@ -6,7 +6,13 @@
 // total du style.
 
 import React from "react";
-import { AbsoluteFill, OffthreadVideo, useCurrentFrame, useVideoConfig } from "remotion";
+import {
+  AbsoluteFill,
+  OffthreadVideo,
+  Sequence,
+  useCurrentFrame,
+  useVideoConfig,
+} from "remotion";
 
 // Miroir de RecipeLayout (src/lib/studio/types.ts) — dupliqué pour garder le
 // bundle Remotion autonome (le bundler ne doit pas aspirer le code Next).
@@ -23,11 +29,19 @@ export type ReelLayout = {
   refDurationSec?: number;
 };
 
+// Plan de montage : re-monte la base en jump cuts au rythme de la ref.
+export type EditSegment = {
+  srcStartSec: number; // position dans la vidéo source
+  durationSec: number; // durée du plan dans la sortie
+};
+
 export type CaptionedReelProps = {
   videoUrl: string; // vidéo de base (servie par /api/studio/media)
-  durationSec: number; // durée de la base (après vitesse)
+  durationSec: number; // durée de SORTIE (= somme des segments si montage)
   hook: string;
   reveals: string[];
+  // Segments du montage au rythme de la ref — null/vide = vidéo entière.
+  segments: EditSegment[] | null;
   // Moments d'apparition en SECONDES ABSOLUES — calculés côté serveur par la
   // règle unique computeRevealTimes (adaptation proportionnelle ou rythme
   // conservé selon durée user vs durée ref). Prime sur layout.revealAtFrac.
@@ -48,6 +62,7 @@ export const CaptionedReel: React.FC<CaptionedReelProps> = ({
   durationSec,
   hook,
   reveals,
+  segments,
   revealAtSec,
   captionMode,
   layout,
@@ -115,9 +130,37 @@ export const CaptionedReel: React.FC<CaptionedReelProps> = ({
     -1
   );
 
+  // Montage jump-cut : chaque segment est une Sequence qui lit la base à
+  // partir de srcStartSec (startFrom/endAt en frames). Sans segments : la
+  // base entière, comme avant.
+  const videoStyle: React.CSSProperties = {
+    width: W,
+    height: H,
+    objectFit: "cover",
+  };
+  let cursor = 0;
+  const shots =
+    segments && segments.length > 0
+      ? segments.map((s, i) => {
+          const from = Math.round(cursor * fps);
+          const dur = Math.max(1, Math.round(s.durationSec * fps));
+          cursor += s.durationSec;
+          return (
+            <Sequence key={i} from={from} durationInFrames={dur}>
+              <OffthreadVideo
+                src={videoUrl}
+                startFrom={Math.round(s.srcStartSec * fps)}
+                endAt={Math.round((s.srcStartSec + s.durationSec) * fps) + 1}
+                style={videoStyle}
+              />
+            </Sequence>
+          );
+        })
+      : null;
+
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
-      <OffthreadVideo src={videoUrl} style={{ width: W, height: H, objectFit: "cover" }} />
+      {shots ?? <OffthreadVideo src={videoUrl} style={videoStyle} />}
 
       {/* Hook — visible dès la 1ʳᵉ frame, apparition instantanée */}
       <div style={{ ...captionStyle, top: hookTop }}>{tx(hook)}</div>

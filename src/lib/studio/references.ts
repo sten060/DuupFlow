@@ -19,11 +19,12 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { promisify } from "util";
+import { analyzeAudio, sceneScores } from "./analysis";
 import { extractRecipeFromReference, refineTransitionCounts } from "./llm";
 import { STUDIO_ROOT } from "./local-store";
 import { FONT_FILE, runFFmpeg } from "./pipeline";
 import { transcribeVideo } from "./transcribe";
-import type { ViralRecipe } from "./types";
+import type { RecipeRhythm, ViralRecipe } from "./types";
 
 const execFileP = promisify(execFile);
 
@@ -58,7 +59,7 @@ export async function analyzeReference(
   const cacheFile = path.join(REFS_DIR, `${urlHash(url)}_v2.json`);
   try {
     const cached = JSON.parse(await fs.readFile(cacheFile, "utf8")) as ViralRecipe;
-    if (cached?.hookStyle && cached.layout) return { recipe: cached };
+    if (cached?.hookStyle && cached.layout && cached.rhythm) return { recipe: cached };
   } catch {
     /* pas de cache — on analyse */
   }
@@ -140,7 +141,7 @@ export async function analyzeReferenceFile(
     const cacheFile = path.join(REFS_DIR, `${contentHash}_v2.json`);
     try {
       const cached = JSON.parse(await fs.readFile(cacheFile, "utf8")) as ViralRecipe;
-      if (cached?.hookStyle && cached.layout) return { recipe: cached };
+      if (cached?.hookStyle && cached.layout && cached.rhythm) return { recipe: cached };
     } catch {
       /* pas de cache — on analyse */
     }
@@ -200,7 +201,92 @@ async function buildRecipeFromVideo(
       );
     }
   }
+
+  // Rythme de montage — PUR CODE (aucune vision) : cuts + beat-sync.
+  if (recipe) {
+    try {
+      recipe.rhythm = await extractRhythm(videoPath, durationSec);
+      console.log(
+        `[studio] rythme ref : ${recipe.rhythm.cutTimestampsSec.length} cut(s), ` +
+          `plan moyen ${recipe.rhythm.avgShotSec.toFixed(1)}s, courbe ${recipe.rhythm.shotCurve}, ` +
+          `1er cut ${recipe.rhythm.firstCutSec.toFixed(1)}s, beatSync=${recipe.rhythm.beatSync}`
+      );
+    } catch (e) {
+      console.warn(
+        "[studio] extraction du rythme ignorée :",
+        e instanceof Error ? e.message : e
+      );
+    }
+  }
   return recipe;
+}
+
+// ── Rythme de montage de la ref (scene detection adaptative + beat-sync) ────
+// Les jump cuts (même cadrage) scorent bas (0.08-0.2) : seuil adaptatif +
+// écart minimal entre cuts, bornes de début/fin exclues (fondus d'intro).
+async function extractRhythm(
+  videoPath: string,
+  durationSec: number
+): Promise<RecipeRhythm> {
+  const scores = await sceneScores(videoPath, 0.05);
+
+  // Cuts candidats : score ≥ 0.08, hors 0.5s de début et 0.3s de fin,
+  // écart ≥ 0.8s (on garde le plus fort score dans chaque fenêtre).
+  const candidates = scores
+    .filter((s) => s.score >= 0.08 && s.t >= 0.5 && s.t <= durationSec - 0.3)
+    .sort((a, b) => b.score - a.score);
+  const cuts: number[] = [];
+  for (const c of candidates) {
+    if (cuts.every((t) => Math.abs(t - c.t) >= 0.8)) cuts.push(c.t);
+  }
+  cuts.sort((a, b) => a - b);
+
+  // Durées de plans → moyenne + courbe (1ʳᵉ moitié vs 2ᵉ moitié des plans).
+  const bounds = [0, ...cuts, durationSec];
+  const shots = bounds.slice(1).map((b, i) => b - bounds[i]);
+  const avgShotSec = durationSec / (cuts.length + 1);
+  let shotCurve: RecipeRhythm["shotCurve"] = "steady";
+  if (shots.length >= 4) {
+    const half = Math.floor(shots.length / 2);
+    const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+    const ratio = avg(shots.slice(half)) / Math.max(0.1, avg(shots.slice(0, half)));
+    if (ratio < 0.75) shotCurve = "accelerating";
+    else if (ratio > 1.33) shotCurve = "decelerating";
+  }
+
+  // Beat-sync : cuts proches (±0.35s) d'un pic local d'énergie audio ?
+  let beatSync = false;
+  if (cuts.length >= 3) {
+    try {
+      const { loudness } = await analyzeAudio(videoPath);
+      const peaks: number[] = [];
+      for (let i = 2; i < loudness.length - 2; i++) {
+        const p = loudness[i];
+        if (
+          p.m > loudness[i - 1].m && p.m > loudness[i + 1].m &&
+          p.m > loudness[i - 2].m && p.m > loudness[i + 2].m
+        ) {
+          peaks.push(p.t);
+        }
+      }
+      if (peaks.length > 0) {
+        const near = cuts.filter((c) =>
+          peaks.some((p) => Math.abs(p - c) <= 0.35)
+        ).length;
+        beatSync = near / cuts.length >= 0.6;
+      }
+    } catch {
+      /* pas d'audio → beatSync false */
+    }
+  }
+
+  return {
+    cutTimestampsSec: cuts.map((t) => Math.round(t * 100) / 100),
+    avgShotSec: Math.round(avgShotSec * 100) / 100,
+    shotCurve,
+    firstCutSec: Math.round((cuts[0] ?? durationSec) * 100) / 100,
+    beatSync,
+  };
 }
 
 // Ajuste revealAtFrac de ±1 frame (1/16 de la durée) en re-comptant les

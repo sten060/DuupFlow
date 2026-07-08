@@ -40,7 +40,8 @@ export async function analyzeVideo(
   return { ...audio, sceneCuts: scenes };
 }
 
-async function analyzeAudio(
+// Exporté : references.ts s'en sert pour le beat-sync du rythme de la ref.
+export async function analyzeAudio(
   inputPath: string
 ): Promise<{ loudness: LoudnessPoint[]; silences: SilenceRange[] }> {
   // silencedetect laisse passer l'audio inchangé → ebur128 mesure derrière.
@@ -74,18 +75,32 @@ async function analyzeAudio(
 }
 
 async function analyzeScenes(inputPath: string): Promise<number[]> {
+  return (await sceneScores(inputPath, SCENE_THRESHOLD)).map((s) => s.t);
+}
+
+// Scores de changement de plan au-dessus d'un seuil libre — exporté pour
+// l'extraction du RYTHME des refs (les jump cuts d'un même cadrage scorent
+// 0.08-0.2, bien sous le seuil 0.3 des "vrais" changements de scène).
+export async function sceneScores(
+  inputPath: string,
+  threshold: number
+): Promise<Array<{ t: number; score: number }>> {
   // scale=320 avant select : le score de scène se calcule sur de petites
   // frames → analyse ~10× plus rapide, même précision de détection.
   const { stderr } = await runFFmpeg(
     ["-hide_banner", "-i", inputPath, "-an",
-     "-vf", `scale=320:-2,select='gt(scene,${SCENE_THRESHOLD})',metadata=print`,
+     "-vf", `scale=320:-2,select='gt(scene,${threshold})',metadata=print`,
      "-f", "null", "-"],
-    5 * 60 * 1000
+    5 * 60 * 1000,
+    16_000_000
   );
 
-  const cuts: number[] = [];
-  for (const m of stderr.matchAll(/pts_time:([\d.]+)/g)) {
-    cuts.push(Number(m[1]));
+  const out: Array<{ t: number; score: number }> = [];
+  // Les lignes metadata arrivent par paires : pts_time puis scene_score.
+  const times = [...stderr.matchAll(/pts_time:([\d.]+)/g)].map((m) => Number(m[1]));
+  const scores = [...stderr.matchAll(/lavfi\.scene_score=([\d.]+)/g)].map((m) => Number(m[1]));
+  for (let i = 0; i < Math.min(times.length, scores.length); i++) {
+    out.push({ t: times[i], score: scores[i] });
   }
-  return cuts;
+  return out;
 }

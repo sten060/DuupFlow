@@ -9,13 +9,15 @@
 // le premier rendu télécharge aussi Chrome Headless Shell (~1 min, une fois).
 
 import path from "path";
+import type { EditSegment } from "./segments";
 import type { RecipeLayout } from "./types";
 
 export interface RemotionCaptionJob {
   videoUrl: string; // URL http de la vidéo de base (route /api/studio/media)
-  durationSec: number; // durée de la base (après vitesse)
+  durationSec: number; // durée de SORTIE (= somme des segments si montage)
   hook: string;
   reveals: string[];
+  segments: EditSegment[] | null; // montage au rythme de la ref (null = entier)
   revealAtSec: number[]; // secondes absolues (règle unique computeRevealTimes)
   captionMode: "stack" | "replace";
   layout: RecipeLayout | null;
@@ -63,6 +65,7 @@ export async function renderCaptionsWithRemotion(
       durationSec: job.durationSec,
       hook: job.hook,
       reveals: job.reveals,
+      segments: job.segments,
       revealAtSec: job.revealAtSec,
       captionMode: job.captionMode,
       layout: job.layout,

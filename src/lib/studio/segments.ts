@@ -15,6 +15,75 @@
 
 import type { VideoAnalysis } from "./analysis";
 import type { TranscriptSegment } from "./transcribe";
+import type { RecipeRhythm } from "./types";
+
+// ── Plan de MONTAGE au rythme de la ref (Phase 2) ────────────────────────────
+// Re-monte la vidéo user en jump cuts qui reproduisent le rythme de la ref :
+// mêmes durées de plans (le pattern est repris DANS L'ORDRE → la courbe
+// d'accélération est conservée, et le 1er cut tombe comme dans la ref),
+// sources CHRONOLOGIQUES dans la vidéo user avec de petits sauts entre les
+// plans (l'effet jump cut vient de la matière retirée entre deux segments).
+export interface EditSegment {
+  srcStartSec: number; // position dans la vidéo source (base)
+  durationSec: number; // durée du plan dans la sortie
+}
+
+// Fraction de matière retirée entre les plans (crée l'effet jump cut).
+const JUMPCUT_GAP_RATIO = 0.08;
+const MIN_SHOT_SEC = 0.6;
+const MAX_SHOTS = 12;
+
+export function buildEditPlan(
+  rhythm: RecipeRhythm,
+  refDurationSec: number,
+  baseDurationSec: number
+): EditSegment[] | null {
+  if (rhythm.cutTimestampsSec.length === 0) return null; // ref sans montage
+  if (baseDurationSec < MIN_SHOT_SEC * 2 + 0.2) return null; // trop court
+
+  // Pattern des durées de plans de la ref (bornes 0 et durée incluses).
+  const bounds = [0, ...rhythm.cutTimestampsSec, Math.max(refDurationSec, rhythm.cutTimestampsSec[rhythm.cutTimestampsSec.length - 1] + 0.2)];
+  const pattern = bounds
+    .slice(1)
+    .map((b, i) => b - bounds[i])
+    .filter((d) => d > 0.1);
+  if (pattern.length === 0) return null;
+
+  // Durée totale de sortie : la matière moins les sauts de jump cut.
+  const targetOut = baseDurationSec * (1 - JUMPCUT_GAP_RATIO);
+
+  // Reprend le pattern DANS L'ORDRE (courbe conservée), en boucle si la vidéo
+  // user est plus longue que la ref ; le dernier plan est tronqué.
+  const shots: number[] = [];
+  let acc = 0;
+  for (let i = 0; shots.length < MAX_SHOTS && acc < targetOut; i++) {
+    const d = Math.max(MIN_SHOT_SEC, pattern[i % pattern.length]);
+    const remaining = targetOut - acc;
+    const dur = Math.min(d, remaining);
+    if (dur < MIN_SHOT_SEC && shots.length > 0) {
+      shots[shots.length - 1] += dur; // trop court → fusionné au précédent
+      acc += dur;
+      break;
+    }
+    shots.push(dur);
+    acc += dur;
+  }
+  if (shots.length < 2) return null; // pas de quoi faire un montage
+
+  // Sources chronologiques : les sauts (matière retirée) répartis également.
+  const totalShots = shots.reduce((a, b) => a + b, 0);
+  const gap = (baseDurationSec - totalShots) / (shots.length - 1);
+  const segments: EditSegment[] = [];
+  let src = 0;
+  for (const d of shots) {
+    segments.push({
+      srcStartSec: Math.round(src * 100) / 100,
+      durationSec: Math.round(d * 100) / 100,
+    });
+    src += d + gap;
+  }
+  return segments;
+}
 
 export interface SegmentPick {
   startSec: number;

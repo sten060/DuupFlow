@@ -50,6 +50,17 @@ export interface RecipeLayout {
   refDurationSec: number;
 }
 
+// Rythme de MONTAGE de la référence — extrait en PUR CODE (scene detection +
+// énergie audio ffmpeg), aucune vision. C'est ce qui permet de re-monter la
+// vidéo user au rythme de la ref (jump cuts, accélération, premier cut).
+export interface RecipeRhythm {
+  cutTimestampsSec: number[]; // timestamps des cuts détectés (s)
+  avgShotSec: number; // durée moyenne d'un plan
+  shotCurve: "accelerating" | "steady" | "decelerating"; // évolution du rythme
+  firstCutSec: number; // le cut du hook (crucial) ; = durée si aucun cut
+  beatSync: boolean; // cuts calés sur les pics d'énergie audio ?
+}
+
 // "Recette" extraite d'un reel de référence : le SCHÉMA transférable (pas le
 // contenu). Sert à faire écrire au LLM des hooks/captions dans le même style.
 export interface ViralRecipe {
@@ -62,6 +73,7 @@ export interface ViralRecipe {
   accentColor?: string; // couleur d'accent des captions (#RRGGBB) si repérée
   uppercase?: boolean; // captions en MAJUSCULES ?
   layout?: RecipeLayout; // mesures du montage (reveal/timing/position/taille)
+  rhythm?: RecipeRhythm; // rythme de montage (cuts) — extrait en pur code
 }
 
 // Une référence collée : statut d'analyse + recette une fois prête.
