@@ -1,0 +1,82 @@
+/* Styles du Studio DuupFlow — tout est scopé sous .studio */
+
+/* Focus visibles (accessibilité clavier) */
+.studio :focus-visible {
+  outline: 2px solid #6d5efc;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ── Slider "Variantes par vidéo" ───────────────────────────────────────── */
+.studio input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #6d5efc 0%,
+    #6d5efc var(--fill, 40%),
+    #232350 var(--fill, 40%),
+    #232350 100%
+  );
+  cursor: pointer;
+}
+.studio input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #6d5efc;
+  border: 3px solid #07071a;
+  box-shadow: 0 0 0 1px #6d5efc, 0 0 14px rgba(109, 94, 252, 0.6);
+}
+.studio input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #6d5efc;
+  border: 3px solid #07071a;
+  box-shadow: 0 0 0 1px #6d5efc, 0 0 14px rgba(109, 94, 252, 0.6);
+}
+
+/* ── Spinner des tuiles en cours de génération ──────────────────────────── */
+.studio .studio-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #2e2e60;
+  border-top-color: #6d5efc;
+  animation: studio-spin 0.9s linear infinite;
+}
+@keyframes studio-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Scrollbars discrètes */
+.studio *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.studio *::-webkit-scrollbar-thumb {
+  background: #232350;
+  border-radius: 999px;
+}
+.studio *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── prefers-reduced-motion : on coupe animations et transitions ────────── */
+@media (prefers-reduced-motion: reduce) {
+  .studio *,
+  .studio *::before,
+  .studio *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

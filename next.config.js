@@ -107,6 +107,13 @@ const nextConfig = {
     // Enables src/instrumentation.ts — called once at server start to
     // pre-warm the FFmpeg binary before the first user request arrives.
     instrumentationHook: true,
+    // Remotion (rendu des captions du Studio) embarque webpack + des binaires
+    // (Chrome headless) — il doit rester EXTERNE au bundle Next, chargé en
+    // require Node natif, sinon le build des routes /api/studio casse.
+    serverComponentsExternalPackages: [
+      "@remotion/bundler",
+      "@remotion/renderer",
+    ],
   },
 };
 

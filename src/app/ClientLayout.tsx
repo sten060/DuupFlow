@@ -92,7 +92,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // — the marketing Header would crowd the centered card and break the
   // "fixed inset-0 / no-scroll" layout the wizard expects.
   const isOnboardingPage = normalized.startsWith("/onboarding");
-  const showHeader = !isDashboard && !isAuthPage && !isAffiliatePage && !isOnboardingPage;
+  // Le studio (prototype générateur de reels) est un écran plein applicatif :
+  // pas de header marketing ni de spacer.
+  const isStudioPage = normalized.startsWith("/studio");
+  const showHeader = !isDashboard && !isAuthPage && !isAffiliatePage && !isOnboardingPage && !isStudioPage;
   const isLanding = normalized === "/";
 
   return (
