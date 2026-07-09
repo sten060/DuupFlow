@@ -40,7 +40,7 @@ export interface RecipeLayout {
   revealAtFrac: number[]; // moments d'apparition, fraction 0-1 de la durée
   hookYFrac: number; // position verticale du HAUT du hook (0-1)
   stackYFrac: number; // position verticale du HAUT de la 1ʳᵉ révélation (0-1)
-  fontFrac: number; // hauteur d'une ligne de texte / hauteur vidéo (ex 0.035)
+  fontFrac: number; // hauteur d'une ligne de texte des RÉVÉLATIONS / hauteur vidéo
   maxCharsPerLine: number; // largeur de ligne observée (caractères, calibrée)
   // "stack" = les captions s'ACCUMULENT (défaut) ; "replace" = chaque caption
   // REMPLACE la précédente (détecté en comparant les frames 50% et 85%).
@@ -48,6 +48,12 @@ export interface RecipeLayout {
   // Durée de la ref (mesurée par ffmpeg côté serveur, pas par la vision) —
   // sert à convertir revealAtFrac en secondes ABSOLUES au moment du plan.
   refDurationSec: number;
+  // ── Tokens visuels mesurés (Phase 3) — consommés par CaptionedReel ────────
+  hookFontFrac?: number; // taille du HOOK (souvent plus gros que les items)
+  fontFamily?: "serif" | "sans"; // formes des lettres observées
+  fontWeight?: "normal" | "bold" | "heavy"; // graisse observée
+  outline?: "none" | "thin" | "thick"; // contour du texte
+  shadow?: boolean; // ombre portée visible ?
 }
 
 // Rythme de MONTAGE de la référence — extrait en PUR CODE (scene detection +

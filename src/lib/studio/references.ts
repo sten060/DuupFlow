@@ -54,9 +54,9 @@ export async function analyzeReference(
   await fs.mkdir(REFS_DIR, { recursive: true });
 
   // Cache : recette déjà extraite pour cette URL → réutilisée, 0 coût.
-  // Suffixe _v2 = ère "mesures layout" : les caches d'ancien format (recette
+  // Suffixe _v3 = ère "tokens visuels" (v2 = mesures layout) : les caches d'ancien format (recette
   // descriptive sans mesures) ne peuvent JAMAIS resurgir.
-  const cacheFile = path.join(REFS_DIR, `${urlHash(url)}_v2.json`);
+  const cacheFile = path.join(REFS_DIR, `${urlHash(url)}_v3.json`);
   try {
     const cached = JSON.parse(await fs.readFile(cacheFile, "utf8")) as ViralRecipe;
     if (cached?.hookStyle && cached.layout && cached.rhythm) return { recipe: cached };
@@ -138,7 +138,7 @@ export async function analyzeReferenceFile(
       .update(await fs.readFile(videoPath))
       .digest("hex")
       .slice(0, 16);
-    const cacheFile = path.join(REFS_DIR, `${contentHash}_v2.json`);
+    const cacheFile = path.join(REFS_DIR, `${contentHash}_v3.json`);
     try {
       const cached = JSON.parse(await fs.readFile(cacheFile, "utf8")) as ViralRecipe;
       if (cached?.hookStyle && cached.layout && cached.rhythm) return { recipe: cached };

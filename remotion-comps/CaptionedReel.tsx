@@ -23,10 +23,16 @@ export type ReelLayout = {
   revealAtFrac: number[];
   hookYFrac: number;
   stackYFrac: number;
-  fontFrac: number;
+  fontFrac: number; // taille des révélations
   maxCharsPerLine: number;
   mode?: "stack" | "replace";
   refDurationSec?: number;
+  // Tokens visuels mesurés sur la ref (Phase 3)
+  hookFontFrac?: number; // taille du hook (souvent > items)
+  fontFamily?: "serif" | "sans";
+  fontWeight?: "normal" | "bold" | "heavy";
+  outline?: "none" | "thin" | "thick";
+  shadow?: boolean;
 };
 
 // Plan de montage : re-monte la base en jump cuts au rythme de la ref.
@@ -75,6 +81,7 @@ export const CaptionedReel: React.FC<CaptionedReelProps> = ({
 
   // ── Mesures : celles de la référence, sinon défauts équilibrés ────────────
   const fontSize = Math.round((layout?.fontFrac ?? 0.033) * H);
+  const hookFontSize = Math.round((layout?.hookFontFrac ?? layout?.fontFrac ?? 0.033) * H);
   const maxChars = layout?.maxCharsPerLine ?? 24;
   const hookTop = (layout?.hookYFrac ?? 0.32) * H;
   const stackTop = (layout?.stackYFrac ?? 0.46) * H;
@@ -90,38 +97,42 @@ export const CaptionedReel: React.FC<CaptionedReelProps> = ({
   const color = accentColor ?? "#ffffff";
   const tx = (s: string) => (uppercase ? s.toUpperCase() : s);
 
-  // Style commun : gras, contour noir (multi text-shadow — rend aussi les
-  // emojis proprement, sans contour cassé), centré, largeur calée sur la ref.
-  const captionStyle: React.CSSProperties = {
+  // ── Tokens visuels de la ref → CSS (Phase 3) ───────────────────────────────
+  // Police : formes mesurées (serif = look Instagram « classique »).
+  const family =
+    (layout?.fontFamily ?? "sans") === "serif"
+      ? "Georgia, 'Times New Roman', 'Apple Color Emoji', serif"
+      : "Inter, -apple-system, 'Helvetica Neue', Arial, 'Apple Color Emoji', sans-serif";
+  const weight = { normal: 500, bold: 700, heavy: 800 }[
+    layout?.fontWeight ?? "heavy"
+  ];
+  // Contour : multi text-shadow (rend aussi les emojis proprement).
+  const outlinePx = { none: 0, thin: 2, thick: 3 }[layout?.outline ?? "thick"];
+  const shadows: string[] = [];
+  if (outlinePx > 0) {
+    for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      shadows.push(`${dx * outlinePx}px ${dy * outlinePx}px 0 #000`);
+    }
+  }
+  if (layout?.shadow ?? true) shadows.push("0 4px 10px rgba(0,0,0,.55)");
+
+  const textStyle = (size: number): React.CSSProperties => ({
+    textAlign: "center",
+    fontFamily: family,
+    fontWeight: weight,
+    fontSize: size,
+    lineHeight: 1.25,
+    color,
+    textShadow: shadows.join(", ") || undefined,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  });
+  const centered = (size: number): React.CSSProperties => ({
     position: "absolute",
     left: "50%",
     transform: "translateX(-50%)",
-    width: `min(${Math.round(maxChars * fontSize * 0.62)}px, 92%)`,
-    textAlign: "center",
-    fontFamily:
-      "Inter, -apple-system, 'Helvetica Neue', Arial, 'Apple Color Emoji', sans-serif",
-    fontWeight: 800,
-    fontSize,
-    lineHeight: 1.25,
-    color,
-    textShadow:
-      "-3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 3px 3px 0 #000, 0 4px 10px rgba(0,0,0,.55)",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-  };
-
-  // Empilement : positions calculées d'après la hauteur estimée de chaque bloc
-  // (nb de lignes × interligne) + un gap constant, à partir de stackTop.
-  const lineH = fontSize * 1.25;
-  const blockGap = fontSize * 0.55;
-  const estLines = (s: string) =>
-    Math.max(1, Math.ceil(s.length / Math.max(8, maxChars)));
-  const tops: number[] = [];
-  let y = stackTop;
-  for (const r of reveals) {
-    tops.push(y);
-    y += estLines(r) * lineH + blockGap;
-  }
+    width: `min(${Math.round(maxChars * size * 0.62)}px, 92%)`,
+  });
 
   // Mode remplacement : seule la DERNIÈRE révélation atteinte est visible,
   // toujours à la même position (stackTop).
@@ -162,23 +173,42 @@ export const CaptionedReel: React.FC<CaptionedReelProps> = ({
     <AbsoluteFill style={{ backgroundColor: "black" }}>
       {shots ?? <OffthreadVideo src={videoUrl} style={videoStyle} />}
 
-      {/* Hook — visible dès la 1ʳᵉ frame, apparition instantanée */}
-      <div style={{ ...captionStyle, top: hookTop }}>{tx(hook)}</div>
+      {captionMode === "replace" ? (
+        /* Mode REMPLACEMENT (refs mot-à-mot) : UNE seule caption à la fois.
+           Le hook est la caption n°0 — il est REMPLACÉ par la 1ʳᵉ révélation
+           (fini le chevauchement hook fixe / reveals). */
+        <div style={{ ...centered(hookFontSize), top: hookTop, ...textStyle(hookFontSize) }}>
+          {tx(lastReached >= 0 ? reveals[lastReached] : hook)}
+        </div>
+      ) : (
+        <>
+          {/* Hook — visible dès la 1ʳᵉ frame, à SA taille mesurée */}
+          <div style={{ ...centered(hookFontSize), top: hookTop, ...textStyle(hookFontSize) }}>
+            {tx(hook)}
+          </div>
 
-      {/* Révélations — apparition instantanée aux timings mesurés */}
-      {captionMode === "replace"
-        ? lastReached >= 0 && (
-            <div style={{ ...captionStyle, top: stackTop }}>
-              {tx(reveals[lastReached])}
-            </div>
-          )
-        : reveals.map((r, i) =>
-            t >= times[i] ? (
-              <div key={i} style={{ ...captionStyle, top: tops[i] }}>
-                {tx(r)}
-              </div>
-            ) : null
-          )}
+          {/* Révélations — colonne flex à partir de stackTop : le NAVIGATEUR
+              fait le wrapping et l'empilement réels (plus d'estimation de
+              hauteur par comptage de caractères). */}
+          <div
+            style={{
+              ...centered(fontSize),
+              top: stackTop,
+              display: "flex",
+              flexDirection: "column",
+              gap: Math.round(fontSize * 0.55),
+            }}
+          >
+            {reveals.map((r, i) =>
+              t >= times[i] ? (
+                <div key={i} style={textStyle(fontSize)}>
+                  {tx(r)}
+                </div>
+              ) : null
+            )}
+          </div>
+        </>
+      )}
     </AbsoluteFill>
   );
 };

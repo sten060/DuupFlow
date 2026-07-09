@@ -112,6 +112,22 @@ async function runJob(
   try {
     await ensureStudioDirs();
 
+    // ── Référence PRINCIPALE (Phase 3) : UNE seule ref pilote le rendu
+    // (layout, rythme, couleurs) ET la copy — plus de recipes[0] silencieux
+    // désaligné du prompt. Priorité : première ref avec mesures de layout.
+    // Les autres refs restent une inspiration secondaire pour la copy
+    // (réordonnées : principale en premier).
+    const primary =
+      recipes.find((r) => r.layout) ?? (recipes.length > 0 ? recipes[0] : null);
+    const orderedRecipes = primary
+      ? [primary, ...recipes.filter((r) => r !== primary)]
+      : [];
+    if (recipes.length > 1) {
+      console.log(
+        `[studio] multi-refs : "${primary?.hookStyle.slice(0, 40)}…" pilote le rendu (${recipes.length} refs)`
+      );
+    }
+
     // Probe + analyse (énergie audio, silences, cuts) + transcription
     // whisper (vidéos parlées) + planification LLM (extraits/hooks/captions),
     // UNE fois par vidéo. Chaque variante pioche ensuite son extrait.
@@ -162,7 +178,9 @@ async function runJob(
             count: variantsForThisVideo,
             seed: hashString(job.jobId + item.video.id),
             poolHooks,
-            recipes,
+            // Réordonnées : la ref PRINCIPALE en premier → la copy et le
+            // rendu s'alignent sur la MÊME ref.
+            recipes: orderedRecipes,
           });
 
           prepared = { probe, clips, transcript };
@@ -194,11 +212,11 @@ async function runJob(
           sourceDurationSec: prepared.probe.durationSec,
           // Style + MESURES du montage repris de la 1ʳᵉ référence s'il y en a
           // (couleur, MAJ, nb de reveals, timings, positions, taille).
-          captionStyle: recipes[0]
+          captionStyle: primary
             ? {
-                accentColor: recipes[0].accentColor,
-                uppercase: recipes[0].uppercase,
-                layout: recipes[0].layout,
+                accentColor: primary.accentColor,
+                uppercase: primary.uppercase,
+                layout: primary.layout,
               }
             : undefined,
         };
@@ -218,12 +236,12 @@ async function runJob(
           try {
             await generateVariant({ ...baseParams, outputPath: basePath, omitText: true });
             const baseProbe = await probeVideo(basePath);
-            const layout = recipes[0]?.layout ?? null;
+            const layout = primary?.layout ?? null;
 
             // ── Montage au rythme de la ref (Phase 2) : jump cuts qui
             // reproduisent le pattern de plans de la ref. La durée de sortie
             // devient la somme des segments.
-            const rhythm = recipes[0]?.rhythm ?? null;
+            const rhythm = primary?.rhythm ?? null;
             let segments = null;
             let outDur = baseProbe.durationSec;
             if (rhythm && rhythm.cutTimestampsSec.length > 0) {
@@ -261,8 +279,8 @@ async function runJob(
               revealAtSec,
               captionMode: layout?.mode ?? "stack",
               layout,
-              accentColor: recipes[0]?.accentColor ?? null,
-              uppercase: recipes[0]?.uppercase ?? false,
+              accentColor: primary?.accentColor ?? null,
+              uppercase: primary?.uppercase ?? false,
               outputPath,
             });
           } finally {

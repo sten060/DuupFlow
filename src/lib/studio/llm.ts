@@ -122,14 +122,16 @@ function buildPrompt(opts: {
   }
 
   // Recettes de référence : le LLM REPRODUIT le style des reels qui cartonnent.
+  // La 1ʳᵉ recette = ref PRINCIPALE (celle qui pilote aussi le rendu visuel) ;
+  // les suivantes = inspiration secondaire uniquement.
   if (opts.recipes && opts.recipes.length > 0) {
     systemParts.push(
       "",
-      "STYLE À REPRODUIRE — inspire-toi de ces reels performants (reproduis le SCHÉMA : type de hook, structure, ton, CTA ; PAS le sujet). Si plusieurs recettes, répartis-les entre les variantes pour varier les angles :"
+      "STYLE À REPRODUIRE — reproduis le SCHÉMA de la référence PRINCIPALE (type de hook, structure, ton, CTA, format de liste ; PAS le sujet). Les références secondaires ne servent que d'inspiration légère :"
     );
     opts.recipes.forEach((r, i) => {
       systemParts.push(
-        `Référence ${i + 1} → hook: ${r.hookStyle} | structure: ${r.structure} | ton: ${r.tone} | CTA: ${r.cta}` +
+        `Référence ${i === 0 ? "PRINCIPALE" : `secondaire ${i + 1}`} → hook: ${r.hookStyle} | structure: ${r.structure} | ton: ${r.tone} | CTA: ${r.cta}` +
           (r.examples?.length ? ` | exemples de hooks: ${r.examples.join(" / ")}` : "")
       );
     });
@@ -410,10 +412,38 @@ const RECIPE_TOOL = {
               "Secours : caractères (espaces compris) de la ligne la plus longue, si tu ne peux pas la recopier.",
           },
           mode: { type: "string", enum: ["stack", "replace"] },
+          hookFontFrac: {
+            type: "number",
+            description:
+              "Hauteur d'UNE ligne du HOOK (première caption) / hauteur de l'image, même méthode que fontFrac. Souvent PLUS GROS que les autres captions — mesure-le séparément. Si identique, donne la même valeur que fontFrac.",
+          },
+          fontFamily: {
+            type: "string",
+            enum: ["serif", "sans"],
+            description:
+              "Formes des lettres des captions : \"serif\" = empattements visibles (petites barres au bout des traits, style Times/Georgia, fréquent sur Instagram « classique ») ; \"sans\" = traits nus (Arial/Helvetica).",
+          },
+          fontWeight: {
+            type: "string",
+            enum: ["normal", "bold", "heavy"],
+            description:
+              "Graisse du texte : \"normal\" = traits fins, \"bold\" = gras net, \"heavy\" = très épais/black.",
+          },
+          outline: {
+            type: "string",
+            enum: ["none", "thin", "thick"],
+            description:
+              "Contour autour des lettres : \"none\" = aucun, \"thin\" = liseré fin, \"thick\" = bordure épaisse bien visible.",
+          },
+          shadow: {
+            type: "boolean",
+            description: "Ombre portée visible derrière le texte ?",
+          },
         },
         required: [
           "cumulativeCaptionsPerFrame", "hookYFrac", "stackYFrac",
           "fontFrac", "longestLineText", "maxCharsPerLine", "mode",
+          "hookFontFrac", "fontFamily", "fontWeight", "outline", "shadow",
         ],
       },
     },
@@ -464,14 +494,16 @@ export async function extractRecipeFromReference(opts: {
       ? [
           `- hookYFrac : lis sur IMAGE ${img85Idx}, contre la règle, la position du HAUT de la première caption (ligne 30 = 0.30). Interpole entre deux lignes si besoin.`,
           "- stackYFrac : idem pour le HAUT de la première caption révélée après le hook.",
-          "- fontFrac : la hauteur d'UNE ligne de texte comparée à l'écart entre deux lignes rouges (qui vaut 0.10). Ex : une ligne de texte = un tiers de l'écart → 0.033.",
+          "- fontFrac : la hauteur d'UNE ligne de texte des captions RÉVÉLÉES comparée à l'écart entre deux lignes rouges (qui vaut 0.10). Ex : une ligne de texte = un tiers de l'écart → 0.033.",
+          "- hookFontFrac : même mesure pour le HOOK seul (souvent plus gros que les items — regarde bien).",
           "- longestLineText : recopie EXACTEMENT la ligne affichée la plus longue (une seule ligne à l'écran).",
         ].join("\n")
       : [
           "- hookYFrac / stackYFrac : positions verticales du haut des captions (0-1).",
-          "- fontFrac : hauteur d'une ligne de texte / hauteur de l'image.",
+          "- fontFrac / hookFontFrac : hauteur d'une ligne de texte (items / hook) / hauteur de l'image.",
           "- longestLineText : recopie la ligne affichée la plus longue.",
         ].join("\n"),
+    "- fontFamily / fontWeight / outline / shadow : observe les LETTRES des captions en zoomant mentalement — empattements ou pas, épaisseur du trait, contour, ombre. Ce sont les tokens de style qui seront reproduits tels quels.",
     "",
     "accentColor = couleur dominante du texte des captions en #RRGGBB si visible, sinon null (ignore les lignes rouges de la règle : c'est un outil de mesure, pas le design).",
     "examples = les textes EXACTS des captions lus à l'écran (hook d'abord), avec leur numérotation/puces d'origine.",
@@ -640,14 +672,32 @@ function parseLayout(
     }
   }
 
+  const fontFrac = clampLogged("fontFrac", num(o.fontFrac) ?? 0.032, 0.018, 0.06);
   return {
     revealCount: count,
     revealAtFrac,
     hookYFrac: clampLogged("hookYFrac", num(o.hookYFrac) ?? 0.32, 0.05, 0.75),
     stackYFrac: clampLogged("stackYFrac", num(o.stackYFrac) ?? 0.45, 0.1, 0.85),
-    fontFrac: clampLogged("fontFrac", num(o.fontFrac) ?? 0.032, 0.018, 0.06),
+    fontFrac,
     maxCharsPerLine: clampLogged("maxCharsPerLine", derived, 12, 42),
     mode: o.mode === "replace" ? "replace" : "stack",
     refDurationSec: Math.max(1, refDurationSec),
+    // ── Tokens visuels (Phase 3) — défauts = look actuel si absents ─────────
+    hookFontFrac: clampLogged(
+      "hookFontFrac",
+      num(o.hookFontFrac) ?? fontFrac,
+      0.018,
+      0.075
+    ),
+    fontFamily: o.fontFamily === "serif" ? "serif" : "sans",
+    fontWeight:
+      o.fontWeight === "normal" || o.fontWeight === "bold" || o.fontWeight === "heavy"
+        ? o.fontWeight
+        : "heavy",
+    outline:
+      o.outline === "none" || o.outline === "thin" || o.outline === "thick"
+        ? o.outline
+        : "thick",
+    shadow: typeof o.shadow === "boolean" ? o.shadow : true,
   };
 }

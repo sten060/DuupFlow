@@ -220,14 +220,18 @@ export function buildRevealAss(
     }
   }
 
-  const events: string[] = [
-    dialogue(0, outDurationSec, tops[0], hookText, end),
-  ];
   const mode = layout?.mode ?? "stack";
+  // Mode replace : le hook est la caption n°0 — il se TERMINE quand la 1ʳᵉ
+  // révélation apparaît (fini le chevauchement hook fixe / reveals).
+  const hookUntil =
+    mode === "replace" && shown.length > 0 ? assTime(times[0]) : end;
+  const events: string[] = [
+    dialogue(0, outDurationSec, tops[0], hookText, hookUntil),
+  ];
   if (mode === "replace") {
     // Mode REMPLACEMENT : chaque révélation prend la place de la précédente,
-    // à la MÊME position (stackTop) ; sa fin = début de la suivante.
-    const top = tops[1] ?? tops[0];
+    // à la position du HOOK ; sa fin = début de la suivante.
+    const top = tops[0];
     shown.forEach((line, i) => {
       const until = i + 1 < shown.length ? assTime(times[i + 1]) : end;
       events.push(dialogue(times[i], outDurationSec, top, line, until));
