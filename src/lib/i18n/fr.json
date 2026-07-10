@@ -1270,6 +1270,13 @@
       "opening": "Ouverture de Stripe...",
       "networkError": "Erreur réseau. Réessaie."
     },
+    "subscriptionCanceled": {
+      "title": "Abonnement annulé",
+      "body": "Ton abonnement a été annulé. Ton compte est maintenant sur le plan gratuit de DuupFlow.",
+      "notice": "Tu gardes l'accès aux fonctionnalités gratuites. Repasse à un plan supérieur quand tu veux pour retrouver Solo ou Pro.",
+      "cta": "Passer à un abonnement supérieur",
+      "dismiss": "Rester en gratuit"
+    },
     "subscription": {
       "title": "Abonnement",
       "eyebrow": "Plan & facturation",

@@ -168,8 +168,24 @@ async function markUserChurned(userId: string) {
       stripe_subscription_id: null,
       email_sequence: "churned",
       email_sequence_updated_at: new Date().toISOString(),
+      // Cancellation supersedes any past_due state — clear the overdue modal
+      // so we don't show two popups at once. The user is now terminally Free.
+      payment_overdue: false,
+      paused_plan: null,
+      payment_overdue_since: null,
     })
     .eq("id", userId);
+
+  // Raise the one-shot "subscription canceled" notice. Separate, best-effort
+  // write so a not-yet-applied migration (050) can never break the churn above.
+  try {
+    await admin
+      .from("profiles")
+      .update({ cancellation_notice_pending: true })
+      .eq("id", userId);
+  } catch (err) {
+    console.error("[webhook] cancellation_notice flag failed (mig 050?):", err);
+  }
 
   const info = await getUserInfo(userId);
   if (info) {

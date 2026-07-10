@@ -1270,6 +1270,13 @@
       "opening": "Opening Stripe...",
       "networkError": "Network error. Try again."
     },
+    "subscriptionCanceled": {
+      "title": "Subscription canceled",
+      "body": "Your subscription has been canceled. Your account is now on DuupFlow's free plan.",
+      "notice": "You keep access to all free features. Upgrade any time to get Solo or Pro back.",
+      "cta": "Upgrade to a paid plan",
+      "dismiss": "Stay on free"
+    },
     "subscription": {
       "title": "Subscription",
       "eyebrow": "Plan & billing",

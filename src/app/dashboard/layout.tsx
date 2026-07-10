@@ -4,6 +4,7 @@ import GlobalVideoProgress from "./videos/GlobalVideoProgress";
 import ChatBot from "./components/ChatBot";
 import NotificationBell from "./components/NotificationBell";
 import PaymentOverdueModal from "./PaymentOverdueModal";
+import SubscriptionCanceledModal from "./SubscriptionCanceledModal";
 import ClaritySessionTags, {
   type ClarityPlan,
   type ClaritySegment,
@@ -24,6 +25,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Fetch overdue status so we can mount the blocking modal globally —
   // it stays visible on every dashboard page until Stripe confirms payment.
   let overdue: { since: string | null; pausedPlan: string | null } | null = null;
+
+  // One-shot "subscription canceled" popup — shown once after churn, then the
+  // flag is consumed client-side. Read resiliently below (mig 050 may not be
+  // applied yet).
+  let cancellationPending = false;
 
   // Clarity session tags — set only when we have a usable user id + plan.
   // Computed server-side to avoid an extra client round-trip.
@@ -67,6 +73,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
           since: (profile.payment_overdue_since as string | null) ?? null,
           pausedPlan: (profile.paused_plan as string | null) ?? null,
         };
+      }
+
+      // Cancellation notice — separate query so a missing column (mig 050 not
+      // applied) can't break overdue / Clarity above. Defaults to not showing.
+      try {
+        const { data: cn } = await admin
+          .from("profiles")
+          .select("cancellation_notice_pending")
+          .eq("id", user.id)
+          .single();
+        cancellationPending =
+          (cn as { cancellation_notice_pending?: boolean } | null)
+            ?.cancellation_notice_pending === true;
+      } catch {
+        cancellationPending = false;
       }
 
       // Onboarding state — separate query so a missing column (e.g. before
@@ -200,9 +221,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <NotificationBell />
       {tiktok && <TikTokReminder seenAt={tiktok.seenAt} reminderSent={tiktok.reminderSent} />}
 
+      {/* One-shot popup after a subscription cancellation → Free. Takes
+          priority over the overdue modal (churn clears overdue, but guard
+          anyway so we never stack two popups). */}
+      {cancellationPending && <SubscriptionCanceledModal />}
+
       {/* Blocking modal shown while payment_overdue=true. Re-mounts on every
           page navigation so the user can't ignore it for long. */}
-      {overdue && (
+      {!cancellationPending && overdue && (
         <PaymentOverdueModal
           since={overdue.since}
           pausedPlan={overdue.pausedPlan}
