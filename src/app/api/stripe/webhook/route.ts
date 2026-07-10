@@ -563,7 +563,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (uid && sub.items.data[0]?.price?.id) {
+      // Only (re)grant the plan when the subscription is genuinely in good
+      // standing. Without this guard a past_due/unpaid Pro sub would be paused
+      // to Free just above, then immediately re-promoted to Pro here (the price
+      // is still Pro) — handing full access back to a non-paying user.
+      const inGoodStanding = sub.status === "active" || sub.status === "trialing";
+      if (uid && inGoodStanding && sub.items.data[0]?.price?.id) {
         const plan = resolvePlanFromPriceId(sub.items.data[0].price.id, sub.metadata?.plan);
         if (plan === "pro") {
           const admin = createAdminClient();

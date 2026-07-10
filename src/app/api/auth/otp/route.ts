@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isDisposableEmail, emailDomain } from "@/lib/email-validation";
+import { isDisposableEmail, isAllowedEmailDomain, emailDomain } from "@/lib/email-validation";
 import { hasDisposableMx } from "@/lib/email-validation-server";
 import { getServerT } from "@/lib/i18n/server";
 
@@ -32,10 +32,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Disposable-domain gate — static list/heuristic PLUS an MX-server check that
-  // catches rotating throwaway domains a static list can't keep up with. Runs
-  // BEFORE signInWithOtp so no magic link is ever sent to a throwaway address.
-  if (isDisposableEmail(email) || (await hasDisposableMx(email))) {
+  // Email-domain gate — runs BEFORE signInWithOtp so no magic link is ever sent
+  // to a rejected address.
+  //   • SIGNUP → strict allowlist: only known providers can create an account,
+  //     so no disposable (or custom) domain can ever register.
+  //   • LOGIN  → looser disposable check only, so legitimate existing accounts on
+  //     custom domains are never locked out, while a throwaway address still
+  //     can't be used to sign in.
+  const rejected = isLogin
+    ? isDisposableEmail(email) || (await hasDisposableMx(email))
+    : !isAllowedEmailDomain(email);
+  if (rejected) {
     return NextResponse.json({ error: t("errors.disposableEmail") }, { status: 422 });
   }
 

@@ -69,7 +69,7 @@ export async function checkUsage(
   // Fetch profile — handle guest users (inherit host plan)
   const { data: profile } = await admin
     .from("profiles")
-    .select("plan, has_paid, is_guest, host_user_id")
+    .select("plan, has_paid, is_guest, host_user_id, payment_overdue")
     .eq("id", user.id)
     .single();
 
@@ -86,13 +86,19 @@ export async function checkUsage(
 
   // Guests inherit host plan
   let effectivePlan = profile.plan as string | null;
+  // Past-due state is inherited from the host too — a guest can't have more
+  // access than the account that pays for the seat.
+  let overdue = (profile as { payment_overdue?: boolean }).payment_overdue === true;
   if (profile.is_guest && profile.host_user_id) {
     const { data: hostProfile } = await admin
       .from("profiles")
-      .select("plan")
+      .select("plan, payment_overdue")
       .eq("id", profile.host_user_id)
       .single();
     effectivePlan = hostProfile?.plan ?? effectivePlan;
+    if ((hostProfile as { payment_overdue?: boolean } | null)?.payment_overdue === true) {
+      overdue = true;
+    }
   }
 
   // Legacy data normalization:
@@ -100,6 +106,14 @@ export async function checkUsage(
   //  - !has_paid + plan null → treat as 'free' (default tier going forward)
   if (!effectivePlan) {
     effectivePlan = profile.has_paid ? "pro" : "free";
+  }
+
+  // Defense-in-depth: a past-due payment forces Free quotas regardless of the
+  // stored plan. `payment_overdue` is the source of truth even when the plan
+  // flip to Free hasn't propagated yet (missed webhook, ordering race). Without
+  // this, a Solo/Pro row that stays paid while overdue keeps full access.
+  if (overdue) {
+    effectivePlan = "free";
   }
 
   // Pro → unlimited

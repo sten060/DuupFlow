@@ -53,12 +53,57 @@ const EXTRA_DISPOSABLE = new Set<string>([
   "doefy.com",
   "luxudata.com",
   "missyoutoo.fun",
+  // Self-hosted-MX temp-mail domain (MX = mail.bevriz.com). Also caught by its
+  // MX server IP in email-validation-server.ts, which covers its siblings too.
+  "bevriz.com",
 ]);
 
 // Heuristic net for the long tail — domains whose name screams "throwaway".
 // Keeps specific service tokens so legit domains aren't caught by accident.
 const DISPOSABLE_PATTERN =
   /(tempo?rary?mail|temp-?mail|throwaway|disposable|trash-?mail|guerrillamail|mailinator|10minutemail|minute-?mail|yopmail|fake-?(inbox|mail)|sharklasers|mohmal|emailondeck|moakt|inboxkitten|drop-?mail|maildrop|getnada|burner-?mail|discard\.?mail)/i;
+
+// Strict allowlist of accepted email providers for NEW signups. Registration is
+// limited to these domains — every other domain (disposable services AND custom/
+// company domains alike) is refused. This guarantees no throwaway address can
+// ever create an account, at the cost of not accepting custom domains. Add a
+// provider (or a specific trusted client/agency domain) here on request.
+export const ALLOWED_EMAIL_DOMAINS = new Set<string>([
+  // Google
+  "gmail.com", "googlemail.com",
+  // Microsoft
+  "outlook.com", "outlook.fr", "outlook.be", "hotmail.com", "hotmail.fr",
+  "hotmail.be", "hotmail.co.uk", "live.com", "live.fr", "live.be", "msn.com",
+  // Apple (incl. Hide My Email relay → forwards to a real inbox)
+  "icloud.com", "me.com", "mac.com", "privaterelay.appleid.com",
+  // Yahoo / AOL
+  "yahoo.com", "yahoo.fr", "yahoo.co.uk", "ymail.com", "rocketmail.com", "aol.com",
+  // Proton
+  "proton.me", "protonmail.com", "protonmail.ch", "pm.me",
+  // Privacy relays (forward to a permanent inbox)
+  "duck.com", "mozmail.com",
+  // France — ISPs & webmail
+  "orange.fr", "wanadoo.fr", "free.fr", "sfr.fr", "neuf.fr", "laposte.net",
+  "bbox.fr", "numericable.fr",
+  // French-speaking Belgium / Switzerland / Canada
+  "bluewin.ch", "videotron.ca", "sympatico.ca",
+  // Other majors
+  "gmx.com", "gmx.fr", "gmx.net", "gmx.de", "zoho.com", "mail.com", "hey.com",
+  "yandex.com", "fastmail.com", "tutanota.com", "tuta.com",
+  // Germany / Europe
+  "web.de", "t-online.de",
+]);
+
+/**
+ * True when the email's domain is on the strict allowlist of accepted providers.
+ * Used to gate NEW signups; login uses the looser disposable check so legitimate
+ * existing accounts on custom domains are never locked out.
+ */
+export function isAllowedEmailDomain(email: string): boolean {
+  const domain = emailDomain(email);
+  if (!domain) return false;
+  return ALLOWED_EMAIL_DOMAINS.has(domain);
+}
 
 /** Extract the lowercased domain from an email, or null if it's malformed. */
 export function emailDomain(email: string): string | null {
