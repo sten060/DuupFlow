@@ -51,18 +51,27 @@ export async function resolveEffectivePlan(userId: string): Promise<PlanType> {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("plan, has_paid, is_guest, host_user_id")
+    .select("plan, has_paid, is_guest, host_user_id, payment_overdue")
     .eq("id", userId)
     .single();
   if (!profile) return "free";
 
-  const p = profile as { plan: string | null; has_paid: boolean | null; is_guest: boolean | null; host_user_id: string | null };
+  const p = profile as { plan: string | null; has_paid: boolean | null; is_guest: boolean | null; host_user_id: string | null; payment_overdue: boolean | null };
   let plan = p.plan;
+  // A past-due payment is inherited from the host too — a guest can't have more
+  // API access than the account that pays for the seat.
+  let overdue = p.payment_overdue === true;
   if (p.is_guest && p.host_user_id) {
-    const { data: host } = await admin.from("profiles").select("plan").eq("id", p.host_user_id).single();
-    plan = (host as { plan: string | null } | null)?.plan ?? plan;
+    const { data: host } = await admin.from("profiles").select("plan, payment_overdue").eq("id", p.host_user_id).single();
+    const h = host as { plan: string | null; payment_overdue: boolean | null } | null;
+    plan = h?.plan ?? plan;
+    if (h?.payment_overdue === true) overdue = true;
   }
   if (!plan) plan = p.has_paid ? "pro" : "free";
+  // Defense-in-depth (mirrors usage.ts): a past-due payment forces Free — which,
+  // since the API is Pro-only, revokes API access — even if the plan flip to
+  // Free hasn't propagated yet (missed webhook, ordering race).
+  if (overdue) return "free";
   return plan === "pro" || plan === "solo" ? plan : "free";
 }
 
