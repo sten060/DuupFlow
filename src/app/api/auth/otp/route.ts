@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isDisposableEmail, isAllowedEmailDomain, emailDomain } from "@/lib/email-validation";
 import { hasDisposableMx } from "@/lib/email-validation-server";
+import { getClientIp, checkAndRecordSignupIp } from "@/lib/signup-ip";
 import { getServerT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,15 @@ export async function POST(req: NextRequest) {
     : !isAllowedEmailDomain(email);
   if (rejected) {
     return NextResponse.json({ error: t("errors.disposableEmail") }, { status: 422 });
+  }
+
+  // Anti-abuse IP cap (SIGNUP only): refuse a new account when this IP has
+  // already created too many. Best-effort — an unknown IP or DB error allows it.
+  if (!isLogin) {
+    const { allowed } = await checkAndRecordSignupIp(email, getClientIp(req));
+    if (!allowed) {
+      return NextResponse.json({ error: t("errors.signupLimited") }, { status: 429 });
+    }
   }
 
   const supabase = await createClient();

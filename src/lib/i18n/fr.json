@@ -2062,6 +2062,7 @@
   },
   "errors": {
     "disposableEmail": "Impossible de vous inscrire avec ce mail.",
+    "signupLimited": "Impossible de créer un compte pour le moment. Contacte le support si tu penses que c'est une erreur.",
     "team": {
       "alreadyInvited": "Cette personne a déjà été invitée.",
       "inviteUsed": "Invitation déjà utilisée.",
