@@ -94,7 +94,38 @@ function buildPrompt(opts: {
     "Le champ \"hook\" est LE TEXTE INCRUSTÉ À L'ÉCRAN (une accroche courte et percutante, style caption OFM ; emoji autorisé). Le champ \"caption\" est la légende de publication (1-2 phrases + 3 à 5 hashtags).",
   ];
 
-  if (hasTranscript) {
+  // La ref PRINCIPALE (celle qui pilote le rendu) tire souvent sa viralité d'un
+  // PROCÉDÉ d'accroche précis (« X vs… / …Y », question→réponse, liste
+  // numérotée). Quand elle est "coordonnée" et qu'on a ses captions exactes, on
+  // FORCE le LLM à rejouer CE mécanisme à l'identique — c'est CE qui la rend
+  // virale, pas notre format maison. Prioritaire sur toute autre logique.
+  const primaryRec = opts.recipes?.find((r) => r.layout);
+  const deviceExamples = primaryRec?.examples ?? [];
+  const isDeviceDriven =
+    primaryRec?.montageLevel === "coordonne" && deviceExamples.length >= 2;
+
+  if (isDeviceDriven) {
+    const steps = (primaryRec!.moves ?? []).map((m) => m.shows).filter(Boolean);
+    systemParts.push(
+      "⚠️ PRIORITÉ ABSOLUE — la référence PRINCIPALE doit sa viralité à un PROCÉDÉ D'ACCROCHE précis. Reproduire CE procédé passe AVANT le style, le ton ou le sujet.",
+      `Ses textes à l'écran EXACTS, dans l'ordre d'apparition : ${deviceExamples
+        .map((e, i) => `[${i + 1}] « ${e} »`)
+        .join("   ")}`,
+      steps.length
+        ? `Ce que l'écran montre à chaque étape : ${steps.join(" → ")}.`
+        : "",
+      "Décode le MÉCANISME de ces textes et REJOUE-LE À L'IDENTIQUE dans sa forme :",
+      "- comparaison en deux temps « X vs… » puis « …Y » : GARDE le « vs » et la coupure suspendue « … » qui crée l'attente ;",
+      "- question puis réponse, ou liste numérotée : garde exactement ce schéma et sa ponctuation.",
+      "Tu changes UNIQUEMENT le sujet (créatrice OFM, double sens soft et malin). Tu ne changes JAMAIS le mécanisme, le nombre de temps, ni les mots de liaison.",
+      `Produis ${deviceExamples.length} texte(s) : "hook" = le 1ᵉʳ temps (l'amorce qui tease et reste en suspens), "reveals" = les temps suivants dans l'ordre (${Math.max(
+        0,
+        deviceExamples.length - 1
+      )} élément(s)). Chaque texte est COURT (comme la ref) et FINI (jamais coupé en plein mot).`,
+      "Chaque variante = le MÊME procédé rejoué avec un angle différent (jamais un autre format). startSec et endSec = 0.",
+      "TON : jeux de mots et double sens coquins, soft et suggestif, jamais explicite."
+    );
+  } else if (hasTranscript) {
     systemParts.push(
       "On te donne la transcription horodatée d'une vidéo parlée.",
       "Choisis les meilleurs extraits (15-30s), chacun capable d'accrocher dès la 1ère seconde :",
