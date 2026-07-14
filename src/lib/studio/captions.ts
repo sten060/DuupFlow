@@ -119,24 +119,53 @@ export function buildAssForClip(
   ].join("\n");
 }
 
-// ── Timing des révélations : RÈGLE UNIQUE (partagée ffmpeg + Remotion) ──────
-// Les revealAtFrac de la ref sont convertis en SECONDES ABSOLUES de la ref
-// (frac × refDurationSec), puis adaptés à la durée de sortie :
-//   • durée_user ≤ durée_ref × 1.5 → adaptation PROPORTIONNELLE (fractions),
-//     le tempo relatif de la ref est conservé ;
-//   • durée_user > durée_ref × 1.5 → on garde le RYTHME ABSOLU de la ref
-//     (mêmes secondes d'apparition) plutôt que d'étirer artificiellement.
+// ── RÈGLE DE TIMELINE GÉNÉRALE (partagée : captions ET montage coordonné) ───
+// Reproduit le TIMING de la ref (moments des transitions : fin du hook, cuts,
+// apparitions de caption) en secondes ABSOLUES, avec adaptation naturelle à la
+// durée de sortie et PRIORITÉ AU HOOK — car la durée du hook est une raison
+// majeure de la viralité.
+//   • sortie ≥ durée_ref (×0.9) : on garde le timing ABSOLU de la ref à
+//     l'identique (le hook de 3s reste 3s, le cut au même instant). Le dernier
+//     plan s'étire pour remplir la sortie.
+//   • sortie plus courte : on GARDE la durée du hook (1ʳᵉ transition) en absolu
+//     tant qu'elle ne dépasse pas la moitié de la sortie, puis on comprime le
+//     reste proportionnellement. Le hook est sacré.
+export function mapTimeline(
+  refTransitionsSec: number[],
+  refDurSec: number,
+  outDurSec: number
+): number[] {
+  if (refTransitionsSec.length === 0) return [];
+  const sorted = [...refTransitionsSec].sort((a, b) => a - b);
+  const margin = 0.3;
+  const cap = Math.max(0, outDurSec - margin);
+
+  // Assez de place → timing ABSOLU de la ref, à l'identique.
+  if (outDurSec >= refDurSec * 0.9) {
+    return sorted.map((t) => Math.min(t, cap));
+  }
+
+  // Sortie plus courte → priorité au hook, reste comprimé.
+  const hookRef = sorted[0];
+  const hookOut = Math.min(hookRef, outDurSec * 0.5);
+  const refRestSpan = Math.max(0.1, refDurSec - hookRef);
+  const outRestSpan = Math.max(0.1, outDurSec - hookOut);
+  return sorted.map((t, i) =>
+    i === 0
+      ? hookOut
+      : Math.min(hookOut + ((t - hookRef) / refRestSpan) * outRestSpan, cap)
+  );
+}
+
+// Timing des révélations de caption = la règle de timeline générale appliquée
+// aux moments d'apparition (fractions → secondes absolues de la ref).
 export function computeRevealTimes(
   layout: RecipeLayout,
   outDurationSec: number
 ): number[] {
   const refDur = Math.max(1, layout.refDurationSec);
-  if (outDurationSec > refDur * 1.5) {
-    return layout.revealAtFrac.map((f) =>
-      Math.min(f * refDur, Math.max(0, outDurationSec - 0.5))
-    );
-  }
-  return layout.revealAtFrac.map((f) => f * outDurationSec);
+  const abs = layout.revealAtFrac.map((f) => f * refDur);
+  return mapTimeline(abs, refDur, outDurationSec);
 }
 
 // ── Révélation séquentielle (format "liste" OFM) ────────────────────────────
