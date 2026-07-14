@@ -19,9 +19,6 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const plan = body?.plan === "solo" ? "solo" : "pro";
-  // The 3-day trial is a new-signup acquisition offer. In-app upgrades by an
-  // existing (free) user pass noTrial:true so they don't get a free trial.
-  const noTrial = body?.noTrial === true;
   const affiliateCode: string | undefined =
     typeof body?.affiliate_code === "string" && body.affiliate_code.trim()
       ? body.affiliate_code.trim().toUpperCase()
@@ -85,11 +82,7 @@ export async function POST(request: Request) {
     success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${baseUrl}/checkout`,
     subscription_data: {
-      // Plan Solo : 3 jours d'essai gratuit (carte requise, débit auto à la fin),
-      // uniquement pour les nouveaux inscrits (pas les upgrades in-app d'un free).
-      // Le webhook checkout.session.completed débloque déjà l'accès dès le
-      // démarrage de l'essai ; customer.subscription.deleted le révoque si annulé.
-      ...(plan === "solo" && !noTrial ? { trial_period_days: 3 } : {}),
+      // No free trial — checkout charges immediately for the chosen plan.
       metadata: {
         supabase_user_id: user.id,
         plan,

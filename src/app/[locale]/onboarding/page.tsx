@@ -50,7 +50,7 @@ function OnboardingForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isGuest = searchParams.get("type") === "guest";
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
   const TOTAL_STEPS = isGuest ? 1 : 3;
 
@@ -73,6 +73,13 @@ function OnboardingForm() {
     const p = searchParams.get("plan");
     if (p === "solo" || p === "pro") {
       localStorage.setItem("duupflow_selected_plan", p);
+    } else if (!isGuest) {
+      // No paid plan chosen — the free tier is no longer offered to new signups.
+      // Send them to pricing to pick a plan before any account is created.
+      const stored = localStorage.getItem("duupflow_selected_plan");
+      if (stored !== "solo" && stored !== "pro") {
+        router.replace(`/${locale}/pricing#plans`);
+      }
     }
   }, []);
 
@@ -149,6 +156,12 @@ function OnboardingForm() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        // No paid plan → the server refuses to create a free account. Route the
+        // user to pricing to choose a plan instead of showing an error.
+        if (data.code === "plan_required") {
+          router.replace(`/${locale}/pricing#plans`);
+          return;
+        }
         setError(data.error ?? t("onboarding.profileError"));
         setLoading(false);
         return;

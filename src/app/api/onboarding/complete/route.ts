@@ -31,6 +31,15 @@ export async function POST(req: NextRequest) {
   // until it's paid (see the dashboard-layout paywall).
   const pendingPlan = selectedPlan === "solo" || selectedPlan === "pro" ? selectedPlan : null;
 
+  // The free tier is no longer offered to new signups: refuse to create an
+  // account without a chosen paid plan (the client redirects to pricing on this
+  // code). This closes the only path by which a NEW user could land on free
+  // (reaching onboarding with no plan param). Existing free users are untouched
+  // — they never re-run onboarding.
+  if (!pendingPlan) {
+    return NextResponse.json({ error: t("errors.planRequired"), code: "plan_required" }, { status: 402 });
+  }
+
   // Sanitize platforms[] — must be a non-empty array of known slugs.
   const cleanPlatforms = Array.isArray(platforms)
     ? Array.from(new Set(

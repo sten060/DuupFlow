@@ -195,13 +195,13 @@
     "q4": "Sur quelles plateformes ça fonctionne ?",
     "a4": "Sur toutes. Tes copies sont prêtes à publier sur TikTok, Instagram, YouTube, X et n'importe quelle autre plateforme. DuupFlow prépare les fichiers, tu publies où tu veux.",
     "q5": "Combien de copies puis-je générer ?",
-    "a5": "Autant que ton plan le permet. Le plan gratuit te laisse tester l'outil sur un nombre limité de copies ; les plans payants débloquent la génération en volume, idéale si tu gères plusieurs comptes ou beaucoup de contenu.",
+    "a5": "Autant que ton plan le permet. Les plans Solo et Pro débloquent la génération en volume, idéale si tu gères plusieurs comptes ou beaucoup de contenu.",
     "q6": "Quels formats sont supportés ?",
     "a6": "Vidéos (MP4, MOV, MKV) et images (JPG, PNG, WEBP). Tu peux importer plusieurs fichiers à la fois et les traiter en lot.",
     "q7": "Mes fichiers sont-ils supprimés après traitement ?",
     "a7": "Oui. Tes contenus t'appartiennent : une fois tes copies générées et téléchargées, tes fichiers ne sont pas conservés ni réutilisés.",
     "q8": "Y a-t-il un essai gratuit ?",
-    "a8": "Oui, un plan gratuit te permet de tester DuupFlow sans payer, avec un nombre de copies limité. Tu vois le résultat sur tes propres vidéos avant de passer à un plan payant."
+    "a8": "DuupFlow n'a pas d'essai gratuit. Tu peux demander une démo depuis la page Tarifs : on te montre l'outil sur tes propres contenus avant de choisir un plan. Sans engagement, annulable à tout moment."
   },
   "cta": {
     "title": "Prêt à scaler ton contenu ?",
@@ -440,7 +440,7 @@
     "speedDesc": "Génère des dizaines de copies en quelques secondes. Traitement local pour les images, cloud pour les vidéos.",
     "exportTitle": "Export flexible",
     "exportDesc": "Télécharge fichier par fichier ou tout d'un coup en ZIP. Compatible avec tous les outils de scheduling.",
-    "ctaPrimary": "Essayer DuupFlow gratuitement",
+    "ctaPrimary": "Voir les plans",
     "ctaSecondary": "En savoir plus"
   },
   "login": {
@@ -595,7 +595,7 @@
     "ctaTitle": "Prêt à transformer votre",
     "ctaTitleHighlight": "workflow",
     "ctaSubtitle": "Rejoignez les agences qui produisent plus, plus vite, sans compromis sur la qualité.",
-    "ctaButton": "Commencer gratuitement"
+    "ctaButton": "Voir les plans"
   },
   "dashboard": {
     "sidebar": {
@@ -2063,6 +2063,7 @@
   "errors": {
     "disposableEmail": "Impossible de vous inscrire avec ce mail.",
     "signupLimited": "Impossible de créer un compte pour le moment. Contacte le support si tu penses que c'est une erreur.",
+    "planRequired": "Choisis un plan pour continuer.",
     "team": {
       "alreadyInvited": "Cette personne a déjà été invitée.",
       "inviteUsed": "Invitation déjà utilisée.",

@@ -440,7 +440,7 @@
     "speedDesc": "Generate dozens of copies in seconds. Local processing for images, cloud for videos.",
     "exportTitle": "Flexible Export",
     "exportDesc": "Download file by file or all at once as ZIP. Compatible with all scheduling tools.",
-    "ctaPrimary": "Try DuupFlow for Free ->",
+    "ctaPrimary": "See plans ->",
     "ctaSecondary": "Learn more"
   },
   "login": {
@@ -595,7 +595,7 @@
     "ctaTitle": "Ready to transform your",
     "ctaTitleHighlight": "workflow",
     "ctaSubtitle": "Join the agencies that produce more, faster, with no compromise on quality.",
-    "ctaButton": "Start for Free ->"
+    "ctaButton": "See plans ->"
   },
   "dashboard": {
     "sidebar": {
@@ -2063,6 +2063,7 @@
   "errors": {
     "disposableEmail": "You can't sign up with this email address.",
     "signupLimited": "We can't create an account right now. Contact support if you think this is a mistake.",
+    "planRequired": "Choose a plan to continue.",
     "team": {
       "alreadyInvited": "This person has already been invited.",
       "inviteUsed": "This invitation has already been used.",

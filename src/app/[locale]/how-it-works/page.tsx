@@ -204,7 +204,7 @@ export default function CommentCaMarche() {
 
         <div className="mt-20 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
-            href="/dashboard"
+            href="/pricing#plans"
             className="inline-flex items-center gap-2 px-8 py-4 font-semibold text-white text-sm transition hover:opacity-90 hover:-translate-y-0.5"
             style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
           >

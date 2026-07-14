@@ -218,7 +218,7 @@ export default function AvantagesPage() {
           {t("avantagesPage.ctaSubtitle")}
         </p>
         <Link
-          href="/register"
+          href="/pricing#plans"
           className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold text-white transition hover:opacity-90"
           style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
         >
