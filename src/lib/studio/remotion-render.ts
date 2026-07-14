@@ -10,13 +10,14 @@
 
 import path from "path";
 import type { EditSegment } from "./segments";
-import type { RecipeLayout } from "./types";
+import type { EditShot, RecipeLayout } from "./types";
 
 export interface RemotionCaptionJob {
   videoUrl: string; // URL http de la vidéo de base (route /api/studio/media)
-  durationSec: number; // durée de SORTIE (= somme des segments si montage)
+  durationSec: number; // durée de SORTIE (= somme des segments/plans si montage)
   hook: string;
   reveals: string[];
+  shots: EditShot[] | null; // montage COORDONNÉ (réalisateur) — prime sur segments
   segments: EditSegment[] | null; // montage au rythme de la ref (null = entier)
   revealAtSec: number[]; // secondes absolues (règle unique computeRevealTimes)
   captionMode: "stack" | "replace";
@@ -65,6 +66,7 @@ export async function renderCaptionsWithRemotion(
       durationSec: job.durationSec,
       hook: job.hook,
       reveals: job.reveals,
+      shots: job.shots,
       segments: job.segments,
       revealAtSec: job.revealAtSec,
       captionMode: job.captionMode,

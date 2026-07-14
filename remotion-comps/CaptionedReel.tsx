@@ -8,6 +8,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  interpolate,
   OffthreadVideo,
   Sequence,
   useCurrentFrame,
@@ -41,11 +42,23 @@ export type EditSegment = {
   durationSec: number; // durée du plan dans la sortie
 };
 
+// Réalisateur (coordonné) : cadrage animé + caption par plan.
+export type Framing = { zoom: number; cx: number; cy: number };
+export type EditShot = {
+  durationSec: number;
+  from: Framing;
+  to: Framing;
+  caption: string;
+};
+
 export type CaptionedReelProps = {
   videoUrl: string; // vidéo de base (servie par /api/studio/media)
   durationSec: number; // durée de SORTIE (= somme des segments si montage)
   hook: string;
   reveals: string[];
+  // Montage COORDONNÉ (réalisateur) : plans avec cadrage animé + caption.
+  // Quand présent, il PRIME sur segments/reveals (chemin coordonné).
+  shots: EditShot[] | null;
   // Segments du montage au rythme de la ref — null/vide = vidéo entière.
   segments: EditSegment[] | null;
   // Moments d'apparition en SECONDES ABSOLUES — calculés côté serveur par la
@@ -68,6 +81,7 @@ export const CaptionedReel: React.FC<CaptionedReelProps> = ({
   durationSec,
   hook,
   reveals,
+  shots,
   segments,
   revealAtSec,
   captionMode,
@@ -134,6 +148,49 @@ export const CaptionedReel: React.FC<CaptionedReelProps> = ({
     width: `min(${Math.round(maxChars * size * 0.62)}px, 92%)`,
   });
 
+  // ── Chemin COORDONNÉ (réalisateur) : plans avec cadrage animé + caption ────
+  // Cadrage : transform-origin 0 0, translate puis scale → le point (cx,cy) du
+  // rush atterrit au centre, zoomé par `zoom` (formule tx=W/2 - z·cx·W).
+  if (shots && shots.length > 0) {
+    let cursor = 0;
+    return (
+      <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
+        {shots.map((shot, i) => {
+          const from = Math.round(cursor * fps);
+          const durF = Math.max(1, Math.round(shot.durationSec * fps));
+          cursor += shot.durationSec;
+          const local = frame - from;
+          const p = durF > 1 ? Math.max(0, Math.min(1, local / durF)) : 1;
+          const z = interpolate(p, [0, 1], [shot.from.zoom, shot.to.zoom]);
+          const cx = interpolate(p, [0, 1], [shot.from.cx, shot.to.cx]);
+          const cy = interpolate(p, [0, 1], [shot.from.cy, shot.to.cy]);
+          const trX = W / 2 - z * cx * W;
+          const trY = H / 2 - z * cy * H;
+          return (
+            <Sequence key={i} from={from} durationInFrames={durF}>
+              <AbsoluteFill style={{ overflow: "hidden" }}>
+                <OffthreadVideo
+                  src={videoUrl}
+                  style={{
+                    width: W,
+                    height: H,
+                    transformOrigin: "0 0",
+                    transform: `translate(${trX}px, ${trY}px) scale(${z})`,
+                  }}
+                />
+              </AbsoluteFill>
+              {shot.caption ? (
+                <div style={{ ...centered(hookFontSize), top: hookTop, ...textStyle(hookFontSize) }}>
+                  {tx(shot.caption)}
+                </div>
+              ) : null}
+            </Sequence>
+          );
+        })}
+      </AbsoluteFill>
+    );
+  }
+
   // Mode remplacement : seule la DERNIÈRE révélation atteinte est visible,
   // toujours à la même position (stackTop).
   const lastReached = times.reduce(
@@ -150,7 +207,7 @@ export const CaptionedReel: React.FC<CaptionedReelProps> = ({
     objectFit: "cover",
   };
   let cursor = 0;
-  const shots =
+  const rhythmShots =
     segments && segments.length > 0
       ? segments.map((s, i) => {
           const from = Math.round(cursor * fps);
@@ -171,7 +228,7 @@ export const CaptionedReel: React.FC<CaptionedReelProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
-      {shots ?? <OffthreadVideo src={videoUrl} style={videoStyle} />}
+      {rhythmShots ?? <OffthreadVideo src={videoUrl} style={videoStyle} />}
 
       {captionMode === "replace" ? (
         /* Mode REMPLACEMENT (refs mot-à-mot) : UNE seule caption à la fois.

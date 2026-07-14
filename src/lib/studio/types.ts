@@ -82,6 +82,31 @@ export interface MontageMove {
   textAtThisMoment: string; // caption affichée à ce moment (ou vide)
 }
 
+// ── Réalisateur (Phases 2-4) ─────────────────────────────────────────────────
+// Cadrage animable dans la vidéo source (Ken Burns) : zoom=1 = plein cadre,
+// zoom=2 = 2× centré sur le point normalisé (cx, cy).
+export interface Framing {
+  zoom: number;
+  cx: number; // 0-1
+  cy: number; // 0-1
+}
+
+// Un "plan" du montage monté : cadrage animé de `from` → `to` (égal = fixe),
+// avec sa caption. Une suite d'EditShot = le montage "coordonné".
+export interface EditShot {
+  durationSec: number;
+  from: Framing;
+  to: Framing;
+  caption: string;
+}
+
+// Ce que l'IA lit du RUSH de l'utilisateur (Phase 2) — ce qui est disponible.
+export interface FootageMap {
+  hasFace: boolean;
+  faceBox: { x: number; y: number; w: number; h: number } | null; // normalisé
+  framing: "full-body" | "upper-body" | "closeup"; // cadrage global du rush
+}
+
 // "Recette" extraite d'un reel de référence : le SCHÉMA transférable (pas le
 // contenu). Sert à faire écrire au LLM des hooks/captions dans le même style.
 export interface ViralRecipe {

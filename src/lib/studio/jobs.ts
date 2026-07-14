@@ -15,7 +15,9 @@ import {
   type VideoProbe,
 } from "./pipeline";
 import { computeRevealTimes } from "./captions";
-import { planClipsWithLLM } from "./llm";
+import { buildDirectorPlan } from "./director";
+import { planClipsWithLLM, readFootage } from "./llm";
+import { runFFmpeg } from "./pipeline";
 import { renderCaptionsWithRemotion } from "./remotion-render";
 import { buildEditPlan, pickSegments } from "./segments";
 import {
@@ -24,11 +26,15 @@ import {
   type Transcript,
 } from "./transcribe";
 import type {
+  EditShot,
+  FootageMap,
   StudioJobSnapshot,
   StudioReel,
   UploadedVideo,
   ViralRecipe,
 } from "./types";
+import fsSync from "fs";
+import os from "os";
 
 interface StudioJob extends StudioJobSnapshot {
   startedAt: number;
@@ -238,13 +244,33 @@ async function runJob(
             const baseProbe = await probeVideo(basePath);
             const layout = primary?.layout ?? null;
 
-            // ── Montage au rythme de la ref (Phase 2) : jump cuts qui
-            // reproduisent le pattern de plans de la ref. La durée de sortie
-            // devient la somme des segments.
+            // ── RÉALISATEUR (Phase 2-4) : montage COORDONNÉ. Seulement si la
+            // ref est "coordonne" — c'est là qu'on paie la lecture du rush.
+            let shots: EditShot[] | null = null;
+            let outDur = baseProbe.durationSec;
+            if (primary?.montageLevel === "coordonne" && origin) {
+              const footage = await readBaseFootage(basePath, origin, baseName);
+              if (footage) {
+                const captions = [clip.hook, ...clip.reveals].filter(Boolean);
+                shots = buildDirectorPlan(primary, footage, captions, baseProbe.durationSec);
+                if (shots) {
+                  outDur = shots.reduce((a, s) => a + s.durationSec, 0);
+                  console.log(
+                    `[studio] montage COORDONNÉ : ${shots.length} plans (` +
+                      shots
+                        .map((s) => `${s.durationSec.toFixed(1)}s z${s.to.zoom.toFixed(1)}`)
+                        .join(", ") +
+                      `) — sortie ${outDur.toFixed(1)}s`
+                  );
+                }
+              }
+            }
+
+            // ── Montage au RYTHME de la ref (si pas de plan coordonné) :
+            // jump cuts qui reproduisent le pattern de plans de la ref.
             const rhythm = primary?.rhythm ?? null;
             let segments = null;
-            let outDur = baseProbe.durationSec;
-            if (rhythm && rhythm.cutTimestampsSec.length > 0) {
+            if (!shots && rhythm && rhythm.cutTimestampsSec.length > 0) {
               segments = buildEditPlan(
                 rhythm,
                 layout?.refDurationSec ?? baseProbe.durationSec,
@@ -260,9 +286,8 @@ async function runJob(
               }
             }
 
-            // Timings en secondes ABSOLUES via la règle unique (proportionnel
-            // si durées proches, rythme de la ref conservé si user ≫ ref) —
-            // calculés sur la durée de SORTIE (après montage).
+            // Timings des captions séquentielles (ignoré si `shots` : chaque
+            // plan porte sa propre caption).
             const revealAtSec = layout
               ? computeRevealTimes(layout, outDur)
               : clip.reveals.map(
@@ -275,6 +300,7 @@ async function runJob(
               durationSec: outDur,
               hook: clip.hook,
               reveals: clip.reveals,
+              shots,
               segments,
               revealAtSec,
               captionMode: layout?.mode ?? "stack",
@@ -418,6 +444,43 @@ async function buildClips(opts: {
       reveals: [],
     };
   });
+}
+
+// Lit le rush (base ffmpeg, sans texte) : extrait 4 frames réparties → vision.
+// Coût uniquement pour les refs "coordonne" (routeur d'effort).
+async function readBaseFootage(
+  basePath: string,
+  _origin: string,
+  _baseName: string
+): Promise<FootageMap | null> {
+  const gridPath = `${basePath}.footage.png`;
+  try {
+    // 4 frames sur la durée → grille 2×2 (lisible pour repérer visage/cadrage).
+    const { code } = await runFFmpeg(
+      [
+        "-y", "-hide_banner", "-loglevel", "error", "-i", basePath,
+        "-vf", "thumbnail,scale=360:-2,tile=2x2",
+        "-frames:v", "1", gridPath,
+      ],
+      60_000
+    );
+    if (code !== 0 || !fsSync.existsSync(gridPath)) return null;
+    const b64 = (await fs.readFile(gridPath)).toString("base64");
+    const map = await readFootage([b64]);
+    if (map) {
+      console.log(
+        `[studio] rush lu : visage=${map.hasFace} cadrage=${map.framing}` +
+          (map.faceBox
+            ? ` box[${map.faceBox.x.toFixed(2)},${map.faceBox.y.toFixed(2)},${map.faceBox.w.toFixed(2)},${map.faceBox.h.toFixed(2)}]`
+            : "")
+      );
+    }
+    return map;
+  } catch {
+    return null;
+  } finally {
+    await fs.unlink(gridPath).catch(() => {});
+  }
 }
 
 // Petit hash stable (djb2) → seed de découpe propre à (job, vidéo).

@@ -13,7 +13,13 @@
 // TODO: brancher — analyse LLM des reels de référence une fois leur
 //       téléchargement en place (même couche, prompt différent).
 
-import type { MontageLevel, MontageMove, ReelFormat, ViralRecipe } from "./types";
+import type {
+  FootageMap,
+  MontageLevel,
+  MontageMove,
+  ReelFormat,
+  ViralRecipe,
+} from "./types";
 import type { TranscriptSegment } from "./transcribe";
 
 export interface LLMClip {
@@ -363,6 +369,75 @@ export async function refineTransitionCounts(
     }));
   } catch (e) {
     console.error("[studio] raffinement timing échoué :", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 2 — Lecture du RUSH de l'utilisateur : où est le visage, quel cadrage.
+// Appelée UNIQUEMENT pour les refs "coordonne" (routeur d'effort). ~1-2¢.
+// ─────────────────────────────────────────────────────────────────────────────
+const FOOTAGE_TOOL = {
+  name: "read_footage",
+  description: "Décrit ce que contient la vidéo brute (visage, cadrage).",
+  input_schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      hasFace: { type: "boolean", description: "un visage humain est-il visible ?" },
+      faceX: { type: "number", description: "centre horizontal du visage, 0=gauche 1=droite" },
+      faceY: { type: "number", description: "centre vertical du visage, 0=haut 1=bas" },
+      faceW: { type: "number", description: "largeur du visage / largeur image (0-1)" },
+      faceH: { type: "number", description: "hauteur du visage / hauteur image (0-1)" },
+      framing: {
+        type: "string",
+        enum: ["full-body", "upper-body", "closeup"],
+        description:
+          "cadrage global : full-body = corps entier visible, upper-body = buste/taille, closeup = gros plan visage/épaules",
+      },
+    },
+    required: ["hasFace", "faceX", "faceY", "faceW", "faceH", "framing"],
+  },
+} as const;
+
+export async function readFootage(
+  framesBase64: string[]
+): Promise<FootageMap | null> {
+  if (!isLLMAvailable() || PROVIDER !== "anthropic") return null;
+  try {
+    const { toolInput } = await callAnthropic({
+      system: [
+        "On te donne des frames d'une vidéo brute verticale (9:16) d'un créateur.",
+        "Décris ce qu'elle CONTIENT pour un monteur : y a-t-il un visage, où est-il, et quel est le cadrage global.",
+        "Le visage : donne son centre et sa taille en fractions de l'image (0-1). Utilise l'outil read_footage.",
+      ].join("\n"),
+      user: "Analyse cette vidéo brute.",
+      imagesBase64: framesBase64,
+      tool: FOOTAGE_TOOL,
+    });
+    if (!toolInput) return null;
+    const o = toolInput as Record<string, unknown>;
+    const n = (x: unknown, d: number) =>
+      typeof x === "number" && Number.isFinite(x) ? x : d;
+    const cl = (x: number) => Math.max(0, Math.min(1, x));
+    const hasFace = o.hasFace === true;
+    return {
+      hasFace,
+      faceBox: hasFace
+        ? {
+            x: cl(n(o.faceX, 0.5) - n(o.faceW, 0.3) / 2),
+            y: cl(n(o.faceY, 0.35) - n(o.faceH, 0.2) / 2),
+            w: cl(n(o.faceW, 0.3)),
+            h: cl(n(o.faceH, 0.2)),
+          }
+        : null,
+      framing:
+        o.framing === "full-body" || o.framing === "closeup"
+          ? o.framing
+          : "upper-body",
+    };
+  } catch (e) {
+    console.error("[studio] lecture du rush échouée :", e instanceof Error ? e.message : e);
     return null;
   }
 }
