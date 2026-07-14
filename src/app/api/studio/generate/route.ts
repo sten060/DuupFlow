@@ -31,6 +31,20 @@ export async function POST(req: Request) {
   // Recettes des références analysées (peut être vide → génération normale).
   const recipes = Array.isArray(body.recipes) ? body.recipes : [];
 
+  // Garde-fou SERVEUR : une recette sans mesures (layout) vient d'une analyse
+  // d'ancienne version encore en mémoire dans un onglet pas rechargé —
+  // générer avec donnerait un rendu par défaut silencieusement faux.
+  // (Le client a le même garde-fou, mais un vieux bundle ne l'a pas.)
+  if (recipes.some((r) => !r?.layout)) {
+    return NextResponse.json(
+      {
+        error:
+          "Référence analysée par une ancienne version de l'outil — recharge la page (Cmd+Shift+R), supprime les références (✕) et re-colle-les avant de générer.",
+      },
+      { status: 400 }
+    );
+  }
+
   if (videos.length === 0 || videos.length > MAX_RAW_VIDEOS) {
     return NextResponse.json(
       { error: `Entre 1 et ${MAX_RAW_VIDEOS} vidéos requises` },
