@@ -67,6 +67,21 @@ export interface RecipeRhythm {
   beatSync: boolean; // cuts calés sur les pics d'énergie audio ?
 }
 
+// Niveau de montage → pilote le "routeur d'effort" (combien on dépense) :
+//  simple    = plan fixe / une caption, l'image n'illustre pas le texte
+//  rythme    = coupures/jump cuts, mais l'image ne montre PAS ce que dit le texte
+//  coordonne = l'image illustre SPÉCIFIQUEMENT le texte (dit "visage" → montre le
+//              visage) — le seul niveau qui déclenche l'analyse coûteuse
+export type MontageLevel = "simple" | "rythme" | "coordonne";
+
+// Un "mouvement" du montage de la ref (vocabulaire général, pas un template).
+export interface MontageMove {
+  atFrac: number; // moment 0-1 de la durée
+  action: "hold" | "zoom-in" | "pull-back" | "cut" | "pan";
+  shows: string; // ce que le plan montre (visage / corps entier / detail / large)
+  textAtThisMoment: string; // caption affichée à ce moment (ou vide)
+}
+
 // "Recette" extraite d'un reel de référence : le SCHÉMA transférable (pas le
 // contenu). Sert à faire écrire au LLM des hooks/captions dans le même style.
 export interface ViralRecipe {
@@ -80,6 +95,10 @@ export interface ViralRecipe {
   uppercase?: boolean; // captions en MAJUSCULES ?
   layout?: RecipeLayout; // mesures du montage (reveal/timing/position/taille)
   rhythm?: RecipeRhythm; // rythme de montage (cuts) — extrait en pur code
+  // ── Compréhension du montage (Phase 1 "réalisateur") ──────────────────────
+  montageLevel?: MontageLevel; // pilote le routeur d'effort
+  moves?: MontageMove[]; // suite de mouvements (image ↔ texte)
+  footageNeeded?: string; // description du rush idéal pour reproduire
 }
 
 // Une référence collée : statut d'analyse + recette une fois prête.

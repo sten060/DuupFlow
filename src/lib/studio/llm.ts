@@ -13,7 +13,7 @@
 // TODO: brancher — analyse LLM des reels de référence une fois leur
 //       téléchargement en place (même couche, prompt différent).
 
-import type { ReelFormat, ViralRecipe } from "./types";
+import type { MontageLevel, MontageMove, ReelFormat, ViralRecipe } from "./types";
 import type { TranscriptSegment } from "./transcribe";
 
 export interface LLMClip {
@@ -109,12 +109,25 @@ function buildPrompt(opts: {
     const lineLen = layout
       ? Math.max(30, Math.round(layout.maxCharsPerLine * 1.8))
       : 60;
+    // Longueur cible du hook = celle de la caption de la référence (son 1ᵉʳ
+    // exemple), pour ne pas raccourcir une caption qui doit être une phrase.
+    const refPrimary = opts.recipes?.find((r) => r.layout);
+    const refHookLen = refPrimary?.examples?.[0]?.length ?? 0;
+    const singleCaption = layout?.revealCount === 0;
     systemParts.push(
       "Cette vidéo n'a pas de parole : c'est une vidéo VISUELLE (créatrice qui pose/se filme). Ne découpe pas.",
-      "FORMAT À PRODUIRE (très courant et viral en OFM) — une LISTE qui se dévoile :",
-      "- \"hook\" = une accroche/question provocante qui AMORCE et laisse en suspens (souvent finie par \"…\" ou \"malgré que ..\"), tutoiement, en français.",
-      `- "reveals" = ${revealSpec} qui répondent/complètent, révélées ensuite une par une, de plus en plus culottées. REPRENDS le format de liste des exemples de la référence : si elle numérote ("1.", "2."), numérote pareil ; si elle met des tirets, mets des tirets ; sinon aucun préfixe.`,
-      `- LONGUEUR : chaque révélation fait MAX ${lineLen} caractères (elle doit tenir en 2 lignes courtes à l'écran). Le hook aussi reste court.`,
+      singleCaption
+        ? "FORMAT À PRODUIRE — UNE SEULE caption fixe (la référence n'en a qu'une) :"
+        : "FORMAT À PRODUIRE (très courant et viral en OFM) — une LISTE qui se dévoile :",
+      singleCaption
+        ? `- "hook" = LA caption entière : une phrase COMPLÈTE et FINIE (jamais coupée en plein milieu), même esprit/longueur que l'exemple de la référence${refHookLen ? ` (~${refHookLen} caractères)` : ""}. "reveals" = [] (aucune).`
+        : "- \"hook\" = une accroche/question provocante qui AMORCE et laisse en suspens (souvent finie par \"…\" ou \"malgré que ..\"), tutoiement, en français. Reste court (l'amorce).",
+      singleCaption
+        ? ""
+        : `- "reveals" = ${revealSpec} qui répondent/complètent, révélées ensuite une par une, de plus en plus culottées. REPRENDS le format de liste des exemples de la référence : si elle numérote ("1.", "2."), numérote pareil ; si elle met des tirets, mets des tirets ; sinon aucun préfixe.`,
+      singleCaption
+        ? ""
+        : `- LONGUEUR : chaque révélation fait MAX ${lineLen} caractères (elle doit tenir en 2 lignes courtes à l'écran).`,
       "TON : jeux de mots et DOUBLE SENS coquins (sous-entendus), soft et suggestif, JAMAIS explicite ou vulgaire. Reste malin et drôle, façon créatrice qui aguiche.",
       "Chaque variante = un ANGLE/enchaînement différent. startSec et endSec = 0.",
       "Reprends l'esprit des exemples de la référence (double sens, autodérision, montée progressive) sans les copier mot pour mot."
@@ -279,12 +292,23 @@ function parseClips(raw: string, durationSec: number): LLMClip[] {
     clips.push({
       startSec: Math.round(s * 10) / 10,
       endSec: Math.round(e * 10) / 10,
-      hook: hook.slice(0, 90),
-      reveals,
+      // Garde-fou anti-abus (240 car.) mais coupé au MOT, jamais au milieu :
+      // une caption OFM "poster" est souvent une phrase complète longue.
+      hook: capAtWord(hook, 240),
+      reveals: reveals.map((r) => capAtWord(r, 240)),
       caption,
     });
   }
   return clips;
+}
+
+// Tronque à maxLen SANS couper un mot (recule au dernier espace) — évite les
+// "…tiendrais-tu avan" en plein milieu.
+function capAtWord(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  const cut = text.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > maxLen * 0.6 ? cut.slice(0, lastSpace) : cut).trim();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -446,10 +470,44 @@ const RECIPE_TOOL = {
           "hookFontFrac", "fontFamily", "fontWeight", "outline", "shadow",
         ],
       },
+      // ── Compréhension du MONTAGE (Phase 1) — greffée sur le même appel ─────
+      montageLevel: {
+        type: "string",
+        enum: ["simple", "rythme", "coordonne"],
+        description:
+          "Niveau de montage. \"simple\" = plan quasi fixe, l'image ne change pas pour illustrer le texte. \"rythme\" = coupures/jump cuts, MAIS l'image ne montre PAS spécifiquement ce que dit le texte (ex : tête qui parle avec sous-titres qui suivent la voix → rythme). \"coordonne\" UNIQUEMENT si l'image illustre SPÉCIFIQUEMENT le sens du texte : le texte nomme une chose (visage, corps, objet, avant/après) et l'image la MONTRE à ce moment précis.",
+      },
+      moves: {
+        type: "array",
+        maxItems: 12,
+        description:
+          "Suite des mouvements de montage dans l'ordre. Pour un montage simple/rythmé, décris quand même les plans (hold/cut). Pour coordonné, fais bien correspondre chaque plan au texte affiché.",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            atFrac: { type: "number", description: "moment 0-1 de la durée" },
+            action: {
+              type: "string",
+              enum: ["hold", "zoom-in", "pull-back", "cut", "pan"],
+              description: "hold=plan tenu, zoom-in=on resserre, pull-back=on ouvre, cut=coupure, pan=balayage",
+            },
+            shows: { type: "string", description: "ce que le plan montre : visage / corps entier / detail / plan large / autre" },
+            textAtThisMoment: { type: "string", description: "texte affiché à ce moment, ou vide" },
+          },
+          required: ["atFrac", "action", "shows", "textAtThisMoment"],
+        },
+      },
+      footageNeeded: {
+        type: "string",
+        description:
+          "En une phrase : quel type de vidéo brute du créateur permettrait de reproduire ce montage.",
+      },
     },
     required: [
       "hookStyle", "captionStyle", "structure", "tone", "cta",
       "examples", "accentColor", "uppercase", "layout",
+      "montageLevel", "moves", "footageNeeded",
     ],
   },
 } as const;
@@ -507,6 +565,11 @@ export async function extractRecipeFromReference(opts: {
     "",
     "accentColor = couleur dominante du texte des captions en #RRGGBB si visible, sinon null (ignore les lignes rouges de la règle : c'est un outil de mesure, pas le design).",
     "examples = les textes EXACTS des captions lus à l'écran (hook d'abord), avec leur numérotation/puces d'origine.",
+    "",
+    "MONTAGE (regarde les 16 frames de timing) :",
+    "- montageLevel : \"coordonne\" SEULEMENT si l'image illustre spécifiquement le SENS du texte (le texte nomme une chose — visage, corps, un objet, avant/après — et l'image la MONTRE à ce moment). Une tête qui parle avec des sous-titres qui suivent la voix = \"rythme\", PAS \"coordonne\". Un plan quasi fixe = \"simple\".",
+    "- moves : la suite des plans dans l'ordre (action + ce que montre le plan + texte affiché). Sois précis sur le lien image↔texte.",
+    "- footageNeeded : en une phrase, le rush idéal pour reproduire ce montage.",
     "Enregistre la recette via l'outil save_recipe.",
   ]
     .filter(Boolean)
@@ -562,6 +625,33 @@ function parseRecipe(input: unknown, refDurationSec: number): ViralRecipe | null
     ? o.examples.filter((x): x is string => typeof x === "string").slice(0, 6)
     : [];
 
+  // ── Montage (Phase 1) : niveau + mouvements (validés/bornés) ──────────────
+  const level: MontageLevel =
+    o.montageLevel === "coordonne" || o.montageLevel === "rythme"
+      ? o.montageLevel
+      : "simple";
+  const moves: MontageMove[] = Array.isArray(o.moves)
+    ? o.moves
+        .map((m) => {
+          const mo = m as Record<string, unknown>;
+          const atFrac = typeof mo.atFrac === "number" ? mo.atFrac : NaN;
+          const action = mo.action;
+          if (!Number.isFinite(atFrac)) return null;
+          if (!["hold", "zoom-in", "pull-back", "cut", "pan"].includes(action as string))
+            return null;
+          return {
+            atFrac: Math.max(0, Math.min(1, atFrac)),
+            action: action as MontageMove["action"],
+            shows: typeof mo.shows === "string" ? mo.shows.trim() : "",
+            textAtThisMoment:
+              typeof mo.textAtThisMoment === "string" ? mo.textAtThisMoment.trim() : "",
+          };
+        })
+        .filter((m): m is MontageMove => m !== null)
+        .sort((a, b) => a.atFrac - b.atFrac)
+        .slice(0, 12)
+    : [];
+
   return {
     hookStyle,
     captionStyle: str(o.captionStyle),
@@ -572,6 +662,9 @@ function parseRecipe(input: unknown, refDurationSec: number): ViralRecipe | null
     accentColor: /^#[0-9a-fA-F]{6}$/.test(accent) ? accent : undefined,
     uppercase: typeof o.uppercase === "boolean" ? o.uppercase : undefined,
     layout: parseLayout(o.layout, refDurationSec, examples),
+    montageLevel: level,
+    moves,
+    footageNeeded: str(o.footageNeeded) || undefined,
   };
 }
 

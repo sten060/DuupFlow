@@ -54,12 +54,12 @@ export async function analyzeReference(
   await fs.mkdir(REFS_DIR, { recursive: true });
 
   // Cache : recette déjà extraite pour cette URL → réutilisée, 0 coût.
-  // Suffixe _v3 = ère "tokens visuels" (v2 = mesures layout) : les caches d'ancien format (recette
+  // Suffixe _v4 = ère "montage" (v3 = tokens visuels) : les caches d'ancien format (recette
   // descriptive sans mesures) ne peuvent JAMAIS resurgir.
-  const cacheFile = path.join(REFS_DIR, `${urlHash(url)}_v3.json`);
+  const cacheFile = path.join(REFS_DIR, `${urlHash(url)}_v4.json`);
   try {
     const cached = JSON.parse(await fs.readFile(cacheFile, "utf8")) as ViralRecipe;
-    if (cached?.hookStyle && cached.layout && cached.rhythm) return { recipe: cached };
+    if (cached?.hookStyle && cached.layout && cached.rhythm && cached.montageLevel) return { recipe: cached };
   } catch {
     /* pas de cache — on analyse */
   }
@@ -138,10 +138,10 @@ export async function analyzeReferenceFile(
       .update(await fs.readFile(videoPath))
       .digest("hex")
       .slice(0, 16);
-    const cacheFile = path.join(REFS_DIR, `${contentHash}_v3.json`);
+    const cacheFile = path.join(REFS_DIR, `${contentHash}_v4.json`);
     try {
       const cached = JSON.parse(await fs.readFile(cacheFile, "utf8")) as ViralRecipe;
-      if (cached?.hookStyle && cached.layout && cached.rhythm) return { recipe: cached };
+      if (cached?.hookStyle && cached.layout && cached.rhythm && cached.montageLevel) return { recipe: cached };
     } catch {
       /* pas de cache — on analyse */
     }
@@ -188,6 +188,14 @@ async function buildRecipeFromVideo(
     postCaption: postCaption || undefined,
     refDurationSec: durationSec,
   });
+
+  // Compréhension du montage (Phase 1) — greffée sur l'appel vision ci-dessus.
+  if (recipe) {
+    console.log(
+      `[studio] montage ref : niveau=${recipe.montageLevel} · ${recipe.moves?.length ?? 0} mouvement(s)` +
+        (recipe.footageNeeded ? ` · rush idéal : ${recipe.footageNeeded.slice(0, 90)}` : "")
+    );
+  }
 
   // Passe de raffinement : le comptage grille est fiable à ±1 frame près.
   // On re-vérifie chaque transition sur les 2 frames frontières en grand.
