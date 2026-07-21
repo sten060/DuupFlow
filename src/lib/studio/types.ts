@@ -15,6 +15,10 @@ export interface UploadedVideo {
   // pour placer/assembler les contenus selon la ref.
   kind?: "video" | "image"; // défaut "video"
   note?: string; // contexte libre saisi par l'utilisateur
+  // true = source COMBINÉE de plusieurs contenus (concat avant/après…). Dans ce
+  // cas les coupures sont DÉJÀ dans la vidéo → on ne ré-applique PAS le montage
+  // de la ref (zooms/jump-cuts) par-dessus, on joue en entier + captions.
+  assembled?: boolean;
 }
 
 // Reel généré (réel, encodé par ffmpeg dans .studio-local/outputs).

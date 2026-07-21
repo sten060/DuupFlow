@@ -247,11 +247,17 @@ async function runJob(
             const baseProbe = await probeVideo(basePath);
             const layout = primary?.layout ?? null;
 
+            // Source COMBINÉE (plusieurs contenus) : la coupure avant→après est
+            // DÉJÀ dans la vidéo. On ne ré-applique NI le montage coordonné
+            // (zooms) NI les jump-cuts de la ref — on joue la vidéo en ENTIER
+            // (sinon zooms parasites + l'après tronqué). Captions seulement.
+            const assembled = item.video.assembled === true;
+
             // ── RÉALISATEUR (Phase 2-4) : montage COORDONNÉ. Seulement si la
             // ref est "coordonne" — c'est là qu'on paie la lecture du rush.
             let shots: EditShot[] | null = null;
             let outDur = baseProbe.durationSec;
-            if (primary?.montageLevel === "coordonne" && origin) {
+            if (!assembled && primary?.montageLevel === "coordonne" && origin) {
               // On réutilise l'analyse POUSSÉE faite à l'upload (contexte +
               // timeline + visage) — pas de 2ᵉ lecture vision. Repli sur la
               // lecture superficielle de la base si pas d'analyse en cache.
@@ -283,7 +289,7 @@ async function runJob(
             // jump cuts qui reproduisent le pattern de plans de la ref.
             const rhythm = primary?.rhythm ?? null;
             let segments = null;
-            if (!shots && rhythm && rhythm.cutTimestampsSec.length > 0) {
+            if (!assembled && !shots && rhythm && rhythm.cutTimestampsSec.length > 0) {
               segments = buildEditPlan(
                 rhythm,
                 layout?.refDurationSec ?? baseProbe.durationSec,

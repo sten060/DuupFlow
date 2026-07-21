@@ -107,6 +107,9 @@ export async function POST(req: Request) {
     format,
     durationLabel: formatDuration(probe.durationSec),
     sizeMo: 1,
+    // Plusieurs contenus = coupures déjà baked dans la vidéo → pas de re-montage
+    // ref par-dessus (sinon zooms/cuts en trop et l'après est tronqué).
+    assembled: assets.length > 1,
   };
 
   const origin = new URL(req.url).origin;
