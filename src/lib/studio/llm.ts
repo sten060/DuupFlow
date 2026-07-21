@@ -14,7 +14,10 @@
 //       téléchargement en place (même couche, prompt différent).
 
 import type {
+  FootageAnalysis,
   FootageMap,
+  FootageRole,
+  FootageSegment,
   MontageLevel,
   MontageMove,
   ReelFormat,
@@ -469,6 +472,132 @@ export async function readFootage(
     };
   } catch (e) {
     console.error("[studio] lecture du rush échouée :", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+// ── Analyse POUSSÉE de la vidéo brute (à l'upload) : comprendre TOUTE la vidéo,
+// son contexte et son découpage narratif (avant/après, révélation…), en plus du
+// visage/cadrage. C'est ce qui permet ensuite de caler coupures et captions sur
+// les VRAIS moments de la vidéo de l'utilisateur.
+const FOOTAGE_ANALYSIS_TOOL = {
+  name: "analyze_footage",
+  description:
+    "Comprend le contenu et le déroulé d'une vidéo brute : contexte, segments de sens, visage/cadrage.",
+  input_schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      context: {
+        type: "string",
+        description:
+          "En UNE phrase : le sujet et le contexte de la vidéo (ex : « transformation avant/après d'une femme chez elle », « créatrice qui pose sur son lit », « présentation d'un produit »).",
+      },
+      hasNarrative: {
+        type: "boolean",
+        description:
+          "true si la vidéo raconte un ARC (avant/après, transformation, révélation, réaction) ; false si c'est un plan continu sans évolution (elle pose, elle parle).",
+      },
+      segments: {
+        type: "array",
+        maxItems: 6,
+        description:
+          "Découpage de la vidéo en segments de SENS, dans l'ordre du temps. Pour un avant/après : un segment 'avant', un segment 'apres', et le point de bascule ('revelation') entre les deux si visible.",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            startFrac: { type: "number", description: "début du segment, 0=début vidéo 1=fin" },
+            endFrac: { type: "number", description: "fin du segment (0-1)" },
+            role: {
+              type: "string",
+              enum: ["avant", "apres", "revelation", "action", "parle", "produit", "neutre"],
+              description:
+                "rôle narratif. avant/apres = les deux états d'une transformation ; revelation = moment de bascule ; action = il se passe qqch ; parle = la personne parle face caméra ; produit = objet mis en avant ; neutre = rien de marquant.",
+            },
+            description: {
+              type: "string",
+              description:
+                "Ce qu'on voit, de façon FACTUELLE et NEUTRE (ex : « cheveux détachés, tenue simple, sans maquillage » / « coiffée, maquillée, tenue soignée »). JAMAIS de jugement de valeur (pas de « laide », « grosse »…), décris seulement l'apparence et l'action.",
+            },
+          },
+          required: ["startFrac", "endFrac", "role", "description"],
+        },
+      },
+      hasFace: { type: "boolean", description: "un visage humain est-il visible ?" },
+      faceX: { type: "number", description: "centre horizontal du visage, 0=gauche 1=droite" },
+      faceY: { type: "number", description: "centre vertical du visage, 0=haut 1=bas" },
+      faceW: { type: "number", description: "largeur du visage / largeur image (0-1)" },
+      faceH: { type: "number", description: "hauteur du visage / hauteur image (0-1)" },
+      framing: {
+        type: "string",
+        enum: ["full-body", "upper-body", "closeup"],
+        description:
+          "cadrage global : full-body = corps entier, upper-body = buste/taille, closeup = gros plan visage/épaules",
+      },
+    },
+    required: ["context", "hasNarrative", "segments", "hasFace", "faceX", "faceY", "faceW", "faceH", "framing"],
+  },
+} as const;
+
+export async function analyzeFootage(
+  gridBase64: string[],
+  frameCount: number
+): Promise<FootageAnalysis | null> {
+  if (!isLLMAvailable() || PROVIDER !== "anthropic") return null;
+  try {
+    const { toolInput } = await callAnthropic({
+      system: [
+        `On te donne une grille de ${frameCount} frames d'une vidéo brute verticale (9:16), DANS L'ORDRE DU TEMPS (lecture gauche→droite puis haut→bas) : la 1ʳᵉ = tout début, la dernière = toute fin, réparties uniformément sur la durée.`,
+        "Comprends TOUTE la vidéo AVANT de répondre : son contexte, et surtout SON DÉROULÉ — ce qui se passe et à quel moment.",
+        "Découpe-la en segments de SENS (startFrac/endFrac = position dans la vidéo, 0=début 1=fin).",
+        "Si c'est une TRANSFORMATION avant/après : identifie clairement le segment 'avant', le segment 'apres', et le moment de bascule.",
+        "Décris chaque état de façon FACTUELLE et NEUTRE (apparence, tenue, action) — JAMAIS de jugement de valeur.",
+        "Donne aussi le visage (centre + taille en fractions) et le cadrage. Utilise l'outil analyze_footage.",
+      ].join("\n"),
+      user: "Analyse en profondeur cette vidéo brute.",
+      imagesBase64: gridBase64,
+      tool: FOOTAGE_ANALYSIS_TOOL,
+    });
+    if (!toolInput) return null;
+    const o = toolInput as Record<string, unknown>;
+    const n = (x: unknown, d: number) =>
+      typeof x === "number" && Number.isFinite(x) ? x : d;
+    const cl = (x: number) => Math.max(0, Math.min(1, x));
+    const hasFace = o.hasFace === true;
+    const rawSegs = Array.isArray(o.segments) ? o.segments : [];
+    const segments: FootageSegment[] = rawSegs
+      .map((s) => {
+        const seg = s as Record<string, unknown>;
+        return {
+          startFrac: cl(n(seg.startFrac, 0)),
+          endFrac: cl(n(seg.endFrac, 1)),
+          role: (typeof seg.role === "string" ? seg.role : "neutre") as FootageRole,
+          description: typeof seg.description === "string" ? seg.description : "",
+        };
+      })
+      .filter((s) => s.endFrac > s.startFrac)
+      .sort((a, b) => a.startFrac - b.startFrac);
+    return {
+      context: typeof o.context === "string" ? o.context : "",
+      hasNarrative: o.hasNarrative === true,
+      segments,
+      hasFace,
+      faceBox: hasFace
+        ? {
+            x: cl(n(o.faceX, 0.5) - n(o.faceW, 0.3) / 2),
+            y: cl(n(o.faceY, 0.35) - n(o.faceH, 0.2) / 2),
+            w: cl(n(o.faceW, 0.3)),
+            h: cl(n(o.faceH, 0.2)),
+          }
+        : null,
+      framing:
+        o.framing === "full-body" || o.framing === "closeup"
+          ? o.framing
+          : "upper-body",
+    };
+  } catch (e) {
+    console.error("[studio] analyse poussée du rush échouée :", e instanceof Error ? e.message : e);
     return null;
   }
 }

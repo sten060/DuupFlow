@@ -127,6 +127,36 @@ export interface FootageMap {
   framing: "full-body" | "upper-body" | "closeup"; // cadrage global du rush
 }
 
+// Rôle narratif d'un segment de la vidéo brute (analyse poussée à l'upload).
+// Labels NEUTRES (pas de jugement de valeur) : "avant/après" = les deux états
+// d'une transformation, "revelation" = moment de bascule, etc.
+export type FootageRole =
+  | "avant"
+  | "apres"
+  | "revelation"
+  | "action"
+  | "parle"
+  | "produit"
+  | "neutre";
+
+// Un segment de SENS de la vidéo brute : ce qui se passe, et QUAND.
+export interface FootageSegment {
+  startFrac: number; // début dans la vidéo (0-1)
+  endFrac: number; // fin (0-1)
+  role: FootageRole;
+  description: string; // ce qu'on voit, factuel et neutre
+}
+
+// Analyse POUSSÉE d'une vidéo brute uploadée : contexte global + timeline
+// sémantique (les moments qui comptent), en plus de la lecture physique
+// (visage/cadrage). Superset de FootageMap → utilisable partout où on attend
+// un FootageMap. Calculée une fois à l'upload, mise en cache sur disque.
+export interface FootageAnalysis extends FootageMap {
+  context: string; // sujet/contexte en une phrase
+  hasNarrative: boolean; // vrai si arc clair (avant/après, transformation…)
+  segments: FootageSegment[];
+}
+
 // "Recette" extraite d'un reel de référence : le SCHÉMA transférable (pas le
 // contenu). Sert à faire écrire au LLM des hooks/captions dans le même style.
 export interface ViralRecipe {

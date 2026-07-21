@@ -12,6 +12,7 @@ import {
   formatDuration,
   probeVideo,
 } from "@/lib/studio/pipeline";
+import { analyzeUploadedFootage, footageCachePath } from "@/lib/studio/footage";
 import type { UploadedVideo } from "@/lib/studio/types";
 
 export const runtime = "nodejs";
@@ -57,6 +58,21 @@ export async function POST(req: Request) {
   try {
     const probe = await probeVideo(storedPath);
     const format = await detectFormat(storedPath, probe);
+
+    // Analyse POUSSÉE (comprendre toute la vidéo + son déroulé) — best-effort,
+    // mise en cache à côté du fichier pour réutilisation au montage.
+    try {
+      const analysis = await analyzeUploadedFootage(storedPath, probe.durationSec);
+      if (analysis) {
+        await fs.writeFile(footageCachePath(storedPath), JSON.stringify(analysis), "utf8");
+        console.log(
+          `[studio] analyse rush « ${file.name} » : ${analysis.context.slice(0, 70)} ` +
+            `· narratif=${analysis.hasNarrative} · ${analysis.segments.length} segment(s)`
+        );
+      }
+    } catch (e) {
+      console.warn("[studio] analyse poussée ignorée :", e instanceof Error ? e.message : e);
+    }
 
     const video: UploadedVideo = {
       id,

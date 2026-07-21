@@ -16,6 +16,7 @@ import {
 } from "./pipeline";
 import { computeRevealTimes } from "./captions";
 import { buildDirectorPlan } from "./director";
+import { readFootageAnalysis } from "./footage";
 import { planClipsWithLLM, readFootage } from "./llm";
 import { runFFmpeg } from "./pipeline";
 import { renderCaptionsWithRemotion } from "./remotion-render";
@@ -251,7 +252,17 @@ async function runJob(
             let shots: EditShot[] | null = null;
             let outDur = baseProbe.durationSec;
             if (primary?.montageLevel === "coordonne" && origin) {
-              const footage = await readBaseFootage(basePath, origin, baseName);
+              // On réutilise l'analyse POUSSÉE faite à l'upload (contexte +
+              // timeline + visage) — pas de 2ᵉ lecture vision. Repli sur la
+              // lecture superficielle de la base si pas d'analyse en cache.
+              const analysis = await readFootageAnalysis(inputPath);
+              const footage = analysis ?? (await readBaseFootage(basePath, origin, baseName));
+              if (analysis) {
+                console.log(
+                  `[studio] rush compris : ${analysis.context.slice(0, 60)} · ` +
+                    `narratif=${analysis.hasNarrative} · ${analysis.segments.length} segment(s)`
+                );
+              }
               if (footage) {
                 const captions = [clip.hook, ...clip.reveals].filter(Boolean);
                 shots = buildDirectorPlan(primary, footage, captions, baseProbe.durationSec);
