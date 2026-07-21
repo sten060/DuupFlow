@@ -54,9 +54,9 @@ export async function analyzeReference(
   await fs.mkdir(REFS_DIR, { recursive: true });
 
   // Cache : recette déjà extraite pour cette URL → réutilisée, 0 coût.
-  // Suffixe _v4 = ère "montage" (v3 = tokens visuels) : les caches d'ancien format (recette
+  // Suffixe _v5 = mesures "hauteur de capitales" + règle 5% (v4 = ère montage). Caches d'ancien format (recette
   // descriptive sans mesures) ne peuvent JAMAIS resurgir.
-  const cacheFile = path.join(REFS_DIR, `${urlHash(url)}_v4.json`);
+  const cacheFile = path.join(REFS_DIR, `${urlHash(url)}_v5.json`);
   try {
     const cached = JSON.parse(await fs.readFile(cacheFile, "utf8")) as ViralRecipe;
     if (cached?.hookStyle && cached.layout && cached.rhythm && cached.montageLevel) return { recipe: cached };
@@ -138,7 +138,7 @@ export async function analyzeReferenceFile(
       .update(await fs.readFile(videoPath))
       .digest("hex")
       .slice(0, 16);
-    const cacheFile = path.join(REFS_DIR, `${contentHash}_v4.json`);
+    const cacheFile = path.join(REFS_DIR, `${contentHash}_v5.json`);
     try {
       const cached = JSON.parse(await fs.readFile(cacheFile, "utf8")) as ViralRecipe;
       if (cached?.hookStyle && cached.layout && cached.rhythm && cached.montageLevel) return { recipe: cached };
@@ -158,8 +158,9 @@ export async function analyzeReferenceFile(
 
 // ── Analyse commune : grille (timing) + DEUX frames réglées (50% et 85% —
 // détection accumulation/remplacement + mesures) + transcription → recette.
-// Les frames réglées portent une RÈGLE graduée (lignes tous les 10% de la
-// hauteur) : la vision MESURE les positions/tailles au lieu d'estimer.
+// Les frames réglées portent une RÈGLE graduée (traits fins tous les 5% de la
+// hauteur, étiquetés tous les 10%) : la vision MESURE la HAUTEUR DES CAPITALES
+// et les positions au lieu d'estimer.
 async function buildRecipeFromVideo(
   videoPath: string,
   postCaption: string
@@ -381,15 +382,19 @@ async function buildDesignFrame(
   try {
     const t = Math.max(0, durationSec * atFrac);
     const filters: string[] = ["scale=720:-2"];
-    // Lignes horizontales tous les 10% (drawgrid ne fait pas d'étiquettes →
-    // drawbox fin par ligne + drawtext par étiquette).
-    for (let k = 1; k <= 9; k++) {
-      filters.push(`drawbox=y=ih*${(k / 10).toFixed(2)}:w=iw:h=2:color=red@0.85:t=fill`);
-      if (FONT_FILE) {
+    // Règle horizontale : trait FIN tous les 5% (interpolation serrée pour les
+    // petites hauteurs de texte), étiquette seulement tous les 10%.
+    for (let k = 1; k <= 19; k++) {
+      const frac = (k * 0.05).toFixed(2);
+      const labeled = k % 2 === 0; // multiples de 0.10
+      filters.push(
+        `drawbox=y=ih*${frac}:w=iw:h=${labeled ? 2 : 1}:color=red@${labeled ? "0.85" : "0.5"}:t=fill`
+      );
+      if (labeled && FONT_FILE) {
         // NB : dans drawtext la hauteur de l'image est `H` (pas `ih` comme drawbox).
         filters.push(
-          `drawtext=fontfile='${FONT_FILE}':text='${k * 10}':fontcolor=red:fontsize=26` +
-            `:borderw=2:bordercolor=white:x=8:y=H*${(k / 10).toFixed(2)}-30`
+          `drawtext=fontfile='${FONT_FILE}':text='${k * 5}':fontcolor=red:fontsize=26` +
+            `:borderw=2:bordercolor=white:x=8:y=H*${frac}-30`
         );
       }
     }

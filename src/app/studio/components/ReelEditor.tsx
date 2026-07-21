@@ -324,7 +324,7 @@ export default function ReelEditor({
                   ? patchLayout({ fontFrac: vv })
                   : patchLayout({ hookFontFrac: vv })
               }
-              display={`${Math.round(selSize * 1920)}px`}
+              display={`${Math.round((selSize * 1920) / 0.72)}px`}
             />
             <Slider
               label="Position ↕"

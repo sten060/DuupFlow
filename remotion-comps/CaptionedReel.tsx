@@ -94,8 +94,14 @@ export const CaptionedReel: React.FC<CaptionedReelProps> = ({
   const t = frame / fps;
 
   // ── Mesures : celles de la référence, sinon défauts équilibrés ────────────
-  const fontSize = Math.round((layout?.fontFrac ?? 0.033) * H);
-  const hookFontSize = Math.round((layout?.hookFontFrac ?? layout?.fontFrac ?? 0.033) * H);
+  // fontFrac/hookFontFrac = hauteur des CAPITALES mesurée sur la ref. Or la
+  // taille CSS (font-size) est la cage em, ~1.39× plus grande que la capitale
+  // (capHeight ≈ 0.72·em). Sans cette conversion, le texte rend ~30% trop petit.
+  const CAP_RATIO = 0.72;
+  const fontSize = Math.round(((layout?.fontFrac ?? 0.033) * H) / CAP_RATIO);
+  const hookFontSize = Math.round(
+    ((layout?.hookFontFrac ?? layout?.fontFrac ?? 0.033) * H) / CAP_RATIO
+  );
   const maxChars = layout?.maxCharsPerLine ?? 24;
   const hookTop = (layout?.hookYFrac ?? 0.32) * H;
   const stackTop = (layout?.stackYFrac ?? 0.46) * H;

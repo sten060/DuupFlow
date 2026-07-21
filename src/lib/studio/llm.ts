@@ -529,7 +529,7 @@ const RECIPE_TOOL = {
           fontFrac: {
             type: "number",
             description:
-              "Hauteur d'UNE ligne de texte / hauteur de l'image. Méthode : l'écart entre deux lignes rouges vaut 0.10 ; si une ligne de texte fait un tiers de cet écart → 0.033. 3 DÉCIMALES obligatoires (jamais 0.04 tout rond si c'est 0.035).",
+              "HAUTEUR DES CAPITALES d'une caption révélée (du HAUT d'une majuscule à la LIGNE DE BASE, SANS les jambages qui descendent) / hauteur de l'image. Mesure CONTRE la règle : deux lignes rouges consécutives = 0.05. Ex : une majuscule qui occupe les deux tiers d'un intervalle → 0.033. 3 DÉCIMALES obligatoires (jamais 0.04 tout rond si c'est 0.035).",
           },
           longestLineText: {
             type: "string",
@@ -545,7 +545,7 @@ const RECIPE_TOOL = {
           hookFontFrac: {
             type: "number",
             description:
-              "Hauteur d'UNE ligne du HOOK (première caption) / hauteur de l'image, même méthode que fontFrac. Souvent PLUS GROS que les autres captions — mesure-le séparément. Si identique, donne la même valeur que fontFrac.",
+              "HAUTEUR DES CAPITALES du HOOK (première caption) / hauteur de l'image, même méthode que fontFrac (haut de majuscule → ligne de base, contre la règle à 0.05). Souvent PLUS GROS que les autres captions — mesure-le séparément. Si identique, donne la même valeur que fontFrac.",
           },
           fontFamily: {
             type: "string",
