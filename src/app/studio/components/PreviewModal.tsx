@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { StudioReel } from "@/lib/studio/types";
 import { ThumbBadge } from "./ReelCard";
 
-// Remotion Player = client-only (pas de SSR) : chargé à la volée.
+// Composants client-only (Remotion Player) — chargés à la volée.
 const ReelPlayer = dynamic(() => import("./ReelPlayer"), { ssr: false });
+const ReelEditor = dynamic(() => import("./ReelEditor"), { ssr: false });
 
 interface Props {
   reel: StudioReel;
@@ -19,6 +20,7 @@ interface Props {
 // Fermeture : clic sur le fond, bouton ✕, ou touche Échap.
 export default function PreviewModal({ reel, onClose, onDownload, onPublish }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     // Focus initial sur le bouton fermer + fermeture à Échap.
@@ -36,6 +38,31 @@ export default function PreviewModal({ reel, onClose, onDownload, onPublish }: P
     ...(reel.segment ? ([["Extrait", reel.segment]] as Array<[string, string]>) : []),
     ["Fichier", `${reel.fileName} · ${reel.sizeMo} Mo`],
   ];
+
+  // ── Mode ÉDITION : lecteur live + frise + réglages (le mini-CapCut) ────────
+  if (editing && reel.plan) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Édition de ${reel.variantLabel}`}
+      >
+        <div
+          className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-[#2e2e60] bg-[#0c0c22] p-6 shadow-[0_20px_80px_rgba(0,0,0,.6)] sm:p-8"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ReelEditor
+            initialPlan={reel.plan}
+            reelUrl={reel.url}
+            fileName={reel.fileName}
+            onBack={() => setEditing(false)}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -122,6 +149,15 @@ export default function PreviewModal({ reel, onClose, onDownload, onPublish }: P
           )}
 
           <div className="mt-auto space-y-3 pt-8">
+            {reel.plan && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="w-full rounded-xl border border-[#6d5efc] py-3 text-[15px] font-medium text-[#b3aaff] transition-colors hover:bg-[#6d5efc]/10"
+              >
+                ✎ Éditer le montage
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onDownload(reel)}
