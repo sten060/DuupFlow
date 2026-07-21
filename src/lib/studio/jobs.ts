@@ -28,6 +28,7 @@ import {
 import type {
   EditShot,
   FootageMap,
+  ReelPlan,
   StudioJobSnapshot,
   StudioReel,
   UploadedVideo,
@@ -236,6 +237,7 @@ async function runJob(
           !prepared.transcript?.words?.length;
 
         let rendered = false;
+        let reelPlan: ReelPlan | null = null;
         if (wantRemotion) {
           const baseName = outputName.replace(/\.mp4$/, "_base.mp4");
           const basePath = path.join(OUTPUTS_DIR, baseName);
@@ -309,8 +311,27 @@ async function runJob(
               uppercase: primary?.uppercase ?? false,
               outputPath,
             });
+            // Plan éditable : mêmes props que le rendu, URL de base RELATIVE
+            // (le navigateur la résout en same-origin pour l'aperçu live).
+            if (rendered) {
+              reelPlan = {
+                videoUrl: `/api/studio/media/${baseName}`,
+                durationSec: outDur,
+                hook: clip.hook,
+                reveals: clip.reveals,
+                shots,
+                segments,
+                revealAtSec,
+                captionMode: layout?.mode ?? "stack",
+                layout,
+                accentColor: primary?.accentColor ?? null,
+                uppercase: primary?.uppercase ?? false,
+              };
+            }
           } finally {
-            await fs.unlink(basePath).catch(() => {});
+            // La base SANS texte est GARDÉE quand le rendu a réussi : l'éditeur
+            // en a besoin pour l'aperçu live. Sinon (échec), on nettoie.
+            if (!rendered) await fs.unlink(basePath).catch(() => {});
           }
         }
 
@@ -339,6 +360,7 @@ async function runJob(
             ? "vidéo entière"
             : `${formatDuration(clip.startSec)} → ${formatDuration(clip.startSec + clip.durationSec)}`,
           caption: clip.caption,
+          plan: reelPlan ?? undefined,
         };
         job.reels.push(reel);
       } catch (e) {

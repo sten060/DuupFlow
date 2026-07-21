@@ -28,6 +28,26 @@ export interface StudioReel {
   // Caption prête à publier (texte + hashtags), générée par le LLM.
   // Absente si LLM indisponible (vidéos sans parole ou sans clé API).
   caption?: string;
+  // Plan de montage complet — présent seulement pour les variantes rendues via
+  // Remotion. Permet l'aperçu LIVE + l'édition dans le navigateur (Player).
+  plan?: ReelPlan;
+}
+
+// Plan de montage d'UNE variante : la SOURCE DE VÉRITÉ unique. Le serveur le
+// rend en MP4 (Remotion renderer) ET le navigateur le rejoue en direct (Remotion
+// Player) pour l'éditeur. Mêmes champs que les props de CaptionedReel.
+export interface ReelPlan {
+  videoUrl: string; // base SANS texte, servie par /api/studio/media/<...>
+  durationSec: number; // durée de sortie
+  hook: string;
+  reveals: string[];
+  shots: EditShot[] | null; // montage coordonné (prime sur segments/reveals)
+  segments: { srcStartSec: number; durationSec: number }[] | null; // rythme
+  revealAtSec: number[]; // moments d'apparition (s absolues) des révélations
+  captionMode: "stack" | "replace";
+  layout: RecipeLayout | null;
+  accentColor: string | null;
+  uppercase: boolean;
 }
 
 // ── Références virales (reels performants collés par l'utilisateur) ──────────

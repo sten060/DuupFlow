@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import type { StudioReel } from "@/lib/studio/types";
 import { ThumbBadge } from "./ReelCard";
+
+// Remotion Player = client-only (pas de SSR) : chargé à la volée.
+const ReelPlayer = dynamic(() => import("./ReelPlayer"), { ssr: false });
 
 interface Props {
   reel: StudioReel;
@@ -45,16 +49,21 @@ export default function PreviewModal({ reel, onClose, onDownload, onPublish }: P
         className="flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#2e2e60] bg-[#0c0c22] shadow-[0_20px_80px_rgba(0,0,0,.6)] sm:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Lecteur 9:16 — vidéo générée, avec contrôles natifs */}
+        {/* Lecteur 9:16 — aperçu LIVE (Remotion Player, éditable) si le plan de
+            montage est disponible, sinon la vidéo MP4 générée. */}
         <div className="relative aspect-[9/16] w-full bg-black sm:w-2/5 sm:shrink-0">
-          <video
-            src={reel.url}
-            controls
-            playsInline
-            preload="metadata"
-            className="h-full w-full object-contain"
-            aria-label={`Lecture de ${reel.variantLabel}`}
-          />
+          {reel.plan ? (
+            <ReelPlayer plan={reel.plan} />
+          ) : (
+            <video
+              src={reel.url}
+              controls
+              playsInline
+              preload="metadata"
+              className="h-full w-full object-contain"
+              aria-label={`Lecture de ${reel.variantLabel}`}
+            />
+          )}
           <span className="pointer-events-none absolute left-4 top-4">
             <ThumbBadge format={reel.format} />
           </span>

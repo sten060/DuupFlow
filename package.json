@@ -16,6 +16,7 @@
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@ffmpeg-installer/linux-x64": "^4.1.0",
     "@remotion/bundler": "^4.0.486",
+    "@remotion/player": "^4.0.486",
     "@remotion/renderer": "^4.0.486",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.1",
