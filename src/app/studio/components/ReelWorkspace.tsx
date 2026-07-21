@@ -70,6 +70,7 @@ export default function ReelWorkspace({
   const [sending, setSending] = useState(false);
 
   const dur = Math.max(0.1, plan.durationSec);
+  const sourceDur = Math.max(dur, plan.sourceDurationSec ?? dur);
   const layout = plan.layout ?? DEFAULT_LAYOUT;
 
   const blocks = useMemo<Block[]>(() => {
@@ -126,8 +127,41 @@ export default function ReelWorkspace({
     });
   }, []);
 
+  // Durée de sortie (trim de la fin) : borne [0.5s, durée source]. Les captions
+  // qui tomberaient hors champ sont ramenées dans la nouvelle durée.
+  const setDuration = useCallback((newDur: number) => {
+    setExportedUrl(null);
+    setPlan((prev) => {
+      const src = prev.sourceDurationSec ?? prev.durationSec;
+      const d = Math.max(0.5, Math.min(newDur, src));
+      const revealAtSec = prev.revealAtSec.map((t) => Math.min(t, Math.max(0.1, d - 0.2)));
+      return { ...prev, durationSec: d, revealAtSec };
+    });
+  }, []);
+
   // Drag sur la frise (listeners window).
   const trackRef = useRef<HTMLDivElement>(null);
+  const videoTrackRef = useRef<HTMLDivElement>(null);
+
+  // Poignée droite de la piste vidéo : raccourcit la durée de sortie.
+  const onTrimDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const track = videoTrackRef.current;
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    const src = plan.sourceDurationSec ?? dur;
+    const move = (ev: PointerEvent) => {
+      const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+      setDuration(frac * src);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
   const onPointerDown = (e: React.PointerEvent, block: Block, mode: "move" | "resize") => {
     if (block.kind === "hook") return;
     e.preventDefault();
@@ -306,9 +340,32 @@ export default function ReelWorkspace({
         <div className="border-t border-[#232350] p-4">
           <div className="mb-1 flex justify-between text-[11px] text-[#7a7aa6]">
             <span>0:00</span>
-            <span>{fmt(dur)}</span>
+            <span>{dur.toFixed(1)}s{sourceDur > dur + 0.05 ? ` / ${sourceDur.toFixed(1)}s` : ""}</span>
           </div>
-          <div ref={trackRef} className="relative h-[70px] w-full overflow-hidden rounded-lg border border-[#232350] bg-[#0a0a1e]">
+
+          {/* Piste VIDÉO : la portion utilisée (durée) sur la durée source ;
+              glisse la poignée droite pour raccourcir. (Pas de trim en montage
+              coordonné : la durée y vient des plans.) */}
+          {!isShots && (
+            <div
+              ref={videoTrackRef}
+              className="relative mb-2 h-[34px] w-full overflow-hidden rounded-lg border border-[#232350] bg-[#0a0a1e]"
+            >
+              <div
+                className="absolute inset-y-0 left-0 flex items-center rounded-l-lg pl-2 text-[11px] font-medium text-white"
+                style={{ width: `${Math.min(100, (dur / sourceDur) * 100)}%`, background: "#2a2a5c" }}
+              >
+                <span className="truncate">🎬 Vidéo · {dur.toFixed(1)}s</span>
+                <span
+                  onPointerDown={onTrimDown}
+                  className="absolute right-0 top-0 h-full w-2.5 cursor-ew-resize rounded-r bg-[#6d5efc]"
+                  title="Glisse pour raccourcir"
+                />
+              </div>
+            </div>
+          )}
+
+          <div ref={trackRef} className="relative h-[52px] w-full overflow-hidden rounded-lg border border-[#232350] bg-[#0a0a1e]">
             {blocks.map((b, row) => {
               const left = (b.startSec / dur) * 100;
               const width = Math.max(6, ((b.endSec - b.startSec) / dur) * 100);
@@ -364,6 +421,21 @@ export default function ReelWorkspace({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {!isShots && sourceDur > 0.6 && (
+            <div>
+              <div className="mb-2 text-xs uppercase tracking-wide text-[#9a9ac6]">Vidéo</div>
+              <Slider
+                label="Durée"
+                min={0.5}
+                max={sourceDur}
+                step={0.1}
+                value={dur}
+                onChange={(v) => setDuration(v)}
+                display={`${dur.toFixed(1)}s`}
+              />
             </div>
           )}
 

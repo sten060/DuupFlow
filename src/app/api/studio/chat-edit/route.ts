@@ -23,6 +23,7 @@ export async function POST(req: Request) {
   }
 
   const layout = plan.layout;
+  const src = plan.sourceDurationSec ?? plan.durationSec;
   const result = await chatEditPlan(
     {
       hook: plan.hook,
@@ -32,6 +33,9 @@ export async function POST(req: Request) {
       hookYFrac: layout?.hookYFrac ?? 0.32,
       stackYFrac: layout?.stackYFrac ?? 0.46,
       uppercase: plan.uppercase ?? false,
+      durationSec: plan.durationSec,
+      sourceDurationSec: src,
+      revealAtSec: plan.revealAtSec ?? [],
     },
     message
   );
@@ -48,6 +52,14 @@ export async function POST(req: Request) {
   if (typeof e.hook === "string") patch.hook = e.hook;
   if (Array.isArray(e.reveals)) patch.reveals = e.reveals.filter((x): x is string => typeof x === "string");
   if (typeof e.uppercase === "boolean") patch.uppercase = e.uppercase;
+  if (typeof e.durationSec === "number" && Number.isFinite(e.durationSec)) {
+    patch.durationSec = Math.max(0.5, Math.min(e.durationSec, src));
+  }
+  if (Array.isArray(e.revealAtSec)) {
+    patch.revealAtSec = e.revealAtSec
+      .filter((x): x is number => typeof x === "number" && Number.isFinite(x))
+      .map((t) => Math.max(0.1, Math.min(t, (patch.durationSec ?? plan.durationSec) - 0.2)));
+  }
 
   const layoutPatch: Record<string, number> = {};
   for (const k of ["hookFontFrac", "fontFrac", "hookYFrac", "stackYFrac"] as const) {

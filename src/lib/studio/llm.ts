@@ -497,6 +497,12 @@ const CHAT_EDIT_TOOL = {
       hookYFrac: { type: "number", description: "position verticale du hook : 0 (tout en haut) → 0.85 (bas). « monte » = diminue, « descends » = augmente." },
       stackYFrac: { type: "number", description: "position verticale des révélations : 0 → 0.85" },
       uppercase: { type: "boolean", description: "true = tout en MAJUSCULES" },
+      durationSec: { type: "number", description: "raccourcir la vidéo à cette durée en secondes (max = durée source). Pour « coupe à 5s » → 5." },
+      revealAtSec: {
+        type: "array",
+        items: { type: "number" },
+        description: "moments d'APPARITION (secondes) de chaque révélation, dans l'ordre. Pour « fais apparaître le 2ᵉ texte à 4s ».",
+      },
       reply: { type: "string", description: "réponse courte, amicale, en français, décrivant ce que tu as changé (ou pourquoi tu ne peux pas)." },
     },
     required: ["reply"],
@@ -504,7 +510,7 @@ const CHAT_EDIT_TOOL = {
 } as const;
 
 export async function chatEditPlan(
-  current: { hook: string; reveals: string[]; hookFontFrac: number; fontFrac: number; hookYFrac: number; stackYFrac: number; uppercase: boolean },
+  current: { hook: string; reveals: string[]; hookFontFrac: number; fontFrac: number; hookYFrac: number; stackYFrac: number; uppercase: boolean; durationSec: number; sourceDurationSec: number; revealAtSec: number[] },
   message: string
 ): Promise<{ edits: Record<string, unknown>; reply: string } | null> {
   if (!isLLMAvailable() || PROVIDER !== "anthropic") return null;
@@ -517,7 +523,8 @@ export async function chatEditPlan(
         `- révélations : ${current.reveals.length ? current.reveals.map((r) => `« ${r} »`).join(", ") : "(aucune)"}`,
         `- taille hook : ${current.hookFontFrac} · taille révélations : ${current.fontFrac}`,
         `- position hook : ${current.hookYFrac} · position révélations : ${current.stackYFrac} · majuscules : ${current.uppercase}`,
-        "Interprète la demande par rapport à ces valeurs (ex : « plus gros » = augmente la taille d'environ +30%). Ne change QUE ce qui est demandé.",
+        `- durée actuelle : ${current.durationSec.toFixed(1)}s (source max : ${current.sourceDurationSec.toFixed(1)}s) · apparition révélations : [${current.revealAtSec.map((t) => t.toFixed(1)).join(", ")}]`,
+        "Interprète la demande par rapport à ces valeurs (ex : « plus gros » = augmente la taille d'environ +30% ; « coupe à 5s » = durationSec 5). Ne change QUE ce qui est demandé.",
       ].join("\n"),
       user: message,
       tool: CHAT_EDIT_TOOL,
@@ -526,7 +533,7 @@ export async function chatEditPlan(
     const o = toolInput as Record<string, unknown>;
     const reply = typeof o.reply === "string" ? o.reply : "C'est appliqué.";
     const edits: Record<string, unknown> = {};
-    for (const k of ["hook", "reveals", "hookFontFrac", "fontFrac", "hookYFrac", "stackYFrac", "uppercase"]) {
+    for (const k of ["hook", "reveals", "hookFontFrac", "fontFrac", "hookYFrac", "stackYFrac", "uppercase", "durationSec", "revealAtSec"]) {
       if (o[k] !== undefined) edits[k] = o[k];
     }
     return { edits, reply };

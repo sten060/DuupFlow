@@ -334,6 +334,8 @@ async function runJob(
               reelPlan = {
                 videoUrl: `/api/studio/media/${baseName}`,
                 durationSec: outDur,
+                sourceDurationSec: outDur, // borne max pour le trim manuel
+
                 hook: clip.hook,
                 reveals: clip.reveals,
                 shots,

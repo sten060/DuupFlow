@@ -47,7 +47,8 @@ export interface StudioReel {
 // Player) pour l'éditeur. Mêmes champs que les props de CaptionedReel.
 export interface ReelPlan {
   videoUrl: string; // base SANS texte, servie par /api/studio/media/<...>
-  durationSec: number; // durée de sortie
+  durationSec: number; // durée de SORTIE (éditable : raccourcir = trim de la fin)
+  sourceDurationSec?: number; // durée PLEINE de la source (borne max du trim)
   hook: string;
   reveals: string[];
   shots: EditShot[] | null; // montage coordonné (prime sur segments/reveals)
