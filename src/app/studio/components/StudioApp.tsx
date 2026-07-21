@@ -19,6 +19,7 @@ import RawVideosSection, { type PendingUpload } from "./RawVideosSection";
 import VariantsSection from "./VariantsSection";
 import ReelCard, { LoadingTile } from "./ReelCard";
 import PreviewModal from "./PreviewModal";
+import ReelWorkspace from "./ReelWorkspace";
 import Toast from "./Toast";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,6 +45,9 @@ export default function StudioApp() {
 
   // ── UI ─────────────────────────────────────────────────────────────────────
   const [previewReel, setPreviewReel] = useState<StudioReel | null>(null);
+  // Reel ouvert dans le workspace d'édition (vidéo au centre). Une fois la
+  // génération finie, on ouvre automatiquement la 1ʳᵉ variante éditable.
+  const [activeReel, setActiveReel] = useState<StudioReel | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const uid = useRef(0); // ids uniques pour les chips d'upload en cours
@@ -262,6 +266,9 @@ export default function StudioApp() {
           if (job.done) {
             if (pollTimer.current) clearInterval(pollTimer.current);
             setGenerating(false);
+            // Ouvre automatiquement la 1ʳᵉ variante éditable dans le workspace.
+            const editable = job.reels.find((r) => r.plan);
+            if (editable) setActiveReel(editable);
             // TODO: brancher la vraie consommation de crédits (backend)
             setCredits((c) => Math.max(0, c - job.reels.length));
             if (job.error) showToast(`Génération interrompue : ${job.error}`);
@@ -322,9 +329,17 @@ export default function StudioApp() {
         }}
       />
 
-      <Topbar credits={credits} />
+      <Topbar credits={credits} projectName={activeReel ? activeReel.variantLabel : "sans titre"} />
 
-      {/* Corps 2 zones — vertical sur mobile, côte à côte dès lg */}
+      {activeReel && activeReel.plan ? (
+        <ReelWorkspace
+          reel={activeReel}
+          reels={reels.filter((r) => r.plan)}
+          onSelectVariant={setActiveReel}
+          onNewProject={() => setActiveReel(null)}
+        />
+      ) : (
+      /* Corps config — vertical sur mobile, côte à côte dès lg */
       <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
         {/* ── GAUCHE : panneau config ── */}
         <aside className="flex shrink-0 flex-col border-b border-[#232350] bg-[#0c0c22]/70 lg:w-[320px] lg:border-b-0 lg:border-r">
@@ -426,6 +441,7 @@ export default function StudioApp() {
           )}
         </main>
       </div>
+      )}
 
       {/* Modal aperçu */}
       {previewReel && (

@@ -476,6 +476,66 @@ export async function readFootage(
   }
 }
 
+// ── Chat d'édition : l'utilisateur décrit une retouche en langage naturel,
+// l'IA renvoie les modifications à appliquer au plan (textes + style captions).
+const CHAT_EDIT_TOOL = {
+  name: "edit_plan",
+  description:
+    "Applique une retouche demandée en langage naturel au plan de montage (textes et style des captions). Ne renvoie QUE les champs à changer.",
+  input_schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      hook: { type: "string", description: "nouveau texte du hook (caption principale), si l'utilisateur veut le changer" },
+      reveals: {
+        type: "array",
+        items: { type: "string" },
+        description: "nouvelle liste COMPLÈTE des révélations, si l'utilisateur veut les changer",
+      },
+      hookFontFrac: { type: "number", description: "taille du hook : 0.02 (petit) → 0.09 (très gros). Pour « plus gros » augmente, « plus petit » diminue." },
+      fontFrac: { type: "number", description: "taille des révélations : 0.02 → 0.09" },
+      hookYFrac: { type: "number", description: "position verticale du hook : 0 (tout en haut) → 0.85 (bas). « monte » = diminue, « descends » = augmente." },
+      stackYFrac: { type: "number", description: "position verticale des révélations : 0 → 0.85" },
+      uppercase: { type: "boolean", description: "true = tout en MAJUSCULES" },
+      reply: { type: "string", description: "réponse courte, amicale, en français, décrivant ce que tu as changé (ou pourquoi tu ne peux pas)." },
+    },
+    required: ["reply"],
+  },
+} as const;
+
+export async function chatEditPlan(
+  current: { hook: string; reveals: string[]; hookFontFrac: number; fontFrac: number; hookYFrac: number; stackYFrac: number; uppercase: boolean },
+  message: string
+): Promise<{ edits: Record<string, unknown>; reply: string } | null> {
+  if (!isLLMAvailable() || PROVIDER !== "anthropic") return null;
+  try {
+    const { toolInput } = await callAnthropic({
+      system: [
+        "Tu es l'assistant d'édition d'un studio de reels. L'utilisateur te demande une retouche ; tu renvoies UNIQUEMENT les champs à changer via l'outil edit_plan.",
+        "Valeurs ACTUELLES du plan :",
+        `- hook : « ${current.hook} »`,
+        `- révélations : ${current.reveals.length ? current.reveals.map((r) => `« ${r} »`).join(", ") : "(aucune)"}`,
+        `- taille hook : ${current.hookFontFrac} · taille révélations : ${current.fontFrac}`,
+        `- position hook : ${current.hookYFrac} · position révélations : ${current.stackYFrac} · majuscules : ${current.uppercase}`,
+        "Interprète la demande par rapport à ces valeurs (ex : « plus gros » = augmente la taille d'environ +30%). Ne change QUE ce qui est demandé.",
+      ].join("\n"),
+      user: message,
+      tool: CHAT_EDIT_TOOL,
+    });
+    if (!toolInput) return null;
+    const o = toolInput as Record<string, unknown>;
+    const reply = typeof o.reply === "string" ? o.reply : "C'est appliqué.";
+    const edits: Record<string, unknown> = {};
+    for (const k of ["hook", "reveals", "hookFontFrac", "fontFrac", "hookYFrac", "stackYFrac", "uppercase"]) {
+      if (o[k] !== undefined) edits[k] = o[k];
+    }
+    return { edits, reply };
+  } catch (e) {
+    console.error("[studio] chat-edit échoué :", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 // ── Analyse POUSSÉE de la vidéo brute (à l'upload) : comprendre TOUTE la vidéo,
 // son contexte et son découpage narratif (avant/après, révélation…), en plus du
 // visage/cadrage. C'est ce qui permet ensuite de caler coupures et captions sur
