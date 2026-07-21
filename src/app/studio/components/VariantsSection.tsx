@@ -4,14 +4,12 @@ import { MAX_VARIANTS, MIN_VARIANTS } from "@/lib/mock-data";
 
 interface Props {
   variants: number;
-  videoCount: number;
   onChange: (value: number) => void;
 }
 
-// Section 3 — Variantes par vidéo : slider 1–10 + total live.
-export default function VariantsSection({ variants, videoCount, onChange }: Props) {
-  const total = videoCount * variants;
-  // Position du remplissage du slider (variable CSS lue par studio.css).
+// Section 3 — Nombre de variantes : slider 1–10. Nouveau modèle "1 reel depuis
+// N contenus" → ce n'est plus "par vidéo", c'est le nombre de variantes du reel.
+export default function VariantsSection({ variants, onChange }: Props) {
   const fill =
     ((variants - MIN_VARIANTS) / (MAX_VARIANTS - MIN_VARIANTS)) * 100;
 
@@ -21,7 +19,7 @@ export default function VariantsSection({ variants, videoCount, onChange }: Prop
         <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#2e2e60] bg-[#181838] text-xs text-[#9a9ac6]">
           3
         </span>
-        Variantes par vidéo
+        Nombre de variantes
       </h2>
 
       <div className="flex items-center gap-4">
@@ -31,7 +29,7 @@ export default function VariantsSection({ variants, videoCount, onChange }: Prop
           max={MAX_VARIANTS}
           value={variants}
           onChange={(e) => onChange(Number(e.target.value))}
-          aria-label="Nombre de variantes par vidéo"
+          aria-label="Nombre de variantes du reel"
           style={{ "--fill": `${fill}%` } as React.CSSProperties}
           className="flex-1"
         />
@@ -41,7 +39,7 @@ export default function VariantsSection({ variants, videoCount, onChange }: Prop
       </div>
 
       <p className="mt-2 text-sm text-[#5c5c88]">
-        → {total} reel{total > 1 ? "s" : ""} au total
+        → 1 reel · {variants} variante{variants > 1 ? "s" : ""}
       </p>
     </section>
   );

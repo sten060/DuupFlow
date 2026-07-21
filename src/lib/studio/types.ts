@@ -10,6 +10,11 @@ export interface UploadedVideo {
   format: ReelFormat; // détecté côté serveur (piste audio + volume moyen)
   durationLabel: string; // "0:26"
   sizeMo: number;
+  // Nouveau modèle "1 reel depuis N contenus" : un contenu = vidéo OU image,
+  // avec une note libre du user ("elle avant", "la glow-up") que l'IA interprète
+  // pour placer/assembler les contenus selon la ref.
+  kind?: "video" | "image"; // défaut "video"
+  note?: string; // contexte libre saisi par l'utilisateur
 }
 
 // Reel généré (réel, encodé par ffmpeg dans .studio-local/outputs).

@@ -14,28 +14,18 @@ interface Props {
   pending: PendingUpload[]; // uploads en cours (probe ffmpeg côté serveur)
   onFiles: (files: File[]) => void;
   onRemove: (id: string) => void;
+  onNote: (id: string, note: string) => void; // note libre par contenu
 }
 
-// Badge de format détecté par le serveur : Talking = violet, Action = cyan.
-function FormatBadge({ format }: { format: UploadedVideo["format"] }) {
-  const talking = format === "Talking";
-  return (
-    <span
-      className="rounded-full px-3 py-1 text-xs"
-      style={
-        talking
-          ? { background: "rgba(109,94,252,.16)", color: "#a89dff" }
-          : { background: "rgba(78,197,255,.14)", color: "#4ec5ff" }
-      }
-    >
-      {format}
-    </span>
-  );
+function isImage(v: UploadedVideo): boolean {
+  return v.kind === "image";
 }
 
-// Section 2 — Vidéos brutes : upload RÉEL (clic ou drag & drop), stocké en
-// local via POST /api/studio/upload ; le format est détecté par ffmpeg.
-export default function RawVideosSection({ videos, pending, onFiles, onRemove }: Props) {
+// Section 2 — Contenus : le user ajoute des vidéos ET des images (upload réel,
+// clic ou drag & drop), chacune avec une NOTE libre ("elle avant", "la glow-up")
+// que l'IA interprète pour assembler le reel. Tous les contenus servent au MÊME
+// reel + ses variantes (fini "N vidéos = N reels").
+export default function RawVideosSection({ videos, pending, onFiles, onRemove, onNote }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const count = videos.length + pending.length;
@@ -44,29 +34,31 @@ export default function RawVideosSection({ videos, pending, onFiles, onRemove }:
   const pick = (list: FileList | null) => {
     if (!list || full) return;
     onFiles(Array.from(list));
-    // Permet de re-sélectionner le même fichier ensuite.
     if (inputRef.current) inputRef.current.value = "";
   };
 
   return (
     <section>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-1 flex items-center justify-between">
         <h2 className="flex items-center gap-2.5 text-[15px] font-medium text-[#eef0fb]">
           <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#2e2e60] bg-[#181838] text-xs text-[#9a9ac6]">
             2
           </span>
-          Vidéos brutes
+          Contenus
         </h2>
         <span className="text-sm text-[#5c5c88]">
           {count} / {MAX_RAW_VIDEOS}
         </span>
       </div>
+      <p className="mb-4 text-xs text-[#7a7aa6]">
+        Vidéos ou images — tout sert au même reel. Décris chaque contenu (ex :
+        « elle avant », « la glow-up »).
+      </p>
 
-      {/* Dropzone réelle : clic = sélecteur de fichiers, drag & drop supporté */}
       <input
         ref={inputRef}
         type="file"
-        accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.m4v,.webm"
+        accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.m4v,.webm,image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
         multiple
         className="sr-only"
         aria-hidden
@@ -87,7 +79,7 @@ export default function RawVideosSection({ videos, pending, onFiles, onRemove }:
           pick(e.dataTransfer.files);
         }}
         disabled={full}
-        aria-label="Ajouter des vidéos brutes (mp4, mov, m4v ou webm)"
+        aria-label="Ajouter des contenus (vidéos ou images)"
         className={`w-full rounded-xl border border-dashed px-4 py-8 text-center transition-colors ${
           full
             ? "cursor-not-allowed border-[#2e2e60] opacity-40"
@@ -99,35 +91,45 @@ export default function RawVideosSection({ videos, pending, onFiles, onRemove }:
         <span aria-hidden className="mb-2 block text-lg text-[#6d5efc]">
           ⬆
         </span>
-        <span className="text-sm text-[#9a9ac6]">Glisse tes vidéos ici</span>
+        <span className="text-sm text-[#9a9ac6]">Glisse tes vidéos ou images ici</span>
       </button>
 
-      {/* Fichiers uploadés + uploads en cours */}
       {count > 0 && (
         <ul className="mt-3 space-y-2">
           {videos.map((video) => (
             <li
               key={video.id}
-              className="flex items-center gap-2.5 rounded-xl border border-[#232350] bg-[#12122e] px-3.5 py-2.5"
+              className="rounded-xl border border-[#232350] bg-[#12122e] px-3.5 py-2.5"
             >
-              <span aria-hidden className="text-xs text-[#5c5c88]">
-                🎞
-              </span>
-              <span
-                className="min-w-0 flex-1 truncate text-sm text-[#eef0fb]"
-                title={`${video.name} · ${video.durationLabel} · ${video.sizeMo} Mo`}
-              >
-                {video.name}
-              </span>
-              <FormatBadge format={video.format} />
-              <button
-                type="button"
-                onClick={() => onRemove(video.id)}
-                aria-label={`Supprimer ${video.name}`}
-                className="text-[#5c5c88] transition-colors hover:text-[#eef0fb]"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2.5">
+                <span aria-hidden className="text-xs text-[#5c5c88]">
+                  {isImage(video) ? "🖼" : "🎞"}
+                </span>
+                <span
+                  className="min-w-0 flex-1 truncate text-sm text-[#eef0fb]"
+                  title={`${video.name} · ${video.durationLabel} · ${video.sizeMo} Mo`}
+                >
+                  {video.name}
+                </span>
+                <span className="text-[11px] text-[#5c5c88]">
+                  {isImage(video) ? "image" : video.durationLabel}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onRemove(video.id)}
+                  aria-label={`Supprimer ${video.name}`}
+                  className="text-[#5c5c88] transition-colors hover:text-[#eef0fb]"
+                >
+                  ✕
+                </button>
+              </div>
+              <input
+                type="text"
+                value={video.note ?? ""}
+                onChange={(e) => onNote(video.id, e.target.value)}
+                placeholder="Décris ce contenu (ex : « elle avant »)"
+                className="mt-2 w-full rounded-lg border border-[#2e2e60] bg-[#0a0a1e] px-2.5 py-1.5 text-[13px] text-[#eef0fb] outline-none placeholder:text-[#5c5c88] focus:border-[#6d5efc]"
+              />
             </li>
           ))}
           {pending.map((p) => (

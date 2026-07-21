@@ -18,7 +18,9 @@ import type { UploadedVideo } from "@/lib/studio/types";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const ALLOWED_EXT = new Set([".mp4", ".mov", ".m4v", ".webm"]);
+const VIDEO_EXT = new Set([".mp4", ".mov", ".m4v", ".webm"]);
+const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"]);
+const ALLOWED_EXT = new Set([...VIDEO_EXT, ...IMAGE_EXT]);
 const MAX_SIZE_BYTES = 500 * 1024 * 1024; // 500 Mo — large pour du local
 
 export async function POST(req: Request) {
@@ -37,10 +39,11 @@ export async function POST(req: Request) {
   const ext = path.extname(file.name).toLowerCase();
   if (!ALLOWED_EXT.has(ext)) {
     return NextResponse.json(
-      { error: `Format non supporté (${ext || "sans extension"}) — mp4, mov, m4v ou webm` },
+      { error: `Format non supporté (${ext || "sans extension"}) — vidéo (mp4/mov/m4v/webm) ou image (jpg/png/webp/heic)` },
       { status: 415 }
     );
   }
+  const isImage = IMAGE_EXT.has(ext);
   if (file.size > MAX_SIZE_BYTES) {
     return NextResponse.json(
       { error: "Fichier trop lourd (max 500 Mo)" },
@@ -54,6 +57,19 @@ export async function POST(req: Request) {
   const id = `src_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
   const storedPath = path.join(UPLOADS_DIR, id);
   await fs.writeFile(storedPath, Buffer.from(await file.arrayBuffer()));
+
+  // ── Image : pas de probe vidéo, c'est un plan fixe pour le montage ─────────
+  if (isImage) {
+    const image: UploadedVideo = {
+      id,
+      name: file.name,
+      format: "Action",
+      durationLabel: "image",
+      sizeMo: Math.max(1, Math.round(file.size / 1_000_000)),
+      kind: "image",
+    };
+    return NextResponse.json(image);
+  }
 
   try {
     const probe = await probeVideo(storedPath);
@@ -80,6 +96,7 @@ export async function POST(req: Request) {
       format,
       durationLabel: formatDuration(probe.durationSec),
       sizeMo: Math.max(1, Math.round(file.size / 1_000_000)),
+      kind: "video",
     };
     return NextResponse.json(video);
   } catch (e) {

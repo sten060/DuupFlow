@@ -196,6 +196,12 @@ export default function StudioApp() {
   const removeRawVideo = (id: string) =>
     setRawVideos((videos) => videos.filter((v) => v.id !== id));
 
+  // Note libre par contenu (l'IA l'interprète pour assembler le reel).
+  const setRawVideoNote = (id: string, note: string) =>
+    setRawVideos((videos) =>
+      videos.map((v) => (v.id === id ? { ...v, note } : v))
+    );
+
   // ── Génération réelle : POST /generate puis polling du job ────────────────
   const handleGenerate = async () => {
     if (generating || rawVideos.length === 0) return;
@@ -216,7 +222,7 @@ export default function StudioApp() {
     setGenerating(true);
     setReels([]);
     setJobId(null);
-    setPlannedTotal(rawVideos.length * variants);
+    setPlannedTotal(variants); // 1 reel × N variantes (les contenus sont assemblés)
 
     // Recettes des références PRÊTES → le LLM reproduit leur style.
     const recipes = references
@@ -228,8 +234,8 @@ export default function StudioApp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          videos: rawVideos,
-          variantsPerVideo: variants,
+          assets: rawVideos,
+          variantCount: variants,
           recipes,
         }),
       });
@@ -334,12 +340,9 @@ export default function StudioApp() {
               pending={pendingUploads}
               onFiles={handleFiles}
               onRemove={removeRawVideo}
+              onNote={setRawVideoNote}
             />
-            <VariantsSection
-              variants={variants}
-              videoCount={rawVideos.length}
-              onChange={setVariants}
-            />
+            <VariantsSection variants={variants} onChange={setVariants} />
           </div>
 
           {/* Bas fixe : bouton Générer */}
