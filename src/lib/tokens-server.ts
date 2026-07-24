@@ -6,7 +6,7 @@
  * server actions, webhook handlers).
  */
 import { createAdminClient } from "@/lib/supabase/admin";
-import { IMAGE_COST_CENTS } from "@/lib/tokens";
+import { IMAGE_COST_CENTS, WELCOME_BONUS_CENTS } from "@/lib/tokens";
 
 export type LedgerReason =
   | "topup"            // Stripe checkout success
@@ -28,6 +28,61 @@ export type LedgerEntry = {
   metadata: Record<string, unknown> | null;
   created_at: string;
 };
+
+/**
+ * Bonus de bienvenue : 2 € = 200 tokens, offerts UNE SEULE FOIS par utilisateur.
+ *
+ * Appliqué paresseusement (dès que l'utilisateur ouvre l'app), idempotent grâce
+ * à une raison de ledger FIXE (`welcome_bonus_200`) — même mécanisme que le
+ * crédit de bienvenue existant, aucune colonne / migration. Pas de récurrence,
+ * donc aucun problème de cumul possible.
+ */
+export async function grantWelcomeBonusIfDue(userId: string): Promise<void> {
+  const reason = "welcome_bonus_200";
+  const admin = createAdminClient();
+
+  // Déjà offert (ligne ledger) ? → skip. Couvre les utilisateurs déjà crédités,
+  // indépendamment du verrou (chemin rapide, cas courant).
+  const { data: existing } = await admin
+    .from("ai_token_ledger")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("reason", reason)
+    .limit(1);
+  if (existing && existing.length > 0) return;
+
+  // VERROU ATOMIQUE : flip `false → true` de welcome_bonus_granted. Un seul appel
+  // concurrent peut matcher (WHERE = false) → un seul créditera. Race-safe.
+  const flip = await admin
+    .from("profiles")
+    .update({ welcome_bonus_granted: true })
+    .eq("id", userId)
+    .eq("welcome_bonus_granted", false)
+    .select("id");
+
+  if (flip.error) {
+    // Colonne absente (migration 052 pas encore appliquée) → repli sans verrou.
+    // Fonctionne, avec une infime fenêtre de course (comme le crédit de bienvenue
+    // existant) ; devient pleinement race-safe une fois la migration passée.
+    const res = await recordTransaction({
+      userId, deltaCents: WELCOME_BONUS_CENTS, reason,
+      metadata: { kind: "welcome_bonus", amountCents: WELCOME_BONUS_CENTS, lock: "none" },
+    });
+    if (!res.ok) console.error("[tokens-server] bonus (repli) échoué :", res.error);
+    return;
+  }
+
+  // Verrou non obtenu → un autre appel a déjà crédité (ou le bonus était déjà
+  // donné avant l'ajout de la ligne ledger). Rien à faire.
+  if (!flip.data || flip.data.length === 0) return;
+
+  // On a le verrou → créditer les 200 tokens + tracer la ligne ledger.
+  const res = await recordTransaction({
+    userId, deltaCents: WELCOME_BONUS_CENTS, reason,
+    metadata: { kind: "welcome_bonus", amountCents: WELCOME_BONUS_CENTS, lock: "column" },
+  });
+  if (!res.ok) console.error("[tokens-server] bonus de bienvenue échoué :", res.error);
+}
 
 export async function fetchBalanceCents(userId: string): Promise<number> {
   const admin = createAdminClient();

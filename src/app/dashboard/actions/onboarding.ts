@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { recordTransaction } from "@/lib/tokens-server";
-import { CENTS_PER_TOKEN } from "@/lib/tokens";
+import { centsToTokens } from "@/lib/tokens";
 
 /**
  * Areas of the self-paced onboarding. Each one is shown exactly once:
@@ -87,8 +87,12 @@ export async function acknowledgeVariationAnnouncement(): Promise<{
 
   // Resolve effective plan (legacy users with has_paid + null plan = pro).
   const effectivePlan = profile.plan ?? (profile.has_paid ? "pro" : "free");
-  const bonusTokens = effectivePlan === "solo" ? 3 : effectivePlan === "free" ? 0 : 5;
-  const bonusCents = bonusTokens * CENTS_PER_TOKEN;
+  // ⚠️ Montant exprimé en CENTIMES, pas en tokens × CENTS_PER_TOKEN.
+  // L'ancien calcul dépendait de la valeur du token : le jour où 1 token est
+  // passé de 40 c à 1 c, le bonus aurait été divisé par 40 sans que personne
+  // ne le voie. La valeur réelle offerte est ici figée (1,20 € / 2 €).
+  const bonusCents = effectivePlan === "solo" ? 120 : effectivePlan === "free" ? 0 : 200;
+  const bonusTokens = centsToTokens(bonusCents);
 
   if (bonusCents > 0) {
     await recordTransaction({

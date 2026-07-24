@@ -6,7 +6,7 @@
  */
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { fetchBalanceCents, fetchLedger } from "@/lib/tokens-server";
+import { fetchBalanceCents, fetchLedger, grantWelcomeBonusIfDue } from "@/lib/tokens-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +17,10 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  // Bonus de bienvenue (2 €) appliqué AVANT la lecture du solde. Idempotent —
+  // offert une seule fois par utilisateur.
+  await grantWelcomeBonusIfDue(user.id);
 
   // Fetch profile (for plan) + balance + ledger in parallel.
   const [{ data: profile }, balanceCents, ledger] = await Promise.all([
