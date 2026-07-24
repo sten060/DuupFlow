@@ -20,6 +20,7 @@ import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
 import QuotaWarningModal from "@/app/dashboard/components/QuotaWarningModal";
 import UpgradePlanModal from "@/app/dashboard/components/UpgradePlanModal";
+import { claimHandoff, fetchHandoffFiles } from "@/lib/account/handoff";
 import {
   getTemplates,
   saveTemplate,
@@ -261,6 +262,27 @@ export default function VideoFormAdvancedClient() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const dzAddRef = useRef<((files: File[]) => void) | null>(null);
+
+  // Vidéos envoyées depuis le module Scraper : on les récupère côté serveur et
+  // on les dépose dans la dropzone — même point d'entrée que l'import Drive.
+  useEffect(() => {
+    const pending = claimHandoff();
+    if (pending.length === 0) return;
+    // Volontairement NON annulable : la remise est déjà consommée, et le cycle
+    // monte/démonte/remonte de StrictMode (dev) annulerait l'injection sans que
+    // personne ne puisse la rejouer. claimHandoff() garantit l'unicité.
+    void (async () => {
+      const files = await fetchHandoffFiles(pending);
+      if (files.length === 0) return;
+      // La dropzone publie son `addFilesRef` à son propre montage : on lui
+      // laisse quelques ticks si elle n'est pas encore prête.
+      for (let i = 0; i < 20 && !dzAddRef.current; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      dzAddRef.current?.(files);
+    })();
+  }, []);
+
   const [interruptedJobId, setInterruptedJobId] = useState<string | null>(null);
   const [ranges, setRanges] = useState<RangeState>(() =>
     makeDefaultRanges()

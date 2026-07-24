@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import VariationAnnouncementModal from "./VariationAnnouncementModal";
 import TikTokAnnouncementModal, { TIKTOK_DEST, TIKTOK_SEEN_KEY } from "./TikTokAnnouncementModal";
+import ScraperAnnouncementModal, { SCRAPER_SEEN_KEY } from "./ScraperAnnouncementModal";
 import ReplayMenu from "./onboarding/ReplayMenu";
 import GlobalDocsDrawer from "./components/GlobalDocsDrawer";
 import PromoPopup from "./PromoPopup";
@@ -238,6 +239,17 @@ export default function DashboardHome({
     try { localStorage.setItem(TIKTOK_SEEN_KEY, "1"); } catch {}
     setShowTikTok(false);
   };
+
+  // Annonce Scraper : one-shot par navigateur (localStorage). On la montre après
+  // les autres annonces pour ne pas en empiler deux d'un coup.
+  const [showScraper, setShowScraper] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem(SCRAPER_SEEN_KEY) === "1") return;
+    // Ne pas superposer : on attend qu'aucune autre annonce ne soit ouverte.
+    if (variationAnnouncementPending || tiktokAnnouncementPending) return;
+    setShowScraper(true);
+  }, [variationAnnouncementPending, tiktokAnnouncementPending]);
+
   const { t } = useTranslation();
 
   const MODULES = [
@@ -411,6 +423,8 @@ export default function DashboardHome({
 
       {/* One-shot TikTok solution launch announcement */}
       {showTikTok && <TikTokAnnouncementModal onDone={closeTikTok} />}
+
+      {showScraper && <ScraperAnnouncementModal onDone={() => setShowScraper(false)} />}
 
       {/* -15% launch promo — activated free users only (slides in from the right). */}
       {promoEligible && <PromoPopup loginKey={promoLoginKey} />}
