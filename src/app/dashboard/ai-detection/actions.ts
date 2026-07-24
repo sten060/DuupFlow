@@ -5,6 +5,8 @@ import os from "os";
 import fs from "fs/promises";
 import crypto from "crypto";
 import sharp from "sharp";
+import { spawn } from "child_process";
+import { getFFmpegBin, scrubMovVendorId } from "@/app/dashboard/videos/processVideos";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 import { checkUsage, incrementUsage } from "@/lib/usage";
 import { runImageOp } from "@/lib/imageProcessingLimiter";
@@ -13,6 +15,47 @@ import { getServerT } from "@/lib/i18n/server";
 /* ── constants ── */
 const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp"];
 const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
+
+/**
+ * Retire les métadonnées IA d'une vidéo par REMUX (aucun ré-encodage → qualité
+ * et poids identiques au bit près).
+ *
+ * En reconstruisant le conteneur, ffmpeg :
+ *   • jette le manifeste **C2PA / Content Credentials** — la signature de
+ *     provenance qu'embarquent les vidéos IA (Sora, Veo, Runway, Kling, Pika…),
+ *     stockée dans une boîte dédiée que le remux ne recopie pas ;
+ *   • supprime toutes les métadonnées (`-map_metadata -1`) : date de création,
+ *     logiciel, atomes propriétaires, XMP, commentaires ;
+ *   • ne garde que les pistes vidéo + audio → les éventuelles pistes de données
+ *     (timed metadata de provenance) sont abandonnées.
+ * On efface enfin le `vendor_id=FFMP` que le muxer MOV réinjecte (empreinte
+ * « traité par ffmpeg »).
+ */
+async function stripVideoMetadata(input: string, output: string, ext: string): Promise<void> {
+  const bin = await getFFmpegBin();
+  const isMp4 = ext === ".mp4" || ext === ".mov" || ext === ".m4v";
+  const args = [
+    "-y", "-hide_banner", "-loglevel", "error",
+    "-i", input,
+    "-map", "0:v:0", "-map", "0:a:0?", // vidéo + audio uniquement
+    "-map_metadata", "-1",
+    "-map_chapters", "-1",
+    "-c", "copy", // remux sans perte
+    "-fflags", "+bitexact",
+  ];
+  if (isMp4) args.push("-movflags", "+faststart");
+  args.push(output);
+
+  await new Promise<void>((resolve, reject) => {
+    const p = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let err = "";
+    p.stderr.on("data", (d) => (err += String(d)));
+    p.on("error", reject);
+    p.on("close", (code) => (code === 0 ? resolve() : reject(new Error(err || `ffmpeg exit ${code}`))));
+  });
+
+  if (isMp4) await scrubMovVendorId(output);
+}
 const SUPPORTED_EXTS = [...IMAGE_EXTS, ...VIDEO_EXTS];
 
 // Max concurrent sharp workers — avoids memory spikes with many large images
@@ -312,14 +355,22 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
         outFiles.push(outName);
         count++;
       } else {
-        // Videos: zero-RAM byte copy on disk — quality and size preserved exactly.
+        // Vidéos : remux qui SUPPRIME les métadonnées IA (C2PA + tags), sans
+        // ré-encodage → qualité/poids identiques. Repli sur une copie brute si
+        // ffmpeg échoue (mieux vaut livrer le fichier que planter — on le log).
         const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${ext}`;
+        const outPath = path.join(dir, outName);
         try {
-          await fs.copyFile(tmpPath, path.join(dir, outName));
-          console.log(`[ai-detection] video copy OK: ${outName}`);
+          await stripVideoMetadata(tmpPath, outPath, ext);
+          console.log(`[ai-detection] video cleaned OK: ${outName}`);
         } catch (e: any) {
-          console.error(`[ai-detection] video copy failed for ${u.name}:`, e?.message);
-          return;
+          console.error(`[ai-detection] video strip failed for ${u.name}, fallback copy:`, e?.message);
+          try {
+            await fs.copyFile(tmpPath, outPath);
+          } catch (e2: any) {
+            console.error(`[ai-detection] video copy fallback failed for ${u.name}:`, e2?.message);
+            return;
+          }
         }
         outFiles.push(outName);
         count++;
