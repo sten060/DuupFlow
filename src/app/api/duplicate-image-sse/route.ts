@@ -173,7 +173,10 @@ export async function POST(req: Request) {
               const { data, outExt } = await runImageOp(() =>
                 processImage(buf, ext, flags, { country: userCountry || undefined, iphoneMeta: useIphoneMeta })
               );
-              const outName = `DuupFlow_${stamp}_img${i + 1}_c${c + 1}_${Date.now()}${rand}${outExt}`;
+              // ⚠️ Pas de nom de produit dans le nom de fichier : il part tel quel
+              // sur le réseau social à l'upload et regroupe tous nos utilisateurs.
+              // (Même correction que côté vidéo — cf. videoOutName.)
+              const outName = `IMG_${stamp}_${i + 1}_c${c + 1}_${Date.now()}${rand}${outExt}`;
               const outPath = path.join(dir, outName);
 
               await fs.mkdir(dir, { recursive: true }).catch(() => {});

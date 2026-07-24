@@ -6,6 +6,7 @@ import { spawn } from "child_process";
 import zlib from "zlib";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 import { pickLocation } from "@/lib/locations";
+import { pickAppleShotProfile } from "@/lib/metadata/apple-devices";
 
 // On Vercel, native binaries cannot be included in the serverless function bundle
 // via NFT tracing or outputFileTracingIncludes (Next.js zero-config limitation).
@@ -285,8 +286,13 @@ type Channel = "simple" | "advanced";
 function channelCaps(channel: Channel) {
   return channel === "advanced" ? "ADVANCED" : "SIMPLE";
 }
+// ⚠️ Le nom du produit ne doit JAMAIS apparaître dans le nom de fichier : la
+// plateforme voit ce nom à l'upload, et « DuupFlow » dans chaque fichier
+// regroupait tous les clients sous une même signature évidente.
+// Ce préfixe sert aussi à retrouver nos fichiers côté serveur — d'où un nom
+// neutre conservé pour le filtrage interne (cf. filterFinals).
 export function videoPrefix(channel: Channel) {
-  return `${channelCaps(channel)}_DuupFlow_`;
+  return `${channelCaps(channel)}_`;
 }
 function videoOutName(opts: {
   channel: Channel;
@@ -296,7 +302,7 @@ function videoOutName(opts: {
   copyTag: string; // tag aléatoire unique par copie — ne contient pas le nom original
 }) {
   const { channel, date, fileIndex, copyIndex, copyTag } = opts;
-  return `${channelCaps(channel)}_DuupFlow_${date}_vid${fileIndex}_c${String(
+  return `${channelCaps(channel)}_${date}_vid${fileIndex}_c${String(
     copyIndex
   ).padStart(2, "0")}_${copyTag}.mp4`;
 }
@@ -385,30 +391,11 @@ function randMetaHex(n = 8): string {
   for (let i = 0; i < n; i++) s += Math.floor(Math.random() * 16).toString(16);
   return s;
 }
-/* ---- iPhone-realistic metadata for "Priorité d'algorithme" mode ---- */
-const IPHONE_MODELS = [
-  { make: "Apple", model: "iPhone 17 Pro Max", software: "26.2" },
-  { make: "Apple", model: "iPhone 17 Pro", software: "26.1" },
-  { make: "Apple", model: "iPhone 17 Air", software: "26.1" },
-  { make: "Apple", model: "iPhone 17", software: "26.0" },
-  { make: "Apple", model: "iPhone 16 Pro Max", software: "18.4.1" },
-  { make: "Apple", model: "iPhone 16 Pro", software: "18.3.2" },
-  { make: "Apple", model: "iPhone 16", software: "18.3.1" },
-  { make: "Apple", model: "iPhone 15 Pro Max", software: "18.2.1" },
-  { make: "Apple", model: "iPhone 15 Pro", software: "18.2" },
-  { make: "Apple", model: "iPhone 15", software: "18.1" },
-];
-const IPHONE_LENS = [
-  { focal: "6.86", focalEq: "24", aperture: "1.78", lens: "iPhone 17 Pro Max back triple camera 6.86mm f/1.78" },
-  { focal: "6.86", focalEq: "24", aperture: "1.78", lens: "iPhone 16 Pro Max back triple camera 6.86mm f/1.78" },
-  { focal: "6.765", focalEq: "24", aperture: "1.78", lens: "iPhone 16 Pro back triple camera 6.765mm f/1.78" },
-  { focal: "2.22", focalEq: "13", aperture: "2.2", lens: "iPhone 17 Pro back triple camera 2.22mm f/2.2" },
-  { focal: "2.22", focalEq: "13", aperture: "2.2", lens: "iPhone 16 Pro back triple camera 2.22mm f/2.2" },
-  { focal: "9.0", focalEq: "77", aperture: "2.8", lens: "iPhone 16 Pro back triple camera 9mm f/2.8" },
-  { focal: "5.7", focalEq: "28", aperture: "1.6", lens: "iPhone 17 Pro Max back triple camera 5.7mm f/1.6" },
-  { focal: "6.765", focalEq: "24", aperture: "1.78", lens: "iPhone 15 Pro back triple camera 6.765mm f/1.78" },
-  { focal: "2.22", focalEq: "13", aperture: "2.2", lens: "iPhone 15 Pro back triple camera 2.22mm f/2.2" },
-];
+/* ---- Métadonnées iPhone réalistes ("Priorité d'algorithme") ----
+   Appareil ET objectif viennent d'un profil unique et cohérent
+   (lib/metadata/apple-devices), partagé avec la duplication d'images.
+   L'ancienne paire de listes indépendantes (IPHONE_MODELS / IPHONE_LENS)
+   pouvait accorder un modèle à l'objectif d'un AUTRE iPhone. */
 
 type MetaOpts = {
   country?: string;
@@ -442,10 +429,13 @@ function getVideoMetadataArgs(opts?: MetaOpts): string[] {
     }
   }
 
-  // encoder / encoded_by
-  if (allOn || ctrl?.encoder?.enabled) {
+  // encoder / encoded_by — uniquement hors mode iPhone (un iPhone n'écrit NI
+  // l'un NI l'autre au niveau conteneur : vérifié sur un fichier .MOV réel).
+  // On n'écrit qu'`encoded_by` : poser aussi `encoder` créait la contradiction
+  // "encoded_by=Shotcut" + "encoder=Lavf62…" dans le même fichier.
+  if (!opts?.iphoneMeta && (allOn || ctrl?.encoder?.enabled)) {
     const enc = ctrl?.encoder?.value || pickRandom(VIDEO_ENCODERS);
-    args.push("-metadata", `encoder=${enc}`, "-metadata", `encoded_by=${enc}`);
+    args.push("-metadata", `encoded_by=${enc}`);
   }
 
   // major_brand / minor_version / compatible_brands
@@ -458,30 +448,48 @@ function getVideoMetadataArgs(opts?: MetaOpts): string[] {
     );
   }
 
-  // uid
-  if (allOn || ctrl?.uid?.enabled) {
-    const uid = `${randMetaHex(8)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(4)}-${randMetaHex(12)}`;
-    args.push("-metadata:g", `uid=${uid}`);
-  }
+  // `uid` : VOLONTAIREMENT PLUS ÉCRIT.
+  // Aucun appareil ni éditeur réel n'écrit ce tag. Sa simple PRÉSENCE (même avec
+  // une valeur aléatoire) suffisait à regrouper tous les fichiers sortis d'ici :
+  // il n'y a rien à randomiser quand c'est la clé elle-même qui trahit.
+  // Le contrôle `meta_uid` du mode avancé est donc désormais sans effet.
 
   // Location — resolved once and reused below (so country/ city / GPS all match).
   const loc = opts?.country ? pickLocation(opts.country) : null;
-  if (loc) {
-    // Real iPhone files put a human-readable place name (city, country) in the
-    // standard `location` metadata — not just a country code.
+  // ⚠️ Le tag `location` lisible ("Paris, France") n'existe PAS sur un fichier
+  // iPhone : l'appareil n'écrit QUE com.apple.quicktime.location.ISO6709.
+  // En mode iPhone on s'abstient donc ; ailleurs il reste plausible (certains
+  // éditeurs l'écrivent).
+  if (loc && !opts?.iphoneMeta) {
     args.push("-metadata", `location=${loc.city}, ${loc.country}`);
   }
 
   // iPhone metadata: overlay Apple QuickTime tags ON TOP of base metadata.
   // FFmpeg processes args in order — later -metadata flags override earlier ones.
   if (opts?.iphoneMeta) {
-    const device = pickRandom(IPHONE_MODELS);
+    // Appareil tiré au sort À CHAQUE COPIE — volontaire : les copies d'un même
+    // lot sont diffusées séparément et doivent rester des fichiers INDÉPENDANTS.
+    // Leur donner un appareil commun créerait justement le lien entre elles.
+    // Ce qui doit être cohérent, c'est l'INTÉRIEUR d'un fichier (modèle ↔ objectif
+    // ↔ focale ↔ date), pas les fichiers entre eux.
+    const device = pickAppleShotProfile();
     const secsAgo = Math.floor(Math.random() * 86400 * 30);
     const iphoneDate = new Date(Date.now() - secsAgo * 1000);
     const iphoneIso = iphoneDate.toISOString().slice(0, 19) + "Z";
     const tzOffsetH = 1 + Math.floor(Math.random() * 3);
     const pad = (n: number) => String(n).padStart(2, "0");
-    const localDate = `${iphoneDate.getFullYear()}-${pad(iphoneDate.getMonth()+1)}-${pad(iphoneDate.getDate())}T${pad(iphoneDate.getHours())}:${pad(iphoneDate.getMinutes())}:${pad(iphoneDate.getSeconds())}+${pad(tzOffsetH)}00`;
+    // ⚠️ La date LOCALE doit être l'heure UTC DÉCALÉE DU MÊME offset qu'on affiche.
+    // Bug corrigé : on prenait getHours() (fuseau du SERVEUR) et on y collait un
+    // offset TIRÉ AU HASARD → creation_time=17:24Z annoncé comme 19:24+0100, soit
+    // une heure d'écart impossible. Un vrai iPhone est toujours exact
+    // (19:48:30Z ↔ 16:48:30-0300). C'est une incohérence arithmétique triviale
+    // à détecter automatiquement.
+    const localMs = iphoneDate.getTime() + tzOffsetH * 3600_000;
+    const l = new Date(localMs);
+    const localDate =
+      `${l.getUTCFullYear()}-${pad(l.getUTCMonth() + 1)}-${pad(l.getUTCDate())}` +
+      `T${pad(l.getUTCHours())}:${pad(l.getUTCMinutes())}:${pad(l.getUTCSeconds())}` +
+      `+${pad(tzOffsetH)}00`;
     // GPS comes from the city resolved earlier for this country.
     // No country picked → no GPS injected (matches the user's "Aucun pays" intent).
     const gpsIso6709 = loc?.iso6709;
@@ -508,16 +516,18 @@ function getVideoMetadataArgs(opts?: MetaOpts): string[] {
       );
     }
     args.push(
-      // Override encoder to Apple-realistic values (removes random encoder set above)
-      "-metadata", `encoder=${device.model} ${device.software}`,
-      "-metadata", `encoded_by=${device.model}`,
-      // Apple QuickTime atoms
+      // Atomes QuickTime — exactement ceux d'un .MOV iPhone réel, pas plus.
+      // PAS de `encoder`/`encoded_by` ici : un iPhone n'en écrit aucun au niveau
+      // conteneur (les poser recréait la contradiction avec la piste FFmpeg).
       "-metadata", `com.apple.quicktime.full-frame-rate-playback-intent=0`,
       "-metadata", `com.apple.quicktime.make=${device.make}`,
       "-metadata", `com.apple.quicktime.model=${device.model}`,
       "-metadata", `com.apple.quicktime.software=${device.software}`,
       "-metadata", `com.apple.quicktime.creationdate=${localDate}`,
-      "-metadata", `com.apple.photos.originating.signature=${sig}`,
+      // `com.apple.photos.originating.signature` VOLONTAIREMENT ABSENT : ce tag
+      // marque un export depuis l'app Photos, pas une capture caméra — il est
+      // absent du .MOV iPhone de référence. Le poser sur un fichier qui prétend
+      // sortir de l'appareil est une incohérence de plus.
       // Stream handlers
       "-metadata:s:v:0", `handler_name=Core Media Video`,
       "-metadata:s:a:0", `handler_name=Core Media Audio`,
@@ -600,6 +610,45 @@ async function withConcurrency<T>(
   return errors;
 }
 
+// ── Effacement du vendor 'FFMP' laissé par le muxer MOV ─────────────────────
+// Le muxer MOV de FFmpeg écrit littéralement "FFMP" comme identifiant de vendeur
+// dans la piste vidéo, et AUCUNE option en ligne de commande ne permet de s'y
+// opposer (vérifié sur ffmpeg 4.4 comme sur v62). Un appareil réel y met quatre
+// octets nuls. Sur un fichier qui prétend sortir d'un iPhone, c'est la dernière
+// trace qui le contredit — on la remplace donc après coup.
+//
+// Sûreté : on ne lit QUE le début du fichier (moov est en tête grâce à
+// +faststart) et on ne remplace que dans les limites de l'atome moov — jamais
+// dans les données vidéo. On n'ouvre jamais le fichier entier en mémoire :
+// une 4K de plusieurs centaines de Mo ferait sauter le process.
+export async function scrubMovVendorId(file: string): Promise<void> {
+  const HEAD = 4 * 1024 * 1024; // moov tient largement là-dedans avec +faststart
+  let fh: import("fs/promises").FileHandle | null = null;
+  try {
+    fh = await fs.open(file, "r+");
+    const { size } = await fh.stat();
+    const len = Math.min(HEAD, size);
+    const head = Buffer.alloc(len);
+    await fh.read(head, 0, len, 0);
+
+    const moov = head.indexOf("moov");
+    if (moov < 4) return;                       // pas de moov en tête → on s'abstient
+    const boxSize = head.readUInt32BE(moov - 4); // taille de l'atome, tag inclus
+    const moovEnd = Math.min(len, moov - 4 + (boxSize > 0 ? boxSize : len));
+
+    for (let i = moov; i !== -1 && i < moovEnd; ) {
+      const at = head.indexOf("FFMP", i);
+      if (at === -1 || at >= moovEnd) break;
+      await fh.write(Buffer.alloc(4), 0, 4, at); // 4 octets nuls, comme un vrai appareil
+      i = at + 4;
+    }
+  } catch {
+    /* best-effort : un échec ici ne doit jamais faire échouer la duplication */
+  } finally {
+    await fh?.close().catch(() => {});
+  }
+}
+
 async function runFFmpegSafe(
   input: string,
   output: string,
@@ -618,6 +667,9 @@ async function runFFmpegSafe(
   srcBitrateKbps = 0,
   // Fired by the Stop button → SIGKILL the running ffmpeg child.
   signal?: AbortSignal,
+  // true = encoder en HEVC/hvc1 (mode « priorité d'algorithme » : identité iPhone).
+  // false = H.264/avc1, le comportement par défaut.
+  hevc = false,
 ) {
   const ffmpegBin = binPath ?? await getFFmpegBin();
 
@@ -661,15 +713,33 @@ async function runFFmpegSafe(
     args.push("-map", "0:v:0", "-map", "0:a:0?");
     if (vfParts.length) args.push("-vf", vfParts.join(","));
     if (afParts.length) args.push("-af", afParts.join(","));
-    args.push(
-      "-c:v", "libx264",
-      "-preset", "veryfast",       // veryfast: ~2–3× better compression than ultrafast → smaller files at the same quality, still fast
-      "-threads", String(threads),  // caller allocates threads from the real vCPU budget
-      "-crf", "18",                // CRF 18: visually matches the source
-      "-pix_fmt", "yuv420p",       // Safety net — format=yuv420p in filter graph already converts
-      "-c:a", "aac",
-      "-b:a", "192k",
-    );
+    // Codec : H.264/avc1 par défaut. En mode « priorité d'algorithme » (identité
+    // iPhone), on encode en HEVC/hvc1 — un iPhone moderne filme en HEVC, et
+    // annoncer "iPhone" sur un flux avc1 était une incohérence de plus.
+    // Le tag hvc1 (et non hev1) est celui qu'Apple écrit et que iOS sait lire.
+    if (hevc) {
+      args.push(
+        "-c:v", "libx265",
+        "-tag:v", "hvc1",
+        "-preset", "veryfast",
+        "-x265-params", "log-level=none", // pas de bannière x265 dans stderr
+        "-threads", String(threads),
+        "-crf", "20",                // x265 CRF 20 ≈ x264 CRF 18 en qualité perçue
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-b:a", "192k",
+      );
+    } else {
+      args.push(
+        "-c:v", "libx264",
+        "-preset", "veryfast",       // veryfast: ~2–3× better compression than ultrafast → smaller files at the same quality, still fast
+        "-threads", String(threads),  // caller allocates threads from the real vCPU budget
+        "-crf", "18",                // CRF 18: visually matches the source
+        "-pix_fmt", "yuv420p",       // Safety net — format=yuv420p in filter graph already converts
+        "-c:a", "aac",
+        "-b:a", "192k",
+      );
+    }
     // ── VBV cap = the source's own bitrate ──────────────────────────────────
     // Without this, CRF 18 on noisy / "Pixel Magique" content explodes to
     // ~400 Mbit/s → 1 GB+ files, full disk, OOM crash. Capping -maxrate to the
@@ -687,6 +757,25 @@ async function runFFmpegSafe(
   // to be written into the MOV/MP4 container instead of being silently ignored.
   args.push("-movflags", "+faststart+use_metadata_tags");
   if (metaArgs.length) args.push(...metaArgs);
+
+  // ── Effacement des traces FFmpeg — TOUJOURS, quel que soit le pack ─────────
+  // Sans ça le fichier se contredit lui-même : il annonce "iPhone 15 Pro" (ou
+  // "Shotcut") dans les tags, mais la piste vidéo porte `encoder=Lavc libx264`
+  // et `vendor_id=FFMP`, et le conteneur `encoder=Lavf62…`. Un lecteur de moov
+  // voit donc "tourné à l'iPhone" + "ré-encodé par FFmpeg" dans le MÊME fichier :
+  // c'est la signature la plus facile à détecter pour une plateforme.
+  //
+  // `+bitexact` doit être en position SORTIE (après -i) pour agir sur le muxer —
+  // placé avant -i, il ne fait rien. Vérifié à l'ffprobe.
+  args.push("-fflags", "+bitexact", "-flags:v", "+bitexact", "-flags:a", "+bitexact");
+  // Le muxer réécrit malgré tout un `encoder` par piste : on le remplace par la
+  // valeur qu'un appareil réel y met (le nom du codec, pas celui de l'encodeur).
+  // Le nom du codec, comme un appareil réel l'écrit (un vrai .MOV iPhone porte
+  // « HEVC » sur sa piste vidéo) — surtout pas « Lavc libx264 ».
+  args.push("-metadata:s:v:0", `encoder=${hevc ? "HEVC" : "H.264"}`);
+  // `vendor_id=FFMP` est écrit par le muxer FFmpeg et dit littéralement qui a
+  // encodé le fichier. Le vider le supprime (un iPhone y met [0][0][0][0]).
+  args.push("-metadata:s:v:0", "vendor_id=");
 
   if (output.endsWith(".mov")) args.push("-f", "mov");
   args.push(output);
@@ -966,15 +1055,35 @@ export async function processVideos(
             // Bitrate is now capped centrally to the SOURCE's own bitrate in
             // runFFmpegSafe — so a copy is never heavier than the original. This
             // replaces the old hard-coded 20–45 Mbps floor that bloated every file.
-            const profiles = ["high"]; // "high" profile preserves quality best on 1080p+
-            const levels = ["5.0", "5.1", "5.2"];
-            extraArgs.push("-profile:v", profiles[Math.floor(Math.random() * profiles.length)]);
-            extraArgs.push("-level:v", levels[Math.floor(Math.random() * levels.length)]);
+            // ⚠️ Profil/niveau dépendent du CODEC. "high" et "5.x" sont des
+            // valeurs H.264 : passées à x265 (mode iPhone → HEVC) elles font
+            // échouer l'encodeur (« Invalid or incompatible profile set: high »).
+            if (!useIphoneMeta) {
+              const profiles = ["high"]; // "high" profile preserves quality best on 1080p+
+              const levels = ["5.0", "5.1", "5.2"];
+              extraArgs.push("-profile:v", profiles[Math.floor(Math.random() * profiles.length)]);
+              extraArgs.push("-level:v", levels[Math.floor(Math.random() * levels.length)]);
+            } else {
+              // HEVC 8 bits → "main" est le profil qu'un iPhone utilise.
+              extraArgs.push("-profile:v", "main");
+            }
           }
           const gop = clamp(30 + Math.floor(Math.random() * 471), LIMITS.gop.min, LIMITS.gop.max);
           extraArgs.push("-g", String(gop));
-          const fpsPool = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
-          extraArgs.push("-r", String(fpsPool[Math.floor(Math.random() * fpsPool.length)]));
+          // ── Cadence : variante PLAUSIBLE de celle de la source ───────────────
+          // L'ancien pool tirait au hasard dans [23.976…60] sans regarder la
+          // source : une vidéo 30 fps ressortait en 50 fps. Or 50 fps est une
+          // cadence PAL que l'iPhone ne produit pas (il filme en 30 ou 60), et
+          // passer de 30 à 50 duplique des images de façon visible.
+          // On ne varie donc qu'à l'intérieur de la même famille de cadence.
+          const src = color.fps > 0 ? color.fps : 30;
+          const family: number[] =
+            src >= 55 ? [59.94, 60]
+            : src >= 48 ? [50]              // source réellement PAL 50 → on y reste
+            : src >= 27 ? [29.97, 30]
+            : src >= 24.5 ? [25]
+            : [23.976, 24];
+          extraArgs.push("-r", String(family[Math.floor(Math.random() * family.length)]));
         }
 
         if (packs.includes("audio")) {
@@ -1043,9 +1152,19 @@ export async function processVideos(
           } else {
             vfParts.unshift("format=yuv420p");
           }
-          // Ensure even dimensions after all filters (pad/rotation can produce odd dims).
-          // No resolution cap — preserve original quality (1080p stays 1080p, 4K stays 4K).
-          vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos");
+          // ── Résolution de sortie = résolution EXACTE de la source ────────────
+          // `trunc(iw/2)*2` garantissait seulement des dimensions PAIRES : après
+          // un zoom/crop, une source 2160×3840 ressortait en 2158×3838 — aucune
+          // caméra ne produit cette résolution, c'est un marqueur immédiat de
+          // fichier retouché. On repasse donc explicitement aux dimensions
+          // d'origine : l'image reste modifiée (l'empreinte change bien), mais le
+          // format final reste un format standard.
+          if (color.width > 0 && color.height > 0) {
+            vfParts.push(`scale=${color.width}:${color.height}:flags=lanczos`);
+          } else {
+            // Dimensions source inconnues → au moins garantir des dimensions paires.
+            vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos");
+          }
         }
 
       } else {
@@ -1141,7 +1260,17 @@ export async function processVideos(
         }
 
         const fr = get("fps", 0, 0, 10, 60);
-        if (fr.enabled) extraArgs.push("-r", String(Math.round(fr.value)));
+        if (fr.enabled) {
+          // L'utilisateur choisit une PLAGE ; on tirait une valeur brute dedans,
+          // d'où des sorties à 43 fps — une cadence qui n'existe sur aucun
+          // appareil. On aimante donc la valeur tirée sur la cadence standard
+          // la plus proche : le réglage reste respecté, le résultat reste crédible.
+          const STANDARD_FPS = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
+          const snapped = STANDARD_FPS.reduce((best, c) =>
+            Math.abs(c - fr.value) < Math.abs(best - fr.value) ? c : best
+          );
+          extraArgs.push("-r", String(snapped));
+        }
 
         const dimW = ranges?.dim_w?.enabled ? _clamp(Number(ranges.dim_w.min), -30, 30) : 0;
         const dimH = ranges?.dim_h?.enabled ? _clamp(Number(ranges.dim_h.min), -30, 30) : 0;
@@ -1327,8 +1456,15 @@ export async function processVideos(
           } else {
             vfParts.unshift("format=yuv420p");
           }
-          // No resolution cap — preserve original quality.
-          vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos");
+          // Résolution de sortie = résolution EXACTE de la source (même règle
+          // qu'en mode simple). Sans ça, zoom/bordure/rotation faisaient sortir
+          // une source 2160×3840 en 2172×3852 — une résolution qu'aucun appareil
+          // ne produit, donc un marqueur immédiat de fichier retouché.
+          if (color.width > 0 && color.height > 0) {
+            vfParts.push(`scale=${color.width}:${color.height}:flags=lanczos`);
+          } else {
+            vfParts.push("scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos");
+          }
         }
       }
 
@@ -1373,7 +1509,13 @@ export async function processVideos(
           threadsPerTask,
           bitrateKbps,
           signal,
+          // HEVC/hvc1 UNIQUEMENT en « priorité d'algorithme » : c'est le seul cas
+          // où le fichier prétend sortir d'un iPhone. Sinon on reste en H.264/avc1.
+          useIphoneMeta,
         );
+        // Dernière trace FFmpeg (vendor 'FFMP' du muxer MOV) — non supprimable
+        // en ligne de commande, effacée ici sur le fichier produit.
+        await scrubMovVendorId(tempOutPath);
       } finally {
         releaseEncodeSlot();
       }

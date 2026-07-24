@@ -56,3 +56,6 @@ public/videos/*.mp4
 
 # Studio local (uploads + variantes générées — jamais commités)
 .studio-local/
+
+# Vidéos de test locales (assets lourds, non versionnés)
+vidéos-test/

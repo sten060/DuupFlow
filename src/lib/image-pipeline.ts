@@ -4,6 +4,7 @@
 import sharp from "sharp";
 import crypto from "crypto";
 import { pickLocation } from "@/lib/locations";
+import { pickAppleShotProfile, toRational } from "@/lib/metadata/apple-devices";
 
 export const randHex = (n = 2) => crypto.randomBytes(n).toString("hex");
 const clampDim = (n: number) => Math.max(32, Math.min(16000, Math.round(n)));
@@ -77,10 +78,17 @@ export async function processImage(
 
   const lower = ext.toLowerCase();
   const now = new Date();
-  const artistChoices = ["DuupFlow", "Studio", "Duplicator", "ContentEngine", "MediaFlow", "PixelVault"];
-  const artist = flags.fundamentals
-    ? artistChoices[Math.floor(Math.random() * artistChoices.length)]
-    : "DuupFlow";
+  // Valeurs de `Software` plausibles : ce qu'un vrai fichier porte après passage
+  // par un téléphone ou un éditeur courant.
+  // ⚠️ Ne JAMAIS y remettre le nom du produit ("DuupFlow", "Duplicator", …) :
+  // c'est une signature qui regroupe tous les fichiers sortis d'ici, et le mot
+  // annonce la duplication. Idem pour Artist/Copyright, absents des photos
+  // d'appareil normales — on ne les écrit plus du tout.
+  const softwareChoices = [
+    "Photos 1.0", "Adobe Photoshop 25.9 (Macintosh)", "Lightroom mobile 9.4.0",
+    "Snapseed 2.21", "GIMP 2.10.36", "Picasa", "Google Photos 6.8",
+  ];
+  const software = softwareChoices[Math.floor(Math.random() * softwareChoices.length)];
 
   const dpiPool = flags.fundamentals ? [60, 72, 96, 120, 150, 180, 240, 300, 600] : [72];
   const dpi = dpiPool[Math.floor(Math.random() * dpiPool.length)];
@@ -90,20 +98,11 @@ export async function processImage(
   let exifMeta: sharp.WriteableMetadata;
 
   if (opts?.iphoneMeta) {
-    // ── iPhone-realistic EXIF metadata ──────────────────────────────────
-    const iphoneModels = [
-      { make: "Apple", model: "iPhone 16 Pro Max", software: "18.3.2" },
-      { make: "Apple", model: "iPhone 16 Pro", software: "18.3.1" },
-      { make: "Apple", model: "iPhone 15 Pro Max", software: "18.2.1" },
-      { make: "Apple", model: "iPhone 15 Pro", software: "18.2" },
-    ];
-    const iphoneLens = [
-      { focal: "6.86", focalEq: "24", aperture: "1.78", model: "iPhone 16 Pro Max back triple camera 6.86mm f/1.78" },
-      { focal: "2.22", focalEq: "13", aperture: "2.2", model: "iPhone 16 Pro back triple camera 2.22mm f/2.2" },
-      { focal: "9.0", focalEq: "77", aperture: "2.8", model: "iPhone 16 Pro back triple camera 9mm f/2.8" },
-    ];
-    const dev = iphoneModels[Math.floor(Math.random() * iphoneModels.length)];
-    const lens = iphoneLens[Math.floor(Math.random() * iphoneLens.length)];
+    // ── EXIF iPhone réaliste ────────────────────────────────────────────
+    // UN appareil, UN objectif : le profil garantit que Model, HostComputer,
+    // LensModel, focale et ouverture décrivent le même téléphone (cf.
+    // lib/metadata/apple-devices). Ne jamais retirer au sort séparément.
+    const shot = pickAppleShotProfile();
     const daysAgo = Math.floor(Math.random() * 30);
     const d = new Date(Date.now() - daysAgo * 86400000 - Math.floor(Math.random() * 86400000));
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -124,36 +123,52 @@ export async function processImage(
     const altStr = Math.abs(loc.alt).toFixed(1);
     const altRef = loc.alt >= 0 ? "0" : "1"; // 0 = above sea level, 1 = below
 
+    // IFD0 = identité de l'image. SEULS les tags qui vivent réellement ici.
+    // Y écrire des tags de l'IFD Exif (LensMake, OffsetTime, ColorSpace…) était
+    // LE bug : un lecteur ne sait pas les nommer hors de leur IFD et les affiche
+    // en numérique brut (42035, 36880…) EN PLUS des noms → doublons "Apple" et
+    // "tags dans tous les sens".
     const ifd0: Record<string, string> = {
-      Make: dev.make, Model: dev.model, Software: dev.software,
+      Make: shot.make,
+      Model: shot.model,
+      Software: shot.software,
+      HostComputer: shot.hostComputer, // un vrai iPhone le renseigne = Model
       DateTime: dtStr,
+      Orientation: "1",
     };
+
+    // IFD2 = Exif IFD, la place normale de tout ce qui suit.
+    // Jeu volontairement resserré : ce qu'une vraie photo iPhone porte, rien de plus.
     const exifIfd: Record<string, string> = {
-      LensModel: lens.model,
-      LensMake: "Apple",
-      FocalLength: lens.focal,
-      FocalLengthIn35mmFilm: lens.focalEq,
-      FNumber: lens.aperture,
-      ApertureValue: lens.aperture,
-      ISOSpeedRatings: String(iso),
-      ExposureTime: exposure,
-      ShutterSpeedValue: shutterSpeed,
-      ExposureBiasValue: "0",
-      ExposureProgram: "2",       // Normal program
-      MeteringMode: "5",          // Pattern
-      Flash: "16",                // No flash
-      WhiteBalance: "0",          // Auto
-      SceneCaptureType: "0",      // Standard
       DateTimeOriginal: dtStr,
       DateTimeDigitized: dtStr,
-      SubSecTime: subsec,
-      SubSecTimeOriginal: subsec,
-      SubSecTimeDigitized: subsec,
       OffsetTime: offsetTime,
       OffsetTimeOriginal: offsetTime,
       OffsetTimeDigitized: offsetTime,
-      ColorSpace: "65535",        // Uncalibrated (Display P3)
+      SubSecTimeOriginal: subsec,
+      SubSecTimeDigitized: subsec,
+      ExposureTime: exposure,
+      FNumber: String(shot.aperture),
+      ApertureValue: String(shot.aperture),
+      ShutterSpeedValue: shutterSpeed,
+      ExposureBiasValue: "0",
+      ExposureProgram: "2", // Normal program
+      ISOSpeedRatings: String(iso),
+      MeteringMode: "5",    // Pattern
+      Flash: "16",          // Off, did not fire
+      WhiteBalance: "0",    // Auto
+      SceneCaptureType: "0",// Standard
+      FocalLength: String(shot.focal),
+      FocalLengthIn35mmFilm: String(shot.focalEq),
+      LensMake: shot.lensMake,
+      LensModel: shot.lensModel,
+      // LensSpecification volontairement OMIS : libvips ne sait pas encoder ce
+      // tableau de 4 rationnels et laisse un tag VIDE — plus suspect qu'absent.
+      ColorSpace: "65535",  // Uncalibrated (Display P3)
     };
+
+    // IFD3 = GPS. Le noyau que porte toute photo géolocalisée, plus le cap et
+    // la précision (présents sur iPhone). Pas de champs exotiques en plus.
     const gps: Record<string, string> = {
       GPSLatitudeRef: loc.latRef,
       GPSLatitude: latAbs,
@@ -161,30 +176,26 @@ export async function processImage(
       GPSLongitude: lonAbs,
       GPSAltitudeRef: altRef,
       GPSAltitude: altStr,
-      GPSSpeedRef: "K",
-      GPSSpeed: (Math.random() * 5).toFixed(2),
       GPSImgDirectionRef: "T",
-      GPSImgDirection: (Math.random() * 360).toFixed(2),
-      GPSDestBearingRef: "T",
-      GPSDestBearing: (Math.random() * 360).toFixed(2),
-      GPSHPositioningError: (3 + Math.random() * 10).toFixed(6),
+      // Rational simple : celui-ci s'encode correctement (vérifié).
+      GPSImgDirection: toRational(Math.random() * 360),
+      // GPSHPositioningError omis : même problème d'encodage vide que
+      // LensSpecification, et c'est justement un champ exotique en trop.
     };
-    // Sub-location & geocoded place name — what real iPhone photos carry in
-    // IPTC tags. sharp can't write IPTC, so we stash them in IFD0 alongside
-    // the rest. Better than nothing for fingerprinting/exif scanners.
+
+    // Nom de lieu géocodé — un vrai iPhone le met en IPTC ; sharp ne sait pas
+    // écrire l'IPTC, ImageDescription (IFD0) est le plus proche équivalent.
     ifd0.ImageDescription = `${loc.city}, ${loc.country}`;
-    exifMeta = { density: dpi, exif: { IFD0: ifd0, IFD3: gps } as any };
-    // Note: sharp's EXIF support is limited; we set what we can via IFD0.
-    // For a complete iPhone EXIF profile, IFD0 covers Make/Model/Software/DateTime.
-    Object.assign((exifMeta.exif as any).IFD0, exifIfd);
+
+    exifMeta = { density: dpi, exif: { IFD0: ifd0, IFD2: exifIfd, IFD3: gps } as any };
   } else {
     // ── Standard random metadata ──────────────────────────────────────
     const ifd0: Record<string, string> = {
-      Software: `DuupFlow/${randHex(4)}-v${1 + Math.floor(Math.random() * 9)}.${Math.floor(Math.random() * 10)}`,
-      Artist: artist,
-      Copyright: `DuupFlow ${now.getFullYear()} - ${randHex(4)}`,
+      Software: software,
     };
 
+    // Marque et modèle restent APPARIÉS par l'index — un Galaxy ne doit jamais
+    // se retrouver avec Make "Apple" (même exigence de cohérence que le mode iPhone).
     const makes  = ["Apple", "Samsung", "Google", "Xiaomi", "Sony", "OnePlus", "Huawei", "OPPO"];
     const models = ["iPhone 15 Pro", "Galaxy S24 Ultra", "Pixel 9", "Redmi 14", "Xperia 5 V", "Nord 4", "P60 Pro", "Find X7"];
     const idx = Math.floor(Math.random() * makes.length);
@@ -198,19 +209,17 @@ export async function processImage(
       Make:             makes[idx],
       Model:            models[idx],
       DateTime:         `${yr}:${mo}:${dd} ${hh}:${mm}:${ss}`,
-      ImageDescription: `Photo ${randHex(6)} - ${artist}`,
     });
 
+    // Niveau 2 : on fait varier davantage l'empreinte, mais SANS gonfler le
+    // fichier de champs bizarres. Une photo réelle n'a pas 120 blocs de hash
+    // dans sa description — c'est le genre de trace qui saute aux yeux.
+    // On reste donc sur des tags standards, avec des valeurs aléatoires.
+    // Niveau 2 : on élargit la variation par des champs STANDARDS (orientation,
+    // horodatage secondaire), pas en empilant des champs exotiques.
     if (exifLevel >= 2) {
-      const chunks = Array.from({ length: 120 }, () => randHex(8));
-      ifd0.ImageDescription = [
-        `${artist} :: ${now.toISOString()}`,
-        `ref=${randHex(12)}`,
-        `session=${randHex(16)}`,
-        `device=${makes[idx]} ${models[idx]}`,
-        `sig=${chunks.join("-")}`,
-        `checksum=${randHex(32)}`,
-      ].join(" :: ");
+      ifd0.Orientation = "1";
+      ifd0.YCbCrPositioning = String(1 + Math.floor(Math.random() * 2));
     }
 
     exifMeta = { density: dpi, exif: { IFD0: ifd0 } };

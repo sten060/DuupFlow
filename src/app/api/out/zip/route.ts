@@ -41,8 +41,11 @@ export async function GET(req: Request) {
     if (name.startsWith("CMP_")) return false;
     if (scope === "images" && !IMAGE_EXTS.includes(extOf(name))) return false;
     if (scope === "videos" && !VIDEO_EXTS.includes(extOf(name))) return false;
-    if (channel === "simple" && !name.startsWith("SIMPLE_DuupFlow_")) return false;
-    if (channel === "advanced" && !name.startsWith("ADVANCED_DuupFlow_")) return false;
+    // Préfixes SANS le nom du produit (retiré des noms de fichiers : ils partent
+    // tels quels sur les réseaux). On accepte encore l'ancien préfixe pour que
+    // les fichiers déjà générés restent téléchargeables.
+    if (channel === "simple" && !/^SIMPLE_(DuupFlow_)?/.test(name)) return false;
+    if (channel === "advanced" && !/^ADVANCED_(DuupFlow_)?/.test(name)) return false;
     return true;
   }
 
