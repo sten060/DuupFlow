@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
 import { flushAcquisition } from "@/lib/acquisition";
 import AuthBrandPanel from "@/components/AuthBrandPanel";
+import { Brand } from "@/components/landing/shell";
 
 // Multi-step wizard for first-time signup — mirrors the register screen layout
 // (form on the left, brand panel on the right).
@@ -200,16 +201,13 @@ function OnboardingForm() {
         : t("onboarding.sourceSubtitle");
 
   return (
-    <div className="min-h-screen flex bg-[#0B0F1A]">
+    <div className="lunera min-h-screen flex bg-white text-[#1a1a1a]">
       {/* ── LEFT — Onboarding form ── */}
       <div className="flex-1 flex flex-col justify-between px-8 py-10 max-w-xl">
         {/* Logo — mark + wordmark */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Image src="/logo-mark.png" alt="DuupFlow" width={64} height={64} priority className="h-8 w-8 object-contain" />
-          <span className="text-xl font-extrabold tracking-tight">
-            <span style={{ color: "#818CF8" }}>Duup</span>
-            <span className="text-white/55">Flow</span>
-          </span>
+          <Brand className="text-xl font-bold tracking-tight text-[#1a1a1a]" />
         </div>
 
         {/* Form area */}
@@ -220,14 +218,14 @@ function OnboardingForm() {
               <span
                 className="text-[10px] font-semibold tracking-[0.14em] uppercase px-2.5 py-1 rounded-md"
                 style={{
-                  background: "rgba(99,102,241,0.12)",
-                  color: "#A5B4FC",
+                  background: "rgba(99,102,241,0.10)",
+                  color: "#4f7bff",
                   border: "1px solid rgba(99,102,241,0.25)",
                 }}
               >
                 {stepLabels[step]}
               </span>
-              <span className="text-[10px] text-white/35">
+              <span className="text-[10px] text-[#8a8a8a]">
                 {t("onboarding.stepIndicator")
                   .replace("{n}", String(step + 1))
                   .replace("{total}", String(TOTAL_STEPS))}
@@ -236,15 +234,15 @@ function OnboardingForm() {
           )}
 
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-white mb-1.5 tracking-tight">{leftTitle}</h1>
-            <p className="text-white/45 text-sm leading-relaxed">{leftSubtitle}</p>
+            <h1 className="text-2xl font-bold text-[#1a1a1a] mb-1.5 tracking-tight">{leftTitle}</h1>
+            <p className="text-[#8a8a8a] text-sm leading-relaxed">{leftSubtitle}</p>
           </div>
 
           {/* Step 0 — identity */}
           {step === 0 && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-1.5 uppercase tracking-wide">
+                <label className="block text-xs font-medium text-[#605f5f] mb-1.5 uppercase tracking-wide">
                   {t("onboarding.firstNameLabel")}
                 </label>
                 <input
@@ -253,15 +251,15 @@ function OnboardingForm() {
                   onChange={(e) => setFirstName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && validateAndNext()}
                   placeholder={t("onboarding.firstNamePlaceholder")}
-                  className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition focus:ring-1 focus:ring-indigo-500/50"
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#9aa2b2] outline-none transition focus:ring-1 focus:ring-[#4f7bff]/40"
+                  style={{ background: "#f6f7f9", border: "1px solid rgba(0,0,0,0.10)" }}
                   autoFocus
                 />
               </div>
 
               {!isGuest && (
                 <div>
-                  <label className="block text-xs font-medium text-white/50 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-xs font-medium text-[#605f5f] mb-1.5 uppercase tracking-wide">
                     {t("onboarding.agencyLabel")}
                   </label>
                   <input
@@ -270,8 +268,8 @@ function OnboardingForm() {
                     onChange={(e) => setAgencyName(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && validateAndNext()}
                     placeholder={t("onboarding.agencyPlaceholder")}
-                    className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition focus:ring-1 focus:ring-indigo-500/50"
-                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}
+                    className="w-full rounded-xl px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#9aa2b2] outline-none transition focus:ring-1 focus:ring-[#4f7bff]/40"
+                    style={{ background: "#f6f7f9", border: "1px solid rgba(0,0,0,0.10)" }}
                   />
                 </div>
               )}
@@ -290,16 +288,16 @@ function OnboardingForm() {
                     onClick={() => togglePlatform(p.id)}
                     className="rounded-xl px-3.5 py-2.5 text-sm font-medium text-left transition-all"
                     style={{
-                      background: active ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${active ? "rgba(99,102,241,0.55)" : "rgba(255,255,255,0.08)"}`,
-                      color: active ? "#FFFFFF" : "rgba(255,255,255,0.65)",
+                      background: active ? "rgba(99,102,241,0.10)" : "#f6f7f9",
+                      border: `1px solid ${active ? "rgba(99,102,241,0.55)" : "rgba(0,0,0,0.08)"}`,
+                      color: active ? "#1a1a1a" : "#605f5f",
                       boxShadow: active ? "0 0 0 3px rgba(99,102,241,0.10)" : "none",
                     }}
                   >
                     <span className="flex items-center justify-between">
                       <span>{t(p.key)}</span>
                       {active && (
-                        <svg viewBox="0 0 24 24" className="h-4 w-4 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <svg viewBox="0 0 24 24" className="h-4 w-4 text-[#4f7bff]" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
                       )}
@@ -322,9 +320,9 @@ function OnboardingForm() {
                     onClick={() => setSource(s.id)}
                     className="rounded-xl px-3.5 py-2.5 text-sm font-medium text-left transition-all flex items-center justify-between"
                     style={{
-                      background: active ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${active ? "rgba(99,102,241,0.55)" : "rgba(255,255,255,0.08)"}`,
-                      color: active ? "#FFFFFF" : "rgba(255,255,255,0.65)",
+                      background: active ? "rgba(99,102,241,0.10)" : "#f6f7f9",
+                      border: `1px solid ${active ? "rgba(99,102,241,0.55)" : "rgba(0,0,0,0.08)"}`,
+                      color: active ? "#1a1a1a" : "#605f5f",
                       boxShadow: active ? "0 0 0 3px rgba(99,102,241,0.10)" : "none",
                     }}
                   >
@@ -332,7 +330,7 @@ function OnboardingForm() {
                     <span
                       className="h-4 w-4 rounded-full flex items-center justify-center transition shrink-0"
                       style={{
-                        border: `1.5px solid ${active ? "#6366F1" : "rgba(255,255,255,0.18)"}`,
+                        border: `1.5px solid ${active ? "#6366F1" : "rgba(0,0,0,0.18)"}`,
                         background: active ? "#6366F1" : "transparent",
                       }}
                     >
@@ -346,7 +344,7 @@ function OnboardingForm() {
 
           {/* Error */}
           {error && (
-            <p className="mt-4 text-xs text-red-400 bg-red-500/[0.08] border border-red-500/20 rounded-lg px-3 py-2">
+            <p className="mt-4 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {error}
             </p>
           )}
@@ -360,9 +358,9 @@ function OnboardingForm() {
                 disabled={loading}
                 className="rounded-xl px-5 py-3 text-sm font-semibold transition disabled:opacity-50"
                 style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  color: "rgba(255,255,255,0.65)",
+                  background: "#f6f7f9",
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  color: "#605f5f",
                 }}
               >
                 {t("onboarding.back")}
@@ -373,7 +371,7 @@ function OnboardingForm() {
               onClick={validateAndNext}
               disabled={loading}
               className="flex-1 rounded-xl py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+              style={{ background: "linear-gradient(135deg,#4f7bff,#7c5cff)" }}
             >
               {loading
                 ? t("onboarding.creating")
@@ -395,10 +393,10 @@ function OnboardingForm() {
                 height: "6px",
                 background:
                   i === step
-                    ? "linear-gradient(90deg,#6366F1,#38BDF8)"
+                    ? "linear-gradient(90deg,#4f7bff,#7c5cff)"
                     : i < step
                       ? "rgba(99,102,241,0.5)"
-                      : "rgba(255,255,255,0.15)",
+                      : "rgba(0,0,0,0.12)",
               }}
             />
           ))}

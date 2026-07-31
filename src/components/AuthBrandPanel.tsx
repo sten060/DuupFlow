@@ -17,9 +17,9 @@ export default function AuthBrandPanel() {
 
   return (
     <div
-      className="hidden lg:flex flex-col justify-between flex-1 p-12 relative overflow-hidden lg:m-4 rounded-3xl border border-white/[0.08]"
+      className="hidden lg:flex flex-col justify-between flex-1 p-12 relative overflow-hidden lg:m-4 rounded-3xl border border-white/[0.14]"
       style={{
-        background: "linear-gradient(135deg, #0f0c3a 0%, #0d1535 50%, #0a1428 100%)",
+        background: "linear-gradient(150deg, #4f7bff 0%, #6a68ff 48%, #8a5cff 100%)",
       }}
     >
       {/* Grid texture */}
@@ -27,18 +27,18 @@ export default function AuthBrandPanel() {
         className="absolute inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
+            "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)",
           backgroundSize: "44px 44px",
         }}
       />
       {/* Glow */}
       <div
         className="absolute top-0 right-0 w-[600px] h-[400px] pointer-events-none"
-        style={{ background: "radial-gradient(ellipse at top right, rgba(99,102,241,0.20) 0%, transparent 70%)" }}
+        style={{ background: "radial-gradient(ellipse at top right, rgba(255,255,255,0.20) 0%, transparent 70%)" }}
       />
       <div
         className="absolute bottom-0 left-0 w-[400px] h-[300px] pointer-events-none"
-        style={{ background: "radial-gradient(ellipse at bottom left, rgba(56,189,248,0.12) 0%, transparent 70%)" }}
+        style={{ background: "radial-gradient(ellipse at bottom left, rgba(147,201,255,0.22) 0%, transparent 70%)" }}
       />
 
       {/* Content */}
@@ -64,7 +64,7 @@ export default function AuthBrandPanel() {
           >
             <div
               className="h-10 w-10 rounded-xl flex items-center justify-center text-lg shrink-0"
-              style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.25)" }}
+              style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.28)" }}
             >
               {f.icon}
             </div>
@@ -82,7 +82,7 @@ export default function AuthBrandPanel() {
           {["#6366F1", "#8B5CF6", "#EC4899", "#38BDF8"].map((c, i) => (
             <div
               key={i}
-              className="h-8 w-8 rounded-full border-2 border-[#0f0c3a] flex items-center justify-center text-xs font-bold text-white"
+              className="h-8 w-8 rounded-full border-2 border-[#5f6bff] flex items-center justify-center text-xs font-bold text-white"
               style={{ background: c }}
             >
               {["A", "M", "S", "L"][i]}

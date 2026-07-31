@@ -299,92 +299,92 @@ export default async function ArticlePage({
       <main className="px-6 py-12 md:py-16">
         <div className="max-w-6xl mx-auto grid grid-cols-12 gap-10 lg:gap-14">
           <article className="col-span-12 lg:col-span-8 [&_h2]:scroll-mt-28 [&_h3]:scroll-mt-28">
-            <nav className="text-xs text-white/40 mb-6" aria-label="Breadcrumb">
-              <Link href="/blog" className="hover:text-white/70 transition">Blog</Link>
-              <span className="mx-2 text-white/20">/</span>
-              <span className="text-white/55">{c.crumb}</span>
+            <nav className="text-xs text-[#8a8a8a] mb-6" aria-label="Breadcrumb">
+              <Link href="/blog" className="hover:text-[#3f4453] transition">Blog</Link>
+              <span className="mx-2 text-[#8a8a8a]">/</span>
+              <span className="text-[#3f4453]">{c.crumb}</span>
             </nav>
 
             <header className="mb-10">
               <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">{c.h1}</h1>
-              <div className="mt-5 flex items-center gap-3 text-xs uppercase tracking-wider text-white/40">
+              <div className="mt-5 flex items-center gap-3 text-xs uppercase tracking-wider text-[#8a8a8a]">
                 <time dateTime={PUBLISHED_AT}>{dateLabel}</time>
-                <span className="text-white/20">•</span>
+                <span className="text-[#8a8a8a]">•</span>
                 <span>{READING[lang]} {c.read}</span>
-                <span className="text-white/20">•</span>
+                <span className="text-[#8a8a8a]">•</span>
                 <span>{c.tag}</span>
               </div>
             </header>
 
-            <div className="space-y-6 text-[15px] md:text-base leading-relaxed text-white/80">
-              <p className="text-lg md:text-xl text-white/90 leading-relaxed">{c.lead}</p>
+            <div className="space-y-6 text-[15px] md:text-base leading-relaxed text-[#1a1a1a]">
+              <p className="text-lg md:text-xl text-[#1a1a1a] leading-relaxed">{c.lead}</p>
               <p>{c.lead2Pre}<strong>{c.lead2Strong}</strong>{c.lead2Post}</p>
 
               {hasVideo ? (
                 <div className="pt-2">
                   <YouTubeLazy videoId={YOUTUBE_ID} title={c.h1} />
-                  <p className="mt-2 text-center text-xs text-white/35 italic">{c.videoCaption}</p>
+                  <p className="mt-2 text-center text-xs text-[#8a8a8a] italic">{c.videoCaption}</p>
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-6 text-center text-sm text-white/45">🎬 {c.videoPlaceholder}</div>
+                <div className="rounded-xl border border-dashed border-white/15 bg-[#f6f7f9] px-4 py-6 text-center text-sm text-[#8a8a8a]">🎬 {c.videoPlaceholder}</div>
               )}
 
-              <h2 id="pipeline" className="pt-8 text-2xl md:text-3xl font-bold tracking-tight text-white">{c.h2pipeline}</h2>
+              <h2 id="pipeline" className="pt-8 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]">{c.h2pipeline}</h2>
               <p>{c.pipelineP}</p>
 
               <div className="not-prose grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
                 {STEPS[lang].map((s) => (
                   <div key={s.n} className="rounded-xl p-4" style={{ background: "rgba(10,14,40,0.55)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <div className="text-[11px] font-mono text-white/30 mb-2">{s.n}</div>
+                    <div className="text-[11px] font-mono text-[#8a8a8a] mb-2">{s.n}</div>
                     <div className="text-xl mb-1.5">{s.emoji}</div>
-                    <div className="text-sm font-semibold text-white">{s.title}</div>
-                    <div className="text-xs text-white/45 mt-0.5 leading-snug">{s.desc}</div>
+                    <div className="text-sm font-semibold text-[#1a1a1a]">{s.title}</div>
+                    <div className="text-xs text-[#8a8a8a] mt-0.5 leading-snug">{s.desc}</div>
                   </div>
                 ))}
               </div>
 
-              <h2 id="cle-api" className="pt-8 text-2xl md:text-3xl font-bold tracking-tight text-white">{c.h2api}</h2>
-              <p>{c.apiP1Pre}<Link href="/dashboard/developers" className="text-indigo-300 hover:text-indigo-200 underline underline-offset-2">{c.apiP1Link}</Link>{c.apiP1Post}</p>
-              <ul className="list-disc list-outside space-y-2 pl-6 marker:text-indigo-300/70">
+              <h2 id="cle-api" className="pt-8 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]">{c.h2api}</h2>
+              <p>{c.apiP1Pre}<Link href="/dashboard/developers" className="text-[#4f7bff] hover:text-[#4f7bff] underline underline-offset-2">{c.apiP1Link}</Link>{c.apiP1Post}</p>
+              <ul className="list-disc list-outside space-y-2 pl-6 marker:text-[#4f7bff]/70">
                 {c.apiLi.map((li, i) => <li key={i} dangerouslySetInnerHTML={{ __html: li }} />)}
               </ul>
 
-              <h2 id="etapes" className="pt-8 text-2xl md:text-3xl font-bold tracking-tight text-white">{c.h2steps}</h2>
+              <h2 id="etapes" className="pt-8 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]">{c.h2steps}</h2>
               {c.steps.map(([h, p], i) => (
                 <div key={i}>
-                  <h3 className="pt-2 text-xl md:text-2xl font-semibold tracking-tight text-white/95">{h}</h3>
+                  <h3 className="pt-2 text-xl md:text-2xl font-semibold tracking-tight text-[#1a1a1a]">{h}</h3>
                   <p>{p}</p>
                 </div>
               ))}
 
-              <h2 id="prompt" className="pt-8 text-2xl md:text-3xl font-bold tracking-tight text-white">{c.h2prompt}</h2>
-              <p>{c.promptPPre}<a href="https://claude.com/claude-code" target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:text-indigo-200 underline underline-offset-2">{c.promptLink}</a>{c.promptPPost}</p>
+              <h2 id="prompt" className="pt-8 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]">{c.h2prompt}</h2>
+              <p>{c.promptPPre}<a href="https://claude.com/claude-code" target="_blank" rel="noopener noreferrer" className="text-[#4f7bff] hover:text-[#4f7bff] underline underline-offset-2">{c.promptLink}</a>{c.promptPPost}</p>
               <CopyBlock code={CLAUDE_PROMPT[lang]} />
-              <p className="text-sm text-white/50">{c.promptTip}</p>
+              <p className="text-sm text-[#8a8a8a]">{c.promptTip}</p>
 
-              <h2 id="demarrer" className="pt-8 text-2xl md:text-3xl font-bold tracking-tight text-white">{c.h2start}</h2>
-              <p>{c.startPPre}<Link href="/pricing" className="text-indigo-300 hover:text-indigo-200 underline underline-offset-2">{c.startLink}</Link>{c.startPPost}</p>
+              <h2 id="demarrer" className="pt-8 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]">{c.h2start}</h2>
+              <p>{c.startPPre}<Link href="/pricing" className="text-[#4f7bff] hover:text-[#4f7bff] underline underline-offset-2">{c.startLink}</Link>{c.startPPost}</p>
               <div className="pt-4">
-                <Link href="/pricing" className="btn-glow inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white">
+                <Link href="/pricing" className="btn-glow inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-[#1a1a1a]">
                   {c.cta}<span aria-hidden>→</span>
                 </Link>
               </div>
             </div>
 
-            <section className="mt-16 pt-10 border-t border-white/[0.08]">
-              <h2 id="faq" className="scroll-mt-28 text-2xl md:text-3xl font-bold tracking-tight text-white mb-6">{c.faqTitle}</h2>
+            <section className="mt-16 pt-10 border-t border-black/10">
+              <h2 id="faq" className="scroll-mt-28 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a] mb-6">{c.faqTitle}</h2>
               <div className="space-y-6">
                 {FAQ[lang].map((item, i) => (
                   <div key={i}>
-                    <h3 className="text-base md:text-lg font-semibold text-white/95 mb-2">{item.q}</h3>
-                    <p className="text-sm md:text-[15px] text-white/65 leading-relaxed">{item.a}</p>
+                    <h3 className="text-base md:text-lg font-semibold text-[#1a1a1a] mb-2">{item.q}</h3>
+                    <p className="text-sm md:text-[15px] text-[#3f4453] leading-relaxed">{item.a}</p>
                   </div>
                 ))}
               </div>
             </section>
 
-            <div className="mt-12 pt-6 border-t border-white/[0.06]">
-              <Link href="/blog" className="text-sm text-white/55 hover:text-white transition">{c.back}</Link>
+            <div className="mt-12 pt-6 border-t border-black/10">
+              <Link href="/blog" className="text-sm text-[#3f4453] hover:text-[#1a1a1a] transition">{c.back}</Link>
             </div>
           </article>
 

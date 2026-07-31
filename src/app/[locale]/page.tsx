@@ -1,593 +1,661 @@
 "use client";
 
 import Link from "@/components/LocaleLink";
-import { useState, useRef, useEffect } from "react";
-import dynamic from "next/dynamic";
-import { useTranslation } from "@/lib/i18n/context";
+import { useState, useEffect, useRef } from "react";
+import { useParams } from "next/navigation";
+import { BLUE, CTA_GRAD, Label, NavPill, Footer, SmoothScroll, Brand } from "@/components/landing/shell";
 
-const Carousel3D = dynamic(() => import("@/components/Carousel3D"), { ssr: false });
+/* ══════════════════════════════════════════════════════════════
+ * LANDING — refonte façon template "Lunera" (thème clair, Geist).
+ * Design reproduit ; contenu 100% DuupFlow.
+ * Nav / Footer / SmoothScroll / Label / tokens → @/components/landing/shell
+ * ══════════════════════════════════════════════════════════════ */
 
-/* ─── tiny helpers ─── */
-const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
-
-/* Section background — gradient fade in/out (very subtle tint) */
-
-/* ─── Scroll Reveal (curtain effect) ─── */
-function useReveal() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } },
-      { threshold: 0.08 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return { ref, visible };
+/* Locale courante ("fr" par défaut, "en" sur /en) — pour le contenu bilingue. */
+function useLocale(): "fr" | "en" {
+  const params = useParams();
+  const l = Array.isArray(params?.locale) ? params?.locale[0] : params?.locale;
+  return l === "en" ? "en" : "fr";
 }
 
-function Reveal({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, visible } = useReveal();
+/* ─── Icônes réseaux qui flottent tranquillement dans le hero ─── */
+const FLOAT_SOCIALS = [
+  { key: "ig", pos: "left-[9%] top-[30%]", anim: "lunera-float-a", delay: "0s", src: "/instagram%20(1)%20copie.png", alt: "Instagram" },
+  { key: "tt", pos: "left-[16%] top-[64%]", anim: "lunera-float-c", delay: "1.4s", src: "/tik-tok%20copie.png", alt: "TikTok" },
+  { key: "yt", pos: "right-[9%] top-[28%]", anim: "lunera-float-b", delay: "0.6s", src: "/youtube%20copie.png", alt: "YouTube" },
+  { key: "x", pos: "right-[15%] top-[62%]", anim: "lunera-float-a", delay: "2s", src: "/twitter%20copie.png", alt: "X" },
+  { key: "rd", pos: "left-[26%] top-[20%]", anim: "lunera-float-b", delay: "1s", src: "/reddit%20copie.png", alt: "Reddit" },
+  { key: "th", pos: "right-[25%] top-[19%]", anim: "lunera-float-c", delay: "2.6s", src: "/threads%20copie.png", alt: "Threads" },
+];
+function FloatingSocials() {
   return (
-    <div ref={ref} className={`overflow-hidden ${className}`}>
-      <div
-        style={{
-          transform: visible ? "translateY(0)" : "translateY(72px)",
-          opacity: visible ? 1 : 0,
-          transition: `transform 0.85s cubic-bezier(0.16,1,0.3,1) ${delay}ms, opacity 0.75s ease-out ${delay}ms`,
-          willChange: "transform, opacity",
-        }}
-      >
-        {children}
-      </div>
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-[5] hidden lg:block">
+      {FLOAT_SOCIALS.map((s) => (
+        <div key={s.key}
+          className={`absolute ${s.pos} ${s.anim} flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-[0_16px_40px_rgba(20,40,90,0.14)] ring-1 ring-black/[0.05]`}
+          style={{ animationDelay: s.delay }}>
+          <img src={s.src} alt={s.alt} className="h-10 w-10 object-contain" />
+        </div>
+      ))}
     </div>
   );
 }
 
-// Smooth-scroll to the YouTube videos section. On the landing page (#videos
-// exists) we cancel the link navigation and scroll in-page; on other pages
-// the link's href ("/#videos") navigates to the landing and jumps to it.
-function scrollToVideos(e: { preventDefault: () => void }) {
-  const el = document.getElementById("videos");
-  if (el) {
-    e.preventDefault();
-    el.scrollIntoView({ behavior: "smooth" });
-  }
-}
-
-/* ═══════════════════════════════════════════════════════
- * SECTION 1 — HERO
- * ═══════════════════════════════════════════════════════ */
+/* ─── HERO ─── */
 function Hero() {
-  const { t } = useTranslation();
+  const en = useLocale() === "en";
   return (
-    <section className="relative flex flex-col items-center text-center px-6 pt-6 sm:pt-12 pb-20 sm:pb-40 overflow-hidden">
-
-      {/* Social proof avatars */}
-      <Reveal>
-        <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-10">
-          <div className="flex -space-x-2.5">
-            {["/testimonials/proof-melvin.png", "/testimonials/_ (2).jpeg", "/testimonials/_ (3).jpeg", "/testimonials/_ (4).jpeg"].map((src, i) => (
-              <img key={i} src={src} alt="" className="h-6 w-6 sm:h-9 sm:w-9 rounded-full border-2 border-[#0B0F1A] object-cover" />
-            ))}
-          </div>
-          <p className="text-xs sm:text-base text-white/60">
-            {t("hero.socialProof").replace("{count}", "500")}
-          </p>
+    <section className="relative overflow-hidden pb-14">
+      {/* Fond : blanc en haut (titre/nav), bleu ciel plus bas + vague "glass" animée */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+        {/* base : blanc en haut → bleu ciel au milieu → clair en bas (transition propre) */}
+        {/* champ bleu → violet (même dégradé que le fond de page, continuité avec la vague) */}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(to right, #b8d0ff 0%, #c6bcf5 100%)" }} />
+        {/* voile blanc en haut (zone titre) qui se fond vers le champ coloré */}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg,#ffffff 0%,#ffffff 34%,rgba(255,255,255,0) 60%)" }} />
+        {/* halos (couleurs logo) */}
+        <div className="lunera-blob-1 absolute bottom-[60px] left-[2%] h-[360px] w-[520px] rounded-full" style={{ background: "radial-gradient(circle, rgba(79,123,255,0.30), transparent 62%)", filter: "blur(60px)" }} />
+        <div className="lunera-blob-2 absolute bottom-[30px] left-[36%] h-[400px] w-[560px] rounded-full" style={{ background: "radial-gradient(circle, rgba(124,92,255,0.22), transparent 62%)", filter: "blur(66px)" }} />
+        <div className="lunera-blob-3 absolute bottom-[70px] right-[2%] h-[360px] w-[500px] rounded-full" style={{ background: "radial-gradient(circle, rgba(120,190,255,0.30), transparent 62%)", filter: "blur(58px)" }} />
+        {/* vague arrière (profondeur, floue) */}
+        <div className="lunera-wave-x absolute bottom-[0px] left-0 h-[430px] w-[200%]"
+          style={{ filter: "blur(11px)", opacity: 0.5, animationDuration: "26s", maskImage: "linear-gradient(to bottom,transparent 10%,#000 26%,#000 64%,transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom,transparent 10%,#000 26%,#000 64%,transparent 100%)" }}>
+          <svg viewBox="0 0 2880 430" preserveAspectRatio="none" className="h-full w-full">
+            <defs><linearGradient id="lwb" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#7bb8ff" /><stop offset="12.5%" stopColor="#4f7bff" /><stop offset="25%" stopColor="#6a4de0" /><stop offset="37.5%" stopColor="#4f7bff" /><stop offset="50%" stopColor="#7bb8ff" /><stop offset="62.5%" stopColor="#4f7bff" /><stop offset="75%" stopColor="#6a4de0" /><stop offset="87.5%" stopColor="#4f7bff" /><stop offset="100%" stopColor="#7bb8ff" /></linearGradient></defs>
+            <path d="M0,160 C300,70 540,70 780,150 C1020,230 1260,240 1440,160 C1680,70 1920,70 2160,160 C2400,240 2640,240 2880,160 L2880,430 L0,430 Z" fill="url(#lwb)" />
+          </svg>
         </div>
-      </Reveal>
+        {/* vague avant : dégradé logo + relief 3D (glass) + brillance sur l'arête */}
+        <div className="lunera-wave-x absolute bottom-[26px] left-0 h-[430px] w-[200%]"
+          style={{ filter: "blur(0.5px)", maskImage: "linear-gradient(to bottom,transparent 8%,#000 24%,#000 62%,transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom,transparent 8%,#000 24%,#000 62%,transparent 100%)" }}>
+          <svg viewBox="0 0 2880 430" preserveAspectRatio="none" className="h-full w-full">
+            <defs>
+              <linearGradient id="lwf" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#93c9ff" /><stop offset="12.5%" stopColor="#5a8bff" /><stop offset="25%" stopColor="#8a63ff" /><stop offset="37.5%" stopColor="#5a8bff" /><stop offset="50%" stopColor="#93c9ff" /><stop offset="62.5%" stopColor="#5a8bff" /><stop offset="75%" stopColor="#8a63ff" /><stop offset="87.5%" stopColor="#5a8bff" /><stop offset="100%" stopColor="#93c9ff" /></linearGradient>
+              <linearGradient id="lwShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="rgba(255,255,255,0.55)" /><stop offset="18%" stopColor="rgba(255,255,255,0)" /><stop offset="60%" stopColor="rgba(20,28,84,0)" /><stop offset="100%" stopColor="rgba(20,28,84,0.45)" /></linearGradient>
+            </defs>
+            <path d="M0,130 C240,50 480,50 720,130 C960,210 1200,210 1440,130 C1680,50 1920,50 2160,130 C2400,210 2640,210 2880,130 L2880,430 L0,430 Z" fill="url(#lwf)" />
+            <path d="M0,130 C240,50 480,50 720,130 C960,210 1200,210 1440,130 C1680,50 1920,50 2160,130 C2400,210 2640,210 2880,130 L2880,430 L0,430 Z" fill="url(#lwShade)" />
+            <path d="M0,130 C240,50 480,50 720,130 C960,210 1200,210 1440,130 C1680,50 1920,50 2160,130 C2400,210 2640,210 2880,130" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="8" strokeLinecap="round" />
+            <path d="M0,130 C240,50 480,50 720,130 C960,210 1200,210 1440,130 C1680,50 1920,50 2160,130 C2400,210 2640,210 2880,130" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+        </div>
+        {/* clarté derrière les boutons/étoiles (lisibilité) */}
+        <div className="absolute inset-0" style={{ background: "radial-gradient(52% 38% at 50% 60%, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.42) 44%, transparent 74%)" }} />
+      </div>
 
-      {/* Main heading — large, elegant, light weight like LanX */}
-      <Reveal delay={80}>
-        <h1 className="max-w-5xl text-[2.5rem] sm:text-[3.5rem] md:text-[5rem] font-light leading-[1.08] tracking-[-0.02em] text-white/90 mb-6 sm:mb-7">
-          {t("hero.titleLine1")}{" "}<br className="hidden sm:block" />
-          <span className={G}>{t("hero.titleLine2")}</span>
-          {t("hero.titleLine3") && <>{" "}<br className="hidden sm:block" />{t("hero.titleLine3")}</>}
+      <FloatingSocials />
+
+      <div className="relative z-10 mx-auto max-w-5xl px-6 pt-40 text-center sm:pt-48">
+        <span className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-[#1a1a1a] shadow-[0_6px_20px_rgba(20,40,90,0.06)] ring-1 ring-black/[0.06] backdrop-blur">
+          <img src="/logo-mark.png" alt="" className="h-4 w-4 object-contain" />
+          {en ? <>500 creators &amp; agencies repost with <Brand /></> : <>500 créateurs et agences repost avec <Brand /></>}
+        </span>
+        <h1 className="mx-auto tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(42px, 5.9vw, 70px)", lineHeight: 1.06, fontWeight: 500 }}>
+          {en ? <>Turn one video into<br /><span className="lunera-shine font-semibold">dozens of variants</span> to repost</> : <>Transforme 1 vidéo en<br /><span className="lunera-shine font-semibold">plusieurs variantes</span> à reposter</>}
         </h1>
-      </Reveal>
-
-      {/* Subtitle */}
-      <Reveal delay={160}>
-        <p className="max-w-2xl text-white/45 text-base sm:text-lg leading-relaxed mb-8 sm:mb-10">
-          <span className="sm:hidden">{t("hero.subtitleMobile")}</span>
-          <span className="hidden sm:inline">{t("hero.subtitleDesktop")}</span>
+        <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-[#3a3f4b] sm:text-[19px]">
+          {en
+            ? "Generate dozens of unique variants from a single video, ready to repost across all your accounts."
+            : "Génère des dizaines de variantes uniques d'une seule vidéo, prêtes à reposter sur tous tes comptes."}
         </p>
-      </Reveal>
 
-      {/* CTA buttons — slide-in hover effect (CSS in globals.css) */}
-      <Reveal delay={240}>
-        <div className="flex flex-row gap-3 sm:gap-4 mb-16 sm:mb-24 justify-center">
-          <Link href="/pricing#plans"
-            className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 sm:px-9 py-3 sm:py-3.5 font-semibold text-white text-sm sm:text-base">
-            {t("hero.ctaPrimary")}
-          </Link>
-          <Link href="/#videos" onClick={scrollToVideos}
-            className="slide-btn slide-btn-outline inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/[0.05] px-7 sm:px-9 py-3 sm:py-3.5 font-medium text-sm sm:text-base text-white/80 transition">
-            {t("hero.ctaSecondary")}
-          </Link>
-        </div>
-      </Reveal>
-
-      {/* Platform logos — large text marquee like LanX */}
-      <Reveal delay={320}>
-        <div className="w-screen relative left-1/2 -translate-x-1/2 overflow-hidden py-4">
-          <style>{`
-            @keyframes marquee-platforms { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-            .marquee-platforms { animation: marquee-platforms 30s linear infinite; }
-          `}</style>
-
-          <div className="marquee-platforms flex items-center gap-16 sm:gap-24 w-max">
-            {[...Array(2)].map((_, dup) => (
-              <div key={dup} className="flex items-center gap-16 sm:gap-24">
-                {[
-                  { name: "Instagram", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 01-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 017.8 2zm-.2 2A3.6 3.6 0 004 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 003.6-3.6V7.6C20 5.61 18.39 4 16.4 4H7.6zm9.65 1.5a1.25 1.25 0 110 2.5 1.25 1.25 0 010-2.5zM12 7a5 5 0 110 10 5 5 0 010-10zm0 2a3 3 0 100 6 3 3 0 000-6z"/></svg> },
-                  { name: "TikTok", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.17a8.16 8.16 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.6z"/></svg> },
-                  { name: "Reddit", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5.8 11.33c.02.16.03.33.03.5 0 2.55-2.97 4.63-6.63 4.63s-6.63-2.07-6.63-4.63c0-.17.01-.33.03-.5a1.45 1.45 0 01-.53-1.11 1.45 1.45 0 012.47-1.05 7.2 7.2 0 013.95-1.24l.74-3.49a.3.3 0 01.35-.24l2.49.53a1.04 1.04 0 011.96.47 1.04 1.04 0 01-1.85.66l-2.14-.45-.65 3.05a7.13 7.13 0 013.87 1.23 1.45 1.45 0 012.47 1.05c0 .42-.2.8-.53 1.09zM9.5 13a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zm5 0a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5z"/></svg> },
-                  { name: "Threads", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 192 192" fill="currentColor"><path d="M141.537 88.988a66.667 66.667 0 00-2.518-1.143c-1.482-27.307-16.403-42.94-41.457-43.1h-.34c-14.986 0-27.449 6.396-35.12 18.036l13.779 9.452c5.737-8.706 14.612-10.586 21.341-10.586h.232c8.24.054 14.466 2.452 18.51 7.13 2.96 3.424 4.948 8.174 5.956 14.218a86.34 86.34 0 00-24.478-2.636c-25.544 0-41.972 13.462-41.46 33.977.262 10.48 5.282 19.544 14.13 25.518 7.504 5.063 17.16 7.58 27.2 7.1 13.256-.63 23.636-5.468 30.862-14.372 5.484-6.756 8.926-15.378 10.372-26.076 6.214 3.746 10.822 8.694 13.396 14.768 4.258 10.048 4.508 26.542-7.846 38.878-10.834 10.82-23.862 15.502-43.622 15.666-21.852-.182-38.354-7.152-49.074-20.73C40.84 142.562 35.25 122.282 35.058 98c.192-24.282 5.782-44.562 16.616-60.276C62.394 24.146 78.896 17.176 100.748 16.994c22.02.186 38.742 7.19 49.698 20.834 5.398 6.726 9.484 14.876 12.2 24.276l15.022-4.082c-3.222-11.108-8.132-20.834-14.708-29.024C149.422 12.464 128.994 4.262 100.844 4.044h-.192C72.626 4.26 52.378 12.502 38.84 29.142 23.704 48.024 15.988 74.084 15.76 98.046l-.004.108c.228 23.962 7.944 50.022 23.08 68.904C52.378 183.698 72.626 191.94 100.652 192.156h.192c24.312-.186 42.082-6.776 57.532-21.36 20.588-19.432 19.78-43.586 13.792-57.608-4.292-10.064-12.396-18.246-23.631-23.2zM99.522 149.198c-15.832.756-31.894-6.29-32.372-20.386-.34-10.076 7.18-21.274 28.598-21.274a76.376 76.376 0 0121.022 2.946c-2.394 27.944-17.248 38.714-17.248 38.714z"/></svg> },
-                  { name: "X", icon: <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> },
-                  { name: "YouTube", icon: <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg> },
-                ].map((p) => (
-                  <div key={p.name} className="flex items-center gap-2.5 text-white/25 shrink-0">
-                    {p.icon}
-                    <span className="text-xl sm:text-2xl font-semibold whitespace-nowrap tracking-tight">{p.name}</span>
-                  </div>
-                ))}
-              </div>
-            ))}
+        {/* Boutons (remplacent le téléphone et les mockups) */}
+        <div className="mt-12 flex flex-col items-center gap-7 sm:mt-14">
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link href="/pricing"
+              className="inline-flex items-center gap-2.5 rounded-full px-8 py-3.5 text-[15px] font-medium text-white shadow-[0_12px_34px_rgba(90,90,240,0.4)] transition hover:opacity-90"
+              style={{ background: CTA_GRAD }}>
+              {en ? "Get started" : "Commencer maintenant"}
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </Link>
           </div>
         </div>
-      </Reveal>
-    </section>
-  );
-}
 
-/* ═══════════════════════════════════════════════════════
- * SECTION 2 — PROBLÈME / SOLUTION
- * ═══════════════════════════════════════════════════════ */
-function ProblemSolution() {
-  const { t } = useTranslation();
-  const problemStats = [
-    { big: t("problemSolution.psStat1Big"), cap: t("problemSolution.psStat1Cap") },
-    { big: t("problemSolution.psStat2Big"), cap: t("problemSolution.psStat2Cap") },
-  ];
-  const solutionTags = [
-    t("problemSolution.psTag1"),
-    t("problemSolution.psTag2"),
-    t("problemSolution.psTag3"),
-    t("problemSolution.psTag4"),
-    t("problemSolution.psTag5"),
-  ];
-  return (
-    <section className="relative px-6 pb-36 overflow-hidden">
-      <div className="max-w-6xl mx-auto pt-20">
-        <Reveal>
-          {/* Centered header */}
-          <div className="text-center mb-14 sm:mb-24">
-            <p className="text-[13px] font-medium tracking-[0.15em] uppercase text-indigo-400 mb-4">
-              {t("problemSolution.badge")}
-            </p>
-            <h2 className="font-semibold text-white tracking-tight" style={{ fontSize: "clamp(34px, 5vw, 52px)", lineHeight: 1.05 }}>
-              {t("problemSolution.title")} <span className={G}>{t("problemSolution.titleHighlight")}</span>
-            </h2>
-            <p className="text-white/55 text-base sm:text-lg mt-5 max-w-2xl mx-auto leading-relaxed">
-              {t("problemSolution.description")}
-            </p>
-          </div>
-
-          {/* Split layout — Problem (left) / Solution (right), DuupFlow logo straddling the divide */}
-          <div className="relative grid md:grid-cols-2 gap-14 md:gap-0">
-
-            {/* Center logo + glow */}
-            <div className="hidden md:flex absolute inset-y-0 left-1/2 -translate-x-1/2 z-20 items-center pointer-events-none">
-              <div
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] h-[440px] rounded-full"
-                style={{
-                  background:
-                    "radial-gradient(circle at 32% 50%, rgba(239,68,68,0.22), transparent 55%), radial-gradient(circle at 68% 50%, rgba(99,102,241,0.22), transparent 55%)",
-                  filter: "blur(40px)",
-                }}
-              />
-              <div
-                className="relative h-28 w-28 rounded-[28px] flex items-center justify-center border border-white/10"
-                style={{ background: "rgba(10,14,40,0.72)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", boxShadow: "0 0 60px rgba(99,102,241,0.25)" }}
-              >
-                <img src="/logo-mark.png" alt="DuupFlow" className="h-16 w-16 object-contain" />
-              </div>
-            </div>
-
-            {/* LEFT — Problem */}
-            <div className="md:pr-24 md:border-r md:border-white/[0.08]">
-              <div className="flex items-center gap-2.5 mb-5">
-                <span className="h-2.5 w-2.5 rounded-full bg-red-500 shrink-0" />
-                <span className="text-lg sm:text-xl font-semibold text-white">{t("problemSolution.problemTitle")}</span>
-              </div>
-              <p className="text-white/55 text-sm leading-relaxed max-w-md mb-12">
-                {t("problemSolution.problemText")}
-              </p>
-              <div className="space-y-10">
-                {problemStats.map((s, i) => (
-                  <div key={i}>
-                    <div className="flex items-center gap-4">
-                      <span className="text-4xl sm:text-5xl font-bold text-white tracking-tight whitespace-nowrap leading-none">{s.big}</span>
-                      <span className="flex-1 h-px bg-white/[0.12]" />
-                      <span className="h-2.5 w-2.5 rounded-full border border-white/25 shrink-0" />
-                    </div>
-                    <p className="text-white/55 text-sm mt-3.5 max-w-sm">{s.cap}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* RIGHT — Solution */}
-            <div className="md:pl-24">
-              <div className="mb-6">
-                <div
-                  className="h-16 w-16 rounded-2xl flex items-center justify-center border border-indigo-400/20"
-                  style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(56,189,248,0.10))" }}
-                >
-                  <img src="/logo-mark.png" alt="DuupFlow" className="h-10 w-10 object-contain" />
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 mb-5">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shrink-0" />
-                <span className="text-lg sm:text-xl font-semibold text-white">{t("problemSolution.solutionTitle")}</span>
-              </div>
-              <p className="text-white/55 text-sm leading-relaxed max-w-md mb-8">
-                {t("problemSolution.solutionText")}
-              </p>
-              <div className="flex flex-wrap gap-2.5">
-                {solutionTags.map((tag, i) => (
-                  <span
-                    key={i}
-                    className={`rounded-full px-4 py-2 text-sm font-medium border ${i === 3 ? "text-white border-transparent" : "text-white/70 border-white/[0.12] bg-white/[0.04]"}`}
-                    style={i === 3 ? { background: "linear-gradient(135deg,#6366F1,#38BDF8)" } : undefined}
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Result strip — existing copy retained */}
-          <div className="max-w-3xl mx-auto mt-16">
-            <div className="rounded-2xl border border-white/[0.10] p-5 text-center" style={{ background: "rgba(8,12,35,0.65)" }}>
-              <p className="text-sm text-white/70">
-                <span className="text-white font-semibold">{t("problemSolution.resultLabel")}</span>{" "}
-                {t("problemSolution.resultText").replace(/\{count\}/g, "50")}
-              </p>
-            </div>
-          </div>
-        </Reveal>
       </div>
     </section>
   );
 }
 
-/* ═══════════════════════════════════════════════════════
- * SECTION 3 — FEATURE TABS (auto-rotating)
- * ═══════════════════════════════════════════════════════ */
-const TAB_IDS = ["duplication", "invisible", "priority", "ai"];
-const TAB_DURATION = 4000;
-const TICK = 50;
-
-/* ── Compact mockups for horizontal scroller cards ── */
-function MockupDuplication() {
-  const { t } = useTranslation();
-  const copies = [
-    { name: "DuupFlow_dup1_47.jpg", type: "Image", size: "2.4 MB" },
-    { name: "DuupFlow_dup2_83.mp4", type: "Video", size: "18.7 MB" },
-    { name: "DuupFlow_dup3_12.jpg", type: "Image", size: "2.4 MB" },
-  ];
+/* ─── BLOC DÉMO (placeholder — gros bloc à remplir plus tard) ─── */
+function DemoBlock() {
+  const params = useParams();
+  const isFr = (Array.isArray(params?.locale) ? params?.locale[0] : params?.locale) !== "en";
   return (
-    <div className="space-y-2.5 text-xs">
-      <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2.5 flex items-center gap-2.5">
-        <span className="text-base">📁</span>
-        <div className="flex-1 min-w-0"><p className="text-white/70 font-medium truncate">contenu_source</p><p className="text-[10px] text-white/30">{t("fonctionnalites.sourceFile")}</p></div>
-        <span className="px-2 py-0.5 rounded border border-white/10 bg-white/[0.04] text-white/40 text-[10px]">{t("fonctionnalites.source")}</span>
+    <section className="px-6 pb-20 pt-8">
+      <div className="relative mx-auto max-w-6xl">
+        {/* Pastille posée sur le cadrant (chevauche le bord supérieur) */}
+        <div className="absolute left-1/2 top-0 z-20 hidden -translate-x-1/2 -translate-y-1/2 md:block">
+          <Link href="/#features" aria-label={isFr ? "C'est quoi DuupFlow ?" : "What is DuupFlow?"} className="lunera-bob block">
+            <span className="inline-flex items-center gap-2.5 rounded-full px-4 py-2.5 shadow-[0_16px_40px_rgba(100,90,240,0.24)] ring-1 ring-white/80 transition hover:brightness-[0.98]"
+              style={{ background: "linear-gradient(135deg,#ffffff 0%,#e9efff 52%,#efe8ff 100%)" }}>
+              <img src="/logo-mark.png" alt="" className="h-5 w-5 object-contain" />
+              <span className="text-[14px] font-semibold text-[#1a1a1a]">{isFr ? "C'est quoi " : "What is "}<Brand />{isFr ? " ?" : "?"}</span>
+            </span>
+          </Link>
+        </div>
+        <div className="relative flex aspect-[16/8] items-center justify-center overflow-hidden rounded-[32px] bg-white ring-1 ring-black/5 shadow-[0_30px_80px_rgba(20,40,90,0.16)]">
+          <video
+            key={isFr ? "fr" : "en"}
+            src={isFr ? "/demo-duupflow-fr.mp4" : "/demo-us.mp4"}
+            className="absolute inset-0 h-full w-full object-cover"
+            controls
+            playsInline
+            preload="metadata"
+            autoPlay
+            muted
+            loop
+          />
+        </div>
       </div>
-      <div className="flex justify-center"><svg className="h-4 w-4 text-white/15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12l7 7 7-7" /></svg></div>
-      {copies.map((f) => (
-        <div key={f.name} className="rounded-lg border border-indigo-500/20 bg-indigo-500/[0.04] px-3 py-2.5 flex items-center gap-2.5">
-          <span className="text-base">{f.type === "Image" ? "🖼️" : "🎬"}</span>
-          <div className="flex-1 min-w-0"><p className="text-white/60 font-mono truncate text-[11px]">{f.name}</p><p className="text-[10px] text-white/25">{t("fonctionnalites.metadataModified")} · {f.size}</p></div>
-          <svg className="h-3.5 w-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
+    </section>
+  );
+}
+
+/* ─── FEATURES (bento) ─── */
+const CARD_BG = "linear-gradient(180deg,#fcfcfe 0%,#f1f3f7 100%)";
+/* Covers vidéo réelles (frames extraites — statiques, pas de lecture) */
+const COVERS = ["/videos/cover-1.jpg", "/videos/cover-2.jpg"];
+const CLIPS = ["/videos/clip-1.jpg", "/videos/clip-2.jpg", "/videos/clip-3.jpg", "/videos/clip-4.jpg", "/videos/clip-5.jpg", "/videos/clip-6.jpg"];
+
+/* Duplication : 1 média vertical → copies uniques empilées */
+function DupStack() {
+  return (
+    <div className="relative mx-auto h-[210px] w-[176px]">
+      <div className="absolute left-[48px] top-[24px] h-[185px] w-[104px] rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_6px_16px_rgba(20,40,90,0.05)]" />
+      <div className="absolute left-[24px] top-[12px] h-[185px] w-[104px] rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_10px_24px_rgba(20,40,90,0.07)]" />
+      <div className="absolute left-0 top-0 h-[185px] w-[104px] overflow-hidden rounded-2xl ring-1 ring-black/5 shadow-[0_14px_34px_rgba(20,40,90,0.12)]">
+        <img src={CLIPS[3]} alt="" className="h-full w-full object-cover" />
+      </div>
+      <div className="absolute bottom-1 right-0 rounded-full bg-[#1a1a1a] px-3 py-1 text-[13px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.2)]">× ∞</div>
+    </div>
+  );
+}
+/* Variation automatique : réglages paramétrés tout seuls */
+function AutoPanel() {
+  const en = useLocale() === "en";
+  const rows: [string, string][] = en
+    ? [["Metadata", "Device · date · GPS"], ["Re-encoding", "H.264 · bitrate"], ["Magic pixel", "Invisible noise"]]
+    : [["Métadonnées", "Appareil · date · GPS"], ["Réencodage", "H.264 · bitrate"], ["Pixel magique", "Bruit invisible"]];
+  return (
+    <div className="w-full max-w-[262px] rounded-2xl bg-white p-3.5 ring-1 ring-black/5 shadow-[0_10px_28px_rgba(20,40,90,0.08)]">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[12px] font-semibold text-[#1a1a1a]">{en ? "Settings" : "Réglages"}</span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-[#4686FE]/10 px-2 py-0.5 text-[11px] font-medium" style={{ color: BLUE }}>
+          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 1.9 4.8L18 9.5l-4.1 1.7L12 16l-1.9-4.8L6 9.5l4.1-1.7Z" /></svg>Auto
+        </span>
+      </div>
+      {rows.map(([t, s], i) => (
+        <div key={i} className="flex items-center justify-between border-t border-black/[0.06] py-2">
+          <div><p className="text-[12px] font-medium text-[#1a1a1a]">{t}</p><p className="text-[10px] text-[#8a8a8a]">{s}</p></div>
+          <span className="flex h-4 w-7 items-center rounded-full px-0.5" style={{ background: BLUE }}><span className="ml-auto h-3 w-3 rounded-full bg-white" /></span>
         </div>
       ))}
     </div>
   );
 }
-
-function MockupInvisible() {
-  const { t } = useTranslation();
+/* Anti-détection IA : bouclier + jauge détectée → propre */
+function AntiAI() {
+  const en = useLocale() === "en";
   return (
-    <div className="space-y-3 text-xs">
-      <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2.5">
-        <p className="text-[10px] text-white/30 font-mono mb-0.5">Original Hash</p>
-        <p className="text-indigo-300 font-mono text-[11px]">a7f3e2d1c4b8...9f0a6e3d</p>
+    <div className="flex w-full max-w-[220px] flex-col items-center">
+      <div className="flex h-[90px] w-[90px] items-center justify-center rounded-full" style={{ background: "radial-gradient(circle, rgba(70,134,254,0.16), transparent 70%)" }}>
+        <svg className="h-14 w-14" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v5c0 4.4-3 8-7 10-4-2-7-5.6-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
       </div>
-      <div className="flex justify-center">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/[0.10]">
-          <span className="text-xs">✨</span><span className="text-[11px] font-semibold text-indigo-300">Pixel magique</span>
-        </div>
-      </div>
-      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2.5">
-        <p className="text-[10px] text-white/30 font-mono mb-0.5">Modified Hash</p>
-        <p className="text-emerald-300 font-mono text-[11px]">9b2e8f4a7c1d...3b5d2e8f</p>
-      </div>
-      <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-center">
-        <p className="text-white/60 font-medium text-[11px] mb-0.5">{t("fonctionnalites.visuallyIdentical")}</p>
-        <p className="text-[10px] text-white/30">{t("fonctionnalites.visualContentUnchanged")}</p>
+      <div className="mt-4 w-full">
+        <div className="flex justify-between text-[10px] font-medium"><span className="text-rose-400 line-through">{en ? "AI detected" : "IA détectée"}</span><span className="text-emerald-500">{en ? "Clean ✓" : "Propre ✓"}</span></div>
+        <div className="mt-1.5 h-2 rounded-full bg-black/[0.06]"><div className="h-2 w-full rounded-full bg-gradient-to-r from-rose-300 via-amber-300 to-emerald-400" /></div>
       </div>
     </div>
   );
 }
-
-function MockupPriority() {
-  const { t } = useTranslation();
-  const fields = [
-    { key: "Make", value: "Apple" },
-    { key: "Model", value: "iPhone 16 Pro" },
-    { key: "Software", value: "18.3" },
-    { key: "Location", value: "Paris, France" },
-  ];
+/* Variation manuelle : réglages experts (sliders) */
+function ManualSliders() {
+  const en = useLocale() === "en";
+  const sl: [string, number][] = [["Bitrate", 0.72], ["Saturation", 0.44], [en ? "Speed" : "Vitesse", 0.6], ["Zoom", 0.3]];
   return (
-    <div className="space-y-2.5 text-xs">
-      <div className="flex items-center gap-2 mb-1">
-        <div className="h-6 w-6 rounded-md bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
-          <svg className="h-3 w-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-        </div>
-        <span className="text-[11px] font-semibold text-indigo-300">{t("fonctionnalites.metadataInjected").replace("{count}", "4")}</span>
-      </div>
-      {fields.map((f) => (
-        <div key={f.key} className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 flex items-center justify-between">
-          <span className="text-white/35 font-mono text-[11px]">{f.key}</span>
-          <span className="text-indigo-300 font-mono text-[11px]">{f.value}</span>
+    <div className="w-full max-w-[300px] rounded-2xl bg-white p-4 ring-1 ring-black/5 shadow-[0_10px_28px_rgba(20,40,90,0.08)]">
+      {sl.map(([label, v], i) => (
+        <div key={i} className="mb-3.5 last:mb-0">
+          <div className="mb-1 flex justify-between text-[11px]"><span className="font-medium text-[#1a1a1a]">{label}</span><span className="text-[#8a8a8a]">{Math.round(v * 100)}%</span></div>
+          <div className="relative h-1.5 rounded-full bg-black/[0.06]">
+            <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${v * 100}%`, background: BLUE }} />
+            <div className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow ring-1 ring-black/10" style={{ left: `${v * 100}%` }} />
+          </div>
         </div>
       ))}
-      <div className="rounded-lg border border-indigo-500/15 bg-indigo-500/[0.04] px-3 py-2 text-center">
-        <p className="text-[10px] text-indigo-300/70">{t("fonctionnalites.algorithmTreatsAsIphone")}</p>
-      </div>
     </div>
   );
 }
-
-function MockupAI() {
-  const { t } = useTranslation();
+/* Scraper : grille du profil, meilleurs clips sélectionnés */
+function ScraperGrid() {
+  const en = useLocale() === "en";
+  const clips: { v: string; best?: boolean }[] = [{ v: "1.2M", best: true }, { v: "840K", best: true }, { v: "12K" }, { v: "3K" }, { v: "620K", best: true }, { v: "9K" }];
   return (
-    <div className="space-y-3 text-xs">
-      <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-3 py-3">
-        <p className="text-[10px] text-amber-400 font-medium mb-2 flex items-center gap-1"><span>⚡</span> {t("fonctionnalites.aiSignatureDetected")}</p>
-        <div className="space-y-1.5">
-          {[["Software", "Midjourney v6.1"], ["Artist", "Midjourney Bot"], ["Creator", "midjourney.com"]].map(([k, v]) => (
-            <div key={k} className="flex justify-between"><span className="text-white/35 font-mono text-[11px]">{k}</span><span className="text-amber-300/80 font-mono text-[11px]">{v}</span></div>
-          ))}
-        </div>
+    <div className="w-full max-w-[260px]">
+      <div className="mb-2.5 flex items-center gap-2">
+        <span className="h-6 w-6 rounded-full bg-gradient-to-br from-[#dbe6ff] to-[#e6ddff]" />
+        <span className="text-[12px] font-semibold text-[#1a1a1a]">{en ? "@your_account" : "@ton_compte"}</span>
+        <span className="ml-auto text-[10px] font-medium" style={{ color: BLUE }}>Top clips</span>
       </div>
-      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-3">
-        <p className="text-[10px] text-emerald-400 font-medium mb-2 flex items-center gap-1"><span>🛡️</span> {t("fonctionnalites.aiSignatureCleared")}</p>
-        <div className="space-y-1.5">
-          {[["Software", "Adobe Lightroom 7.2"], ["Make", "Sony"], ["Model", "A7 IV"]].map(([k, v]) => (
-            <div key={k} className="flex justify-between"><span className="text-white/35 font-mono text-[11px]">{k}</span><span className="text-emerald-300/80 font-mono text-[11px]">{v}</span></div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MockupVariation() {
-  return (
-    <div className="space-y-2.5 text-xs">
-      <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/[0.04] px-3 py-3 flex items-center gap-2.5">
-        <span className="text-base">🖼️</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-white/70 font-medium truncate">portrait_source.jpg</p>
-          <p className="text-[10px] text-fuchsia-300/70">Image de référence</p>
-        </div>
-      </div>
-      <div className="flex justify-center"><svg className="h-4 w-4 text-fuchsia-300/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 2v6M12 16v6M2 12h6M16 12h6" /></svg></div>
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { tag: "Variation 1", hint: "main dans cheveux" },
-          { tag: "Variation 2", hint: "regard ciel" },
-          { tag: "Variation 3", hint: "geste libre" },
-        ].map((v) => (
-          <div key={v.tag} className="rounded-lg border border-fuchsia-500/25 bg-gradient-to-br from-fuchsia-500/[0.08] to-indigo-500/[0.05] px-2 py-2 text-center">
-            <div className="aspect-square rounded-md bg-white/[0.04] mb-1.5 flex items-center justify-center">
-              <span className="text-base opacity-60">✨</span>
-            </div>
-            <p className="text-[9px] text-fuchsia-300 font-semibold">{v.tag}</p>
-            <p className="text-[8px] text-white/35 truncate">{v.hint}</p>
+      <div className="grid grid-cols-3 gap-1.5">
+        {clips.map((c, i) => (
+          <div key={i} className={`relative aspect-[9/16] overflow-hidden rounded-lg ring-1 ring-black/5 ${c.best ? "ring-2 ring-[#4686FE]" : ""}`}>
+            <img src={CLIPS[i % CLIPS.length]} alt="" className={`h-full w-full object-cover ${c.best ? "" : "opacity-60 grayscale-[0.3]"}`} />
+            {c.best && (
+              <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full text-white shadow" style={{ background: BLUE }}>
+                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="M20 6 9 17l-5-5" /></svg>
+              </span>
+            )}
+            <span className="absolute bottom-1 left-1 rounded bg-black/45 px-1 py-px text-[8px] font-semibold text-white">{c.v}</span>
           </div>
         ))}
       </div>
-      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2 text-center">
-        <p className="text-[10px] text-emerald-300/80">Identité, décor, lumière préservés</p>
+    </div>
+  );
+}
+const CARD_BACK = "linear-gradient(160deg,#4f7bff 0%,#6a68ff 48%,#8a5cff 100%)";
+function FeatCard({ span, title, desc, back, children }: { span: string; title: string; desc: string; back: string; children: React.ReactNode }) {
+  return (
+    <div className={`${span} group h-[380px] [perspective:1400px]`}>
+      <div className="relative h-full w-full transition-transform duration-[650ms] ease-[cubic-bezier(0.22,1,0.36,1)] [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
+        {/* Recto */}
+        <div className="absolute inset-0 flex flex-col overflow-hidden rounded-[28px] p-7 ring-1 ring-black/[0.06] [backface-visibility:hidden]" style={{ background: CARD_BG }}>
+          <h3 className="text-[22px] font-semibold tracking-tight text-[#1a1a1a]">{title}</h3>
+          <p className="mt-2 max-w-xs text-[15px] leading-relaxed text-[#605f5f]">{desc}</p>
+          <div className="mt-6 flex flex-1 items-end justify-center">{children}</div>
+        </div>
+        {/* Verso */}
+        <div className="absolute inset-0 flex flex-col justify-center overflow-hidden rounded-[28px] p-7 text-white ring-1 ring-white/10 [backface-visibility:hidden] [transform:rotateY(180deg)]" style={{ background: CARD_BACK }}>
+          <h3 className="text-[20px] font-semibold tracking-tight">{title}</h3>
+          <p className="mt-3 text-[14px] leading-relaxed text-white/90">{back}</p>
+        </div>
       </div>
     </div>
   );
 }
-
-const MOCKUPS: Record<string, React.ReactNode> = { duplication: <MockupDuplication />, invisible: <MockupInvisible />, priority: <MockupPriority />, variation: <MockupVariation />, ai: <MockupAI /> };
-
-function FeatureTabs() {
-  const { t } = useTranslation();
-  const [active, setActive] = useState("duplication");
-  const [progress, setProgress] = useState(0);
-  const activeRef = useRef("duplication");
-  const progressRef = useRef(0);
-
-  const tabs = [
-    { id: "duplication", label: t("featuresScroller.card1Title") },
-    { id: "invisible", label: t("featuresScroller.card2Title") },
-    { id: "priority", label: t("featuresScroller.card3Title") },
-    { id: "ai", label: t("featuresScroller.card4Title") },
-  ];
-
-  const tabDescs: Record<string, string> = {
-    duplication: t("featuresScroller.card1Desc"),
-    invisible: t("featuresScroller.card2Desc"),
-    priority: t("featuresScroller.card3Desc"),
-    ai: t("featuresScroller.card4Desc"),
-  };
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      progressRef.current += (TICK / TAB_DURATION) * 100;
-      if (progressRef.current >= 100) {
-        progressRef.current = 0;
-        const idx = TAB_IDS.indexOf(activeRef.current);
-        const next = TAB_IDS[(idx + 1) % TAB_IDS.length];
-        activeRef.current = next;
-        setActive(next);
-      }
-      setProgress(progressRef.current);
-    }, TICK);
-    return () => clearInterval(timer);
-  }, []);
-
-  const handleTab = (id: string) => { activeRef.current = id; progressRef.current = 0; setActive(id); setProgress(0); };
-  const desc = tabDescs[active];
-
+function FeatCardWide({ span, title, desc, back, children }: { span: string; title: string; desc: string; back: string; children: React.ReactNode }) {
   return (
-    <section className="px-6 pb-36">
-      <div className="max-w-5xl mx-auto pt-20">
-        <Reveal>
-          <div className="flex overflow-x-auto gap-1 p-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] mb-8 scrollbar-none">
-            {tabs.map((tab) => (
-              <button key={tab.id} onClick={() => handleTab(tab.id)}
-                className="flex-1 min-w-max rounded-xl px-4 py-2.5 text-sm font-medium transition whitespace-nowrap relative overflow-hidden"
-                style={{ color: active === tab.id ? "white" : "rgba(255,255,255,0.45)", background: active === tab.id ? "rgba(255,255,255,0.10)" : "transparent", border: active === tab.id ? "1px solid rgba(255,255,255,0.15)" : "1px solid transparent" }}>
-                {tab.label}
-                {tab.id === "ai" && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/25 font-semibold">{t("featuresScroller.badgeNew")}</span>}
-                {active === tab.id && (
-                  <span className="absolute bottom-0 left-0 h-[2px] rounded-full"
-                    style={{ width: `${progress}%`, background: "linear-gradient(90deg,#6366F1,#38BDF8)", transition: "width 50ms linear" }} />
-                )}
-              </button>
-            ))}
+    <div className={`${span} group h-[340px] [perspective:1600px]`}>
+      <div className="relative h-full w-full transition-transform duration-[650ms] ease-[cubic-bezier(0.22,1,0.36,1)] [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
+        {/* Recto */}
+        <div className="absolute inset-0 flex items-center gap-6 overflow-hidden rounded-[28px] p-7 ring-1 ring-black/[0.06] [backface-visibility:hidden]" style={{ background: CARD_BG }}>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[22px] font-semibold tracking-tight text-[#1a1a1a]">{title}</h3>
+            <p className="mt-2 text-[15px] leading-relaxed text-[#605f5f]">{desc}</p>
           </div>
-          <div className="grid md:grid-cols-[1fr_360px] gap-8 items-start">
-            <div className="py-4">
-              <h3 className="text-2xl font-semibold text-white mb-3">{tabs.find(tab => tab.id === active)?.label}</h3>
-              <p className="text-white/75 leading-relaxed mb-6">{desc}</p>
-              <Link href="/pricing#plans" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">{t("featuresScroller.tryNow")}</Link>
-            </div>
-            <div className="rounded-2xl border border-white/[0.12] p-4 sm:p-5 backdrop-blur-sm overflow-hidden min-h-[300px] sm:min-h-[480px]" style={{ background: "rgba(8,12,35,0.75)" }}>
-              {MOCKUPS[active]}
-            </div>
-          </div>
-        </Reveal>
-        <div className="flex justify-center mt-10">
-          <Link href="/#videos" onClick={scrollToVideos}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3 font-medium text-sm text-white/75 hover:text-white hover:bg-white/[0.08] transition">
-            {t("featuresScroller.seeDemo")}
-          </Link>
+          <div className="flex w-[46%] shrink-0 items-center justify-center">{children}</div>
+        </div>
+        {/* Verso */}
+        <div className="absolute inset-0 flex flex-col justify-center overflow-hidden rounded-[28px] p-8 text-white ring-1 ring-white/10 [backface-visibility:hidden] [transform:rotateY(180deg)]" style={{ background: CARD_BACK }}>
+          <h3 className="text-[20px] font-semibold tracking-tight">{title}</h3>
+          <p className="mt-3 max-w-lg text-[14px] leading-relaxed text-white/90">{back}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+const FEATURES = [
+  {
+    wide: false, art: <DupStack />,
+    fr: { title: "Duplication vidéos & images", desc: "Transforme 1 fichier en autant de copies uniques que tu veux, en quelques secondes.", back: "Chaque copie est entièrement ré-encodée : une empreinte binaire neuve, tout en conservant ta résolution et ta qualité d'origine (une 1080p reste 1080p, une 4K reste 4K). Fonctionne sur les vidéos (mp4, mov, mkv, avi, webm) comme sur les images." },
+    en: { title: "Video & image duplication", desc: "Turn 1 file into as many unique copies as you want, in seconds.", back: "Each copy is fully re-encoded: a brand-new binary fingerprint, while keeping your original resolution and quality (1080p stays 1080p, 4K stays 4K). Works on videos (mp4, mov, mkv, avi, webm) and images alike." },
+  },
+  {
+    wide: false, art: <AutoPanel />,
+    fr: { title: "Variation automatique", desc: "Métadonnées, réencodage, pixel magique : DuupFlow paramètre tout à ta place.", back: "DuupFlow applique seul les bons traitements : micro-ajustements visuels (luminosité, saturation, teinte, gamma) sous le seuil de l'œil, réécriture des métadonnées techniques (EXIF, DPI, logiciel plausible, GPS, option iPhone réaliste) et « pixel magique » (micro-recadrage + bruit) qui casse l'empreinte pixel. Zéro réglage." },
+    en: { title: "Automatic variation", desc: "Metadata, re-encoding, magic pixel: DuupFlow sets everything up for you.", back: "DuupFlow applies the right treatments on its own: sub-perceptual visual micro-adjustments (brightness, saturation, hue, gamma), rewriting of technical metadata (EXIF, DPI, plausible software, GPS, realistic iPhone option) and a “magic pixel” (micro-crop + noise) that breaks the pixel fingerprint. Zero setup." },
+  },
+  {
+    wide: false, art: <AntiAI />,
+    fr: { title: "Anti-détection IA", desc: "Efface les signatures IA (C2PA) pour que tes contenus passent comme du natif.", back: "Retire les signatures d'IA — dont le standard C2PA — de tes fichiers, puis réécrit une identité crédible de contenu « tourné par un humain » : appareil photo réel (Canon, Sony, iPhone…), logiciel d'édition courant, date récente et localisation cohérentes." },
+    en: { title: "AI-detection bypass", desc: "Strips AI signatures (C2PA) so your content passes as native.", back: "Removes AI signatures — including the C2PA standard — from your files, then rewrites a credible “shot by a human” identity: real camera (Canon, Sony, iPhone…), common editing software, recent date and consistent location." },
+  },
+  {
+    wide: true, art: <ManualSliders />,
+    fr: { title: "Variation manuelle", desc: "Pour les experts : reprends la main sur chaque réglage plutôt que l'auto.", back: "Tu choisis toi-même les traitements appliqués à chaque copie — recadrage / zoom, miroir horizontal, réglages visuels (luminosité, saturation, teinte, gamma) et niveau de métadonnées. Le contrôle total pour ceux qui veulent régler eux-mêmes." },
+    en: { title: "Manual variation", desc: "For experts: take control of every setting instead of the auto mode.", back: "You choose the treatments applied to each copy yourself — crop / zoom, horizontal mirror, visual settings (brightness, saturation, hue, gamma) and metadata level. Full control for those who want to tune it themselves." },
+  },
+  {
+    wide: true, art: <ScraperGrid />,
+    fr: { title: "Scraper de profil", desc: "Sélectionne tes meilleurs clips directement depuis ton compte et duplique-les en un clic.", back: "Connecte ton profil (Instagram, TikTok) : DuupFlow scanne tes publications sur une période donnée, les classe par performance (portée via vues ou likes + taux d'engagement) et fait remonter tes meilleurs clips — prêts à dupliquer directement." },
+    en: { title: "Profile scraper", desc: "Pick your best clips straight from your account and duplicate them in one click.", back: "Connect your profile (Instagram, TikTok): DuupFlow scans your posts over a chosen period, ranks them by performance (reach via views or likes + engagement rate) and surfaces your best clips — ready to duplicate directly." },
+  },
+];
+function Features() {
+  const loc = useLocale();
+  return (
+    <section id="features" className="px-6 py-20 sm:py-28">
+      <div className="mx-auto max-w-6xl">
+        <div className="text-center">
+          <Label>{loc === "en" ? "Features" : "Fonctionnalités"}</Label>
+          <h2 className="mx-auto mt-5 max-w-2xl font-semibold tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(30px, 4vw, 46px)", lineHeight: 1.08 }}>
+            {loc === "en" ? "Everything to scale your content production." : "Tout pour scaler ta production de contenu."}
+          </h2>
+        </div>
+        <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-6">
+          {FEATURES.map((f, i) => {
+            const c = f[loc];
+            return f.wide
+              ? <FeatCardWide key={i} span="sm:col-span-3" title={c.title} desc={c.desc} back={c.back}>{f.art}</FeatCardWide>
+              : <FeatCard key={i} span="sm:col-span-2" title={c.title} desc={c.desc} back={c.back}>{f.art}</FeatCard>;
+          })}
         </div>
       </div>
     </section>
   );
 }
 
-/* ═══════════════════════════════════════════════════════
- * SECTION 3b — HORIZONTAL SCROLLER (replaces FeatureTabs)
- * ═══════════════════════════════════════════════════════ */
-const GLOW = "text-[#5B7BFF]";
-const GS = { textShadow: "0 0 25px rgba(91,123,255,0.5)" };
-
-function FeaturesScroller() {
-  const { t } = useTranslation();
-  const stickyRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [scrollX, setScrollX] = useState(0);
-
+/* ─── INTÉGRATIONS (covers vidéo qui pop en séquence horaire) ─── */
+// Ordre = sens des aiguilles d'une montre depuis midi (top → droite → bas-droite → bas-gauche → gauche)
+// Pool de covers : l'actuelle + 5 autres du dossier, qui tournent toutes les 1,5 s
+const INT_POOL = ["/videos/int-cover.jpg", CLIPS[0], CLIPS[1], CLIPS[2], CLIPS[3], CLIPS[4]];
+const REEL_TILES = [
+  { order: 0, left: "50%", top: "7%", rot: 0 },    // 12h
+  { order: 1, left: "91%", top: "27%", rot: 8 },   // 3h
+  { order: 2, left: "94%", top: "81%", rot: 14 },  // 5h
+  { order: 3, left: "6%", top: "81%", rot: -14 },  // 7h
+  { order: 4, left: "9%", top: "27%", rot: -8 },   // 9h
+];
+const AVOID = {
+  fr: ["Le shadow ban de comptes", "Les contenus restreints", "Le contenu non-original"],
+  en: ["Account shadow bans", "Restricted content", "Non-original content"],
+};
+function Integrations() {
+  const loc = useLocale();
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+  const [cover, setCover] = useState(0);
   useEffect(() => {
-    const container = stickyRef.current;
-    if (!container) return;
-    const onScroll = () => {
-      const rect = container.getBoundingClientRect();
-      const stickyTop = 0;
-      const scrolled = stickyTop - rect.top;
-      const maxScroll = container.offsetHeight - window.innerHeight;
-      const progress = Math.max(0, Math.min(1, scrolled / maxScroll));
-      const track = trackRef.current;
-      if (track) {
-        const lastCard = track.lastElementChild as HTMLElement | null;
-        const cardWidth = lastCard?.offsetWidth ?? 0;
-        const maxX = track.scrollWidth - cardWidth - (window.innerWidth - cardWidth) / 2;
-        setScrollX(progress * Math.max(0, maxX));
-      }
+    const el = wrapRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setShown(true); io.disconnect(); } },
+      { threshold: 0.55, rootMargin: "0px 0px -14% 0px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  useEffect(() => {
+    const id = setInterval(() => setCover((c) => c + 1), 1500);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <section className="px-6 py-20 sm:py-24">
+      <div ref={wrapRef} className="mx-auto max-w-6xl text-center">
+        <h2 className="mx-auto max-w-2xl font-semibold tracking-[-0.03em] text-[#1a1a1a]"
+          style={{
+            fontSize: "clamp(30px, 4vw, 46px)", lineHeight: 1.08,
+            opacity: shown ? 1 : 0,
+            transform: shown ? "translateY(0)" : "translateY(26px)",
+            transition: "opacity .7s ease, transform .8s cubic-bezier(0.16,1,0.3,1)",
+          }}>
+          {loc === "en" ? "One video, repost everywhere." : "Une vidéo, reposter partout."}
+        </h2>
+        <div className="mt-16 grid items-center gap-14 lg:mt-20 lg:grid-cols-[1fr_auto_0.9fr] lg:gap-28">
+          {/* Gauche : l'arc de covers — se rétrécit + se décale à gauche à l'apparition */}
+          <div
+            className="relative mx-auto h-[400px] w-full max-w-xl sm:h-[460px]"
+            style={{
+              opacity: shown ? 1 : 0,
+              transform: shown ? "translateX(0) scale(1)" : "translateX(20%) scale(1.16)",
+              transition: "transform 1s cubic-bezier(0.16,1,0.3,1), opacity .7s ease",
+            }}
+          >
+            <div aria-hidden className="absolute inset-x-6 bottom-4 top-[24%] rounded-t-full"
+              style={{ background: "radial-gradient(62% 78% at 50% 100%, rgba(116,142,255,0.34), rgba(116,142,255,0.13) 50%, transparent 76%)" }} />
+            {/* Texte central */}
+            <div className="absolute left-1/2 top-1/2 z-10 w-[200px] -translate-x-1/2 -translate-y-1/2 sm:w-[236px]">
+              <p className="font-semibold tracking-[-0.02em] text-[#1a1a1a]" style={{ fontSize: "clamp(20px, 2.6vw, 27px)", lineHeight: 1.2 }}>
+                {loc === "en" ? <>Multiply &amp; repost your content effortlessly</> : <>Multiplie &amp; repost ton contenu sans effort</>}
+              </p>
+            </div>
+            {/* Covers vidéo */}
+            {REEL_TILES.map((t) => {
+              const src = INT_POOL[cover % INT_POOL.length];
+              return (
+                <div
+                  key={t.order}
+                  className="absolute w-[66px] sm:w-[82px]"
+                  style={{
+                    left: t.left,
+                    top: t.top,
+                    perspective: "700px",
+                    opacity: shown ? 1 : 0,
+                    transform: `translate(-50%,-50%) rotate(${shown ? t.rot : t.rot - 12}deg) scale(${shown ? 1 : 0.15})`,
+                    transition: "opacity .5s ease, transform .7s cubic-bezier(0.34,1.56,0.64,1)",
+                    transitionDelay: `${(shown ? t.order : 0) * 0.16}s`,
+                  }}
+                >
+                  <div key={src} className="lunera-flip overflow-hidden rounded-[18px] bg-[#e9edf5] p-1 shadow-[0_16px_40px_rgba(20,40,90,0.16)] ring-1 ring-black/5">
+                    <div className="relative aspect-[9/16] overflow-hidden rounded-[13px]">
+                      <img src={src} alt="" className="h-full w-full object-cover" />
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm sm:h-7 sm:w-7">
+                          <svg className="h-3 w-3 translate-x-px text-[#1a1a1a] sm:h-3.5 sm:w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Centre : trait vertical (grandit à l'apparition) */}
+          <div aria-hidden className="hidden h-[320px] w-px origin-center bg-gradient-to-b from-transparent via-black/15 to-transparent lg:block"
+            style={{ opacity: shown ? 1 : 0, transform: shown ? "scaleY(1)" : "scaleY(0)", transition: "transform .9s cubic-bezier(0.22,1,0.36,1) .35s, opacity .5s ease .35s" }} />
+
+          {/* Droite : "Avec DuupFlow évite" */}
+          <div className="text-left">
+            <h3 className="font-semibold tracking-[-0.02em] text-[#1a1a1a]"
+              style={{
+                fontSize: "clamp(22px, 2.6vw, 30px)", lineHeight: 1.15,
+                opacity: shown ? 1 : 0,
+                transform: shown ? "translateX(0)" : "translateX(32px)",
+                transition: "opacity .6s ease .35s, transform .7s cubic-bezier(0.16,1,0.3,1) .35s",
+              }}>
+              {loc === "en" ? <>With <Brand />, you avoid:</> : <>Avec <Brand />, tu évites :</>}
+            </h3>
+            <ul className="mt-6 space-y-3">
+              {AVOID[loc].map((txt, i) => (
+                <li key={i}
+                  style={{
+                    opacity: shown ? 1 : 0,
+                    transform: shown ? "translateX(0) scale(1)" : "translateX(52px) scale(0.94)",
+                    transition: "opacity .55s ease, transform .65s cubic-bezier(0.16,1,0.3,1)",
+                    transitionDelay: `${(shown ? i : 0) * 0.16 + 0.55}s`,
+                  }}
+                >
+                  <div
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3.5 ring-1 ring-black/[0.06] shadow-[0_8px_22px_rgba(20,40,90,0.05)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(20,40,90,0.12)]"
+                    style={{ background: CARD_BG }}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500 ring-1 ring-red-100">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                    </span>
+                    <span className="text-[15px] font-medium text-[#1a1a1a]">{txt}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── HOW IT WORKS ─── (2 colonnes : titre gauche, cartes empilées droite) */
+function VariantsRow() {
+  const en = useLocale() === "en";
+  return (
+    <div className="w-full">
+      <div className="mb-3.5 flex items-center justify-center gap-2 text-[12px] font-medium">
+        <span className="rounded-md bg-white px-2.5 py-1 text-[#1a1a1a] ring-1 ring-black/5">reel.mp4</span>
+        <svg className="h-4 w-4 text-[#8a8a8a]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        <span className="rounded-md px-2.5 py-1 text-white" style={{ background: BLUE }}>{en ? "20 unique" : "20 uniques"}</span>
+      </div>
+      <div className="grid grid-cols-5 gap-2">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div key={i} className="relative aspect-[9/16] overflow-hidden rounded-md ring-1 ring-black/5">
+            <img src={COVERS[i % COVERS.length]} alt="" className="h-full w-full object-cover" />
+            <span className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-white shadow" style={{ background: BLUE }}>
+              <svg className="h-2 w-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="M20 6 9 17l-5-5" /></svg>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+const DISPATCH_NETS = [
+  { name: "Instagram", logo: "/instagram%20(1)%20copie.png", handle: "@repost.officiel" },
+  { name: "TikTok", logo: "/tik-tok%20copie.png", handle: "@clips.daily" },
+  { name: "YouTube", logo: "/youtube%20copie.png", handle: "@shorts.hub" },
+  { name: "X", logo: "/twitter%20copie.png", handle: "@viral.feed" },
+  { name: "Reddit", logo: "/reddit%20copie.png", handle: "@u/reposter" },
+  { name: "Threads", logo: "/threads%20copie.png", handle: "@threads.repost" },
+];
+function DispatchList() {
+  const en = useLocale() === "en";
+  // Rotation rapide 1 à 1 : une seule ligne se remplace à chaque tick (round-robin)
+  const [rows, setRows] = useState([0, 1, 2]);
+  useEffect(() => {
+    let turn = 0;   // ligne à remplacer
+    let ptr = 3;    // prochain réseau à assigner
+    const id = setInterval(() => {
+      const r = turn % 3;
+      const val = ptr % DISPATCH_NETS.length;
+      setRows((prev) => { const n = [...prev]; n[r] = val; return n; });
+      turn++; ptr++;
+    }, 650);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="w-full space-y-2.5">
+      {[0, 1, 2].map((row) => {
+        const net = DISPATCH_NETS[rows[row]];
+        const avatar = CLIPS[rows[row] % CLIPS.length];
+        return (
+          <div key={row} className="flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 ring-1 ring-black/5 shadow-[0_6px_16px_rgba(20,40,90,0.05)]">
+            <span key={rows[row]} className="lunera-swap h-8 w-8 shrink-0 overflow-hidden rounded-lg ring-1 ring-black/5">
+              <img src={avatar} alt="" className="h-full w-full object-cover" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold text-[#1a1a1a]">{en ? "Variant" : "Variante"} {row + 1}</p>
+              <p key={rows[row]} className="lunera-swap text-[11px] text-[#8a8a8a]">{net.handle}</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600 ring-1 ring-emerald-100">
+                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="M20 6 9 17l-5-5" /></svg>{en ? "Posted" : "Publié"}
+              </span>
+              <span key={rows[row]} className="lunera-swap flex h-6 w-6 shrink-0 items-center justify-center">
+                <img src={net.logo} alt={net.name} className="h-full w-full object-contain" />
+              </span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+function DropArt() {
+  const en = useLocale() === "en";
+  return (
+    <div className="flex w-full flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-[#c9d3e6] bg-[#f8f9fc] py-6">
+      <div className="flex items-end justify-center gap-3">
+        {["/videos/up-1.jpg", "/videos/up-2.jpg"].map((src, i) => (
+          <div key={i} className="h-[184px] w-[104px] overflow-hidden rounded-xl bg-white ring-1 ring-black/5 shadow-[0_12px_28px_rgba(20,40,90,0.12)]">
+            <img src={src} alt="" className="h-full w-full object-cover" />
+          </div>
+        ))}
+      </div>
+      <p className="text-xs font-medium text-[#8a8a8a]">{en ? "Drop your videos here — any format" : "Glisse tes vidéos ici — tous formats"}</p>
+    </div>
+  );
+}
+
+const STEPS = [
+  {
+    n: "01",
+    fr: { title: "Importe ta vidéo", desc: "Glisse-dépose la vidéo qui a déjà performé. Tous formats, même en lot." },
+    en: { title: "Import your video", desc: "Drag & drop the video that already performed. Any format, even in batches." },
+    icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>,
+    art: <DropArt />,
+  },
+  {
+    n: "02",
+    fr: { title: "Génère tes variantes", desc: "Choisis le nombre de copies uniques — DuupFlow retravaille chaque fichier en profondeur." },
+    en: { title: "Generate your variants", desc: "Choose the number of unique copies — DuupFlow reworks each file in depth." },
+    icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 1.9 4.8L18 9.5l-4.1 1.7L12 16l-1.9-4.8L6 9.5l4.1-1.7L12 3Z" /></svg>,
+    art: <VariantsRow />,
+  },
+  {
+    n: "03",
+    fr: { title: "Republie partout", desc: "Exporte en un clic et poste sur tous tes comptes, sans doublon. Les vues reviennent." },
+    en: { title: "Repost everywhere", desc: "Export in one click and post to all your accounts, no duplicates. The views come back." },
+    icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" /></svg>,
+    art: <DispatchList />,
+  },
+];
+
+/* "Comment ça marche" — pile de cartes en sticky : la carte active est en grand,
+   les précédentes se réduisent à leur en-tête empilé en haut, la suivante pointe
+   en bas. Le mouvement vertical se fait au fil du scroll (façon template). */
+function HowItWorks() {
+  const loc = useLocale();
+  const secRef = useRef<HTMLElement>(null);
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    const el = secRef.current;
+    if (!el) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const rect = el.getBoundingClientRect();
+      const total = el.offsetHeight - window.innerHeight;
+      const p = total > 0 ? Math.min(Math.max(-rect.top, 0), total) / total : 0;
+      setActive(Math.min(Math.floor(p * STEPS.length), STEPS.length - 1));
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const on = () => { if (!raf) raf = requestAnimationFrame(update); };
+    update();
+    window.addEventListener("scroll", on, { passive: true });
+    window.addEventListener("resize", on);
+    return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); cancelAnimationFrame(raf); };
   }, []);
 
-  const scrollerCards = [
-    {
-      title: <><span className={GLOW} style={GS}>{t("featuresScroller.card1Title").split(" ")[0]}</span> {t("featuresScroller.card1Title").split(" ").slice(1).join(" ")}</>,
-      desc: t("featuresScroller.card1Desc"),
-      accent: "#6366F1",
-    },
-    {
-      title: <>{t("featuresScroller.card2Title").split(" ")[0]} <span className={GLOW} style={GS}>{t("featuresScroller.card2Title").split(" ").slice(1).join(" ")}</span></>,
-      desc: t("featuresScroller.card2Desc"),
-      accent: "#6366F1",
-    },
-    {
-      title: <><span className={GLOW} style={GS}>{t("featuresScroller.card3Title").split(" ")[0]}</span> {t("featuresScroller.card3Title").split(" ").slice(1).join(" ")}</>,
-      desc: t("featuresScroller.card3Desc"),
-      accent: "#6366F1",
-    },
-    {
-      title: <><span className={GLOW} style={GS}>{t("featuresScroller.cardVariationIATitle").split(" ")[0]}</span> {t("featuresScroller.cardVariationIATitle").split(" ").slice(1).join(" ")}</>,
-      desc: t("featuresScroller.cardVariationIADesc"),
-      accent: "#6366F1",
-      badge: t("featuresScroller.badgeNew"),
-    },
-    {
-      title: <>{t("featuresScroller.card4Title").split(" ")[0]} <span className={GLOW} style={GS}>{t("featuresScroller.card4Title").split(" ").slice(1).join(" ")}</span></>,
-      desc: t("featuresScroller.card4Desc"),
-      accent: "#6366F1",
-      badge: t("featuresScroller.badgeNew"),
-    },
-  ];
-
-  const stickyHeight = `${(scrollerCards.length + 2) * 100}vh`;
-
   return (
-    <section ref={stickyRef} className="relative" style={{ height: stickyHeight }}>
-      <div className="sticky top-0 h-screen overflow-hidden flex flex-col justify-center">
-        <Reveal>
-          <div className="px-6 sm:px-12 mb-20">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-white tracking-tight mb-4 leading-[1.1]">
-              {t("featuresScroller.title1")} <span className="text-[#5B7BFF]" style={{ textShadow: "0 0 30px rgba(91,123,255,0.5)" }}>{t("featuresScroller.titleVolume")}</span>{t("featuresScroller.title2")}<br className="hidden sm:block" /> {t("featuresScroller.title3")} <span className="text-[#5B7BFF]" style={{ textShadow: "0 0 30px rgba(91,123,255,0.5)" }}>{t("featuresScroller.titleQualite")}</span>
-            </h2>
-            <p className="text-white/40 text-sm sm:text-lg max-w-2xl">
-              {t("featuresScroller.subtitle")}
-            </p>
+    <section ref={secRef} id="how" className="bg-[#f6f7f9]">
+      <div className="mx-auto max-w-6xl px-6 lg:grid lg:grid-cols-[0.85fr_1fr] lg:gap-16">
+        {/* Gauche — titre fixe (sticky, centré) */}
+        <div className="pt-20 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:justify-center lg:pt-0">
+          <div><Label>{loc === "en" ? "How it works" : "Comment ça marche"}</Label></div>
+          <h2 className="mt-6 font-semibold tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(30px, 3.6vw, 48px)", lineHeight: 1.08 }}>
+            {loc === "en" ? "From your video to dozens of variants, in three steps." : "De ta vidéo à des dizaines de variantes, en trois étapes."}
+          </h2>
+          <div className="mt-9 flex items-center gap-2.5">
+            {STEPS.map((_, i) => (
+              <span key={i} className="h-1.5 rounded-full transition-all duration-300"
+                style={{ width: i === active ? 30 : 10, backgroundColor: i <= active ? BLUE : "#d6dbe3" }} />
+            ))}
           </div>
-        </Reveal>
-        <div ref={trackRef} className="flex gap-[12vw] will-change-transform" style={{ transform: `translateX(calc(50vw - 35vw - ${scrollX}px))` }}>
-          {scrollerCards.map((card, i) => (
-            <div key={i} className="shrink-0 w-[88vw] sm:w-[78vw] md:w-[70vw] rounded-md border border-white/[0.08] overflow-hidden" style={{ background: "rgba(8,12,35,0.6)" }}>
-              <div className="grid md:grid-cols-[1fr_1.2fr]">
-                <div className="p-6 sm:p-8">
-                  <div className="flex items-center gap-2 mb-3">
-                    <h3 className="text-xl sm:text-2xl font-semibold text-white">{card.title}</h3>
-                    {"badge" in card && card.badge && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/25 font-semibold">{card.badge}</span>
-                    )}
+        </div>
+
+        {/* Droite — cartes qui s'empilent en sticky (mouvement au scroll) */}
+        <div className="pb-[16vh] pt-[10vh] lg:pt-[16vh]">
+          {STEPS.map((s, i) => (
+            <div key={i} className="sticky"
+              style={{ top: "116px", zIndex: i + 1, marginBottom: i < STEPS.length - 1 ? "58vh" : 0 }}>
+              <div className="relative flex h-[420px] flex-col overflow-hidden rounded-[28px] p-6 ring-1 ring-black/[0.06] shadow-[0_24px_60px_rgba(20,40,90,0.14)] sm:p-8" style={{ background: CARD_BG }}>
+                <span className="pointer-events-none absolute bottom-5 right-6 text-sm font-medium text-black/15">{s.n}</span>
+                <div className="flex items-start gap-3.5">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white" style={{ backgroundColor: BLUE }}>{s.icon}</span>
+                  <div>
+                    <h3 className="text-[19px] font-semibold text-[#1a1a1a]">{s[loc].title}</h3>
+                    <p className="mt-1 text-[14px] leading-relaxed text-[#605f5f]">{s[loc].desc}</p>
                   </div>
-                  <p className="text-sm sm:text-base text-white/50 leading-relaxed mb-6">{card.desc}</p>
-                  <Link href="/pricing#plans" className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">{t("featuresScroller.tryNow")}</Link>
                 </div>
-                <div className="p-6 sm:p-8 flex items-center">
-                  <div className="w-full">{MOCKUPS[["duplication", "invisible", "priority", "variation", "ai"][i]]}</div>
-                </div>
+                <div className="mt-4 flex flex-1 items-center justify-center">{s.art}</div>
               </div>
             </div>
           ))}
@@ -597,986 +665,291 @@ function FeaturesScroller() {
   );
 }
 
-/* ── How It Works — CardShowcase ── */
-function HowItWorks() {
-  const { t } = useTranslation();
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
-  const activeRef = useRef(0);
-  const progressRef = useRef(0);
-
-  const howSteps = [
-    { num: t("howItWorks.step1Num"), title: t("howItWorks.step1Title"), desc: t("howItWorks.step1Desc"), tag: t("howItWorks.step1Tag") },
-    { num: t("howItWorks.step2Num"), title: t("howItWorks.step2Title"), desc: t("howItWorks.step2Desc"), tag: t("howItWorks.step2Tag") },
-    { num: t("howItWorks.step3Num"), title: t("howItWorks.step3Title"), desc: t("howItWorks.step3Desc"), tag: t("howItWorks.step3Tag") },
-  ];
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  useEffect(() => {
-    if (isMobile) return;
-    const tick = 16;
-    const speed = 5;
-    const increment = (100 / (speed * 1000)) * tick;
-    const interval = setInterval(() => {
-      progressRef.current += increment;
-      if (progressRef.current >= 100) {
-        const next = (activeRef.current + 1) % howSteps.length;
-        activeRef.current = next;
-        progressRef.current = 0;
-        setActiveIndex(next);
-        setProgress(0);
-      } else {
-        setProgress(progressRef.current);
-      }
-    }, tick);
-    return () => clearInterval(interval);
-  }, [isMobile]);
-
-  const handleClick = (i: number) => {
-    if (isMobile) return;
-    activeRef.current = i;
-    progressRef.current = 0;
-    setActiveIndex(i);
-    setProgress(0);
-  };
-
-  return (
-    <section id="how-it-works" className="px-6 pb-36">
-      <div className="max-w-5xl mx-auto pt-20">
-        <Reveal>
-          <p className="text-[13px] font-medium tracking-[0.15em] uppercase text-indigo-400 mb-3">{t("howItWorks.badge")}</p>
-          <h2 className="font-semibold text-white mb-4 tracking-tight" style={{ fontSize: "clamp(40px, 5vw, 56px)", lineHeight: 1.05 }}>
-            {t("howItWorks.title")} <span className={G}>{t("howItWorks.titleHighlight")}</span>
-          </h2>
-          <p className="text-white/70 text-[18px] leading-relaxed mb-12 max-w-[560px]">
-            {t("howItWorks.subtitle")}
-          </p>
-        </Reveal>
-
-        <Reveal delay={80}>
-          {isMobile ? (
-            <div className="flex flex-col gap-4">
-              {howSteps.map((card, i) => (
-                <div key={i} className="border border-white/[0.08]" style={{ background: "rgba(8,12,35,0.6)", padding: "32px" }}>
-                  <div className="font-semibold tracking-tight mb-4" style={{ fontSize: "40px", lineHeight: 1, color: "rgba(129,140,248,0.4)" }}>{card.num}</div>
-                  <h3 className="font-semibold text-white mb-3" style={{ fontSize: "20px" }}>{card.title}</h3>
-                  <p className="leading-[1.6] mb-4" style={{ fontSize: "16px", color: "rgba(255,255,255,0.72)" }}>{card.desc}</p>
-                  <span className="text-xs text-indigo-400 font-medium">{card.tag}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex gap-0 w-full" style={{ height: "380px" }}>
-              {howSteps.map((card, i) => {
-                const isActive = i === activeIndex;
-                return (
-                  <div key={i} onClick={() => handleClick(i)}
-                    className="relative cursor-pointer border border-white/[0.08] overflow-hidden"
-                    style={{ background: "rgba(8,12,35,0.6)", flex: isActive ? 2.5 : 1, transition: "flex 0.5s ease-in-out", display: "flex", flexDirection: "column", padding: "36px" }}>
-                    <div className="absolute bottom-0 left-0 w-[2px]" style={{ height: "100%", background: "rgba(255,255,255,0.06)" }}>
-                      {isActive && <div className="absolute bottom-0 left-0 w-full" style={{ height: `${progress}%`, background: "linear-gradient(to top, #6366F1, #818CF8)", transition: "height 16ms linear" }} />}
-                    </div>
-                    {/* Group: number + title + body — vertically centered on the active card to kill the empty gap */}
-                    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: isActive ? "center" : "flex-start", minHeight: 0 }}>
-                      <div className="font-semibold tracking-tight" style={{ fontSize: "48px", lineHeight: 1, color: isActive ? "rgba(129,140,248,0.6)" : "rgba(129,140,248,0.25)", transition: "color 0.3s" }}>{card.num}</div>
-                      <h3 className="font-semibold" style={{ fontSize: "23px", marginTop: "16px", color: isActive ? "white" : "rgba(255,255,255,0.5)", transition: "color 0.3s" }}>{card.title}</h3>
-                      <div style={{ opacity: isActive ? 1 : 0, maxHeight: isActive ? "300px" : "0px", overflow: "hidden", transition: "opacity 0.3s ease, max-height 0.4s ease", marginTop: isActive ? "16px" : "0px" }}>
-                        <p className="leading-[1.6]" style={{ fontSize: "16px", color: "rgba(255,255,255,0.72)", maxWidth: "42ch" }}>{card.desc}</p>
-                      </div>
-                    </div>
-                    {/* Micro label — pinned to the bottom of the card */}
-                    <span className="text-xs text-indigo-400 font-medium" style={{ opacity: isActive ? 1 : 0, transition: "opacity 0.3s" }}>{card.tag}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
- * SECTION 4 — FEATURES ALTERNATING ROWS (animated mockups)
- * ═══════════════════════════════════════════════════════ */
-
-/* Animated Mockup 1 — Image Duplication */
-function AnimImageDup() {
-  const { t } = useTranslation();
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    function play() {
-      setStep(0);
-      const t1 = setTimeout(() => setStep(1), 400);
-      const t2 = setTimeout(() => setStep(2), 750);
-      const t3 = setTimeout(() => setStep(3), 1100);
-      const t4 = setTimeout(() => setStep(4), 1450);
-      return [t1, t2, t3, t4];
-    }
-    const timers = play();
-    const loop = setInterval(() => { timers.forEach(clearTimeout); play(); }, 4000);
-    return () => { timers.forEach(clearTimeout); clearInterval(loop); };
-  }, []);
-
-  const copies = [
-    { name: "DuupFlow_20240312_dup1_47.jpg", color: "border-fuchsia-500/30 bg-fuchsia-500/[0.08]" },
-    { name: "DuupFlow_20240312_dup2_83.jpg", color: "border-indigo-500/30 bg-indigo-500/[0.08]" },
-    { name: "DuupFlow_20240312_dup3_12.jpg", color: "border-pink-500/30 bg-pink-500/[0.08]" },
-    { name: "DuupFlow_20240312_dup4_55.jpg", color: "border-violet-500/30 bg-violet-500/[0.08]" },
-  ];
-
-  return (
-    <div className="space-y-2.5">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-xs text-white/50">{t("fonctionnalites.copiesGenerated").replace("{count}", String(step))}</span>
-        </div>
-        <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-medium">{t("fonctionnalites.unlimited")}</span>
-      </div>
-      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-sky-500/20 flex items-center justify-center text-lg">🖼️</div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-white/80 font-medium truncate">photo_instagram.jpg</p>
-          <p className="text-xs text-white/35">{t("fonctionnalites.sourceFile")} · 2.4 MB</p>
-        </div>
-        <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/40">{t("fonctionnalites.source")}</span>
-      </div>
-      <div className="flex justify-center py-0.5">
-        <svg className="h-4 w-4 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
-      </div>
-      {copies.map((f, i) => (
-        <div key={f.name}
-          className={`rounded-xl border p-3 flex items-center gap-3 transition-all duration-500 ${f.color}`}
-          style={{ opacity: step > i ? 1 : 0, transform: step > i ? "translateY(0)" : "translateY(12px)" }}>
-          <div className="h-9 w-9 rounded-lg bg-white/[0.06] flex items-center justify-center text-sm">📄</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-white/65 font-mono truncate">{f.name}</p>
-            <p className="text-xs text-white/30">{t("fonctionnalites.metadataModified")}</p>
-          </div>
-          <svg className="h-4 w-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* Animated Mockup 2 — Video Duplication */
-function AnimVideoDup() {
-  const { t } = useTranslation();
-  const [step, setStep] = useState(0);
-
-  useEffect(() => {
-    function play() {
-      setStep(0);
-      const t1 = setTimeout(() => setStep(1), 600);
-      const t2 = setTimeout(() => setStep(2), 1200);
-      const t3 = setTimeout(() => setStep(3), 1800);
-      return [t1, t2, t3];
-    }
-    const timers = play();
-    const loop = setInterval(() => { timers.forEach(clearTimeout); play(); }, 4500);
-    return () => { timers.forEach(clearTimeout); clearInterval(loop); };
-  }, []);
-
-  const platforms = [
-    { name: "Compte Instagram 1", icon: "📸", color: "border-fuchsia-500/30 bg-fuchsia-500/[0.07]" },
-    { name: "Compte Instagram 2", icon: "📸", color: "border-indigo-500/30 bg-indigo-500/[0.07]" },
-    { name: "Compte Instagram 3", icon: "📸", color: "border-red-500/30 bg-red-500/[0.07]" },
-  ];
-
-  return (
-    <div className="space-y-3">
-      {/* Source video */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5 flex items-center gap-3">
-        <div className="h-11 w-11 rounded-xl bg-indigo-500/20 border border-indigo-500/25 flex items-center justify-center text-xl">🎬</div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-white/80 font-medium">ma_video.mp4</p>
-          <p className="text-xs text-white/35">{t("fonctionnalites.sourceFile")}</p>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-xs text-white/40">{step}/3 copies</span>
-        </div>
-      </div>
-
-      {/* Divider with label */}
-      <div className="flex items-center gap-2">
-        <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-        <span className="text-[10px] text-white/30 px-2">copie unique par plateforme</span>
-        <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-      </div>
-
-      {/* Platform copies — animated in */}
-      {platforms.map((p, i) => (
-        <div
-          key={p.name}
-          className={`rounded-xl border p-3 flex items-center gap-3 transition-all duration-500 ${p.color}`}
-          style={{ opacity: step > i ? 1 : 0.12, transform: step > i ? "translateY(0)" : "translateY(10px)" }}
-        >
-          <div className="h-9 w-9 rounded-lg bg-white/[0.06] flex items-center justify-center text-base">{p.icon}</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-white/70">{p.name}</p>
-            <p className="text-[11px] text-white/30">Perçue comme nouveau contenu</p>
-          </div>
-          {step > i && (
-            <span className="text-xs text-emerald-400 font-semibold whitespace-nowrap shrink-0">Unique ✓</span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* Animated Mockup 3 — Invisible Modification (Pixel magique) */
-function AnimInvisible() {
-  const { t } = useTranslation();
-  const [phase, setPhase] = useState<0 | 1 | 2>(0);
-
-  useEffect(() => {
-    function play() {
-      setPhase(0);
-      const t1 = setTimeout(() => setPhase(1), 1200);
-      const t2 = setTimeout(() => setPhase(2), 2400);
-      return [t1, t2];
-    }
-    const timers = play();
-    const loop = setInterval(() => { timers.forEach(clearTimeout); play(); }, 5000);
-    return () => { timers.forEach(clearTimeout); clearInterval(loop); };
-  }, []);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-2">
-        <div className={`h-2 w-2 rounded-full transition-colors duration-500 ${phase === 2 ? "bg-emerald-400 animate-pulse" : "bg-amber-400 animate-pulse"}`} />
-        <span className="text-xs text-white/50">
-          {phase === 0 ? t("fonctionnalites.originalHash") : phase === 1 ? t("fonctionnalites.pixelMagicInProgress") : t("fonctionnalites.hashModified")}
-        </span>
-      </div>
-      <div className={`rounded-xl border p-4 transition-all duration-500 ${phase === 0 ? "border-amber-500/25 bg-amber-500/[0.05]" : "border-white/10 bg-white/[0.04]"}`}>
-        <p className="text-xs text-white/40 font-mono mb-1">Original Hash</p>
-        <p className={`text-sm font-mono transition-all duration-500 ${phase === 0 ? "text-amber-300" : "text-white/30 line-through"}`}>a7f3e2d1c4b8...9f0a6e3d</p>
-      </div>
-      <div className="flex justify-center">
-        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-500 ${phase >= 1 ? "border-indigo-500/30 bg-indigo-500/[0.10] scale-105" : "border-white/10 bg-white/[0.04] scale-100"}`}>
-          <span className="text-sm">✨</span>
-          <span className={`text-xs font-semibold transition-colors duration-500 ${phase >= 1 ? "text-indigo-300" : "text-white/40"}`}>Pixel magique</span>
-        </div>
-      </div>
-      <div className={`rounded-xl border p-4 transition-all duration-500 ${phase === 2 ? "border-emerald-500/25 bg-emerald-500/[0.05]" : "border-white/10 bg-white/[0.04]"}`}>
-        <p className="text-xs text-white/40 font-mono mb-1">Modified Hash</p>
-        <p className={`text-sm font-mono transition-all duration-500 ${phase === 2 ? "text-emerald-300" : "text-white/20"}`}>9b2e8f4a7c1d...3b5d2e8f</p>
-      </div>
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center">
-        <p className={`text-sm font-medium transition-colors duration-500 ${phase === 2 ? "text-emerald-300" : "text-white/50"}`}>{t("fonctionnalites.visuallyIdentical")}</p>
-        <p className="text-xs text-white/35">{t("fonctionnalites.visualContentUnchanged")}</p>
-      </div>
-    </div>
-  );
-}
-
-/* Animated Mockup — Priority (iPhone metadata injection) */
-function AnimPriority() {
-  const { t } = useTranslation();
-  const [step, setStep] = useState(0);
-
-  useEffect(() => {
-    function play() {
-      setStep(0);
-      const t1 = setTimeout(() => setStep(1), 600);
-      const t2 = setTimeout(() => setStep(2), 1200);
-      const t3 = setTimeout(() => setStep(3), 1800);
-      const t4 = setTimeout(() => setStep(4), 2400);
-      return [t1, t2, t3, t4];
-    }
-    const timers = play();
-    const loop = setInterval(() => { timers.forEach(clearTimeout); play(); }, 5000);
-    return () => { timers.forEach(clearTimeout); clearInterval(loop); };
-  }, []);
-
-  const fields = [
-    { key: "Make", value: "Apple" },
-    { key: "Model", value: "iPhone 16 Pro" },
-    { key: "Software", value: "18.3" },
-    { key: "Location", value: "Paris, France" },
-  ];
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="h-8 w-8 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
-          <svg className="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-        </div>
-        <span className="text-xs text-white/50">{t("fonctionnalites.metadataInjected").replace("{count}", String(step))}</span>
-      </div>
-      {fields.map((f, i) => (
-        <div key={f.key}
-          className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 flex items-center justify-between transition-all duration-500"
-          style={{ opacity: step > i ? 1 : 0.2, transform: step > i ? "translateX(0)" : "translateX(8px)" }}>
-          <span className="text-xs text-white/40 font-mono">{f.key}</span>
-          <span className={`text-xs font-mono transition-colors duration-500 ${step > i ? "text-emerald-300" : "text-white/20"}`}>{f.value}</span>
-          {step > i && (
-            <svg className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>
-          )}
-        </div>
-      ))}
-      {step >= 4 && (
-        <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/[0.06] p-3 text-center transition-all duration-500">
-          <p className="text-xs text-indigo-300">{t("fonctionnalites.algorithmTreatsAsIphone")}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* Animated Mockup 4 — AI Metadata Detection */
-function AnimAIDet() {
-  const { t } = useTranslation();
-  const [phase, setPhase] = useState<0 | 1 | 2>(0);
-
-  useEffect(() => {
-    function play() {
-      setPhase(0);
-      const t1 = setTimeout(() => setPhase(1), 1200);
-      const t2 = setTimeout(() => setPhase(2), 2400);
-      return [t1, t2];
-    }
-    const timers = play();
-    const loop = setInterval(() => { timers.forEach(clearTimeout); play(); }, 5000);
-    return () => { timers.forEach(clearTimeout); clearInterval(loop); };
-  }, []);
-
-  const fields = [
-    { key: "Software", bad: "Midjourney v6.1", good: "Adobe Lightroom 7.2" },
-    { key: "Artist", bad: "Midjourney Bot", good: "Sophie Renaud" },
-    { key: "Make", bad: "midjourney.com", good: "Sony" },
-    { key: "Model", bad: "trainedAlgorithmic", good: "A7 IV" },
-  ];
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-4">
-        <div className={`h-2 w-2 rounded-full transition-colors duration-500 ${phase === 2 ? "bg-emerald-400 animate-pulse" : "bg-amber-400 animate-pulse"}`} />
-        <span className="text-xs text-white/50">
-          {phase === 0 ? t("fonctionnalites.analysisInProgress") : phase === 1 ? t("fonctionnalites.replacingMetadata") : t("fonctionnalites.aiSignatureErased")}
-        </span>
-      </div>
-      {fields.map((f) => (
-        <div key={f.key} className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 flex items-center justify-between gap-2">
-          <span className="text-xs text-white/35 font-mono shrink-0">{f.key}</span>
-          <div className="flex items-center gap-2 flex-1 justify-end overflow-hidden">
-            {phase === 0 && <span className="text-xs text-amber-300 font-mono truncate">{f.bad}</span>}
-            {phase === 1 && (
-              <>
-                <span className="text-xs text-red-400/60 font-mono line-through truncate">{f.bad}</span>
-                <span className="text-white/20 text-xs">→</span>
-                <span className="text-xs text-white/40 font-mono truncate">{f.good}</span>
-              </>
-            )}
-            {phase === 2 && <span className="text-xs text-emerald-400 font-mono truncate">{f.good}</span>}
-          </div>
-          {phase === 2 && (
-            <svg className="h-3.5 w-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* Feature alternating row */
-function FeatureRow({
-  badge, badgeColor, title, subtitle, bullets, mockup, reverse = false, first = false,
-}: {
-  badge: string; badgeColor: string; title: React.ReactNode; subtitle: string;
-  bullets: string[]; mockup: React.ReactNode; reverse?: boolean; first?: boolean;
-}) {
-  return (
-    <Reveal>
-      <div className={`flex flex-col ${reverse ? "md:flex-row-reverse" : "md:flex-row"} gap-12 md:gap-20 items-center py-20 ${first ? "" : "border-t border-white/[0.05]"}`}>
-        {/* Text */}
-        <div className="flex-1">
-          <div className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold mb-5 ${badgeColor}`}>
-            {badge}
-          </div>
-          <h3 className="text-2xl sm:text-3xl font-semibold text-white mb-3 sm:mb-4 tracking-tight leading-[1.15]">{title}</h3>
-          <p className="text-white/70 text-sm sm:text-base leading-relaxed mb-5 sm:mb-7">{subtitle}</p>
-          <ul className="space-y-3.5">
-            {bullets.map((b, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm text-white/75">
-                <svg className="h-5 w-5 text-indigo-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
-                {b}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Mockup */}
-        <div className="flex-1 w-full max-w-sm md:max-w-md">
-          <div className="rounded-2xl border border-white/[0.12] p-4 sm:p-6 backdrop-blur-sm min-h-[220px] sm:min-h-[320px]" style={{ background: "rgba(8,12,35,0.75)" }}>
-            {mockup}
-          </div>
-        </div>
-      </div>
-    </Reveal>
-  );
-}
-
-/* ── Avantages — 3D Gradient Carousel ── */
-const CAROUSEL_CARD_KEYS = [
-  {
-    titleKey: "avantages.card1Title",
-    descKey: "avantages.card1Desc",
-    tagsKey: "avantages.card1Tags",
-    gradient: "linear-gradient(180deg, #0c1a3a 0%, #162850 60%, #0a1628 100%)",
-    mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:6px;">
-      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);">
-        <div style="width:28px;height:28px;border-radius:6px;background:rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;font-size:12px;">📁</div>
-        <div style="flex:1;"><div style="font-size:10px;color:rgba(255,255,255,0.6);">source.mp4</div><div style="font-size:8px;color:rgba(255,255,255,0.25);">24.5 MB</div></div>
-      </div>
-      <div style="text-align:center;color:rgba(255,255,255,0.15);font-size:10px;">↓</div>
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1px solid rgba(99,102,241,0.2);background:rgba(99,102,241,0.04);">
-        <div style="font-size:10px;">🎬</div><div style="flex:1;font-size:9px;color:rgba(255,255,255,0.5);font-family:monospace;">dup1_47.mp4</div><div style="color:#34d399;font-size:10px;">✓</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1px solid rgba(99,102,241,0.2);background:rgba(99,102,241,0.04);">
-        <div style="font-size:10px;">🎬</div><div style="flex:1;font-size:9px;color:rgba(255,255,255,0.5);font-family:monospace;">dup2_83.mp4</div><div style="color:#34d399;font-size:10px;">✓</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1px solid rgba(99,102,241,0.2);background:rgba(99,102,241,0.04);">
-        <div style="font-size:10px;">🎬</div><div style="flex:1;font-size:9px;color:rgba(255,255,255,0.5);font-family:monospace;">dup3_12.mp4</div><div style="color:#34d399;font-size:10px;">✓</div>
-      </div>
-    </div>`,
-  },
-  {
-    titleKey: "avantages.card2Title",
-    descKey: "avantages.card2Desc",
-    tagsKey: "avantages.card2Tags",
-    gradient: "linear-gradient(180deg, #0f0f2a 0%, #1a1a45 60%, #0f0f1a 100%)",
-    mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:8px;">
-      <div style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);">
-        <div style="font-size:9px;color:rgba(129,140,248,0.8);margin-bottom:4px;">Original</div>
-        <div style="display:flex;justify-content:space-between;"><span style="font-size:9px;color:rgba(255,255,255,0.35);">Résolution</span><span style="font-size:9px;color:rgba(255,255,255,0.6);">3840×2160</span></div>
-        <div style="display:flex;justify-content:space-between;"><span style="font-size:9px;color:rgba(255,255,255,0.35);">Codec</span><span style="font-size:9px;color:rgba(255,255,255,0.6);">HEVC</span></div>
-      </div>
-      <div style="text-align:center;color:rgba(255,255,255,0.15);font-size:10px;">≡</div>
-      <div style="padding:10px;border-radius:8px;border:1px solid rgba(52,211,153,0.15);background:rgba(52,211,153,0.04);">
-        <div style="font-size:9px;color:rgba(52,211,153,0.8);margin-bottom:4px;">Copie</div>
-        <div style="display:flex;justify-content:space-between;"><span style="font-size:9px;color:rgba(255,255,255,0.35);">Résolution</span><span style="font-size:9px;color:rgba(255,255,255,0.6);">3840×2160</span></div>
-        <div style="display:flex;justify-content:space-between;"><span style="font-size:9px;color:rgba(255,255,255,0.35);">Codec</span><span style="font-size:9px;color:rgba(255,255,255,0.6);">H.264</span></div>
-      </div>
-    </div>`,
-  },
-  {
-    titleKey: "avantages.card3Title",
-    descKey: "avantages.card3Desc",
-    tagsKey: "avantages.card3Tags",
-    gradient: "linear-gradient(180deg, #1a0a30 0%, #2d1060 60%, #150a28 100%)",
-    mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:8px;">
-      <div style="padding:10px;border-radius:8px;border:1px solid rgba(245,158,11,0.15);background:rgba(245,158,11,0.04);">
-        <div style="font-size:8px;color:rgba(255,255,255,0.35);font-family:monospace;margin-bottom:2px;">Hash original</div>
-        <div style="font-size:10px;color:rgba(252,211,77,0.8);font-family:monospace;">a7f3e2d1...9f0a</div>
-      </div>
-      <div style="text-align:center;"><span style="font-size:9px;padding:3px 10px;border-radius:20px;border:1px solid rgba(99,102,241,0.2);background:rgba(99,102,241,0.08);color:rgba(165,180,252,0.8);">✨ Pixel magique</span></div>
-      <div style="padding:10px;border-radius:8px;border:1px solid rgba(52,211,153,0.15);background:rgba(52,211,153,0.04);">
-        <div style="font-size:8px;color:rgba(255,255,255,0.35);font-family:monospace;margin-bottom:2px;">Nouveau hash</div>
-        <div style="font-size:10px;color:rgba(52,211,153,0.8);font-family:monospace;">9b2e8f4a...3b5d</div>
-      </div>
-    </div>`,
-  },
-  {
-    titleKey: "avantages.card4Title",
-    descKey: "avantages.card4Desc",
-    tagsKey: "avantages.card4Tags",
-    gradient: "linear-gradient(180deg, #0a1830 0%, #162850 60%, #0a1220 100%)",
-    mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:5px;">
-      <div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);">
-        <span style="font-size:9px;color:rgba(255,255,255,0.3);font-family:monospace;">Make</span><span style="font-size:9px;color:rgba(52,211,153,0.8);font-family:monospace;">Apple</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);">
-        <span style="font-size:9px;color:rgba(255,255,255,0.3);font-family:monospace;">Model</span><span style="font-size:9px;color:rgba(52,211,153,0.8);font-family:monospace;">iPhone 16 Pro</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);">
-        <span style="font-size:9px;color:rgba(255,255,255,0.3);font-family:monospace;">iOS</span><span style="font-size:9px;color:rgba(52,211,153,0.8);font-family:monospace;">18.3</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);">
-        <span style="font-size:9px;color:rgba(255,255,255,0.3);font-family:monospace;">GPS</span><span style="font-size:9px;color:rgba(52,211,153,0.8);font-family:monospace;">48.86°N</span>
-      </div>
-    </div>`,
-  },
-  {
-    titleKey: "avantages.card5Title",
-    descKey: "avantages.card5Desc",
-    tagsKey: "avantages.card5Tags",
-    gradient: "linear-gradient(180deg, #1a0e35 0%, #261850 60%, #0f1830 100%)",
-    mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:5px;">
-      <div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);">
-        <span style="font-size:9px;color:rgba(255,255,255,0.3);font-family:monospace;">C2PA</span><span style="font-size:9px;color:rgba(52,211,153,0.8);">supprimé ✓</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);">
-        <span style="font-size:9px;color:rgba(255,255,255,0.3);font-family:monospace;">JUMBF</span><span style="font-size:9px;color:rgba(52,211,153,0.8);">supprimé ✓</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);">
-        <span style="font-size:9px;color:rgba(255,255,255,0.3);font-family:monospace;">EXIF IA</span><span style="font-size:9px;color:rgba(52,211,153,0.8);">remplacé ✓</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);">
-        <span style="font-size:9px;color:rgba(255,255,255,0.3);font-family:monospace;">Identité</span><span style="font-size:9px;color:rgba(52,211,153,0.8);">humaine ✓</span>
-      </div>
-    </div>`,
-  },
-  {
-    titleKey: "avantages.card6Title",
-    descKey: "avantages.card6Desc",
-    tagsKey: "avantages.card6Tags",
-    gradient: "linear-gradient(180deg, #2a0e2a 0%, #4a1758 60%, #1a0a25 100%)",
-    mockupHtml: `<div style="width:100%;max-width:220px;display:flex;flex-direction:column;gap:8px;">
-      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(217,70,239,0.20);background:rgba(217,70,239,0.05);">
-        <div style="width:28px;height:28px;border-radius:6px;background:rgba(217,70,239,0.18);display:flex;align-items:center;justify-content:center;font-size:12px;">🖼️</div>
-        <div style="flex:1;"><div style="font-size:10px;color:rgba(255,255,255,0.65);">portrait_source.jpg</div><div style="font-size:8px;color:rgba(217,70,239,0.7);">Image de référence</div></div>
-      </div>
-      <div style="text-align:center;color:rgba(217,70,239,0.45);font-size:11px;">✨</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
-        <div style="aspect-ratio:1;border-radius:6px;border:1px solid rgba(217,70,239,0.25);background:linear-gradient(135deg,rgba(217,70,239,0.10),rgba(99,102,241,0.06));display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0.7;">✨</div>
-        <div style="aspect-ratio:1;border-radius:6px;border:1px solid rgba(217,70,239,0.25);background:linear-gradient(135deg,rgba(217,70,239,0.10),rgba(99,102,241,0.06));display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0.7;">✨</div>
-        <div style="aspect-ratio:1;border-radius:6px;border:1px solid rgba(217,70,239,0.25);background:linear-gradient(135deg,rgba(217,70,239,0.10),rgba(99,102,241,0.06));display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0.7;">✨</div>
-      </div>
-      <div style="text-align:center;font-size:9px;color:rgba(255,255,255,0.45);">3 variations · identité préservée</div>
-    </div>`,
-  },
+/* ─── TÉMOIGNAGES + STATS ─── */
+const REVIEWS = {
+  fr: [
+    {
+      f: { n: "Mélanie R.", r: "Créatrice, 6 comptes TikTok", q: "Je reposte mon meilleur reel sur tous mes comptes le même jour, sans jamais me faire flag pour doublon. Mon reach a doublé.", av: 5 },
+      b: { n: "Léa M.", r: "Créatrice lifestyle", q: "Avant je ré-uploadais à la main et je me faisais shadowban. Là chaque copie passe pour un original, mes vues sont stables partout.", av: 1 },
+    },
+    {
+      f: { n: "Yanis B.", r: "Agence social media", q: "On gère 12 clients. DuupFlow nous fait gagner des heures : une vidéo devient 20 fichiers uniques en 3 minutes.", av: 6 },
+      b: { n: "Thomas D.", r: "Growth agency", q: "On a triplé le nombre de posts sans embaucher. Le batch de 20 variantes en un clic, c'est ce qui nous manquait.", av: 2 },
+    },
+    {
+      f: { n: "Sacha L.", r: "Media buyer e-commerce", q: "Le volume de créatives qu'on peut sortir maintenant est incomparable. Chaque variante est traitée comme du neuf par les algos.", av: 7 },
+      b: { n: "Inès B.", r: "E-commerce DNVB", q: "Nos UGC tournent sur 5 comptes en parallèle sans jamais être détectés comme du repost. Le ROAS a suivi.", av: 3 },
+    },
+  ],
+  en: [
+    {
+      f: { n: "Mélanie R.", r: "Creator, 6 TikTok accounts", q: "I repost my best reel to all my accounts the same day, without ever getting flagged for duplicates. My reach doubled.", av: 5 },
+      b: { n: "Léa M.", r: "Lifestyle creator", q: "I used to re-upload by hand and got shadowbanned. Now every copy passes as an original — my views are steady everywhere.", av: 1 },
+    },
+    {
+      f: { n: "Yanis B.", r: "Social media agency", q: "We manage 12 clients. DuupFlow saves us hours: one video becomes 20 unique files in 3 minutes.", av: 6 },
+      b: { n: "Thomas D.", r: "Growth agency", q: "We tripled our number of posts without hiring. The one-click batch of 20 variants is exactly what we were missing.", av: 2 },
+    },
+    {
+      f: { n: "Sacha L.", r: "E-commerce media buyer", q: "The volume of creatives we can ship now is unmatched. Every variant is treated as brand-new by the algorithms.", av: 7 },
+      b: { n: "Inès B.", r: "E-commerce DNVB", q: "Our UGC runs on 5 accounts in parallel without ever being detected as reposts. ROAS followed.", av: 3 },
+    },
+  ],
+};
+const STATS = [
+  { value: 500, suffix: "+", decimals: 0, label: { fr: "Créateurs & agences", en: "Creators & agencies" } },
+  { value: 99.9, suffix: "%", decimals: 1, label: { fr: "Disponibilité", en: "Uptime" } },
+  { value: 40, suffix: "K+", decimals: 0, label: { fr: "Vidéos générées / mois", en: "Videos generated / month" } },
 ];
 
-function AvantagesCarousel() {
-  const { t } = useTranslation();
-  const carouselCards = CAROUSEL_CARD_KEYS.map((card) => ({
-    ...card,
-    title: t(card.titleKey),
-    desc: t(card.descKey),
-    tags: t(card.tagsKey).split(", "),
-  }));
+/* Compteur qui s'anime de 0 à la valeur quand il entre à l'écran (easeOutExpo). */
+function AnimatedStat({ value, suffix = "", decimals = 0, label, locale = "fr" }: { value: number; suffix?: string; decimals?: number; label: string; locale?: "fr" | "en" }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let raf = 0, started = false;
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting || started) return;
+      started = true;
+      io.disconnect();
+      const dur = 1700, t0 = performance.now();
+      const tick = (now: number) => {
+        const p = Math.min((now - t0) / dur, 1);
+        const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p); // easeOutExpo
+        setDisplay(eased * value);
+        if (p < 1) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }, { threshold: 0.35 });
+    io.observe(el);
+    return () => { io.disconnect(); cancelAnimationFrame(raf); };
+  }, [value]);
+  const formatted = display.toLocaleString(locale === "en" ? "en-US" : "fr-FR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   return (
-    <section id="features" className="pb-20">
-      <div className="max-w-6xl mx-auto pt-20 px-6">
-        <Reveal>
-          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">{t("avantages.badge")}</p>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
-            {t("avantages.title")} <span className={G}>{t("avantages.titleHighlight")}</span>
-          </h2>
-          <p className="text-white/45 text-sm sm:text-base mb-12 max-w-xl">
-            {t("avantages.subtitle")}
-          </p>
-        </Reveal>
-      </div>
-
-      {/* 3D Carousel — full width, drag & scroll */}
-      <Reveal delay={80}>
-        <div style={{ height: "480px" }}>
-          <Carousel3D
-            cards={carouselCards}
-            cardWidth={340}
-            cardAspectRatio={0.75}
-            borderRadius={12}
-            gap={24}
-            perspective={1800}
-            maxRotation={28}
-            maxDepth={140}
-            friction={0.9}
-            backgroundColor="transparent"
-          />
-        </div>
-      </Reveal>
-
-      {/* CTA under avantages */}
-      <div className="max-w-6xl mx-auto px-6">
-        <Reveal delay={120}>
-          <div className="text-center mt-16">
-            <p className="text-white/60 text-lg mb-6">{t("avantages.ctaText")}</p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/features"
-                className="btn-glow inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white text-sm">
-                {t("avantages.ctaFeatures")}
-              </Link>
-              <Link href="/demo"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">
-                {t("avantages.ctaDemo")}
-              </Link>
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
- * SECTION 4.5 — VIDEO SHOWCASE (2 YouTube videos, side by side)
- * ═══════════════════════════════════════════════════════ */
-function VerifiedBadge() {
-  return (
-    <svg viewBox="0 0 40 40" className="w-4 h-4 shrink-0" role="img" aria-label="Vérifié">
-      <path fill="#3897F0" d="M19.998 3.094L14.638 0l-2.972 5.15H5.432v6.354L0 14.64 3.094 20 0 25.359l5.432 3.137v5.905h5.975L14.638 40l5.36-3.094L25.358 40l3.232-5.6h6.162v-6.01L40 25.359 36.905 20 40 14.641l-5.248-3.03v-6.46h-6.419L25.358 0l-5.36 3.094z" />
-      <polygon fill="#fff" points="18.401,26.4 28.331,16.471 26.069,14.207 18.401,21.875 13.835,17.309 11.573,19.572" />
-    </svg>
-  );
-}
-
-function VideoShowcase() {
-  const { t } = useTranslation();
-  return (
-    <section id="videos" className="px-6 scroll-mt-24">
-      <div className="max-w-7xl mx-auto pt-16">
-        <Reveal>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            {/* Left — video + creator */}
-            <div>
-              <div
-                className="relative aspect-video rounded-2xl overflow-hidden border border-white/[0.10]"
-                style={{ background: "rgba(8,12,35,0.70)" }}
-              >
-                <iframe
-                  className="absolute inset-0 w-full h-full"
-                  src="https://www.youtube.com/embed/8PvnDRLYsPk?start=1607"
-                  title={t("videoShowcase.title1")}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
-              </div>
-              <div className="mt-4 flex items-center gap-3">
-                <img
-                  src="/Youtube-proof/504025000_17877051597359569_2522827112026218956_n.jpg"
-                  alt="Melvin Nolius"
-                  className="w-10 h-10 rounded-full object-cover border border-white/15"
-                />
-                <a
-                  href="https://www.instagram.com/melvin_ofm/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-white transition hover:text-white/70"
-                >
-                  Melvin Nolius
-                  <VerifiedBadge />
-                </a>
-              </div>
-              <p className="mt-2 text-sm text-white/70">{t("videoShowcase.title1")}</p>
-            </div>
-
-            {/* Right — video + creator */}
-            <div>
-              <div
-                className="relative aspect-video rounded-2xl overflow-hidden border border-white/[0.10]"
-                style={{ background: "rgba(8,12,35,0.70)" }}
-              >
-                <iframe
-                  className="absolute inset-0 w-full h-full"
-                  src="https://www.youtube.com/embed/_wSpVWuJ4No?start=76"
-                  title={t("videoShowcase.title2")}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
-              </div>
-              <div className="mt-4 flex items-center gap-3">
-                <img
-                  src="/Youtube-proof/703247543_17974534683041687_7046808109827945299_n.jpg"
-                  alt="S-OFM"
-                  className="w-10 h-10 rounded-full object-cover border border-white/15"
-                />
-                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white">
-                  S-OFM
-                  <VerifiedBadge />
-                </span>
-              </div>
-              <p className="mt-2 text-sm text-white/70">{t("videoShowcase.title2")}</p>
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
- * SECTION 5 — STATS BANNER
- * ═══════════════════════════════════════════════════════ */
-function StatsBanner() {
-  const { t } = useTranslation();
-  const stats = [
-    { val: "∞", label: t("stats.copies") },
-    { val: "7+", label: t("stats.systems") },
-    { val: "10+", label: t("stats.formats") },
-    { val: "500+", label: t("stats.agencies") },
-  ];
-  return (
-    <section className="px-6 pb-36">
-      <div className="max-w-5xl mx-auto pt-20">
-        <Reveal>
-          <div className="rounded-2xl border border-white/[0.10] p-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center" style={{ background: "rgba(8,12,35,0.70)" }}>
-            {stats.map((s) => (
-              <div key={s.label}>
-                <div className={`text-3xl font-semibold mb-1 ${G}`}>{s.val}</div>
-                <div className="text-xs text-white/40 uppercase tracking-wider">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
- * SECTION 6 — FAQ
- * ═══════════════════════════════════════════════════════ */
-function FAQ() {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState<number | null>(null);
-  const faqs = [
-    { q: t("faq.q1"), a: t("faq.a1") },
-    { q: t("faq.q2"), a: t("faq.a2") },
-    { q: t("faq.q3"), a: t("faq.a3") },
-    { q: t("faq.q4"), a: t("faq.a4") },
-    { q: t("faq.q5"), a: t("faq.a5") },
-    { q: t("faq.q6"), a: t("faq.a6") },
-    { q: t("faq.q7"), a: t("faq.a7") },
-    { q: t("faq.q8"), a: t("faq.a8") },
-  ];
-  return (
-    <section id="faq" className="relative overflow-hidden">
-      {/* Special dark blue background */}
-      <div className="absolute inset-0 -z-10" style={{ background: "linear-gradient(180deg, #040c28 0%, #06112f 50%, #040c28 100%)" }} />
-      {/* Blurred texture blobs */}
-      <div className="absolute top-1/3 left-1/4 w-[500px] h-[400px] rounded-full pointer-events-none -z-10"
-        style={{ background: "rgba(99,102,241,0.10)", filter: "blur(90px)" }} />
-      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[350px] rounded-full pointer-events-none -z-10"
-        style={{ background: "rgba(56,189,248,0.07)", filter: "blur(90px)" }} />
-      <div className="absolute top-0 right-0 w-[300px] h-[250px] rounded-full pointer-events-none -z-10"
-        style={{ background: "rgba(139,92,246,0.08)", filter: "blur(70px)" }} />
-      <div className="px-6 pb-36">
-      <div className="max-w-7xl mx-auto pt-20">
-        <Reveal>
-          <div className="grid md:grid-cols-[2fr_3fr] gap-16">
-            <div className="md:sticky md:top-28 self-start">
-              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">{t("faq.badge")}</p>
-              <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight leading-[1.1]">{t("faq.title")}</h2>
-              <p className="text-white/60 text-sm mt-4 leading-relaxed">{t("faq.subtitle")}</p>
-            </div>
-            <div className="divide-y divide-white/[0.08]">
-              {faqs.map((faq, i) => (
-                <div key={i}>
-                  <button onClick={() => setOpen(open === i ? null : i)}
-                    className="w-full flex items-center justify-between gap-4 py-5 text-left text-sm font-medium text-white/90 hover:text-white transition">
-                    <span>{faq.q}</span>
-                    <span className="shrink-0 h-6 w-6 rounded-full border border-white/15 flex items-center justify-center text-white/50 transition-transform"
-                      style={{ transform: open === i ? "rotate(45deg)" : "rotate(0deg)" }}>
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
-                    </span>
-                  </button>
-                  {open === i && <div className="pb-5 text-sm text-white/70 leading-relaxed">{faq.a}</div>}
-                </div>
-              ))}
-            </div>
-          </div>
-        </Reveal>
-      </div>
-      </div>
-    </section>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
- * SECTION 7 — CTA BOTTOM
- * ═══════════════════════════════════════════════════════ */
-function CTABanner() {
-  const { t } = useTranslation();
-  return (
-    <section className="px-6 pb-16">
-      <div className="max-w-5xl mx-auto pt-20">
-        <Reveal>
-          <div className="relative rounded-3xl overflow-hidden p-14 text-center"
-            style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(56,189,248,0.08) 100%)" }}>
-            <div className="pointer-events-none absolute inset-0 border border-white/[0.10] rounded-3xl" />
-            <div className="pointer-events-none absolute inset-0"
-              style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight relative">
-              {t("cta.title")}
-            </h2>
-            <p className="text-white/70 text-sm sm:text-base mb-6 sm:mb-8 max-w-md mx-auto relative">
-              {t("cta.subtitle")}
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 relative">
-              <Link href="/pricing#plans"
-                className="btn-glow inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-semibold text-white text-sm">
-                {t("cta.primary")}
-              </Link>
-              <Link href="/demo"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-8 py-3.5 font-medium text-sm text-white/80 hover:bg-white/[0.08] transition">
-                {t("cta.secondary")}
-              </Link>
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ─── FOOTER ─── */
-// Multi-column rich footer (modeled on the Speechly layout).
-// Left column: brand + tagline + CTA + system status badge.
-// 3 right columns: Platform, Legal, About (each a small link list).
-// Bottom strip: copyright + a thin gradient bar evoking the duplication motif.
-function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-3">
-      <h4 className="text-[11px] font-semibold tracking-[0.14em] uppercase text-white/35">{title}</h4>
-      <ul className="space-y-2.5">{children}</ul>
+    <div ref={ref} className="text-center">
+      <p className="font-semibold tracking-tight text-[#1a1a1a]"
+        style={{ fontSize: "clamp(28px,4vw,48px)", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em", lineHeight: 1 }}>
+        {formatted}{suffix}
+      </p>
+      <p className="mt-1.5 text-sm text-[#605f5f]">{label}</p>
     </div>
   );
 }
-function FooterLink({ href, children, external }: { href: string; children: React.ReactNode; external?: boolean }) {
-  const cls = "text-sm text-white/65 hover:text-white transition inline-flex items-center gap-1.5";
-  if (external) {
-    return <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>{children}</a>;
-  }
-  // Internal links go through next/link (already re-mapped to LocaleLink via the import at the top of the file).
-  return <Link href={href} className={cls}>{children}</Link>;
-}
-function Footer() {
-  const { t } = useTranslation();
-  const year = new Date().getFullYear().toString();
+function Stars() {
   return (
-    <footer className="relative mt-12 border-t border-white/[0.06]">
-      {/* Subtle top gradient tint to soften the section break */}
-      <div
-        aria-hidden
-        className="absolute inset-x-0 top-0 h-px"
-        style={{ background: "linear-gradient(90deg, transparent, rgba(129,140,248,0.45), transparent)" }}
-      />
-
-      <div className="max-w-7xl mx-auto px-6 pt-16 pb-8">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-8">
-          {/* ── Brand column ──────────────────────────────────────────── */}
-          <div className="md:col-span-5 space-y-5">
-            <div className="flex items-baseline text-3xl font-extrabold tracking-tight">
-              <span style={{ color: "#818CF8" }}>Duup</span>
-              <span className="text-white/85">Flow</span>
-            </div>
-            <p className="text-sm text-white/55 leading-relaxed max-w-md">
-              {t("footer.tagline")}
-            </p>
-            <div className="pt-1">
-              <Link
-                href="/pricing#plans"
-                className="group inline-flex items-center gap-1.5 text-sm font-medium text-white/85 hover:text-white transition"
-              >
-                {t("footer.ctaTry")}
-                <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
-              </Link>
-            </div>
-            {/* Status pill — green dot + label, mirrors the Speechly footer */}
-            <div className="pt-3 inline-flex items-center gap-2">
-              <span className="relative inline-flex h-2 w-2">
-                <span className="absolute inset-0 rounded-full bg-emerald-400/60 animate-ping" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-              </span>
-              <span className="text-xs text-emerald-300/85 font-medium">{t("footer.status")}</span>
-            </div>
-          </div>
-
-          {/* ── Platform column ───────────────────────────────────────── */}
-          <div className="md:col-span-3">
-            <FooterColumn title={t("footer.colPlatform")}>
-              <li><FooterLink href="/features">{t("footer.navFeatures")}</FooterLink></li>
-              <li><FooterLink href="/how-it-works">{t("footer.navHowItWorks")}</FooterLink></li>
-              <li><FooterLink href="/pricing">{t("footer.navPricing")}</FooterLink></li>
-              <li><FooterLink href="/benefits">{t("footer.navBenefits")}</FooterLink></li>
-              <li><FooterLink href="/demo">{t("footer.navDemo")}</FooterLink></li>
-              <li><FooterLink href="/blog">{t("footer.navBlog")}</FooterLink></li>
-            </FooterColumn>
-          </div>
-
-          {/* ── Legal column ──────────────────────────────────────────── */}
-          <div className="md:col-span-2">
-            <FooterColumn title={t("footer.colLegal")}>
-              <li><FooterLink href="/legal/terms">{t("footer.navCgu")}</FooterLink></li>
-              <li><FooterLink href="/legal/privacy">{t("footer.navPrivacy")}</FooterLink></li>
-              <li><FooterLink href="/legal">{t("footer.navLegal")}</FooterLink></li>
-            </FooterColumn>
-          </div>
-
-          {/* ── About column ──────────────────────────────────────────── */}
-          <div className="md:col-span-2">
-            <FooterColumn title={t("footer.colAbout")}>
-              <li><FooterLink href="/partners">{t("footer.navPartners")}</FooterLink></li>
-              <li>
-                <FooterLink href="https://t.me/DuupFlow_Support" external>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-sky-400/80">
-                    <path d="M11.944 0A12 12 0 1 0 24 12.056A12.014 12.014 0 0 0 11.944 0ZM16.906 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472c-.18 1.898-.962 6.502-1.36 8.627c-.168.9-.499 1.201-.82 1.23c-.696.065-1.225-.46-1.9-.902c-1.056-.693-1.653-1.124-2.678-1.8c-1.185-.78-.417-1.21.258-1.91c.177-.184 3.247-2.977 3.307-3.23c.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345c-.48.33-.913.49-1.302.48c-.428-.008-1.252-.241-1.865-.44c-.752-.245-1.349-.374-1.297-.789c.027-.216.325-.437.893-.663c3.498-1.524 5.83-2.529 6.998-3.014c3.332-1.386 4.025-1.627 4.476-1.635Z"/>
-                  </svg>
-                  {t("footer.navSupport")}
-                </FooterLink>
-              </li>
-              <li>
-                <FooterLink href="mailto:hello@duupflow.com" external>
-                  {t("footer.navContact")}
-                </FooterLink>
-              </li>
-            </FooterColumn>
-          </div>
+    <div className="flex gap-0.5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <svg key={i} className="h-4 w-4" viewBox="0 0 24 24" fill="#f6b100"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z" /></svg>
+      ))}
+    </div>
+  );
+}
+function ReviewFace({ n, r, q, av, back = false }: { n: string; r: string; q: string; av: number; back?: boolean }) {
+  return (
+    <div className={`absolute inset-0 flex flex-col rounded-3xl bg-white p-7 ring-1 ring-black/5 [backface-visibility:hidden] ${back ? "[transform:rotateY(180deg)]" : ""}`}>
+      <Stars />
+      <p className="mt-4 flex-1 text-[15px] leading-relaxed text-[#1a1a1a]">“{q}”</p>
+      <div className="mt-6 flex items-center gap-3">
+        <img src={`/testimonials/_ (${av}).jpeg`} alt="" className="h-10 w-10 rounded-full object-cover" />
+        <div>
+          <p className="text-sm font-semibold text-[#1a1a1a]">{n}</p>
+          <p className="text-[13px] text-[#8a8a8a]">{r}</p>
         </div>
-
-        {/* Big brand mark sitting under the Legal / About columns */}
-        <div className="mt-6 flex justify-end">
-          <img
-            src="/logo-mark.png"
-            alt="DuupFlow"
-            className="h-28 w-auto opacity-90 select-none pointer-events-none"
-          />
+      </div>
+    </div>
+  );
+}
+function Testimonials() {
+  const loc = useLocale();
+  return (
+    <section className="px-6 py-20 sm:py-24">
+      <div className="mx-auto max-w-6xl">
+        <div className="text-center">
+          <Label>{loc === "en" ? "Testimonials" : "Témoignages"}</Label>
+          <h2 className="mx-auto mt-5 max-w-2xl font-semibold tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(30px, 4vw, 46px)", lineHeight: 1.08 }}>
+            {loc === "en" ? <>They already repost with <Brand />.</> : <>Ils repostent déjà avec <Brand />.</>}
+          </h2>
         </div>
+        <div className="mt-12 grid gap-5 md:grid-cols-3">
+          {REVIEWS[loc].map((r, i) => (
+            <div key={i} className="group h-[300px] [perspective:1400px]">
+              <div className="relative h-full w-full transition-transform duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
+                <ReviewFace n={r.f.n} r={r.f.r} q={r.f.q} av={r.f.av} />
+                <ReviewFace n={r.b.n} r={r.b.r} q={r.b.q} av={r.b.av} back />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-14 grid grid-cols-3 gap-5">
+          {STATS.map((s, i) => (
+            <AnimatedStat key={i} value={s.value} suffix={s.suffix} decimals={s.decimals} label={s.label[loc]} locale={loc} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
-        {/* ── Bottom strip ────────────────────────────────────────────── */}
-        <div className="mt-14 pt-6 border-t border-white/[0.06] flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <p className="text-xs text-white/30">
-            {t("footer.copyright").replace("{year}", year)}
+/* ─── FAQ ─── */
+const FAQS = {
+  fr: [
+    { q: "Concrètement, qu'est-ce qui est modifié dans mes vidéos ?", a: "Les métadonnées (appareil, date, encodeur, géolocalisation), une signature visuelle via des micro-variations sous le seuil de perception, et une empreinte binaire unique. Le fichier est ensuite entièrement ré-encodé. Ton montage, ton audio et ton cadrage restent identiques à l'original." },
+    { q: "Est-ce que la qualité baisse ?", a: "Non. La résolution et le bitrate d'origine sont conservés : une 1080p reste 1080p, une 4K reste 4K. Aucune perte visible à l'écran." },
+    { q: "Combien de variantes puis-je générer ?", a: "Autant que ton plan le permet — jusqu'à un nombre illimité sur le plan Pro. Le plan gratuit te laisse démarrer sans carte bancaire." },
+    { q: "Ça marche sur quelles plateformes ?", a: "Toutes. DuupFlow prépare les fichiers, tu postes où tu veux : TikTok, Instagram, YouTube, X, Reddit, Threads…" },
+    { q: "Combien de temps pour générer 20 variantes ?", a: "Quelques minutes, selon la durée et la résolution de ta source. Compte environ 3 minutes pour 20 variantes vidéo." },
+  ],
+  en: [
+    { q: "What exactly gets modified in my videos?", a: "The metadata (device, date, encoder, geolocation), a visual signature via micro-variations below the perception threshold, and a unique binary fingerprint. The file is then fully re-encoded. Your edit, audio and framing stay identical to the original." },
+    { q: "Does quality drop?", a: "No. The original resolution and bitrate are kept: 1080p stays 1080p, 4K stays 4K. No visible loss on screen." },
+    { q: "How many variants can I generate?", a: "As many as your plan allows — up to unlimited on the Pro plan. The free plan lets you start with no credit card." },
+    { q: "Which platforms does it work on?", a: "All of them. DuupFlow prepares the files, you post wherever you want: TikTok, Instagram, YouTube, X, Reddit, Threads…" },
+    { q: "How long does it take to generate 20 variants?", a: "A few minutes, depending on your source's length and resolution. Count about 3 minutes for 20 video variants." },
+  ],
+};
+function FAQ() {
+  const loc = useLocale();
+  return (
+    <section id="faq" className="px-6 py-20 sm:py-28">
+      <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+        {/* Gauche — titre + CTA */}
+        <div className="lg:pt-4">
+          <Label>FAQ</Label>
+          <h2 className="mt-6 font-semibold tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(32px, 4.2vw, 52px)", lineHeight: 1.04 }}>
+            {loc === "en" ? <>The questions<br className="hidden sm:block" /> you're asking.</> : <>Les questions<br className="hidden sm:block" /> que tu te poses.</>}
+          </h2>
+          <p className="mt-5 max-w-sm text-[16px] leading-relaxed text-[#605f5f]">
+            {loc === "en" ? "Everything you need to know before getting started." : "Tout ce qu'il faut savoir avant de te lancer."}
           </p>
-          {/* Tiny "duplication" motif — 5 vertical bars in decreasing opacity */}
-          <div aria-hidden className="flex items-end gap-1 opacity-40">
-            {[0.9, 0.7, 0.55, 0.4, 0.3].map((o, i) => (
-              <span
-                key={i}
-                className="block w-[3px] bg-indigo-300/70 rounded-sm"
-                style={{ height: `${8 + i * 4}px`, opacity: o }}
-              />
+          <Link href="/demo-request"
+            className="mt-8 inline-flex rounded-full bg-white px-6 py-3 text-sm font-medium text-[#1a1a1a] shadow-[0_10px_30px_rgba(20,40,90,0.08)] ring-1 ring-black/10 transition hover:bg-neutral-50">
+            {loc === "en" ? "Ask a question" : "Poser une question"}
+          </Link>
+        </div>
+
+        {/* Droite — accordéon dans un panneau clair */}
+        <div className="rounded-[28px] bg-[#f4f5f8] p-3 sm:p-4">
+          <div className="space-y-3">
+            {FAQS[loc].map((f, i) => (
+              <div key={i} className="group overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06] transition-shadow hover:ring-2 hover:ring-[#4f7bff]">
+                <div className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left">
+                  <span className="text-[16px] font-medium text-[#1a1a1a]">{f.q}</span>
+                  <span className="shrink-0 text-xl leading-none text-[#8a8a8a] transition-transform duration-300 group-hover:rotate-45">+</span>
+                </div>
+                <div className="max-h-0 overflow-hidden transition-[max-height] duration-[350ms] ease group-hover:max-h-[320px]">
+                  <p className="px-6 pb-6 text-[15px] leading-relaxed text-[#605f5f]">{f.a}</p>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       </div>
-    </footer>
+    </section>
   );
 }
 
-/* ─── ROOT PAGE ─── */
+/* ─── BLOG ─── */
+const POSTS = {
+  fr: [
+    { t: "Reposter la même vidéo sur plusieurs comptes : le guide", e: "Pourquoi les plateformes limitent les doublons et comment contourner ça proprement.", c: "from-sky-100 to-indigo-100" },
+    { t: "Multi-comptes : comment alimenter une grappe sans se faire flag", e: "La méthode des créateurs qui postent partout sans perdre en reach.", c: "from-violet-100 to-sky-100" },
+    { t: "1 vidéo, 20 formats : industrialiser sa production", e: "Le workflow pour transformer un seul contenu gagnant en volume.", c: "from-indigo-100 to-blue-100" },
+  ],
+  en: [
+    { t: "Reposting the same video across accounts: the guide", e: "Why platforms limit duplicates, and how to work around it cleanly.", c: "from-sky-100 to-indigo-100" },
+    { t: "Multi-account: how to feed a cluster without getting flagged", e: "The method creators use to post everywhere without losing reach.", c: "from-violet-100 to-sky-100" },
+    { t: "1 video, 20 formats: industrialize your production", e: "The workflow to turn a single winning piece into volume.", c: "from-indigo-100 to-blue-100" },
+  ],
+};
+function Blog() {
+  const loc = useLocale();
+  return (
+    <section className="px-6 py-20 sm:py-24">
+      <div className="mx-auto max-w-6xl">
+        <div className="text-center">
+          <Label>Blog</Label>
+          <h2 className="mt-5 font-semibold tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(30px, 4vw, 46px)", lineHeight: 1.08 }}>
+            {loc === "en" ? "Repost smarter." : "Reposter plus intelligemment."}
+          </h2>
+        </div>
+        <div className="mt-12 grid gap-6 md:grid-cols-3">
+          {POSTS[loc].map((p, i) => (
+            <Link key={i} href="/blog" className="group block overflow-hidden rounded-3xl bg-white ring-1 ring-black/5 transition hover:shadow-[0_16px_40px_rgba(20,40,90,0.08)]">
+              <div className={`aspect-[16/10] bg-gradient-to-br ${p.c}`} />
+              <div className="p-6">
+                <h3 className="text-[17px] font-semibold leading-snug text-[#1a1a1a]">{p.t}</h3>
+                <p className="mt-2 text-[14px] leading-relaxed text-[#605f5f]">{p.e}</p>
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium" style={{ color: BLUE }}>{loc === "en" ? "Read article" : "Lire l'article"} <span className="transition-transform group-hover:translate-x-0.5">→</span></span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── CTA ─── */
+function CTA() {
+  const en = useLocale() === "en";
+  return (
+    <section className="px-6 pb-10">
+      <div className="mx-auto max-w-6xl overflow-hidden rounded-[36px] px-8 py-16 text-center sm:py-20"
+        style={{ background: "linear-gradient(135deg, #1a1a1a 0%, #202634 60%, #1c2b52 100%)" }}>
+        <h2 className="mx-auto max-w-2xl font-semibold tracking-[-0.03em] text-white" style={{ fontSize: "clamp(30px, 4.4vw, 50px)", lineHeight: 1.08 }}>
+          {en ? "Give your videos a second life." : "Donne une seconde vie à tes vidéos."}
+        </h2>
+        <p className="mx-auto mt-4 max-w-md text-[17px] text-white/70">
+          {en ? "Start for free, no credit card. Your first variants in 3 minutes." : "Commence gratuitement, sans carte bancaire. Tes premières variantes en 3 minutes."}
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Link href="/pricing" className="rounded-full px-7 py-3 text-sm font-medium text-white shadow-[0_10px_30px_rgba(90,90,240,0.42)] transition hover:opacity-90" style={{ background: CTA_GRAD }}>
+            {en ? "Get started" : "Commencer maintenant"}
+          </Link>
+          <Link href="/demo-request" className="rounded-full bg-white/10 px-7 py-3 text-sm font-medium text-white ring-1 ring-white/20 transition hover:bg-white/15">
+            {en ? "Contact us" : "Nous contacter"}
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
+/* ─── PAGE ─── */
 export default function LandingPage() {
   return (
-    <div>
+    <div className="lunera min-h-screen text-[#1a1a1a]" style={{ background: "linear-gradient(to right, #b8d0ff 0%, #c6bcf5 100%)" }}>
+      <SmoothScroll />
+      <NavPill />
+      {/* Zone bleue : le bleu de la vague descend jusqu'en bas du bloc démo */}
       <Hero />
-      {/* Separator between hero and content below */}
-      <div className="max-w-5xl mx-auto px-6">
-        <div className="h-px bg-white/[0.12]" />
+      <DemoBlock />
+      {/* Englobage blanc arrondi à partir de Fonctionnalités */}
+      <div className="relative z-10 rounded-t-[40px] bg-white">
+        {/* Grille fine "blueprint" bleuté/violet qui se fond (Features → Intégrations) */}
+        <div className="relative overflow-hidden">
+          <div aria-hidden className="pointer-events-none absolute inset-0"
+            style={{
+              backgroundImage: "linear-gradient(to right, rgba(99,102,241,0.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(99,102,241,0.07) 1px, transparent 1px)",
+              backgroundSize: "130px 130px",
+              maskImage: "radial-gradient(122% 88% at 50% 32%, #000 42%, transparent 92%)",
+              WebkitMaskImage: "radial-gradient(122% 88% at 50% 32%, #000 42%, transparent 92%)",
+            }} />
+          <div className="relative">
+            <Features />
+            <Integrations />
+          </div>
+        </div>
+        <HowItWorks />
+        <Testimonials />
+        <FAQ />
+        <Blog />
+        <CTA />
+        <Footer />
       </div>
-      <ProblemSolution />
-      <FeaturesScroller />
-      <HowItWorks />
-      <AvantagesCarousel />
-      <VideoShowcase />
-      <StatsBanner />
-      <FAQ />
-      <CTABanner />
-      <Footer />
     </div>
   );
 }

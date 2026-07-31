@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import { useLocalizedHref } from "@/lib/i18n/href";
 
-function NavLink({ href, label, onClick }: { href: string; label: string; onClick?: () => void }) {
+function NavLink({ href, label, onClick, light }: { href: string; label: string; onClick?: () => void; light?: boolean }) {
   const pathname = usePathname();
   const active = pathname === href;
 
@@ -17,11 +17,11 @@ function NavLink({ href, label, onClick }: { href: string; label: string; onClic
       onClick={onClick}
       className={[
         "px-3 py-2 rounded-lg text-[13px] font-medium uppercase tracking-[0.08em] transition",
-        active
-          ? "text-white"
-          : "text-white/55 hover:text-white/90",
+        light
+          ? (active ? "text-slate-900" : "text-slate-500 hover:text-slate-900")
+          : (active ? "text-white" : "text-white/55 hover:text-white/90"),
       ].join(" ")}
-      style={active ? { textShadow: "0 0 12px rgba(99,102,241,0.7), 0 0 30px rgba(99,102,241,0.3)" } : undefined}
+      style={active && !light ? { textShadow: "0 0 12px rgba(99,102,241,0.7), 0 0 30px rgba(99,102,241,0.3)" } : undefined}
     >
       {label}
     </a>
@@ -31,17 +31,17 @@ function NavLink({ href, label, onClick }: { href: string; label: string; onClic
 export default function Header() {
   const { t } = useTranslation();
   const lh = useLocalizedHref();
-  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-  // Landing page ("/", "/fr", "/en") shows the announcement bar above the header,
-  // so the header drops by the bar's height there. Everywhere else stays at top-0.
-  const isLanding = /^\/(?:fr|en)?\/?$/.test(pathname);
+  const light = false; // LP en thème sombre
 
   return (
     <>
-      <header className={`fixed left-0 right-0 z-50 backdrop-blur-md ${isLanding ? "top-9" : "top-0"}`} style={{ background: "rgba(11,15,26,0.2)", boxShadow: "0 1px 0 rgba(99,102,241,0.15), 0 4px 20px rgba(99,102,241,0.06)" }}>
+      <header className="fixed left-0 right-0 top-0 z-50 backdrop-blur-md"
+        style={light
+          ? { background: "rgba(255,255,255,0.72)" }
+          : { background: "transparent" }}>
         <div
-          className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4"
+          className="flex items-center justify-between px-4 sm:px-8 py-2 sm:py-2.5"
           style={{ maxWidth: "1440px", margin: "0 auto" }}
         >
           {/* Logo + brand + nav — grouped on the left so the links sit close to the brand */}
@@ -49,17 +49,17 @@ export default function Header() {
             <Link href={lh("/")} className="shrink-0 flex items-center gap-1.5 sm:gap-2">
               <Image src="/logo-mark.png" alt="DuupFlow" width={64} height={64} priority className="h-10 w-10 sm:h-14 sm:w-14 object-contain" />
               <span className="text-xl sm:text-[28px] font-extrabold tracking-tight">
-                <span style={{ color: "#818CF8" }}>Duup</span>
-                <span className="text-white/55">Flow</span>
+                <span style={{ color: "#6366F1" }}>Duup</span>
+                <span className={light ? "text-slate-800" : "text-white/55"}>Flow</span>
               </span>
             </Link>
 
             {/* Nav — desktop only */}
             <nav className="hidden xl:flex items-center gap-1">
-              <NavLink href={lh("/features")} label={t("nav.fonctionnalites")} />
-              <NavLink href={lh("/pricing")} label={t("nav.tarifs")} />
-              <NavLink href={lh("/#features")} label={t("nav.avantages")} />
-              <NavLink href="https://www.duupflow.com/#faq" label={t("nav.faq")} />
+              <NavLink href={lh("/features")} label={t("nav.fonctionnalites")} light={light} />
+              <NavLink href={lh("/pricing")} label={t("nav.tarifs")} light={light} />
+              <NavLink href={lh("/#features")} label={t("nav.avantages")} light={light} />
+              <NavLink href="https://www.duupflow.com/#faq" label={t("nav.faq")} light={light} />
             </nav>
           </div>
 
@@ -68,36 +68,28 @@ export default function Header() {
             {/* Sign in — desktop */}
             <Link
               href={lh("/login")}
-              className="hidden xl:inline-flex items-center whitespace-nowrap px-3 py-2 text-sm text-white/70 hover:text-white transition"
+              className={`hidden xl:inline-flex items-center whitespace-nowrap px-3 py-2 text-sm transition ${light ? "text-slate-600 hover:text-slate-900" : "text-white/70 hover:text-white"}`}
             >
               {t("nav.seConnecter")}
             </Link>
 
-            {/* Try — outlined, desktop */}
-            <Link
-              href={lh("/pricing")}
-              className="hidden xl:inline-flex items-center whitespace-nowrap rounded-xl border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/[0.08] hover:border-white/35"
-            >
-              {t("nav.essayer")}
-            </Link>
-
-            {/* See plans — primary glow pill, desktop */}
+            {/* Try — colored glow pill, desktop */}
             <Link
               href={lh("/pricing")}
               className="btn-glow hidden xl:inline-flex items-center whitespace-nowrap rounded-full px-6 py-2.5 text-sm font-semibold text-white"
             >
-              {t("nav.voirPlans")}
+              {t("nav.essayer")}
             </Link>
 
             {/* Hamburger — mobile/tablet only */}
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="xl:hidden flex flex-col items-center justify-center gap-1.5 w-10 h-10 rounded-lg border border-white/15 bg-white/[0.05]"
+              className={`xl:hidden flex flex-col items-center justify-center gap-1.5 w-10 h-10 rounded-lg border ${light ? "border-slate-200 bg-slate-100" : "border-white/15 bg-white/[0.05]"}`}
               aria-label={t("nav.menuLabel")}
             >
-              <span className={`block w-4 h-0.5 bg-white/70 transition-all ${menuOpen ? "rotate-45 translate-y-1" : ""}`} />
-              <span className={`block w-4 h-0.5 bg-white/70 transition-all ${menuOpen ? "opacity-0" : ""}`} />
-              <span className={`block w-4 h-0.5 bg-white/70 transition-all ${menuOpen ? "-rotate-45 -translate-y-1" : ""}`} />
+              <span className={`block w-4 h-0.5 transition-all ${light ? "bg-slate-700" : "bg-white/70"} ${menuOpen ? "rotate-45 translate-y-1" : ""}`} />
+              <span className={`block w-4 h-0.5 transition-all ${light ? "bg-slate-700" : "bg-white/70"} ${menuOpen ? "opacity-0" : ""}`} />
+              <span className={`block w-4 h-0.5 transition-all ${light ? "bg-slate-700" : "bg-white/70"} ${menuOpen ? "-rotate-45 -translate-y-1" : ""}`} />
             </button>
           </div>
         </div>
@@ -133,16 +125,9 @@ export default function Header() {
           <Link
             href={lh("/pricing")}
             onClick={() => setMenuOpen(false)}
-            className="block text-center rounded-xl border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/[0.08] hover:border-white/35"
-          >
-            {t("nav.essayer")}
-          </Link>
-          <Link
-            href={lh("/pricing")}
-            onClick={() => setMenuOpen(false)}
             className="btn-glow block text-center rounded-full px-5 py-2.5 text-sm font-semibold text-white"
           >
-            {t("nav.voirPlans")}
+            {t("nav.essayer")}
           </Link>
         </div>
       </div>

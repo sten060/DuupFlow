@@ -1,4 +1,10 @@
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@300,400,500,600,700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Fragment+Mono&display=swap');
+
+/* Landing "Lunera" — thème clair, police Geist */
+.lunera { font-family: 'Geist', 'Inter', -apple-system, sans-serif; }
+.lunera-mono { font-family: 'Fragment Mono', monospace; }
 
 @tailwind base;
 @tailwind components;
@@ -63,7 +69,7 @@ html, body { height:100%; }
 
 body{
   @apply text-white antialiased;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'General Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-weight: 300;
   background: #060c1e;
 }
@@ -613,3 +619,66 @@ body{
 /* Carte soft (stats / modules) */
 .card-soft { @apply glass rounded-2xl border border-white/10 p-6; }
 .card-soft:hover { @apply border-white/20; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+/* ---- Landing: marquee plateformes + pipeline technique ---- */
+@keyframes marquee-platforms { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.marquee-platforms { animation: marquee-platforms 30s linear infinite; }
+
+@keyframes tech-scan {
+  0% { transform: translateX(-8%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateX(108%); opacity: 0; }
+}
+@keyframes tech-layer {
+  0%, 100% { background: rgba(99,102,241,0.06); border-color: rgba(255,255,255,0.10); }
+  40%, 60% { background: rgba(91,123,255,0.22); border-color: rgba(129,140,248,0.6); }
+}
+.tech-scan-bar { animation: tech-scan 4s linear infinite; }
+.tech-layer-anim { animation: tech-layer 4s ease-in-out infinite; }
+
+/* ── Landing "Lunera" : vague glassmorphism animée (hero) ── */
+@keyframes lunera-drift-1 { 0%,100% { transform: translate(-6%, 4%) scale(1); } 50% { transform: translate(9%, -6%) scale(1.22); } }
+@keyframes lunera-drift-2 { 0%,100% { transform: translate(7%, 3%) scale(1.12); } 50% { transform: translate(-9%, -5%) scale(1); } }
+@keyframes lunera-drift-3 { 0%,100% { transform: translate(0%, 6%) scale(1); } 50% { transform: translate(5%, -8%) scale(1.28); } }
+@keyframes lunera-wave-x { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.lunera-blob-1 { animation: lunera-drift-1 16s ease-in-out infinite; }
+.lunera-blob-2 { animation: lunera-drift-2 20s ease-in-out infinite; }
+.lunera-blob-3 { animation: lunera-drift-3 13s ease-in-out infinite; }
+.lunera-wave-x { animation: lunera-wave-x 18s linear infinite; }
+@keyframes lunera-shine { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+.lunera-shine {
+  background-image: linear-gradient(90deg,#4f7bff 0%,#8b5cff 25%,#5a9bff 50%,#8b5cff 75%,#4f7bff 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lunera-shine 5s linear infinite;
+}
+/* Icônes réseaux qui flottent tranquillement */
+@keyframes lunera-float-a { 0%,100% { transform: translate(0,0) rotate(-6deg); } 50% { transform: translate(12px,-24px) rotate(-6deg); } }
+@keyframes lunera-float-b { 0%,100% { transform: translate(0,0) rotate(5deg); } 50% { transform: translate(-18px,-14px) rotate(5deg); } }
+@keyframes lunera-float-c { 0%,100% { transform: translate(0,0) rotate(-3deg); } 50% { transform: translate(16px,18px) rotate(-3deg); } }
+.lunera-float-a { animation: lunera-float-a 11s ease-in-out infinite; }
+.lunera-float-b { animation: lunera-float-b 13.5s ease-in-out infinite; }
+.lunera-float-c { animation: lunera-float-c 9.5s ease-in-out infinite; }
+
+/* Swap (remplacement) d'un compte dans la mockup de dispatch */
+@keyframes lunera-swap { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+.lunera-swap { animation: lunera-swap .42s cubic-bezier(0.22,1,0.36,1); }
+
+/* Flottaison légère (pastille posée sur le cadrant démo) */
+@keyframes lunera-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.lunera-bob { animation: lunera-bob 3.4s ease-in-out infinite; }
+
+/* Flip 3D au changement de cover (section Intégrations) */
+@keyframes lunera-flip {
+  0% { transform: rotateY(-90deg); opacity: 0; }
+  55% { opacity: 1; }
+  100% { transform: rotateY(0deg); opacity: 1; }
+}
+.lunera-flip { animation: lunera-flip .5s cubic-bezier(0.4, 0, 0.2, 1); transform-origin: center; backface-visibility: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lunera-blob-1, .lunera-blob-2, .lunera-blob-3, .lunera-wave-x,
+  .lunera-float-a, .lunera-float-b, .lunera-float-c, .lunera-swap, .lunera-flip, .lunera-bob { animation: none; }
+}

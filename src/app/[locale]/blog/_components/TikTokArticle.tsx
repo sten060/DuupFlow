@@ -303,7 +303,7 @@ export default function TikTokArticle({ lang }: { lang: Lang }) {
     month: "long",
     year: "numeric",
   });
-  const H2 = "pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white";
+  const H2 = "pt-6 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]";
 
   return (
     <>
@@ -315,30 +315,30 @@ export default function TikTokArticle({ lang }: { lang: Lang }) {
         <div className="max-w-6xl mx-auto grid grid-cols-12 gap-10 lg:gap-14">
           <article className="col-span-12 lg:col-span-8 [&_h2]:scroll-mt-28 [&_h3]:scroll-mt-28">
             {/* Breadcrumb */}
-            <nav className="text-xs text-white/40 mb-6" aria-label={lang === "fr" ? "Fil d'Ariane" : "Breadcrumb"}>
-              <Link href="/blog" className="hover:text-white/70 transition">Blog</Link>
-              <span className="mx-2 text-white/20">/</span>
-              <span className="text-white/55">{c.breadcrumb}</span>
+            <nav className="text-xs text-[#8a8a8a] mb-6" aria-label={lang === "fr" ? "Fil d'Ariane" : "Breadcrumb"}>
+              <Link href="/blog" className="hover:text-[#3f4453] transition">Blog</Link>
+              <span className="mx-2 text-[#8a8a8a]">/</span>
+              <span className="text-[#3f4453]">{c.breadcrumb}</span>
             </nav>
 
             {/* Header */}
             <header className="mb-10">
               <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">{c.h1}</h1>
-              <div className="mt-5 flex items-center gap-3 text-xs uppercase tracking-wider text-white/40">
+              <div className="mt-5 flex items-center gap-3 text-xs uppercase tracking-wider text-[#8a8a8a]">
                 <time dateTime={PUBLISHED_AT}>{dateLabel}</time>
-                <span className="text-white/20">•</span>
+                <span className="text-[#8a8a8a]">•</span>
                 <span>{READING_MIN} {c.readLabel}</span>
-                <span className="text-white/20">•</span>
+                <span className="text-[#8a8a8a]">•</span>
                 <span>{c.metaTag}</span>
               </div>
             </header>
 
-            <div className="space-y-6 text-[15px] md:text-base leading-relaxed text-white/80">
-              <p className="text-lg md:text-xl text-white/90 leading-relaxed">{c.standfirst}</p>
+            <div className="space-y-6 text-[15px] md:text-base leading-relaxed text-[#1a1a1a]">
+              <p className="text-lg md:text-xl text-[#1a1a1a] leading-relaxed">{c.standfirst}</p>
 
               {/* Video explainer — lazy-loaded (thumbnail → iframe on click) for page speed */}
               <div className="my-8">
-                <p className="mb-3 text-sm font-medium text-white/60">{c.videoIntro}</p>
+                <p className="mb-3 text-sm font-medium text-[#3f4453]">{c.videoIntro}</p>
                 <YouTubeLazy videoId={VIDEO_ID} title={c.videoTitle} />
               </div>
 
@@ -352,7 +352,7 @@ export default function TikTokArticle({ lang }: { lang: Lang }) {
                   loading="lazy"
                   className="w-full h-auto rounded-xl border border-white/10"
                 />
-                <figcaption className="mt-2 text-xs text-white/40 text-center">{c.imgCaption}</figcaption>
+                <figcaption className="mt-2 text-xs text-[#8a8a8a] text-center">{c.imgCaption}</figcaption>
               </figure>
 
               {/* S1 */}
@@ -364,10 +364,10 @@ export default function TikTokArticle({ lang }: { lang: Lang }) {
               <p>{c.s2Intro}</p>
               <div className="grid gap-4 sm:grid-cols-3 not-prose">
                 {c.cards.map((card) => (
-                  <div key={card.n} className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-                    <div className="text-xs font-mono font-semibold tracking-widest text-indigo-300/80">{card.n}</div>
-                    <h3 className="mt-2 text-base font-bold text-white">{card.title}</h3>
-                    <p className="mt-2 text-sm text-white/60 leading-relaxed">{card.body}</p>
+                  <div key={card.n} className="rounded-xl border border-white/10 bg-[#f6f7f9] p-5">
+                    <div className="text-xs font-mono font-semibold tracking-widest text-[#4f7bff]/80">{card.n}</div>
+                    <h3 className="mt-2 text-base font-bold text-[#1a1a1a]">{card.title}</h3>
+                    <p className="mt-2 text-sm text-[#3f4453] leading-relaxed">{card.body}</p>
                   </div>
                 ))}
               </div>
@@ -385,19 +385,19 @@ export default function TikTokArticle({ lang }: { lang: Lang }) {
               <h2 id="solution" className={H2}>{sections[4].label}</h2>
               {c.s5.map((p, i) => <p key={i}>{p}</p>)}
               <p>{c.s5ListIntro}</p>
-              <ul className="list-disc list-outside space-y-2 pl-6 marker:text-indigo-300/70">
+              <ul className="list-disc list-outside space-y-2 pl-6 marker:text-[#4f7bff]/70">
                 {c.s5List.map((li, i) => <li key={i}>{li}</li>)}
               </ul>
               <p>{c.s5After}</p>
               <Callout>{c.s5Callout}</Callout>
 
               {/* CTA block */}
-              <div className="my-8 rounded-2xl border border-indigo-400/30 bg-gradient-to-br from-indigo-500/[0.12] to-sky-500/[0.08] p-6 md:p-8">
-                <h3 className="text-xl md:text-2xl font-bold tracking-tight text-white">{c.ctaTitle}</h3>
-                <p className="mt-3 text-sm md:text-[15px] text-white/70 leading-relaxed">{c.ctaBody}</p>
+              <div className="my-8 rounded-2xl border border-[#4f7bff]/30 bg-gradient-to-br from-[#4f7bff]/[0.12] to-[#7c5cff]/[0.08] p-6 md:p-8">
+                <h3 className="text-xl md:text-2xl font-bold tracking-tight text-[#1a1a1a]">{c.ctaTitle}</h3>
+                <p className="mt-3 text-sm md:text-[15px] text-[#3f4453] leading-relaxed">{c.ctaBody}</p>
                 <NextLink
                   href={ctaHref}
-                  className="btn-glow mt-5 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white"
+                  className="btn-glow mt-5 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-[#1a1a1a]"
                 >
                   {c.ctaButton}
                 </NextLink>
@@ -405,23 +405,23 @@ export default function TikTokArticle({ lang }: { lang: Lang }) {
             </div>
 
             {/* FAQ */}
-            <section className="mt-16 pt-10 border-t border-white/[0.08]">
-              <h2 id="faq" className="scroll-mt-28 text-2xl md:text-3xl font-bold tracking-tight text-white mb-6">
+            <section className="mt-16 pt-10 border-t border-black/10">
+              <h2 id="faq" className="scroll-mt-28 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a] mb-6">
                 {c.faqTitle}
               </h2>
               <div className="space-y-6">
                 {faq.map((item, i) => (
                   <div key={i}>
-                    <h3 className="text-base md:text-lg font-semibold text-white/95 mb-2">{item.q}</h3>
-                    <p className="text-sm md:text-[15px] text-white/65 leading-relaxed">{item.a}</p>
+                    <h3 className="text-base md:text-lg font-semibold text-[#1a1a1a] mb-2">{item.q}</h3>
+                    <p className="text-sm md:text-[15px] text-[#3f4453] leading-relaxed">{item.a}</p>
                   </div>
                 ))}
               </div>
             </section>
 
             {/* Back to index */}
-            <div className="mt-12 pt-6 border-t border-white/[0.06]">
-              <Link href="/blog" className="text-sm text-white/55 hover:text-white transition">{c.back}</Link>
+            <div className="mt-12 pt-6 border-t border-black/10">
+              <Link href="/blog" className="text-sm text-[#3f4453] hover:text-[#1a1a1a] transition">{c.back}</Link>
             </div>
           </article>
 
@@ -439,7 +439,7 @@ export default function TikTokArticle({ lang }: { lang: Lang }) {
 
 function Callout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="my-2 rounded-xl border border-indigo-400/30 bg-indigo-500/[0.07] p-4 text-[15px] leading-relaxed text-white/80">
+    <div className="my-2 rounded-xl border border-[#4f7bff]/30 bg-[#4f7bff]/[0.07] p-4 text-[15px] leading-relaxed text-[#1a1a1a]">
       {children}
     </div>
   );

@@ -100,7 +100,7 @@ type Block =
 const BODY: Record<"fr" | "en", Block[]> = {
   fr: [
     { t: "lead", html: "Instagram a durci sa politique de recommandation : les comptes qui republient du contenu créé par d'autres voient leur visibilité chuter dans l'Explorer et le fil principal. La plateforme considère désormais que la valeur d'un compte se mesure à l'originalité de ce qu'il publie — et plus seulement au volume." },
-    { t: "p", html: "Pour les agences sociales, les créateurs qui gèrent plusieurs comptes thématiques et les marques qui dupliquent leur contenu, le changement est concret : poster le même fichier sur plusieurs comptes devient un signal négatif. Cette mise à jour a été détaillée par <a href=\"https://www.leptidigital.fr/reseaux-sociaux/instagram-lutte-contenus-non-originaux-89802/\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-indigo-300 hover:text-indigo-200 underline underline-offset-2\">LeptiDigital</a>." },
+    { t: "p", html: "Pour les agences sociales, les créateurs qui gèrent plusieurs comptes thématiques et les marques qui dupliquent leur contenu, le changement est concret : poster le même fichier sur plusieurs comptes devient un signal négatif. Cette mise à jour a été détaillée par <a href=\"https://www.leptidigital.fr/reseaux-sociaux/instagram-lutte-contenus-non-originaux-89802/\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-[#4f7bff] hover:text-[#4f7bff] underline underline-offset-2\">LeptiDigital</a>." },
     { t: "p", html: "Dans cet article, on décrypte ce qu'Instagram entend par <em>non original</em>, qui est concerné, ce que cela change pour la diffusion multi-comptes, et comment continuer à scaler sans tomber dans le piège des publications cloniques." },
     { t: "h2", id: "definition", html: "Ce qu'Instagram considère désormais comme « non original »" },
     { t: "p", html: "Instagram structure l'originalité autour de trois critères : le contenu est créé par l'utilisateur lui-même, il apporte une perspective unique, ou il transforme significativement un contenu préexistant. C'est ce dernier point qui change tout — la simple republication n'entre pas dans cette définition." },
@@ -125,15 +125,15 @@ const BODY: Record<"fr" | "en", Block[]> = {
     { t: "ul", items: ["<strong>Recadrage et reformatage</strong> — adapter le ratio, le crop, le cadre au ton de chaque compte ;", "<strong>Variations visuelles</strong> — luminosité, contraste, ambiance colorimétrique qui modifient l'impression générale ;", "<strong>Modifications de mouvement</strong> — vitesse, zooms subtils, transitions distinctes ;", "<strong>Adaptations éditoriales</strong> — légende, intro vocale ou sous-titres adaptés à l'audience du compte."] },
     { t: "p", html: "L'objectif n'est pas de tromper l'algorithme mais de <strong>produire réellement</strong> plusieurs versions adaptées à chaque audience. À l'échelle, on ne peut pas refaire manuellement cinq variantes par publication et par compte." },
     { t: "h2", id: "duupflow", html: "DuupFlow : industrialiser la variation sans sacrifier la conformité" },
-    { t: "p", html: "C'est exactement le besoin que <a href=\"/\" class=\"text-indigo-300 hover:text-indigo-200 underline underline-offset-2\">DuupFlow</a> adresse avec son module Variation IA. À partir d'un fichier source, l'outil génère plusieurs déclinaisons uniques, conçues pour qu'une audience perçoive chacune comme distincte. Chaque copie reste cohérente avec l'intention d'origine mais constitue bien un contenu transformé au sens de la politique Instagram." },
-    { t: "p", html: "L'outil est testable gratuitement via le <a href=\"/pricing\" class=\"text-indigo-300 hover:text-indigo-200 underline underline-offset-2\">plan Free</a> (20 duplications d'images et 10 vidéos par mois), suffisant pour valider qu'il s'intègre à votre workflow." },
+    { t: "p", html: "C'est exactement le besoin que <a href=\"/\" class=\"text-[#4f7bff] hover:text-[#4f7bff] underline underline-offset-2\">DuupFlow</a> adresse avec son module Variation IA. À partir d'un fichier source, l'outil génère plusieurs déclinaisons uniques, conçues pour qu'une audience perçoive chacune comme distincte. Chaque copie reste cohérente avec l'intention d'origine mais constitue bien un contenu transformé au sens de la politique Instagram." },
+    { t: "p", html: "L'outil est testable gratuitement via le <a href=\"/pricing\" class=\"text-[#4f7bff] hover:text-[#4f7bff] underline underline-offset-2\">plan Free</a> (20 duplications d'images et 10 vidéos par mois), suffisant pour valider qu'il s'intègre à votre workflow." },
     { t: "h2", id: "conclusion", html: "Conclusion" },
     { t: "p", html: "Le durcissement d'Instagram n'est pas un retour en arrière contre le multi-comptes — c'est un signal pour passer d'une approche « duplication » à une approche « déclinaison ». Les opérateurs qui adapteront leur production y gagneront : qualité perçue en hausse, portée organique stabilisée, comptes qui ne sont plus pénalisés." },
     { t: "cta", href: "/pricing", html: "Essayer DuupFlow gratuitement" },
   ],
   en: [
     { t: "lead", html: "Instagram has tightened its recommendation policy: accounts that repost content created by others see their visibility drop in Explore and the main feed. The platform now measures an account's value by the originality of what it publishes — not just by volume." },
-    { t: "p", html: "For social agencies, creators who run several themed accounts, and brands that duplicate their content, the change is concrete: posting the same file across several accounts becomes a negative signal. This update was detailed by <a href=\"https://www.leptidigital.fr/reseaux-sociaux/instagram-lutte-contenus-non-originaux-89802/\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-indigo-300 hover:text-indigo-200 underline underline-offset-2\">LeptiDigital</a>." },
+    { t: "p", html: "For social agencies, creators who run several themed accounts, and brands that duplicate their content, the change is concrete: posting the same file across several accounts becomes a negative signal. This update was detailed by <a href=\"https://www.leptidigital.fr/reseaux-sociaux/instagram-lutte-contenus-non-originaux-89802/\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-[#4f7bff] hover:text-[#4f7bff] underline underline-offset-2\">LeptiDigital</a>." },
     { t: "p", html: "In this article we break down what Instagram means by <em>unoriginal</em>, who's affected, what it changes for multi-account posting, and how to keep scaling without falling into the clone-post trap." },
     { t: "h2", id: "definition", html: "What Instagram now considers “unoriginal”" },
     { t: "p", html: "Instagram frames originality around three criteria: the content is created by the user themselves, it brings a unique perspective, or it significantly transforms pre-existing content. That last point changes everything — simple reposting doesn't meet the definition." },
@@ -158,8 +158,8 @@ const BODY: Record<"fr" | "en", Block[]> = {
     { t: "ul", items: ["<strong>Reframing and reformatting</strong> — adapt the ratio, crop, and framing to each account's tone;", "<strong>Visual variations</strong> — brightness, contrast, color mood that change the overall impression;", "<strong>Motion changes</strong> — speed, subtle zooms, distinct transitions;", "<strong>Editorial adaptations</strong> — caption, voice intro, or subtitles tailored to the account's audience."] },
     { t: "p", html: "The goal isn't to fool the algorithm but to <strong>actually produce</strong> several versions tailored to each audience. At scale, you can't manually redo five variants per post per account." },
     { t: "h2", id: "duupflow", html: "DuupFlow: industrialize variation without sacrificing compliance" },
-    { t: "p", html: "That's exactly the need <a href=\"/\" class=\"text-indigo-300 hover:text-indigo-200 underline underline-offset-2\">DuupFlow</a> addresses with its AI Variation module. From a source file, the tool generates several unique versions, designed so an audience perceives each as distinct. Each copy stays consistent with the original intent yet counts as transformed content under Instagram's policy." },
-    { t: "p", html: "The tool is free to try on the <a href=\"/pricing\" class=\"text-indigo-300 hover:text-indigo-200 underline underline-offset-2\">Free plan</a> (20 image duplications and 10 videos per month), enough to check it fits your workflow." },
+    { t: "p", html: "That's exactly the need <a href=\"/\" class=\"text-[#4f7bff] hover:text-[#4f7bff] underline underline-offset-2\">DuupFlow</a> addresses with its AI Variation module. From a source file, the tool generates several unique versions, designed so an audience perceives each as distinct. Each copy stays consistent with the original intent yet counts as transformed content under Instagram's policy." },
+    { t: "p", html: "The tool is free to try on the <a href=\"/pricing\" class=\"text-[#4f7bff] hover:text-[#4f7bff] underline underline-offset-2\">Free plan</a> (20 image duplications and 10 videos per month), enough to check it fits your workflow." },
     { t: "h2", id: "conclusion", html: "Conclusion" },
     { t: "p", html: "Instagram's crackdown isn't a step back against multi-account strategies — it's a signal to move from a “duplication” approach to a “variation” approach. Operators who adapt their production will gain: higher perceived quality, stabilized organic reach, accounts that are no longer penalized." },
     { t: "cta", href: "/pricing", html: "Try DuupFlow for free" },
@@ -169,21 +169,21 @@ const BODY: Record<"fr" | "en", Block[]> = {
 function renderBlock(b: Block, i: number) {
   switch (b.t) {
     case "lead":
-      return <p key={i} className="text-lg md:text-xl text-white/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: b.html }} />;
+      return <p key={i} className="text-lg md:text-xl text-[#1a1a1a] leading-relaxed" dangerouslySetInnerHTML={{ __html: b.html }} />;
     case "p":
       return <p key={i} dangerouslySetInnerHTML={{ __html: b.html }} />;
     case "h2":
-      return <h2 key={i} id={b.id} className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-white" dangerouslySetInnerHTML={{ __html: b.html }} />;
+      return <h2 key={i} id={b.id} className="pt-6 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]" dangerouslySetInnerHTML={{ __html: b.html }} />;
     case "h3":
-      return <h3 key={i} className="pt-4 text-xl md:text-2xl font-semibold tracking-tight text-white/95" dangerouslySetInnerHTML={{ __html: b.html }} />;
+      return <h3 key={i} className="pt-4 text-xl md:text-2xl font-semibold tracking-tight text-[#1a1a1a]" dangerouslySetInnerHTML={{ __html: b.html }} />;
     case "ul":
-      return <ul key={i} className="list-disc list-outside space-y-2 pl-6 marker:text-indigo-300/70">{b.items.map((it, j) => <li key={j} dangerouslySetInnerHTML={{ __html: it }} />)}</ul>;
+      return <ul key={i} className="list-disc list-outside space-y-2 pl-6 marker:text-[#4f7bff]/70">{b.items.map((it, j) => <li key={j} dangerouslySetInnerHTML={{ __html: it }} />)}</ul>;
     case "ol":
-      return <ol key={i} className="list-decimal list-outside space-y-2 pl-6 marker:text-indigo-300/70 marker:font-semibold">{b.items.map((it, j) => <li key={j} dangerouslySetInnerHTML={{ __html: it }} />)}</ol>;
+      return <ol key={i} className="list-decimal list-outside space-y-2 pl-6 marker:text-[#4f7bff]/70 marker:font-semibold">{b.items.map((it, j) => <li key={j} dangerouslySetInnerHTML={{ __html: it }} />)}</ol>;
     case "cta":
       return (
         <div key={i} className="pt-6">
-          <Link href={b.href} className="btn-glow inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white">
+          <Link href={b.href} className="btn-glow inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-[#1a1a1a]">
             <span dangerouslySetInnerHTML={{ __html: b.html }} /><span aria-hidden>→</span>
           </Link>
         </div>
@@ -224,41 +224,41 @@ export default async function ArticlePage({ params }: { params: Promise<{ locale
       <main className="px-6 py-12 md:py-16">
         <div className="max-w-6xl mx-auto grid grid-cols-12 gap-10 lg:gap-14">
           <article className="col-span-12 lg:col-span-8 [&_h2]:scroll-mt-28 [&_h3]:scroll-mt-28">
-            <nav className="text-xs text-white/40 mb-6" aria-label="Breadcrumb">
-              <Link href="/blog" className="hover:text-white/70 transition">Blog</Link>
-              <span className="mx-2 text-white/20">/</span>
-              <span className="text-white/55">{crumb}</span>
+            <nav className="text-xs text-[#8a8a8a] mb-6" aria-label="Breadcrumb">
+              <Link href="/blog" className="hover:text-[#3f4453] transition">Blog</Link>
+              <span className="mx-2 text-[#8a8a8a]">/</span>
+              <span className="text-[#3f4453]">{crumb}</span>
             </nav>
 
             <header className="mb-10">
               <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">{META[lang].h1}</h1>
-              <div className="mt-5 flex items-center gap-3 text-xs uppercase tracking-wider text-white/40">
+              <div className="mt-5 flex items-center gap-3 text-xs uppercase tracking-wider text-[#8a8a8a]">
                 <time dateTime={PUBLISHED_AT}>{dateLabel}</time>
-                <span className="text-white/20">•</span>
+                <span className="text-[#8a8a8a]">•</span>
                 <span>{READING[lang]} {read}</span>
-                <span className="text-white/20">•</span>
+                <span className="text-[#8a8a8a]">•</span>
                 <span>{tag}</span>
               </div>
             </header>
 
-            <div className="space-y-6 text-[15px] md:text-base leading-relaxed text-white/80">
+            <div className="space-y-6 text-[15px] md:text-base leading-relaxed text-[#1a1a1a]">
               {BODY[lang].map(renderBlock)}
             </div>
 
-            <section className="mt-16 pt-10 border-t border-white/[0.08]">
-              <h2 id="faq" className="scroll-mt-28 text-2xl md:text-3xl font-bold tracking-tight text-white mb-6">{faqTitle}</h2>
+            <section className="mt-16 pt-10 border-t border-black/10">
+              <h2 id="faq" className="scroll-mt-28 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a] mb-6">{faqTitle}</h2>
               <div className="space-y-6">
                 {FAQ[lang].map((item, i) => (
                   <div key={i}>
-                    <h3 className="text-base md:text-lg font-semibold text-white/95 mb-2">{item.q}</h3>
-                    <p className="text-sm md:text-[15px] text-white/65 leading-relaxed">{item.a}</p>
+                    <h3 className="text-base md:text-lg font-semibold text-[#1a1a1a] mb-2">{item.q}</h3>
+                    <p className="text-sm md:text-[15px] text-[#3f4453] leading-relaxed">{item.a}</p>
                   </div>
                 ))}
               </div>
             </section>
 
-            <div className="mt-12 pt-6 border-t border-white/[0.06]">
-              <Link href="/blog" className="text-sm text-white/55 hover:text-white transition">{back}</Link>
+            <div className="mt-12 pt-6 border-t border-black/10">
+              <Link href="/blog" className="text-sm text-[#3f4453] hover:text-[#1a1a1a] transition">{back}</Link>
             </div>
           </article>
 

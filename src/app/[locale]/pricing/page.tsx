@@ -3,9 +3,9 @@
 import Link from "@/components/LocaleLink";
 import { useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
-import SiteFooter from "@/components/SiteFooter";
+import { NavPill, Footer, SmoothScroll } from "@/components/landing/shell";
 
-const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
+const G = "bg-gradient-to-r from-[#4f7bff] to-[#7c5cff] bg-clip-text text-transparent";
 
 /* ─── Testimonials (static data, text keys resolved in component) ─── */
 const TESTIMONIAL_META = [
@@ -38,17 +38,17 @@ const PRICING_FAQ_KEYS = [
 function TestimonialCard({ item }: { item: { text: string; name: string; role: string; avatar: string; color: string } }) {
   return (
     <div
-      className="shrink-0 w-[200px] sm:w-[240px] rounded-xl sm:rounded-2xl border border-white/[0.10] px-3 sm:px-4 py-3 sm:py-3.5 flex flex-col justify-between"
-      style={{ background: "rgba(8,12,35,0.75)" }}
+      className="shrink-0 w-[200px] sm:w-[240px] rounded-xl sm:rounded-2xl border border-black/10 px-3 sm:px-4 py-3 sm:py-3.5 flex flex-col justify-between"
+      style={{ background: "#ffffff" }}
     >
-      <p className="text-[11px] sm:text-xs text-white/65 leading-relaxed mb-2.5 line-clamp-2">
+      <p className="text-[11px] sm:text-xs text-[#605f5f] leading-relaxed mb-2.5 line-clamp-2">
         &ldquo;{item.text}&rdquo;
       </p>
       <div className="flex items-center gap-2">
         <img src={item.avatar} alt={item.name} className="h-6 w-6 sm:h-7 sm:w-7 rounded-full object-cover shrink-0" />
         <div>
-          <p className="text-[11px] sm:text-xs font-semibold text-white leading-none mb-0.5">{item.name}</p>
-          <p className="text-[9px] sm:text-[10px] text-white/40">{item.role}</p>
+          <p className="text-[11px] sm:text-xs font-semibold text-[#1a1a1a] leading-none mb-0.5">{item.name}</p>
+          <p className="text-[9px] sm:text-[10px] text-[#8a8a8a]">{item.role}</p>
         </div>
       </div>
     </div>
@@ -77,9 +77,9 @@ function TestimonialsCarousel() {
 
       {/* Fade edges */}
       <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-40 z-10"
-        style={{ background: "linear-gradient(90deg, rgba(6,12,30,1) 0%, rgba(6,12,30,0.9) 60%, transparent 100%)" }} />
+        style={{ background: "linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.9) 60%, transparent 100%)" }} />
       <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-40 z-10"
-        style={{ background: "linear-gradient(270deg, rgba(6,12,30,1) 0%, rgba(6,12,30,0.9) 60%, transparent 100%)" }} />
+        style={{ background: "linear-gradient(270deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.9) 60%, transparent 100%)" }} />
 
       <div className="marquee-track flex gap-4" style={{ width: "max-content" }}>
         {/* Render twice for seamless loop */}
@@ -109,11 +109,11 @@ function UniversalFeatures({ color }: { color: string }) {
   const { t } = useTranslation();
   return (
     <>
-      <li className="flex items-start gap-3 text-sm text-white/70">
+      <li className="flex items-start gap-3 text-sm text-[#605f5f]">
         <img src="/app/icons8-google-drive-96.png" alt="Google Drive" className="h-5 w-5 object-contain shrink-0 mt-0.5" />
         {t("tarifs.featGoogleDrive")}
       </li>
-      <li className="flex items-start gap-3 text-sm text-white/70">
+      <li className="flex items-start gap-3 text-sm text-[#605f5f]">
         <CheckIcon color={color} />
         {t("tarifs.featCompressor")}
       </li>
@@ -214,7 +214,7 @@ function PricingCards() {
       color: "#818CF8",
       btnShadow: "0 16px 30px -8px rgba(56,189,248,0.45), 0 6px 12px -4px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.28)",
       cardBorder: "1.5px solid rgba(99,102,241,0.35)",
-      btnBg: "linear-gradient(135deg,#6366F1,#38BDF8)",
+      btnBg: "linear-gradient(135deg,#4f7bff,#7c5cff)",
       cta: t("tarifs.commencer"),
       href: "/register?plan=pro",
       demoHref: "/demo-request?plan=pro",
@@ -230,9 +230,9 @@ function PricingCards() {
           key={p.id}
           className="relative rounded-3xl flex flex-col"
           style={{
-            background: "#0f1436",
+            background: "#ffffff",
             border: p.cardBorder,
-            boxShadow: "0 24px 50px -24px rgba(0,0,0,0.65)",
+            boxShadow: "0 24px 50px -24px rgba(20,40,90,0.14)",
           }}
         >
           {/* Popular badge — large, tilted, overflowing the top-right edge (screen-2 style) */}
@@ -241,7 +241,7 @@ function PricingCards() {
               <span
                 className="inline-block rounded-2xl px-4 sm:px-5 py-2 text-sm sm:text-base font-bold text-white"
                 style={{
-                  background: "linear-gradient(135deg,#6366F1,#38BDF8)",
+                  background: "linear-gradient(135deg,#4f7bff,#7c5cff)",
                   boxShadow: "0 12px 24px -6px rgba(56,189,248,0.55), 0 4px 10px -2px rgba(0,0,0,0.5)",
                 }}
               >
@@ -253,11 +253,11 @@ function PricingCards() {
           <div className="relative z-10 p-5 sm:p-8 flex flex-col flex-1">
             {/* Icon + title + subtitle + price */}
             <PlanIcon plan={p.id} color={p.color} />
-            <h3 className="mt-5 text-lg sm:text-xl font-bold text-white">{p.name}</h3>
-            <p className="text-white/45 text-sm mt-1">{p.desc}</p>
+            <h3 className="mt-5 text-lg sm:text-xl font-bold text-[#1a1a1a]">{p.name}</h3>
+            <p className="text-[#8a8a8a] text-sm mt-1">{p.desc}</p>
             <div className="flex items-baseline gap-1.5 mt-4 mb-6">
-              <span className="text-4xl sm:text-5xl font-bold text-white">{p.price}</span>
-              <span className="text-white/45 text-sm">{t("tarifs.perMonth")}</span>
+              <span className="text-4xl sm:text-5xl font-bold text-[#1a1a1a]">{p.price}</span>
+              <span className="text-[#8a8a8a] text-sm">{t("tarifs.perMonth")}</span>
             </div>
 
             {/* Primary CTA — raised/embossed relief, sits above the feature list */}
@@ -269,13 +269,13 @@ function PricingCards() {
               {p.cta}
             </Link>
             {p.note && (
-              <p className="mt-2.5 text-center text-xs text-white/45">{p.note}</p>
+              <p className="mt-2.5 text-center text-xs text-[#8a8a8a]">{p.note}</p>
             )}
 
             {/* Features */}
             <ul className="space-y-3.5 flex-1 mt-7">
               {p.features.map((f, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-white/70">
+                <li key={i} className="flex items-start gap-3 text-sm text-[#605f5f]">
                   <CheckIcon color={p.color} />
                   {f}
                 </li>
@@ -286,7 +286,7 @@ function PricingCards() {
             {/* Secondary — personalized demo */}
             <Link
               href={p.demoHref}
-              className="mt-7 w-full flex items-center justify-center rounded-2xl py-3 text-sm font-medium text-white/60 hover:text-white transition border border-white/15 hover:border-white/30 hover:bg-white/[0.04]"
+              className="mt-7 w-full flex items-center justify-center rounded-2xl py-3 text-sm font-medium text-[#605f5f] hover:text-[#1a1a1a] transition border border-black/10 hover:border-black/10 hover:bg-[#f6f7f9]"
             >
               {t("tarifs.demoPerso")}
             </Link>
@@ -302,7 +302,7 @@ function CmpCheck() {
   return (
     <span
       className="inline-flex h-6 w-6 items-center justify-center rounded-full shrink-0"
-      style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+      style={{ background: "linear-gradient(135deg,#4f7bff,#7c5cff)" }}
     >
       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth="3">
         <path d="M20 6 9 17l-5-5" />
@@ -363,8 +363,8 @@ function PlansComparison() {
 
   const cell = (v: string | boolean) => {
     if (v === true) return <CmpCheck />;
-    if (v === false) return <span className="text-white/20">—</span>;
-    return <span className="text-xs sm:text-sm text-white/85 font-medium text-center">{v}</span>;
+    if (v === false) return <span className="text-[#9aa2b2]">—</span>;
+    return <span className="text-xs sm:text-sm text-[#1a1a1a] font-medium text-center">{v}</span>;
   };
 
   return (
@@ -372,19 +372,19 @@ function PlansComparison() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-10 sm:mb-14">
-          <h2 className="text-3xl sm:text-5xl md:text-[3.5rem] font-light tracking-tight text-white leading-[1.05]">
+          <h2 className="text-3xl sm:text-5xl md:text-[3.5rem] font-light tracking-tight text-[#1a1a1a] leading-[1.05]">
             {t("tarifs.cmpTitle")}
           </h2>
-          <p className="text-white/55 text-sm sm:text-lg mt-4 max-w-xl mx-auto leading-relaxed">
+          <p className="text-[#605f5f] text-sm sm:text-lg mt-4 max-w-xl mx-auto leading-relaxed">
             {t("tarifs.cmpSubtitle")}
           </p>
         </div>
 
         {/* Sticky column header */}
-        <div className={`${cols} sticky top-16 z-30 items-end backdrop-blur-md`} style={{ background: "rgba(8,12,30,0.85)" }}>
-          <div className="py-4 text-sm font-semibold text-white/90">{t("tarifs.cmpFeature")}</div>
+        <div className={`${cols} sticky top-16 z-30 items-end backdrop-blur-md`} style={{ background: "#ffffff" }}>
+          <div className="py-4 text-sm font-semibold text-[#1a1a1a]">{t("tarifs.cmpFeature")}</div>
           {plans.map((p, i) => (
-            <div key={i} className={`py-4 text-center text-sm sm:text-base font-semibold ${i === 1 ? "text-white" : "text-white/80"}`}>
+            <div key={i} className={`py-4 text-center text-sm sm:text-base font-semibold ${i === 1 ? "text-[#1a1a1a]" : "text-[#1a1a1a]"}`}>
               {p}
             </div>
           ))}
@@ -394,9 +394,9 @@ function PlansComparison() {
         {/* Groups */}
         {groups.map((g, gi) => (
           <div key={gi}>
-            <div className="pt-7 pb-1 text-[11px] font-semibold tracking-[0.15em] uppercase text-white/35">{g.label}</div>
+            <div className="pt-7 pb-1 text-[11px] font-semibold tracking-[0.15em] uppercase text-[#8a8a8a]">{g.label}</div>
             {g.rows.map((row, ri) => (
-              <div key={ri} className={`${cols} items-center border-t border-white/[0.06] hover:bg-white/[0.02] transition-colors`}>
+              <div key={ri} className={`${cols} items-center border-t border-black/10 hover:bg-[#f6f7f9] transition-colors`}>
                 <div className="py-4 pr-3 text-xs sm:text-sm text-white/75 leading-snug flex items-center gap-2">
                   {row.logo && <img src={row.logo} alt="" className="h-4 w-4 object-contain shrink-0" />}
                   {row.label}
@@ -420,7 +420,7 @@ function PricingFAQ() {
   return (
     <section className="relative overflow-hidden">
       {/* Dark blue background */}
-      <div className="absolute inset-0 -z-10" style={{ background: "linear-gradient(180deg, #040c28 0%, #06112f 50%, #040c28 100%)" }} />
+      <div className="absolute inset-0 -z-10" style={{ background: "linear-gradient(180deg,#f6f7f9 0%,#eef2fb 50%,#f6f7f9 100%)" }} />
       <div className="absolute top-1/3 left-1/4 w-[500px] h-[400px] rounded-full pointer-events-none -z-10"
         style={{ background: "rgba(99,102,241,0.10)", filter: "blur(90px)" }} />
       <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[350px] rounded-full pointer-events-none -z-10"
@@ -430,9 +430,9 @@ function PricingFAQ() {
         <div className="max-w-5xl mx-auto pt-20">
           <div className="grid md:grid-cols-[2fr_3fr] gap-16">
             <div className="md:sticky md:top-28 self-start">
-              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-indigo-400 mb-3">FAQ</p>
-              <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight leading-[1.1]">{t("tarifs.faqTitle")}</h2>
-              <p className="text-white/60 text-sm mt-4 leading-relaxed">
+              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#4f7bff] mb-3">FAQ</p>
+              <h2 className="text-3xl md:text-4xl font-semibold text-[#1a1a1a] tracking-tight leading-[1.1]">{t("tarifs.faqTitle")}</h2>
+              <p className="text-[#605f5f] text-sm mt-4 leading-relaxed">
                 {t("tarifs.faqSubtitle")}
               </p>
             </div>
@@ -441,11 +441,11 @@ function PricingFAQ() {
                 <div key={i}>
                   <button
                     onClick={() => setOpen(open === i ? null : i)}
-                    className="w-full flex items-center justify-between gap-4 py-5 text-left text-sm font-medium text-white/90 hover:text-white transition"
+                    className="w-full flex items-center justify-between gap-4 py-5 text-left text-sm font-medium text-[#1a1a1a] hover:text-[#1a1a1a] transition"
                   >
                     <span>{faq.q}</span>
                     <span
-                      className="shrink-0 h-6 w-6 rounded-full border border-white/15 flex items-center justify-center text-white/50 transition-transform"
+                      className="shrink-0 h-6 w-6 rounded-full border border-black/10 flex items-center justify-center text-[#605f5f] transition-transform"
                       style={{ transform: open === i ? "rotate(45deg)" : "rotate(0deg)" }}
                     >
                       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -454,7 +454,7 @@ function PricingFAQ() {
                     </span>
                   </button>
                   {open === i && (
-                    <div className="pb-5 text-sm text-white/70 leading-relaxed">{faq.a}</div>
+                    <div className="pb-5 text-sm text-[#605f5f] leading-relaxed">{faq.a}</div>
                   )}
                 </div>
               ))}
@@ -469,20 +469,18 @@ function PricingFAQ() {
 export default function TarifsPage() {
   const { t } = useTranslation();
   return (
-    <div>
+    <div className="lunera min-h-screen bg-white text-[#1a1a1a]">
+      <SmoothScroll />
+      <NavPill />
       {/* ── HERO ── */}
-      <section className="flex flex-col items-center text-center px-6 pt-20 pb-16">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-4 py-1.5 text-sm text-white/70">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          {t("tarifs.badge")}
-        </div>
-        <h1 className="text-3xl sm:text-5xl md:text-[3.5rem] font-bold tracking-tight text-white mb-4 leading-[1.08]">
+      <section className="flex flex-col items-center text-center px-6 pt-36 pb-16 sm:pt-44">
+        <h1 className="text-3xl sm:text-5xl md:text-[3.5rem] font-bold tracking-tight text-[#1a1a1a] mb-4 leading-[1.08]">
           {t("tarifs.title")}
         </h1>
-        <p className="text-white/65 text-sm sm:text-lg max-w-lg mb-3">
+        <p className="text-[#605f5f] text-sm sm:text-lg max-w-lg mb-3">
           {t("tarifs.subtitle")}
         </p>
-        <p className="text-sm text-white/45 mb-2">
+        <p className="text-sm text-[#8a8a8a] mb-2">
           {t("tarifs.forCreators")}{" "}
           <span className={G + " font-semibold"}>{t("tarifs.creators")}</span>
           {" "}{t("tarifs.and")}{" "}
@@ -501,17 +499,17 @@ export default function TarifsPage() {
 
         {/* TikTok solution reassurance badge — accent matches the landing announcement bar */}
         <div className="mt-8 flex justify-center">
-          <div className="inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm">
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-black/10 bg-[#f6f7f9] px-4 py-2 text-sm">
             <span
               className="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white"
-              style={{ background: "linear-gradient(90deg,#6366F1,#38BDF8)" }}
+              style={{ background: "linear-gradient(90deg,#4f7bff,#7c5cff)" }}
             >
               {t("tarifs.tiktokBadgeNew")}
             </span>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" className="shrink-0 text-white/80">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" className="shrink-0 text-[#1a1a1a]">
               <path d="M16.6 3c.27 2.07 1.43 3.3 3.4 3.43v2.32c-1.14.11-2.14-.26-3.3-.96v6.13c0 3.12-2.27 5.55-5.3 5.55-2.93 0-5.0-2.26-5.0-4.92 0-2.94 2.35-4.92 5.49-4.62v2.55c-.46-.1-.95-.16-1.43-.08-1.15.18-1.9.96-1.82 2.2.08 1.15.95 1.94 2.11 1.94.9 0 1.65-.58 1.87-1.45.06-.27.08-.62.08-.94V3h3.43z" />
             </svg>
-            <span className="font-medium text-white/85">{t("tarifs.tiktokBadge")}</span>
+            <span className="font-medium text-[#1a1a1a]">{t("tarifs.tiktokBadge")}</span>
           </div>
         </div>
       </section>
@@ -523,7 +521,7 @@ export default function TarifsPage() {
       <PricingFAQ />
 
       {/* ── FOOTER ── */}
-      <SiteFooter />
+      <Footer />
     </div>
   );
 }

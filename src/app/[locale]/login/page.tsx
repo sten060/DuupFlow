@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
+import { Brand } from "@/components/landing/shell";
 
 function GoogleIcon() {
   return (
@@ -64,12 +65,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-between px-4 py-10 bg-[#0B0F1A]">
-      {/* Subtle texture */}
+    <div className="lunera min-h-screen flex flex-col items-center justify-between px-4 py-10 bg-white text-[#1a1a1a]">
+      {/* Texture claire + halo indigo */}
       <div
         className="pointer-events-none fixed inset-0 -z-10"
         style={{
-          backgroundImage: "radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)",
+          backgroundImage: "radial-gradient(rgba(99,102,241,0.05) 1px, transparent 1px)",
           backgroundSize: "28px 28px",
         }}
       />
@@ -81,9 +82,9 @@ export default function LoginPage() {
       />
 
       {/* Logo */}
-      <Link href="/" className="text-xl font-extrabold tracking-tight">
-        <span style={{ color: "#818CF8" }}>Duup</span>
-        <span className="text-white/55">Flow</span>
+      <Link href="/" className="flex items-center gap-2.5">
+        <img src="/logo-mark.png" alt="" className="h-8 w-8 object-contain" />
+        <Brand className="text-xl font-bold tracking-tight text-[#1a1a1a]" />
       </Link>
 
       {/* Card */}
@@ -93,24 +94,24 @@ export default function LoginPage() {
           <div className="text-center space-y-5">
             <div
               className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center"
-              style={{ background: "rgba(56,189,248,0.10)", border: "1px solid rgba(56,189,248,0.20)" }}
+              style={{ background: "rgba(79,123,255,0.10)", border: "1px solid rgba(79,123,255,0.22)" }}
             >
-              <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="#38BDF8" strokeWidth="1.8">
+              <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="#4f7bff" strokeWidth="1.8">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                 <polyline points="22,6 12,13 2,6" />
               </svg>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white mb-1">{t("login.checkEmail")}</h2>
-              <p className="text-white/45 text-sm">
+              <h2 className="text-xl font-bold text-[#1a1a1a] mb-1">{t("login.checkEmail")}</h2>
+              <p className="text-[#605f5f] text-sm">
                 {t("login.linkSent")}{" "}
-                <span className="text-white/70 font-medium">{email}</span>
+                <span className="text-[#1a1a1a] font-medium">{email}</span>
               </p>
             </div>
-            <p className="text-white/25 text-xs">{t("login.expiresIn")}</p>
+            <p className="text-[#9aa2b2] text-xs">{t("login.expiresIn")}</p>
             <button
               onClick={() => { setSent(false); setEmail(""); }}
-              className="text-sm text-white/40 hover:text-white/70 transition"
+              className="text-sm text-[#605f5f] hover:text-[#1a1a1a] transition"
             >
               {t("login.useOtherAddress")}
             </button>
@@ -118,17 +119,14 @@ export default function LoginPage() {
         ) : (
           <>
             {urlError === "compte_affilie" && (
-              <div
-                className="rounded-xl px-4 py-4 mb-6 text-sm space-y-1"
-                style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)" }}
-              >
-                <p className="font-semibold text-amber-300">{t("login.affiliateError")}</p>
-                <p className="text-white/55 text-xs leading-relaxed">
+              <div className="rounded-xl px-4 py-4 mb-6 text-sm space-y-1 bg-amber-50 border border-amber-200">
+                <p className="font-semibold text-amber-700">{t("login.affiliateError")}</p>
+                <p className="text-amber-700/80 text-xs leading-relaxed">
                   {t("login.affiliateErrorDesc")}
                 </p>
                 <Link
                   href="/pricing#plans"
-                  className="inline-block mt-2 text-xs font-semibold text-amber-300 hover:text-amber-200 transition underline underline-offset-2"
+                  className="inline-block mt-2 text-xs font-semibold text-amber-700 hover:text-amber-800 transition underline underline-offset-2"
                 >
                   {t("login.createAccount")}
                 </Link>
@@ -136,15 +134,12 @@ export default function LoginPage() {
             )}
 
             {noAccount && (
-              <div
-                className="rounded-xl px-4 py-4 mb-6 text-sm space-y-1"
-                style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)" }}
-              >
-                <p className="font-semibold text-amber-300">{t("login.noAccountTitle")}</p>
-                <p className="text-white/55 text-xs leading-relaxed">{t("login.noAccountDesc")}</p>
+              <div className="rounded-xl px-4 py-4 mb-6 text-sm space-y-1 bg-amber-50 border border-amber-200">
+                <p className="font-semibold text-amber-700">{t("login.noAccountTitle")}</p>
+                <p className="text-amber-700/80 text-xs leading-relaxed">{t("login.noAccountDesc")}</p>
                 <Link
                   href="/pricing#plans"
-                  className="inline-block mt-2 text-xs font-semibold text-amber-300 hover:text-amber-200 transition underline underline-offset-2"
+                  className="inline-block mt-2 text-xs font-semibold text-amber-700 hover:text-amber-800 transition underline underline-offset-2"
                 >
                   {t("login.createAccount")}
                 </Link>
@@ -152,14 +147,14 @@ export default function LoginPage() {
             )}
 
             <div className="mb-8 text-center">
-              <h1 className="text-2xl font-bold text-white mb-1.5">{t("login.title")}</h1>
-              <p className="text-white/45 text-sm">{t("login.subtitle")}</p>
+              <h1 className="text-2xl font-bold text-[#1a1a1a] mb-1.5">{t("login.title")}</h1>
+              <p className="text-[#605f5f] text-sm">{t("login.subtitle")}</p>
             </div>
 
             {/* Google */}
             <button
               onClick={handleGoogle}
-              className="w-full flex items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:text-white transition border border-white/[0.12] hover:border-white/25 hover:bg-white/[0.04] mb-5"
+              className="w-full flex items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-[#1a1a1a] transition border border-black/10 hover:bg-black/[0.03] mb-5"
             >
               <GoogleIcon />
               {t("login.googleButton")}
@@ -167,15 +162,15 @@ export default function LoginPage() {
 
             {/* OR divider */}
             <div className="flex items-center gap-3 mb-5">
-              <div className="flex-1 h-px bg-white/[0.08]" />
-              <span className="text-xs text-white/25 uppercase tracking-wider">{t("login.or")}</span>
-              <div className="flex-1 h-px bg-white/[0.08]" />
+              <div className="flex-1 h-px bg-black/10" />
+              <span className="text-xs text-[#9aa2b2] uppercase tracking-wider">{t("login.or")}</span>
+              <div className="flex-1 h-px bg-black/10" />
             </div>
 
             {/* Email form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-1.5">{t("login.emailLabel")}</label>
+                <label className="block text-xs font-medium text-[#1a1a1a] mb-1.5">{t("login.emailLabel")}</label>
                 <input
                   type="email"
                   required
@@ -183,18 +178,12 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t("login.emailPlaceholder")}
-                  className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition"
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.10)",
-                  }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(99,102,241,0.5)")}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#9aa2b2] outline-none transition bg-[#f6f7f9] border border-black/10 focus:border-[#4f7bff]/50 focus:ring-2 focus:ring-[#4f7bff]/15"
                 />
               </div>
 
               {error && (
-                <div className="rounded-lg px-4 py-2.5 text-xs" style={{ background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.20)", color: "#FCA5A5" }}>
+                <div className="rounded-lg px-4 py-2.5 text-xs bg-red-50 border border-red-200 text-red-600">
                   {error}
                 </div>
               )}
@@ -202,16 +191,16 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-xl py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
-                style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+                className="w-full rounded-full py-3 text-sm font-medium text-white shadow-[0_10px_28px_rgba(90,90,240,0.35)] transition-opacity disabled:opacity-60"
+                style={{ background: "linear-gradient(135deg,#4f7bff 0%,#7c5cff 100%)" }}
               >
                 {loading ? t("login.submitting") : t("login.submitButton")}
               </button>
             </form>
 
-            <p className="text-center text-sm text-white/40 mt-6">
+            <p className="text-center text-sm text-[#605f5f] mt-6">
               {t("login.noAccount")}{" "}
-              <Link href="/pricing#plans" className="text-indigo-400 hover:text-indigo-300 transition font-medium">
+              <Link href="/pricing#plans" className="font-medium text-[#4f7bff] hover:opacity-80 transition">
                 {t("login.startNow")}
               </Link>
             </p>
@@ -220,10 +209,10 @@ export default function LoginPage() {
       </div>
 
       {/* Footer */}
-      <div className="flex gap-4 text-xs text-white/25">
-        <Link href="/legal" className="hover:text-white/45 transition">{t("common.mentionsLegales")}</Link>
+      <div className="flex gap-4 text-xs text-[#9aa2b2]">
+        <Link href="/legal" className="hover:text-[#1a1a1a] transition">{t("common.mentionsLegales")}</Link>
         <span>·</span>
-        <Link href="/legal/privacy" className="hover:text-white/45 transition">{t("common.confidentialite")}</Link>
+        <Link href="/legal/privacy" className="hover:text-[#1a1a1a] transition">{t("common.confidentialite")}</Link>
       </div>
     </div>
   );

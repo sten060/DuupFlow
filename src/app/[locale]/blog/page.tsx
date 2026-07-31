@@ -11,6 +11,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/LocaleLink";
 import { notFound } from "next/navigation";
+import { Label, BLUE } from "@/components/landing/shell";
 
 type Article = {
   slug: string;          // FR / default slug
@@ -91,59 +92,95 @@ export default async function BlogIndex({
   if (locale !== "fr" && locale !== "en") notFound();
   const isFr = locale === "fr";
 
-  return (
-    <main className="px-6 py-16 md:py-24">
-      <div className="max-w-3xl mx-auto">
-        <header className="mb-10">
-          <p className="text-xs font-semibold tracking-[0.18em] uppercase text-indigo-300/70 mb-3">
-            {isFr ? "Le blog" : "Blog"}
-          </p>
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight">
-            {isFr ? "Distribuer son contenu, sans perdre en visibilité" : "Distribute your content without losing reach"}
-          </h1>
-          <p className="mt-4 text-base md:text-lg text-white/55 max-w-2xl">
-            {isFr
-              ? "Analyses, mises à jour algorithmiques et stratégies de diffusion pour les agences et créateurs multi-comptes."
-              : "Algorithm updates and distribution strategies for agencies and multi-account creators."}
-          </p>
-        </header>
+  const THUMBS = [
+    "from-[#d9e6ff] to-[#e6ddff]",
+    "from-[#e6ddff] to-[#d9e6ff]",
+    "from-[#d4e8ff] to-[#dde2ff]",
+    "from-[#e2e0ff] to-[#d9ecff]",
+    "from-[#dbe4ff] to-[#ecdcff]",
+  ];
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleDateString(isFr ? "fr-FR" : "en-US", { day: "numeric", month: "long", year: "numeric" });
+  const pick = (a: Article) => ({
+    slug: isFr ? a.slug : a.slugEn ?? a.slug,
+    title: isFr ? a.title : a.titleEn ?? a.title,
+    excerpt: isFr ? a.excerpt : a.excerptEn ?? a.excerpt,
+  });
 
-        <ul className="space-y-6">
-          {ARTICLES.map((a) => {
-            const dateLabel = new Date(a.publishedAt).toLocaleDateString(
-              isFr ? "fr-FR" : "en-US",
-              { day: "numeric", month: "long", year: "numeric" },
-            );
-            const slug = isFr ? a.slug : a.slugEn ?? a.slug;
-            const title = isFr ? a.title : a.titleEn ?? a.title;
-            const excerpt = isFr ? a.excerpt : a.excerptEn ?? a.excerpt;
-            return (
-              <li
-                key={a.slug}
-                className="group rounded-2xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] transition p-6 md:p-8"
-              >
-                <Link href={`/blog/${slug}`} className="block">
-                  <div className="flex items-center gap-3 text-[11px] uppercase tracking-wider text-white/40 mb-3">
-                    <span>{dateLabel}</span>
-                    <span className="text-white/20">•</span>
-                    <span>{a.readingMinutes} min</span>
-                  </div>
-                  <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white/95 group-hover:text-white transition">
-                    {title}
-                  </h2>
-                  <p className="mt-3 text-sm md:text-base text-white/55 leading-relaxed">
-                    {excerpt}
-                  </p>
-                  <div className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-300 group-hover:text-indigo-200 transition">
-                    {isFr ? "Lire l'article" : "Read article"}
-                    <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+  const [featured, ...rest] = ARTICLES;
+  const f = pick(featured);
+
+  return (
+    <div>
+      {/* En-tête */}
+      <section className="relative overflow-hidden px-6 pb-14 pt-12 sm:pt-16">
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[520px]"
+          style={{ background: "radial-gradient(60% 100% at 50% 0%, rgba(99,102,241,0.10), transparent 70%)" }} />
+        <div className="relative mx-auto max-w-3xl text-center">
+          <Label>{isFr ? "Blog" : "Blog"}</Label>
+          <h1 className="mx-auto mt-6 max-w-2xl font-semibold tracking-[-0.03em] text-[#1a1a1a]"
+            style={{ fontSize: "clamp(34px, 5vw, 58px)", lineHeight: 1.06 }}>
+            {isFr ? "Reposter plus intelligemment." : "Repost smarter."}
+          </h1>
+          <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-[#3a3f4b] sm:text-[18px]">
+            {isFr
+              ? "Analyses, mises à jour algo et stratégies de diffusion pour les créateurs et agences multi-comptes."
+              : "Algorithm updates and distribution strategies for multi-account creators and agencies."}
+          </p>
+        </div>
+      </section>
+
+      {/* Articles */}
+      <section className="px-6 pb-24">
+        <div className="mx-auto max-w-6xl">
+          {/* À la une */}
+          <Link href={`/blog/${f.slug}`}
+            className="group grid overflow-hidden rounded-[32px] bg-white ring-1 ring-black/[0.06] shadow-[0_20px_60px_rgba(20,40,90,0.08)] transition hover:shadow-[0_28px_80px_rgba(20,40,90,0.12)] md:grid-cols-2">
+            <div className={`relative min-h-[240px] bg-gradient-to-br ${THUMBS[0]} md:min-h-[360px]`}>
+              <span className="absolute left-5 top-5 inline-flex items-center rounded-full bg-white/85 px-3 py-1 text-[12px] font-medium text-[#1a1a1a] shadow ring-1 ring-black/5 backdrop-blur">
+                {isFr ? "À la une" : "Featured"}
+              </span>
+            </div>
+            <div className="flex flex-col justify-center p-8 sm:p-10">
+              <div className="flex items-center gap-2.5 text-[12px] text-[#8a8a8a]">
+                <span>{fmt(featured.publishedAt)}</span><span className="text-black/20">•</span>
+                <span>{featured.readingMinutes} min</span>
+              </div>
+              <h2 className="mt-3 text-[24px] font-semibold leading-snug tracking-tight text-[#1a1a1a] sm:text-[28px]">{f.title}</h2>
+              <p className="mt-3 text-[15px] leading-relaxed text-[#605f5f]">{f.excerpt}</p>
+              <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: BLUE }}>
+                {isFr ? "Lire l'article" : "Read article"}
+                <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+              </span>
+            </div>
+          </Link>
+
+          {/* Grille */}
+          <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {rest.map((a, i) => {
+              const p = pick(a);
+              return (
+                <Link key={a.slug} href={`/blog/${p.slug}`}
+                  className="group flex flex-col overflow-hidden rounded-[28px] bg-white ring-1 ring-black/[0.06] transition hover:shadow-[0_20px_50px_rgba(20,40,90,0.10)]">
+                  <div className={`aspect-[16/10] bg-gradient-to-br ${THUMBS[(i + 1) % THUMBS.length]}`} />
+                  <div className="flex flex-1 flex-col p-6">
+                    <div className="flex items-center gap-2.5 text-[12px] text-[#8a8a8a]">
+                      <span>{fmt(a.publishedAt)}</span><span className="text-black/20">•</span>
+                      <span>{a.readingMinutes} min</span>
+                    </div>
+                    <h3 className="mt-2.5 text-[18px] font-semibold leading-snug tracking-tight text-[#1a1a1a]">{p.title}</h3>
+                    <p className="mt-2 line-clamp-3 text-[14px] leading-relaxed text-[#605f5f]">{p.excerpt}</p>
+                    <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: BLUE }}>
+                      {isFr ? "Lire l'article" : "Read article"}
+                      <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+                    </span>
                   </div>
                 </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    </main>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

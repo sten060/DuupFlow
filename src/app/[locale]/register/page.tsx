@@ -7,6 +7,7 @@ import Image from "next/image";
 import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
 import AuthBrandPanel from "@/components/AuthBrandPanel";
+import { Brand } from "@/components/landing/shell";
 
 function GoogleIcon() {
   return (
@@ -87,20 +88,17 @@ export default function RegisterPage() {
   // While deciding / redirecting a no-plan visitor, render an empty shell so the
   // form never flashes before the pricing redirect.
   if (allowed !== true) {
-    return <div className="min-h-screen bg-[#0B0F1A]" />;
+    return <div className="min-h-screen bg-white" />;
   }
 
   return (
-    <div className="min-h-screen flex bg-[#0B0F1A]">
+    <div className="lunera min-h-screen flex bg-white text-[#1a1a1a]">
       {/* ── LEFT — Form ── */}
       <div className="flex-1 flex flex-col justify-between px-8 py-10 max-w-xl">
         {/* Logo — mark + wordmark */}
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2.5">
           <Image src="/logo-mark.png" alt="DuupFlow" width={64} height={64} priority className="h-8 w-8 object-contain" />
-          <span className="text-xl font-extrabold tracking-tight">
-            <span style={{ color: "#818CF8" }}>Duup</span>
-            <span className="text-white/55">Flow</span>
-          </span>
+          <Brand className="text-xl font-bold tracking-tight text-[#1a1a1a]" />
         </Link>
 
         {/* Form area */}
@@ -109,24 +107,24 @@ export default function RegisterPage() {
             <div className="text-center space-y-5">
               <div
                 className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center"
-                style={{ background: "rgba(56,189,248,0.10)", border: "1px solid rgba(56,189,248,0.20)" }}
+                style={{ background: "rgba(79,123,255,0.10)", border: "1px solid rgba(79,123,255,0.22)" }}
               >
-                <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="#38BDF8" strokeWidth="1.8">
+                <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="#4f7bff" strokeWidth="1.8">
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                   <polyline points="22,6 12,13 2,6" />
                 </svg>
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">{t("register.checkEmail")}</h2>
-                <p className="text-white/45 text-sm">
+                <h2 className="text-xl font-bold text-[#1a1a1a] mb-1">{t("register.checkEmail")}</h2>
+                <p className="text-[#605f5f] text-sm">
                   {t("register.linkSent")}{" "}
-                  <span className="text-white/70 font-medium">{email}</span>
+                  <span className="text-[#1a1a1a] font-medium">{email}</span>
                 </p>
               </div>
-              <p className="text-white/25 text-xs">{t("register.expiresIn")}</p>
+              <p className="text-[#9aa2b2] text-xs">{t("register.expiresIn")}</p>
               <button
                 onClick={() => { setSent(false); setEmail(""); }}
-                className="text-sm text-white/40 hover:text-white/70 transition"
+                className="text-sm text-[#605f5f] hover:text-[#1a1a1a] transition"
               >
                 {t("register.useOtherAddress")}
               </button>
@@ -134,14 +132,14 @@ export default function RegisterPage() {
           ) : (
             <>
               <div className="mb-8">
-                <h1 className="text-2xl font-bold text-white mb-1.5">{t("register.title")}</h1>
-                <p className="text-white/45 text-sm">{t("register.subtitle")}</p>
+                <h1 className="text-2xl font-bold text-[#1a1a1a] mb-1.5">{t("register.title")}</h1>
+                <p className="text-[#605f5f] text-sm">{t("register.subtitle")}</p>
               </div>
 
               {/* Google */}
               <button
                 onClick={handleGoogle}
-                className="w-full flex items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:text-white transition border border-white/[0.12] hover:border-white/25 hover:bg-white/[0.04] mb-5"
+                className="w-full flex items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-[#1a1a1a] transition border border-black/10 hover:bg-black/[0.03] mb-5"
               >
                 <GoogleIcon />
                 {t("register.googleButton")}
@@ -149,15 +147,15 @@ export default function RegisterPage() {
 
               {/* OR divider */}
               <div className="flex items-center gap-3 mb-5">
-                <div className="flex-1 h-px bg-white/[0.08]" />
-                <span className="text-xs text-white/25 uppercase tracking-wider">{t("register.or")}</span>
-                <div className="flex-1 h-px bg-white/[0.08]" />
+                <div className="flex-1 h-px bg-black/10" />
+                <span className="text-xs text-[#9aa2b2] uppercase tracking-wider">{t("register.or")}</span>
+                <div className="flex-1 h-px bg-black/10" />
               </div>
 
               {/* Email form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-white/50 mb-1.5">{t("register.emailLabel")}</label>
+                  <label className="block text-xs font-medium text-[#1a1a1a] mb-1.5">{t("register.emailLabel")}</label>
                   <input
                     type="email"
                     required
@@ -165,18 +163,12 @@ export default function RegisterPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t("register.emailPlaceholder")}
-                    className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition"
-                    style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.10)",
-                    }}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(99,102,241,0.5)")}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
+                    className="w-full rounded-xl px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#9aa2b2] outline-none transition bg-[#f6f7f9] border border-black/10 focus:border-[#4f7bff]/50 focus:ring-2 focus:ring-[#4f7bff]/15"
                   />
                 </div>
 
                 {error && (
-                  <div className="rounded-lg px-4 py-2.5 text-xs" style={{ background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.20)", color: "#FCA5A5" }}>
+                  <div className="rounded-lg px-4 py-2.5 text-xs bg-red-50 border border-red-200 text-red-600">
                     {error}
                   </div>
                 )}
@@ -184,23 +176,23 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-xl py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
-                  style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+                  className="w-full rounded-full py-3 text-sm font-medium text-white shadow-[0_10px_28px_rgba(90,90,240,0.35)] transition-opacity disabled:opacity-60"
+                  style={{ background: "linear-gradient(135deg,#4f7bff 0%,#7c5cff 100%)" }}
                 >
                   {loading ? t("register.submitting") : t("register.submitButton")}
                 </button>
 
-                <p className="text-xs text-white/25 text-center">
+                <p className="text-xs text-[#9aa2b2] text-center">
                   {t("register.termsText")}{" "}
-                  <Link href="/legal/terms" className="text-white/40 hover:text-white/60 transition">{t("register.cgu")}</Link>
+                  <Link href="/legal/terms" className="text-[#605f5f] hover:text-[#1a1a1a] transition">{t("register.cgu")}</Link>
                   {" "}{t("register.and")}{" "}
-                  <Link href="/legal/privacy" className="text-white/40 hover:text-white/60 transition">{t("register.privacy")}</Link>
+                  <Link href="/legal/privacy" className="text-[#605f5f] hover:text-[#1a1a1a] transition">{t("register.privacy")}</Link>
                 </p>
               </form>
 
-              <p className="text-center text-sm text-white/40 mt-6">
+              <p className="text-center text-sm text-[#605f5f] mt-6">
                 {t("register.hasAccount")}{" "}
-                <Link href="/login" className="text-indigo-400 hover:text-indigo-300 transition font-medium">
+                <Link href="/login" className="font-medium text-[#4f7bff] hover:opacity-80 transition">
                   {t("register.login")}
                 </Link>
               </p>
@@ -209,10 +201,10 @@ export default function RegisterPage() {
         </div>
 
         {/* Footer */}
-        <div className="flex gap-4 text-xs text-white/20">
-          <Link href="/legal" className="hover:text-white/40 transition">{t("common.mentionsLegales")}</Link>
+        <div className="flex gap-4 text-xs text-[#9aa2b2]">
+          <Link href="/legal" className="hover:text-[#1a1a1a] transition">{t("common.mentionsLegales")}</Link>
           <span>·</span>
-          <Link href="/legal/privacy" className="hover:text-white/40 transition">{t("common.confidentialite")}</Link>
+          <Link href="/legal/privacy" className="hover:text-[#1a1a1a] transition">{t("common.confidentialite")}</Link>
         </div>
       </div>
 

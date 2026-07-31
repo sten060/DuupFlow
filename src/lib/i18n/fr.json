@@ -59,10 +59,6 @@
       "driveFailed": "L'import depuis Google Drive a échoué."
     }
   },
-  "videoShowcase": {
-    "title1": "Comment ne plus jamais avoir de bans en OFM",
-    "title2": "LE meilleur SPOOFER - OFM 2026"
-  },
   "nav": {
     "fonctionnalites": "Fonctionnalités",
     "tarifs": "Tarifs",
@@ -76,60 +72,6 @@
     "voirPlans": "Voir les plans",
     "menuLabel": "Menu",
     "closeLabel": "Fermer"
-  },
-  "hero": {
-    "socialProof": "Rejoins {count}+ créateurs et agences",
-    "titleLine1": "Un clip qui a performé",
-    "titleLine2": "peut performer encore.",
-    "titleLine3": "",
-    "subtitleMobile": "Reposte tes meilleurs contenus sans déclencher la détection de doublon. Les algos les redistribuent comme du neuf, les vues reviennent.",
-    "subtitleDesktop": "Reposte tes meilleurs contenus sans déclencher la détection de doublon. Les algos les redistribuent comme du neuf, les vues reviennent.",
-    "ctaPrimary": "Commencer maintenant",
-    "ctaSecondary": "En savoir plus"
-  },
-  "problemSolution": {
-    "badge": "Pourquoi DuupFlow existe",
-    "title": "Tes meilleurs contenus méritent",
-    "titleHighlight": "d'exister plus longtemps.",
-    "description": "Les plateformes analysent l'empreinte numérique de chaque fichier. DuupFlow rend tes copies techniquement indétectables.",
-    "problemTitle": "Le Problème",
-    "problemText": "Les plateformes détectent chaque doublon, même renommé, même recompressé. Résultat : shadowban silencieux dès la 2e publication.",
-    "problemHighlight": "1 fichier = 1 seule publication. Après ça, shadowban assure.",
-    "solutionTitle": "La Solution DuupFlow",
-    "solutionText": "DuupFlow régénère l'empreinte de chaque copie, métadonnées uniques, re-encodage vidéo, micro-variations invisibles. Techniquement nouveau à chaque fois.",
-    "solutionHighlight": "Scale le même contenu à l'infini. Sans jamais être détecté.",
-    "resultLabel": "Résultat :",
-    "resultText": "un seul bon contenu, {count} publications uniques, {count} chances de toucher l'algorithme.",
-    "psStat1Big": "1",
-    "psStat1Cap": "Aujourd'hui, 1 fichier = 1 seule publication",
-    "psStat2Big": "2e",
-    "psStat2Cap": "Shadowban silencieux dès la 2e publication d'un doublon",
-    "psTag1": "Métadonnées uniques",
-    "psTag2": "Re-encodage vidéo",
-    "psTag3": "Micro-variations",
-    "psTag4": "Indétectable",
-    "psTag5": "Scale illimité"
-  },
-  "featuresScroller": {
-    "title1": "Augmentez le",
-    "titleVolume": "volume",
-    "title2": ", performez,",
-    "title3": "sans perte de",
-    "titleQualite": "qualité",
-    "subtitle": "Tous les outils dont vous avez besoin pour scaler votre production de contenu.",
-    "card1Title": "Duplication Images & Vidéos",
-    "card1Desc": "Dupliquez vos images et vidéos en masse. Chaque copie est unique, métadonnées, empreinte technique, hash. Indétectable par les plateformes.",
-    "card2Title": "Modification Invisible",
-    "card2Desc": "Modifiez l'empreinte numérique sans toucher au visuel. Pixel magique change le hash de chaque fichier tout en gardant le contenu visuellement identique.",
-    "card3Title": "Priorité d'algorithme",
-    "card3Desc": "Localisez votre contenu et injectez des métadonnées iPhone authentiques. L'algorithme pense que votre contenu vient d'un appareil réel.",
-    "cardVariationIATitle": "Variation IA",
-    "cardVariationIADesc": "Génère 1 à 3 variations IA de ton image. Mêmes traits, même décor, même lumière, seul un mouvement subtil change. Idéal pour les carrousels Instagram.",
-    "card4Title": "Détection IA",
-    "card4Desc": "Effacez la signature IA de vos contenus. Remplacez les métadonnées Midjourney, DALL-E, Stable Diffusion par une identité humaine réaliste.",
-    "badgeNew": "NEW",
-    "tryNow": "Essayer maintenant",
-    "seeDemo": "En savoir plus"
   },
   "howItWorks": {
     "badge": "Comment ça marche",
@@ -148,66 +90,6 @@
     "step3Title": "Republie, les vues reviennent",
     "step3Desc": "Exporte en un clic, en ZIP ou fichier par fichier. Chaque copie est prête à publier sur TikTok, Instagram, YouTube, X, partout. Ton contenu gagnant repart pour un tour, sur une audience qui ne l'a jamais vu.",
     "step3Tag": "Export"
-  },
-  "avantages": {
-    "badge": "Avantages",
-    "title": "Pourquoi les agences choisissent",
-    "titleHighlight": "DuupFlow",
-    "subtitle": "Chaque publication unique. Chaque fichier indétectable.",
-    "card1Title": "Duplication en masse",
-    "card1Desc": "Dupliquez des dizaines de fichiers en quelques secondes. Chaque copie est unique.",
-    "card1Tags": "Images & Vidéos, Illimité, Parallèle",
-    "card2Title": "Qualité préservée",
-    "card2Desc": "1080p reste 1080p, 4K reste 4K. Aucun downscale.",
-    "card2Tags": "4K, Lossless, Pixel Perfect",
-    "card3Title": "Invisible pour les algos",
-    "card3Desc": "Hash modifié, contenu visuellement identique.",
-    "card3Tags": "Anti-détection, Hash unique, EXIF",
-    "card4Title": "Priorité algorithme",
-    "card4Desc": "Métadonnées iPhone injectées automatiquement.",
-    "card4Tags": "iPhone, GPS, iOS",
-    "card5Title": "Masquage IA",
-    "card5Desc": "Signatures IA effacées. Identité humaine injectée.",
-    "card5Tags": "C2PA, JUMBF, Anti-IA",
-    "card6Title": "Variation IA",
-    "card6Desc": "1 image, 3 variations subtiles. Identité et décor préservés.",
-    "card6Tags": "IA, Variations, Pay-per-use",
-    "ctaText": "Envie d'aller plus loin ?",
-    "ctaFeatures": "Voir les fonctionnalités",
-    "ctaDemo": "Voir la démo"
-  },
-  "stats": {
-    "copies": "Copies par contenu",
-    "systems": "Systèmes d'analyse",
-    "formats": "Formats supportés",
-    "agencies": "Agences utilisatrices"
-  },
-  "faq": {
-    "badge": "FAQ",
-    "title": "Questions fréquentes",
-    "subtitle": "Tu as d'autres questions ? Contacte-nous par email ou via le chat intégré.",
-    "q1": "Comment DuupFlow rend chaque copie unique ?",
-    "a1": "DuupFlow modifie chaque fichier en profondeur : métadonnées, empreinte numérique et variations visuelles (selon le niveau choisi). Résultat : chaque copie est perçue comme un contenu original par les algorithmes de détection, alors que ta vidéo reste la même à l'œil.",
-    "q2": "Est-ce que je risque de me faire bannir ?",
-    "a2": "C'est justement le problème que DuupFlow résout. Reposter un fichier identique te fait flag pour doublon, DuupFlow casse cette signature pour que chaque copie passe comme un contenu neuf. Des milliers de copies sont publiées chaque mois sans souci. Aucun outil ne peut garantir un risque zéro sur des plateformes qui changent leurs règles en permanence, mais DuupFlow élimine la cause n°1 de pénalité : la duplication détectée.",
-    "q3": "La qualité de mes vidéos est-elle préservée ?",
-    "a3": "Oui. Les modifications sont invisibles à l'œil humain : ta vidéo garde sa résolution, sa netteté et son rendu d'origine. Seuls les algorithmes voient la différence.",
-    "q4": "Sur quelles plateformes ça fonctionne ?",
-    "a4": "Sur toutes. Tes copies sont prêtes à publier sur TikTok, Instagram, YouTube, X et n'importe quelle autre plateforme. DuupFlow prépare les fichiers, tu publies où tu veux.",
-    "q5": "Combien de copies puis-je générer ?",
-    "a5": "Autant que ton plan le permet. Les plans Solo et Pro débloquent la génération en volume, idéale si tu gères plusieurs comptes ou beaucoup de contenu.",
-    "q6": "Quels formats sont supportés ?",
-    "a6": "Vidéos (MP4, MOV, MKV) et images (JPG, PNG, WEBP). Tu peux importer plusieurs fichiers à la fois et les traiter en lot.",
-    "q7": "Mes fichiers sont-ils supprimés après traitement ?",
-    "a7": "Oui. Tes contenus t'appartiennent : une fois tes copies générées et téléchargées, tes fichiers ne sont pas conservés ni réutilisés.",
-    "q8": "Y a-t-il un essai gratuit ?",
-    "a8": "DuupFlow n'a pas d'essai gratuit. Tu peux demander une démo depuis la page Tarifs : on te montre l'outil sur tes propres contenus avant de choisir un plan. Sans engagement, annulable à tout moment."
-  },
-  "cta": {
-    "title": "Prêt à scaler ton contenu ?",
-    "subtitle": "Tous les modules DuupFlow. Copies illimitées.",
-    "primary": "Commencer maintenant",
-    "secondary": "Voir la démo"
   },
   "footer": {
     "copyright": "© {year} DuupFlow, Tous droits réservés.",
@@ -231,7 +113,7 @@
     "navDemo": "Demo",
     "navBlog": "Blog",
     "navVariationIA": "Variation IA",
-    "navDetectionIA": "Détection IA",
+    "navDetectionIA": "Masquage IA",
     "navCgu": "Conditions d'utilisation",
     "navPrivacy": "Politique de confidentialité",
     "navLegal": "Mentions légales",
@@ -240,7 +122,7 @@
     "navContact": "Nous contacter"
   },
   "announce": {
-    "text": "Nouveau, Reste éligible sur TikTok : la solution anti-détection est dans DuupFlow.",
+    "text": "Nouveau — 1 vidéo, 20 variantes prêtes à reposter sur tous tes comptes.",
     "textShort": "Reste éligible sur TikTok",
     "cta": "Voir les plans"
   },
@@ -340,11 +222,11 @@
     "testimonial1": "DuupFlow nous a fait gagner des heures. On réutilise nos meilleurs contenus sans jamais être pénalisés par les algorithmes.",
     "testimonial2": "DuupFlow fait ça en quelques secondes et les résultats sont incomparables. Mon reach a explosé depuis que je l'utilise.",
     "testimonial3": "Je vérifie chaque copie avant de publier grâce au Comparateur. Mon taux d'engagement a double en un mois.",
-    "testimonial4": "50 copies d'un même Reel, chacune unique. TikTok ne l'a jamais détecté. C'est exactement ce qu'il nous fallait.",
+    "testimonial4": "50 copies d'un même Reel, chacune unique. TikTok les a lues comme 50 contenus différents. C'est exactement ce qu'il nous fallait.",
     "testimonial5": "Notre portée organique a explosé. On publie le même contenu sur 6 plateformes sans aucune pénalité algorithmique.",
     "testimonial6": "Notre CAC a baissé de 30% depuis qu'on scale avec DuupFlow. La duplication automatique des meilleurs contenus, c'est du génie.",
     "testimonial7": "Avant DuupFlow, chaque post demandait une nouvelle création. Maintenant on réutilise nos top performers à l'infini.",
-    "testimonial8": "Le module Détection IA est parfait. Je publie des contenus générés par IA sans aucun marqueur détectable.",
+    "testimonial8": "Le module Masquage IA est parfait. Je publie des contenus générés par IA sans aucun marqueur résiduel.",
     "testimonial9": "DuupFlow gère 3 clients en simultané. On génère 100+ copies par semaine sans effort supplémentaire.",
     "testimonial10": "Ce qui me plaît avec DuupFlow, c'est la simplicité. Upload, dupliquer, télécharger. 30 secondes chrono.",
     "testimonial11": "Mon taux d'impression sur TikTok a triplé en 2 semaines après avoir commencé à utiliser DuupFlow.",
@@ -354,13 +236,13 @@
     "pricingFaq1Q": "Puis-je annuler mon abonnement à tout moment ?",
     "pricingFaq1A": "Oui, absolument. Tu peux annuler ton abonnement à tout moment depuis ton espace compte, sans préavis ni frais supplémentaires. L'accès reste actif jusqu'à la fin de la période déjà payée.",
     "pricingFaq2Q": "Le plan Pro inclut-il tous les modules DuupFlow ?",
-    "pricingFaq2A": "Oui. Le plan Pro donne accès à l'intégralité des modules : Duplication Images, Duplication Vidéos, Comparateur de similarité et Détection IA. Tous les formats sont supportés et les copies sont illimitées.",
+    "pricingFaq2A": "Oui. Le plan Pro donne accès à l'intégralité des modules : Duplication Images, Duplication Vidéos, Comparateur de similarité et Masquage IA. Tous les formats sont supportés et les copies sont illimitées.",
     "pricingFaq3Q": "Combien de fichiers puis-je traiter par mois avec le plan Pro ?",
     "pricingFaq3A": "Il n'y a aucune limite sur le nombre de fichiers ou de copies générées. Tu peux importer autant de contenus que tu veux et créer autant de variantes que nécessaire, sans restriction mensuelle.",
     "pricingFaq4Q": "Qu'est-ce que la Priorité d'algorithme ?",
     "pricingFaq4A": "La Priorité d'algorithme injecte des métadonnées Apple authentiques dans tes fichiers, modèle iPhone, version iOS, objectif caméra, coordonnées GPS. Les algorithmes des plateformes traitent ton contenu comme s'il provenait d'un appareil réel, ce qui booste ta portée organique.",
     "pricingFaq5Q": "À quoi sert le Pixel magique ?",
-    "pricingFaq5A": "Le Pixel magique ajoute du bruit imperceptible à chaque pixel de chaque frame. Le résultat est visuellement identique à l'original, mais le hash du fichier est complètement différent. Les algorithmes de détection de doublons voient un fichier unique à chaque copie.",
+    "pricingFaq5A": "Le Pixel magique ajoute du bruit imperceptible à chaque pixel de chaque frame. Le résultat est visuellement identique à l'original, mais le hash du fichier est complètement différent. Les plateformes lisent un fichier unique à chaque copie.",
     "pricingFaq6Q": "Comment fonctionne la facturation ?",
     "pricingFaq6A": "La facturation est mensuelle et automatique. Tu reçois une facture par email à chaque renouvellement. Nous acceptons les cartes Visa, Mastercard et American Express via notre partenaire Stripe.",
     "pricingFaq7Q": "Quelle est la différence entre le plan Pro et le plan Entreprise ?",
@@ -372,21 +254,21 @@
     "badge": "Fonctionnalités",
     "title": "Optez pour un outil à la hauteur du potentiel",
     "titleHighlight": "de votre agence",
-    "subtitle": "Chaque publication unique. Chaque fichier indétectable.",
+    "subtitle": "Chaque publication unique. Chaque fichier repostable sans doublon.",
     "feature1Badge": "Duplication Images & Vidéos",
     "feature1Title": "Un fichier source,",
     "feature1TitleHighlight": "des copies infinies.",
-    "feature1Subtitle": "Génère autant de variantes que tu veux, images et vidéos. Chaque copie a une empreinte unique (EXIF, XMP, QuickTime, bitrate, GOP, FPS), indétectable par les algorithmes.",
+    "feature1Subtitle": "Génère autant de variantes que tu veux, images et vidéos. Chaque copie a une empreinte unique (EXIF, XMP, QuickTime, bitrate, GOP, FPS), lue comme un fichier neuf par les plateformes.",
     "feature1Bullet1": "Métadonnées EXIF/XMP uniques à chaque copie image",
     "feature1Bullet2": "Vidéos re-encodées avec paramètres différents (FPS, GOP, bitrate)",
-    "feature1Bullet3": "Multi-posting illimité sans risque de shadowban",
+    "feature1Bullet3": "Multi-posting illimité, ton reach préservé",
     "feature2Badge": "Modification Invisible",
     "feature2Title": "Pixel magique :",
     "feature2TitleHighlight": "hash unique, visuel identique.",
     "feature2Subtitle": "DuupFlow altère les extracteurs de caractéristiques que les plateformes analysent pour détecter les doublons, sans modifier un seul pixel visible.",
     "feature2Bullet1": "Bruit luma imperceptible sur chaque pixel",
     "feature2Bullet2": "Hash complètement différent à chaque copie",
-    "feature2Bullet3": "Aucune modification visuelle détectable",
+    "feature2Bullet3": "Aucune modification visuelle perceptible",
     "feature3Badge": "Priorité d'algorithme",
     "feature3Title": "Métadonnées iPhone.",
     "feature3TitleHighlight": "L'algorithme vous priorise.",
@@ -394,7 +276,7 @@
     "feature3Bullet1": "Injection de métadonnées Apple authentiques (modèle, iOS, caméra)",
     "feature3Bullet2": "Localisation GPS personnalisable",
     "feature3Bullet3": "Format MOV automatique pour simuler un vrai iPhone",
-    "feature4Badge": "Détection IA",
+    "feature4Badge": "Masquage IA",
     "feature4Title": "Masque la",
     "feature4TitleHighlight": "signature IA.",
     "feature4TitleSuffix": "Instantanément.",
@@ -416,7 +298,7 @@
     "sourceFile": "Fichier source",
     "source": "Source",
     "metadataModified": "Métadonnées modifiées",
-    "originalHash": "Hash original détecté...",
+    "originalHash": "Hash d'origine identifié...",
     "pixelMagicInProgress": "Pixel magique en cours...",
     "hashModified": "Hash modifié",
     "visuallyIdentical": "Visuellement identique",
@@ -426,7 +308,7 @@
     "analysisInProgress": "Analyse en cours...",
     "replacingMetadata": "Remplacement des métadonnées...",
     "aiSignatureErased": "Signature IA effacée",
-    "aiSignatureDetected": "Signature IA détectée",
+    "aiSignatureDetected": "Signature IA identifiée",
     "aiSignatureCleared": "Signature IA effacée"
   },
   "howItWorksPage": {
@@ -484,11 +366,11 @@
     "expiresIn": "Expire dans 1 heure . Vérifie tes spams",
     "useOtherAddress": "Utiliser une autre adresse",
     "panelTitle": "Scale ton contenu.",
-    "panelTitleLine2": "Sans jamais être détecté.",
+    "panelTitleLine2": "Sans jamais laisser de doublon.",
     "panelSubtitle": "Rejoins 500+ agences et créateurs qui réutilisent leurs meilleurs contenus à l'infini.",
     "feature1Title": "Copies illimitées",
     "feature1Desc": "Génère autant de variantes que tu veux depuis un seul fichier source.",
-    "feature2Title": "Indétectable par les plateformes",
+    "feature2Title": "Lu comme neuf par les plateformes",
     "feature2Desc": "Métadonnées uniques à chaque copie, chaque fichier est reconnu comme nouveau.",
     "feature3Title": "Multi-plateformes",
     "feature3Desc": "Instagram, TikTok, YouTube, Threads et plus, un seul outil pour tout scaler.",
@@ -530,7 +412,7 @@
     "badge": "Demo DuupFlow, Découvre comment ça marche",
     "title": "Vois DuupFlow en",
     "titleHighlight": "action",
-    "subtitle": "En 2 minutes, comprends comment dupliquer ton contenu en illimité sans jamais être détecté par les algorithmes.",
+    "subtitle": "En 2 minutes, comprends comment dupliquer ton contenu en illimité, lu comme neuf par les plateformes à chaque fois.",
     "howItWorksBadge": "Comment ça marche",
     "howItWorksTitle": "Simple comme",
     "howItWorksTitleHighlight": "1, 2, 3, 4",
@@ -552,10 +434,10 @@
     "module1Title": "Duplication Images",
     "module1Desc": "Génère des copies infinies d'une image, chacune avec des métadonnées EXIF/XMP uniques, invisible pour les algorithmes.",
     "module2Title": "Duplication Vidéos",
-    "module2Desc": "Re-encode chaque copie avec des paramètres uniques (FPS, GOP, bitrate). Indétectable sur Instagram, TikTok, YouTube.",
+    "module2Desc": "Re-encode chaque copie avec des paramètres uniques (FPS, GOP, bitrate). Prêt à reposter sur Instagram, TikTok, YouTube.",
     "module3Title": "Comparateur",
     "module3Desc": "Score de similarité en temps réel, valide que tes copies sont bien uniques avant de publier.",
-    "module4Title": "Détection IA",
+    "module4Title": "Masquage IA",
     "module4Desc": "Remplace les métadonnées IA par une identité humaine réaliste. Aucune modification visuelle.",
     "module5Title": "Compresseur",
     "module5Desc": "Réduis le poids de tes images et vidéos sans perte visible. Jamais plus lourd que l'original.",
@@ -591,7 +473,7 @@
     "section4Title": "Placez votre contenu du côté de l'algorithme",
     "section4Text": "En un seul clic, DuupFlow injecte des métadonnées Apple authentiques dans vos fichiers.",
     "section5Title": "Contenus IA ? Plus personne ne le saura",
-    "section5Text": "Votre contenu généré par Midjourney, DALL-E ou Stable Diffusion est détecté sur les réseaux ? DuupFlow analyse et efface les signatures.",
+    "section5Text": "Votre contenu généré par Midjourney, DALL-E ou Stable Diffusion porte encore des signatures IA ? DuupFlow les analyse et les efface.",
     "ctaTitle": "Prêt à transformer votre",
     "ctaTitleHighlight": "workflow",
     "ctaSubtitle": "Rejoignez les agences qui produisent plus, plus vite, sans compromis sur la qualité.",
@@ -1403,11 +1285,26 @@
       "foot": "Clique sur un module pour le découvrir."
     },
     "modules": {
-      "images": { "name": "Images", "tagline": "Duplique tes images en plusieurs versions uniques." },
-      "videos": { "name": "Vidéos", "tagline": "Génère des copies de tes vidéos prêtes à publier." },
-      "similarity": { "name": "Comparateur", "tagline": "Mesure la ressemblance entre deux fichiers." },
-      "generate": { "name": "Variation IA", "tagline": "Crée des variations de tes images avec l'IA." },
-      "aidetection": { "name": "Détection IA", "tagline": "Supprime les métadonnées IA de tes fichiers." }
+      "images": {
+        "name": "Images",
+        "tagline": "Duplique tes images en plusieurs versions uniques."
+      },
+      "videos": {
+        "name": "Vidéos",
+        "tagline": "Génère des copies de tes vidéos prêtes à publier."
+      },
+      "similarity": {
+        "name": "Comparateur",
+        "tagline": "Mesure la ressemblance entre deux fichiers."
+      },
+      "generate": {
+        "name": "Variation IA",
+        "tagline": "Crée des variations de tes images avec l'IA."
+      },
+      "aidetection": {
+        "name": "Détection IA",
+        "tagline": "Supprime les métadonnées IA de tes fichiers."
+      }
     },
     "coach": {
       "images": {
@@ -2156,6 +2053,116 @@
       "noFile": "Aucun fichier reçu.",
       "analyzeImage": "Erreur analyse image",
       "analyzeFile": "Erreur analyse fichier"
+    }
+  },
+  "lp": {
+    "hero": {
+      "kicker": "TikTok · Instagram · YouTube",
+      "h1a": "1 vidéo transformer en plusieurs",
+      "h1b": "variantes uniques",
+      "subtitle": "Récupère 20 fichiers prêts à poster. Identiques à l'œil, uniques pour les plateformes.",
+      "ctaPrimary": "Commencer maintenant",
+      "ctaSecondary": "Voir la démo",
+      "socialProof": "Rejoins {count}+ créateurs et agences multi-comptes",
+      "stat1Cap": "Créateurs",
+      "stat2Cap": "Vidéos ce mois",
+      "stat3Cap": "Avis clients",
+      "stat4Cap": "Variantes / vidéo",
+      "h1c": "à reposter."
+    },
+    "proof": {
+      "creators": "500+ créateurs",
+      "videos": "40 000+ vidéos générées ce mois-ci",
+      "accounts": "3 000+ comptes alimentés"
+    },
+    "demo": {
+      "h2a": "Une vidéo. Vingt fichiers.",
+      "h2b": "Aucun identique.",
+      "sourceLabel": "Vidéo source",
+      "outputLabel": "Variante",
+      "hint": "Mêmes pixels à l'œil. Signatures de fichier toutes différentes."
+    },
+    "problem": {
+      "h2a": "Le même fichier, posté 5 fois,",
+      "h2b": "ne fait pas 5 fois le reach.",
+      "body": "Les plateformes reconnaissent un fichier déjà publié et limitent sa distribution. Remonter la vidéo à la main pour chaque compte, c'est des heures de travail pour un résultat que personne ne remarque."
+    },
+    "how": {
+      "kicker": "Comment ça marche",
+      "h2": "Trois étapes, aucune compétence technique.",
+      "s1n": "01",
+      "s1t": "Tu importes ta vidéo montée.",
+      "s1d": "Celle que tu allais poster.",
+      "s2n": "02",
+      "s2t": "Tu choisis le nombre de variantes.",
+      "s2d": "Une par compte.",
+      "s3n": "03",
+      "s3t": "Tu télécharges et tu postes.",
+      "s3d": "Chaque fichier est différent."
+    },
+    "cases": {
+      "kicker": "Pour qui",
+      "h2": "Un seul pipeline, autant de comptes que tu veux alimenter.",
+      "c1t": "Créateurs multi-comptes",
+      "c1d": "Un format qui marche, diffusé sur toute ta grappe de comptes le même jour.",
+      "c2t": "E-commerce et media buyers",
+      "c2d": "Le volume de créatives que réclament les algorithmes publicitaires, sans studio ni monteur.",
+      "c3t": "Agences et clippers",
+      "c3d": "Le même pipeline sur plusieurs clients, facturé au volume."
+    },
+    "tech": {
+      "kicker": "Sous le capot",
+      "h2a": "Ce qui se passe",
+      "h2b": "pendant ces 3 minutes.",
+      "subtitle": "Quatre couches de traitement s'appliquent à chaque variante. Aucune n'est visible à l'œil. Toutes le sont pour les plateformes.",
+      "dataLine": "différence perçue à l'œil : 0 %   ·   similarité fichier : < 100 %",
+      "sourceLabel": "source",
+      "counterLabel": "fichiers générés",
+      "l1t": "Signature du fichier",
+      "l1d": "Métadonnées entièrement régénérées : appareil, date de captation, encodeur, données de géolocalisation.",
+      "l2t": "Empreinte visuelle",
+      "l2d": "Micro-variations de luminance et de grain, calibrées sous le seuil de perception humaine.",
+      "l3t": "Empreinte binaire",
+      "l3d": "Le hash et la structure du conteneur sont modifiés : chaque fichier a une signature binaire unique.",
+      "l4t": "Ré-encodage",
+      "l4d": "Chaque fichier est reconstruit, pas copié.",
+      "closing": "Mets deux variantes côte à côte. Tu ne verras rien. Les algorithmes, eux, traitent deux vidéos différentes."
+    },
+    "craft": {
+      "kicker": "Zéro compromis",
+      "h2": "Ton montage reste ton montage.",
+      "body": "Pas de recadrage, pas de filtre, pas de zoom qui abîme ton travail. DuupFlow agit sur ce que les plateformes lisent, pas sur ce que ton audience voit.",
+      "tagCrop": "Aucun recadrage",
+      "tagFilter": "Aucun filtre",
+      "tagZoom": "Aucun zoom",
+      "tagAudio": "Audio intact"
+    },
+    "pricing": {
+      "kicker": "Tarifs",
+      "h2": "Un plan pour chaque volume.",
+      "body": "Commence gratuitement, sans carte bancaire. Passe au volume quand tes comptes se multiplient.",
+      "cta": "Voir les tarifs"
+    },
+    "faq": {
+      "kicker": "FAQ",
+      "title": "Questions fréquentes",
+      "q1": "Concrètement, qu'est-ce qui est modifié dans mes vidéos ?",
+      "a1": "Trois choses, aucune visible : les métadonnées du fichier (appareil, date, encodeur, géolocalisation), la signature visuelle via des micro-variations sous le seuil de perception, et une empreinte binaire unique (hash et conteneur modifiés). Le fichier est ensuite entièrement ré-encodé, pas dupliqué. Ton montage, ton audio, tes sous-titres et ton cadrage restent strictement identiques à l'original.",
+      "q2": "Est-ce que la qualité baisse au ré-encodage ?",
+      "a2": "Non. La résolution et le bitrate d'origine sont conservés : une source 1080p reste en 1080p, une 4K reste en 4K. Le fichier est reconstruit sans compression supplémentaire — aucune perte visible à l'écran.",
+      "q3": "Combien de variantes puis-je générer depuis une seule vidéo ?",
+      "a3": "Jusqu'à 20 variantes par vidéo. Le nombre de vidéos par mois dépend de ton plan : le plan gratuit te laisse générer tes premières variantes sans carte bancaire, les plans Solo et Pro débloquent le volume.",
+      "q4": "Ça marche sur TikTok, Instagram et YouTube ?",
+      "a4": "Oui. DuupFlow prépare les fichiers, tu les postes où tu veux : TikTok, Instagram, YouTube, et n'importe quelle autre plateforme.",
+      "q5": "Combien de temps pour générer 20 variantes ?",
+      "a5": "Quelques minutes. Compte environ 3 minutes pour 20 variantes vidéo, selon la durée et la résolution de ta source."
+    },
+    "final": {
+      "h2": "Ta prochaine vidéo mérite 20 chances, pas une.",
+      "cta": "Générer mes 5 premières variantes — gratuit, sans CB",
+      "affKicker": "Programme d'affiliation",
+      "affText": "Gagne 20 % de commission sur chaque abonnement que tu apportes. Récurrent, tant que le client reste.",
+      "affCta": "Devenir affilié"
     }
   }
 }

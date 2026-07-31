@@ -58,14 +58,14 @@ export default function WelcomePage() {
     <div
       className="min-h-screen flex flex-col items-center justify-center px-4 text-center"
       style={{
-        background: "linear-gradient(135deg, #060918 0%, #0D0B2E 50%, #060C1F 100%)",
+        background: "linear-gradient(150deg, #4f7bff 0%, #6a68ff 48%, #8a5cff 100%)",
       }}
     >
       {/* Grid */}
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.03]"
         style={{
-          backgroundImage: "linear-gradient(rgba(99,102,241,1) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,1) 1px, transparent 1px)",
+          backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)",
           backgroundSize: "40px 40px",
         }}
       />
@@ -78,17 +78,17 @@ export default function WelcomePage() {
         <div
           className="mx-auto mb-8 h-16 w-16 rounded-full flex items-center justify-center"
           style={{
-            background: "rgba(99,102,241,0.15)",
-            border: "1px solid rgba(99,102,241,0.35)",
-            boxShadow: "0 0 40px rgba(99,102,241,0.3), 0 0 80px rgba(99,102,241,0.12)",
+            background: "rgba(255,255,255,0.18)",
+            border: "1px solid rgba(255,255,255,0.40)",
+            boxShadow: "0 0 40px rgba(255,255,255,0.25), 0 0 80px rgba(255,255,255,0.12)",
           }}
         >
-          <svg viewBox="0 0 24 24" className="h-7 w-7 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <svg viewBox="0 0 24 24" className="h-7 w-7 text-white" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
 
-        <p className="text-sm font-medium text-white/40 tracking-[0.15em] uppercase mb-4">
+        <p className="text-sm font-medium text-white/70 tracking-[0.15em] uppercase mb-4">
           {t("onboarding.welcomeBadge")}
         </p>
 
@@ -97,7 +97,7 @@ export default function WelcomePage() {
           {firstName && (
             <>
               {" "}
-              <span className="bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-white to-[#d9e6ff] bg-clip-text text-transparent">
                 {firstName}
               </span>
             </>
@@ -105,19 +105,19 @@ export default function WelcomePage() {
           {" "}👋
         </h1>
 
-        <p className="text-base text-white/50 max-w-sm mx-auto mb-10">
+        <p className="text-base text-white/80 max-w-sm mx-auto mb-10">
           {t("onboarding.welcomeSubtitle")}
         </p>
 
         <button
           onClick={() => router.push(destination)}
-          className="inline-flex items-center gap-2 rounded-xl px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90"
-          style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+          className="inline-flex items-center gap-2 rounded-xl px-7 py-3 text-sm font-semibold text-[#4f7bff] transition hover:opacity-90"
+          style={{ background: "#ffffff" }}
         >
           {destination.startsWith("/checkout") ? t("onboarding.chooseOffer") : t("onboarding.goToDashboard")}
         </button>
 
-        <p className="mt-4 text-xs text-white/25">{t("onboarding.autoRedirect")}</p>
+        <p className="mt-4 text-xs text-white/60">{t("onboarding.autoRedirect")}</p>
       </div>
     </div>
   );

@@ -56,7 +56,7 @@ export default function ArticleTOC({ sections }: { sections: TocSection[] }) {
 
   return (
     <nav aria-label="Sommaire de l'article" className="text-sm">
-      <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/40 mb-4">
+      <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-[#8a8a8a] mb-4">
         Sommaire
       </p>
       <ol className="space-y-1">
@@ -71,11 +71,11 @@ export default function ArticleTOC({ sections }: { sections: TocSection[] }) {
                   "block relative pl-4 pr-2 py-2 transition leading-snug",
                   "border-l-2",
                   isActive
-                    ? "border-indigo-400 text-white"
-                    : "border-white/10 text-white/55 hover:text-white/85 hover:border-white/25",
+                    ? "border-[#4f7bff] text-[#1a1a1a]"
+                    : "border-white/10 text-[#3f4453] hover:text-[#1a1a1a] hover:border-white/25",
                 ].join(" ")}
               >
-                <span className="text-white/40 mr-1.5">{i + 1}.</span>
+                <span className="text-[#8a8a8a] mr-1.5">{i + 1}.</span>
                 {s.label}
               </a>
             </li>
