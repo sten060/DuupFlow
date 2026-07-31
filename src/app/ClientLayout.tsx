@@ -92,10 +92,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // Le studio (prototype générateur de reels) est un écran plein applicatif :
   // pas de header marketing ni de spacer.
   const isStudioPage = normalized.startsWith("/studio");
+  // Checkout / paiement (Stripe launch + page de succès) : écran plein autonome,
+  // pas de header marketing (l'ancienne navbar sombre).
+  const isCheckout = normalized.startsWith("/checkout");
   // Les pages "Lunera" (thème clair) ont leur propre nav (pilule) + footer : pas de header global.
   const isLandingHome = normalized === "/";
   const isLunera = isLandingHome || normalized.startsWith("/blog") || normalized.startsWith("/demo-request") || normalized.startsWith("/pricing") || normalized.startsWith("/login") || normalized.startsWith("/register") || normalized.startsWith("/onboarding");
-  const showHeader = !isDashboard && !isAuthPage && !isAffiliatePage && !isOnboardingPage && !isStudioPage && !isLunera;
+  const showHeader = !isDashboard && !isAuthPage && !isAffiliatePage && !isOnboardingPage && !isStudioPage && !isCheckout && !isLunera;
 
   return (
     <LanguageProvider initialLocale={urlLocale}>

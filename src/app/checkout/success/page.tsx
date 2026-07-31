@@ -91,30 +91,34 @@ function CheckoutSuccessContent() {
 
   return (
     <div className="w-full max-w-md text-center relative">
+      <div className="mb-10 flex items-center justify-center gap-2.5">
+        <img src="/logo-mark.png" alt="" className="h-8 w-8 object-contain brightness-0 invert" />
+        <span className="text-xl font-bold tracking-tight text-white">DuupFlow</span>
+      </div>
       {status === "unauthenticated" ? (
         <>
           <div
             className="mx-auto mb-8 h-20 w-20 rounded-full flex items-center justify-center"
             style={{
-              background: "rgba(16,185,129,0.12)",
-              border: "1px solid rgba(16,185,129,0.35)",
-              boxShadow: "0 0 50px rgba(16,185,129,0.20)",
+              background: "rgba(255,255,255,0.18)",
+              border: "1px solid rgba(255,255,255,0.40)",
+              boxShadow: "0 0 50px rgba(255,255,255,0.22)",
             }}
           >
-            <svg viewBox="0 0 24 24" className="h-9 w-9 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg viewBox="0 0 24 24" className="h-9 w-9 text-white" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight mb-3">
             {t("checkout.successTitle")}
           </h1>
-          <p className="text-white/50 text-sm mb-8 leading-relaxed">
+          <p className="text-white/80 text-sm mb-8 leading-relaxed">
             {t("checkout.loginToAccess")}
           </p>
           <Link
             href="/login"
-            className="inline-block w-full rounded-xl py-3.5 text-sm font-bold text-white text-center transition hover:opacity-90"
-            style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+            className="inline-block w-full rounded-xl py-3.5 text-sm font-bold text-[#4f7bff] text-center transition hover:opacity-90"
+            style={{ background: "#ffffff" }}
           >
             {t("checkout.loginButton")}
           </Link>
@@ -148,8 +152,8 @@ function CheckoutSuccessContent() {
           </p>
           <button
             onClick={() => { window.location.reload(); }}
-            className="inline-block w-full rounded-xl py-3.5 text-sm font-bold text-white text-center transition hover:opacity-90"
-            style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+            className="inline-block w-full rounded-xl py-3.5 text-sm font-bold text-[#4f7bff] text-center transition hover:opacity-90"
+            style={{ background: "#ffffff" }}
           >
             {t("checkout.retry")}
           </button>
@@ -159,12 +163,12 @@ function CheckoutSuccessContent() {
           <div
             className="mx-auto mb-8 h-20 w-20 rounded-full flex items-center justify-center"
             style={{
-              background: "rgba(16,185,129,0.12)",
-              border: "1px solid rgba(16,185,129,0.35)",
-              boxShadow: "0 0 50px rgba(16,185,129,0.20)",
+              background: "rgba(255,255,255,0.18)",
+              border: "1px solid rgba(255,255,255,0.40)",
+              boxShadow: "0 0 50px rgba(255,255,255,0.22)",
             }}
           >
-            <svg viewBox="0 0 24 24" className="h-9 w-9 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg viewBox="0 0 24 24" className="h-9 w-9 text-white" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
@@ -172,19 +176,19 @@ function CheckoutSuccessContent() {
           <h1 className="text-3xl font-bold text-white tracking-tight mb-3">
             {t("checkout.successTitle")}
           </h1>
-          <p className="text-white/50 text-sm mb-8 leading-relaxed">
+          <p className="text-white/80 text-sm mb-8 leading-relaxed">
             {t("checkout.successSubtitle")}
           </p>
 
           <button
             onClick={() => { window.location.href = "/dashboard"; }}
-            className="inline-block w-full rounded-xl py-3.5 text-sm font-bold text-white text-center transition hover:opacity-90 mb-4"
-            style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+            className="inline-block w-full rounded-xl py-3.5 text-sm font-bold text-[#4f7bff] text-center transition hover:opacity-90 mb-4"
+            style={{ background: "#ffffff" }}
           >
             {t("checkout.goToDashboard")}
           </button>
 
-          <p className="text-xs text-white/25">
+          <p className="text-xs text-white/60">
             {status === "ready"
               ? t("checkout.redirectionInProgress")
               : t("checkout.activationInProgress")}
@@ -200,14 +204,14 @@ export default function CheckoutSuccessPage() {
     <main
       className="min-h-screen flex items-center justify-center px-6"
       style={{
-        background: "linear-gradient(135deg, #060918 0%, #0D0B2E 50%, #060C1F 100%)",
+        background: "linear-gradient(150deg, #4f7bff 0%, #6a68ff 48%, #8a5cff 100%)",
       }}
     >
       <div
-        className="fixed inset-0 pointer-events-none opacity-[0.03]"
+        className="fixed inset-0 pointer-events-none opacity-[0.05]"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(99,102,241,1) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,1) 1px, transparent 1px)",
+            "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)",
           backgroundSize: "40px 40px",
         }}
       />

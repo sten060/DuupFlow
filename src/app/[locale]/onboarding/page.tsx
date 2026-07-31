@@ -178,14 +178,45 @@ function OnboardingForm() {
     // Dernière étape (code promo / payer).
     if (cancelled && (!firstName.trim() || !agencyName.trim())) {
       // Reprise après annulation, profil pas (encore) rechargé : on relance juste
-      // le paiement sans réécrire le profil (le code promo est lu par /checkout).
-      const plan = localStorage.getItem("duupflow_selected_plan") ?? searchParams.get("plan") ?? "pro";
-      router.push(`/checkout?plan=${plan}`);
+      // le paiement sans réécrire le profil.
+      void launchCheckout();
       return;
     }
     // Profil complet (nouvel onboarding ou reprise avec infos rechargées) :
     // on (re)sauvegarde via upsert, puis on lance le paiement.
     void submit();
+  }
+
+  // Lance Stripe directement (chargement sur cette page, sans passer par une
+  // page /checkout intermédiaire). Le code promo saisi est appliqué au paiement.
+  async function launchCheckout() {
+    setLoading(true);
+    setError("");
+    try {
+      const plan = localStorage.getItem("duupflow_selected_plan") ?? searchParams.get("plan") ?? "pro";
+      const affiliateCode = localStorage.getItem("duupflow_ref") ?? undefined;
+      const storedPromo = localStorage.getItem("duupflow_promo") ?? undefined;
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan,
+          locale,
+          affiliate_code: affiliateCode,
+          ...(storedPromo ? { promo_code: storedPromo } : {}),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) {
+        setError(data.error ?? (locale === "en" ? "Payment error, please try again." : "Erreur de paiement, réessaie."));
+        setLoading(false);
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setError(locale === "en" ? "Network error." : "Erreur réseau.");
+      setLoading(false);
+    }
   }
 
   async function submit() {
@@ -250,9 +281,9 @@ function OnboardingForm() {
       router.push("/onboarding/welcome");
     } else {
       // Comptes payants : l'étape "code promo" EST le moment du paiement.
-      // On lance Stripe directement — plus de page de bienvenue intermédiaire.
-      const plan = localStorage.getItem("duupflow_selected_plan") ?? "pro";
-      router.push(`/checkout?plan=${plan}`);
+      // On lance Stripe directement depuis cette page (chargement affiché),
+      // sans page /checkout intermédiaire à l'ancien design.
+      await launchCheckout();
     }
   }
 
@@ -509,7 +540,9 @@ function OnboardingForm() {
               style={{ background: "linear-gradient(135deg,#4f7bff,#7c5cff)" }}
             >
               {loading
-                ? t("onboarding.creating")
+                ? (step === 3
+                    ? (locale === "en" ? "Redirecting to payment…" : "Redirection vers le paiement…")
+                    : t("onboarding.creating"))
                 : step === 3
                   ? (cancelled
                       ? (locale === "en" ? "Resume payment" : "Reprendre le paiement")
