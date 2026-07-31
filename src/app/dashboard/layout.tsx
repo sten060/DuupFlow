@@ -9,6 +9,7 @@ import ClaritySessionTags, {
   type ClarityPlan,
   type ClaritySegment,
 } from "./ClaritySessionTags";
+import { getServerLocale } from "@/lib/i18n/server";
 import { OnboardingProvider } from "./onboarding/OnboardingProvider";
 import AppOverview from "./onboarding/AppOverview";
 import ModuleCoach from "./onboarding/ModuleCoach";
@@ -193,7 +194,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Enforce the paywall outside the try so redirect()'s control-flow throw
   // isn't swallowed by the catch above.
   if (gateToCheckout) {
-    redirect(`/checkout?plan=${gateToCheckout}`);
+    // Reconnexion sans avoir payé → on renvoie sur l'étape "code promo / payer"
+    // de l'onboarding (pas directement sur Stripe), où l'utilisateur reprend le
+    // paiement (et peut (re)saisir un code promo).
+    const loc = await getServerLocale();
+    redirect(`/${loc}/onboarding?paywall=cancelled&plan=${gateToCheckout}`);
   }
 
   return (

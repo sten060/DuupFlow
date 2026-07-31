@@ -71,6 +71,17 @@ export async function POST(request: Request) {
     }
   }
 
+  // Fallback : code promo saisi manuellement, créé directement dans Stripe
+  // (hors table affiliates). On l'applique s'il existe et est actif côté Stripe.
+  if (!stripePromotionCodeId && promoCode) {
+    try {
+      const list = await getStripe().promotionCodes.list({ code: promoCode, active: true, limit: 1 });
+      if (list.data[0]) stripePromotionCodeId = list.data[0].id;
+    } catch {
+      // Stripe inaccessible → pas de réduction, le paiement continue au plein tarif.
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sessionParams: any = {
     mode: "subscription",

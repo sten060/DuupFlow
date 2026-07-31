@@ -71,9 +71,26 @@ function OnboardingForm() {
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) router.push("/login");
-    });
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+      // Pré-remplir depuis le profil existant (reprise après annulation /
+      // reconnexion) pour que « Retour » réaffiche les infos déjà saisies.
+      if (!isGuest) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("first_name, agency_name, onboarding_platforms, onboarding_source")
+          .eq("id", user.id)
+          .single();
+        if (profile) {
+          if (profile.first_name) setFirstName(profile.first_name as string);
+          if (profile.agency_name) setAgencyName(profile.agency_name as string);
+          if (Array.isArray(profile.onboarding_platforms) && profile.onboarding_platforms.length)
+            setPlatforms(profile.onboarding_platforms as Platform[]);
+          if (profile.onboarding_source) setSource(profile.onboarding_source as Source);
+        }
+      }
+    })();
     // Recover the chosen plan carried through the auth link (?plan=solo|pro).
     // Critical when a magic link is opened in another browser: localStorage was
     // empty there, so without this the paywall was silently skipped.
@@ -159,13 +176,15 @@ function OnboardingForm() {
     if (step < TOTAL_STEPS - 1) { setStep((s) => s + 1); return; }
 
     // Dernière étape (code promo / payer).
-    if (cancelled) {
-      // Reprise après annulation : le profil existe déjà, on relance juste le
-      // paiement (avec le code promo éventuellement (re)saisi, lu par /checkout).
+    if (cancelled && (!firstName.trim() || !agencyName.trim())) {
+      // Reprise après annulation, profil pas (encore) rechargé : on relance juste
+      // le paiement sans réécrire le profil (le code promo est lu par /checkout).
       const plan = localStorage.getItem("duupflow_selected_plan") ?? searchParams.get("plan") ?? "pro";
       router.push(`/checkout?plan=${plan}`);
       return;
     }
+    // Profil complet (nouvel onboarding ou reprise avec infos rechargées) :
+    // on (re)sauvegarde via upsert, puis on lance le paiement.
     void submit();
   }
 
@@ -466,9 +485,9 @@ function OnboardingForm() {
                 type="button"
                 onClick={() => {
                   setError("");
-                  // Retour en chaîne ; depuis la 1re étape (ou une reprise après
-                  // annulation de paiement), on remonte jusqu'à la page Tarifs.
-                  if (step === 0 || cancelled) router.push(`/${locale}/pricing#plans`);
+                  // Retour en chaîne : étape précédente ; depuis la 1re étape,
+                  // on remonte jusqu'à la page Tarifs.
+                  if (step === 0) router.push(`/${locale}/pricing#plans`);
                   else setStep((s) => s - 1);
                 }}
                 disabled={loading}

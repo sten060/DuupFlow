@@ -22,6 +22,27 @@ export async function GET(req: NextRequest) {
     .single();
 
   if (!affiliate || !affiliate.stripe_promotion_code_id) {
+    // Fallback : code promo créé directement dans Stripe (hors table affiliates).
+    // Permet d'accepter n'importe quel code actif que tu as activé côté Stripe.
+    try {
+      const stripe = getStripe();
+      const list = await stripe.promotionCodes.list({ code, active: true, limit: 1, expand: ["data.coupon"] });
+      const pc = list.data[0];
+      if (pc) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const coupon = (pc as any).coupon as { percent_off?: number | null };
+        const pct = coupon?.percent_off ?? null;
+        const label = pct ? `-${pct}%` : "une réduction";
+        return NextResponse.json({
+          valid: true,
+          code: pc.code ?? code,
+          discount: label,
+          message: `${label} sur ton 1er mois grâce au code ${pc.code ?? code}`,
+        });
+      }
+    } catch {
+      // Stripe inaccessible → on considère le code invalide.
+    }
     return NextResponse.json({ valid: false });
   }
 
