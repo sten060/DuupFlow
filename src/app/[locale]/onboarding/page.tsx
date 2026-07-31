@@ -53,13 +53,16 @@ function OnboardingForm() {
   const isGuest = searchParams.get("type") === "guest";
   const { t, locale } = useTranslation();
 
-  const TOTAL_STEPS = isGuest ? 1 : 3;
+  const TOTAL_STEPS = isGuest ? 1 : 4;
 
   const [step, setStep] = useState(0);
   const [firstName, setFirstName] = useState("");
   const [agencyName, setAgencyName] = useState("");
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [source, setSource] = useState<Source | null>(null);
+  const [promo, setPromo] = useState("");
+  const [promoState, setPromoState] = useState<"idle" | "validating" | "valid" | "invalid">("idle");
+  const [promoMsg, setPromoMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const supabase = createClient();
@@ -90,6 +93,33 @@ function OnboardingForm() {
     );
   }
 
+  // Valide un code promo/partenaire et le stocke pour l'appliquer au paiement.
+  async function validatePromo() {
+    const code = promo.trim().toUpperCase();
+    if (!code) {
+      setPromoState("idle");
+      setPromoMsg("");
+      localStorage.removeItem("duupflow_promo");
+      return;
+    }
+    setPromoState("validating");
+    try {
+      const res = await fetch(`/api/promo/validate?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (data.valid) {
+        setPromoState("valid");
+        setPromoMsg(data.message ?? (locale === "en" ? "Code applied ✓" : "Code appliqué ✓"));
+        localStorage.setItem("duupflow_promo", code);
+      } else {
+        setPromoState("invalid");
+        setPromoMsg(locale === "en" ? "Invalid or expired code" : "Code invalide ou expiré");
+        localStorage.removeItem("duupflow_promo");
+      }
+    } catch {
+      setPromoState("idle");
+    }
+  }
+
   function validateAndNext() {
     setError("");
     if (step === 0) {
@@ -109,6 +139,15 @@ function OnboardingForm() {
     } else if (step === 2) {
       if (!source) {
         setError(t("onboarding.sourceRequired"));
+        return;
+      }
+    } else if (step === 3) {
+      // Code promo optionnel : s'il est saisi mais pas encore validé, on invite
+      // à cliquer sur « Appliquer » pour ne pas perdre la réduction en silence.
+      if (promo.trim() && promoState !== "valid") {
+        setError(locale === "en"
+          ? "Click “Apply” to use your code, or clear the field to continue."
+          : "Clique sur « Appliquer » pour utiliser ton code, ou vide le champ pour continuer.");
         return;
       }
     }
@@ -184,6 +223,7 @@ function OnboardingForm() {
     t("onboarding.stepIdentity"),
     t("onboarding.stepPlatforms"),
     t("onboarding.stepSource"),
+    locale === "en" ? "Promo code" : "Code promo",
   ];
 
   const leftTitle =
@@ -191,14 +231,20 @@ function OnboardingForm() {
       ? (isGuest ? t("onboarding.joinWorkspace") : t("onboarding.createSpace"))
       : step === 1
         ? t("onboarding.platformsTitle")
-        : t("onboarding.sourceTitle");
+        : step === 2
+          ? t("onboarding.sourceTitle")
+          : (locale === "en" ? "Got a promo code?" : "Un code promo ?");
 
   const leftSubtitle =
     step === 0
       ? (isGuest ? t("onboarding.joinWorkspaceSubtitle") : t("onboarding.createSpaceSubtitle"))
       : step === 1
         ? t("onboarding.platformsSubtitle")
-        : t("onboarding.sourceSubtitle");
+        : step === 2
+          ? t("onboarding.sourceSubtitle")
+          : (locale === "en"
+              ? "Apply it now to get your discount at payment. Optional — you can skip it."
+              : "Applique-le maintenant pour ta réduction au paiement. Optionnel — tu peux passer.");
 
   return (
     <div className="lunera min-h-screen flex bg-white text-[#1a1a1a]">
@@ -339,6 +385,45 @@ function OnboardingForm() {
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* Step 3 — promo code (optionnel) */}
+          {step === 3 && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-[#605f5f] mb-1.5 uppercase tracking-wide">
+                  {locale === "en" ? "Promo code" : "Code promo"}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={promo}
+                    onChange={(e) => { setPromo(e.target.value); setPromoState("idle"); setPromoMsg(""); }}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), validatePromo())}
+                    placeholder={locale === "en" ? "Enter a code (optional)" : "Entre un code (optionnel)"}
+                    className="flex-1 rounded-xl px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#9aa2b2] uppercase outline-none transition focus:ring-1 focus:ring-[#4f7bff]/40"
+                    style={{ background: "#f6f7f9", border: "1px solid rgba(0,0,0,0.10)" }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={validatePromo}
+                    disabled={promoState === "validating" || !promo.trim()}
+                    className="shrink-0 rounded-xl px-5 py-3 text-sm font-semibold transition disabled:opacity-50"
+                    style={{ background: "#f6f7f9", border: "1px solid rgba(0,0,0,0.10)", color: "#4f7bff" }}
+                  >
+                    {promoState === "validating" ? "…" : (locale === "en" ? "Apply" : "Appliquer")}
+                  </button>
+                </div>
+                {promoState === "valid" && <p className="mt-2 text-xs font-medium text-emerald-600">{promoMsg}</p>}
+                {promoState === "invalid" && <p className="mt-2 text-xs font-medium text-red-600">{promoMsg}</p>}
+              </div>
+              <p className="text-xs leading-relaxed text-[#8a8a8a]">
+                {locale === "en"
+                  ? "Have a partner or promo code? Add it here — the discount is applied automatically at payment. You can skip this step."
+                  : "Un code partenaire ou promo ? Ajoute-le ici — la réduction est appliquée automatiquement au paiement. Tu peux passer cette étape."}
+              </p>
             </div>
           )}
 

@@ -118,7 +118,7 @@ function CheckoutContent() {
   // out of onboarding, plan already chosen on the pricing page) we skip the
   // re-selection screen and fire the Stripe redirect immediately.
   const skipSelection = planParam === "solo" || planParam === "pro";
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
   const SOLO_FEATURES = [
     t("tarifs.soloFeature1"),
@@ -214,12 +214,15 @@ function CheckoutContent() {
     setError("");
     try {
       const affiliateCode = localStorage.getItem("duupflow_ref") ?? undefined;
-      const validPromo = promoState === "valid" ? promoInput.trim().toUpperCase() : undefined;
+      // Code promo saisi à l'étape onboarding (auto-launch) ou dans le champ manuel.
+      const storedPromo = localStorage.getItem("duupflow_promo") ?? undefined;
+      const validPromo = (promoState === "valid" ? promoInput.trim().toUpperCase() : undefined) ?? storedPromo;
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plan: selectedPlan,
+          locale,
           affiliate_code: affiliateCode,
           ...(validPromo ? { promo_code: validPromo } : {}),
         }),

@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/context";
 import { createClient } from "@/lib/supabase/client";
 
-export default function WelcomePage() {
+function WelcomeInner() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const params = useSearchParams();
+  const { t, locale } = useTranslation();
+  // Retour depuis l'annulation du paywall Stripe : on ne relance pas Stripe.
+  const cancelled = params.get("paywall") === "cancelled";
   // Seed with the sessionStorage cache so we never flash "toi" — the DB
   // fetch below overrides it once authoritative data arrives.
   const [firstName, setFirstName] = useState(() => {
@@ -37,7 +40,9 @@ export default function WelcomePage() {
     // Stripe paywall before entering the app. Free signups — and guests
     // joining a team — go straight to the dashboard.
     const isGuest = sessionStorage.getItem("welcome_is_guest") === "1";
-    const plan = localStorage.getItem("duupflow_selected_plan");
+    // Au retour d'annulation, le plan stocké a déjà été consommé au 1er passage :
+    // on le récupère depuis l'URL (?plan=) transmis par le cancel_url Stripe.
+    const plan = localStorage.getItem("duupflow_selected_plan") ?? params.get("plan");
     const dest =
       !isGuest && (plan === "solo" || plan === "pro")
         ? `/checkout?plan=${plan}`
@@ -49,9 +54,10 @@ export default function WelcomePage() {
 
     // Fade in
     const t1 = setTimeout(() => setVisible(true), 100);
-    // Auto-redirect
-    const t2 = setTimeout(() => router.push(dest), 3200);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    // Auto-redirect — sauf si on revient d'une annulation de paiement
+    // (sinon on relancerait Stripe immédiatement = boucle).
+    const t2 = cancelled ? undefined : setTimeout(() => router.push(dest), 3200);
+    return () => { clearTimeout(t1); if (t2) clearTimeout(t2); };
   }, []);
 
   return (
@@ -106,7 +112,11 @@ export default function WelcomePage() {
         </h1>
 
         <p className="text-base text-white/80 max-w-sm mx-auto mb-10">
-          {t("onboarding.welcomeSubtitle")}
+          {cancelled
+            ? (locale === "en"
+                ? "Payment cancelled — you can resume whenever you're ready."
+                : "Paiement annulé — tu peux reprendre quand tu veux.")
+            : t("onboarding.welcomeSubtitle")}
         </p>
 
         <button
@@ -114,11 +124,21 @@ export default function WelcomePage() {
           className="inline-flex items-center gap-2 rounded-xl px-7 py-3 text-sm font-semibold text-[#4f7bff] transition hover:opacity-90"
           style={{ background: "#ffffff" }}
         >
-          {destination.startsWith("/checkout") ? t("onboarding.chooseOffer") : t("onboarding.goToDashboard")}
+          {destination.startsWith("/checkout")
+            ? (cancelled ? (locale === "en" ? "Resume payment" : "Reprendre le paiement") : t("onboarding.chooseOffer"))
+            : t("onboarding.goToDashboard")}
         </button>
 
-        <p className="mt-4 text-xs text-white/60">{t("onboarding.autoRedirect")}</p>
+        {!cancelled && <p className="mt-4 text-xs text-white/60">{t("onboarding.autoRedirect")}</p>}
       </div>
     </div>
+  );
+}
+
+export default function WelcomePage() {
+  return (
+    <Suspense>
+      <WelcomeInner />
+    </Suspense>
   );
 }

@@ -19,6 +19,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const plan = body?.plan === "solo" ? "solo" : "pro";
+  const locale = body?.locale === "en" ? "en" : "fr";
   const affiliateCode: string | undefined =
     typeof body?.affiliate_code === "string" && body.affiliate_code.trim()
       ? body.affiliate_code.trim().toUpperCase()
@@ -80,7 +81,9 @@ export async function POST(request: Request) {
       ...(effectiveAffiliateCode ? { affiliate_code: effectiveAffiliateCode } : {}),
     },
     success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${baseUrl}/checkout`,
+    // Sortie du paywall sans payer → retour à l'étape onboarding (welcome),
+    // sans relancer Stripe (welcome coupe son auto-redirect si ?paywall=cancelled).
+    cancel_url: `${baseUrl}/${locale}/onboarding/welcome?paywall=cancelled&plan=${plan}`,
     subscription_data: {
       // No free trial — checkout charges immediately for the chosen plan.
       metadata: {
