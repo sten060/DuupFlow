@@ -51,11 +51,14 @@ function OnboardingForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isGuest = searchParams.get("type") === "guest";
+  // Retour depuis l'annulation du paiement Stripe : on rouvre directement
+  // l'étape "code promo / payer" (le profil est déjà enregistré, pas de re-save).
+  const cancelled = searchParams.get("paywall") === "cancelled";
   const { t, locale } = useTranslation();
 
   const TOTAL_STEPS = isGuest ? 1 : 4;
 
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(cancelled && !isGuest ? 3 : 0);
   const [firstName, setFirstName] = useState("");
   const [agencyName, setAgencyName] = useState("");
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -153,8 +156,17 @@ function OnboardingForm() {
     }
 
     if (isGuest && step === 0) { void submit(); return; }
-    if (step < TOTAL_STEPS - 1) setStep((s) => s + 1);
-    else void submit();
+    if (step < TOTAL_STEPS - 1) { setStep((s) => s + 1); return; }
+
+    // Dernière étape (code promo / payer).
+    if (cancelled) {
+      // Reprise après annulation : le profil existe déjà, on relance juste le
+      // paiement (avec le code promo éventuellement (re)saisi, lu par /checkout).
+      const plan = localStorage.getItem("duupflow_selected_plan") ?? searchParams.get("plan") ?? "pro";
+      router.push(`/checkout?plan=${plan}`);
+      return;
+    }
+    void submit();
   }
 
   async function submit() {
@@ -208,14 +220,21 @@ function OnboardingForm() {
       }
     }
 
-    sessionStorage.setItem("welcome_first_name", firstName.trim());
-    sessionStorage.setItem("welcome_is_guest", isGuest ? "1" : "0");
-
     // First-touch acquisition flush — fire-and-forget. Errors are swallowed
     // inside flushAcquisition so they can never block the redirect.
     void flushAcquisition(supabase, user.id);
 
-    router.push("/onboarding/welcome");
+    if (isGuest) {
+      // Invités : petite page de bienvenue → dashboard.
+      sessionStorage.setItem("welcome_first_name", firstName.trim());
+      sessionStorage.setItem("welcome_is_guest", "1");
+      router.push("/onboarding/welcome");
+    } else {
+      // Comptes payants : l'étape "code promo" EST le moment du paiement.
+      // On lance Stripe directement — plus de page de bienvenue intermédiaire.
+      const plan = localStorage.getItem("duupflow_selected_plan") ?? "pro";
+      router.push(`/checkout?plan=${plan}`);
+    }
   }
 
   const isLast = step === TOTAL_STEPS - 1;
@@ -233,7 +252,9 @@ function OnboardingForm() {
         ? t("onboarding.platformsTitle")
         : step === 2
           ? t("onboarding.sourceTitle")
-          : (locale === "en" ? "Got a promo code?" : "Un code promo ?");
+          : (cancelled
+              ? (locale === "en" ? "Resume your payment" : "Reprends ton paiement")
+              : (locale === "en" ? "Got a promo code?" : "Un code promo ?"));
 
   const leftSubtitle =
     step === 0
@@ -242,9 +263,13 @@ function OnboardingForm() {
         ? t("onboarding.platformsSubtitle")
         : step === 2
           ? t("onboarding.sourceSubtitle")
-          : (locale === "en"
-              ? "Apply it now to get your discount at payment. Optional — you can skip it."
-              : "Applique-le maintenant pour ta réduction au paiement. Optionnel — tu peux passer.");
+          : (cancelled
+              ? (locale === "en"
+                  ? "Payment cancelled. Add a promo code if you want, then resume payment."
+                  : "Paiement annulé. Ajoute un code promo si tu veux, puis reprends le paiement.")
+              : (locale === "en"
+                  ? "Apply it now to get your discount at payment. Optional — you can skip it."
+                  : "Applique-le maintenant pour ta réduction au paiement. Optionnel — tu peux passer."));
 
   return (
     <div className="lunera min-h-screen flex bg-white text-[#1a1a1a]">
@@ -436,10 +461,16 @@ function OnboardingForm() {
 
           {/* Actions */}
           <div className="mt-6 flex gap-3">
-            {!isGuest && step > 0 && (
+            {!isGuest && (
               <button
                 type="button"
-                onClick={() => { setError(""); setStep((s) => s - 1); }}
+                onClick={() => {
+                  setError("");
+                  // Retour en chaîne ; depuis la 1re étape (ou une reprise après
+                  // annulation de paiement), on remonte jusqu'à la page Tarifs.
+                  if (step === 0 || cancelled) router.push(`/${locale}/pricing#plans`);
+                  else setStep((s) => s - 1);
+                }}
                 disabled={loading}
                 className="rounded-xl px-5 py-3 text-sm font-semibold transition disabled:opacity-50"
                 style={{
@@ -460,9 +491,13 @@ function OnboardingForm() {
             >
               {loading
                 ? t("onboarding.creating")
-                : isLast
-                  ? t("onboarding.finish")
-                  : t("onboarding.continue")}
+                : step === 3
+                  ? (cancelled
+                      ? (locale === "en" ? "Resume payment" : "Reprendre le paiement")
+                      : (locale === "en" ? "Continue to payment" : "Continuer vers le paiement"))
+                  : isLast
+                    ? t("onboarding.finish")
+                    : t("onboarding.continue")}
             </button>
           </div>
         </div>

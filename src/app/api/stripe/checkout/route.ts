@@ -81,9 +81,9 @@ export async function POST(request: Request) {
       ...(effectiveAffiliateCode ? { affiliate_code: effectiveAffiliateCode } : {}),
     },
     success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-    // Sortie du paywall sans payer → retour à l'étape onboarding (welcome),
-    // sans relancer Stripe (welcome coupe son auto-redirect si ?paywall=cancelled).
-    cancel_url: `${baseUrl}/${locale}/onboarding/welcome?paywall=cancelled&plan=${plan}`,
+    // Sortie du paywall sans payer → retour à l'étape "code promo / payer" de
+    // l'onboarding (stylée comme les autres), sans relancer Stripe automatiquement.
+    cancel_url: `${baseUrl}/${locale}/onboarding?paywall=cancelled&plan=${plan}`,
     subscription_data: {
       // No free trial — checkout charges immediately for the chosen plan.
       metadata: {
