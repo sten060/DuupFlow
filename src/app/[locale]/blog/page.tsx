@@ -29,6 +29,18 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    slug: "reposter-meme-video-plusieurs-comptes-tiktok-instagram",
+    locale: "fr",
+    title: "Reposter la même vidéo sur plusieurs comptes TikTok et Instagram : la méthode qui fonctionne en 2026",
+    titleEn: "Reposting the same video across multiple TikTok and Instagram accounts: the method that works in 2026",
+    excerpt:
+      "Reposter le même fichier sur plusieurs comptes ne marche pas : les plateformes reconnaissent le doublon et coupent la portée. La solution est de générer des copies uniques.",
+    excerptEn:
+      "Reposting the same file across multiple accounts doesn't work: platforms recognize the duplicate and cut reach. The fix is to generate unique copies.",
+    publishedAt: "2026-08-01",
+    readingMinutes: 8,
+  },
+  {
     slug: "automatiser-production-contenu-api-duupflow",
     locale: "fr",
     title: "Automatiser toute sa production de contenu avec l'API DuupFlow",
