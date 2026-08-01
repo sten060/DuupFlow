@@ -55,7 +55,7 @@ export default function DriveSaveButton({ files, disabled, compact, className }:
     }
   }
 
-  const toneClass = tone === "ok" ? "text-emerald-300" : tone === "err" ? "text-red-300" : "text-white/50";
+  const toneClass = tone === "ok" ? "text-emerald-300" : tone === "err" ? "text-red-300" : "text-[var(--app-text-muted)]";
 
   if (compact) {
     return (
@@ -66,7 +66,7 @@ export default function DriveSaveButton({ files, disabled, compact, className }:
         title={t("drive.save")}
         aria-label={t("drive.save")}
         className="inline-flex items-center justify-center h-8 w-8 rounded-md
-                   bg-white/10 hover:bg-white/20 transition disabled:opacity-50"
+                   bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] transition disabled:opacity-50"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={DRIVE_ICON} alt="" className={loading ? "h-3.5 w-3.5 animate-pulse" : "h-3.5 w-3.5"} />
@@ -83,7 +83,7 @@ export default function DriveSaveButton({ files, disabled, compact, className }:
         className={
           className
             ? `inline-flex items-center gap-2 ${className}`
-            : "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white/85 transition disabled:opacity-50"
+            : "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text)] transition disabled:opacity-50"
         }
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}

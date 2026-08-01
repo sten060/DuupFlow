@@ -53,7 +53,7 @@ export default function DocsDrawer({ docs }: { docs: DocEntry[] }) {
         onClick={() => { setActive(0); setOpen(true); }}
         aria-label={t("dashboard.docs.button")}
         title={t("dashboard.docs.button")}
-        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] p-2 sm:px-3.5 sm:py-2 text-sm font-medium text-white/70 hover:bg-white/[0.09] hover:text-white transition"
+        className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-2 sm:px-3.5 sm:py-2 text-sm font-medium text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)] transition"
       >
         <DocIcon className="h-4 w-4 shrink-0" />
         {/* Label hidden on mobile — icon-only to save space. */}
@@ -68,14 +68,14 @@ export default function DocsDrawer({ docs }: { docs: DocEntry[] }) {
           {/* Window — full-screen on mobile, two-pane on desktop */}
           <div
             className="relative flex w-full h-full max-w-[1000px] sm:h-[84vh] rounded-none sm:rounded-2xl overflow-hidden shadow-2xl animate-[duupDocsIn_.2s_ease-out]"
-            style={{ background: "#0b1024", border: "1px solid rgba(255,255,255,0.10)" }}
+            style={{ background: "var(--app-bg)", border: "1px solid var(--app-border)" }}
           >
             <style>{`@keyframes duupDocsIn{from{transform:scale(.98);opacity:.5}to{transform:scale(1);opacity:1}}`}</style>
 
             {/* Left — topic sidebar (hidden on mobile; replaced by a topic dropdown) */}
-            <aside className="hidden sm:flex w-[230px] shrink-0 flex-col border-r border-white/[0.08]">
+            <aside className="hidden sm:flex w-[230px] shrink-0 flex-col border-r border-[var(--app-border)]">
               <div className="px-5 pt-5 pb-3">
-                <h2 className="text-base font-bold text-white">{t("dashboard.docs.title")}</h2>
+                <h2 className="text-base font-bold text-[var(--app-text)]">{t("dashboard.docs.title")}</h2>
               </div>
 
               <nav className="flex-1 overflow-y-auto px-2.5 pb-2 space-y-0.5">
@@ -88,11 +88,11 @@ export default function DocsDrawer({ docs }: { docs: DocEntry[] }) {
                       onClick={() => setActive(i)}
                       className={[
                         "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] transition",
-                        on ? "text-white font-semibold" : "text-white/55 hover:text-white/80 hover:bg-white/[0.03]",
+                        on ? "text-[var(--app-text)] font-semibold" : "text-[var(--app-text-muted)] hover:text-[var(--app-text-muted)] hover:bg-[var(--app-surface)]",
                       ].join(" ")}
                       style={on ? { background: "rgba(99,102,241,0.14)", boxShadow: "inset 0 0 0 1px rgba(99,102,241,0.28)" } : undefined}
                     >
-                      <DocIcon className={`h-4 w-4 shrink-0 ${on ? "text-indigo-300" : "text-white/30"}`} />
+                      <DocIcon className={`h-4 w-4 shrink-0 ${on ? "text-indigo-300" : "text-[var(--app-text-faint)]"}`} />
                       <span className="min-w-0 truncate">{d.title}</span>
                     </button>
                   );
@@ -100,7 +100,7 @@ export default function DocsDrawer({ docs }: { docs: DocEntry[] }) {
               </nav>
 
               {/* Contact support — pinned bottom */}
-              <div className="p-3 border-t border-white/[0.08]">
+              <div className="p-3 border-t border-[var(--app-border)]">
                 <a
                   href={TELEGRAM_SUPPORT}
                   target="_blank"
@@ -120,15 +120,15 @@ export default function DocsDrawer({ docs }: { docs: DocEntry[] }) {
 
             {/* Right — content */}
             <div className="flex-1 flex flex-col min-w-0">
-              <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-white/[0.08] shrink-0">
+              <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-[var(--app-border)] shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <DocIcon className="h-5 w-5 shrink-0 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white truncate">{current?.title}</h3>
+                  <h3 className="text-lg font-semibold text-[var(--app-text)] truncate">{current?.title}</h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="text-white/40 hover:text-white/80 transition shrink-0"
+                  className="text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] transition shrink-0"
                   aria-label={t("dashboard.docs.close")}
                 >
                   <svg viewBox="0 0 16 16" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -139,15 +139,15 @@ export default function DocsDrawer({ docs }: { docs: DocEntry[] }) {
 
               {/* Mobile topic navigation — the left sidebar is hidden on phones,
                   so pick the topic here + a quick support shortcut. */}
-              <div className="sm:hidden flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.08] shrink-0">
+              <div className="sm:hidden flex items-center gap-2 px-4 py-2.5 border-b border-[var(--app-border)] shrink-0">
                 <select
                   value={active}
                   onChange={(e) => setActive(Number(e.target.value))}
-                  className="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm text-white outline-none"
-                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}
+                  className="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm text-[var(--app-text)] outline-none"
+                  style={{ background: "var(--app-surface-2)", border: "1px solid var(--app-border-strong)" }}
                 >
                   {docs.map((d, i) => (
-                    <option key={i} value={i} style={{ background: "#0b1024" }}>{d.title}</option>
+                    <option key={i} value={i} style={{ background: "var(--app-bg)" }}>{d.title}</option>
                   ))}
                 </select>
                 <a
@@ -162,7 +162,7 @@ export default function DocsDrawer({ docs }: { docs: DocEntry[] }) {
                 </a>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-5 sm:px-6 md:px-8 py-6 sm:py-7 text-[14.5px] leading-[1.9] text-white/70">
+              <div className="flex-1 overflow-y-auto px-5 sm:px-6 md:px-8 py-6 sm:py-7 text-[14.5px] leading-[1.9] text-[var(--app-text-muted)]">
                 {current?.body}
               </div>
             </div>

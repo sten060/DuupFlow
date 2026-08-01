@@ -45,7 +45,7 @@ export default function SubscriptionCanceledModal() {
       <div
         className="w-full max-w-md rounded-2xl p-7 relative"
         style={{
-          background: "rgba(10,14,40,0.98)",
+          background: "var(--app-surface)",
           border: "1px solid rgba(129,140,248,0.40)",
           boxShadow:
             "0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(99,102,241,0.15)",
@@ -54,7 +54,7 @@ export default function SubscriptionCanceledModal() {
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="absolute top-3 right-3 h-8 w-8 flex items-center justify-center rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-white/70"
+          className="absolute top-3 right-3 h-8 w-8 flex items-center justify-center rounded-full bg-[var(--app-surface)] hover:bg-[var(--app-surface-2)] text-[var(--app-text-muted)]"
           aria-label="Fermer"
         >
           ×
@@ -79,11 +79,11 @@ export default function SubscriptionCanceledModal() {
           </svg>
         </div>
 
-        <h2 className="text-2xl font-bold text-white text-center mb-2 tracking-tight">
+        <h2 className="text-2xl font-bold text-[var(--app-text)] text-center mb-2 tracking-tight">
           {t("dashboard.subscriptionCanceled.title")}
         </h2>
 
-        <p className="text-sm text-white/65 text-center leading-relaxed mb-5">
+        <p className="text-sm text-[var(--app-text-muted)] text-center leading-relaxed mb-5">
           {t("dashboard.subscriptionCanceled.body")}
         </p>
 
@@ -94,7 +94,7 @@ export default function SubscriptionCanceledModal() {
             border: "1px solid rgba(129,140,248,0.20)",
           }}
         >
-          <p className="text-xs text-indigo-200/85 leading-relaxed">
+          <p className="text-xs text-[var(--app-text-muted)] leading-relaxed">
             {t("dashboard.subscriptionCanceled.notice")}
           </p>
         </div>
@@ -111,7 +111,7 @@ export default function SubscriptionCanceledModal() {
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="w-full mt-2 py-2.5 text-xs font-medium text-white/40 hover:text-white/70 transition"
+          className="w-full mt-2 py-2.5 text-xs font-medium text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] transition"
         >
           {t("dashboard.subscriptionCanceled.dismiss")}
         </button>

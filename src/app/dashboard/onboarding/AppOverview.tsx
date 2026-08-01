@@ -53,7 +53,7 @@ export default function AppOverview() {
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-lg rounded-3xl overflow-hidden"
         style={{
-          background: "rgba(10,14,40,0.985)",
+          background: "var(--app-surface)",
           border: "1px solid rgba(99,102,241,0.28)",
           boxShadow: "0 30px 90px rgba(0,0,0,0.6), 0 0 70px rgba(99,102,241,0.12)",
           opacity: shown ? 1 : 0,
@@ -67,10 +67,10 @@ export default function AppOverview() {
             className="pointer-events-none absolute inset-x-0 top-0 h-32"
             style={{ background: "radial-gradient(420px at 50% -10%, rgba(99,102,241,0.22), transparent 70%)" }}
           />
-          <h2 className="relative text-2xl font-semibold tracking-tight text-white">
+          <h2 className="relative text-2xl font-semibold tracking-tight text-[var(--app-text)]">
             {t("onb.overview.title")}
           </h2>
-          <p className="relative mt-2 text-sm leading-relaxed text-white/55 mx-auto max-w-sm">
+          <p className="relative mt-2 text-sm leading-relaxed text-[var(--app-text-muted)] mx-auto max-w-sm">
             {t("onb.overview.subtitle")}
           </p>
         </div>
@@ -82,8 +82,8 @@ export default function AppOverview() {
               key={m.key}
               className="flex items-center gap-3.5 rounded-2xl px-4 py-3"
               style={{
-                background: "rgba(255,255,255,0.025)",
-                border: "1px solid rgba(255,255,255,0.06)",
+                background: "var(--app-surface)",
+                border: "1px solid var(--app-border)",
                 opacity: shown ? 1 : 0,
                 transform: shown ? "translateY(0)" : "translateY(6px)",
                 transition: "opacity .45s ease, transform .45s cubic-bezier(.16,1,.3,1)",
@@ -97,10 +97,10 @@ export default function AppOverview() {
                 {m.icon}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-white/90 leading-tight">
+                <p className="text-sm font-semibold text-[var(--app-text)] leading-tight">
                   {t(`onb.modules.${m.i18n}.name`)}
                 </p>
-                <p className="text-xs text-white/45 mt-0.5 leading-snug">
+                <p className="text-xs text-[var(--app-text-faint)] mt-0.5 leading-snug">
                   {t(`onb.modules.${m.i18n}.tagline`)}
                 </p>
               </div>
@@ -117,7 +117,7 @@ export default function AppOverview() {
           >
             {t("onb.overview.cta")}
           </button>
-          <p className="mt-3 text-center text-[11px] text-white/35">
+          <p className="mt-3 text-center text-[11px] text-[var(--app-text-faint)]">
             {t("onb.overview.foot")}
           </p>
         </div>

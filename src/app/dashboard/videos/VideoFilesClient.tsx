@@ -82,7 +82,7 @@ export default function VideoFilesClient({
           type="button"
           onClick={handleClear}
           disabled={clearing}
-          className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white/80 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text-muted)] transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {clearing ? t("dashboard.videos.clearing") : t("dashboard.videos.clearVideos", { channel })}
         </button>
@@ -107,13 +107,13 @@ export default function VideoFilesClient({
         </a>
       </div>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <section className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
         <h2 className="font-semibold mb-2">{t("dashboard.videos.generatedVideos", { channel })}</h2>
         {files.length === 0 ? (
-          <p className="text-white/60 text-sm">{t("dashboard.videos.noVideosYet")}</p>
+          <p className="text-[var(--app-text-muted)] text-sm">{t("dashboard.videos.noVideosYet")}</p>
         ) : (
           <>
-            <label className="flex items-center gap-2 text-xs text-white/60 mb-2 cursor-pointer">
+            <label className="flex items-center gap-2 text-xs text-[var(--app-text-muted)] mb-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={allSelected}

@@ -1,7 +1,7 @@
 // src/app/(dashboard)/videos/advanced/VideoFormAdvancedClient.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Dropzone from "../../Dropzone";
@@ -44,7 +44,7 @@ function Card({
       {(title || right) && (
         <div className="mb-3 flex items-center justify-between">
           {title ? (
-            <h3 className="text-sm font-semibold text-white/90">{title}</h3>
+            <h3 className="text-sm font-semibold text-[var(--app-text)]">{title}</h3>
           ) : (
             <div />
           )}
@@ -89,11 +89,8 @@ type Ctrl = {
 };
 
 const CONTROLS: Ctrl[] = [
-  // Métadonnées
-  { key: "meta_creation_time", label: "Date de création", group: "Tags", min: 0, max: 1, type: "toggle", hint: "Activé = date aléatoire" },
-  { key: "meta_encoder", label: "Encodeur / Logiciel", group: "Tags", min: 0, max: 1, type: "toggle", hint: "Activé = logiciel aléatoire" },
-  { key: "meta_brand", label: "Brand / Format container", group: "Tags", min: 0, max: 1, type: "toggle" },
-  { key: "meta_uid", label: "Identifiant unique (UID)", group: "Tags", min: 0, max: 1, type: "toggle" },
+  // Métadonnées (tags) : plus de réglages ici — les tags aléatoires sont
+  // désormais appliqués automatiquement sur chaque copie, comme en mode simple.
   // Options
   { key: "flip", label: "Flip (vertical)", group: "Options", min: 0, max: 1, type: "toggle" },
   { key: "reverse", label: "Reverse (miroir horizontal)", group: "Options", min: 0, max: 1, type: "toggle" },
@@ -249,6 +246,44 @@ const BUILTIN_TEMPLATES: Template[] = [
   },
 ];
 
+/* Extrait la 1ʳᵉ frame (cover) d'une vidéo → dataURL JPEG. Retourne null si le
+   navigateur ne sait pas décoder (ex. HEVC iPhone) — la preview retombe alors sur
+   le damier. Pas de lecture : on seek une frame et on la peint sur un canvas. */
+function extractVideoCover(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v: string | null) => { if (!settled) { settled = true; resolve(v); } };
+    try {
+      const url = URL.createObjectURL(file);
+      const v = document.createElement("video");
+      v.preload = "auto";
+      v.muted = true;
+      (v as HTMLVideoElement & { playsInline?: boolean }).playsInline = true;
+      v.src = url;
+      const cleanup = () => URL.revokeObjectURL(url);
+      const capture = () => {
+        try {
+          const c = document.createElement("canvas");
+          c.width = v.videoWidth || 720;
+          c.height = v.videoHeight || 1280;
+          const ctx = c.getContext("2d");
+          if (!ctx) { cleanup(); return done(null); }
+          ctx.drawImage(v, 0, 0, c.width, c.height);
+          const data = c.toDataURL("image/jpeg", 0.72);
+          cleanup();
+          done(data);
+        } catch { cleanup(); done(null); }
+      };
+      v.onloadeddata = () => {
+        try { v.currentTime = Math.min(0.1, (v.duration || 1) / 2); } catch { capture(); }
+      };
+      v.onseeked = capture;
+      v.onerror = () => { cleanup(); done(null); };
+      setTimeout(() => { cleanup(); done(null); }, 6000);
+    } catch { done(null); }
+  });
+}
+
 /* ========================= Page ========================= */
 export default function VideoFormAdvancedClient() {
   const { t } = useTranslation();
@@ -300,6 +335,19 @@ export default function VideoFormAdvancedClient() {
 
   // Stealth mode
   const [stealthMode, setStealthMode] = useState(false);
+
+  // Cover de la 1ʳᵉ vidéo uploadée → fond de l'aperçu watermark. Régénérée à
+  // chaque changement de la liste de fichiers (Dropzone → onFilesChange).
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const coverFileKeyRef = useRef<string>("");
+  const onDropFilesChange = useCallback((files: File[]) => {
+    const first = files.find((f) => f.type.startsWith("video") || /\.(mp4|mov|webm|m4v)$/i.test(f.name)) ?? files[0];
+    if (!first) { coverFileKeyRef.current = ""; setCoverUrl(null); return; }
+    const key = `${first.name}::${first.size}::${first.lastModified}`;
+    if (key === coverFileKeyRef.current) return; // même fichier → garde la cover
+    coverFileKeyRef.current = key;
+    void extractVideoCover(first).then(setCoverUrl);
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -395,7 +443,7 @@ export default function VideoFormAdvancedClient() {
   }, []);
 
   const groups = useMemo(() => {
-    const wanted: Group[] = ["Tags", "Visuel", "Mouvement", "Mouvement poussé", "Techniques", "Audio", "Options"];
+    const wanted: Group[] = ["Visuel", "Mouvement", "Mouvement poussé", "Techniques", "Audio", "Options"];
     return wanted.filter((g) => CONTROLS.some((c) => c.group === g));
   }, []);
 
@@ -501,10 +549,13 @@ export default function VideoFormAdvancedClient() {
         setProgressMsg(t("dashboard.videosAdvanced.sendingToServer"));
 
         apiForm = new FormData();
-        for (const key of ["channel", "mode", "advancedRanges", "count", "country", "iphoneMeta"]) {
+        for (const key of ["channel", "mode", "advancedRanges", "count", "country", "iphoneMeta", "watermarkConfig"]) {
           const v = rawForm.get(key);
           if (v !== null) apiForm.append(key, v);
         }
+        // Logo watermark personnalisé (fichier) — transmis à part si présent.
+        const wmLogo = rawForm.get("watermarkLogo");
+        if (wmLogo instanceof File && wmLogo.size > 0) apiForm.append("watermarkLogo", wmLogo);
         for (const id of directUploadIds) apiForm.append("directUploadIds", id);
         for (const f of uploadedFiles) apiForm.append("fileNames", f.name);
         apiForm.append("jobId", jobId);
@@ -737,7 +788,7 @@ export default function VideoFormAdvancedClient() {
       "w-1/2 rounded-md border bg-transparent px-2 py-1 text-sm",
       bad
         ? "border-red-400/70 focus:outline-none focus:ring-2 focus:ring-red-400/50"
-        : "border-white/15 focus:outline-none focus:ring-2 focus:ring-sky-400/40",
+        : "border-[var(--app-border-strong)] focus:outline-none focus:ring-2 focus:ring-sky-400/40",
     ].join(" ");
 
   // Mirror a job that resumed in the global store (e.g. after a reload) so the
@@ -760,22 +811,22 @@ export default function VideoFormAdvancedClient() {
       <input type="hidden" name="mode" value="advanced" />
       <input type="hidden" name="advancedRanges" value={JSON.stringify(serialRanges)} />
       {/* Dropzone + Copies */}
-      <div data-tour-id="vadv-dropzone" className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
+      <div data-tour-id="vadv-dropzone" className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3">
         <DriveImportButton accept="video" maxVideoSec={59} onFiles={(fs) => dzAddRef.current?.(fs)} />
-        <Dropzone name="files" accept="video/*" multiple maxFiles={40} addFilesRef={dzAddRef} />
+        <Dropzone name="files" accept="video/*" multiple maxFiles={40} addFilesRef={dzAddRef} onFilesChange={onDropFilesChange} />
         <div className="max-w-xs">
-          <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.videosAdvanced.copiesLabel")}</label>
+          <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-1.5">{t("dashboard.videosAdvanced.copiesLabel")}</label>
           <input
             type="number"
             name="count"
             min={1}
             defaultValue={1}
-            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90"
+            className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-text)]"
           />
         </div>
       </div>
 
-      <div className="h-px bg-white/[0.06]" />
+      <div className="h-px bg-[var(--app-surface-2)]" />
 
       {/* Groupes de filtres */}
       <div data-tour-id="vadv-settings" className="space-y-6">
@@ -790,7 +841,7 @@ export default function VideoFormAdvancedClient() {
             >
               {t(`vid.group.${GROUP_TOKEN[g]}`)}
               <InfoTooltip><span className="whitespace-pre-line">{t(`vid.help.${GROUP_TOKEN[g]}`)}</span></InfoTooltip>
-              <span className="text-[10px] text-white/40">{open[g] ? "▲" : "▼"}</span>
+              <span className="text-[10px] text-[var(--app-text-faint)]">{open[g] ? "▲" : "▼"}</span>
             </button>
           }
         >
@@ -808,13 +859,13 @@ export default function VideoFormAdvancedClient() {
                     <div
                       key={key}
                       className={`rounded-xl border p-3 ${
-                        dimsEnabled ? "border-sky-300 bg-sky-400/10" : "border-white/15 bg-white/[.03]"
+                        dimsEnabled ? "border-sky-300 bg-sky-400/10" : "border-[var(--app-border-strong)] bg-[var(--app-surface)]"
                       }`}
                     >
                       <label className="mb-2 flex items-center justify-between gap-3">
                         <span className="text-sm font-medium">{t("vid.dims.label")}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-white/60">%</span>
+                          <span className="text-[11px] text-[var(--app-text-muted)]">%</span>
                           <input
                             type="checkbox"
                             checked={dimsEnabled}
@@ -841,7 +892,7 @@ export default function VideoFormAdvancedClient() {
                           placeholder="H %"
                         />
                       </div>
-                      <div className="mt-1 text-[11px] text-white/60">{limText}</div>
+                      <div className="mt-1 text-[11px] text-[var(--app-text-muted)]">{limText}</div>
                     </div>
                   );
                 }
@@ -854,7 +905,7 @@ export default function VideoFormAdvancedClient() {
                     <div
                       key={c.key}
                       className={`rounded-xl border p-3 ${
-                        fv?.enabled ? "border-sky-300 bg-sky-400/10" : "border-white/15 bg-white/[.03]"
+                        fv?.enabled ? "border-sky-300 bg-sky-400/10" : "border-[var(--app-border-strong)] bg-[var(--app-surface)]"
                       }`}
                     >
                       <label className="mb-2 flex items-center justify-between gap-3">
@@ -882,9 +933,9 @@ export default function VideoFormAdvancedClient() {
                         }
                         className="w-full accent-sky-400 disabled:opacity-40"
                       />
-                      <div className="mt-1 flex justify-between text-[11px] text-white/55">
+                      <div className="mt-1 flex justify-between text-[11px] text-[var(--app-text-muted)]">
                         <span>{t("vid.force.subtle")}</span>
-                        <span className="text-white/80">{val}</span>
+                        <span className="text-[var(--app-text-muted)]">{val}</span>
                         <span>{t("vid.force.strong")}</span>
                       </div>
                     </div>
@@ -916,13 +967,13 @@ export default function VideoFormAdvancedClient() {
                         ? bad
                           ? "border-red-400/70 bg-red-400/10"
                           : "border-sky-300 bg-sky-400/10"
-                        : "border-white/15 bg-white/[.03]"
+                        : "border-[var(--app-border-strong)] bg-[var(--app-surface)]"
                     }`}
                   >
                     <label className="mb-2 flex items-center justify-between gap-3">
                       <span className="text-sm font-medium">{t(`vid.ctrl.${c.key}.label`)}</span>
                       <div className="flex items-center gap-2">
-                        {c.unit && <span className="text-[11px] text-white/60">{c.unit}</span>}
+                        {c.unit && <span className="text-[11px] text-[var(--app-text-muted)]">{c.unit}</span>}
                         <input
                           type="checkbox"
                           checked={v.enabled}
@@ -934,7 +985,7 @@ export default function VideoFormAdvancedClient() {
                     </label>
 
                     {isToggle ? (
-                      <div className="text-[11px] text-white/60">{t("vid.ctrl.enabled")}</div>
+                      <div className="text-[11px] text-[var(--app-text-muted)]">{t("vid.ctrl.enabled")}</div>
                     ) : (
                       <>
                         <div className="flex items-center gap-2">
@@ -968,11 +1019,11 @@ export default function VideoFormAdvancedClient() {
                           {msg ? (
                             <span className="text-red-400">{msg}</span>
                           ) : lim ? (
-                            <span className="text-white/55">
+                            <span className="text-[var(--app-text-muted)]">
                               {t("vid.range.recommended", { range: limLabel(c.key) })}
                             </span>
                           ) : (
-                            <span className="text-white/55">—</span>
+                            <span className="text-[var(--app-text-muted)]">—</span>
                           )}
                         </div>
                       </>
@@ -981,30 +1032,25 @@ export default function VideoFormAdvancedClient() {
                 );
               })}
 
-              {/* Localisation — in Tags group */}
-              {g === "Tags" && (
-                <div className="col-span-full flex flex-wrap items-end gap-4 mt-1">
-                  <div className="flex-1 min-w-[200px] max-w-xs">
-                    <label className="block text-sm font-medium text-white/70 mb-1">{t("dashboard.videosAdvanced.countryLabel")}</label>
-                    <CountrySelect
-                      name="country"
-                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-white/90"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Priorité algorithme — in Options group */}
+              {/* Priorité algorithme + Localisation pays — in Options group */}
               {g === "Options" && (
                 <div className="col-span-full flex flex-wrap items-end gap-4 mt-1">
                   <label className="inline-flex cursor-pointer select-none items-center gap-3 text-sm py-1.5">
-                    <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/15 transition">
+                    <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-[var(--app-surface-2)] transition">
                       <input type="checkbox" name="iphoneMeta" value="1" className="sr-only peer" />
-                      <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white/70 peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
+                      <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--app-text-muted)] peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
                     </span>
-                    <span className="text-white/85">⚡ {t("dashboard.videosAdvanced.iphoneMetaLabel")}</span>
+                    <span className="text-[var(--app-text-muted)]">⚡ {t("dashboard.videosAdvanced.iphoneMetaLabel")}</span>
                   </label>
                   <InfoTooltip>{t("dashboard.videosAdvanced.iphoneMetaHint")}</InfoTooltip>
+
+                  <div className="flex-1 min-w-[200px] max-w-xs">
+                    <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-1">{t("dashboard.videosAdvanced.countryLabel")}</label>
+                    <CountrySelect
+                      name="country"
+                      className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-1.5 text-sm text-[var(--app-text)]"
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -1012,6 +1058,14 @@ export default function VideoFormAdvancedClient() {
         </Card>
       ))}
       </div>
+
+      {/* Watermark visible (formes / logo perso) */}
+      <WatermarkSection coverUrl={coverUrl} />
+
+      {/* Sections réservées — à venir */}
+      <ComingSoonSection title="Caption (texte incrusté)" />
+      <ComingSoonSection title="Hook" />
+      <ComingSoonSection title="Sous-titres" />
 
       {/* Templates + Reset — anchor target for the TikTok announcement deep-link */}
       <div id="tiktok-templates" className="scroll-mt-24 rounded-2xl">
@@ -1021,7 +1075,7 @@ export default function VideoFormAdvancedClient() {
             value={tplName}
             onChange={(e) => setTplName(e.target.value)}
             placeholder={t("dashboard.videosAdvanced.templatePlaceholder")}
-            className="min-w-[220px] flex-1 rounded-md border border-white/15 bg-transparent px-3 py-2 text-sm"
+            className="min-w-[220px] flex-1 rounded-md border border-[var(--app-border-strong)] bg-transparent px-3 py-2 text-sm"
           />
           <button
             type="button"
@@ -1033,7 +1087,7 @@ export default function VideoFormAdvancedClient() {
           <button
             type="button"
             onClick={onResetAll}
-            className="rounded-lg border border-white/20 px-3 py-2 text-sm hover:bg-white/10"
+            className="rounded-lg border border-[var(--app-border-strong)] px-3 py-2 text-sm hover:bg-[var(--app-surface-2)]"
           >
             {t("dashboard.videosAdvanced.resetFilters")}
           </button>
@@ -1049,13 +1103,13 @@ export default function VideoFormAdvancedClient() {
 
       {busy && shownProgress !== null && (
         <div className="mt-2">
-          <div className="h-2 w-full rounded bg-white/10 overflow-hidden">
+          <div className="h-2 w-full rounded bg-[var(--app-surface-2)] overflow-hidden">
             <div
               className="h-2 bg-sky-500 transition-[width] duration-200"
               style={{ width: `${Math.max(0, Math.min(100, shownProgress))}%` }}
             />
           </div>
-          <p className="mt-1 text-xs text-white/70">{shownMsg || t("vid.progress.percent", { percent: shownProgress })}</p>
+          <p className="mt-1 text-xs text-[var(--app-text-muted)]">{shownMsg || t("vid.progress.percent", { percent: shownProgress })}</p>
         </div>
       )}
 
@@ -1096,6 +1150,464 @@ export default function VideoFormAdvancedClient() {
   );
 }
 
+/* ================= Watermark visible ================= */
+// Formes SVG proposées pour le watermark "de base". La couleur est appliquée à
+// l'exécution (fill/stroke) ; le rendu réel (rasterisation + overlay ffmpeg) est
+// fait côté serveur à partir de `watermarkConfig`.
+const WM_SHAPES: { key: string; label: string }[] = [
+  { key: "snowflake", label: "Flocon" },
+  { key: "circle", label: "Rond" },
+  { key: "square", label: "Carré" },
+  { key: "diamond", label: "Losange" },
+  { key: "triangle", label: "Triangle" },
+  { key: "star", label: "Étoile" },
+  { key: "heart", label: "Cœur" },
+  { key: "hexagon", label: "Hexagone" },
+];
+
+const WM_COLORS = ["#ffffff", "#000000", "#ef4444", "#38bdf8", "#22c55e", "#eab308", "#ec4899", "#a855f7"];
+
+// Position fixe — grille 3×3. Les clés encodent (haut/milieu/bas)-(gauche/centre/droite).
+const WM_POSITIONS: { key: string; label: string }[] = [
+  { key: "tl", label: "Haut gauche" }, { key: "tc", label: "Haut centre" }, { key: "tr", label: "Haut droite" },
+  { key: "ml", label: "Milieu gauche" }, { key: "mc", label: "Centre" }, { key: "mr", label: "Milieu droite" },
+  { key: "bl", label: "Bas gauche" }, { key: "bc", label: "Bas centre" }, { key: "br", label: "Bas droite" },
+];
+
+function ShapeGlyph({ shape, color, size = 30 }: { shape: string; color: string; size?: number }) {
+  const common = { width: size, height: size, viewBox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg" } as const;
+  switch (shape) {
+    case "circle":
+      return <svg {...common}><circle cx="12" cy="12" r="9" fill={color} /></svg>;
+    case "square":
+      return <svg {...common}><rect x="3.5" y="3.5" width="17" height="17" rx="2.5" fill={color} /></svg>;
+    case "diamond":
+      return <svg {...common}><path d="M12 2 L22 12 L12 22 L2 12 Z" fill={color} /></svg>;
+    case "triangle":
+      return <svg {...common}><path d="M12 3 L21.5 20 L2.5 20 Z" fill={color} /></svg>;
+    case "star":
+      return <svg {...common}><path d="M12 2.4l2.7 5.9 6.4.7-4.8 4.3 1.3 6.3L12 16.9 6.4 19.9l1.3-6.3L2.9 9l6.4-.7z" fill={color} /></svg>;
+    case "heart":
+      return <svg {...common}><path d="M12 21s-7.5-4.6-9.7-9.1C.9 8.6 2.6 5.5 5.6 5.5c1.9 0 3.3 1.1 4.4 2.6C11.1 6.6 12.5 5.5 14.4 5.5c3 0 4.7 3.1 3.3 6.4C19.5 16.4 12 21 12 21z" fill={color} /></svg>;
+    case "hexagon":
+      return <svg {...common}><path d="M12 2 L20.6 7 V17 L12 22 L3.4 17 V7 Z" fill={color} /></svg>;
+    case "snowflake":
+      return (
+        <svg {...common} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round">
+          <line x1="12" y1="2" x2="12" y2="22" />
+          <line x1="3.3" y1="7" x2="20.7" y2="17" />
+          <line x1="20.7" y1="7" x2="3.3" y2="17" />
+          <path d="M12 5 l-2.1 2M12 5 l2.1 2M12 19 l-2.1 -2M12 19 l2.1 -2M4.5 8 l.6 2.8M4.5 8 l2.8 .6M19.5 16 l-.6 -2.8M19.5 16 l-2.8 -.6M19.5 8 l-2.8 .6M19.5 8 l-.6 2.8M4.5 16 l2.8 -.6M4.5 16 l.6 -2.8" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+  // Sous-sections en accordéon : "base" (forme) puis "logo" (upload perso).
+  const [sub, setSub] = useState<"base" | "logo" | null>("base");
+
+  // Source active du watermark : forme intégrée OU logo perso.
+  const [source, setSource] = useState<"shape" | "logo">("shape");
+  const [shape, setShape] = useState("snowflake");
+  const [randomShape, setRandomShape] = useState(false); // forme différente par copie
+  const [color, setColor] = useState("#ffffff");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoName, setLogoName] = useState<string | null>(null);
+
+  // Réglages communs une fois le watermark choisi.
+  const [opacity, setOpacity] = useState(60);
+  const [size, setSize] = useState(12); // taille = % de la largeur vidéo
+  const [position, setPosition] = useState("br");
+  const [randomPosition, setRandomPosition] = useState(false); // position différente par copie
+  const [motion, setMotion] = useState(false);
+  const [speed, setSpeed] = useState(50);
+
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+
+  const onPickLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (logoUrl) URL.revokeObjectURL(logoUrl);
+    setLogoUrl(URL.createObjectURL(f));
+    setLogoName(f.name);
+    setSource("logo");
+  };
+
+  useEffect(() => () => { if (logoUrl) URL.revokeObjectURL(logoUrl); }, [logoUrl]);
+
+  const config = useMemo(
+    () => ({
+      enabled,
+      source,
+      shape,
+      randomShape,
+      color,
+      hasLogo: source === "logo" && !!logoName,
+      opacity,
+      size,
+      position: motion ? null : randomPosition ? "random" : position,
+      randomPosition,
+      motion,
+      speed,
+    }),
+    [enabled, source, shape, randomShape, color, logoName, opacity, size, position, randomPosition, motion, speed],
+  );
+
+  const hasWatermark = source === "shape" || (source === "logo" && !!logoUrl);
+  const previewColor = source === "logo" ? "#ffffff" : color;
+
+  // Position du watermark dans la preview (CSS %) selon la clé de la grille 3×3.
+  // Marge 4% comme côté serveur. En mouvement/aléatoire → centré (indicatif).
+  const previewPos = (): { left: string; top: string; tx: string; ty: string } => {
+    if (motion || randomPosition) return { left: "50%", top: "50%", tx: "-50%", ty: "-50%" };
+    const k = position;
+    const left = k.endsWith("l") ? "4%" : k.endsWith("r") ? "96%" : "50%";
+    const tx = k.endsWith("l") ? "0" : k.endsWith("r") ? "-100%" : "-50%";
+    const top = k.startsWith("t") ? "4%" : k.startsWith("b") ? "96%" : "50%";
+    const ty = k.startsWith("t") ? "0" : k.startsWith("b") ? "-100%" : "-50%";
+    return { left, top, tx, ty };
+  };
+  const pp = previewPos();
+
+  return (
+    <Card
+      title={
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex items-center gap-2 cursor-pointer select-none"
+        >
+          Watermark visible
+          <InfoTooltip>
+            <span className="whitespace-pre-line">
+              Ajoute un filigrane visible à l&apos;écran : une forme simple (dont tu choisis la couleur) ou ton propre
+              logo. Règle son opacité, sa position, ou fais-le se déplacer aléatoirement sur la vidéo.
+            </span>
+          </InfoTooltip>
+          <span className="text-[10px] text-[var(--app-text-faint)]">{open ? "▲" : "▼"}</span>
+        </button>
+      }
+    >
+      {/* Config sérialisée pour le serveur */}
+      <input type="hidden" name="watermarkConfig" value={JSON.stringify(config)} />
+      {/* Fichier logo réel — inclus dans le FormData si présent */}
+      <input ref={logoInputRef} type="file" name="watermarkLogo" accept="image/*" hidden onChange={onPickLogo} />
+
+      {open && (
+        <div className="mt-1 space-y-4">
+          {/* Master toggle */}
+          <label className="inline-flex cursor-pointer select-none items-center gap-3 text-sm">
+            <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-[var(--app-surface-2)] transition">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.target.checked)}
+                className="sr-only peer"
+              />
+              <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--app-text-muted)] peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
+            </span>
+            <span className="text-[var(--app-text-muted)]">Activer le watermark</span>
+          </label>
+
+          <div className={enabled ? "space-y-4" : "space-y-4 opacity-40 pointer-events-none"}>
+            {/* ── Sous-section 1 : Watermark de base ── */}
+            <div className="rounded-xl border border-[var(--app-border-strong)] bg-[var(--app-surface)]">
+              <button
+                type="button"
+                onClick={() => setSub((s) => (s === "base" ? null : "base"))}
+                className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${source === "shape" ? "bg-sky-400" : "bg-[var(--app-text-faint)]"}`} />
+                  1 · Watermark de base
+                </span>
+                <span className="text-[10px] text-[var(--app-text-faint)]">{sub === "base" ? "▲" : "▼"}</span>
+              </button>
+              {sub === "base" && (
+                <div className="space-y-4 px-4 pb-4">
+                  {/* Formes */}
+                  <div>
+                    <div className="mb-2 text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">Forme</div>
+                    <div className="flex flex-wrap gap-2">
+                      {WM_SHAPES.map((s) => {
+                        const active = source === "shape" && shape === s.key && !randomShape;
+                        return (
+                          <button
+                            key={s.key}
+                            type="button"
+                            title={s.label}
+                            onClick={() => { setShape(s.key); setSource("shape"); setRandomShape(false); }}
+                            className={`flex h-11 w-11 items-center justify-center rounded-lg border transition ${
+                              active ? "border-sky-300 bg-sky-400/10" : "border-[var(--app-border-strong)] bg-[var(--app-surface)] hover:bg-[var(--app-surface)]"
+                            }`}
+                          >
+                            <ShapeGlyph shape={s.key} color={color === "#000000" ? "#e5e7eb" : color} size={24} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <label className="mt-3 inline-flex cursor-pointer select-none items-center gap-2 text-[12px] text-[var(--app-text-muted)]">
+                      <input
+                        type="checkbox"
+                        checked={randomShape}
+                        onChange={(e) => { setRandomShape(e.target.checked); if (e.target.checked) setSource("shape"); }}
+                      />
+                      Forme aléatoire sur chaque duplication
+                    </label>
+                  </div>
+
+                  {/* Couleur */}
+                  <div>
+                    <div className="mb-2 text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">Couleur</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {WM_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => { setColor(c); setSource("shape"); }}
+                          className={`h-7 w-7 rounded-full border transition ${
+                            color === c ? "border-sky-300 ring-2 ring-sky-400/50" : "border-[var(--app-border-strong)]"
+                          }`}
+                          style={{ background: c }}
+                          aria-label={c}
+                        />
+                      ))}
+                      <label className="ml-1 inline-flex items-center gap-1.5 text-[11px] text-[var(--app-text-muted)]">
+                        <span>Perso</span>
+                        <input
+                          type="color"
+                          value={color}
+                          onChange={(e) => { setColor(e.target.value); setSource("shape"); }}
+                          className="h-7 w-9 cursor-pointer rounded border border-[var(--app-border-strong)] bg-transparent"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Sous-section 2 : Logo / forme perso ── */}
+            <div className="rounded-xl border border-[var(--app-border-strong)] bg-[var(--app-surface)]">
+              <button
+                type="button"
+                onClick={() => setSub((s) => (s === "logo" ? null : "logo"))}
+                className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${source === "logo" ? "bg-sky-400" : "bg-[var(--app-text-faint)]"}`} />
+                  2 · Mon logo / ma forme
+                </span>
+                <span className="text-[10px] text-[var(--app-text-faint)]">{sub === "logo" ? "▲" : "▼"}</span>
+              </button>
+              {sub === "logo" && (
+                <div className="space-y-3 px-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => logoInputRef.current?.click()}
+                      className="rounded-lg border border-[var(--app-border-strong)] px-3 py-2 text-sm hover:bg-[var(--app-surface-2)]"
+                    >
+                      {logoUrl ? "Changer le logo" : "Importer un logo / une forme"}
+                    </button>
+                    {logoUrl && (
+                      <>
+                        <span className="max-w-[160px] truncate text-[12px] text-[var(--app-text-muted)]">{logoName}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (logoUrl) URL.revokeObjectURL(logoUrl);
+                            setLogoUrl(null); setLogoName(null);
+                            if (logoInputRef.current) logoInputRef.current.value = "";
+                            setSource("shape");
+                          }}
+                          className="rounded-full bg-[var(--app-surface-2)] px-2 text-sm hover:bg-[var(--app-surface-2)]"
+                        >
+                          ×
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[var(--app-text-faint)]">
+                    Tous formats image acceptés (PNG transparent recommandé, JPG, WEBP, SVG…).
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* ── Réglages du watermark choisi ── */}
+            <div className="rounded-xl border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-4">
+              <div className="mb-3 flex items-center gap-3">
+                <span className="text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">Aperçu & réglages</span>
+                <span className="text-[11px] text-[var(--app-text-faint)]">
+                  {source === "logo" && logoUrl
+                    ? "Logo perso"
+                    : randomShape
+                    ? "Forme aléatoire par copie"
+                    : `Forme : ${WM_SHAPES.find((s) => s.key === shape)?.label}`}
+                </span>
+              </div>
+
+              {!hasWatermark ? (
+                <p className="text-[12px] text-[var(--app-text-muted)]">Choisis d&apos;abord une forme ou importe un logo ci-dessus.</p>
+              ) : (
+                <div className="flex flex-wrap items-start gap-8">
+                  {/* Contrôles (gauche) */}
+                  <div className="w-[300px] max-w-full space-y-4">
+                    {/* Opacité — barre réduite pour laisser de la place à l'aperçu */}
+                    <div className="max-w-[280px]">
+                      <div className="mb-1 flex items-center justify-between text-[12px]">
+                        <span className="text-[var(--app-text-muted)]">Opacité</span>
+                        <span className="text-[var(--app-text-muted)]">{opacity}%</span>
+                      </div>
+                      <input
+                        type="range" min={1} max={100} step={1} value={opacity}
+                        onChange={(e) => setOpacity(Number(e.target.value))}
+                        className="w-full accent-sky-400"
+                      />
+                    </div>
+
+                    {/* Taille de la forme (% de la largeur vidéo) */}
+                    <div className="max-w-[280px]">
+                      <div className="mb-1 flex items-center justify-between text-[12px]">
+                        <span className="text-[var(--app-text-muted)]">Taille</span>
+                        <span className="text-[var(--app-text-muted)]">{size}%</span>
+                      </div>
+                      <input
+                        type="range" min={1} max={100} step={1} value={size}
+                        onChange={(e) => setSize(Number(e.target.value))}
+                        className="w-full accent-sky-400"
+                      />
+                    </div>
+
+                    {/* Mouvement */}
+                    <label className="inline-flex cursor-pointer select-none items-center gap-3 text-sm">
+                      <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-[var(--app-surface-2)] transition">
+                        <input type="checkbox" checked={motion} onChange={(e) => setMotion(e.target.checked)} className="sr-only peer" />
+                        <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--app-text-muted)] peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
+                      </span>
+                      <span className="text-[var(--app-text-muted)]">Mouvement aléatoire sur la vidéo</span>
+                    </label>
+
+                    {/* Position fixe OU vitesse */}
+                    {motion ? (
+                      <div className="max-w-[280px]">
+                        <div className="mb-1 flex items-center justify-between text-[12px]">
+                          <span className="text-[var(--app-text-muted)]">Vitesse du watermark</span>
+                          <span className="text-[var(--app-text-muted)]">{speed}</span>
+                        </div>
+                        <input
+                          type="range" min={1} max={100} step={1} value={speed}
+                          onChange={(e) => setSpeed(Number(e.target.value))}
+                          className="w-full accent-sky-400"
+                        />
+                        <div className="mt-1 flex justify-between text-[11px] text-[var(--app-text-faint)]">
+                          <span>Lent</span><span>Rapide</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="mb-2 text-[12px] text-[var(--app-text-muted)]">Position fixe</div>
+                        <label className="mb-2 inline-flex cursor-pointer select-none items-center gap-2 text-[12px] text-[var(--app-text-muted)]">
+                          <input
+                            type="checkbox"
+                            checked={randomPosition}
+                            onChange={(e) => setRandomPosition(e.target.checked)}
+                          />
+                          Position aléatoire à chaque duplication
+                        </label>
+                        <div className={`grid w-[132px] grid-cols-3 gap-1.5 ${randomPosition ? "opacity-40 pointer-events-none" : ""}`}>
+                          {WM_POSITIONS.map((p) => (
+                            <button
+                              key={p.key}
+                              type="button"
+                              onClick={() => setPosition(p.key)}
+                              title={p.label}
+                              className={`h-10 rounded-md border transition ${
+                                position === p.key ? "border-sky-300 bg-sky-400/20" : "border-[var(--app-border-strong)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-2)]"
+                              }`}
+                            >
+                              <span className={`mx-auto block h-2 w-2 rounded-full ${position === p.key ? "bg-sky-300" : "bg-[var(--app-text-faint)]"}`} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Aperçu sur la cover de la vidéo (droite) */}
+                  <div className="shrink-0">
+                    <div
+                      className="relative overflow-hidden rounded-lg border border-[var(--app-border)] bg-[repeating-conic-gradient(#2a2a2a_0_25%,#1e1e1e_0_50%)] bg-[length:16px_16px]"
+                      style={{ width: 210, aspectRatio: "9 / 16" }}
+                    >
+                      {coverUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={coverUrl} alt="cover" className="absolute inset-0 h-full w-full object-cover" />
+                      )}
+                      {/* Watermark superposé */}
+                      <div
+                        className="absolute"
+                        style={{ left: pp.left, top: pp.top, transform: `translate(${pp.tx}, ${pp.ty})`, width: `${size}%`, opacity: opacity / 100 }}
+                      >
+                        {source === "logo" && logoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={logoUrl} alt="logo" className="w-full h-auto object-contain" />
+                        ) : (
+                          <div className="w-full [&>svg]:w-full [&>svg]:h-auto">
+                            <ShapeGlyph shape={shape} color={previewColor} size={100} />
+                          </div>
+                        )}
+                      </div>
+                      {!coverUrl && (
+                        <div className="absolute inset-x-0 bottom-0 p-2 text-center text-[10px] text-[var(--app-text-faint)]">
+                          Ajoute une vidéo pour l&apos;aperçu sur ta cover
+                        </div>
+                      )}
+                    </div>
+                    {(motion || randomPosition) && (
+                      <p className="mt-1 text-center text-[10px] text-[var(--app-text-faint)]">Position variable (aperçu centré)</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ================= Sections réservées (Caption / Hook / Sous-titres) ================= */
+// Placeholders "Bientôt". Caption : le formulaire Phase A est retiré le temps de
+// construire l'éditeur complet (aperçu vidéo live + réglages par vidéo).
+function ComingSoonSection({ title }: { title: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Card
+      title={
+        <button type="button" onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-2 cursor-pointer select-none">
+          {title}
+          <span className="rounded-full border border-[var(--app-border-strong)] px-2 py-0.5 text-[10px] text-[var(--app-text-faint)]">Bientôt</span>
+          <span className="text-[10px] text-[var(--app-text-faint)]">{open ? "\u25B2" : "\u25BC"}</span>
+        </button>
+      }
+    >
+      {open && (
+        <p className="mt-1 text-[12px] text-[var(--app-text-muted)]">
+          Cette section arrive bientôt.
+        </p>
+      )}
+    </Card>
+  );
+}
+
 /* ================= Templates UI ================= */
 function TemplatesList({
   builtins,
@@ -1127,7 +1639,7 @@ function TemplatesList({
       {templates.map((t) => (
         <span
           key={t.name}
-          className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-sm"
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border-strong)] bg-[var(--app-surface)] px-3 py-1 text-sm"
         >
           <button type="button" onClick={() => onLoad(t)} className="underline" title={tr("vid.tpl.load")}>
             {t.name}
@@ -1135,7 +1647,7 @@ function TemplatesList({
           <button
             type="button"
             onClick={() => onDelete(t.name)}
-            className="rounded-full bg-white/10 px-2 hover:bg-white/20"
+            className="rounded-full bg-[var(--app-surface-2)] px-2 hover:bg-[var(--app-surface-2)]"
             title={tr("vid.tpl.delete")}
           >
             ×

@@ -90,20 +90,20 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.developers.title")}</h1>
-          <p className="text-sm text-white/50 mt-1">
+          <p className="text-sm text-[var(--app-text-muted)] mt-1">
             {t("dashboard.developers.subtitle")}
           </p>
         </div>
         <DocsDrawer docs={buildApiDocs(t)} />
       </header>
 
-      <div className="h-px bg-white/[0.06]" />
+      <div className="h-px bg-[var(--app-border)]" />
 
       {!isPro ? (
         <>
         <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/[0.04] p-6">
-          <h2 className="text-base font-bold text-white/90">{t("dashboard.developers.proOnlyTitle")}</h2>
-          <p className="text-sm text-white/60 mt-1.5">
+          <h2 className="text-base font-bold text-[var(--app-text)]">{t("dashboard.developers.proOnlyTitle")}</h2>
+          <p className="text-sm text-[var(--app-text-muted)] mt-1.5">
             {t("dashboard.developers.proOnlyDesc")}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -120,7 +120,7 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
           <button
             type="button"
             onClick={() => setShowDemo(true)}
-            className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl px-5 py-4 text-base font-bold text-white transition hover:opacity-90"
+            className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl px-5 py-4 text-base font-bold text-[var(--app-text)] transition hover:opacity-90"
             style={{ background: "rgba(56,189,248,0.10)", border: "1.5px solid rgba(56,189,248,0.35)" }}
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5 text-sky-300" fill="none" stroke="currentColor" strokeWidth="2">
@@ -140,15 +140,15 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
           >
             <div
               className="w-full max-w-md rounded-2xl p-6 space-y-4"
-              style={{ background: "#0b0e1a", border: "1px solid rgba(255,255,255,0.10)" }}
+              style={{ background: "var(--app-bg)", border: "1px solid var(--app-border)" }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4">
-                <h2 className="text-lg font-semibold text-white">{t("dashboard.developers.demoTitle")}</h2>
+                <h2 className="text-lg font-semibold text-[var(--app-text)]">{t("dashboard.developers.demoTitle")}</h2>
                 <button
                   type="button"
                   onClick={() => setShowDemo(false)}
-                  className="text-white/40 hover:text-white/80 transition shrink-0"
+                  className="text-[var(--app-text-faint)] hover:text-[var(--app-text)] transition shrink-0"
                   aria-label={t("dashboard.developers.demoClose")}
                 >
                   <svg viewBox="0 0 16 16" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -156,7 +156,7 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
                   </svg>
                 </button>
               </div>
-              <p className="text-sm text-white/60 leading-relaxed">{t("dashboard.developers.demoDesc")}</p>
+              <p className="text-sm text-[var(--app-text-muted)] leading-relaxed">{t("dashboard.developers.demoDesc")}</p>
               <div className="flex flex-col sm:flex-row gap-2 pt-1">
                 <a
                   href="https://t.me/DuupFlow_Support"
@@ -173,7 +173,7 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
                 <button
                   type="button"
                   onClick={() => setShowDemo(false)}
-                  className="rounded-xl px-4 py-2.5 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white/85 transition"
+                  className="rounded-xl px-4 py-2.5 text-sm font-semibold bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text)] transition"
                 >
                   {t("dashboard.developers.demoClose")}
                 </button>
@@ -185,15 +185,15 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
       ) : (
         <>
           {/* Create */}
-          <section className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
-            <h2 className="text-sm font-semibold text-white/90">{t("dashboard.developers.createTitle")}</h2>
+          <section className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3">
+            <h2 className="text-sm font-semibold text-[var(--app-text)]">{t("dashboard.developers.createTitle")}</h2>
             <div className="flex flex-wrap items-center gap-3">
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t("dashboard.developers.namePlaceholder")}
                 maxLength={60}
-                className="flex-1 min-w-[220px] rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90 placeholder:text-white/30"
+                className="flex-1 min-w-[220px] rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-text)] placeholder:text-[var(--app-text-faint)]"
               />
               <button
                 type="button"
@@ -216,7 +216,7 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
                   <button
                     type="button"
                     onClick={() => { navigator.clipboard.writeText(freshKey); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-                    className="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition"
+                    className="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text)] transition"
                   >
                     {copied ? t("dashboard.developers.copied") : t("dashboard.developers.copy")}
                   </button>
@@ -229,20 +229,20 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
 
           {/* Keys list */}
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-white/80">{t("dashboard.developers.keysTitle")}</h2>
+            <h2 className="text-sm font-semibold text-[var(--app-text)]">{t("dashboard.developers.keysTitle")}</h2>
             {keys.length === 0 ? (
-              <p className="text-sm text-white/40">{t("dashboard.developers.noKeys")}</p>
+              <p className="text-sm text-[var(--app-text-faint)]">{t("dashboard.developers.noKeys")}</p>
             ) : (
-              <div className="rounded-xl border border-white/10 bg-white/5 divide-y divide-white/5">
+              <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] divide-y divide-[var(--app-border)]">
                 {keys.map((k) => (
                   <div key={k.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white/85 truncate">{k.name}</p>
-                      <p className="text-xs text-white/40 font-mono">{k.key_prefix}…{k.last4}</p>
+                      <p className="text-sm text-[var(--app-text)] truncate">{k.name}</p>
+                      <p className="text-xs text-[var(--app-text-faint)] font-mono">{k.key_prefix}…{k.last4}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-[11px] text-white/40">{t("dashboard.developers.createdOn", { date: fmtDate(k.created_at) })}</p>
-                      <p className="text-[11px] text-white/30">
+                      <p className="text-[11px] text-[var(--app-text-faint)]">{t("dashboard.developers.createdOn", { date: fmtDate(k.created_at) })}</p>
+                      <p className="text-[11px] text-[var(--app-text-faint)]">
                         {k.last_used_at ? t("dashboard.developers.usedOn", { date: fmtDate(k.last_used_at) }) : t("dashboard.developers.neverUsed")}
                       </p>
                     </div>
@@ -260,35 +260,35 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
           </section>
 
           {/* Quick test */}
-          <section className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2">
-            <h2 className="text-sm font-semibold text-white/90">{t("dashboard.developers.testTitle")}</h2>
-            <p className="text-xs text-white/50">{t("dashboard.developers.testDesc")} <code className="text-white/70">/api/v1/me</code></p>
+          <section className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-2">
+            <h2 className="text-sm font-semibold text-[var(--app-text)]">{t("dashboard.developers.testTitle")}</h2>
+            <p className="text-xs text-[var(--app-text-muted)]">{t("dashboard.developers.testDesc")} <code className="text-[var(--app-text-muted)]">/api/v1/me</code></p>
             <code className="block rounded-lg bg-black/40 px-3 py-2 text-xs text-white/90 font-mono break-all">
               curl -H &quot;Authorization: Bearer dflw_live_…&quot; {origin}/api/v1/me
             </code>
           </section>
 
           {/* API reference */}
-          <section className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-4">
+          <section className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-4">
             <div>
-              <h2 className="text-sm font-semibold text-white/90">{t("dashboard.developers.docsTitle")}</h2>
-              <p className="text-xs text-white/50 mt-1">
-                {t("dashboard.developers.docsBaseLabel")} <code className="text-white/70">{origin}/api/v1</code> ·{" "}
+              <h2 className="text-sm font-semibold text-[var(--app-text)]">{t("dashboard.developers.docsTitle")}</h2>
+              <p className="text-xs text-[var(--app-text-muted)] mt-1">
+                {t("dashboard.developers.docsBaseLabel")} <code className="text-[var(--app-text-muted)]">{origin}/api/v1</code> ·{" "}
                 {t("dashboard.developers.docsAuthLabel")}{" "}
-                <code className="text-white/70">Authorization: Bearer dflw_live_…</code> · {t("dashboard.developers.docsLimit")}
+                <code className="text-[var(--app-text-muted)]">Authorization: Bearer dflw_live_…</code> · {t("dashboard.developers.docsLimit")}
               </p>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-white/40 text-left">
+                  <tr className="text-[var(--app-text-faint)] text-left">
                     <th className="py-1.5 pr-3 font-medium">{t("dashboard.developers.thMethod")}</th>
                     <th className="py-1.5 pr-3 font-medium">{t("dashboard.developers.thEndpoint")}</th>
                     <th className="py-1.5 font-medium">{t("dashboard.developers.thDesc")}</th>
                   </tr>
                 </thead>
-                <tbody className="text-white/70 divide-y divide-white/5">
+                <tbody className="text-[var(--app-text-muted)] divide-y divide-[var(--app-border)]">
                   {[
                     ["GET", "/me", t("dashboard.developers.descMe")],
                     ["POST", "/images/duplicate", t("dashboard.developers.descImages")],
@@ -299,8 +299,8 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
                   ].map(([m, p, d]) => (
                     <tr key={p}>
                       <td className="py-1.5 pr-3 font-mono text-emerald-300/80">{m}</td>
-                      <td className="py-1.5 pr-3 font-mono text-white/85">{p}</td>
-                      <td className="py-1.5 text-white/55">{d}</td>
+                      <td className="py-1.5 pr-3 font-mono text-[var(--app-text)]">{p}</td>
+                      <td className="py-1.5 text-[var(--app-text-muted)]">{d}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -308,7 +308,7 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-white/70">{t("dashboard.developers.exImagesTitle")}</p>
+              <p className="text-xs font-semibold text-[var(--app-text-muted)]">{t("dashboard.developers.exImagesTitle")}</p>
               <code className="block rounded-lg bg-black/40 px-3 py-2 text-[11px] text-white/90 font-mono break-all whitespace-pre-wrap">
 {`curl -X POST ${origin}/api/v1/images/duplicate \\
   -H "Authorization: Bearer dflw_live_…" \\
@@ -317,7 +317,7 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-white/70">{t("dashboard.developers.exCompressTitle")}</p>
+              <p className="text-xs font-semibold text-[var(--app-text-muted)]">{t("dashboard.developers.exCompressTitle")}</p>
               <code className="block rounded-lg bg-black/40 px-3 py-2 text-[11px] text-white/90 font-mono break-all whitespace-pre-wrap">
 {`curl -X POST ${origin}/api/v1/compress \\
   -H "Authorization: Bearer dflw_live_…" \\
@@ -326,8 +326,8 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-white/70">{t("dashboard.developers.exVideoTitle")}</p>
-              <p className="text-[11px] text-white/45">{t("dashboard.developers.exVideoSteps")}</p>
+              <p className="text-xs font-semibold text-[var(--app-text-muted)]">{t("dashboard.developers.exVideoTitle")}</p>
+              <p className="text-[11px] text-[var(--app-text-faint)]">{t("dashboard.developers.exVideoSteps")}</p>
               <code className="block rounded-lg bg-black/40 px-3 py-2 text-[11px] text-white/90 font-mono break-all whitespace-pre-wrap">
 {`# 1) start
 curl -X POST ${origin}/api/v1/videos/duplicate \\
@@ -342,7 +342,7 @@ curl -H "Authorization: Bearer dflw_live_…" \\
               </code>
             </div>
 
-            <p className="text-[11px] text-white/40">
+            <p className="text-[11px] text-[var(--app-text-faint)]">
               {t("dashboard.developers.paramsNote")}
             </p>
           </section>

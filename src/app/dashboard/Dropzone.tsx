@@ -25,6 +25,8 @@ type Props = {
    * <input> exactly like a local drop, so the form POST carries them too.
    */
   addFilesRef?: React.MutableRefObject<((files: File[]) => void) | null>;
+  /** Notifie le parent à chaque changement de la liste de fichiers (ajout/suppression). */
+  onFilesChange?: (files: File[]) => void;
 };
 
 type Item = {
@@ -39,6 +41,7 @@ export default function Dropzone({
   multiple = true,
   maxFiles = 25,
   addFilesRef,
+  onFilesChange,
 }: Props) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -75,8 +78,9 @@ export default function Dropzone({
 
       setItems(next);
       syncInputFiles(next);
+      onFilesChange?.(next.map((i) => i.file));
     },
-    [items, maxFiles, syncInputFiles]
+    [items, maxFiles, syncInputFiles, onFilesChange]
   );
 
   // Keep the parent's ref pointed at the latest addFiles so external sources
@@ -91,8 +95,9 @@ export default function Dropzone({
       const next = items.filter((i) => i.id !== id);
       setItems(next);
       syncInputFiles(next);
+      onFilesChange?.(next.map((i) => i.file));
     },
-    [items, syncInputFiles]
+    [items, syncInputFiles, onFilesChange]
   );
 
   /** Handlers drop / click */
@@ -116,8 +121,8 @@ export default function Dropzone({
       <div
         onDrop={onDrop}
         onDragOver={(e) => e.preventDefault()}
-        className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 text-center text-white/80
-                   hover:border-white/[0.15] transition cursor-pointer"
+        className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-6 text-center text-[var(--app-text)]
+                   hover:border-[var(--app-border-strong)] transition cursor-pointer"
         onClick={() => inputRef.current?.click()}
       >
         <div className="text-lg font-medium">{t("vid.drop.title")}</div>
@@ -139,7 +144,7 @@ export default function Dropzone({
       {/* aperçus + bouton supprimer */}
       {items.length > 0 && (
         <>
-          <div className="text-sm text-white/70 mb-2">
+          <div className="text-sm text-[var(--app-text-muted)] mb-2">
             {t("vid.drop.selectedCount", { count: items.length })}
           </div>
 
@@ -147,7 +152,7 @@ export default function Dropzone({
             {items.map((it) => (
               <div
                 key={it.id}
-                className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30"
+                className="relative overflow-hidden rounded-xl border border-[var(--app-border)] bg-black/30"
               >
                 {/* vignette */}
                 <div className="aspect-video w-full bg-black/40">
@@ -167,14 +172,14 @@ export default function Dropzone({
                     />
                   )}
                   {!isImage && !isVideo && (
-                    <div className="h-full w-full flex items-center justify-center text-white/60 text-xs">
+                    <div className="h-full w-full flex items-center justify-center text-white/70 text-xs">
                       {it.file.name}
                     </div>
                   )}
                 </div>
 
                 {/* nom */}
-                <div className="px-2 py-1 text-xs text-white/80 truncate">
+                <div className="px-2 py-1 text-xs text-white truncate">
                   {it.file.name}
                 </div>
 

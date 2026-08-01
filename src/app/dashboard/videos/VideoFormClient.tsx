@@ -30,7 +30,7 @@ function SubmitWithProgress() {
       </button>
 
       {pending && (
-        <div className="w-full bg-white/10 rounded-full h-2.5 mt-3 overflow-hidden">
+        <div className="w-full bg-[var(--app-surface-2)] rounded-full h-2.5 mt-3 overflow-hidden">
           <div className="h-2.5 w-3/4 rounded-full animate-pulse bg-indigo-500" />
         </div>
       )}
@@ -142,11 +142,11 @@ function PackCard({
       type="button"
       onClick={() => onToggle(name)}
       className={`rounded-xl border px-4 py-3 text-left transition ${
-        selected ? "border-indigo-400 bg-indigo-500/10" : "border-white/15 hover:bg-white/5"
+        selected ? "border-indigo-400 bg-indigo-500/10" : "border-[var(--app-border-strong)] hover:bg-[var(--app-surface)]"
       }`}
     >
       <div className="font-semibold">{label}</div>
-      <div className="text-xs text-white/60">{hint}</div>
+      <div className="text-xs text-[var(--app-text-muted)]">{hint}</div>
     </button>
   );
 }
@@ -198,19 +198,19 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2 text-white/80">{t("vid.legacy.copiesLabel")}</label>
+        <label className="block text-sm font-medium mb-2 text-[var(--app-text-muted)]">{t("vid.legacy.copiesLabel")}</label>
         <input
           type="number"
           name="count"
           min={1}
           defaultValue={1}
-          className="block w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-white/90"
+          className="block w-full rounded-lg border border-[var(--app-border-strong)] bg-transparent px-3 py-2 text-[var(--app-text)]"
         />
       </div>
 
       {/* Packs */}
       <fieldset className="space-y-3" data-tour-id="video-packs">
-        <legend className="text-sm font-semibold text-white/90 mb-2">{t("vid.legacy.packsLegend")}</legend>
+        <legend className="text-sm font-semibold text-[var(--app-text)] mb-2">{t("vid.legacy.packsLegend")}</legend>
         <input type="hidden" name="packs" value={packsSelected.join(",")} />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {(Object.keys(PACKS) as (keyof typeof PACKS)[]).map((k) => (
@@ -224,13 +224,13 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
             />
           ))}
         </div>
-        <div className="text-xs text-white/50">
+        <div className="text-xs text-[var(--app-text-muted)]">
           {t("vid.legacy.packsNotePre")} <b>{t("vid.legacy.packsNoteBold")}</b>{t("vid.legacy.packsNotePost")}
         </div>
       </fieldset>
 
       {/* Filtres seuls (cumulables) */}
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4">
+      <section className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-4">
         <h3 className="font-semibold">{t("vid.legacy.filtersOnly")}</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -249,7 +249,7 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
           <div>
             <div className="flex items-center justify-between text-sm">
               <label className="font-medium">{t("vid.legacy.rotationLabel")}</label>
-              <span className="text-white/70">{t("vid.legacy.value", { value: `${rot.toFixed(1)}°` })}</span>
+              <span className="text-[var(--app-text-muted)]">{t("vid.legacy.value", { value: `${rot.toFixed(1)}°` })}</span>
             </div>
             <input type="range" min={-10} max={10} step={0.1} value={rot} onChange={(e)=>setRot(Number(e.target.value))}
               className="w-full" />
@@ -260,14 +260,14 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
             <div>
               <div className="flex items-center justify-between text-sm">
                 <label className="font-medium">{t("vid.legacy.dimWidth")}</label>
-                <span className="text-white/70">{t("vid.legacy.value", { value: `${dimW.toFixed(1)}%` })}</span>
+                <span className="text-[var(--app-text-muted)]">{t("vid.legacy.value", { value: `${dimW.toFixed(1)}%` })}</span>
               </div>
               <input type="range" min={-20} max={20} step={0.1} value={dimW} onChange={(e)=>setDimW(Number(e.target.value))} className="w-full" />
             </div>
             <div>
               <div className="flex items-center justify-between text-sm">
                 <label className="font-medium">{t("vid.legacy.dimHeight")}</label>
-                <span className="text-white/70">{t("vid.legacy.value", { value: `${dimH.toFixed(1)}%` })}</span>
+                <span className="text-[var(--app-text-muted)]">{t("vid.legacy.value", { value: `${dimH.toFixed(1)}%` })}</span>
               </div>
               <input type="range" min={-20} max={20} step={0.1} value={dimH} onChange={(e)=>setDimH(Number(e.target.value))} className="w-full" />
             </div>
@@ -277,7 +277,7 @@ function SimpleTab({ channel }: { channel: "simple" | "advanced" }) {
           <div>
             <div className="flex items-center justify-between text-sm">
               <label className="font-medium">{t("vid.legacy.borderLabel")}</label>
-              <span className="text-white/70">{t("vid.legacy.value", { value: `${border.toFixed(0)}px` })}</span>
+              <span className="text-[var(--app-text-muted)]">{t("vid.legacy.value", { value: `${border.toFixed(0)}px` })}</span>
             </div>
             <input type="range" min={0} max={40} step={1} value={border} onChange={(e)=>setBorder(Number(e.target.value))}
               className="w-full" />
@@ -347,9 +347,9 @@ function AdvancedTab({ channel }: { channel: "simple" | "advanced" }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2 text-white/80">{t("vid.legacy.copiesLabel")}</label>
+        <label className="block text-sm font-medium mb-2 text-[var(--app-text-muted)]">{t("vid.legacy.copiesLabel")}</label>
         <input type="number" name="count" min={1} defaultValue={1}
-          className="block w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-white/90" />
+          className="block w-full rounded-lg border border-[var(--app-border-strong)] bg-transparent px-3 py-2 text-[var(--app-text)]" />
       </div>
 
       <input type="hidden" name="mode" value="advanced" />
@@ -357,27 +357,27 @@ function AdvancedTab({ channel }: { channel: "simple" | "advanced" }) {
 
       {groups.map((g) => (
         <fieldset key={g} className="space-y-3">
-          <legend className="text-sm font-semibold text-white/90">{LEGACY_GROUP_TOKEN[g] ? t(`vid.legacyGroup.${LEGACY_GROUP_TOKEN[g]}`) : g}</legend>
+          <legend className="text-sm font-semibold text-[var(--app-text)]">{LEGACY_GROUP_TOKEN[g] ? t(`vid.legacyGroup.${LEGACY_GROUP_TOKEN[g]}`) : g}</legend>
           {/* ... tes cartes de contrôles comme avant ... */}
         </fieldset>
       ))}
 
       {/* Templates */}
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
+      <section className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3">
         <h3 className="font-semibold">{t("vid.legacy.templatesTitle")}</h3>
         <div className="flex gap-2">
-          <input value={tplName} onChange={(e)=>setTplName(e.target.value)} placeholder={t("vid.legacy.templatePlaceholder")} className="flex-1 rounded-md border border-white/15 bg-transparent px-3 py-2 text-sm" />
+          <input value={tplName} onChange={(e)=>setTplName(e.target.value)} placeholder={t("vid.legacy.templatePlaceholder")} className="flex-1 rounded-md border border-[var(--app-border-strong)] bg-transparent px-3 py-2 text-sm" />
           <button type="button" onClick={onSaveTpl} className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-2">{t("vid.legacy.save")}</button>
-          <button type="button" onClick={onReset} className="rounded-lg border border-white/20 px-3 py-2 text-sm hover:bg-white/10">{t("vid.legacy.reset")}</button>
+          <button type="button" onClick={onReset} className="rounded-lg border border-[var(--app-border-strong)] px-3 py-2 text-sm hover:bg-[var(--app-surface-2)]">{t("vid.legacy.reset")}</button>
         </div>
         {templates.length === 0 ? (
-          <p className="text-sm text-white/50">{t("vid.legacy.noTemplates")}</p>
+          <p className="text-sm text-[var(--app-text-muted)]">{t("vid.legacy.noTemplates")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {templates.map((tpl) => (
-              <span key={tpl.name} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1 text-sm bg-white/5">
+              <span key={tpl.name} className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border-strong)] px-3 py-1 text-sm bg-[var(--app-surface)]">
                 <button type="button" onClick={()=>onLoadTpl(tpl)} className="underline">{tpl.name}</button>
-                <button type="button" onClick={()=>onDeleteTpl(tpl.name)} className="rounded-full bg-white/10 hover:bg-white/20 px-2" title={t("vid.tpl.delete")}>×</button>
+                <button type="button" onClick={()=>onDeleteTpl(tpl.name)} className="rounded-full bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] px-2" title={t("vid.tpl.delete")}>×</button>
               </span>
             ))}
           </div>
@@ -405,10 +405,10 @@ export default function VideoFormClient({
   return (
     <div className="space-y-6">
       {showTabs && (
-        <div className="inline-flex rounded-xl border border-white/15 bg-white/5 p-1">
+        <div className="inline-flex rounded-xl border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-1">
           <button
             className={`px-4 py-2 rounded-lg text-sm ${
-              tab === "simple" ? "bg-indigo-600 text-white" : "text-white/80 hover:bg-white/10"
+              tab === "simple" ? "bg-indigo-600 text-white" : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)]"
             }`}
             onClick={() => setTab("simple")}
             type="button"
@@ -417,7 +417,7 @@ export default function VideoFormClient({
           </button>
           <button
             className={`px-4 py-2 rounded-lg text-sm ${
-              tab === "advanced" ? "bg-indigo-600 text-white" : "text-white/80 hover:bg-white/10"
+              tab === "advanced" ? "bg-indigo-600 text-white" : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)]"
             }`}
             onClick={() => setTab("advanced")}
             type="button"

@@ -27,8 +27,8 @@ export default function ComingSoon() {
       </span>
 
       <h1 className="text-3xl font-extrabold tracking-tight">{t("developers.comingSoonTitle")}</h1>
-      <p className="text-sm text-white/55 mt-3 leading-relaxed">{t("developers.comingSoonBody")}</p>
-      <p className="text-xs text-white/35 mt-4">{t("developers.comingSoonNote")}</p>
+      <p className="text-sm text-[var(--app-text-muted)] mt-3 leading-relaxed">{t("developers.comingSoonBody")}</p>
+      <p className="text-xs text-[var(--app-text-faint)] mt-4">{t("developers.comingSoonNote")}</p>
     </div>
   );
 }

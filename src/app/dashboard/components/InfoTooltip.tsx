@@ -50,8 +50,8 @@ export default function InfoTooltip({
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         className="ml-2 inline-flex h-5 w-5 cursor-default select-none items-center justify-center
-                   rounded-full border border-white/30 bg-white/10 text-[10px] text-white/80
-                   hover:bg-white/15 transition"
+                   rounded-full border border-[var(--app-border-strong)] bg-[var(--app-surface-2)] text-[10px] text-[var(--app-text-muted)]
+                   hover:bg-[var(--app-surface-2)] transition"
       >
         i
       </span>
@@ -63,8 +63,8 @@ export default function InfoTooltip({
               onMouseEnter={() => setOpen(true)}
               onMouseLeave={() => setOpen(false)}
               style={{ left: pos.x, top: pos.y }}
-              className="fixed z-[2147483647] w-[320px] -translate-x-full rounded-xl border border-white/10
-                         bg-[rgba(15,23,42,.95)] p-3 text-[12px] leading-relaxed text-white/85
+              className="fixed z-[2147483647] w-[320px] -translate-x-full rounded-xl border border-[var(--app-border)]
+                         bg-[var(--app-surface)] p-3 text-[12px] leading-relaxed text-[var(--app-text-muted)]
                          shadow-[0_10px_30px_rgba(0,0,0,.45)] backdrop-blur-md pointer-events-auto"
             >
               {children}

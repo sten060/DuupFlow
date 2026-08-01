@@ -110,7 +110,7 @@ function JobBadge({ job }: { job: Job }) {
       onMouseLeave={() => setPaused(false)}
       className={[
         "rounded-xl border px-3 py-2 text-xs backdrop-blur-md",
-        "bg-[rgba(8,12,35,0.92)] shadow-lg",
+        "bg-[var(--app-surface)] shadow-lg",
         "transition-all duration-300 ease-out",
         exiting ? "opacity-0 translate-x-3" : "opacity-100 translate-x-0",
         isError
@@ -125,7 +125,7 @@ function JobBadge({ job }: { job: Job }) {
     >
       {/* Header row */}
       <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="font-semibold text-white/90">
+        <span className="font-semibold text-[var(--app-text)]">
           {typeLabel}{statusIcon}
         </span>
         <div className="flex items-center gap-1">
@@ -142,7 +142,7 @@ function JobBadge({ job }: { job: Job }) {
           <button
             type="button"
             onClick={() => setExiting(true)}
-            className="rounded-full px-1 text-white/40 hover:text-white/80"
+            className="rounded-full px-1 text-[var(--app-text-faint)] hover:text-[var(--app-text)]"
             title={t("vid.badge.close")}
           >
             ×
@@ -152,7 +152,7 @@ function JobBadge({ job }: { job: Job }) {
 
       {/* Progress bar — only while running */}
       {isRunning && (
-        <div className="mb-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="mb-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--app-surface-2)]">
           <div
             className="h-1.5 rounded-full bg-indigo-400 transition-[width] duration-200"
             style={{ width: `${Math.max(0, Math.min(100, job.progress))}%` }}
@@ -167,7 +167,7 @@ function JobBadge({ job }: { job: Job }) {
           isError   ? "text-red-400"
           : isDone  ? "text-emerald-400"
           : isStopped ? "text-amber-400"
-          : "text-white/60",
+          : "text-[var(--app-text-muted)]",
         ].join(" ")}
       >
         {isError
@@ -221,8 +221,8 @@ function JobBadge({ job }: { job: Job }) {
           </button>
 
           {/* Individual file rows with selection */}
-          <div className="space-y-1 max-h-36 overflow-y-auto rounded-lg bg-white/5 p-1">
-            <label className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-white/55 hover:bg-white/[0.04] cursor-pointer rounded">
+          <div className="space-y-1 max-h-36 overflow-y-auto rounded-lg bg-[var(--app-surface)] p-1">
+            <label className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-[var(--app-text-muted)] hover:bg-[var(--app-surface)] cursor-pointer rounded">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -234,7 +234,7 @@ function JobBadge({ job }: { job: Job }) {
             {job.completedFiles.map((f, i) => (
               <div
                 key={i}
-                className="flex items-center gap-1.5 rounded px-2 py-1 text-[10px] bg-white/8 hover:bg-white/15 text-white/75 transition"
+                className="flex items-center gap-1.5 rounded px-2 py-1 text-[10px] bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text-muted)] transition"
               >
                 <input
                   type="checkbox"

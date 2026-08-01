@@ -432,12 +432,12 @@ export default function ImageFormClient({ initialImages }: Props) {
           onDrop={onDrop}
           onDragOver={(e) => e.preventDefault()}
           onClick={() => !processing && inputRef.current?.click()}
-          className="group relative rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 transition
+          className="group relative rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 transition
                      hover:border-fuchsia-500/30 cursor-pointer"
           aria-label={t("img.dropzoneAria")}
         >
           <div className="pointer-events-none select-none">
-            <p className="text-sm text-white/70">
+            <p className="text-sm text-[var(--app-text-muted)]">
               {t("dashboard.images.dropzone", { max: String(MAX_FILES) })}
             </p>
           </div>
@@ -460,7 +460,7 @@ export default function ImageFormClient({ initialImages }: Props) {
                 // labeled placeholder. JPG/PNG: thumbnail via object URL.
                 const url = heic ? null : URL.createObjectURL(f);
                 return (
-                  <div key={`${f.name}-${i}`} className="relative rounded-lg overflow-hidden border border-white/10 bg-white/5">
+                  <div key={`${f.name}-${i}`} className="relative rounded-lg overflow-hidden border border-[var(--app-border)] bg-[var(--app-surface)]">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -476,7 +476,7 @@ export default function ImageFormClient({ initialImages }: Props) {
                     {heic ? (
                       <div className="aspect-video w-full flex flex-col items-center justify-center gap-1 bg-fuchsia-500/5 text-fuchsia-300/70">
                         <span className="text-[10px] uppercase tracking-wider font-semibold">HEIC</span>
-                        <span className="text-[10px] text-white/40">{t("img.heicConverted")}</span>
+                        <span className="text-[10px] text-[var(--app-text-faint)]">{t("img.heicConverted")}</span>
                       </div>
                     ) : (
                       <img
@@ -486,14 +486,14 @@ export default function ImageFormClient({ initialImages }: Props) {
                         onLoad={() => url && URL.revokeObjectURL(url)}
                       />
                     )}
-                    <div className="px-2 py-1 text-[11px] text-white/80 truncate">{f.name}</div>
+                    <div className="px-2 py-1 text-[11px] text-[var(--app-text)] truncate">{f.name}</div>
                   </div>
                 );
               })}
             </div>
           )}
 
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-white/60">
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--app-text-muted)]">
             <span>{t("dashboard.images.filesCount", { count: String(files.length) })}</span>
             <span>•</span>
             <span>{t("dashboard.images.fileSize", { size: (totalSize / (1024 * 1024)).toFixed(2) })}</span>
@@ -502,32 +502,32 @@ export default function ImageFormClient({ initialImages }: Props) {
 
         {/* Copies */}
         <div data-tour-id="img-copies" className="max-w-[200px]">
-          <label className="block text-sm font-medium text-white/70 mb-1">{t("dashboard.images.copiesLabel")}</label>
+          <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-1">{t("dashboard.images.copiesLabel")}</label>
           <input
             type="number"
             name="count"
             min={1}
             defaultValue={1}
-            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90"
+            className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-text)]"
           />
         </div>
 
-        <div className="h-px bg-white/[0.06]" />
+        <div className="h-px bg-[var(--app-border)]" />
 
         {/* Localisation + Priorité algorithme */}
         <div data-tour-id="img-country" className="max-w-md">
-          <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.images.countryLabel")} <span className="text-white/30">{t("dashboard.images.countryOptional")}</span></label>
+          <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-1.5">{t("dashboard.images.countryLabel")} <span className="text-[var(--app-text-faint)]">{t("dashboard.images.countryOptional")}</span></label>
           <CountrySelect name="country" />
         </div>
 
         {/* Priorité d'algorithme */}
         <ToggleChip name="iphoneMeta" value="1" label={`⚡ ${t("dashboard.images.iphoneMetaLabel")}`} hint={t("dashboard.images.iphoneMetaHint")} accent="pink" />
 
-        <div className="h-px bg-white/[0.06]" />
+        <div className="h-px bg-[var(--app-border)]" />
 
         {/* Filtres */}
         <div data-tour-id="img-options">
-          <h3 className="text-sm font-semibold text-white/90 mb-3">{t("dashboard.images.filtersTitle")} <span className="text-white/40 font-normal">{t("dashboard.images.filtersCumulative")}</span></h3>
+          <h3 className="text-sm font-semibold text-[var(--app-text)] mb-3">{t("dashboard.images.filtersTitle")} <span className="text-[var(--app-text-faint)] font-normal">{t("dashboard.images.filtersCumulative")}</span></h3>
 
           <p className="text-xs font-medium text-fuchsia-300/60 uppercase tracking-wide mb-2">{t("dashboard.images.noVisualChange")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 mb-4">
@@ -542,7 +542,7 @@ export default function ImageFormClient({ initialImages }: Props) {
           </div>
         </div>
 
-        <div className="h-px bg-white/[0.06]" />
+        <div className="h-px bg-[var(--app-border)]" />
 
         {/* Submit + Stop */}
         <div className="flex items-center gap-3">
@@ -553,7 +553,7 @@ export default function ImageFormClient({ initialImages }: Props) {
             className={[
               "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
               busy || files.length === 0
-                ? "bg-white/10 text-white/50 cursor-not-allowed"
+                ? "bg-[var(--app-surface-2)] text-[var(--app-text-muted)] cursor-not-allowed"
                 : "bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white hover:shadow-[0_4px_20px_rgba(192,38,211,.35)]",
             ].join(" ")}
           >
@@ -575,13 +575,13 @@ export default function ImageFormClient({ initialImages }: Props) {
             reload / returning to the page) is still running. */}
         {busy && (
           <div className="space-y-1">
-            <div className="w-full bg-white/[0.06] rounded-full h-1.5 overflow-hidden">
+            <div className="w-full bg-[var(--app-surface-2)] rounded-full h-1.5 overflow-hidden">
               <div
                 className="h-1.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-pink-500 transition-all duration-300"
                 style={{ width: `${shownProgress}%` }}
               />
             </div>
-            <p className="text-xs text-white/50">{shownMsg}</p>
+            <p className="text-xs text-[var(--app-text-muted)]">{shownMsg}</p>
           </div>
         )}
 
@@ -598,7 +598,7 @@ export default function ImageFormClient({ initialImages }: Props) {
       {persistedFiles.length > 0 && (
         <div className="space-y-3 lg:mr-28 xl:mr-32">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-white/80 mr-auto">
+            <p className="text-sm font-semibold text-[var(--app-text)] mr-auto">
               {t("dashboard.images.readyToDownload", { count: String(persistedFiles.length) })}
             </p>
             <ClearImagesButton onCleared={() => { setPersistedFiles([]); setSelectedUrls(new Set()); }} />
@@ -627,8 +627,8 @@ export default function ImageFormClient({ initialImages }: Props) {
             </button>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 divide-y divide-white/5 max-h-80 overflow-y-auto">
-            <label className="flex items-center gap-3 px-4 py-2 text-xs text-white/60 hover:bg-white/[0.03] cursor-pointer">
+          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] divide-y divide-[var(--app-border)] max-h-80 overflow-y-auto">
+            <label className="flex items-center gap-3 px-4 py-2 text-xs text-[var(--app-text-muted)] hover:bg-[var(--app-surface)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -646,11 +646,11 @@ export default function ImageFormClient({ initialImages }: Props) {
                   className="h-3.5 w-3.5 accent-fuchsia-500 shrink-0"
                   aria-label={name}
                 />
-                <span className="text-xs text-white/70 truncate flex-1">{name}</span>
+                <span className="text-xs text-[var(--app-text-muted)] truncate flex-1">{name}</span>
                 <a
                   href={url}
                   download={name}
-                  className="shrink-0 rounded-md px-3 py-1 text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition"
+                  className="shrink-0 rounded-md px-3 py-1 text-xs font-medium bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text)] transition"
                 >
                   {t("dashboard.images.downloadSingle")}
                 </a>

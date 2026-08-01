@@ -234,7 +234,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">{t("compress.title")}</h1>
-          <p className="text-sm text-white/50 mt-1">{t("compress.subtitle")}</p>
+          <p className="text-sm text-[var(--app-text-muted)] mt-1">{t("compress.subtitle")}</p>
         </div>
         <DocsDrawer docs={buildCompressDocs(t)} />
       </header>
@@ -248,7 +248,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
           onDrop={onDrop}
           onDragOver={(e) => e.preventDefault()}
           onClick={() => !processing && inputRef.current?.click()}
-          className="group relative rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 transition
+          className="group relative rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 transition
                      hover:border-emerald-500/30 cursor-pointer"
         >
           <div className="pointer-events-none select-none text-center py-4">
@@ -256,7 +256,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
               <path d="M12 16V4m0 0l-4 4m4-4l4 4" />
               <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
             </svg>
-            <p className="text-sm text-white/70">{t("compress.dropzone", { max: String(MAX_FILES) })}</p>
+            <p className="text-sm text-[var(--app-text-muted)]">{t("compress.dropzone", { max: String(MAX_FILES) })}</p>
           </div>
 
           <input
@@ -273,7 +273,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
               {files.map((f, i) => {
                 const { isVid, url } = previews[i] ?? { isVid: false, url: null };
                 return (
-                  <div key={`${f.name}-${i}`} className="relative rounded-lg overflow-hidden border border-white/10 bg-white/5">
+                  <div key={`${f.name}-${i}`} className="relative rounded-lg overflow-hidden border border-[var(--app-border)] bg-[var(--app-surface)]">
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); removeAt(i); }}
@@ -291,15 +291,15 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
                         {f.name.split(".").pop()}
                       </div>
                     )}
-                    <div className="px-2 py-1 text-[11px] text-white/80 truncate">{f.name}</div>
-                    <div className="px-2 pb-1 text-[10px] text-white/40">{fmtBytes(f.size)}</div>
+                    <div className="px-2 py-1 text-[11px] text-[var(--app-text)] truncate">{f.name}</div>
+                    <div className="px-2 pb-1 text-[10px] text-[var(--app-text-faint)]">{fmtBytes(f.size)}</div>
                   </div>
                 );
               })}
             </div>
           )}
 
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-white/60">
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--app-text-muted)]">
             <span>{t("compress.filesCount", { count: String(files.length) })}</span>
             <span>•</span>
             <span>{fmtBytes(totalSize)}</span>
@@ -308,7 +308,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
 
         {/* Level selector */}
         <div>
-          <label className="block text-sm font-medium text-white/70 mb-2">{t("compress.levelLabel")}</label>
+          <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-2">{t("compress.levelLabel")}</label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {LEVELS.map((lv) => {
               const active = level === lv.key;
@@ -321,21 +321,21 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
                     "text-left rounded-xl px-3.5 py-3 border transition-all",
                     active
                       ? "border-emerald-400/40 bg-emerald-500/[0.07] shadow-[0_0_20px_rgba(16,185,129,.12)]"
-                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15]",
+                      : "border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-border-strong)]",
                   ].join(" ")}
                 >
                   <div className="flex items-center gap-2">
-                    <span className={["h-2 w-2 rounded-full", active ? "bg-emerald-400" : "bg-white/20"].join(" ")} />
-                    <span className={["text-sm font-semibold", active ? "text-white" : "text-white/80"].join(" ")}>{lv.label}</span>
+                    <span className={["h-2 w-2 rounded-full", active ? "bg-emerald-400" : "bg-[var(--app-text-faint)]"].join(" ")} />
+                    <span className={["text-sm font-semibold", active ? "text-[var(--app-text)]" : "text-[var(--app-text)]"].join(" ")}>{lv.label}</span>
                   </div>
-                  <p className="text-xs text-white/45 mt-1">{lv.hint}</p>
+                  <p className="text-xs text-[var(--app-text-faint)] mt-1">{lv.hint}</p>
                 </button>
               );
             })}
           </div>
         </div>
 
-        <div className="h-px bg-white/[0.06]" />
+        <div className="h-px bg-[var(--app-surface-2)]" />
 
         {/* Submit + Stop */}
         <div className="flex items-center gap-3">
@@ -345,7 +345,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
             className={[
               "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
               processing || files.length === 0
-                ? "bg-white/10 text-white/50 cursor-not-allowed"
+                ? "bg-[var(--app-surface-2)] text-[var(--app-text-muted)] cursor-not-allowed"
                 : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-[0_4px_20px_rgba(16,185,129,.35)]",
             ].join(" ")}
           >
@@ -366,10 +366,10 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
         {/* Progress */}
         {processing && (
           <div className="space-y-1">
-            <div className="w-full bg-white/[0.06] rounded-full h-1.5 overflow-hidden">
+            <div className="w-full bg-[var(--app-surface-2)] rounded-full h-1.5 overflow-hidden">
               <div className="h-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
-            <p className="text-xs text-white/50">{progressLabel}</p>
+            <p className="text-xs text-[var(--app-text-muted)]">{progressLabel}</p>
           </div>
         )}
 
@@ -383,7 +383,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
       {persistedFiles.length > 0 && (
         <div className="space-y-3 lg:mr-28 xl:mr-32">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-white/80 mr-auto">
+            <p className="text-sm font-semibold text-[var(--app-text)] mr-auto">
               {t("compress.readyToDownload", { count: String(persistedFiles.length) })}
             </p>
             <ClearCompressedButton onCleared={() => { setPersistedFiles([]); setSelectedUrls(new Set()); }} />
@@ -409,8 +409,8 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
             </button>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 divide-y divide-white/5 max-h-96 overflow-y-auto">
-            <label className="flex items-center gap-3 px-4 py-2 text-xs text-white/60 hover:bg-white/[0.03] cursor-pointer">
+          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] divide-y divide-[var(--app-border)] max-h-96 overflow-y-auto">
+            <label className="flex items-center gap-3 px-4 py-2 text-xs text-[var(--app-text-muted)] hover:bg-[var(--app-surface)] cursor-pointer">
               <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="h-3.5 w-3.5 accent-emerald-500" />
               <span>{allSelected ? t("common.deselectAll") : t("common.selectAll")}</span>
             </label>
@@ -423,14 +423,14 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
                   className="h-3.5 w-3.5 accent-emerald-500 shrink-0"
                   aria-label={f.name}
                 />
-                <span className="text-xs text-white/70 truncate flex-1">{f.name}</span>
+                <span className="text-xs text-[var(--app-text-muted)] truncate flex-1">{f.name}</span>
                 {typeof f.savedPercent === "number" && (
                   <span
                     className={[
                       "shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded",
                       f.savedPercent > 0
                         ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/25"
-                        : "bg-white/10 text-white/50 border border-white/15",
+                        : "bg-[var(--app-surface-2)] text-[var(--app-text-muted)] border border-[var(--app-border-strong)]",
                     ].join(" ")}
                     title={f.srcBytes ? `${fmtBytes(f.srcBytes)} → ${fmtBytes(f.outBytes)}` : undefined}
                   >
@@ -440,7 +440,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
                 <a
                   href={f.url}
                   download={f.name}
-                  className="shrink-0 rounded-md px-3 py-1 text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition"
+                  className="shrink-0 rounded-md px-3 py-1 text-xs font-medium bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text)] transition"
                 >
                   {t("compress.downloadSingle")}
                 </a>

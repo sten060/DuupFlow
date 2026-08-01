@@ -24,7 +24,7 @@ export function Callout({
       ? "border-amber-400/30 bg-amber-400/[0.06]"
       : "border-sky-400/30 bg-sky-400/[0.06]";
   return (
-    <div className={`my-5 rounded-xl border ${cls} p-4 text-[15px] leading-relaxed text-white/85`}>
+    <div className={`my-5 rounded-xl border ${cls} p-4 text-[15px] leading-relaxed text-[var(--app-text)]`}>
       {children}
     </div>
   );

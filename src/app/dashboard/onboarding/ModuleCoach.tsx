@@ -218,8 +218,8 @@ export default function ModuleCoach() {
         <div
           className="rounded-2xl p-5"
           style={{
-            background: "rgba(10,14,40,0.985)",
-            border: "1px solid rgba(255,255,255,0.10)",
+            background: "var(--app-surface)",
+            border: "1px solid var(--app-border)",
             boxShadow: "0 24px 70px rgba(0,0,0,0.6)",
           }}
         >
@@ -234,7 +234,7 @@ export default function ModuleCoach() {
                     style={{
                       width: i === step ? 18 : 6,
                       height: 6,
-                      background: i === step ? accent : i < step ? `${accent}80` : "rgba(255,255,255,0.16)",
+                      background: i === step ? accent : i < step ? `${accent}80` : "var(--app-border-strong)",
                     }}
                   />
                 ))}
@@ -244,16 +244,16 @@ export default function ModuleCoach() {
             )}
             <button
               onClick={finish}
-              className="text-[11px] text-white/40 hover:text-white/75 transition"
+              className="text-[11px] text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] transition"
             >
               {t("onb.skip")}
             </button>
           </div>
 
-          <h3 className="text-base font-semibold text-white mb-1.5 tracking-tight">
+          <h3 className="text-base font-semibold text-[var(--app-text)] mb-1.5 tracking-tight">
             {t(current.titleKey)}
           </h3>
-          <p className="text-[13px] text-white/60 leading-relaxed mb-4">
+          <p className="text-[13px] text-[var(--app-text-muted)] leading-relaxed mb-4">
             {t(current.bodyKey)}
           </p>
 
@@ -263,9 +263,9 @@ export default function ModuleCoach() {
                 onClick={() => setStep((s) => Math.max(0, s - 1))}
                 className="rounded-xl px-3.5 py-2 text-xs font-semibold transition"
                 style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  color: "rgba(255,255,255,0.65)",
+                  background: "var(--app-surface)",
+                  border: "1px solid var(--app-border)",
+                  color: "var(--app-text-muted)",
                 }}
               >
                 {t("onb.back")}

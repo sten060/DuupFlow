@@ -340,8 +340,8 @@ export default function ImportClient() {
       {/* En-tête + solde de tokens */}
       <header className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-white">Importer depuis un compte</h1>
-          <p className="text-[15px] leading-relaxed text-white/85">
+          <h1 className="text-2xl font-semibold text-[var(--app-text)]">Importer depuis un compte</h1>
+          <p className="text-[15px] leading-relaxed text-[var(--app-text-muted)]">
             Colle le lien de ton compte Instagram ou TikTok. On repère tes vidéos qui
             performent le mieux — tu choisis lesquelles récupérer.
           </p>
@@ -349,12 +349,12 @@ export default function ImportClient() {
         <a
           href="/dashboard/abonnement"
           title="Voir mon solde et recharger"
-          className="shrink-0 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2.5 text-right transition"
+          className="shrink-0 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-2)] px-4 py-2.5 text-right transition"
         >
-          <div className="text-lg font-semibold text-white leading-none">
+          <div className="text-lg font-semibold text-[var(--app-text)] leading-none">
             {balanceCents === null ? "—" : formatTokens(balanceCents)}
           </div>
-          <div className="text-[11px] uppercase tracking-wide text-white/45 mt-1">tokens</div>
+          <div className="text-[11px] uppercase tracking-wide text-[var(--app-text-faint)] mt-1">tokens</div>
         </a>
       </header>
 
@@ -365,16 +365,16 @@ export default function ImportClient() {
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && startScan()}
           placeholder="https://instagram.com/toncompte  ·  https://tiktok.com/@toncompte  ·  @pseudo"
-          className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-violet-400/60"
+          className="flex-1 rounded-xl bg-[var(--app-surface)] border border-[var(--app-border)] px-4 py-3 text-[var(--app-text)] placeholder-[var(--app-text-faint)] outline-none focus:border-violet-400/60"
         />
         <select
           value={topCount}
           onChange={(e) => setTopCount(Number(e.target.value))}
           title="Combien de vidéos récupérer"
-          className="rounded-xl bg-white/5 border border-white/10 px-3 py-3 text-white outline-none focus:border-violet-400/60"
+          className="rounded-xl bg-[var(--app-surface)] border border-[var(--app-border)] px-3 py-3 text-[var(--app-text)] outline-none focus:border-violet-400/60"
         >
           {COUNTS.map((n) => (
-            <option key={n} value={n} className="bg-neutral-900">
+            <option key={n} value={n} className="bg-[var(--app-surface)]">
               {n === 1 ? "la meilleure" : `les ${n} meilleures`}
             </option>
           ))}
@@ -383,10 +383,10 @@ export default function ImportClient() {
           value={windowDays}
           onChange={(e) => setWindowDays(Number(e.target.value))}
           title="Sur quelle période chercher"
-          className="rounded-xl bg-white/5 border border-white/10 px-3 py-3 text-white outline-none focus:border-violet-400/60"
+          className="rounded-xl bg-[var(--app-surface)] border border-[var(--app-border)] px-3 py-3 text-[var(--app-text)] outline-none focus:border-violet-400/60"
         >
           {WINDOWS.map((w) => (
-            <option key={w.days} value={w.days} className="bg-neutral-900">
+            <option key={w.days} value={w.days} className="bg-[var(--app-surface)]">
               sur {w.label}
             </option>
           ))}
@@ -402,9 +402,9 @@ export default function ImportClient() {
 
       {/* Prix annoncé avant le clic — un seul débit, téléchargement inclus. */}
       {!scanning && (
-        <p className="-mt-3 text-sm text-white/55">
+        <p className="-mt-3 text-sm text-[var(--app-text-muted)]">
           Ce scan coûtera{" "}
-          <span className="text-white font-medium">{formatTokens(priceCents)} tokens</span>{" "}
+          <span className="text-[var(--app-text)] font-medium">{formatTokens(priceCents)} tokens</span>{" "}
           — téléchargement des {topCount} vidéo{topCount > 1 ? "s" : ""} inclus. Rien n'est
           débité si le compte est inaccessible.
         </p>
@@ -412,9 +412,9 @@ export default function ImportClient() {
 
       {/* Scrape restauré depuis la dernière visite */}
       {expiresInMin !== null && ready && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-          <span className="text-white/70">
-            Scrape précédent de <span className="text-white">@{scan?.target.handle}</span> restauré —
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm">
+          <span className="text-[var(--app-text-muted)]">
+            Scrape précédent de <span className="text-[var(--app-text)]">@{scan?.target.handle}</span> restauré —
             expire dans {expiresInMin} min.
           </span>
           <button
@@ -425,7 +425,7 @@ export default function ImportClient() {
               setSelected(new Set());
               setExpiresInMin(null);
             }}
-            className="ml-auto text-xs rounded-lg px-3 py-1.5 bg-white/5 border border-white/10 text-white/80 hover:bg-white/10"
+            className="ml-auto text-xs rounded-lg px-3 py-1.5 bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)]"
           >
             Effacer
           </button>
@@ -444,7 +444,7 @@ export default function ImportClient() {
                   <span className="font-medium">Le scan a échoué.</span> Un souci technique nous a
                   empêchés de récupérer les vidéos. Aucun token ne t'a été débité.
                 </div>
-                <div className="text-[13px] text-white/60">
+                <div className="text-[13px] text-[var(--app-text-muted)]">
                   Contacte le support, on règle ça rapidement.
                 </div>
                 <a
@@ -485,7 +485,7 @@ export default function ImportClient() {
 
       {/* État scan en cours */}
       {scanning && (
-        <div className="flex items-center gap-3 text-white/70 text-sm">
+        <div className="flex items-center gap-3 text-[var(--app-text-muted)] text-sm">
           <span className="h-4 w-4 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
           Scrape du compte @{scan?.target.handle} en cours… (30 s à 2 min)
         </div>
@@ -502,19 +502,19 @@ export default function ImportClient() {
             </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-white/70">
-              <span className="text-white font-medium">{scan.topCount}</span> meilleure
+            <p className="text-sm text-[var(--app-text-muted)]">
+              <span className="text-[var(--app-text)] font-medium">{scan.topCount}</span> meilleure
               {scan.topCount > 1 ? "s" : ""} vidéo{scan.topCount > 1 ? "s" : ""} sur {scan.windowDays} j
-              <span className="text-white/40"> · {scan.videos.length} analysées au total</span>
+              <span className="text-[var(--app-text-faint)]"> · {scan.videos.length} analysées au total</span>
             </p>
             <div className="flex items-center gap-2">
-              <button onClick={resetToTop} className="text-xs rounded-lg px-3 py-1.5 bg-white/5 border border-white/10 text-white/80 hover:bg-white/10">
+              <button onClick={resetToTop} className="text-xs rounded-lg px-3 py-1.5 bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)]">
                 Rétablir le top {scan.topCount}
               </button>
               {scan.videos.length > scan.topCount && (
                 <button
                   onClick={() => setShowAll((s) => !s)}
-                  className="text-xs rounded-lg px-3 py-1.5 bg-white/5 border border-white/10 text-white/80 hover:bg-white/10"
+                  className="text-xs rounded-lg px-3 py-1.5 bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)]"
                 >
                   {showAll ? "Voir moins" : `Voir les ${scan.videos.length} vidéos`}
                 </button>
@@ -529,22 +529,22 @@ export default function ImportClient() {
           </div>
 
           {showAll && (
-            <p className="text-xs text-white/40">
+            <p className="text-xs text-[var(--app-text-faint)]">
               Tu peux échanger une vidéo contre une autre, mais pas en sélectionner plus de{" "}
               {scan.topCount} (le nombre choisi au départ).
             </p>
           )}
 
           {scan.videos.length === 0 && (
-            <p className="text-white/50 text-sm">Aucune vidéo trouvée sur cette période.</p>
+            <p className="text-[var(--app-text-muted)] text-sm">Aucune vidéo trouvée sur cette période.</p>
           )}
         </section>
       )}
 
       {/* Barre d'action téléchargement (collée en bas quand sélection) */}
       {ready && selected.size > 0 && (
-        <div className="sticky bottom-4 z-10 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-neutral-900/90 backdrop-blur px-5 py-4 shadow-xl">
-          <span className="text-sm text-white/80">
+        <div className="sticky bottom-4 z-10 flex items-center justify-between gap-4 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] backdrop-blur px-5 py-4 shadow-xl">
+          <span className="text-sm text-[var(--app-text-muted)]">
             {selected.size}/{scan.topCount} vidéo{scan.topCount > 1 ? "s" : ""} prête
             {selected.size > 1 ? "s" : ""} — choisis la destination
           </span>
@@ -560,7 +560,7 @@ export default function ImportClient() {
               <button
                 onClick={sendToDrive}
                 disabled={busy}
-                className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 font-medium bg-white/10 hover:bg-white/20 text-white/90 disabled:opacity-40 transition"
+                className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 font-medium bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text)] disabled:opacity-40 transition"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/app/icons8-google-drive-96.png" alt="" className="h-4 w-4" />
@@ -587,7 +587,7 @@ export default function ImportClient() {
           )}
           <span>{action.message}</span>
           {busy && download && download.total > 0 && (
-            <span className="ml-auto text-white/50">
+            <span className="ml-auto text-[var(--app-text-muted)]">
               {download.results.length}/{download.total}
             </span>
           )}
@@ -610,14 +610,14 @@ export default function ImportClient() {
 
       {/* Résultats de téléchargement */}
       {download && download.done && (
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-2">
-          <h2 className="text-white font-medium">
+        <section className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 space-y-2">
+          <h2 className="text-[var(--app-text)] font-medium">
             Téléchargement terminé — {download.results.filter((r) => r.ok).length}/{download.total} réussi(s)
           </h2>
-          <ul className="text-sm divide-y divide-white/5">
+          <ul className="text-sm divide-y divide-[var(--app-border)]">
             {download.results.map((r) => (
               <li key={r.sourceId} className="py-2 flex items-center justify-between gap-3">
-                <span className={r.ok ? "text-white/80" : "text-red-300"}>
+                <span className={r.ok ? "text-[var(--app-text-muted)]" : "text-red-300"}>
                   {r.ok ? `✓ ${r.name} · ${r.durationLabel} · ${r.sizeMo} Mo` : `✕ ${r.error}`}
                 </span>
                 {r.ok && (
@@ -646,7 +646,7 @@ export default function ImportClient() {
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md rounded-2xl overflow-hidden"
             style={{
-              background: "rgba(10,12,32,0.98)",
+              background: "var(--app-surface)",
               border: "1px solid rgba(139,92,246,0.30)",
               boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(139,92,246,0.12)",
             }}
@@ -657,11 +657,11 @@ export default function ImportClient() {
                 style={{ background: "rgba(139,92,246,0.14)", color: "#C4B5FD", border: "1px solid rgba(139,92,246,0.3)" }}>
                 ♻️ Duplication
               </span>
-              <h3 className="text-[22px] leading-tight font-semibold tracking-tight text-white">
+              <h3 className="text-[22px] leading-tight font-semibold tracking-tight text-[var(--app-text)]">
                 Comment veux-tu dupliquer&nbsp;?
               </h3>
-              <p className="text-[13px] text-white/55 mt-2 leading-relaxed">
-                Tes <span className="text-white/80 font-medium">{selected.size} vidéo{selected.size > 1 ? "s" : ""}</span> seront
+              <p className="text-[13px] text-[var(--app-text-muted)] mt-2 leading-relaxed">
+                Tes <span className="text-[var(--app-text-muted)] font-medium">{selected.size} vidéo{selected.size > 1 ? "s" : ""}</span> seront
                 téléchargées puis déposées seules dans le module — tu es redirigé juste après.
               </p>
             </div>
@@ -684,17 +684,17 @@ export default function ImportClient() {
                   key={o.mode}
                   onClick={() => sendToDuplication(o.mode)}
                   className="group w-full text-left rounded-xl border px-4 py-3.5 flex items-center gap-4 transition"
-                  style={{ borderColor: "rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)" }}
+                  style={{ borderColor: "var(--app-border)", background: "var(--app-surface)" }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(139,92,246,0.6)"; e.currentTarget.style.background = "rgba(139,92,246,0.08)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--app-border)"; e.currentTarget.style.background = "var(--app-surface)"; }}
                 >
                   <span className="h-11 w-11 shrink-0 rounded-xl grid place-items-center text-xl"
                     style={{ background: "rgba(139,92,246,0.14)", border: "1px solid rgba(139,92,246,0.26)" }}>
                     {o.icon}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-[15px] font-semibold text-white">{o.title}</span>
-                    <span className="block text-[13px] text-white/50 leading-snug">{o.sub}</span>
+                    <span className="block text-[15px] font-semibold text-[var(--app-text)]">{o.title}</span>
+                    <span className="block text-[13px] text-[var(--app-text-muted)] leading-snug">{o.sub}</span>
                     <span className="flex flex-wrap gap-1.5 mt-1.5">
                       {o.tags.map((tag) => (
                         <span key={tag} className="text-[10px] font-medium px-1.5 py-0.5 rounded-md text-violet-200/80"
@@ -704,13 +704,13 @@ export default function ImportClient() {
                       ))}
                     </span>
                   </span>
-                  <span className="text-white/25 group-hover:text-violet-300 transition text-lg">→</span>
+                  <span className="text-[var(--app-text-faint)] group-hover:text-violet-300 transition text-lg">→</span>
                 </button>
               ))}
 
               <button
                 onClick={() => setAskDuplicate(false)}
-                className="w-full text-center text-[13px] text-white/40 hover:text-white/75 pt-1.5 transition"
+                className="w-full text-center text-[13px] text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] pt-1.5 transition"
               >
                 Annuler
               </button>
@@ -729,10 +729,10 @@ function VideoCard({ v, selected, onToggle }: { v: ScoredVideo; selected: boolea
     <button
       onClick={onToggle}
       className={`group text-left rounded-xl overflow-hidden border transition ${
-        selected ? "border-violet-400 ring-2 ring-violet-400/40" : "border-white/10 hover:border-white/25"
+        selected ? "border-violet-400 ring-2 ring-violet-400/40" : "border-[var(--app-border)] hover:border-[var(--app-border-strong)]"
       }`}
     >
-      <div className="relative aspect-[9/16] bg-neutral-800">
+      <div className="relative aspect-[9/16] bg-[var(--app-surface-2)]">
         {v.thumbnailUrl && imgOk ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -743,7 +743,7 @@ function VideoCard({ v, selected, onToggle }: { v: ScoredVideo; selected: boolea
             onError={() => setImgOk(false)}
           />
         ) : (
-          <div className="h-full w-full grid place-items-center text-white/20 text-xs">aperçu indispo</div>
+          <div className="h-full w-full grid place-items-center text-[var(--app-text-faint)] text-xs">aperçu indispo</div>
         )}
         {/* Badge rang + score */}
         <div className="absolute top-2 left-2 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white">
@@ -759,17 +759,17 @@ function VideoCard({ v, selected, onToggle }: { v: ScoredVideo; selected: boolea
           ✓
         </div>
       </div>
-      <div className="p-2.5 space-y-1 bg-white/[.03]">
-        <div className="flex items-center gap-3 text-[13px] text-white/85">
+      <div className="p-2.5 space-y-1 bg-[var(--app-surface)]">
+        <div className="flex items-center gap-3 text-[13px] text-[var(--app-text-muted)]">
           <span title="vues">▶ {fmtCount(v.views)}</span>
           <span title="likes">♥ {fmtCount(v.likes)}</span>
           {v.engagementRate !== null && (
-            <span className="ml-auto text-white/50" title="taux d'engagement">
+            <span className="ml-auto text-[var(--app-text-muted)]" title="taux d'engagement">
               {(v.engagementRate * 100).toFixed(1)}%
             </span>
           )}
         </div>
-        {v.caption && <p className="text-[11px] text-white/40 line-clamp-1">{v.caption}</p>}
+        {v.caption && <p className="text-[11px] text-[var(--app-text-faint)] line-clamp-1">{v.caption}</p>}
       </div>
     </button>
   );

@@ -13,13 +13,13 @@ type Invitation = {
 };
 
 const INPUT_STYLE = {
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.10)",
+  background: "var(--app-surface)",
+  border: "1px solid var(--app-border)",
 };
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-xs font-semibold tracking-[0.14em] uppercase text-white/30 mb-4">
+    <h2 className="text-xs font-semibold tracking-[0.14em] uppercase text-[var(--app-text-faint)] mb-4">
       {children}
     </h2>
   );
@@ -30,8 +30,8 @@ function Card({ children }: { children: React.ReactNode }) {
     <div
       className="rounded-2xl p-6"
       style={{
-        background: "rgba(10,14,40,0.55)",
-        border: "1px solid rgba(255,255,255,0.07)",
+        background: "var(--app-surface)",
+        border: "1px solid var(--app-border)",
       }}
     >
       {children}
@@ -62,22 +62,22 @@ function FAQSection() {
                 onClick={() => setOpen(open === i ? null : i)}
                 className="w-full flex items-center justify-between gap-3 py-3 text-left transition"
               >
-                <span className="text-sm font-medium text-white/75">{item.q}</span>
+                <span className="text-sm font-medium text-[var(--app-text-muted)]">{item.q}</span>
                 <svg
                   viewBox="0 0 16 16"
-                  className={`h-3.5 w-3.5 shrink-0 text-white/30 transition-transform ${open === i ? "rotate-180" : ""}`}
+                  className={`h-3.5 w-3.5 shrink-0 text-[var(--app-text-faint)] transition-transform ${open === i ? "rotate-180" : ""}`}
                   fill="none" stroke="currentColor" strokeWidth="2.5"
                 >
                   <path d="M3 6l5 5 5-5" />
                 </svg>
               </button>
               {open === i && (
-                <p className="pb-3 text-sm text-white/45 leading-relaxed">
+                <p className="pb-3 text-sm text-[var(--app-text-faint)] leading-relaxed">
                   {item.a}
                 </p>
               )}
               {i < FAQ_ITEMS.length - 1 && (
-                <div style={{ height: "1px", background: "rgba(255,255,255,0.05)" }} />
+                <div style={{ height: "1px", background: "var(--app-border)" }} />
               )}
             </div>
           ))}
@@ -220,9 +220,9 @@ export default function SettingsClient({
     <div className="p-8 max-w-5xl">
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1.5">{t("dashboard.home.dashboard")}</p>
+        <p className="text-xs font-medium text-[var(--app-text-faint)] tracking-[0.14em] uppercase mb-1.5">{t("dashboard.home.dashboard")}</p>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-white tracking-tight">{t("dashboard.settings.title")}</h1>
+          <h1 className="text-2xl font-semibold text-[var(--app-text)] tracking-tight">{t("dashboard.settings.title")}</h1>
           {planLabel && (
             <span
               className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
@@ -245,17 +245,17 @@ export default function SettingsClient({
               <form onSubmit={saveProfile} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-white/40 mb-1.5">{t("dashboard.settings.firstNameLabel")}</label>
+                    <label className="block text-xs text-[var(--app-text-faint)] mb-1.5">{t("dashboard.settings.firstNameLabel")}</label>
                     <input
                       type="text"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                      className="w-full rounded-xl px-4 py-2.5 text-sm text-[var(--app-text)] placeholder-[var(--app-text-faint)] outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
                       style={INPUT_STYLE}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-white/40 mb-1.5">
+                    <label className="block text-xs text-[var(--app-text-faint)] mb-1.5">
                       {isGuest ? t("dashboard.settings.agencyLabelGuest") : t("dashboard.settings.agencyLabel")}
                     </label>
                     <input
@@ -263,21 +263,21 @@ export default function SettingsClient({
                       value={agencyName}
                       onChange={(e) => setAgencyName(e.target.value)}
                       disabled={isGuest}
-                      className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition disabled:opacity-40"
+                      className="w-full rounded-xl px-4 py-2.5 text-sm text-[var(--app-text)] placeholder-[var(--app-text-faint)] outline-none focus:ring-1 focus:ring-indigo-500/40 transition disabled:opacity-40"
                       style={INPUT_STYLE}
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-white/40 mb-1.5">{t("dashboard.settings.emailLabel")}</label>
+                  <label className="block text-xs text-[var(--app-text-faint)] mb-1.5">{t("dashboard.settings.emailLabel")}</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                    className="w-full rounded-xl px-4 py-2.5 text-sm text-[var(--app-text)] placeholder-[var(--app-text-faint)] outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
                     style={INPUT_STYLE}
                   />
-                  <p className="mt-1.5 text-[11px] text-white/25">{t("dashboard.settings.emailHint")}</p>
+                  <p className="mt-1.5 text-[11px] text-[var(--app-text-faint)]">{t("dashboard.settings.emailHint")}</p>
                 </div>
                 {profileMsg && (
                   <p className={`text-xs px-3 py-2 rounded-lg ${profileMsg.type === "ok" ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20" : "text-red-400 bg-red-500/[0.08] border border-red-500/20"}`}>
@@ -301,7 +301,7 @@ export default function SettingsClient({
             <div className="mt-6">
               <SectionTitle>{t("dashboard.settings.languageSection")}</SectionTitle>
               <Card>
-                <p className="text-xs text-white/40 mb-4 leading-relaxed">
+                <p className="text-xs text-[var(--app-text-faint)] mb-4 leading-relaxed">
                   {t("dashboard.settings.languageDesc")}
                 </p>
                 <div className="flex gap-3">
@@ -316,7 +316,7 @@ export default function SettingsClient({
                         style={
                           active
                             ? { background: "linear-gradient(135deg,#6366F1,#38BDF8)", color: "#fff" }
-                            : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.55)" }
+                            : { background: "var(--app-surface)", border: "1px solid var(--app-border)", color: "var(--app-text-muted)" }
                         }
                       >
                         {lng === "fr" ? "Français" : "English"}
@@ -337,7 +337,7 @@ export default function SettingsClient({
           <div>
             <SectionTitle>
               {t("dashboard.settings.teamSection")}{" "}
-              <span className="normal-case text-white/20 font-normal tracking-normal ml-1">
+              <span className="normal-case text-[var(--app-text-faint)] font-normal tracking-normal ml-1">
                 — {activeInvitations.length}/3 {t("dashboard.settings.teamMembers")}
               </span>
             </SectionTitle>
@@ -348,7 +348,7 @@ export default function SettingsClient({
                     <div
                       key={inv.id}
                       className="flex items-center justify-between rounded-xl px-4 py-3"
-                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+                      style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
                     >
                       <div className="flex items-center gap-3">
                         <div
@@ -362,8 +362,8 @@ export default function SettingsClient({
                           {(inv.guest_name ?? inv.guest_email)[0].toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-xs font-medium text-white/75">{inv.guest_name ?? inv.guest_email}</p>
-                          <p className="text-[10px] text-white/30">{inv.guest_email}</p>
+                          <p className="text-xs font-medium text-[var(--app-text-muted)]">{inv.guest_name ?? inv.guest_email}</p>
+                          <p className="text-[10px] text-[var(--app-text-faint)]">{inv.guest_email}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -378,7 +378,7 @@ export default function SettingsClient({
                         </span>
                         <button
                           onClick={() => removeInvitation(inv.id)}
-                          className="text-white/20 hover:text-red-400/70 transition p-1"
+                          className="text-[var(--app-text-faint)] hover:text-red-400/70 transition p-1"
                           title={t("dashboard.settings.removeInvite")}
                         >
                           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -397,7 +397,7 @@ export default function SettingsClient({
                     value={guestEmail}
                     onChange={(e) => setGuestEmail(e.target.value)}
                     placeholder={t("dashboard.settings.invitePlaceholder")}
-                    className="flex-1 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/25 outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                    className="flex-1 rounded-xl px-4 py-2.5 text-sm text-[var(--app-text)] placeholder-[var(--app-text-faint)] outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
                     style={INPUT_STYLE}
                   />
                   <button
@@ -410,14 +410,14 @@ export default function SettingsClient({
                   </button>
                 </form>
               ) : (
-                <p className="text-xs text-white/30 text-center py-2">{t("dashboard.settings.teamLimitReached")}</p>
+                <p className="text-xs text-[var(--app-text-faint)] text-center py-2">{t("dashboard.settings.teamLimitReached")}</p>
               )}
               {inviteMsg && (
                 <p className={`mt-3 text-xs px-3 py-2 rounded-lg ${inviteMsg.type === "ok" ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20" : "text-red-400 bg-red-500/[0.08] border border-red-500/20"}`}>
                   {inviteMsg.text}
                 </p>
               )}
-              <p className="mt-4 text-[11px] text-white/25 leading-relaxed">
+              <p className="mt-4 text-[11px] text-[var(--app-text-faint)] leading-relaxed">
                 {t("dashboard.settings.teamInviteInfo")}
               </p>
             </Card>
@@ -441,8 +441,8 @@ export default function SettingsClient({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white/75 mb-1">{t("dashboard.settings.soloNoInvite")}</p>
-                  <p className="text-xs text-white/40 leading-relaxed">
+                  <p className="text-sm font-medium text-[var(--app-text-muted)] mb-1">{t("dashboard.settings.soloNoInvite")}</p>
+                  <p className="text-xs text-[var(--app-text-faint)] leading-relaxed">
                     {t("dashboard.settings.soloNoInviteDesc")}
                   </p>
                 </div>
@@ -468,8 +468,8 @@ export default function SettingsClient({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white/75 mb-1">{t("dashboard.settings.guestNotice")}</p>
-                  <p className="text-xs text-white/40 leading-relaxed">
+                  <p className="text-sm font-medium text-[var(--app-text-muted)] mb-1">{t("dashboard.settings.guestNotice")}</p>
+                  <p className="text-xs text-[var(--app-text-faint)] leading-relaxed">
                     {t("dashboard.settings.guestNoticeDesc")}
                   </p>
                 </div>

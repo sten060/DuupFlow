@@ -23,7 +23,7 @@ function bulletList(lines: string[]) {
         return (
           <li key={i} className="flex gap-3">
             <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400/80" />
-            <span>{name && <strong className="text-white/90">{name}</strong>}{name ? " — " : ""}{rest}</span>
+            <span>{name && <strong className="text-[var(--app-text)]">{name}</strong>}{name ? " — " : ""}{rest}</span>
           </li>
         );
       })}
@@ -34,7 +34,7 @@ function bulletList(lines: string[]) {
 /** Recommendation / tip callout box. */
 function callout(text: string) {
   return (
-    <p className="rounded-xl px-4 py-3.5 text-white/80" style={{ background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.22)" }}>
+    <p className="rounded-xl px-4 py-3.5 text-[var(--app-text-muted)]" style={{ background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.22)" }}>
       {text}
     </p>
   );
@@ -138,12 +138,12 @@ export function buildDetectionDocs(t: T): DocEntry[] {
       body: (
         <div className="space-y-4">
           <p>
-            {t("det.howItWorksIntro1")} <strong className="text-white/85">{t("det.howItWorksSteps")}</strong> {t("det.howItWorksIntro2")}
+            {t("det.howItWorksIntro1")} <strong className="text-[var(--app-text-muted)]">{t("det.howItWorksSteps")}</strong> {t("det.howItWorksIntro2")}
           </p>
           <ol className="space-y-3 list-decimal list-outside pl-5 marker:text-indigo-300/70 marker:font-semibold">
-            <li><strong className="text-white/90">{t("det.step1Title")}</strong> — {t("det.step1Body")}</li>
-            <li><strong className="text-white/90">{t("det.step2Title")}</strong> — {t("det.step2Body")}</li>
-            <li><strong className="text-white/90">{t("det.step3Title")}</strong> — {t("det.step3Body")}</li>
+            <li><strong className="text-[var(--app-text)]">{t("det.step1Title")}</strong> — {t("det.step1Body")}</li>
+            <li><strong className="text-[var(--app-text)]">{t("det.step2Title")}</strong> — {t("det.step2Body")}</li>
+            <li><strong className="text-[var(--app-text)]">{t("det.step3Title")}</strong> — {t("det.step3Body")}</li>
           </ol>
         </div>
       ),
@@ -167,11 +167,11 @@ export function buildImageDocs(t: T): DocEntry[] {
       <div className="space-y-6">
         <p>{t("dashboard.docs.imgOptionsIntro")}</p>
         <div className="space-y-3">
-          <p className="text-sm font-semibold text-white/90">{t("dashboard.docs.imgVisualTitle")}</p>
+          <p className="text-sm font-semibold text-[var(--app-text)]">{t("dashboard.docs.imgVisualTitle")}</p>
           {bulletList([t("dashboard.docs.imgOptVisuals"), t("dashboard.docs.imgOptReverse")])}
         </div>
         <div className="space-y-3">
-          <p className="text-sm font-semibold text-white/90">{t("dashboard.docs.imgNoVisualTitle")}</p>
+          <p className="text-sm font-semibold text-[var(--app-text)]">{t("dashboard.docs.imgNoVisualTitle")}</p>
           {bulletList([
             t("dashboard.docs.imgOptFund"), t("dashboard.docs.imgOptSemi"),
             t("dashboard.docs.imgOptIphone"), t("dashboard.docs.imgOptCountry"),
@@ -215,9 +215,9 @@ export function buildComparatorDocs(t: T): DocEntry[] {
             src="/app/comparateur-metadonnees.png"
             alt={t("dashboard.docs.comparatorScoreTitle")}
             loading="lazy"
-            className="w-full rounded-xl border border-white/10"
+            className="w-full rounded-xl border border-[var(--app-border)]"
           />
-          <figcaption className="text-[13px] text-white/60">{t("dashboard.docs.comparatorGreen")}</figcaption>
+          <figcaption className="text-[13px] text-[var(--app-text-muted)]">{t("dashboard.docs.comparatorGreen")}</figcaption>
         </figure>
       </div>
     ) },
@@ -280,8 +280,8 @@ export function buildApiDocs(t: T): DocEntry[] {
       title: t("dashboard.developers.docsTitle"),
       body: (
         <div className="space-y-4">
-          <p>{t("dashboard.developers.docsBaseLabel")} <code className="text-white/85">https://www.duupflow.com/api/v1</code></p>
-          <p>{t("dashboard.developers.docsAuthLabel")} <code className="text-white/85">Authorization: Bearer dflw_live_…</code></p>
+          <p>{t("dashboard.developers.docsBaseLabel")} <code className="text-[var(--app-text-muted)]">https://www.duupflow.com/api/v1</code></p>
+          <p>{t("dashboard.developers.docsAuthLabel")} <code className="text-[var(--app-text-muted)]">Authorization: Bearer dflw_live_…</code></p>
           <p>{t("dashboard.developers.docsLimit")}</p>
           <ul className="space-y-3.5">
             {endpoints.map(([ep, desc], i) => (

@@ -47,16 +47,16 @@ function NotifCard({ n }: { n: AppNotification }) {
       ? "border-emerald-400/25 bg-emerald-500/[0.07]"
       : n.kind === "error"
       ? "border-rose-400/25 bg-rose-500/[0.07]"
-      : "border-white/10 bg-white/[0.04]";
+      : "border-[var(--app-border)] bg-[var(--app-surface)]";
   const icon = n.kind === "success" ? "✓" : n.kind === "error" ? "✗" : "•";
 
   const head = (
     <>
-      <p className="text-xs font-semibold text-white/85">
+      <p className="text-xs font-semibold text-[var(--app-text)]">
         <span className="mr-1">{icon}</span>
         {n.title}
       </p>
-      {n.body && <p className="mt-0.5 text-[11px] leading-snug text-white/55 whitespace-pre-line">{n.body}</p>}
+      {n.body && <p className="mt-0.5 text-[11px] leading-snug text-[var(--app-text-muted)] whitespace-pre-line">{n.body}</p>}
       {n.href && (
         <span className="mt-1.5 inline-block text-[11px] font-semibold text-sky-300 group-hover:text-sky-200">
           {t("dashboard.notif.discover")} →
@@ -77,7 +77,7 @@ function NotifCard({ n }: { n: AppNotification }) {
         )}
         <button
           onClick={() => dismissNotification(n.id)}
-          className="shrink-0 rounded-full px-1 text-white/30 hover:text-white/80"
+          className="shrink-0 rounded-full px-1 text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)]"
           title={t("dashboard.videosCommon.close")}
         >
           ✕
@@ -219,7 +219,7 @@ export default function NotificationBell() {
       <button
         onClick={toggle}
         aria-label={t("dashboard.videosCommon.notifTitle")}
-        className={`fixed bottom-20 right-5 z-50 h-12 w-12 rounded-full bg-white/[0.06] backdrop-blur-xl border border-white/10 text-white flex items-center justify-center shadow-lg hover:bg-white/[0.12] transition-all ${anyRunning ? "ring-2 ring-indigo-400/50 animate-pulse" : ""}`}
+        className={`fixed bottom-20 right-5 z-50 h-12 w-12 rounded-full bg-[var(--app-surface-2)] backdrop-blur-xl border border-[var(--app-border)] text-[var(--app-text)] flex items-center justify-center shadow-lg hover:bg-[var(--app-surface-2)] transition-all ${anyRunning ? "ring-2 ring-indigo-400/50 animate-pulse" : ""}`}
       >
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -240,20 +240,20 @@ export default function NotificationBell() {
       )}
 
       {open && (
-        <div className="fixed bottom-36 right-5 z-50 w-80 max-h-[28rem] rounded-2xl bg-white/[0.05] backdrop-blur-2xl border border-white/[0.1] flex flex-col overflow-hidden shadow-2xl">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-            <span className="text-sm font-medium text-white/80">{t("dashboard.videosCommon.notifTitle")}</span>
+        <div className="fixed bottom-36 right-5 z-50 w-80 max-h-[28rem] rounded-2xl bg-[var(--app-surface)] backdrop-blur-2xl border border-[var(--app-border)] flex flex-col overflow-hidden shadow-2xl">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--app-border)]">
+            <span className="text-sm font-medium text-[var(--app-text-muted)]">{t("dashboard.videosCommon.notifTitle")}</span>
             <div className="flex items-center gap-2">
               {notifs.length > 0 && (
-                <button onClick={clearNotifications} className="text-xs text-white/40 hover:text-white/70 transition">{t("dashboard.videosCommon.clearAll")}</button>
+                <button onClick={clearNotifications} className="text-xs text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] transition">{t("dashboard.videosCommon.clearAll")}</button>
               )}
-              <button onClick={() => setOpen(false)} className="rounded-full px-1 text-white/40 hover:text-white/80" title={t("dashboard.videosCommon.close")}>✕</button>
+              <button onClick={() => setOpen(false)} className="rounded-full px-1 text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)]" title={t("dashboard.videosCommon.close")}>✕</button>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {notifs.length === 0 && (
-              <p className="px-2 py-8 text-center text-xs text-white/40">{t("dashboard.videosCommon.noNotifs")}</p>
+              <p className="px-2 py-8 text-center text-xs text-[var(--app-text-faint)]">{t("dashboard.videosCommon.noNotifs")}</p>
             )}
             {notifs.map((n) => <NotifCard key={n.id} n={n} />)}
           </div>

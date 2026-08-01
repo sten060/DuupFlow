@@ -11,11 +11,11 @@ export default function ProgressSubmit({ label = "Traitement en cours…" }:{
 
   return (
     <div className="mt-4">
-      <div className="h-2 w-full overflow-hidden rounded bg-white/10">
+      <div className="h-2 w-full overflow-hidden rounded bg-[var(--app-surface-2)]">
         <div className="h-2 w-full animate-[progress_1.2s_linear_infinite] bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-indigo-400"
              style={{ transformOrigin: "0 0" }} />
       </div>
-      <p className="mt-2 text-xs text-white/70">{label}</p>
+      <p className="mt-2 text-xs text-[var(--app-text-muted)]">{label}</p>
     </div>
   );
 }

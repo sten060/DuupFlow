@@ -49,13 +49,13 @@ export default function ProgressWatcher({ userId, jobId, onComplete, onError }: 
 
   return (
     <div className="mt-6">
-      <div className="h-2 w-full rounded bg-white/10 overflow-hidden">
+      <div className="h-2 w-full rounded bg-[var(--app-surface-2)] overflow-hidden">
         <div
           className="h-2 bg-indigo-500 transition-[width] duration-200"
           style={{ width: `${Math.max(0, Math.min(100, p))}%` }}
         />
       </div>
-      <p className={["mt-2 text-xs", p < 0 ? "text-red-400" : "text-white/70"].join(" ")}>
+      <p className={["mt-2 text-xs", p < 0 ? "text-red-400" : "text-[var(--app-text-muted)]"].join(" ")}>
         {p >= 100 ? t("vid.watch.done") : p < 0 ? t("vid.watch.errorMsg", { msg }) : msg || t("vid.progress.percent", { percent: p })}
       </p>
     </div>

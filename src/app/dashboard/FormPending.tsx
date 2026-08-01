@@ -34,8 +34,8 @@ export function PendingOverlay() {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40">
-      <div className="flex items-center gap-3 rounded-md bg-zinc-900 px-4 py-3 text-white shadow-lg">
-        <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/70 border-r-transparent" />
+      <div className="flex items-center gap-3 rounded-md bg-[var(--app-surface)] px-4 py-3 text-[var(--app-text)] shadow-lg">
+        <span className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--app-text-muted)] border-r-transparent" />
         <span>{t("common.loading")}</span>
       </div>
     </div>

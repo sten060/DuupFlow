@@ -45,7 +45,7 @@ export default function GlobalDocsDrawer() {
         onClick={() => { setMod(0); setTopic(0); setOpen(true); }}
         aria-label={t("dashboard.docs.button")}
         title={t("dashboard.docs.button")}
-        className="inline-flex items-center gap-1.5 text-xs text-white/50 hover:text-white/80 transition"
+        className="inline-flex items-center gap-1.5 text-xs text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition"
       >
         <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-3.5 sm:w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
@@ -61,32 +61,32 @@ export default function GlobalDocsDrawer() {
 
           <div
             className="relative flex w-full h-full max-w-[1180px] sm:h-[86vh] rounded-none sm:rounded-2xl overflow-hidden shadow-2xl animate-[duupDocsIn_.2s_ease-out]"
-            style={{ background: "#0b1024", border: "1px solid rgba(255,255,255,0.10)" }}
+            style={{ background: "var(--app-bg-2)", border: "1px solid var(--app-border)" }}
           >
             <style>{`@keyframes duupDocsIn{from{transform:scale(.98);opacity:.5}to{transform:scale(1);opacity:1}}`}</style>
 
             {/* Pane 1 — modules (hidden on mobile; replaced by dropdowns) */}
-            <aside className="hidden md:flex w-[220px] shrink-0 flex-col border-r border-white/[0.08]">
+            <aside className="hidden md:flex w-[220px] shrink-0 flex-col border-r border-[var(--app-border)]">
               <div className="px-5 pt-5 pb-3">
-                <h2 className="text-base font-bold text-white">{t("dashboard.docs.allTitle")}</h2>
+                <h2 className="text-base font-bold text-[var(--app-text)]">{t("dashboard.docs.allTitle")}</h2>
               </div>
-              <p className="px-5 pb-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">{t("dashboard.docs.modulesSection")}</p>
+              <p className="px-5 pb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-text-faint)]">{t("dashboard.docs.modulesSection")}</p>
               <nav className="flex-1 overflow-y-auto px-2.5 pb-3 space-y-0.5">
                 {modules.map((m, i) => {
                   const on = i === mod;
                   return (
                     <Fragment key={m.id}>
-                      {GROUP_BREAKS.has(i) && <div className="my-2 mx-2 h-px bg-white/[0.07]" />}
+                      {GROUP_BREAKS.has(i) && <div className="my-2 mx-2 h-px bg-[var(--app-border)]" />}
                       <button
                         type="button"
                         onClick={() => { setMod(i); setTopic(0); }}
                         className={[
                           "w-full flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[14px] transition",
-                          on ? "text-white font-semibold" : "text-white/60 hover:text-white/85 hover:bg-white/[0.03]",
+                          on ? "text-[var(--app-text)] font-semibold" : "text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:bg-[var(--app-surface)]",
                         ].join(" ")}
                         style={on ? { background: "rgba(99,102,241,0.14)", boxShadow: "inset 0 0 0 1px rgba(99,102,241,0.28)" } : undefined}
                       >
-                        <span className={on ? "text-indigo-300 shrink-0" : "text-white/40 shrink-0"}>{m.icon}</span>
+                        <span className={on ? "text-indigo-300 shrink-0" : "text-[var(--app-text-faint)] shrink-0"}>{m.icon}</span>
                         <span className="min-w-0 truncate">{m.label}</span>
                       </button>
                     </Fragment>
@@ -94,7 +94,7 @@ export default function GlobalDocsDrawer() {
                 })}
               </nav>
               {/* Contact support — pinned to the modules pane */}
-              <div className="p-3 border-t border-white/[0.08]">
+              <div className="p-3 border-t border-[var(--app-border)]">
                 <a
                   href={TELEGRAM_SUPPORT}
                   target="_blank"
@@ -113,9 +113,9 @@ export default function GlobalDocsDrawer() {
             </aside>
 
             {/* Pane 2 — topics of the module (hidden on mobile; replaced by dropdowns) */}
-            <aside className="hidden md:flex w-[240px] shrink-0 flex-col border-r border-white/[0.08]" style={{ background: "rgba(99,102,241,0.05)" }}>
+            <aside className="hidden md:flex w-[240px] shrink-0 flex-col border-r border-[var(--app-border)]" style={{ background: "rgba(99,102,241,0.05)" }}>
               <div className="px-5 pt-5 pb-3">
-                <h3 className="text-sm font-semibold text-white/85 truncate">{currentModule?.label}</h3>
+                <h3 className="text-sm font-semibold text-[var(--app-text-muted)] truncate">{currentModule?.label}</h3>
               </div>
               <nav className="flex-1 overflow-y-auto px-2.5 pb-2 space-y-0.5">
                 {currentModule?.docs.map((d, i) => {
@@ -127,7 +127,7 @@ export default function GlobalDocsDrawer() {
                       onClick={() => setTopic(i)}
                       className={[
                         "w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition",
-                        on ? "text-white font-semibold" : "text-white/60 hover:text-white/85 hover:bg-white/[0.04]",
+                        on ? "text-[var(--app-text)] font-semibold" : "text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:bg-[var(--app-surface)]",
                       ].join(" ")}
                       style={on ? { background: "rgba(99,102,241,0.20)", boxShadow: "inset 0 0 0 1px rgba(99,102,241,0.34)" } : undefined}
                     >
@@ -140,12 +140,12 @@ export default function GlobalDocsDrawer() {
 
             {/* Pane 3 — content */}
             <div className="flex-1 flex flex-col min-w-0">
-              <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-white/[0.08] shrink-0">
-                <h3 className="text-lg font-semibold text-white truncate">{currentTopic?.title}</h3>
+              <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-[var(--app-border)] shrink-0">
+                <h3 className="text-lg font-semibold text-[var(--app-text)] truncate">{currentTopic?.title}</h3>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="text-white/40 hover:text-white/80 transition shrink-0"
+                  className="text-[var(--app-text-faint)] hover:text-[var(--app-text)] transition shrink-0"
                   aria-label={t("dashboard.docs.close")}
                 >
                   <svg viewBox="0 0 16 16" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -155,16 +155,16 @@ export default function GlobalDocsDrawer() {
               </div>
               {/* Mobile navigation — panes 1 & 2 are hidden on phones, so pick
                   the module + topic here, plus a quick support shortcut. */}
-              <div className="md:hidden flex flex-col gap-2 px-4 py-2.5 border-b border-white/[0.08] shrink-0">
+              <div className="md:hidden flex flex-col gap-2 px-4 py-2.5 border-b border-[var(--app-border)] shrink-0">
                 <div className="flex items-center gap-2">
                   <select
                     value={mod}
                     onChange={(e) => { setMod(Number(e.target.value)); setTopic(0); }}
-                    className="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm text-white outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}
+                    className="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm text-[var(--app-text)] outline-none"
+                    style={{ background: "var(--app-surface-2)", border: "1px solid var(--app-border-strong)" }}
                   >
                     {modules.map((m, i) => (
-                      <option key={m.id} value={i} style={{ background: "#0b1024" }}>{m.label}</option>
+                      <option key={m.id} value={i} style={{ background: "var(--app-bg-2)" }}>{m.label}</option>
                     ))}
                   </select>
                   <a
@@ -181,16 +181,16 @@ export default function GlobalDocsDrawer() {
                 <select
                   value={topic}
                   onChange={(e) => setTopic(Number(e.target.value))}
-                  className="w-full rounded-lg px-3 py-2 text-sm text-white outline-none"
-                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}
+                  className="w-full rounded-lg px-3 py-2 text-sm text-[var(--app-text)] outline-none"
+                  style={{ background: "var(--app-surface-2)", border: "1px solid var(--app-border-strong)" }}
                 >
                   {currentModule?.docs.map((d, i) => (
-                    <option key={i} value={i} style={{ background: "#0b1024" }}>{d.title}</option>
+                    <option key={i} value={i} style={{ background: "var(--app-bg-2)" }}>{d.title}</option>
                   ))}
                 </select>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-5 sm:px-6 md:px-8 py-6 sm:py-7 text-[14.5px] leading-[1.9] text-white/70">
+              <div className="flex-1 overflow-y-auto px-5 sm:px-6 md:px-8 py-6 sm:py-7 text-[14.5px] leading-[1.9] text-[var(--app-text-muted)]">
                 {currentTopic?.body}
               </div>
             </div>

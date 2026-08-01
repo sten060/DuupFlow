@@ -6,7 +6,7 @@ export default function DashboardLoading() {
           className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin"
           style={{ borderColor: "rgba(99,102,241,0.5)", borderTopColor: "transparent" }}
         />
-        <p className="text-xs text-white/25 tracking-wide">Chargement…</p>
+        <p className="text-xs text-[var(--app-text-faint)] tracking-wide">Chargement…</p>
       </div>
     </div>
   );

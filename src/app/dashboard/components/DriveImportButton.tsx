@@ -92,8 +92,8 @@ export default function DriveImportButton({ onFiles, disabled, onError, compact,
         title={t("drive.import")}
         aria-label={t("drive.import")}
         className="inline-flex items-center justify-center h-9 w-9 rounded-lg
-                   bg-white/[0.04] border border-white/[0.10] hover:bg-white/[0.07]
-                   hover:border-white/[0.18] transition disabled:opacity-50"
+                   bg-[var(--app-surface)] border border-[var(--app-border)] hover:bg-[var(--app-surface-2)]
+                   hover:border-[var(--app-border-strong)] transition disabled:opacity-50"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={DRIVE_ICON} alt="" className={loading ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />
@@ -108,14 +108,14 @@ export default function DriveImportButton({ onFiles, disabled, onError, compact,
         onClick={handle}
         disabled={loading || disabled}
         className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
-                   bg-white/[0.04] border border-white/[0.10] text-white/85
-                   hover:bg-white/[0.07] hover:border-white/[0.18] transition disabled:opacity-50"
+                   bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-muted)]
+                   hover:bg-[var(--app-surface-2)] hover:border-[var(--app-border-strong)] transition disabled:opacity-50"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={DRIVE_ICON} alt="" className={loading ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />
         {loading ? t("drive.importing") : t("drive.import")}
       </button>
-      {msg && <span className={`text-xs ${tone === "warn" ? "text-amber-300" : "text-white/50"}`}>{msg}</span>}
+      {msg && <span className={`text-xs ${tone === "warn" ? "text-amber-300" : "text-[var(--app-text-muted)]"}`}>{msg}</span>}
     </div>
   );
 }

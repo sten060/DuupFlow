@@ -7,6 +7,17 @@ import { useTranslation } from "@/lib/i18n/context";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import TokensPanel from "./TokensPanel";
 
+function fmtMoney(cents: number, currency: string, locale: string): string {
+  try {
+    return (cents / 100).toLocaleString(locale === "en" ? "en-US" : "fr-FR", {
+      style: "currency",
+      currency: currency || "EUR",
+    });
+  } catch {
+    return `${(cents / 100).toFixed(2)} €`;
+  }
+}
+
 function getRenewalDate(periodStart: string | null): string | null {
   if (!periodStart) return null;
   const renewal = new Date(periodStart);
@@ -50,7 +61,7 @@ function UsageStatCard({
   return (
     <div
       className="rounded-xl p-4"
-      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
     >
       <div className="flex items-center gap-2 mb-2.5">
         <div
@@ -59,19 +70,19 @@ function UsageStatCard({
         >
           {icon}
         </div>
-        <span className="text-[10px] font-semibold tracking-[0.1em] uppercase text-white/40">
+        <span className="text-[10px] font-semibold tracking-[0.1em] uppercase text-[var(--app-text-faint)]">
           {label}
         </span>
       </div>
-      <p className="text-2xl font-bold text-white tabular-nums leading-none">
+      <p className="text-2xl font-bold text-[var(--app-text)] tabular-nums leading-none">
         {current}
-        <span className="text-sm font-medium text-white/35 ml-1.5">
+        <span className="text-sm font-medium text-[var(--app-text-faint)] ml-1.5">
           / {unlimited ? "∞" : limit}
         </span>
       </p>
       <div
         className="mt-3 h-1.5 w-full rounded-full overflow-hidden"
-        style={{ background: "rgba(255,255,255,0.06)" }}
+        style={{ background: "var(--app-surface-2)" }}
       >
         <div
           className="h-full rounded-full transition-all duration-700 ease-out"
@@ -105,7 +116,7 @@ export default function AbonnementClient({
   currentPeriodEnd: number | null;
   isTrialing: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [portalPaymentLoading, setPortalPaymentLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
@@ -119,6 +130,9 @@ export default function AbonnementClient({
   const [cancelFeedback, setCancelFeedback] = useState("");
   const [showFreeUpgradeModal, setShowFreeUpgradeModal] = useState(false);
   const [view, setView] = useState<"plan" | "tokens">("plan");
+  // Preview du prorata réel (Solo → Pro), chargé à l'ouverture de la modale.
+  const [upgradePreview, setUpgradePreview] = useState<{ dueNowCents: number; recurringCents: number; currency: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const cancelEndDate = cancelAt
     ? new Date(cancelAt * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
@@ -232,6 +246,20 @@ export default function AbonnementClient({
     setDowngradeLoading(false);
   }
 
+  // Charge le montant réel du prorata dès que la modale Pro s'ouvre.
+  useEffect(() => {
+    if (!showUpgradeModal) return;
+    let cancelled = false;
+    setPreviewLoading(true);
+    setUpgradePreview(null);
+    fetch("/api/stripe/upgrade-preview")
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled && typeof d?.dueNowCents === "number") setUpgradePreview(d); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setPreviewLoading(false); });
+    return () => { cancelled = true; };
+  }, [showUpgradeModal]);
+
   async function upgradeToProCheckout() {
     setUpgradeLoading(true);
     setMsg(null);
@@ -257,14 +285,14 @@ export default function AbonnementClient({
     return (
       <main className="p-8 max-w-2xl">
         <div className="mb-8">
-          <p className="text-xs font-medium text-white/25 tracking-[0.14em] uppercase mb-1.5">{t("dashboard.home.dashboard")}</p>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">{t("dashboard.subscription.title")}</h1>
+          <p className="text-xs font-medium text-[var(--app-text-faint)] tracking-[0.14em] uppercase mb-1.5">{t("dashboard.home.dashboard")}</p>
+          <h1 className="text-2xl font-semibold text-[var(--app-text)] tracking-tight">{t("dashboard.subscription.title")}</h1>
         </div>
         <div
           className="rounded-2xl p-8 text-center"
-          style={{ background: "rgba(10,14,40,0.55)", border: "1px solid rgba(255,255,255,0.07)" }}
+          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
         >
-          <p className="text-white/50 mb-4">{t("dashboard.subscription.noSubscription")}</p>
+          <p className="text-[var(--app-text-muted)] mb-4">{t("dashboard.subscription.noSubscription")}</p>
           <Link
             href="/checkout"
             className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
@@ -282,13 +310,13 @@ export default function AbonnementClient({
     <main className="px-4 py-6 sm:px-8 sm:py-8 2xl:px-12">
       {/* Header — screenshot style */}
       <div className="mb-8">
-        <p className="text-xs font-medium text-white/30 tracking-[0.14em] uppercase mb-2">
+        <p className="text-xs font-medium text-[var(--app-text-faint)] tracking-[0.14em] uppercase mb-2">
           {t("dashboard.subscription.eyebrow")}
         </p>
-        <h1 className="text-3xl font-semibold text-white tracking-tight">
+        <h1 className="text-3xl font-semibold text-[var(--app-text)] tracking-tight">
           {t("dashboard.subscription.pageHeading")}
         </h1>
-        <p className="text-sm text-white/45 mt-2 max-w-xl leading-relaxed">
+        <p className="text-sm text-[var(--app-text-faint)] mt-2 max-w-xl leading-relaxed">
           {t("dashboard.subscription.pageSubtitle")}
         </p>
       </div>
@@ -296,7 +324,7 @@ export default function AbonnementClient({
       {/* Segmented toggle — switch the page between the plan view and the token view. */}
       <div
         className="inline-flex items-center gap-1 p-1 rounded-xl mb-6"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+        style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
       >
         {(["plan", "tokens"] as const).map((v) => {
           const active = view === v;
@@ -307,7 +335,7 @@ export default function AbonnementClient({
               onClick={() => setView(v)}
               className={[
                 "px-4 py-1.5 text-sm font-semibold rounded-lg transition-all",
-                active ? "text-white" : "text-white/45 hover:text-white/70",
+                active ? "text-white" : "text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)]",
               ].join(" ")}
               style={active ? { background: "linear-gradient(135deg,#6366F1,#38BDF8)" } : undefined}
             >
@@ -322,7 +350,7 @@ export default function AbonnementClient({
         {/* Plan card */}
         <div
           className="rounded-2xl p-6"
-          style={{ background: "rgba(10,14,40,0.55)", border: "1px solid rgba(255,255,255,0.07)" }}
+          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
         >
           {/* Plan header — screenshot style: "Plan actuel" badge, plan name
               (no price, per spec), and the "Changer son plan" CTA beside it. */}
@@ -334,7 +362,7 @@ export default function AbonnementClient({
           </span>
           <div className="flex flex-col items-start gap-3 mb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
             <div className="flex items-center gap-3">
-              <p className="text-4xl font-bold text-white leading-none">{meta.label}</p>
+              <p className="text-4xl font-bold text-[var(--app-text)] leading-none">{meta.label}</p>
               {isTrialing && (
                 <span
                   className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
@@ -390,18 +418,18 @@ export default function AbonnementClient({
           {renewalDate && !isCancelling && (
             <div
               className="flex items-center justify-between rounded-xl px-4 py-3 mb-5"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
             >
               <div className="flex items-center gap-2.5">
-                <svg viewBox="0 0 24 24" className="h-4 w-4 text-white/30 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 text-[var(--app-text-faint)] shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="3" y="4" width="18" height="18" rx="2" />
                   <path d="M16 2v4M8 2v4M3 10h18" />
                 </svg>
                 <div>
-                  <p className="text-xs text-white/50">
+                  <p className="text-xs text-[var(--app-text-muted)]">
                     {isTrialing ? t("dashboard.subscription.firstPayment") : t("dashboard.subscription.nextRenewal")}
                   </p>
-                  <p className="text-xs font-semibold text-white/80 mt-0.5">{renewalDate}</p>
+                  <p className="text-xs font-semibold text-[var(--app-text-muted)] mt-0.5">{renewalDate}</p>
                 </div>
               </div>
               {daysLeft !== null && (
@@ -410,10 +438,10 @@ export default function AbonnementClient({
                   style={
                     daysLeft <= 3
                       ? { background: "rgba(245,158,11,0.10)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.20)" }
-                      : { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.40)", border: "1px solid rgba(255,255,255,0.08)" }
+                      : { background: "var(--app-surface)", color: "var(--app-text-faint)", border: "1px solid var(--app-border)" }
                   }
                 >
-                  J-{daysLeft}
+                  {locale === "en" ? `${daysLeft}d left` : `J-${daysLeft}`}
                 </span>
               )}
             </div>
@@ -421,7 +449,7 @@ export default function AbonnementClient({
 
           {/* Usage — screenshot style: 3 stat cards side by side */}
           <div>
-            <p className="text-xs font-semibold tracking-[0.12em] uppercase text-white/25 mb-4">
+            <p className="text-xs font-semibold tracking-[0.12em] uppercase text-[var(--app-text-faint)] mb-4">
               {isUnlimited ? t("dashboard.subscription.usageUnlimited") : t("dashboard.subscription.usageThisMonth")}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -466,7 +494,7 @@ export default function AbonnementClient({
               />
             </div>
             {!isUnlimited && renewalDate && (
-              <p className="mt-3 text-[11px] text-white/25 leading-relaxed">
+              <p className="mt-3 text-[11px] text-[var(--app-text-faint)] leading-relaxed">
                 {t("dashboard.subscription.resetDate", { date: renewalDate })}
               </p>
             )}
@@ -477,7 +505,7 @@ export default function AbonnementClient({
               the whole block to avoid an empty gap at the bottom of the card. */}
           {(hasStripePortal || msg) && (
             <>
-              <div className="h-px bg-white/[0.06] my-5" />
+              <div className="h-px bg-[var(--app-border)] my-5" />
 
               {msg && (
                 <p
@@ -498,9 +526,9 @@ export default function AbonnementClient({
                     disabled={portalPaymentLoading}
                     className="rounded-xl px-5 py-2.5 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
                     style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.10)",
-                      color: "rgba(255,255,255,0.60)",
+                      background: "var(--app-surface)",
+                      border: "1px solid var(--app-border)",
+                      color: "var(--app-text-muted)",
                     }}
                   >
                     {portalPaymentLoading ? (
@@ -522,9 +550,9 @@ export default function AbonnementClient({
                       disabled={cancelLoading}
                       className="rounded-xl px-5 py-2.5 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-red-500/[0.06] hover:border-red-500/20 hover:text-red-400/80"
                       style={{
-                        background: "rgba(255,255,255,0.02)",
-                        border: "1px solid rgba(255,255,255,0.07)",
-                        color: "rgba(255,255,255,0.35)",
+                        background: "var(--app-surface)",
+                        border: "1px solid var(--app-border)",
+                        color: "var(--app-text-faint)",
                       }}
                     >
                       {cancelLoading ? (
@@ -553,7 +581,7 @@ export default function AbonnementClient({
             style={{ background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.15)" }}
           >
             <p className="text-xs font-semibold text-indigo-300/70 uppercase tracking-wider mb-3">{t("dashboard.subscription.proAdvantages")}</p>
-            <ul className="space-y-2 text-sm text-white/55">
+            <ul className="space-y-2 text-sm text-[var(--app-text-muted)]">
               <li className="flex items-center gap-2">
                 <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M2 8l4 4 8-8" />
@@ -583,59 +611,113 @@ export default function AbonnementClient({
       {view === "tokens" && <TokensPanel />}
     </main>
 
-    {/* Upgrade confirmation modal */}
+    {/* Upgrade confirmation modal — prix réel du prorata + plan Pro complet */}
     {showUpgradeModal && (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
         onClick={() => setShowUpgradeModal(false)}
       >
         <div
-          className="w-full max-w-md rounded-2xl p-6 space-y-5"
-          style={{ background: "#13131a", border: "1px solid rgba(255,255,255,0.10)" }}
+          className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl p-7 sm:p-8"
+          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", boxShadow: "0 30px 90px rgba(20,40,90,0.28)" }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold text-white">{t("dashboard.subscription.upgradeModalTitle")}</h2>
-            <p className="text-sm text-white/50">
-              {t("dashboard.subscription.upgradeModalDesc")}
-            </p>
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white" style={{ background: "linear-gradient(135deg,#4f7bff,#7c5cff)" }}>
+                <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor"><path d="m12 3 2.09 5.26L20 9.27l-4 3.64L17.18 19 12 15.9 6.82 19 8 12.91l-4-3.64 5.91-1.01L12 3Z" /></svg>
+                {locale === "en" ? "Pro plan" : "Plan Pro"}
+              </span>
+              <h2 className="mt-3 text-[22px] font-semibold tracking-tight text-[var(--app-text)]">
+                {locale === "en" ? "Upgrade to Pro" : "Passe au plan Pro"}
+              </h2>
+              <p className="mt-1 text-sm text-[var(--app-text-muted)]">
+                {locale === "en"
+                  ? "Unlimited duplications and the full toolkit — activated instantly."
+                  : "Duplications illimitées et toute la boîte à outils — activé immédiatement."}
+              </p>
+            </div>
+            <button onClick={() => setShowUpgradeModal(false)} aria-label={locale === "en" ? "Close" : "Fermer"}
+              className="shrink-0 rounded-full p-1.5 text-[var(--app-text-faint)] transition hover:text-[var(--app-text)]" style={{ border: "1px solid var(--app-border)" }}>
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
           </div>
-          <ul className="space-y-2 text-sm text-white/60">
-            <li className="flex items-start gap-2">
-              <svg viewBox="0 0 16 16" className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M2 8l4 4 8-8" />
-              </svg>
-              {t("dashboard.subscription.upgradeModalProrata")}
-            </li>
-            <li className="flex items-start gap-2">
-              <svg viewBox="0 0 16 16" className="h-4 w-4 text-green-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M2 8l4 4 8-8" />
-              </svg>
-              {t("dashboard.subscription.upgradeModalUnlimited")}
-            </li>
-            <li className="flex items-start gap-2">
-              <svg viewBox="0 0 16 16" className="h-4 w-4 text-green-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M2 8l4 4 8-8" />
-              </svg>
-              {t("dashboard.subscription.upgradeModalMembers")}
-            </li>
-          </ul>
-          <div className="flex gap-3 pt-1">
+
+          {/* Bloc prix : montant réel à payer maintenant (prorata) + récurrent */}
+          <div className="mt-6 rounded-2xl p-5" style={{ background: "var(--app-surface-2)", border: "1px solid var(--app-border)" }}>
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--app-text-faint)]">
+                  {locale === "en" ? "Due today" : "À payer maintenant"}
+                </p>
+                <p className="mt-1 text-[34px] font-bold leading-none text-[var(--app-text)]" style={{ letterSpacing: "-0.02em" }}>
+                  {previewLoading
+                    ? <span className="opacity-50">…</span>
+                    : upgradePreview
+                      ? fmtMoney(upgradePreview.dueNowCents, upgradePreview.currency, locale)
+                      : "—"}
+                </p>
+                <p className="mt-1.5 text-xs text-[var(--app-text-muted)]">
+                  {locale === "en" ? "Prorated for the days left this month" : "Prorata des jours restants ce mois-ci"}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-sm font-semibold text-[var(--app-text)]">
+                  {fmtMoney(upgradePreview?.recurringCents ?? 9900, upgradePreview?.currency ?? "EUR", locale)}
+                  <span className="font-normal text-[var(--app-text-faint)]">/{locale === "en" ? "mo" : "mois"}</span>
+                </p>
+                <p className="text-xs text-[var(--app-text-faint)]">{locale === "en" ? "then, billed monthly" : "puis, chaque mois"}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Avantages Pro complets */}
+          <div className="mt-6">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-text-faint)]">
+              {locale === "en" ? "Everything in Pro" : "Tout le plan Pro"}
+            </p>
+            <ul className="grid grid-cols-1 gap-x-5 gap-y-2.5 sm:grid-cols-2">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                <li key={n} className="flex items-start gap-2 text-sm text-[var(--app-text-muted)]">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-white" style={{ background: "linear-gradient(135deg,#4f7bff,#7c5cff)" }}>
+                    <svg viewBox="0 0 16 16" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="3"><path d="M2 8l4 4 8-8" /></svg>
+                  </span>
+                  {t(`tarifs.proFeature${n}`)}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Réassurance */}
+          <p className="mt-5 flex items-center gap-1.5 text-xs text-[var(--app-text-faint)]">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 3l7 3v5c0 4.4-3 8-7 10-4-2-7-5.6-7-10V6z" /></svg>
+            {locale === "en" ? "Secure payment by Stripe · Cancel anytime" : "Paiement sécurisé par Stripe · Résiliable à tout moment"}
+          </p>
+
+          {/* Actions */}
+          <div className="mt-6 flex gap-3">
             <button
               onClick={() => setShowUpgradeModal(false)}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+              className="rounded-xl px-5 py-3 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text)]"
+              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
             >
               {t("dashboard.subscription.cancelButton")}
             </button>
             <button
               onClick={() => { setShowUpgradeModal(false); upgradeToProCheckout(); }}
               disabled={upgradeLoading}
-              className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+              className="flex-1 rounded-xl py-3 text-sm font-semibold text-white shadow-[0_12px_34px_rgba(90,90,240,0.35)] transition hover:opacity-90 disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg,#4f7bff,#7c5cff)" }}
             >
-              {upgradeLoading ? t("dashboard.subscription.redirecting") : t("dashboard.subscription.confirmUpgrade")}
+              {upgradeLoading
+                ? (locale === "en" ? "Processing…" : "Traitement…")
+                : upgradePreview
+                  ? (locale === "en"
+                      ? `Confirm — pay ${fmtMoney(upgradePreview.dueNowCents, upgradePreview.currency, locale)}`
+                      : `Confirmer — payer ${fmtMoney(upgradePreview.dueNowCents, upgradePreview.currency, locale)}`)
+                  : (locale === "en" ? "Confirm upgrade" : "Confirmer le passage au Pro")}
             </button>
           </div>
         </div>
@@ -651,16 +733,16 @@ export default function AbonnementClient({
       >
         <div
           className="w-full max-w-md rounded-2xl p-6 space-y-5"
-          style={{ background: "#13131a", border: "1px solid rgba(255,255,255,0.10)" }}
+          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="space-y-1">
-            <h2 className="text-base font-semibold text-white">{t("dashboard.subscription.cancelModalTitle")}</h2>
-            <p className="text-sm text-white/50">
+            <h2 className="text-base font-semibold text-[var(--app-text)]">{t("dashboard.subscription.cancelModalTitle")}</h2>
+            <p className="text-sm text-[var(--app-text-muted)]">
               {t("dashboard.subscription.cancelModalDesc")}
             </p>
           </div>
-          <ul className="space-y-2 text-sm text-white/60">
+          <ul className="space-y-2 text-sm text-[var(--app-text-muted)]">
             <li className="flex items-start gap-2">
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
@@ -679,8 +761,8 @@ export default function AbonnementClient({
           <div className="flex gap-3 pt-1">
             <button
               onClick={() => setShowCancelStep1(false)}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text-muted)]"
+              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
             >
               {t("dashboard.subscription.cancelButton")}
             </button>
@@ -705,31 +787,31 @@ export default function AbonnementClient({
       >
         <div
           className="w-full max-w-md rounded-2xl p-6 space-y-5"
-          style={{ background: "#13131a", border: "1px solid rgba(255,255,255,0.10)" }}
+          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="space-y-1">
-            <h2 className="text-base font-semibold text-white">{t("dashboard.subscription.feedbackTitle")}</h2>
-            <p className="text-sm text-white/50">
+            <h2 className="text-base font-semibold text-[var(--app-text)]">{t("dashboard.subscription.feedbackTitle")}</h2>
+            <p className="text-sm text-[var(--app-text-muted)]">
               {t("dashboard.subscription.feedbackDesc")}
             </p>
           </div>
           <div>
-            <label className="block text-xs text-white/40 mb-2">{t("dashboard.subscription.feedbackLabel")} <span className="text-red-400">*</span></label>
+            <label className="block text-xs text-[var(--app-text-faint)] mb-2">{t("dashboard.subscription.feedbackLabel")} <span className="text-red-400">*</span></label>
             <textarea
               value={cancelFeedback}
               onChange={(e) => setCancelFeedback(e.target.value)}
               placeholder={t("dashboard.subscription.feedbackPlaceholder")}
               rows={4}
-              className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-indigo-500/40 transition resize-none"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}
+              className="w-full rounded-xl px-4 py-3 text-sm text-[var(--app-text)] placeholder-[var(--app-text-faint)] outline-none focus:ring-1 focus:ring-indigo-500/40 transition resize-none"
+              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
             />
           </div>
           <div className="flex gap-3">
             <button
               onClick={() => setShowCancelStep2(false)}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text-muted)]"
+              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
             >
               {t("dashboard.subscription.cancelButton")}
             </button>
@@ -755,17 +837,17 @@ export default function AbonnementClient({
       >
         <div
           className="w-full max-w-md rounded-2xl p-6 space-y-5"
-          style={{ background: "#13131a", border: "1px solid rgba(255,255,255,0.10)" }}
+          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="space-y-1">
-            <h2 className="text-base font-semibold text-white">{t("dashboard.subscription.downgradeModalTitle")}</h2>
-            <p className="text-sm text-white/50">
+            <h2 className="text-base font-semibold text-[var(--app-text)]">{t("dashboard.subscription.downgradeModalTitle")}</h2>
+            <p className="text-sm text-[var(--app-text-muted)]">
               {t("dashboard.subscription.downgradeModalDesc")}
             </p>
           </div>
 
-          <ul className="space-y-2 text-sm text-white/60">
+          <ul className="space-y-2 text-sm text-[var(--app-text-muted)]">
             <li className="flex items-start gap-2">
               <svg viewBox="0 0 16 16" className="h-4 w-4 text-green-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M2 8l4 4 8-8" />
@@ -789,8 +871,8 @@ export default function AbonnementClient({
           <div className="flex gap-3 pt-1">
             <button
               onClick={() => setShowDowngradeModal(false)}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/80"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text-muted)]"
+              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
             >
               {t("dashboard.subscription.cancelButton")}
             </button>

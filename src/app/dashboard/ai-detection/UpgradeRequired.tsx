@@ -18,7 +18,7 @@ export default function UpgradeRequired() {
     <div className="p-8 w-full">
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs font-medium text-white/30 tracking-[0.14em] uppercase mb-2">
+        <p className="text-xs font-medium text-[var(--app-text-faint)] tracking-[0.14em] uppercase mb-2">
           {t("dashboard.aiDetectionLock.eyebrow")}
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">
@@ -49,28 +49,28 @@ export default function UpgradeRequired() {
             <p className="text-xs font-bold uppercase tracking-wider text-amber-300/80 mb-1">
               {t("dashboard.aiDetectionLock.lockBadge")}
             </p>
-            <h2 className="text-xl font-semibold text-white tracking-tight">
+            <h2 className="text-xl font-semibold text-[var(--app-text)] tracking-tight">
               {t("dashboard.aiDetectionLock.headline")}
             </h2>
           </div>
         </div>
 
-        <div className="space-y-4 text-sm leading-relaxed text-white/65">
+        <div className="space-y-4 text-sm leading-relaxed text-[var(--app-text-muted)]">
           <section>
-            <h3 className="text-white/95 font-semibold mb-1.5">
+            <h3 className="text-[var(--app-text)] font-semibold mb-1.5">
               {t("dashboard.aiDetectionLock.whatTitle")}
             </h3>
             <p>{t("dashboard.aiDetectionLock.whatBody")}</p>
           </section>
 
           <section>
-            <h3 className="text-white/95 font-semibold mb-1.5">
+            <h3 className="text-[var(--app-text)] font-semibold mb-1.5">
               {t("dashboard.aiDetectionLock.useCaseTitle")}
             </h3>
             <p>{t("dashboard.aiDetectionLock.useCaseBody")}</p>
           </section>
 
-          <ul className="space-y-1.5 text-xs text-white/60 pl-1 mt-3">
+          <ul className="space-y-1.5 text-xs text-[var(--app-text-muted)] pl-1 mt-3">
             <li className="flex items-start gap-2">
               <span className="text-amber-300 mt-0.5">✓</span>
               {t("dashboard.aiDetectionLock.bullet1")}
@@ -100,7 +100,7 @@ export default function UpgradeRequired() {
           </button>
           <Link
             href="/dashboard"
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-5 py-3 text-sm font-medium text-white/70 hover:bg-white/[0.08] transition"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--app-border-strong)] bg-[var(--app-surface)] px-5 py-3 text-sm font-medium text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] transition"
           >
             {t("dashboard.aiDetectionLock.ctaBack")}
           </Link>

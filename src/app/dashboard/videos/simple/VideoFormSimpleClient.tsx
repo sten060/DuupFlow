@@ -26,11 +26,11 @@ function ProgressBar({ percent, label }: { percent: number; label?: string }) {
   const { t } = useTranslation();
   return (
     <div className="w-full">
-      <div className="mb-1 flex items-center justify-between text-xs text-white/70">
+      <div className="mb-1 flex items-center justify-between text-xs text-[var(--app-text-muted)]">
         <span>{label ?? t("vid.progress.label")}</span>
         <span>{percent}%</span>
       </div>
-      <div className="h-2.5 w-full rounded-full bg-white/10 overflow-hidden">
+      <div className="h-2.5 w-full rounded-full bg-[var(--app-surface-2)] overflow-hidden">
         <div className="h-2.5 rounded-full bg-indigo-500 shadow-[0_0_18px_rgba(99,102,241,.6)] transition-[width]" style={{ width: `${percent}%` }} />
       </div>
     </div>
@@ -51,14 +51,14 @@ function GlowCard({
   return (
     <section
       className={[
-        "relative rounded-2xl border border-white/[0.08]",
-        "bg-white/[0.03] backdrop-blur-xl",
+        "relative rounded-2xl border border-[var(--app-border)]",
+        "bg-[var(--app-surface)] backdrop-blur-xl",
         dense ? "p-3" : "p-5",
       ].join(" ")}
     >
       {(title || right) && (
         <div className="mb-3 flex items-center justify-between">
-          {title ? <h3 className="text-sm font-medium leading-none text-white/80">{title}</h3> : <span />}
+          {title ? <h3 className="text-sm font-medium leading-none text-[var(--app-text)]">{title}</h3> : <span />}
           {right}
         </div>
       )}
@@ -70,11 +70,11 @@ function GlowCard({
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <label className="inline-flex cursor-pointer select-none items-center gap-3 text-sm">
-      <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/15 transition">
+      <span className={["relative inline-flex h-5 w-9 items-center rounded-full border transition", checked ? "bg-indigo-500 border-transparent" : "bg-[var(--app-surface-2)] border-[var(--app-border-strong)]"].join(" ")}>
         <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="sr-only" />
-        <span className={["absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition", checked ? "translate-x-4 bg-sky-400 shadow-[0_0_10px_rgba(99,179,237,.9)]" : "bg-white/70"].join(" ")} />
+        <span className={["absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition", checked ? "translate-x-4 bg-sky-400 shadow-[0_0_10px_rgba(99,179,237,.9)]" : "bg-[var(--app-text-muted)]"].join(" ")} />
       </span>
-      <span className="text-white/85">{label}</span>
+      <span className="text-[var(--app-text)]">{label}</span>
     </label>
   );
 }
@@ -89,7 +89,7 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
         disabled={pending}
         className={[
           "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
-          pending ? "bg-white/10 text-white/50 cursor-not-allowed" : "bg-gradient-to-r from-indigo-500 to-sky-500 text-white hover:shadow-[0_4px_20px_rgba(99,102,241,.35)]",
+          pending ? "bg-[var(--app-surface-2)] text-[var(--app-text-muted)] cursor-not-allowed" : "bg-gradient-to-r from-indigo-500 to-sky-500 text-white hover:shadow-[0_4px_20px_rgba(99,102,241,.35)]",
         ].join(" ")}
       >
         {pending ? t("dashboard.videosSimple.duplicating") : t("dashboard.videosSimple.duplicateButton")}
@@ -136,14 +136,14 @@ function PackCard({
         "group rounded-xl border px-4 py-3 text-left transition-all",
         selected
           ? "border-indigo-400/30 bg-indigo-500/10"
-          : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]",
+          : "border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-2)]",
       ].join(" ")}
     >
-      <div className="font-medium text-sm text-white/85 inline-flex items-center gap-2">
+      <div className="font-medium text-sm text-[var(--app-text)] inline-flex items-center gap-2">
         {label}
         <InfoTooltip><span className="whitespace-pre-line">{help}</span></InfoTooltip>
       </div>
-      <div className="text-xs text-white/45 mt-0.5">{hint}</div>
+      <div className="text-xs text-[var(--app-text-faint)] mt-0.5">{hint}</div>
     </button>
   );
 }
@@ -204,6 +204,7 @@ export default function VideoFormSimpleClient() {
   const [reverse, setReverse] = useState(false);
   const [country, setCountry] = useState("");
   const [iphoneMeta, setIphoneMeta] = useState(false);
+  const [simpleWm, setSimpleWm] = useState(false); // watermark aléatoire par copie
 
   const [rotEnabled, setRotEnabled] = useState(false);
   const [rotMin, setRotMin] = useState(-5);
@@ -345,7 +346,7 @@ export default function VideoFormSimpleClient() {
         setProgressMsg(t("dashboard.videosSimple.sendingToServer"));
 
         apiForm = new FormData();
-        for (const key of ["channel", "mode", "singles", "count", "packs", "country", "iphoneMeta"]) {
+        for (const key of ["channel", "mode", "singles", "count", "packs", "country", "iphoneMeta", "simpleWatermark"]) {
           const v = rawForm.get(key);
           if (v !== null) apiForm.append(key, v);
         }
@@ -571,21 +572,21 @@ export default function VideoFormSimpleClient() {
       {iphoneMeta && <input type="hidden" name="iphoneMeta" value="1" />}
 
       {/* Dropzone — seul élément avec bordure */}
-      <div data-tour-id="video-dropzone" className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
+      <div data-tour-id="video-dropzone" className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3">
         <DriveImportButton accept="video" maxVideoSec={59} onFiles={(fs) => dzAddRef.current?.(fs)} />
         <Dropzone name="files" accept="video/*" multiple maxFiles={40} addFilesRef={dzAddRef} />
         <div data-tour-id="video-copies" className="max-w-xs">
-          <label className="block text-sm font-medium text-white/70 mb-1.5">{t("dashboard.videosSimple.copiesLabel")}</label>
-          <input type="number" name="count" min={1} defaultValue={1} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90" />
+          <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-1.5">{t("dashboard.videosSimple.copiesLabel")}</label>
+          <input type="number" name="count" min={1} defaultValue={1} className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-text)]" />
         </div>
       </div>
 
-      <div className="h-px bg-white/[0.06]" />
+      <div className="h-px bg-[var(--app-border)]" />
 
       {/* Packs */}
       <div data-tour-id="video-packs">
         <input type="hidden" name="packs" value={packsSelected.join(",")} />
-        <h3 className="text-sm font-semibold text-white/90 mb-3">{t("dashboard.videosSimple.packsTitle")} <span className="text-white/40 font-normal">{t("dashboard.videosSimple.packsCumulative")}</span></h3>
+        <h3 className="text-sm font-semibold text-[var(--app-text)] mb-3">{t("dashboard.videosSimple.packsTitle")} <span className="text-[var(--app-text-faint)] font-normal">{t("dashboard.videosSimple.packsCumulative")}</span></h3>
 
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">{t("dashboard.videosSimple.noVisualChange")}</p>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 mb-4">
@@ -618,21 +619,36 @@ export default function VideoFormSimpleClient() {
         </div>
       </div>
 
-      <div className="h-px bg-white/[0.06]" />
+      <div className="h-px bg-[var(--app-border)]" />
+
+      {/* Watermark aléatoire — un filigrane différent sur chaque copie */}
+      <div>
+        <input type="hidden" name="simpleWatermark" value={simpleWm ? "1" : "0"} />
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-[var(--app-text)]">Watermark</h3>
+          <Toggle checked={simpleWm} onChange={setSimpleWm} label="Activer" />
+        </div>
+        <p className="mt-2 text-xs text-[var(--app-text-muted)]">
+          Ajoute un filigrane <b>différent et aléatoire sur chaque copie</b> : forme, couleur, taille (40–80&nbsp;%) et
+          vitesse variées, en mouvement sur la vidéo, avec une opacité de 1&nbsp;% (quasi invisible).
+        </p>
+      </div>
+
+      <div className="h-px bg-[var(--app-border)]" />
 
       {/* Options */}
       <div data-tour-id="video-options">
-        <h3 className="text-sm font-semibold text-white/90 mb-3">{t("dashboard.videosSimple.optionsTitle")}</h3>
+        <h3 className="text-sm font-semibold text-[var(--app-text)] mb-3">{t("dashboard.videosSimple.optionsTitle")}</h3>
         <div className="flex flex-wrap items-end gap-4">
           <Toggle checked={flip} onChange={setFlip} label={t("vid.opt.flip")} />
           <Toggle checked={reverse} onChange={setReverse} label={t("vid.opt.reverse")} />
           <div className="flex-1 min-w-[200px] max-w-xs">
-            <label className="block text-sm font-medium text-white/70 mb-1">{t("dashboard.videosSimple.countryLabel")}</label>
+            <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-1">{t("dashboard.videosSimple.countryLabel")}</label>
             <CountrySelect
               name="country_select"
               value={country}
               onChange={setCountry}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-white/90"
+              className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-1.5 text-sm text-[var(--app-text)]"
             />
           </div>
           <Toggle checked={iphoneMeta} onChange={setIphoneMeta} label={`⚡ ${t("dashboard.videosSimple.iphoneMetaLabel")}`} />
@@ -640,19 +656,19 @@ export default function VideoFormSimpleClient() {
         </div>
       </div>
 
-      <div className="h-px bg-white/[0.06]" />
+      <div className="h-px bg-[var(--app-border)]" />
 
       <SubmitWithProgress pending={busy} />
 
       {busy && shownProgress !== null && (
         <div className="mt-2">
-          <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+          <div className="h-1.5 w-full rounded-full bg-[var(--app-surface-2)] overflow-hidden">
             <div
               className="h-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-sky-500 transition-[width] duration-200"
               style={{ width: `${Math.max(0, Math.min(100, shownProgress))}%` }}
             />
           </div>
-          <p className="mt-1 text-xs text-white/50">{shownMsg || t("vid.progress.percent", { percent: shownProgress })}</p>
+          <p className="mt-1 text-xs text-[var(--app-text-muted)]">{shownMsg || t("vid.progress.percent", { percent: shownProgress })}</p>
         </div>
       )}
 

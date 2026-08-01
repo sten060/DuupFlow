@@ -21,7 +21,7 @@ export default function ClearCompressedButton({ onCleared }: { onCleared?: () =>
           setBusy(false);
         }
       }}
-      className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white/80 transition disabled:opacity-50"
+      className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text-muted)] transition disabled:opacity-50"
     >
       {busy ? t("compress.clearing") : t("compress.clear")}
     </button>

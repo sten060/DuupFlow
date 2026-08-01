@@ -216,29 +216,29 @@ export default function ChatBot() {
       </button>
 
       {open && (
-        <div className={`fixed bottom-20 right-5 z-50 ${panelSize} rounded-2xl bg-white/[0.05] backdrop-blur-2xl border border-white/[0.1] flex flex-col overflow-hidden shadow-2xl transition-all`}>
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-            <span className="text-sm font-medium text-white/80">{t("chatbot.header")}</span>
+        <div className={`fixed bottom-20 right-5 z-50 ${panelSize} rounded-2xl bg-[var(--app-surface)] backdrop-blur-2xl border border-[var(--app-border)] flex flex-col overflow-hidden shadow-2xl transition-all`}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--app-border)]">
+            <span className="text-sm font-medium text-[var(--app-text)]">{t("chatbot.header")}</span>
             <div className="flex items-center gap-2">
-              <button onClick={() => setExpanded(!expanded)} className="text-xs text-white/40 hover:text-white/70 transition" title={expanded ? t("chatbot.reduce") : t("chatbot.expand")}>
+              <button onClick={() => setExpanded(!expanded)} className="text-xs text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] transition" title={expanded ? t("chatbot.reduce") : t("chatbot.expand")}>
                 {expanded ? (
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" /></svg>
                 ) : (
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
                 )}
               </button>
-              <button onClick={handleReset} className="text-xs text-white/40 hover:text-white/70 transition">{t("chatbot.restart")}</button>
+              <button onClick={handleReset} className="text-xs text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] transition">{t("chatbot.restart")}</button>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.map((msg, i) => (
               <div key={i}>
-                <div className={["text-sm leading-relaxed rounded-xl px-4 py-3 max-w-[85%] whitespace-pre-line", msg.from === "bot" ? "bg-white/[0.06] text-white/80" : "bg-indigo-500/20 text-white/90 ml-auto"].join(" ")}>{msg.text}</div>
+                <div className={["text-sm leading-relaxed rounded-xl px-4 py-3 max-w-[85%] whitespace-pre-line", msg.from === "bot" ? "bg-[var(--app-surface-2)] text-[var(--app-text)]" : "bg-indigo-500/20 text-[var(--app-text)] ml-auto"].join(" ")}>{msg.text}</div>
                 {msg.options && i === messages.length - 1 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {msg.options.map((opt) => (
-                      <button key={opt.label} onClick={() => handleOption(opt)} className="text-xs rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-1.5 text-white/70 hover:bg-white/[0.08] hover:text-white/90 transition-all">{opt.label}</button>
+                      <button key={opt.label} onClick={() => handleOption(opt)} className="text-xs rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-1.5 text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)] transition-all">{opt.label}</button>
                     ))}
                   </div>
                 )}

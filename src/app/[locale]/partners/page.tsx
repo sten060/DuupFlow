@@ -1,12 +1,20 @@
 "use client";
 
+// Page "Programme partenaire / affiliation" — design clair "Lunera", branding
+// DuupFlow actuel. Le formulaire poste vers /api/support/contact (Supabase +
+// hello@duupflow.com), inchangé.
+
 import Link from "@/components/LocaleLink";
-import Header from "@/components/Header";
 import { useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
+import { NavPill, Footer, SmoothScroll, Label, BLUE, CTA_GRAD, Brand } from "@/components/landing/shell";
+
+const INPUT =
+  "w-full rounded-xl border border-black/10 bg-[#f6f7f9] px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#9aa2b2] outline-none transition focus:border-[#4f7bff]/50 focus:ring-2 focus:ring-[#4f7bff]/15";
 
 export default function PartenairePage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const en = locale === "en";
   const [form, setForm] = useState({ nom: "", prenom: "", email: "", agence: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -45,130 +53,102 @@ export default function PartenairePage() {
   }
 
   return (
-    <div className="min-h-screen text-white tech-grid">
-      <Header />
+    <div className="lunera min-h-screen bg-white text-[#1a1a1a]">
+      <SmoothScroll />
+      <NavPill />
 
-      <div className="pt-40 pb-20 px-6 max-w-5xl mx-auto">
-        {/* Back link */}
-        <Link href="/" className="text-sm text-white/40 hover:text-white/70 transition mb-8 inline-block">
-          {t("partenaire.backToHome")}
-        </Link>
+      <section className="relative overflow-hidden px-6 pb-24 pt-36 sm:pt-44">
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[520px]"
+          style={{ background: "radial-gradient(60% 100% at 50% 0%, rgba(99,102,241,0.10), transparent 70%)" }} />
 
-        <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mb-4">
-          {t("partenaire.title")}{" "}
-          <span className="bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent">
-            {t("partenaire.titleHighlight")}
-          </span>
-        </h1>
-        <p className="text-white/50 mb-12 max-w-2xl">
-          {t("partenaire.subtitle")}
-        </p>
-
-        {/* Two cards */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Card 1 — Already a partner */}
-          <Link
-            href="/affiliate-login"
-            className="group rounded-2xl border border-white/[0.08] p-8 hover:border-indigo-500/40 transition-all flex flex-col items-center justify-center text-center"
-            style={{ background: "rgba(255,255,255,0.02)" }}
-          >
-            <div className="w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center mb-5">
-              <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-indigo-400">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25V9m-3 0h13.5A1.5 1.5 0 0120.25 10.5v9A1.5 1.5 0 0118.75 21H5.25a1.5 1.5 0 01-1.5-1.5v-9A1.5 1.5 0 015.25 9z" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold mb-2 group-hover:text-indigo-300 transition">
-              {t("partenaire.alreadyPartner")}
-            </h2>
-            <p className="text-sm text-white/40">
-              {t("partenaire.alreadyPartnerDesc")}
-            </p>
+        <div className="relative mx-auto max-w-5xl">
+          <Link href="/" className="mb-8 inline-flex items-center gap-1.5 text-sm font-medium text-[#8a8a8a] transition hover:text-[#1a1a1a]">
+            {t("partenaire.backToHome")}
           </Link>
 
-          {/* Card 2 — Become a partner */}
-          <div
-            className="rounded-2xl border border-white/[0.08] p-8"
-            style={{ background: "rgba(255,255,255,0.02)" }}
-          >
-            <div className="flex flex-col items-center text-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-sky-500/10 flex items-center justify-center mb-5">
-                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-sky-400">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold mb-2">{t("partenaire.becomePartner")}</h2>
-              <p className="text-sm text-white/40">
-                {t("partenaire.becomePartnerDesc")}
-              </p>
-            </div>
+          <div className="text-center">
+            <Label>{en ? "Affiliate" : "Affiliation"}</Label>
+            <h1 className="mx-auto mt-6 max-w-3xl font-semibold tracking-[-0.03em] text-[#1a1a1a]"
+              style={{ fontSize: "clamp(32px, 4.6vw, 54px)", lineHeight: 1.06 }}>
+              {t("partenaire.title")} <Brand />
+            </h1>
+            <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-[#3a3f4b] sm:text-[18px]">
+              {t("partenaire.subtitle")}
+            </p>
+          </div>
 
-            {submitted ? (
-              <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-6 text-center">
-                <p className="text-green-400 font-medium">
-                  {t("partenaire.successMessage")}
+          {/* Two cards */}
+          <div className="mt-14 grid items-stretch gap-6 md:grid-cols-2">
+            {/* Card 1 — Already a partner */}
+            <Link
+              href="/affiliate-login"
+              className="group flex flex-col items-center justify-center rounded-[28px] bg-white p-10 text-center ring-1 ring-black/[0.06] shadow-[0_14px_40px_rgba(20,40,90,0.06)] transition hover:shadow-[0_20px_50px_rgba(20,40,90,0.10)]"
+            >
+              <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl text-white" style={{ background: CTA_GRAD }}>
+                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25V9m-3 0h13.5A1.5 1.5 0 0120.25 10.5v9A1.5 1.5 0 0118.75 21H5.25a1.5 1.5 0 01-1.5-1.5v-9A1.5 1.5 0 015.25 9z" />
+                </svg>
+              </span>
+              <h2 className="text-[20px] font-semibold text-[#1a1a1a] transition group-hover:opacity-80">
+                {t("partenaire.alreadyPartner")}
+              </h2>
+              <p className="mt-2 max-w-xs text-sm leading-relaxed text-[#605f5f]">
+                {t("partenaire.alreadyPartnerDesc")}
+              </p>
+              <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: BLUE }}>
+                {en ? "Access my dashboard" : "Accéder à mon espace"}
+                <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+              </span>
+            </Link>
+
+            {/* Card 2 — Become a partner */}
+            <div className="rounded-[28px] bg-white p-8 ring-1 ring-black/[0.06] shadow-[0_14px_40px_rgba(20,40,90,0.06)] sm:p-9">
+              <div className="mb-6 flex flex-col items-center text-center">
+                <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl text-white" style={{ background: CTA_GRAD }}>
+                  <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                </span>
+                <h2 className="text-[20px] font-semibold text-[#1a1a1a]">{t("partenaire.becomePartner")}</h2>
+                <p className="mt-2 text-sm leading-relaxed text-[#605f5f]">
+                  {t("partenaire.becomePartnerDesc")}
                 </p>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    name="nom"
-                    placeholder={t("partenaire.nomPlaceholder")}
-                    required
-                    value={form.nom}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-white/[0.1] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-indigo-500/50 transition"
-                  />
-                  <input
-                    name="prenom"
-                    placeholder={t("partenaire.prenomPlaceholder")}
-                    required
-                    value={form.prenom}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-white/[0.1] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-indigo-500/50 transition"
-                  />
+
+              {submitted ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+                  <p className="font-medium text-emerald-700">
+                    {t("partenaire.successMessage")}
+                  </p>
                 </div>
-                <input
-                  name="email"
-                  type="email"
-                  placeholder={t("partenaire.emailPlaceholder")}
-                  required
-                  value={form.email}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-white/[0.1] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-indigo-500/50 transition"
-                />
-                <input
-                  name="agence"
-                  placeholder={t("partenaire.agencePlaceholder")}
-                  required
-                  value={form.agence}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-white/[0.1] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-indigo-500/50 transition"
-                />
-                <textarea
-                  name="message"
-                  placeholder={t("partenaire.messagePlaceholder")}
-                  rows={4}
-                  value={form.message}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-white/[0.1] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-indigo-500/50 transition resize-none"
-                />
-                {error && (
-                  <p className="text-xs text-red-400 bg-red-500/[0.08] border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
-                )}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full rounded-lg py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                  style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-                >
-                  {loading ? t("partenaire.submitting") : t("partenaire.submitButton")}
-                </button>
-              </form>
-            )}
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <input name="nom" placeholder={t("partenaire.nomPlaceholder")} required value={form.nom} onChange={handleChange} className={INPUT} />
+                    <input name="prenom" placeholder={t("partenaire.prenomPlaceholder")} required value={form.prenom} onChange={handleChange} className={INPUT} />
+                  </div>
+                  <input name="email" type="email" placeholder={t("partenaire.emailPlaceholder")} required value={form.email} onChange={handleChange} className={INPUT} />
+                  <input name="agence" placeholder={t("partenaire.agencePlaceholder")} required value={form.agence} onChange={handleChange} className={INPUT} />
+                  <textarea name="message" placeholder={t("partenaire.messagePlaceholder")} rows={4} value={form.message} onChange={handleChange} className={`${INPUT} resize-none`} />
+                  {error && (
+                    <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-500">{error}</p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full rounded-full py-3.5 text-sm font-medium text-white shadow-[0_12px_34px_rgba(90,90,240,0.38)] transition hover:opacity-90 disabled:opacity-50"
+                    style={{ background: CTA_GRAD }}
+                  >
+                    {loading ? t("partenaire.submitting") : t("partenaire.submitButton")}
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      <Footer />
     </div>
   );
 }

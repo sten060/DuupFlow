@@ -21,7 +21,7 @@ export default function ClearImagesButton({ onCleared }: Props) {
         })
       }
       disabled={pending}
-      className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/80 hover:bg-white/10 disabled:opacity-60"
+      className="rounded-lg border border-[var(--app-border-strong)] px-4 py-2 text-sm text-[var(--app-text)] hover:bg-[var(--app-surface-2)] disabled:opacity-60"
     >
       {pending ? t("img.clearing") : t("img.clearImages")}
     </button>

@@ -52,8 +52,8 @@ export default function LimitReachedModal({
       <div
         className="w-full max-w-lg rounded-2xl px-9 py-8 text-center"
         style={{
-          background: "#0b0e1a",
-          border: "1px solid rgba(255,255,255,0.10)",
+          background: "var(--app-surface)",
+          border: "1px solid var(--app-border)",
           boxShadow: "0 24px 70px rgba(0,0,0,0.55)",
         }}
         onClick={(e) => e.stopPropagation()}
@@ -80,10 +80,10 @@ export default function LimitReachedModal({
           )}
         </div>
 
-        <h2 className="text-2xl font-bold text-white">
+        <h2 className="text-2xl font-bold text-[var(--app-text)]">
           {t("dashboard.limitModal.title")}
         </h2>
-        <p className="mt-3 text-sm leading-relaxed text-white/60 max-w-md mx-auto">
+        <p className="mt-3 text-sm leading-relaxed text-[var(--app-text-muted)] max-w-md mx-auto">
           {body}
         </p>
 
@@ -91,8 +91,8 @@ export default function LimitReachedModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-white/60 transition hover:text-white/85"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}
+            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text)]"
+            style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
           >
             {t("dashboard.limitModal.quit")}
           </button>

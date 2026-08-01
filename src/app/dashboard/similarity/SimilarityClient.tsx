@@ -165,16 +165,16 @@ export default function SimilarityClient() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.similarity.title")}</h1>
-          <p className="text-sm text-white/50">{t("dashboard.similarity.subtitle")}</p>
+          <p className="text-sm text-[var(--app-text-muted)]">{t("dashboard.similarity.subtitle")}</p>
         </div>
         <DocsDrawer docs={buildComparatorDocs(t)} />
       </div>
-      <div className="h-px bg-white/[0.06]" />
+      <div className="h-px bg-[var(--app-surface-2)]" />
       {/* File inputs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-sm font-medium text-white/70">{t("dashboard.similarity.file1")}</label>
+            <label className="block text-sm font-medium text-[var(--app-text-muted)]">{t("dashboard.similarity.file1")}</label>
             <DriveImportButton compact single disabled={loading} onError={setError}
               onFiles={(fs) => { if (fs[0]) { setFile1(fs[0]); setProbe1(null); } }} />
           </div>
@@ -183,7 +183,7 @@ export default function SimilarityClient() {
             onClick={() => ref1.current?.click()}
             onDragOver={handleDragOver}
             onDrop={makeDrop(setFile1, setProbe1)}
-            className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 cursor-pointer hover:border-emerald-400/30 transition text-sm text-white/60"
+            className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 cursor-pointer hover:border-emerald-400/30 transition text-sm text-[var(--app-text-muted)]"
           >
             {file1 ? file1.name : t("dashboard.similarity.clickOrDrop")}
             <input ref={ref1} type="file" className="hidden" accept="video/*,image/*"
@@ -192,7 +192,7 @@ export default function SimilarityClient() {
         </div>
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-sm font-medium text-white/70">{t("dashboard.similarity.file2")}</label>
+            <label className="block text-sm font-medium text-[var(--app-text-muted)]">{t("dashboard.similarity.file2")}</label>
             <DriveImportButton compact single disabled={loading} onError={setError}
               onFiles={(fs) => { if (fs[0]) { setFile2(fs[0]); setProbe2(null); } }} />
           </div>
@@ -201,7 +201,7 @@ export default function SimilarityClient() {
             onClick={() => ref2.current?.click()}
             onDragOver={handleDragOver}
             onDrop={makeDrop(setFile2, setProbe2)}
-            className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 cursor-pointer hover:border-emerald-400/30 transition text-sm text-white/60"
+            className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 cursor-pointer hover:border-emerald-400/30 transition text-sm text-[var(--app-text-muted)]"
           >
             {file2 ? file2.name : t("dashboard.similarity.clickOrDrop")}
             <input ref={ref2} type="file" className="hidden" accept="video/*,image/*"
@@ -217,7 +217,7 @@ export default function SimilarityClient() {
         className={[
           "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
           loading || !file1 || !file2
-            ? "bg-white/10 text-white/50 cursor-not-allowed"
+            ? "bg-[var(--app-surface-2)] text-[var(--app-text-muted)] cursor-not-allowed"
             : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-[0_4px_20px_rgba(16,185,129,.35)]",
         ].join(" ")}
       >
@@ -242,7 +242,7 @@ export default function SimilarityClient() {
                   <span className={`text-sm font-semibold ${similarityColor(similarity.score)}`}>
                     {similarityLabel(similarity.score)}
                   </span>
-                  <p className="text-xs text-white/50">
+                  <p className="text-xs text-[var(--app-text-muted)]">
                     {t("dashboard.similarity.identicalFields", { matches: String(similarity.matches), total: String(similarity.total) })}
                   </p>
                 </div>
@@ -252,14 +252,14 @@ export default function SimilarityClient() {
 
           {/* Format info */}
           <div>
-            <h3 className="text-sm font-semibold text-white/80 mb-2">{t("dashboard.similarity.formatSection")}</h3>
+            <h3 className="text-sm font-semibold text-[var(--app-text)] mb-2">{t("dashboard.similarity.formatSection")}</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-white/[0.06]">
-                    <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.fieldColumn")}</th>
-                    <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.file1Column")}</th>
-                    <th className="text-left py-2 text-white/50 font-medium">{t("dashboard.similarity.file2Column")}</th>
+                  <tr className="border-b border-[var(--app-border)]">
+                    <th className="text-left py-2 pr-4 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.fieldColumn")}</th>
+                    <th className="text-left py-2 pr-4 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.file1Column")}</th>
+                    <th className="text-left py-2 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.file2Column")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -268,10 +268,10 @@ export default function SimilarityClient() {
                     const v2 = String(probe2.format?.[key] ?? "—");
                     const diff = v1 !== v2;
                     return (
-                      <tr key={key} className="border-b border-white/[0.04]">
-                        <td className="py-1.5 pr-4 font-mono text-white/60">{key}</td>
-                        <td className={`py-1.5 pr-4 font-mono ${diff ? "text-emerald-300" : "text-white/80"}`}>{v1}</td>
-                        <td className={`py-1.5 font-mono ${diff ? "text-emerald-300" : "text-white/80"}`}>{v2}</td>
+                      <tr key={key} className="border-b border-[var(--app-border)]">
+                        <td className="py-1.5 pr-4 font-mono text-[var(--app-text-muted)]">{key}</td>
+                        <td className={`py-1.5 pr-4 font-mono ${diff ? "text-emerald-300" : "text-[var(--app-text)]"}`}>{v1}</td>
+                        <td className={`py-1.5 font-mono ${diff ? "text-emerald-300" : "text-[var(--app-text)]"}`}>{v2}</td>
                       </tr>
                     );
                   })}
@@ -280,18 +280,18 @@ export default function SimilarityClient() {
             </div>
           </div>
 
-          <div className="h-px bg-white/[0.06]" />
+          <div className="h-px bg-[var(--app-surface-2)]" />
 
           {/* Tags comparison */}
           <div>
-            <h3 className="text-sm font-semibold text-white/80 mb-2">{t("dashboard.similarity.tagsSection")}</h3>
+            <h3 className="text-sm font-semibold text-[var(--app-text)] mb-2">{t("dashboard.similarity.tagsSection")}</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-white/[0.06]">
-                    <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.tagColumn")}</th>
-                    <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.file1Column")}</th>
-                    <th className="text-left py-2 text-white/50 font-medium">{t("dashboard.similarity.file2Column")}</th>
+                  <tr className="border-b border-[var(--app-border)]">
+                    <th className="text-left py-2 pr-4 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.tagColumn")}</th>
+                    <th className="text-left py-2 pr-4 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.file1Column")}</th>
+                    <th className="text-left py-2 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.file2Column")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -300,15 +300,15 @@ export default function SimilarityClient() {
                     const v2 = tags2[key] ?? "—";
                     const diff = v1 !== v2;
                     return (
-                      <tr key={key} className="border-b border-white/[0.04]">
-                        <td className="py-1.5 pr-4 font-mono text-white/60 whitespace-nowrap">{key}</td>
-                        <td className={`py-1.5 pr-4 font-mono break-all ${diff ? "text-emerald-300" : "text-white/80"}`}>{v1}</td>
-                        <td className={`py-1.5 font-mono break-all ${diff ? "text-emerald-300" : "text-white/80"}`}>{v2}</td>
+                      <tr key={key} className="border-b border-[var(--app-border)]">
+                        <td className="py-1.5 pr-4 font-mono text-[var(--app-text-muted)] whitespace-nowrap">{key}</td>
+                        <td className={`py-1.5 pr-4 font-mono break-all ${diff ? "text-emerald-300" : "text-[var(--app-text)]"}`}>{v1}</td>
+                        <td className={`py-1.5 font-mono break-all ${diff ? "text-emerald-300" : "text-[var(--app-text)]"}`}>{v2}</td>
                       </tr>
                     );
                   })}
                   {allTagKeys.length === 0 && (
-                    <tr><td colSpan={3} className="py-3 text-white/40 text-center">{t("dashboard.similarity.noTagsFound")}</td></tr>
+                    <tr><td colSpan={3} className="py-3 text-[var(--app-text-faint)] text-center">{t("dashboard.similarity.noTagsFound")}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -318,16 +318,16 @@ export default function SimilarityClient() {
           {/* Video stream comparison */}
           {(videoStream1 || videoStream2) && (
             <>
-              <div className="h-px bg-white/[0.06]" />
+              <div className="h-px bg-[var(--app-surface-2)]" />
               <div>
-                <h3 className="text-sm font-semibold text-white/80 mb-2">{t("dashboard.similarity.videoStreamSection")}</h3>
+                <h3 className="text-sm font-semibold text-[var(--app-text)] mb-2">{t("dashboard.similarity.videoStreamSection")}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-white/[0.06]">
-                        <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.fieldColumn")}</th>
-                        <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.file1Column")}</th>
-                        <th className="text-left py-2 text-white/50 font-medium">{t("dashboard.similarity.file2Column")}</th>
+                      <tr className="border-b border-[var(--app-border)]">
+                        <th className="text-left py-2 pr-4 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.fieldColumn")}</th>
+                        <th className="text-left py-2 pr-4 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.file1Column")}</th>
+                        <th className="text-left py-2 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.file2Column")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -336,10 +336,10 @@ export default function SimilarityClient() {
                         const v2 = String(videoStream2?.[key] ?? "—");
                         const diff = v1 !== v2;
                         return (
-                          <tr key={key} className="border-b border-white/[0.04]">
-                            <td className="py-1.5 pr-4 font-mono text-white/60">{key}</td>
-                            <td className={`py-1.5 pr-4 font-mono ${diff ? "text-emerald-300" : "text-white/80"}`}>{v1}</td>
-                            <td className={`py-1.5 font-mono ${diff ? "text-emerald-300" : "text-white/80"}`}>{v2}</td>
+                          <tr key={key} className="border-b border-[var(--app-border)]">
+                            <td className="py-1.5 pr-4 font-mono text-[var(--app-text-muted)]">{key}</td>
+                            <td className={`py-1.5 pr-4 font-mono ${diff ? "text-emerald-300" : "text-[var(--app-text)]"}`}>{v1}</td>
+                            <td className={`py-1.5 font-mono ${diff ? "text-emerald-300" : "text-[var(--app-text)]"}`}>{v2}</td>
                           </tr>
                         );
                       })}
@@ -353,16 +353,16 @@ export default function SimilarityClient() {
           {/* Audio stream comparison */}
           {(audioStream1 || audioStream2) && (
             <>
-              <div className="h-px bg-white/[0.06]" />
+              <div className="h-px bg-[var(--app-surface-2)]" />
               <div>
-                <h3 className="text-sm font-semibold text-white/80 mb-2">{t("dashboard.similarity.audioStreamSection")}</h3>
+                <h3 className="text-sm font-semibold text-[var(--app-text)] mb-2">{t("dashboard.similarity.audioStreamSection")}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-white/[0.06]">
-                        <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.fieldColumn")}</th>
-                        <th className="text-left py-2 pr-4 text-white/50 font-medium">{t("dashboard.similarity.file1Column")}</th>
-                        <th className="text-left py-2 text-white/50 font-medium">{t("dashboard.similarity.file2Column")}</th>
+                      <tr className="border-b border-[var(--app-border)]">
+                        <th className="text-left py-2 pr-4 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.fieldColumn")}</th>
+                        <th className="text-left py-2 pr-4 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.file1Column")}</th>
+                        <th className="text-left py-2 text-[var(--app-text-muted)] font-medium">{t("dashboard.similarity.file2Column")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -371,10 +371,10 @@ export default function SimilarityClient() {
                         const v2 = String(audioStream2?.[key] ?? "—");
                         const diff = v1 !== v2;
                         return (
-                          <tr key={key} className="border-b border-white/[0.04]">
-                            <td className="py-1.5 pr-4 font-mono text-white/60">{key}</td>
-                            <td className={`py-1.5 pr-4 font-mono ${diff ? "text-emerald-300" : "text-white/80"}`}>{v1}</td>
-                            <td className={`py-1.5 font-mono ${diff ? "text-emerald-300" : "text-white/80"}`}>{v2}</td>
+                          <tr key={key} className="border-b border-[var(--app-border)]">
+                            <td className="py-1.5 pr-4 font-mono text-[var(--app-text-muted)]">{key}</td>
+                            <td className={`py-1.5 pr-4 font-mono ${diff ? "text-emerald-300" : "text-[var(--app-text)]"}`}>{v1}</td>
+                            <td className={`py-1.5 font-mono ${diff ? "text-emerald-300" : "text-[var(--app-text)]"}`}>{v2}</td>
                           </tr>
                         );
                       })}

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
 import { bindNotificationsUser } from "./components/notificationStore";
+import ThemeToggle from "./components/ThemeToggle";
 
 const COLLAPSE_KEY = "duupflow_sidebar_collapsed";
 
@@ -31,14 +32,14 @@ function NavItem({
       className={[
         "flex items-center rounded-lg text-sm font-medium transition-all",
         collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
-        active ? "text-white" : "text-white/40 hover:text-white/75 hover:bg-white/[0.04]",
+        active ? "text-[var(--app-text)]" : "text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] hover:bg-[var(--app-surface)]",
       ].join(" ")}
       style={active ? {
         background: "rgba(99,102,241,0.13)",
         boxShadow: "inset 0 0 0 1px rgba(99,102,241,0.22)",
       } : {}}
     >
-      <span className={active ? "text-indigo-300" : "text-white/30"}>
+      <span className={active ? "text-indigo-300" : "text-[var(--app-text-faint)]"}>
         {icon}
       </span>
       {!collapsed && <span className="flex-1 leading-tight">{label}</span>}
@@ -76,7 +77,7 @@ function BottomLink({
       data-tour-id={tourId}
       title={collapsed ? label : undefined}
       className={[
-        "flex items-center rounded-lg text-sm text-white/35 hover:text-white/65 hover:bg-white/[0.04] transition-all w-full mb-1",
+        "flex items-center rounded-lg text-sm text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] hover:bg-[var(--app-surface)] transition-all w-full mb-1",
         collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
       ].join(" ")}
     >
@@ -305,8 +306,8 @@ export default function Sidebar() {
         collapsed ? "w-16" : "w-56",
       ].join(" ")}
       style={{
-        background: "rgba(8,12,30,0.95)",
-        borderRight: "1px solid rgba(255,255,255,0.06)",
+        background: "var(--app-sidebar)",
+        borderRight: "1px solid var(--app-border)",
         backdropFilter: "blur(20px)",
       }}
     >
@@ -331,15 +332,15 @@ export default function Sidebar() {
         </button>
         {!collapsed && (
           <span className="text-2xl font-extrabold tracking-tight leading-none whitespace-nowrap">
-            <span style={{ color: "#818CF8" }}>Duup</span>
-            <span className="text-white/55">Flow</span>
+            <span className="text-[var(--app-text)]">Duup</span>
+            <span className="dash-flow">Flow</span>
           </span>
         )}
       </div>
 
       <div
         className={[collapsed ? "mx-2" : "mx-4", "mb-3 shrink-0"].join(" ")}
-        style={{ height: "1px", background: "rgba(255,255,255,0.07)" }}
+        style={{ height: "1px", background: "var(--app-border)" }}
       />
 
       <div className="flex flex-col flex-1 min-h-0">
@@ -349,7 +350,7 @@ export default function Sidebar() {
               {gi > 0 && (
                 <div
                   className={[collapsed ? "mx-2" : "mx-3", "my-2"].join(" ")}
-                  style={{ height: "1px", background: "rgba(255,255,255,0.06)" }}
+                  style={{ height: "1px", background: "var(--app-border)" }}
                 />
               )}
               {group.map((item) => (
@@ -363,7 +364,7 @@ export default function Sidebar() {
         <div className="px-3 pb-5 shrink-0">
           <div
             className={[collapsed ? "mx-1" : "mx-2", "mb-3"].join(" ")}
-            style={{ height: "1px", background: "rgba(255,255,255,0.07)" }}
+            style={{ height: "1px", background: "var(--app-border)" }}
           />
 
           <BottomLink
@@ -424,8 +425,8 @@ export default function Sidebar() {
             <Link
               href="/dashboard/settings"
               title={t("dashboard.sidebar.parametres")}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl mt-1 transition-colors hover:bg-white/[0.06]"
-              style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.07)" }}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl mt-1 transition-colors hover:bg-[var(--app-surface-2)]"
+              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
             >
               <div
                 className="h-7 w-7 rounded-lg shrink-0 flex items-center justify-center text-white/85"
@@ -434,34 +435,37 @@ export default function Sidebar() {
                 <UserIcon />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-white/80 truncate leading-none mb-0.5">
+                <p className="text-xs font-semibold text-[var(--app-text-muted)] truncate leading-none mb-0.5">
                   {displayName}
                 </p>
                 {displayAgency && (
-                  <p className="text-[10px] text-white/30 truncate leading-none">{displayAgency}</p>
+                  <p className="text-[10px] text-[var(--app-text-faint)] truncate leading-none">{displayAgency}</p>
                 )}
               </div>
-              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/25" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-[var(--app-text-faint)]" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
             </Link>
           )}
 
-          <button
-            onClick={handleLogout}
-            title={collapsed ? t("dashboard.sidebar.deconnexion") : undefined}
-            className={[
-              "flex items-center rounded-lg text-sm text-white/30 hover:text-red-400/70 hover:bg-red-500/[0.05] transition-all w-full mt-1",
-              collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
-            ].join(" ")}
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            {!collapsed && <span>{t("dashboard.sidebar.deconnexion")}</span>}
-          </button>
+          <div className={["mt-1 flex gap-2", collapsed ? "flex-col items-center" : "items-center"].join(" ")}>
+            <button
+              onClick={handleLogout}
+              title={collapsed ? t("dashboard.sidebar.deconnexion") : undefined}
+              className={[
+                "flex items-center rounded-lg text-[13px] text-[var(--app-text-faint)] hover:text-red-400/70 hover:bg-red-500/[0.05] transition-all",
+                collapsed ? "justify-center px-0 py-2" : "flex-1 gap-2.5 px-3 py-1.5",
+              ].join(" ")}
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              {!collapsed && <span>{t("dashboard.sidebar.deconnexion")}</span>}
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </aside>
@@ -469,22 +473,22 @@ export default function Sidebar() {
     {/* ===== Mobile top bar (hamburger) — visible below md ===== */}
     <div
       className="md:hidden fixed top-0 inset-x-0 z-[90] h-14 flex items-center gap-3 px-4"
-      style={{ background: "rgba(8,12,30,0.92)", borderBottom: "1px solid rgba(255,255,255,0.06)", backdropFilter: "blur(20px)" }}
+      style={{ background: "var(--app-sidebar)", borderBottom: "1px solid var(--app-border)", backdropFilter: "blur(20px)" }}
     >
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
         aria-label={t("nav.menuLabel")}
-        className="flex flex-col items-center justify-center gap-[5px] h-9 w-9 rounded-lg border border-white/[0.12] bg-white/[0.04]"
+        className="flex flex-col items-center justify-center gap-[5px] h-9 w-9 rounded-lg border border-[var(--app-border-strong)] bg-[var(--app-surface)]"
       >
-        <span className="block w-4 h-0.5 bg-white/70 rounded-full" />
-        <span className="block w-4 h-0.5 bg-white/70 rounded-full" />
-        <span className="block w-4 h-0.5 bg-white/70 rounded-full" />
+        <span className="block w-4 h-0.5 bg-[var(--app-text-muted)] rounded-full" />
+        <span className="block w-4 h-0.5 bg-[var(--app-text-muted)] rounded-full" />
+        <span className="block w-4 h-0.5 bg-[var(--app-text-muted)] rounded-full" />
       </button>
       <Link href="/dashboard" className="flex items-center gap-2">
         <Image src="/logo-mark.png" alt="DuupFlow" width={64} height={64} className="h-7 w-7 object-contain" />
         <span className="text-lg font-extrabold tracking-tight">
-          <span style={{ color: "#818CF8" }}>Duup</span><span className="text-white/55">Flow</span>
+          <span className="text-[var(--app-text)]">Duup</span><span className="dash-flow">Flow</span>
         </span>
       </Link>
     </div>
@@ -500,30 +504,30 @@ export default function Sidebar() {
         "md:hidden fixed top-0 left-0 bottom-0 z-[100] w-[80%] max-w-[300px] flex flex-col overflow-y-auto transition-transform duration-300 ease-out",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
       ].join(" ")}
-      style={{ background: "rgba(8,12,30,0.98)", borderRight: "1px solid rgba(255,255,255,0.08)" }}
+      style={{ background: "var(--app-sidebar)", borderRight: "1px solid var(--app-border)" }}
     >
       <div className="flex items-center justify-between px-5 pt-5 pb-4">
         <div className="flex items-center gap-2.5">
           <Image src="/logo-mark.png" alt="DuupFlow" width={64} height={64} className="h-8 w-8 object-contain" />
           <span className="text-xl font-extrabold tracking-tight">
-            <span style={{ color: "#818CF8" }}>Duup</span><span className="text-white/55">Flow</span>
+            <span className="text-[var(--app-text)]">Duup</span><span className="dash-flow">Flow</span>
           </span>
         </div>
         <button
           type="button"
           onClick={() => setMobileOpen(false)}
           aria-label={t("nav.closeLabel")}
-          className="text-white/50 hover:text-white transition"
+          className="text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition"
         >
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
-      <div className="mx-4 mb-3 h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
+      <div className="mx-4 mb-3 h-px" style={{ background: "var(--app-border)" }} />
 
       <nav className="flex-1 px-3 pb-4 space-y-0.5">
         {NAV_GROUPS.map((group, gi) => (
           <div key={gi} className="space-y-0.5">
-            {gi > 0 && <div className="mx-3 my-2 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />}
+            {gi > 0 && <div className="mx-3 my-2 h-px" style={{ background: "var(--app-border)" }} />}
             {group.map((item) => (
               <NavItem key={item.href} {...item} collapsed={false} />
             ))}
@@ -532,7 +536,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="px-3 pb-6 shrink-0">
-        <div className="mx-2 mb-3 h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
+        <div className="mx-2 mb-3 h-px" style={{ background: "var(--app-border)" }} />
         <BottomLink
           href="/dashboard/abonnement"
           label={t("dashboard.sidebar.abonnement")}
@@ -555,26 +559,29 @@ export default function Sidebar() {
 
         <Link
           href="/dashboard/settings"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl mt-1 transition-colors hover:bg-white/[0.06]"
-          style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.07)" }}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl mt-1 transition-colors hover:bg-[var(--app-surface-2)]"
+          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
         >
           <div className="h-7 w-7 rounded-lg shrink-0 flex items-center justify-center text-white/85" style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
             <UserIcon />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-white/80 truncate leading-none mb-0.5">{displayName}</p>
-            {displayAgency && <p className="text-[10px] text-white/30 truncate leading-none">{displayAgency}</p>}
+            <p className="text-xs font-semibold text-[var(--app-text-muted)] truncate leading-none mb-0.5">{displayName}</p>
+            {displayAgency && <p className="text-[10px] text-[var(--app-text-faint)] truncate leading-none">{displayAgency}</p>}
           </div>
-          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/25" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-[var(--app-text-faint)]" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
         </Link>
 
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/30 hover:text-red-400/70 hover:bg-red-500/[0.05] transition-all w-full mt-1"
-        >
-          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
-          <span>{t("dashboard.sidebar.deconnexion")}</span>
-        </button>
+        <div className="mt-1 flex items-center gap-2">
+          <button
+            onClick={handleLogout}
+            className="flex flex-1 items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] text-[var(--app-text-faint)] hover:text-red-400/70 hover:bg-red-500/[0.05] transition-all"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+            <span>{t("dashboard.sidebar.deconnexion")}</span>
+          </button>
+          <ThemeToggle />
+        </div>
       </div>
     </aside>
     </>

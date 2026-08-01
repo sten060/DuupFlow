@@ -206,9 +206,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
       enabled={onboarding?.enabled ?? false}
       initialProgress={onboarding?.progress ?? { grandfathered: true }}
     >
+    {/* Applique le thème (clair/sombre) avant le paint pour éviter le flash.
+        Défaut = clair (nouveaux inscrits). */}
+    <script dangerouslySetInnerHTML={{ __html: "try{document.documentElement.setAttribute('data-theme',localStorage.getItem('duupflow_theme')||'light')}catch(e){}" }} />
     <div
-      className="flex h-screen overflow-hidden text-white"
-      style={{ background: "#050816" }}
+      className="app-shell flex h-screen overflow-hidden"
+      style={{ background: "var(--app-bg)", color: "var(--app-text)" }}
     >
       {/* Sidebar — owns its own collapse state, brand & width animation */}
       <Sidebar />

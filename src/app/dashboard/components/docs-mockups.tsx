@@ -10,11 +10,11 @@ const IND = "rgba(99,102,241,0.14)";
 const INDS = "rgba(99,102,241,0.55)";
 const SKY = "rgba(56,189,248,0.14)";
 const SKYS = "rgba(56,189,248,0.55)";
-const LINE = "rgba(255,255,255,0.30)";
+const LINE = "var(--app-text-faint)";
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
       <svg viewBox="0 0 320 120" className="w-full h-auto" aria-hidden="true">{children}</svg>
     </div>
   );
@@ -65,7 +65,7 @@ export function CompressMockup() {
       <rect x={66} y={18} width={40} height={84} rx="7" fill={IND} stroke={INDS} strokeWidth="1.5" />
       <Arrow x1={124} x2={188} y={60} />
       <rect x={214} y={66} width={40} height={36} rx="7" fill={SKY} stroke={SKYS} strokeWidth="1.5" />
-      <line x1={60} y1={102} x2={260} y2={102} stroke="rgba(255,255,255,0.10)" strokeWidth="1.5" />
+      <line x1={60} y1={102} x2={260} y2={102} stroke="var(--app-border)" strokeWidth="1.5" />
     </Frame>
   );
 }
@@ -86,12 +86,12 @@ export function ComparatorMockup() {
       <line x1={80} y1={60} x2={126} y2={60} stroke={LINE} strokeWidth="1.5" strokeDasharray="2 5" strokeLinecap="round" />
       <line x1={194} y1={60} x2={240} y2={60} stroke={LINE} strokeWidth="1.5" strokeDasharray="2 5" strokeLinecap="round" />
       {/* centre similarity gauge + score */}
-      <circle cx={160} cy={60} r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="8" />
+      <circle cx={160} cy={60} r={r} fill="none" stroke="var(--app-border-strong)" strokeWidth="8" />
       <circle
         cx={160} cy={60} r={r} fill="none" stroke="#38BDF8" strokeWidth="8" strokeLinecap="round"
         strokeDasharray={`${c * 0.14} ${c}`} transform="rotate(-90 160 60)"
       />
-      <text x={160} y={66} textAnchor="middle" fill="#ffffff" fontSize="17" fontWeight="700">12%</text>
+      <text x={160} y={66} textAnchor="middle" fill="var(--app-text)" fontSize="17" fontWeight="700">12%</text>
     </Frame>
   );
 }

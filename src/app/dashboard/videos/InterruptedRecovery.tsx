@@ -27,19 +27,19 @@ export default function InterruptedRecovery({
     <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4 space-y-3">
       <div>
         <p className="text-sm font-semibold text-amber-300">{t("dashboard.videosCommon.interruptedTitle")}</p>
-        <p className="mt-0.5 text-xs text-white/60">{t("dashboard.videosCommon.interruptedBody")}</p>
+        <p className="mt-0.5 text-xs text-[var(--app-text-muted)]">{t("dashboard.videosCommon.interruptedBody")}</p>
       </div>
 
       {files.length > 0 && (
         <div className="space-y-1">
           <p className="text-[11px] text-emerald-400/90">✓ {t("dashboard.videosCommon.alreadyReady", { count: files.length })}</p>
-          <div className="max-h-32 overflow-y-auto rounded-lg bg-white/5 p-1 space-y-1">
+          <div className="max-h-32 overflow-y-auto rounded-lg bg-[var(--app-surface)] p-1 space-y-1">
             {files.map((f, i) => (
               <a
                 key={i}
                 href={f.url}
                 download={f.name}
-                className="flex items-center gap-1.5 rounded px-2 py-1 text-[11px] bg-white/[0.08] hover:bg-white/[0.15] text-white/80 transition"
+                className="flex items-center gap-1.5 rounded px-2 py-1 text-[11px] bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text-muted)] transition"
               >
                 <span className="shrink-0 text-emerald-400">↓</span>
                 <span className="truncate">{f.name}</span>
@@ -64,7 +64,7 @@ export default function InterruptedRecovery({
             removeJob(jobId);
             onDismiss();
           }}
-          className="rounded-lg px-3 py-2 text-xs font-semibold bg-white/[0.06] hover:bg-white/[0.12] text-white/70 border border-white/10 transition"
+          className="rounded-lg px-3 py-2 text-xs font-semibold bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text-muted)] border border-[var(--app-border)] transition"
         >
           {t("dashboard.videosCommon.cancel")}
         </button>

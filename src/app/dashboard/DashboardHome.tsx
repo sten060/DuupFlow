@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import VariationAnnouncementModal from "./VariationAnnouncementModal";
 import TikTokAnnouncementModal, { TIKTOK_DEST, TIKTOK_SEEN_KEY } from "./TikTokAnnouncementModal";
-import ScraperAnnouncementModal, { SCRAPER_SEEN_KEY } from "./ScraperAnnouncementModal";
 import ReplayMenu from "./onboarding/ReplayMenu";
 import GlobalDocsDrawer from "./components/GlobalDocsDrawer";
 import PromoPopup from "./PromoPopup";
@@ -44,7 +43,7 @@ function ModuleCard({ mod }: { mod: { href: string; title: string; desc: string;
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-center sm:justify-start gap-2">
-            <h3 className="text-sm font-semibold text-white/90">{mod.title}</h3>
+            <h3 className="text-sm font-semibold text-[var(--app-text)]">{mod.title}</h3>
             {mod.badge && (
               <span
                 className="text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide"
@@ -55,7 +54,7 @@ function ModuleCard({ mod }: { mod: { href: string; title: string; desc: string;
             )}
           </div>
           {/* Description hidden on mobile — the card stays small (icon + name). */}
-          <p className="hidden sm:block text-xs text-white/45 mt-1 leading-relaxed">{mod.desc}</p>
+          <p className="hidden sm:block text-xs text-[var(--app-text-faint)] mt-1 leading-relaxed">{mod.desc}</p>
         </div>
         <span className="hidden sm:block text-sm opacity-0 group-hover:opacity-100 transition shrink-0 mt-1" style={{ color: mod.color }}>→</span>
       </div>
@@ -114,7 +113,7 @@ function NewsModal({ onClose }: { onClose: () => void }) {
       <div
         className="w-full max-w-2xl max-h-[80vh] rounded-2xl overflow-hidden flex flex-col"
         style={{
-          background: "rgba(10,14,40,0.98)",
+          background: "var(--app-surface)",
           border: "1px solid rgba(56,189,248,0.25)",
           boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(56,189,248,0.10)",
         }}
@@ -122,12 +121,12 @@ function NewsModal({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="flex items-center justify-between px-8 pt-7 pb-4">
           <div>
-            <h2 className="text-xl font-semibold text-white tracking-tight">{t("dashboard.home.newsTitle")}</h2>
-            <p className="text-xs text-white/40 mt-1">{t("dashboard.home.newsSubtitle")}</p>
+            <h2 className="text-xl font-semibold text-[var(--app-text)] tracking-tight">{t("dashboard.home.newsTitle")}</h2>
+            <p className="text-xs text-[var(--app-text-faint)] mt-1">{t("dashboard.home.newsSubtitle")}</p>
           </div>
           <button
             onClick={onClose}
-            className="text-white/30 hover:text-white/60 transition h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/5"
+            className="text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] transition h-8 w-8 flex items-center justify-center rounded-lg hover:bg-[var(--app-surface)]"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 6L6 18M6 6l12 12" />
@@ -154,9 +153,9 @@ function NewsModal({ onClose }: { onClose: () => void }) {
               >
                 {t("dashboard.tiktokAnnounce.pill")}
               </span>
-              <span className="text-sm font-semibold text-white">{t("dashboard.tiktokAnnounce.newsTitle")}</span>
+              <span className="text-sm font-semibold text-[var(--app-text)]">{t("dashboard.tiktokAnnounce.newsTitle")}</span>
             </div>
-            <p className="text-[13px] text-white/70 leading-relaxed">{t("dashboard.tiktokAnnounce.newsBody")}</p>
+            <p className="text-[13px] text-[var(--app-text-muted)] leading-relaxed">{t("dashboard.tiktokAnnounce.newsBody")}</p>
             <span className="mt-2 inline-block text-[12px] font-semibold text-sky-300">
               {t("dashboard.tiktokAnnounce.cta")} →
             </span>
@@ -179,14 +178,14 @@ function NewsModal({ onClose }: { onClose: () => void }) {
                   <div
                     key={item.name}
                     className="rounded-lg px-4 py-3 text-sm"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                    style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
                   >
                     <div>
-                      <span className="font-medium text-white/85">{item.name}</span>
-                      <span className="text-white/40"> — {item.desc}</span>
+                      <span className="font-medium text-[var(--app-text-muted)]">{item.name}</span>
+                      <span className="text-[var(--app-text-faint)]"> — {item.desc}</span>
                     </div>
                     {item.detail && (
-                      <p className="mt-1.5 text-xs text-white/35 leading-relaxed">{item.detail}</p>
+                      <p className="mt-1.5 text-xs text-[var(--app-text-faint)] leading-relaxed">{item.detail}</p>
                     )}
                   </div>
                 ))}
@@ -239,16 +238,6 @@ export default function DashboardHome({
     try { localStorage.setItem(TIKTOK_SEEN_KEY, "1"); } catch {}
     setShowTikTok(false);
   };
-
-  // Annonce Scraper : one-shot par navigateur (localStorage). On la montre après
-  // les autres annonces pour ne pas en empiler deux d'un coup.
-  const [showScraper, setShowScraper] = useState(false);
-  useEffect(() => {
-    if (localStorage.getItem(SCRAPER_SEEN_KEY) === "1") return;
-    // Ne pas superposer : on attend qu'aucune autre annonce ne soit ouverte.
-    if (variationAnnouncementPending || tiktokAnnouncementPending) return;
-    setShowScraper(true);
-  }, [variationAnnouncementPending, tiktokAnnouncementPending]);
 
   const { t } = useTranslation();
 
@@ -351,10 +340,10 @@ export default function DashboardHome({
 
       {/* Header */}
       <div className="mb-6 sm:mb-8">
-        <p className="text-xs font-medium text-white/30 tracking-[0.14em] uppercase mb-2">
+        <p className="text-xs font-medium text-[var(--app-text-faint)] tracking-[0.14em] uppercase mb-2">
           {agencyName ?? t("dashboard.home.dashboard")}
         </p>
-        <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-[var(--app-text)] tracking-tight">
           {firstName ? (
             <>{t("dashboard.home.bonjour")} <span className={G}>{firstName}</span></>
           ) : (
@@ -364,7 +353,7 @@ export default function DashboardHome({
         {/* Stacks on mobile so the subtitle keeps a full line and the action
             links wrap underneath instead of squeezing the row off-screen. */}
         <div className="flex flex-col items-start gap-2 mt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:mt-1.5">
-          <p className="text-sm text-white/40">
+          <p className="text-sm text-[var(--app-text-faint)]">
             {t("dashboard.home.chooseModule")}
           </p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -393,10 +382,10 @@ export default function DashboardHome({
       </div>
 
       {/* Separator */}
-      <div className="mb-7" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
+      <div className="mb-7" style={{ height: "1px", background: "var(--app-border)" }} />
 
       {/* Section label */}
-      <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-white/25 mb-4">
+      <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[var(--app-text-faint)] mb-4">
         {t("dashboard.home.modulesDisponibles")}
       </p>
 
@@ -424,7 +413,6 @@ export default function DashboardHome({
       {/* One-shot TikTok solution launch announcement */}
       {showTikTok && <TikTokAnnouncementModal onDone={closeTikTok} />}
 
-      {showScraper && <ScraperAnnouncementModal onDone={() => setShowScraper(false)} />}
 
       {/* -15% launch promo — activated free users only (slides in from the right). */}
       {promoEligible && <PromoPopup loginKey={promoLoginKey} />}

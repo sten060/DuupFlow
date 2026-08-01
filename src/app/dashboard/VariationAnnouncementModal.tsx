@@ -53,7 +53,7 @@ export default function VariationAnnouncementModal({
       <div
         className="w-full max-w-lg rounded-2xl overflow-hidden"
         style={{
-          background: "rgba(10,14,40,0.98)",
+          background: "var(--app-surface)",
           border: "1px solid rgba(217,70,239,0.30)",
           boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(217,70,239,0.12)",
         }}
@@ -66,7 +66,7 @@ export default function VariationAnnouncementModal({
               className="h-1.5 rounded-full transition-all"
               style={{
                 width: slide === i ? 22 : 6,
-                background: slide === i ? "#D946EF" : "rgba(255,255,255,0.18)",
+                background: slide === i ? "#D946EF" : "var(--app-border-strong)",
               }}
             />
           ))}
@@ -87,13 +87,13 @@ export default function VariationAnnouncementModal({
               </span>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mb-3 leading-tight">
+            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--app-text)] mb-3 leading-tight">
               <span className="bg-gradient-to-r from-fuchsia-300 to-indigo-300 bg-clip-text text-transparent">
                 {t("dashboard.home.variationAnnounceTitleP1")}
               </span>
             </h2>
 
-            <p className="text-sm text-white/70 leading-relaxed mb-6">
+            <p className="text-sm text-[var(--app-text-muted)] leading-relaxed mb-6">
               {t("dashboard.home.variationAnnounceLeadP1")}
             </p>
 
@@ -107,7 +107,7 @@ export default function VariationAnnouncementModal({
                 t("dashboard.home.variationAnnounceBulletP1c"),
                 t("dashboard.home.variationAnnounceBulletP1d"),
               ].map((b, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-white/70">
+                <li key={i} className="flex items-start gap-2.5 text-sm text-[var(--app-text-muted)]">
                   <span className="text-fuchsia-300 mt-0.5">✓</span>
                   <span>{b}</span>
                 </li>
@@ -130,7 +130,7 @@ export default function VariationAnnouncementModal({
               >
                 🎁
               </div>
-              <p className="text-sm text-fuchsia-100 leading-relaxed">
+              <p className="text-sm text-[var(--app-text-muted)] leading-relaxed">
                 {giftLine}
               </p>
             </div>
@@ -148,7 +148,7 @@ export default function VariationAnnouncementModal({
 
         {slide === 1 && (
           <div className="p-8">
-            <h2 className="text-2xl font-semibold tracking-tight text-white mb-5 leading-tight">
+            <h2 className="text-2xl font-semibold tracking-tight text-[var(--app-text)] mb-5 leading-tight">
               {t("dashboard.home.variationAnnounceTitleP2")}
             </h2>
 
@@ -169,7 +169,7 @@ export default function VariationAnnouncementModal({
                   >
                     {i + 1}
                   </span>
-                  <span className="text-sm text-white/75 leading-relaxed pt-0.5">{step}</span>
+                  <span className="text-sm text-[var(--app-text-muted)] leading-relaxed pt-0.5">{step}</span>
                 </li>
               ))}
             </ol>
@@ -181,11 +181,11 @@ export default function VariationAnnouncementModal({
                 border: "1px solid rgba(99,102,241,0.20)",
               }}
             >
-              <h3 className="text-sm font-semibold text-white/90 mb-1.5 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-[var(--app-text)] mb-1.5 flex items-center gap-2">
                 <span className="text-base">🪙</span>
                 {t("dashboard.home.variationAnnounceTokensTitle")}
               </h3>
-              <p className="text-[13px] text-white/60 leading-relaxed">
+              <p className="text-[13px] text-[var(--app-text-muted)] leading-relaxed">
                 {t("dashboard.home.variationAnnounceTokensBody")}
               </p>
             </div>
@@ -195,7 +195,7 @@ export default function VariationAnnouncementModal({
                 type="button"
                 onClick={() => setSlide(0)}
                 disabled={busy}
-                className="rounded-xl px-4 py-3 text-sm font-medium text-white/55 hover:text-white/85 hover:bg-white/[0.05] transition disabled:opacity-50"
+                className="rounded-xl px-4 py-3 text-sm font-medium text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:bg-[var(--app-surface)] transition disabled:opacity-50"
               >
                 {t("dashboard.home.variationAnnouncePrev")}
               </button>

@@ -26,7 +26,7 @@ type Props = {
 };
 
 const DEFAULT_CLASS =
-  "w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white/90";
+  "w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-text)]";
 
 export default function CountrySelect({ name, value, defaultValue, onChange, className }: Props) {
   const { locale, t } = useTranslation();

@@ -110,25 +110,25 @@ export default function PromoPopup({ loginKey = null }: { loginKey?: string | nu
       >
       <div
         className="relative h-full flex flex-col gap-6 overflow-y-auto rounded-l-lg border border-indigo-500/25 px-6 py-9"
-        style={{ background: "linear-gradient(160deg,#141a42,#0b0e1f)", boxShadow: "0 22px 60px rgba(0,0,0,0.55), 0 0 40px rgba(99,102,241,0.12)" }}
+        style={{ background: "var(--app-surface)", boxShadow: "0 22px 60px rgba(0,0,0,0.55), 0 0 40px rgba(99,102,241,0.12)" }}
       >
         <button
           type="button"
           onClick={close}
           aria-label="Fermer"
-          className="absolute top-3 right-3 text-white/40 hover:text-white/85 transition"
+          className="absolute top-3 right-3 text-[var(--app-text-faint)] hover:text-[var(--app-text)] transition"
         >
           <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M4 4l8 8M12 4l-8 8" />
           </svg>
         </button>
 
-        <h3 className="text-xl font-extrabold text-white leading-snug pr-6">{t("promoPopup.title")}</h3>
+        <h3 className="text-xl font-extrabold text-[var(--app-text)] leading-snug pr-6">{t("promoPopup.title")}</h3>
 
         <div className="flex-1 flex flex-col justify-center pb-20 space-y-4">
-        <p className="text-base text-white/75 leading-relaxed">{t("promoPopup.intro")}</p>
+        <p className="text-base text-[var(--app-text-muted)] leading-relaxed">{t("promoPopup.intro")}</p>
 
-        <ul className="space-y-3.5 text-base text-white/80">
+        <ul className="space-y-3.5 text-base text-[var(--app-text-muted)]">
           <li className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/app/icons8-google-drive-96.png" alt="" className="h-5 w-5 shrink-0" />
@@ -152,16 +152,16 @@ export default function PromoPopup({ loginKey = null }: { loginKey?: string | nu
         <div className="space-y-4 mb-5">
           {/* Offer line — sits right above the promo code */}
           <div className="space-y-5">
-            <p className="text-sm font-semibold text-white/90">{t("promoPopup.offer")}</p>
+            <p className="text-sm font-semibold text-[var(--app-text)]">{t("promoPopup.offer")}</p>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">{t("promoPopup.codeLabel")}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--app-text-faint)]">{t("promoPopup.codeLabel")}</p>
               <button
                 type="button"
                 onClick={copyCode}
                 className="mt-1.5 w-full rounded-xl border border-dashed px-4 py-3 text-center transition hover:bg-indigo-500/[0.18]"
                 style={{ borderColor: "rgba(129,140,248,0.55)", background: "rgba(99,102,241,0.12)" }}
               >
-                <span className="text-xl font-extrabold tracking-[0.22em] text-white">{PROMO_CODE}</span>
+                <span className="text-xl font-extrabold tracking-[0.22em] text-[var(--app-text)]">{PROMO_CODE}</span>
                 <span className="block mt-0.5 text-[11px] font-medium text-indigo-300">
                   {copied ? t("promoPopup.copied") : t("promoPopup.clickToCopy")}
                 </span>
@@ -171,8 +171,8 @@ export default function PromoPopup({ loginKey = null }: { loginKey?: string | nu
 
           {/* Real countdown */}
           <div className="flex items-center justify-center gap-2 text-sm">
-            <span className="text-white/50">{t("promoPopup.countdownLabel")}</span>
-            <span className="font-mono font-bold text-white tabular-nums">{hh}:{mm}:{ss}</span>
+            <span className="text-[var(--app-text-muted)]">{t("promoPopup.countdownLabel")}</span>
+            <span className="font-mono font-bold text-[var(--app-text)] tabular-nums">{hh}:{mm}:{ss}</span>
           </div>
 
           <Link

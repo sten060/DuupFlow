@@ -65,7 +65,7 @@ export default function TikTokAnnouncementModal({ onDone }: { onDone: () => void
       <div
         className="relative w-full max-w-lg overflow-hidden rounded-[20px]"
         style={{
-          background: "rgba(10,14,40,0.98)",
+          background: "var(--app-surface)",
           border: "1px solid rgba(56,189,248,0.30)",
           boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(56,189,248,0.12)",
         }}
@@ -80,7 +80,7 @@ export default function TikTokAnnouncementModal({ onDone }: { onDone: () => void
           type="button"
           onClick={closeViaX}
           aria-label={t("dashboard.videosCommon.close")}
-          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-white/40 transition hover:bg-white/10 hover:text-white"
+          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--app-text-faint)] transition hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)]"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M18 6L6 18M6 6l12 12" />
@@ -110,7 +110,7 @@ export default function TikTokAnnouncementModal({ onDone }: { onDone: () => void
             </span>
           </h2>
 
-          <p className="mt-3.5 text-[15px] font-light leading-relaxed text-white/65">
+          <p className="mt-3.5 text-[15px] font-light leading-relaxed text-[var(--app-text-muted)]">
             {t("dashboard.tiktokAnnounce.lead")}
           </p>
 
@@ -120,7 +120,7 @@ export default function TikTokAnnouncementModal({ onDone }: { onDone: () => void
               t("dashboard.tiktokAnnounce.bullet2"),
               t("dashboard.tiktokAnnounce.bullet3"),
             ].map((b, i) => (
-              <li key={i} className="flex items-start gap-3 text-[14px] text-white/75">
+              <li key={i} className="flex items-start gap-3 text-[14px] text-[var(--app-text-muted)]">
                 <span
                   className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
                   style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}

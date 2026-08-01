@@ -142,13 +142,13 @@ export default function UpgradePlanModal({
     >
       <div
         className="w-full max-w-3xl rounded-2xl p-7 space-y-6"
-        style={{ background: "#0b0e1a", border: "1px solid rgba(255,255,255,0.10)" }}
+        style={{ background: "var(--app-bg)", border: "1px solid var(--app-border)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">{t("dashboard.plans.title")}</h2>
-            <p className="text-sm text-white/50 mt-1">
+            <h2 className="text-lg font-semibold text-[var(--app-text)]">{t("dashboard.plans.title")}</h2>
+            <p className="text-sm text-[var(--app-text-muted)] mt-1">
               {t("dashboard.plans.subtitle")}
             </p>
           </div>
@@ -156,7 +156,7 @@ export default function UpgradePlanModal({
             type="button"
             onClick={() => loading === null && onClose()}
             disabled={loading !== null}
-            className="text-white/40 hover:text-white/80 transition disabled:opacity-30 shrink-0"
+            className="text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] transition disabled:opacity-30 shrink-0"
             aria-label={t("dashboard.plans.closeAria")}
           >
             <svg viewBox="0 0 16 16" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -179,12 +179,12 @@ export default function UpgradePlanModal({
             className="relative rounded-2xl overflow-hidden flex flex-col p-6"
             style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.20)" }}
           >
-            <p className="text-[10px] font-bold uppercase tracking-wider text-white/45 mb-1">{t("dashboard.plans.soloName")}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--app-text-faint)] mb-1">{t("dashboard.plans.soloName")}</p>
             <div className="flex items-baseline gap-1.5 mb-3">
-              <span className="text-3xl font-bold text-white">39 €</span>
-              <span className="text-white/40 text-xs">{t("dashboard.plans.perMonth")}</span>
+              <span className="text-3xl font-bold text-[var(--app-text)]">39 €</span>
+              <span className="text-[var(--app-text-faint)] text-xs">{t("dashboard.plans.perMonth")}</span>
             </div>
-            <ul className="space-y-2.5 text-sm text-white/70 mb-6 flex-1 leading-relaxed">
+            <ul className="space-y-2.5 text-sm text-[var(--app-text-muted)] mb-6 flex-1 leading-relaxed">
               {soloFeatures.map((f, i) => (
                 <li key={i}>• {f}</li>
               ))}
@@ -212,12 +212,12 @@ export default function UpgradePlanModal({
             <span className="absolute top-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 uppercase tracking-wide">
               {t("dashboard.plans.popular")}
             </span>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-white/45 mb-1">{t("dashboard.plans.proName")}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--app-text-faint)] mb-1">{t("dashboard.plans.proName")}</p>
             <div className="flex items-baseline gap-1.5 mb-3">
-              <span className="text-3xl font-bold text-white">99 €</span>
-              <span className="text-white/40 text-xs">{t("dashboard.plans.perMonth")}</span>
+              <span className="text-3xl font-bold text-[var(--app-text)]">99 €</span>
+              <span className="text-[var(--app-text-faint)] text-xs">{t("dashboard.plans.perMonth")}</span>
             </div>
-            <ul className="space-y-2.5 text-sm text-white/70 mb-6 flex-1 leading-relaxed">
+            <ul className="space-y-2.5 text-sm text-[var(--app-text-muted)] mb-6 flex-1 leading-relaxed">
               {proFeatures.map((f, i) => (
                 <li key={i}>• {f}</li>
               ))}
@@ -238,7 +238,7 @@ export default function UpgradePlanModal({
           </div>
         </div>
 
-        <p className="text-center text-[11px] text-white/30">
+        <p className="text-center text-[11px] text-[var(--app-text-faint)]">
           {t("dashboard.plans.secure")}
         </p>
         </>
@@ -247,21 +247,21 @@ export default function UpgradePlanModal({
           {/* Selected plan summary */}
           <div
             className="rounded-xl px-4 py-3 flex items-center justify-between"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
           >
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-white/45">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">
                 {promoFor === "solo" ? t("dashboard.plans.soloName") : t("dashboard.plans.proName")}
               </p>
-              <p className="text-sm text-white/70 mt-0.5">{t("dashboard.plans.promoTitle")}</p>
+              <p className="text-sm text-[var(--app-text-muted)] mt-0.5">{t("dashboard.plans.promoTitle")}</p>
             </div>
             <div className="flex items-baseline gap-1 shrink-0">
-              <span className="text-2xl font-bold text-white">{promoFor === "solo" ? "39 €" : "99 €"}</span>
-              <span className="text-white/40 text-xs">{t("dashboard.plans.perMonth")}</span>
+              <span className="text-2xl font-bold text-[var(--app-text)]">{promoFor === "solo" ? "39 €" : "99 €"}</span>
+              <span className="text-[var(--app-text-faint)] text-xs">{t("dashboard.plans.perMonth")}</span>
             </div>
           </div>
 
-          <p className="text-xs text-white/50">{t("dashboard.plans.promoSubtitle")}</p>
+          <p className="text-xs text-[var(--app-text-muted)]">{t("dashboard.plans.promoSubtitle")}</p>
 
           {/* Promo code input */}
           <div className="flex gap-2">
@@ -271,14 +271,14 @@ export default function UpgradePlanModal({
               onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoState("idle"); setPromoMessage(""); }}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); validatePromoCode(promoInput); } }}
               placeholder={t("dashboard.plans.promoPlaceholder")}
-              className="flex-1 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 outline-none transition"
+              className="flex-1 rounded-lg px-3 py-2 text-sm text-[var(--app-text)] placeholder-[var(--app-text-faint)] outline-none transition"
               style={{
-                background: "rgba(255,255,255,0.05)",
+                background: "var(--app-surface)",
                 border: promoState === "valid"
                   ? "1px solid rgba(52,211,153,0.5)"
                   : promoState === "invalid"
                   ? "1px solid rgba(239,68,68,0.4)"
-                  : "1px solid rgba(255,255,255,0.10)",
+                  : "1px solid var(--app-border)",
               }}
             />
             <button
@@ -312,12 +312,12 @@ export default function UpgradePlanModal({
             type="button"
             onClick={() => setPromoFor(null)}
             disabled={loading !== null}
-            className="w-full text-center text-xs text-white/40 hover:text-white/70 transition disabled:opacity-40"
+            className="w-full text-center text-xs text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] transition disabled:opacity-40"
           >
             ← {t("dashboard.plans.promoBack")}
           </button>
 
-          <p className="text-center text-[11px] text-white/30">{t("dashboard.plans.secure")}</p>
+          <p className="text-center text-[11px] text-[var(--app-text-faint)]">{t("dashboard.plans.secure")}</p>
         </div>
         )}
       </div>

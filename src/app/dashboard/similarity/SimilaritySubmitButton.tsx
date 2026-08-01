@@ -22,10 +22,10 @@ export function SimilaritySubmitButton() {
 
       {pending && (
         <div className="w-full">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--app-surface-2)]">
             <div className="h-1.5 animate-[progress_2s_ease-in-out_infinite] rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.6)]" />
           </div>
-          <p className="mt-1.5 text-center text-xs text-white/55">
+          <p className="mt-1.5 text-center text-xs text-[var(--app-text-muted)]">
             Comparaison en cours, cela peut prendre quelques secondes…
           </p>
         </div>

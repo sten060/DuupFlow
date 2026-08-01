@@ -46,7 +46,7 @@ export default function EnhancePage() {
 
         <div className="glass p-4 space-y-4">
           <div>
-            <label className="block text-sm text-white/70 mb-1">Qualité (fidélité visage)</label>
+            <label className="block text-sm text-[var(--app-text-muted)] mb-1">Qualité (fidélité visage)</label>
             <input
               type="range"
               min="0.3"
@@ -59,7 +59,7 @@ export default function EnhancePage() {
           </div>
 
           <div>
-            <label className="block text-sm text-white/70 mb-1">Lissage peau</label>
+            <label className="block text-sm text-[var(--app-text-muted)] mb-1">Lissage peau</label>
             <input
               type="range"
               min="0"
@@ -81,7 +81,7 @@ export default function EnhancePage() {
 
       {output && (
         <div className="glass p-4">
-          <h2 className="text-white/80 mb-2">Résultat</h2>
+          <h2 className="text-[var(--app-text)] mb-2">Résultat</h2>
           <img src={output} alt="enhanced" className="rounded-xl w-full max-w-md" />
         </div>
       )}

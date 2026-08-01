@@ -18,10 +18,10 @@ export default function VideosHub() {
 
       <header>
         <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videos.title")}</h1>
-        <p className="text-sm text-white/50 mt-1">{t("dashboard.videos.subtitle")}</p>
+        <p className="text-sm text-[var(--app-text-muted)] mt-1">{t("dashboard.videos.subtitle")}</p>
       </header>
 
-      <div className="h-px bg-white/[0.06]" />
+      <div className="h-px bg-[var(--app-border)]" />
 
       <section className="grid gap-4 md:grid-cols-2">
         {/* Mode Simple — indigo */}
@@ -40,8 +40,8 @@ export default function VideosHub() {
               <path d="M8 5v14l11-7z" />
             </svg>
             <div>
-              <h2 className="text-base font-bold text-white/90">{t("dashboard.videos.simpleTitle")}</h2>
-              <p className="text-xs text-white/50 mt-0.5">
+              <h2 className="text-base font-bold text-[var(--app-text)]">{t("dashboard.videos.simpleTitle")}</h2>
+              <p className="text-xs text-[var(--app-text-muted)] mt-0.5">
                 {t("dashboard.videos.simpleDesc")}
               </p>
               <div className="mt-2 inline-flex items-center gap-2 text-xs text-indigo-300 group-hover:gap-3 transition-all">
@@ -68,8 +68,8 @@ export default function VideosHub() {
               <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
             </svg>
             <div>
-              <h2 className="text-base font-bold text-white/90">{t("dashboard.videos.advancedTitle")}</h2>
-              <p className="text-xs text-white/50 mt-0.5">
+              <h2 className="text-base font-bold text-[var(--app-text)]">{t("dashboard.videos.advancedTitle")}</h2>
+              <p className="text-xs text-[var(--app-text-muted)] mt-0.5">
                 {t("dashboard.videos.advancedDesc")}
               </p>
               <div className="mt-2 inline-flex items-center gap-2 text-xs text-sky-300 group-hover:gap-3 transition-all">
@@ -79,6 +79,32 @@ export default function VideosHub() {
             </div>
           </div>
         </Link>
+
+        {/* Mode IA automatique — pleine largeur (= les deux du haut réunis), verrouillé */}
+        <div
+          aria-disabled="true"
+          className="md:col-span-2 relative rounded-2xl p-4 overflow-hidden cursor-not-allowed
+                     border border-fuchsia-500/20"
+          style={{ background: "rgba(217,70,239,0.04)" }}
+        >
+          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-fuchsia-500/45 bg-fuchsia-500/[0.14] px-2.5 py-0.5 text-[11px] font-semibold text-fuchsia-200">
+            🔒 {t("dashboard.videos.aiSoon")}
+          </span>
+          <div className="relative flex items-start gap-3 opacity-70">
+            <svg viewBox="0 0 24 24" className="h-5 w-5 mt-0.5 shrink-0 text-fuchsia-400" fill="currentColor">
+              <path d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8l4.4-1.6L12 2zm6 10l.9 2.5L21.5 15l-2.6.9L18 18.5l-.9-2.6L14.5 15l2.6-.5L18 12zM6 13l.8 2.2L9 16l-2.2.8L6 19l-.8-2.2L3 16l2.2-.8L6 13z" />
+            </svg>
+            <div>
+              <h2 className="text-base font-bold text-[var(--app-text)]">{t("dashboard.videos.aiTitle")}</h2>
+              <p className="text-xs text-[var(--app-text-muted)] mt-0.5">
+                {t("dashboard.videos.aiDesc")}
+              </p>
+              <div className="mt-2 inline-flex items-center gap-2 text-xs text-fuchsia-300/70">
+                <span>{t("dashboard.videos.aiSoon")}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
   );

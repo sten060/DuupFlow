@@ -35,9 +35,9 @@ export default function ToggleChip({
         defaultChecked={defaultChecked}
         className="peer sr-only"
       />
-      <div className={`select-none rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 transition-all ${accentStyles[accent]}`}>
-        <div className="font-medium text-sm text-white/85">{label}</div>
-        {hint && <div className="text-xs text-white/45 mt-0.5">{hint}</div>}
+      <div className={`select-none rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 transition-all ${accentStyles[accent]}`}>
+        <div className="font-medium text-sm text-[var(--app-text)]">{label}</div>
+        {hint && <div className="text-xs text-[var(--app-text-faint)] mt-0.5">{hint}</div>}
       </div>
     </label>
   );

@@ -25,7 +25,7 @@ export default function ReplayMenu({ onClose }: { onClose: () => void }) {
       <div
         className="w-full max-w-xl rounded-2xl overflow-hidden"
         style={{
-          background: "rgba(10,14,40,0.98)",
+          background: "var(--app-surface)",
           border: "1px solid rgba(99,102,241,0.25)",
           boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(99,102,241,0.10)",
         }}
@@ -33,14 +33,14 @@ export default function ReplayMenu({ onClose }: { onClose: () => void }) {
       >
         <div className="px-7 pt-6 pb-4 flex items-start justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-white tracking-tight">
+            <h2 className="text-xl font-semibold text-[var(--app-text)] tracking-tight">
               {t("onb.replayTitle")}
             </h2>
-            <p className="text-sm text-white/45 mt-1">{t("onb.replaySubtitle")}</p>
+            <p className="text-sm text-[var(--app-text-faint)] mt-1">{t("onb.replaySubtitle")}</p>
           </div>
           <button
             onClick={onClose}
-            className="text-white/30 hover:text-white/60 transition h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/5 shrink-0"
+            className="text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] transition h-8 w-8 flex items-center justify-center rounded-lg hover:bg-[var(--app-surface)] shrink-0"
             aria-label={t("common.close")}
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -73,8 +73,8 @@ export default function ReplayMenu({ onClose }: { onClose: () => void }) {
               </svg>
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-white/90">{t("onb.replayOverview")}</h3>
-              <p className="text-xs text-white/45 mt-0.5 leading-relaxed">{t("onb.replayOverviewDesc")}</p>
+              <h3 className="text-sm font-semibold text-[var(--app-text)]">{t("onb.replayOverview")}</h3>
+              <p className="text-xs text-[var(--app-text-faint)] mt-0.5 leading-relaxed">{t("onb.replayOverviewDesc")}</p>
             </div>
             <span className="ml-auto text-sm opacity-0 group-hover:opacity-100 transition text-indigo-300">→</span>
           </button>
@@ -101,8 +101,8 @@ export default function ReplayMenu({ onClose }: { onClose: () => void }) {
                     {m.icon}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-white/90">{t(`onb.modules.${m.i18n}.name`)}</h3>
-                    <p className="text-xs text-white/45 mt-1 leading-relaxed">{t(`onb.modules.${m.i18n}.tagline`)}</p>
+                    <h3 className="text-sm font-semibold text-[var(--app-text)]">{t(`onb.modules.${m.i18n}.name`)}</h3>
+                    <p className="text-xs text-[var(--app-text-faint)] mt-1 leading-relaxed">{t(`onb.modules.${m.i18n}.tagline`)}</p>
                   </div>
                   <span className="text-sm opacity-0 group-hover:opacity-100 transition shrink-0 mt-1" style={{ color: m.accent }}>→</span>
                 </div>

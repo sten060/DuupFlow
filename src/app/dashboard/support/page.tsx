@@ -7,8 +7,8 @@ export default function SupportPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-bold text-white/90 mb-2">{t("dashboard.support.title")}</h1>
-      <p className="text-sm text-white/50 mb-8">
+      <h1 className="text-2xl font-bold text-[var(--app-text)] mb-2">{t("dashboard.support.title")}</h1>
+      <p className="text-sm text-[var(--app-text-muted)] mb-8">
         {t("dashboard.support.subtitle")}
       </p>
 
@@ -18,7 +18,7 @@ export default function SupportPage() {
           href="https://t.me/DuupFlow_Support"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 hover:bg-white/[0.06] transition-all"
+          className="flex items-center gap-4 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 hover:bg-[var(--app-surface-2)] transition-all"
         >
           <div className="h-10 w-10 rounded-xl bg-[#229ED9]/10 flex items-center justify-center shrink-0">
             <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#229ED9]" fill="currentColor">
@@ -26,10 +26,10 @@ export default function SupportPage() {
             </svg>
           </div>
           <div className="flex-1">
-            <div className="font-medium text-white/85 text-sm">{t("dashboard.support.telegram")}</div>
-            <div className="text-xs text-white/45 mt-0.5">{t("dashboard.support.telegramDesc")}</div>
+            <div className="font-medium text-[var(--app-text)] text-sm">{t("dashboard.support.telegram")}</div>
+            <div className="text-xs text-[var(--app-text-faint)] mt-0.5">{t("dashboard.support.telegramDesc")}</div>
           </div>
-          <svg viewBox="0 0 24 24" className="h-4 w-4 text-white/30 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 text-[var(--app-text-faint)] shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M7 17l9.2-9.2M17 17V7H7" />
           </svg>
         </a>
@@ -37,7 +37,7 @@ export default function SupportPage() {
         {/* Email */}
         <a
           href="mailto:hello@duupflow.com"
-          className="flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 hover:bg-white/[0.06] transition-all"
+          className="flex items-center gap-4 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 hover:bg-[var(--app-surface-2)] transition-all"
         >
           <div className="h-10 w-10 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0">
             <svg viewBox="0 0 24 24" className="h-5 w-5 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2">
@@ -46,39 +46,39 @@ export default function SupportPage() {
             </svg>
           </div>
           <div className="flex-1">
-            <div className="font-medium text-white/85 text-sm">{t("dashboard.support.email")}</div>
-            <div className="text-xs text-white/45 mt-0.5">{t("dashboard.support.emailDesc")}</div>
+            <div className="font-medium text-[var(--app-text)] text-sm">{t("dashboard.support.email")}</div>
+            <div className="text-xs text-[var(--app-text-faint)] mt-0.5">{t("dashboard.support.emailDesc")}</div>
           </div>
-          <svg viewBox="0 0 24 24" className="h-4 w-4 text-white/30 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 text-[var(--app-text-faint)] shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M7 17l9.2-9.2M17 17V7H7" />
           </svg>
         </a>
       </div>
 
-      <div className="mt-8 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
-        <h2 className="text-sm font-medium text-white/80 mb-3">{t("dashboard.support.faqTitle")}</h2>
+      <div className="mt-8 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
+        <h2 className="text-sm font-medium text-[var(--app-text)] mb-3">{t("dashboard.support.faqTitle")}</h2>
         <div className="space-y-3 text-sm">
           <details className="group">
-            <summary className="cursor-pointer text-white/60 hover:text-white/80 transition">
+            <summary className="cursor-pointer text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition">
               {t("dashboard.support.faq1Q")}
             </summary>
-            <p className="mt-2 text-white/45 text-xs leading-relaxed pl-1">
+            <p className="mt-2 text-[var(--app-text-faint)] text-xs leading-relaxed pl-1">
               {t("dashboard.support.faq1A")}
             </p>
           </details>
           <details className="group">
-            <summary className="cursor-pointer text-white/60 hover:text-white/80 transition">
+            <summary className="cursor-pointer text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition">
               {t("dashboard.support.faq2Q")}
             </summary>
-            <p className="mt-2 text-white/45 text-xs leading-relaxed pl-1">
+            <p className="mt-2 text-[var(--app-text-faint)] text-xs leading-relaxed pl-1">
               {t("dashboard.support.faq2A")}
             </p>
           </details>
           <details className="group">
-            <summary className="cursor-pointer text-white/60 hover:text-white/80 transition">
+            <summary className="cursor-pointer text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition">
               {t("dashboard.support.faq3Q")}
             </summary>
-            <p className="mt-2 text-white/45 text-xs leading-relaxed pl-1">
+            <p className="mt-2 text-[var(--app-text-faint)] text-xs leading-relaxed pl-1">
               {t("dashboard.support.faq3A")}
             </p>
           </details>
