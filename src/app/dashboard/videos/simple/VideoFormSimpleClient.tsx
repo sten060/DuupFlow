@@ -630,7 +630,7 @@ export default function VideoFormSimpleClient() {
         </div>
         <p className="mt-2 text-xs text-[var(--app-text-muted)]">
           Ajoute un filigrane <b>différent et aléatoire sur chaque copie</b> : forme, couleur, taille (40–80&nbsp;%) et
-          vitesse variées, en mouvement sur la vidéo, avec une opacité de 1&nbsp;% (quasi invisible).
+          vitesse variées, en mouvement sur la vidéo, avec une opacité de 2&nbsp;% (quasi invisible).
         </p>
       </div>
 

@@ -194,7 +194,7 @@ export async function prepareSimpleWatermark(
     randomShape: true,
     shapePaths,
     logoPath: null,
-    opacity: 1,          // fixe : 1%
+    opacity: 2,          // fixe : 2%
     size: 60,            // indicatif (recalculé aléatoire par copie)
     position: "br",
     randomPosition: false,
@@ -221,7 +221,7 @@ export function resolveWatermarkOverlay(prep: PreparedWatermark, width: number):
     return {
       moviePath,
       scaleW,
-      opacity: 0.01,                                           // 1 %
+      opacity: 0.02,                                           // 2 %
       x: `abs(mod(${sx}*t,2*(W-w))-(W-w))`,
       y: `abs(mod(${sy}*t,2*(H-h))-(H-h))`,
       tint: { r: Math.random(), g: Math.random(), b: Math.random() }, // couleur aléatoire
