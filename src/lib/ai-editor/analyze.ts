@@ -148,11 +148,12 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
    Assez pour que Claude sache ce qu'il a sous la main (durée, dims, 1 vignette).
    Pas de transcription ici (la description du user fait le contexte) → rapide. */
 export type MaterialAnalysis = {
-  kind: "video" | "image";
+  kind: "video" | "image" | "audio";
   durationSec?: number;
   width: number;
   height: number;
-  thumb: string | null; // 1 vignette JPEG (data URI)
+  hasAudio?: boolean;   // vidéo : a-t-elle une piste son (utile pour l'attacher)
+  thumb: string | null; // 1 vignette JPEG (data URI) ; null pour l'audio
 };
 
 async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis> {
@@ -166,7 +167,12 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
   } finally {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
-  return { kind: "video", durationSec: meta.durationSec, width: meta.width, height: meta.height, thumb };
+  return { kind: "video", durationSec: meta.durationSec, width: meta.width, height: meta.height, hasAudio: meta.hasAudio, thumb };
+}
+
+async function analyzeMaterialAudio(audioPath: string): Promise<MaterialAnalysis> {
+  const meta = await probe(audioPath);
+  return { kind: "audio", durationSec: meta.durationSec, width: 0, height: 0, hasAudio: true, thumb: null };
 }
 
 async function analyzeMaterialImage(imgPath: string): Promise<MaterialAnalysis> {
@@ -180,7 +186,9 @@ async function analyzeMaterialImage(imgPath: string): Promise<MaterialAnalysis> 
   }
 }
 
-/** Dispatcher matière : image → sharp ; sinon → vidéo (ffmpeg). */
+/** Dispatcher matière : image → sharp ; audio → probe ; sinon → vidéo (ffmpeg). */
 export async function analyzeMaterial(filePath: string, mime: string): Promise<MaterialAnalysis> {
-  return mime.startsWith("image") ? analyzeMaterialImage(filePath) : analyzeMaterialVideo(filePath);
+  if (mime.startsWith("image")) return analyzeMaterialImage(filePath);
+  if (mime.startsWith("audio")) return analyzeMaterialAudio(filePath);
+  return analyzeMaterialVideo(filePath);
 }

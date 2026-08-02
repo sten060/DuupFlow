@@ -52,6 +52,17 @@ export const TOOLS = [
             vignette: { type: "boolean", description: "Assombrit les bords." },
           },
         },
+        audio: {
+          type: "object",
+          description: "Piste sonore optionnelle prise d'une MATIÈRE (fichier audio uploadé, OU le son d'un rush vidéo). Sert à poser une musique/voix sur toute la variante.",
+          properties: {
+            materialId: { type: "string", description: "id (de list_material) d'une matière audio ou vidéo (on prend sa piste son)." },
+            startSec: { type: "number", description: "décalage de départ dans la piste (s). Défaut 0." },
+            volume: { type: "number", description: "0-2 (1 = normal). Défaut 1." },
+            mode: { type: "string", enum: ["mix", "replace"], description: "mix = par-dessus le son des plans (défaut) ; replace = remplace le son des plans." },
+          },
+          required: ["materialId"],
+        },
         segments: {
           type: "array",
           description: "Plans à enchaîner, dans l'ordre.",
@@ -64,6 +75,8 @@ export const TOOLS = [
               motion: { type: "string", enum: ["none", "zoomIn", "zoomOut", "panLeft", "panRight"], description: "IMAGES : mouvement (Ken Burns) pour éviter le diaporama figé. Défaut none." },
               motionIntensity: { type: "number", description: "Force du mouvement (0.2-3, défaut 1)." },
               fit: { type: "string", enum: ["contain", "cover", "blurFill"], description: "IMAGES, cadrage : contain (défaut, bandes) ; cover (remplit, recadre) ; blurFill (image centrée sur fond flou — idéal vertical)." },
+              transition: { type: "string", enum: ["cut", "fade", "whipPan", "slide", "zoomPunch"], description: "Transition à l'ENTRÉE de ce plan (le 1er reste en cut). Défaut cut." },
+              transitionDuration: { type: "number", description: "Durée de la transition en s (0.1-0.4 typique). Bornée à la durée des plans." },
             },
             required: ["materialId"],
           },
@@ -131,15 +144,20 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const ref = project.reference;
     if (!ref) return { content: [{ type: "text", text: "Aucune référence dans ce projet pour l'instant." }], isError: true };
     const a = ref.analysis;
+    const cuts = Array.isArray(a.sceneCuts) ? a.sceneCuts : [];
+    const phrases = a.transcript?.phrases ?? [];
     const lines = [
       `RÉFÉRENCE : ${ref.label} (${ref.source})`,
       `Durée : ${a.durationSec.toFixed(1)}s · ${a.width}×${a.height} · ${a.fps} fps · audio: ${a.hasAudio ? "oui" : "non"}`,
       `Rythme : ${a.pacing.cutCount} coupe(s)${a.pacing.avgCutSec ? ` · ~${a.pacing.avgCutSec}s/plan` : ""}`,
+      cuts.length ? `Coupes (timecodes s) : ${cuts.slice(0, 60).map((c) => c.toFixed(2)).join(", ")}` : null,
       a.hookText ? `Hook (parlé) : « ${a.hookText} »` : "Hook parlé : (aucune transcription)",
-      a.transcript ? `Transcription : ${a.transcript.fullText}` : "Transcription : indisponible (analyse visuelle).",
+      phrases.length
+        ? `Transcription horodatée :\n${phrases.slice(0, 50).map((p) => `  [${p.startSec.toFixed(1)}–${p.endSec.toFixed(1)}s] ${p.text}`).join("\n")}`
+        : a.transcript ? `Transcription : ${a.transcript.fullText}` : "Transcription : indisponible (analyse visuelle).",
       "",
       `Images clés ci-dessous (${Math.min(a.keyframes.length, MAX_KEYFRAMES)}/${a.keyframes.length}) — observe le hook, le cadrage, le texte à l'écran, le style.`,
-    ];
+    ].filter(Boolean);
     const content: Content[] = [{ type: "text", text: lines.join("\n") }];
     for (const kf of a.keyframes.slice(0, MAX_KEYFRAMES)) {
       const img = dataUriToImage(kf.dataUri);
@@ -158,7 +176,11 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     for (const m of mats) {
       const meta = m.analysis;
       const desc = m.desc?.trim() ? `« ${m.desc.trim()} »` : "(pas de description)";
-      const dims = meta ? ` · ${meta.width}×${meta.height}${meta.durationSec ? ` · ${meta.durationSec.toFixed(1)}s` : ""}` : "";
+      const dims = !meta
+        ? ""
+        : m.kind === "audio"
+          ? ` · ${meta.durationSec ? meta.durationSec.toFixed(1) + "s" : "audio"}`
+          : ` · ${meta.width}×${meta.height}${meta.durationSec ? ` · ${meta.durationSec.toFixed(1)}s` : ""}`;
       content.push({ type: "text", text: `• id: ${m.id}  ·  ${m.name} [${m.kind}]${dims} — ${desc}` });
       if (meta?.thumb) {
         const img = dataUriToImage(meta.thumb);

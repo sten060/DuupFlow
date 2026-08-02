@@ -34,9 +34,12 @@ export async function POST(req: NextRequest) {
   if (!(file instanceof File) || file.size === 0) return NextResponse.json({ error: "Fichier manquant." }, { status: 400 });
   if (file.size > MAX_BYTES) return NextResponse.json({ error: "Fichier trop lourd (max 300 Mo)." }, { status: 413 });
 
-  const kind: "video" | "image" = file.type.startsWith("image") ? "image" : "video";
+  const kind: "video" | "image" | "audio" =
+    file.type.startsWith("image") ? "image"
+    : file.type.startsWith("audio") || /\.(mp3|m4a|wav|aac|ogg|flac)$/i.test(file.name) ? "audio"
+    : "video";
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_amat_"));
-  const ext = file.name.match(/\.[a-z0-9]+$/i)?.[0] || (kind === "image" ? ".jpg" : ".mp4");
+  const ext = file.name.match(/\.[a-z0-9]+$/i)?.[0] || (kind === "image" ? ".jpg" : kind === "audio" ? ".mp3" : ".mp4");
   const tmp = path.join(dir, `mat${ext}`);
   try {
     await fs.writeFile(tmp, Buffer.from(await file.arrayBuffer()));

@@ -78,7 +78,7 @@ type Material = {
   url?: string;               // aperçu local (object URL)
   thumb?: string | null;      // vignette serveur (après analyse / restauration)
   desc: string;
-  kind: "video" | "image";
+  kind: "video" | "image" | "audio";
   uploading?: boolean;
   err?: string;
 };
@@ -164,7 +164,7 @@ export default function AiEditorPage() {
           setAnalysis(project.reference.analysis as ReferenceAnalysis);
         }
         if (Array.isArray(project.materials) && project.materials.length) {
-          setMaterials(project.materials.map((m: { id: string; name: string; kind: "video" | "image"; desc?: string; analysis?: { thumb?: string | null } }) => ({
+          setMaterials(project.materials.map((m: { id: string; name: string; kind: "video" | "image" | "audio"; desc?: string; analysis?: { thumb?: string | null } }) => ({
             id: uid(), serverId: m.id, name: m.name, thumb: m.analysis?.thumb ?? null, desc: m.desc ?? "", kind: m.kind,
           })));
         }
@@ -196,7 +196,7 @@ export default function AiEditorPage() {
     const arr = Array.from(files);
     const news: Material[] = arr.map((file) => ({
       id: uid(), name: file.name, file, url: URL.createObjectURL(file), desc: "",
-      kind: file.type.startsWith("image") ? ("image" as const) : ("video" as const),
+      kind: file.type.startsWith("image") ? ("image" as const) : file.type.startsWith("audio") ? ("audio" as const) : ("video" as const),
       uploading: !!pid, err: pid ? undefined : "Analyse la référence d'abord",
     }));
     setMaterials((prev) => [...prev, ...news]);
@@ -267,7 +267,7 @@ export default function AiEditorPage() {
   return (
     <main className="relative flex h-full flex-col">
       {/* Input matière — persistant (utilisé à l'étape 2 ET dans le workspace) */}
-      <input ref={matInput} type="file" accept="video/*,image/*" multiple hidden onChange={onMatPick} />
+      <input ref={matInput} type="file" accept="video/*,image/*,audio/*" multiple hidden onChange={onMatPick} />
 
       {/* Header */}
       {step !== "editor" && (
@@ -506,14 +506,14 @@ export default function AiEditorPage() {
                     ) : m.url ? (
                       <video src={m.url} muted className="h-full w-full object-cover" />
                     ) : (
-                      <div className="grid h-full w-full place-items-center text-[13px] text-white/70">{m.kind === "image" ? "🖼️" : "🎬"}</div>
+                      <div className="grid h-full w-full place-items-center text-[13px] text-white/70">{m.kind === "image" ? "🖼️" : m.kind === "audio" ? "🎵" : "🎬"}</div>
                     )}
                     {m.uploading && <div className="absolute inset-0 grid place-items-center bg-black/45 text-[10px] font-semibold text-white">⏳</div>}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[13px] font-semibold text-[var(--app-text)]">{m.name}</div>
                     <div className="mt-0.5 text-[11px] text-[var(--app-text-faint)]">
-                      {m.err ? <span className="text-amber-400">{m.err}</span> : m.uploading ? "Upload & analyse…" : m.serverId ? "✓ enregistré" : m.kind === "image" ? "Image" : "Vidéo"}
+                      {m.err ? <span className="text-amber-400">{m.err}</span> : m.uploading ? "Upload & analyse…" : m.serverId ? "✓ enregistré" : m.kind === "image" ? "Image" : m.kind === "audio" ? "Audio" : "Vidéo"}
                     </div>
                     <button onClick={() => removeMat(m.id)} className="mt-1 text-[11px] text-[var(--app-text-faint)] underline hover:text-red-400/80">Retirer</button>
                   </div>
@@ -595,7 +595,7 @@ export default function AiEditorPage() {
               </div>
               {materials.map((m) => (
                 <div key={m.id} className="group flex items-center gap-2.5 py-1.5 text-[12.5px] text-[var(--app-text-muted)]">
-                  <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md text-[12px]" style={{ background: "var(--app-surface-2)" }}>{m.kind === "image" ? "🖼️" : "🎬"}</span>
+                  <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md text-[12px]" style={{ background: "var(--app-surface-2)" }}>{m.kind === "image" ? "🖼️" : m.kind === "audio" ? "🎵" : "🎬"}</span>
                   <span className="flex-1 truncate">{m.name}</span>
                   <button onClick={() => removeMat(m.id)} title="Retirer" className="shrink-0 text-[var(--app-text-faint)] opacity-0 transition hover:text-red-400/80 group-hover:opacity-100">✕</button>
                 </div>

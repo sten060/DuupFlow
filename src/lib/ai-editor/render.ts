@@ -24,6 +24,7 @@ import type { ProjectVariant } from "./store";
 
 export type SegMotion = "none" | "zoomIn" | "zoomOut" | "panLeft" | "panRight";
 export type SegFit = "contain" | "cover" | "blurFill";
+export type SegTransition = "cut" | "fade" | "whipPan" | "slide" | "zoomPunch";
 export type EditSegment = {
   materialId: string;
   startSec?: number;
@@ -31,7 +32,20 @@ export type EditSegment = {
   motion?: SegMotion | "zoom-in" | "zoom-out";
   motionIntensity?: number;
   fit?: SegFit;
+  transition?: SegTransition;      // à l'ENTRÉE du plan (le 1er reste en cut)
+  transitionDuration?: number;     // secondes (0.1-0.4 typique), bornée à la durée
 };
+
+/** Nom de transition xfade (null = cut). */
+function xfadeName(t: unknown): string | null {
+  switch (String(t ?? "cut")) {
+    case "fade": return "fade";
+    case "whipPan": return "smoothleft";
+    case "slide": return "slideleft";
+    case "zoomPunch": return "zoomin";
+    default: return null; // cut
+  }
+}
 
 export type CaptionStyle = "outline" | "box";
 export type CaptionSize = "s" | "m" | "l";
@@ -60,11 +74,19 @@ export type ColorGrade = {
   vignette?: boolean;
 };
 
+export type EditAudioTrack = {
+  materialId: string;      // matière audio OU vidéo (on prend sa piste son)
+  startSec?: number;       // décalage dans la piste
+  volume?: number;         // 0-2, défaut 1
+  mode?: "mix" | "replace";// mix (par-dessus le son des plans, défaut) | replace
+};
+
 export type EditPlan = {
   aspect?: "9:16" | "1:1" | "16:9";
   fps?: number;
   background?: string;   // couleur de fond (letterbox), défaut noir
   grade?: ColorGrade;
+  audio?: EditAudioTrack;
   segments: EditSegment[];
   captions?: EditCaption[];
   label?: string;
@@ -265,12 +287,14 @@ export async function renderVariant(
   const inputs: string[] = [];
   const vlabels: string[] = [];
   const alabels: string[] = [];
+  const durs: number[] = [];
   const filters: string[] = [];
 
   for (let i = 0; i < segs.length; i++) {
     const seg = segs[i];
     const mat = project.materials.find((m) => m.id === seg.materialId);
     if (!mat) return { error: `Matière introuvable : ${seg.materialId}. Utilise l'"id" exact renvoyé par list_material.` };
+    if (mat.kind === "audio") return { error: `${mat.name} est un fichier audio — mets-le dans le champ "audio" (piste sonore), pas dans segments.` };
     const abs = materialAbsPath(userId, projectId, mat.storedName);
     try { await fs.access(abs); } catch { return { error: `Fichier manquant pour ${mat.name}.` }; }
 
@@ -283,6 +307,7 @@ export async function renderVariant(
       else inputs.push("-i", abs); // 1 seule image → zoompan la déploie (pas de -loop = pas de flux infini)
       filters.push(imageVideoFilter(i, W, H, fps, bg, dur, motion, intensity, fit));
       filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${dur.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
+      durs.push(dur);
     } else {
       const { dur: fullDur, hasAudio } = await probeAV(abs);
       const start = seg.startSec != null ? num(seg.startSec, 0) : 0;
@@ -299,27 +324,54 @@ export async function renderVariant(
       } else {
         filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${Math.max(0.1, segLen).toFixed(3)},asetpts=N/SR/TB[a${i}]`);
       }
+      durs.push(Math.max(0.1, segLen));
     }
     vlabels.push(`[v${i}]`);
     alabels.push(`[a${i}]`);
   }
-
-  // Concat vidéo + audio (inputs entrelacés v0,a0,v1,a1,…).
-  const interleaved = segs.map((_, i) => `${vlabels[i]}${alabels[i]}`).join("");
-  filters.push(`${interleaved}concat=n=${segs.length}:v=1:a=1[cat][acat]`);
-
-  // Colorimétrie globale (avant captions).
-  let base = "cat";
-  const grade = gradeChain(plan.grade);
-  if (grade) { filters.push(`[cat]${grade}[graded]`); base = "graded"; }
 
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_render_"));
   const outPath = path.join(dir, "variant.mp4");
   const posterPath = path.join(dir, "poster.jpg");
 
   try {
-    // Captions — best-effort (PNG sharp + overlay). Échec → vidéo sans captions.
-    let last = base;
+    // Assemblage → sortie fixe [vasm][aasm]. Soit concat sec (cut), soit un
+    // fold xfade/acrossfade quand des transitions sont demandées. Sortie fixe →
+    // repli propre sur le concat si les transitions échouent.
+    const wantTransitions = segs.some((s, i) => i > 0 && xfadeName(s.transition));
+    const assemble = (useTrans: boolean): string[] => {
+      if (!useTrans) {
+        const interleaved = segs.map((_, i) => `${vlabels[i]}${alabels[i]}`).join("");
+        return [`${interleaved}concat=n=${segs.length}:v=1:a=1[vasm][aasm]`];
+      }
+      const af: string[] = [];
+      let vAcc = "v0", aAcc = "a0", accDur = durs[0];
+      for (let i = 1; i < segs.length; i++) {
+        const name = xfadeName(segs[i].transition);
+        const ti = name ? clamp(Math.min(num(segs[i].transitionDuration, 0.25), durs[i] * 0.9, durs[i - 1] * 0.9), 0.05, 1.0) : 0;
+        const vo = `vt${i}`, ao = `at${i}`;
+        if (ti <= 0) { // cut → concat 2 à 2
+          af.push(`[${vAcc}][v${i}]concat=n=2:v=1:a=0[${vo}]`, `[${aAcc}][a${i}]concat=n=2:v=0:a=1[${ao}]`);
+          accDur += durs[i];
+        } else { // crossfade vidéo + audio, borné à la durée des plans
+          const offset = Math.max(0, accDur - ti);
+          af.push(`[${vAcc}][v${i}]xfade=transition=${name}:duration=${ti.toFixed(3)}:offset=${offset.toFixed(3)}[${vo}]`, `[${aAcc}][a${i}]acrossfade=d=${ti.toFixed(3)}[${ao}]`);
+          accDur += durs[i] - ti;
+        }
+        vAcc = vo; aAcc = ao;
+      }
+      af.push(`[${vAcc}]null[vasm]`, `[${aAcc}]anull[aasm]`);
+      return af;
+    };
+
+    // Colorimétrie globale (après assemblage, avant captions).
+    const grade = gradeChain(plan.grade);
+    const gradeFilters = grade ? [`[vasm]${grade}[graded]`] : [];
+    const gbase = grade ? "graded" : "vasm";
+
+    // Captions (générées 1 fois) : PNG sharp + overlay, chaînées depuis gbase.
+    const captionFilters: string[] = [];
+    let last = gbase;
     const caps = (plan.captions ?? []).slice(0, MAX_CAPTIONS).filter((c) => c?.text?.trim());
     try {
       for (let k = 0; k < caps.length; k++) {
@@ -329,27 +381,56 @@ export async function renderVariant(
         inputs.push("-i", png);
         const inIdx = segs.length + k;
         const out = `cc${k}`;
-        filters.push(`[${last}][${inIdx}:v]overlay=0:0:enable='between(t,${num(c.startSec, 0).toFixed(2)},${num(c.endSec, 3).toFixed(2)})'[${out}]`);
+        captionFilters.push(`[${last}][${inIdx}:v]overlay=0:0:enable='between(t,${num(c.startSec, 0).toFixed(2)},${num(c.endSec, 3).toFixed(2)})'[${out}]`);
         last = out;
       }
     } catch (e) {
       console.warn("[ai-editor/render] captions ignorées:", (e as Error)?.message);
-      last = base;
+      last = gbase;
     }
-    filters.push(`[${last}]null[vout]`);
+    const voutFilter = `[${last}]null[vout]`;
 
-    const args = [
+    // Piste audio optionnelle (musique/voix depuis une matière audio OU le son
+    // d'un rush vidéo) mixée par-dessus le son des plans, ou en remplacement.
+    const audioFilters: string[] = [];
+    let audioMap = "[aasm]";
+    if (plan.audio && typeof plan.audio.materialId === "string") {
+      const tmat = project.materials.find((m) => m.id === plan.audio!.materialId);
+      const tabs = tmat && tmat.kind !== "image" ? materialAbsPath(userId, projectId, tmat.storedName) : null;
+      let hasA = false;
+      if (tabs) { try { await fs.access(tabs); hasA = (await probeAV(tabs)).hasAudio; } catch { hasA = false; } }
+      if (tabs && hasA) {
+        const startSec = Math.max(0, num(plan.audio.startSec, 0));
+        const vol = clamp(num(plan.audio.volume, 1), 0, 2);
+        const bedVol = plan.audio.mode === "replace" ? 0 : 1;
+        const tIdx = inputs.reduce((n, a) => (a === "-i" ? n + 1 : n), 0);
+        inputs.push("-i", tabs);
+        audioFilters.push(
+          `[aasm]volume=${bedVol}[abed]`,
+          `[${tIdx}:a]atrim=start=${startSec.toFixed(3)},asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo,volume=${vol.toFixed(3)}[atrk]`,
+          `[abed][atrk]amix=inputs=2:duration=first:normalize=0[amixed]`,
+        );
+        audioMap = "[amixed]";
+      }
+    }
+
+    const buildArgs = (useTrans: boolean): string[] => [
       "-y", "-hide_banner", "-loglevel", "error",
       ...inputs,
-      "-filter_complex", filters.join(";"),
-      "-map", "[vout]", "-map", "[acat]",
+      "-filter_complex", [...filters, ...assemble(useTrans), ...gradeFilters, ...captionFilters, voutFilter, ...audioFilters].join(";"),
+      "-map", "[vout]", "-map", audioMap,
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
       "-r", String(fps),
       "-c:a", "aac", "-b:a", "128k",
       "-movflags", "+faststart",
       outPath,
     ];
-    const { code, stderr } = await runFFmpeg(args, 10 * 60 * 1000);
+
+    let { code, stderr } = await runFFmpeg(buildArgs(wantTransitions), 10 * 60 * 1000);
+    if (code !== 0 && wantTransitions) {
+      console.warn("[ai-editor/render] transitions échouées → repli sur cut:", stderr.slice(-160));
+      ({ code, stderr } = await runFFmpeg(buildArgs(false), 10 * 60 * 1000));
+    }
     if (code !== 0) return { error: `Rendu FFmpeg échoué : ${stderr.slice(-240)}` };
 
     const { dur: outDur } = await probeAV(outPath);

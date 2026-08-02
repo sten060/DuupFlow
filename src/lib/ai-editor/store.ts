@@ -24,7 +24,7 @@ const OUT_BASE = process.env.OUT_BASE
 export type ProjectMaterial = {
   id: string;
   name: string;
-  kind: "video" | "image";
+  kind: "video" | "image" | "audio";
   desc: string;
   storedName: string;
   analysis: MaterialAnalysis | null;
@@ -133,7 +133,7 @@ export async function saveReference(
 export async function addMaterial(
   userId: string,
   projectId: string,
-  opts: { srcPath: string; ext: string; name: string; kind: "video" | "image"; desc: string; analysis: MaterialAnalysis | null },
+  opts: { srcPath: string; ext: string; name: string; kind: "video" | "image" | "audio"; desc: string; analysis: MaterialAnalysis | null },
 ): Promise<ProjectMaterial | null> {
   const p = await getProject(userId, projectId);
   if (!p) return null;
