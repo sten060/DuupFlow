@@ -172,6 +172,10 @@ export default function Sidebar() {
           </svg>
         ),
       },
+      // NOTE : « Éditeur IA » (/dashboard/ai-editor) est volontairement MASQUÉ de
+      // la nav — la route et toute l'infra (API, MCP, rendu) restent en place et
+      // accessibles par URL directe pour les tests privés, mais l'entrée n'est
+      // pas exposée aux users actifs. Ré-ajouter le bloc ici pour la rendre visible.
       {
         href: "/dashboard/import",
         label: "Scraper",
