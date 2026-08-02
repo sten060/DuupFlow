@@ -64,7 +64,7 @@ async function probe(videoPath: string): Promise<{ durationSec: number; width: n
 async function keyframeAt(videoPath: string, t: number, dir: string, i: number): Promise<Keyframe | null> {
   const out = path.join(dir, `kf_${i}.jpg`);
   const { code } = await runFFmpeg(
-    ["-hide_banner", "-loglevel", "error", "-ss", t.toFixed(3), "-i", videoPath, "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", "-y", out],
+    ["-hide_banner", "-loglevel", "error", "-ss", t.toFixed(3), "-i", videoPath, "-frames:v", "1", "-vf", "scale=360:-2", "-q:v", "6", "-y", out],
     30_000,
   );
   if (code !== 0) return null;

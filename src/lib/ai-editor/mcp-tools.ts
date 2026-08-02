@@ -154,6 +154,21 @@ export function dataUriToImage(dataUri: string): Content | null {
   return { type: "image", data: m[2], mimeType: m[1] };
 }
 
+/** Recompresse une image (data URI) en plus petit → réponse MCP allégée (les
+ *  keyframes de réf stockées sont en 480px ; certains clients vident les blocs
+ *  image si la réponse est trop lourde). Repli sur l'original si sharp échoue. */
+async function shrinkDataUri(dataUri: string, width = 360, quality = 60): Promise<string> {
+  const m = dataUri.match(/^data:[^;]+;base64,(.+)$/);
+  if (!m) return dataUri;
+  try {
+    const sharp = (await import("sharp")).default;
+    const out = await sharp(Buffer.from(m[1], "base64")).resize({ width, withoutEnlargement: true }).jpeg({ quality }).toBuffer();
+    return `data:image/jpeg;base64,${out.toString("base64")}`;
+  } catch {
+    return dataUri;
+  }
+}
+
 export async function callTool(userId: string, name: string, args?: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }> {
   const project: Project | null = await getLatestProject(userId);
 
@@ -187,8 +202,8 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       `Images clés ci-dessous (${Math.min(a.keyframes.length, MAX_KEYFRAMES)}/${a.keyframes.length}) — observe le hook, le cadrage, le texte à l'écran, le style.`,
     ].filter(Boolean);
     const content: Content[] = [{ type: "text", text: lines.join("\n") }];
-    for (const kf of a.keyframes.slice(0, MAX_KEYFRAMES)) {
-      const img = dataUriToImage(kf.dataUri);
+    for (const kf of a.keyframes.slice(0, 5)) {
+      const img = dataUriToImage(await shrinkDataUri(kf.dataUri));
       if (img) content.push({ type: "text", text: `— image à ${kf.t}s —` }, img);
     }
     return { content };
@@ -261,7 +276,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const id = String(args?.variantId || "");
     const v = project.variants.find((x) => x.id === id);
     if (!v) return { content: [{ type: "text", text: `Variante introuvable : ${id}. Vois list_variants pour les id.` }], isError: true };
-    const kfs = await variantKeyframes(userId, project.id, v.storedName, 6);
+    const kfs = await variantKeyframes(userId, project.id, v.storedName, 5);
     if (!kfs.length) {
       // Échec explicite (plus de « 0 images » muet) : fichier ancien/absent → régénérer.
       const content: Content[] = [{
@@ -293,7 +308,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       const d = m.analysis?.durationSec;
       return { content: [{ type: "text", text: `AUDIO « ${m.name} » (id ${m.id})${d ? ` · ${d.toFixed(1)}s` : ""}. À utiliser dans create_variant.audio.` }] };
     }
-    const kfs = await materialKeyframes(userId, project.id, m.storedName, 6);
+    const kfs = await materialKeyframes(userId, project.id, m.storedName, 5);
     if (!kfs.length) return { content: [{ type: "text", text: `⚠ Aucune image extractible du rush « ${m.name} » (id ${m.id}).` }], isError: true };
     const content: Content[] = [{ type: "text", text: `RUSH « ${m.name} » (id ${m.id})${m.analysis?.durationSec ? ` · ${m.analysis.durationSec.toFixed(1)}s` : ""} — ${kfs.length} images (timecodes pour tes coupes) :` }];
     for (const kf of kfs) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }

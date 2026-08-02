@@ -211,9 +211,10 @@ async function extractKeyframes(videoPath: string, durationSec: number, dir: str
   for (let i = 0; i < count; i++) {
     const t = Math.max(0.05, (total * (i + 0.5)) / count);
     const p = path.join(dir, `okf_${i}.jpg`);
-    // -ss APRÈS -i = seek précis (fiable même près des bornes / GOP longs).
+    // -ss APRÈS -i = seek précis. scale 360 + q6 = images légères (~10 Ko) pour ne
+    // pas dépasser le budget de réponse du client MCP (sinon il vide les blocs image).
     const { code, stderr } = await runFFmpeg(
-      ["-hide_banner", "-loglevel", "error", "-i", videoPath, "-ss", t.toFixed(2), "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", "-y", p],
+      ["-hide_banner", "-loglevel", "error", "-i", videoPath, "-ss", t.toFixed(2), "-frames:v", "1", "-vf", "scale=360:-2", "-q:v", "6", "-y", p],
       20_000,
     );
     if (code !== 0) { console.warn(`[ai-editor/keyframes] ffmpeg échec t=${t.toFixed(2)} code=${code}: ${stderr.slice(-160)}`); continue; }
