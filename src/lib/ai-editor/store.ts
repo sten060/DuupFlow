@@ -43,6 +43,8 @@ export type ProjectVariant = {
   storedName: string;   // variants/<id>.mp4
   poster: string | null; // vignette (data URI)
   label?: string;
+  durationSec?: number;      // durée du rendu (affichée dans list_variants)
+  derivedFrom?: string;      // id de la variante dont elle dérive (update_variant)
   plan?: Record<string, unknown>; // le EditPlan utilisé → permet update_variant (patch)
 };
 
@@ -151,7 +153,7 @@ export async function addMaterial(
 export async function addVariant(
   userId: string,
   projectId: string,
-  opts: { srcPath: string; poster: string | null; label?: string; plan?: Record<string, unknown> },
+  opts: { srcPath: string; poster: string | null; label?: string; plan?: Record<string, unknown>; durationSec?: number; derivedFrom?: string },
 ): Promise<ProjectVariant | null> {
   const p = await getProject(userId, projectId);
   if (!p) return null;
@@ -159,7 +161,7 @@ export async function addVariant(
   const storedName = `${id}.mp4`;
   await fs.mkdir(path.join(projectDir(userId, projectId), "variants"), { recursive: true });
   await fs.copyFile(opts.srcPath, path.join(projectDir(userId, projectId), "variants", storedName));
-  const variant: ProjectVariant = { id, createdAt: Date.now(), storedName, poster: opts.poster, label: opts.label, plan: opts.plan };
+  const variant: ProjectVariant = { id, createdAt: Date.now(), storedName, poster: opts.poster, label: opts.label, durationSec: opts.durationSec, derivedFrom: opts.derivedFrom, plan: opts.plan };
   p.variants.unshift(variant); // la plus récente en premier
   await write(userId, p);
   return variant;

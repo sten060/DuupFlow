@@ -22,7 +22,7 @@ import { runFFmpeg } from "@/lib/studio/pipeline";
 import { getProject, materialAbsPath, addVariant, projectPaths } from "./store";
 import type { ProjectVariant } from "./store";
 
-export type SegMotion = "none" | "zoomIn" | "zoomOut" | "panLeft" | "panRight";
+export type SegMotion = "none" | "zoomIn" | "zoomOut" | "panLeft" | "panRight" | "handheld";
 export type SegFit = "contain" | "cover" | "blurFill";
 export type SegTransition = "cut" | "fade" | "whipPan" | "slide" | "zoomPunch";
 export type EditSegment = {
@@ -49,6 +49,18 @@ function xfadeName(t: unknown): string | null {
 
 export type CaptionStyle = "outline" | "box";
 export type CaptionSize = "s" | "m" | "l";
+export type CaptionFont = "sans" | "rounded" | "impact" | "serif" | "script" | "display";
+// Enum → nom de FAMILLE (fontconfig la trouve dans public/fonts/ dès que le .ttf
+// y est déposé ; sinon repli sur ce qui est dispo, pas de crash). + emoji couleur.
+const FONT_FAMILY: Record<CaptionFont, string> = {
+  sans: "Noto Sans",
+  rounded: "Poppins",
+  impact: "Anton",
+  serif: "Playfair Display",
+  script: "Pacifico",
+  display: "Bungee",
+};
+const EMOJI_FALLBACK = "'Noto Color Emoji'"; // ajouté à chaque font-family
 export type EditCaption = {
   text: string;
   startSec: number;
@@ -64,12 +76,21 @@ export type EditCaption = {
   color?: string;
   strokeColor?: string;
   strokeWidth?: number;  // px
+  font?: CaptionFont;    // famille de police
+  fontWeight?: number;   // 400-900
+  letterSpacing?: number;// px (interlettrage)
+  lineHeight?: number;   // multiplicateur (défaut 1.24)
+  textTransform?: "none" | "uppercase";
+  shadowColor?: string;  // ombre portée (distincte du contour)
+  shadowBlur?: number;   // px
+  shadowOffset?: number; // px (décalage bas-droite)
 };
 
 export type ColorGrade = {
   saturation?: number;   // 1 = neutre
   contrast?: number;     // 1 = neutre
   brightness?: number;   // 0 = neutre (-1..1)
+  temperature?: number;  // -1 froid .. +1 chaud (0 neutre)
   grain?: number;        // 0..1
   vignette?: boolean;
 };
@@ -105,9 +126,11 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 const hex = (v: unknown, d: string) => (typeof v === "string" && /^#?[0-9a-fA-F]{3,8}$/.test(v) ? (v.startsWith("#") ? v : `#${v}`) : d);
 
 /* ── Polices : sharp/librsvg n'a AUCUNE police système en prod (Railway) → le
-   texte SVG sortait en carrés (tofu). On embarque une police (public/fonts/) et
-   on restreint fontconfig À CE dossier : toute font-family retombe alors sur
-   notre police (seule dispo) — jamais de tofu, sans rien installer sur Railway. */
+   texte SVG sortait en carrés (tofu). On embarque les polices dans public/fonts/
+   et on restreint fontconfig À CE dossier : fontconfig indexe toutes les familles
+   présentes (Noto Sans, Poppins, Anton, … + Noto Color Emoji en fallback) et fait
+   le repli entre elles — jamais de tofu, sans rien installer sur Railway. Déposer
+   un nouveau .ttf dans public/fonts/ suffit à activer la famille correspondante. */
 const FONT_DIR = path.join(process.cwd(), "public", "fonts");
 const FONT_CACHE = path.join(os.tmpdir(), "duup_fontcache");
 const FONT_CONF = path.join(FONT_CACHE, "duup-fonts.conf");
@@ -131,7 +154,8 @@ async function ensureFonts(): Promise<void> {
   }
 }
 
-/** Rasterise une caption stylée (contour OU boîte, position/taille/couleur libres). */
+/** Rasterise une caption stylée : police/poids/interlettrage/interligne/casse,
+ *  contour OU boîte, ombre portée, position libre. Emoji couleur en fallback. */
 async function captionPng(c: EditCaption, W: number, H: number, outPath: string): Promise<void> {
   await ensureFonts();
   const sharp = (await import("sharp")).default;
@@ -152,9 +176,17 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string)
   const strokeW = Math.max(2, Math.round((c.strokeWidth != null ? c.strokeWidth : fsz * 0.16)));
   const align = c.align === "left" ? "start" : c.align === "right" ? "end" : "middle";
 
-  const lineH = Math.round(fsz * 1.24);
+  // Police : famille (repli auto si le .ttf n'est pas encore déposé) + emoji couleur.
+  const famKey: CaptionFont = c.font && FONT_FAMILY[c.font] ? c.font : "sans";
+  const fontFamily = `'${FONT_FAMILY[famKey]}', ${EMOJI_FALLBACK}`;
+  const weight = Math.round(clamp(num(c.fontWeight, style === "outline" ? 900 : 800), 100, 900));
+  const ls = clamp(num(c.letterSpacing, 0), -20, 40);
+  const lineMul = clamp(num(c.lineHeight, 1.24), 0.9, 2.2);
+  const lineH = Math.round(fsz * lineMul);
+  const rawText = c.textTransform === "uppercase" ? c.text.toUpperCase() : c.text;
+
   const maxChars = Math.max(8, Math.floor(W / (fsz * 0.56)));
-  const words = c.text.trim().split(/\s+/);
+  const words = rawText.trim().split(/\s+/);
   const lines: string[] = [];
   let cur = "";
   for (const w of words) {
@@ -176,17 +208,29 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string)
   const firstBaseline = centerY - Math.round(blockH / 2) + fsz;
   const tspans = used.map((l, i) => `<tspan x="${anchorX}" y="${firstBaseline + i * lineH}">${esc(l)}</tspan>`).join("");
 
+  const fontAttrs = `text-anchor="${align}" font-family="${fontFamily}" font-weight="${weight}" font-size="${fsz}"${ls ? ` letter-spacing="${ls}px"` : ""}`;
+
+  // Ombre portée (distincte du contour) : copie décalée + floutée derrière.
+  let defs = "", shadowLayer = "";
+  if (typeof c.shadowColor === "string" && c.shadowColor.toLowerCase() !== "none") {
+    const shColor = hex(c.shadowColor, "#000000");
+    const shBlur = clamp(num(c.shadowBlur, Math.round(fsz * 0.06)), 0, fsz);
+    const shOff = clamp(num(c.shadowOffset, Math.round(fsz * 0.06)), -fsz, fsz);
+    defs = `<defs><filter id="sh" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="${shBlur}"/></filter></defs>`;
+    shadowLayer = `<g transform="translate(${shOff},${shOff})" filter="url(#sh)"><text ${fontAttrs} fill="${shColor}">${tspans}</text></g>`;
+  }
+
   let body: string;
   if (style === "box") {
     const boxW = Math.round(Math.min(W * 0.94, longest * fsz * 0.62 + fsz));
     const boxX = clamp(align === "start" ? anchorX - Math.round(fsz * 0.4) : align === "end" ? anchorX - boxW + Math.round(fsz * 0.4) : anchorX - Math.round(boxW / 2), 6, W - boxW - 6);
     const boxY = firstBaseline - fsz;
-    body = `<rect x="${boxX}" y="${boxY}" width="${boxW}" height="${blockH + Math.round(fsz * 0.5)}" rx="16" fill="${boxColor}" fill-opacity="${boxOpacity}"/>
-      <text text-anchor="${align}" font-family="sans-serif" font-weight="800" font-size="${fsz}" fill="${color}">${tspans}</text>`;
+    body = `${defs}<rect x="${boxX}" y="${boxY}" width="${boxW}" height="${blockH + Math.round(fsz * 0.5)}" rx="16" fill="${boxColor}" fill-opacity="${boxOpacity}"/>
+      ${shadowLayer}<text ${fontAttrs} fill="${color}">${tspans}</text>`;
   } else {
     // Contour : 2 passes (base épaisse dessous + remplissage dessus) — portable.
-    body = `<text text-anchor="${align}" font-family="sans-serif" font-weight="900" font-size="${fsz}" fill="${strokeColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="round">${tspans}</text>
-      <text text-anchor="${align}" font-family="sans-serif" font-weight="900" font-size="${fsz}" fill="${color}">${tspans}</text>`;
+    body = `${defs}${shadowLayer}<text ${fontAttrs} fill="${strokeColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="round">${tspans}</text>
+      <text ${fontAttrs} fill="${color}">${tspans}</text>`;
   }
   const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
   await fs.writeFile(outPath, await sharp(Buffer.from(svg)).png().toBuffer());
@@ -241,11 +285,22 @@ function normMotion(m: unknown): SegMotion {
   if (s === "zoomout") return "zoomOut";
   if (s === "panleft") return "panLeft";
   if (s === "panright") return "panRight";
+  if (s === "handheld") return "handheld";
   return "none";
 }
 
 /** Filtre vidéo d'un segment IMAGE (cadrage + éventuel mouvement Ken Burns). */
 function imageVideoFilter(i: number, W: number, H: number, fps: number, bg: string, dur: number, motion: SegMotion, intensity: number, fit: SegFit): string {
+  if (motion === "handheld") {
+    // Tremblement procédural (sommes de sinus lissées) sur image bouclée -t dur.
+    // Casse l'effet diaporama de façon naturelle (mieux qu'un zoom sur une fixe).
+    const amp = 0.012 * intensity; // ~1.2% de la dimension à intensité 1
+    const jx = `${(W * amp).toFixed(2)}*(sin(2*PI*1.7*t)+0.6*sin(2*PI*3.3*t+1.1))`;
+    const jy = `${(H * amp).toFixed(2)}*(sin(2*PI*2.1*t+0.5)+0.6*sin(2*PI*4.3*t))`;
+    const UW = Math.round(W * 1.12), UH = Math.round(H * 1.12);
+    return `[${i}:v]scale=${UW}:${UH}:force_original_aspect_ratio=increase,crop=${UW}:${UH},` +
+      `crop=${W}:${H}:x='(iw-ow)/2+${jx}':y='(ih-oh)/2+${jy}',setsar=1,fps=${fps},format=yuv420p[v${i}]`;
+  }
   if (motion !== "none") {
     // NB : l'entrée est UNE seule image (pas de -loop) → zoompan la déploie en
     // `frames` images. Upscale modéré (1,3×) = netteté au zoom sans exploser le CPU.
@@ -285,6 +340,11 @@ function gradeChain(g?: ColorGrade): string {
   if (sat !== 1 || con !== 1 || bri !== 0) {
     parts.push(`eq=saturation=${clamp(sat, 0, 3).toFixed(3)}:contrast=${clamp(con, 0, 3).toFixed(3)}:brightness=${clamp(bri, -1, 1).toFixed(3)}`);
   }
+  const temp = clamp(num(g.temperature, 0), -1, 1);
+  if (temp !== 0) {
+    // Teinte chaud/froid : +chaud = plus de rouge / moins de bleu (colorbalance).
+    parts.push(`colorbalance=rm=${(temp * 0.25).toFixed(3)}:bm=${(-temp * 0.25).toFixed(3)}:rs=${(temp * 0.15).toFixed(3)}:bs=${(-temp * 0.15).toFixed(3)}`);
+  }
   const grain = num(g.grain, 0);
   if (grain > 0) parts.push(`noise=alls=${Math.round(clamp(grain, 0, 1) * 40)}:allf=t+u`);
   if (g.vignette) parts.push(`vignette=PI/4`);
@@ -295,6 +355,7 @@ export async function renderVariant(
   userId: string,
   projectId: string,
   plan: EditPlan,
+  extra?: { derivedFrom?: string },
 ): Promise<{ variant: ProjectVariant; keyframes: OutKeyframe[]; durationSec: number } | { error: string }> {
   const project = await getProject(userId, projectId);
   if (!project) return { error: "Projet introuvable." };
@@ -324,8 +385,9 @@ export async function renderVariant(
       const motion = normMotion(seg.motion);
       const intensity = clamp(num(seg.motionIntensity, 1), 0.2, 3);
       const fit: SegFit = seg.fit === "cover" || seg.fit === "blurFill" ? seg.fit : "contain";
-      if (motion === "none") inputs.push("-loop", "1", "-t", dur.toFixed(3), "-i", abs);
-      else inputs.push("-i", abs); // 1 seule image → zoompan la déploie (pas de -loop = pas de flux infini)
+      // handheld/none = image bouclée bornée (-t) ; zoom/pan = 1 seule image (zoompan la déploie).
+      if (motion === "none" || motion === "handheld") inputs.push("-loop", "1", "-t", dur.toFixed(3), "-i", abs);
+      else inputs.push("-i", abs);
       filters.push(imageVideoFilter(i, W, H, fps, bg, dur, motion, intensity, fit));
       filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${dur.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
       durs.push(dur);
@@ -467,9 +529,10 @@ export async function renderVariant(
 
     const keyframes = await extractKeyframes(outPath, outDur, dir, 5);
 
-    const variant = await addVariant(userId, projectId, { srcPath: outPath, poster, label: plan.label, plan: plan as unknown as Record<string, unknown> });
+    const durationSec = Math.round(outDur * 100) / 100;
+    const variant = await addVariant(userId, projectId, { srcPath: outPath, poster, label: plan.label, plan: plan as unknown as Record<string, unknown>, durationSec, derivedFrom: extra?.derivedFrom });
     if (!variant) return { error: "Enregistrement de la variante échoué." };
-    return { variant, keyframes, durationSec: Math.round(outDur * 100) / 100 };
+    return { variant, keyframes, durationSec };
   } finally {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }

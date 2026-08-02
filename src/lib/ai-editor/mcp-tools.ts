@@ -48,6 +48,7 @@ export const TOOLS = [
             saturation: { type: "number", description: "1 = neutre, >1 plus saturé, <1 désaturé." },
             contrast: { type: "number", description: "1 = neutre." },
             brightness: { type: "number", description: "0 = neutre (-1..1)." },
+            temperature: { type: "number", description: "Teinte : -1 froid (bleuté) .. +1 chaud (doré), 0 neutre." },
             grain: { type: "number", description: "0..1 : grain filmique." },
             vignette: { type: "boolean", description: "Assombrit les bords." },
           },
@@ -72,7 +73,7 @@ export const TOOLS = [
               materialId: { type: "string", description: "L'\"id\" EXACT d'un fichier renvoyé par list_material (champ « id: … »). PAS le nom du fichier ni l'UUID du nom." },
               startSec: { type: "number", description: "début de la coupe dans le fichier (s)." },
               endSec: { type: "number", description: "fin de la coupe (s). Pour une image : durée d'affichage." },
-              motion: { type: "string", enum: ["none", "zoomIn", "zoomOut", "panLeft", "panRight"], description: "IMAGES : mouvement (Ken Burns) pour éviter le diaporama figé. Défaut none." },
+              motion: { type: "string", enum: ["none", "zoomIn", "zoomOut", "panLeft", "panRight", "handheld"], description: "IMAGES : mouvement pour éviter le diaporama figé. handheld = tremblé caméra (idéal pour reproduire un plan handheld de la réf, plus naturel qu'un zoom). Défaut none." },
               motionIntensity: { type: "number", description: "Force du mouvement (0.2-3, défaut 1)." },
               fit: { type: "string", enum: ["contain", "cover", "blurFill"], description: "IMAGES, cadrage : contain (défaut, bandes) ; cover (remplit, recadre) ; blurFill (image centrée sur fond flou — idéal vertical)." },
               transition: { type: "string", enum: ["cut", "fade", "whipPan", "slide", "zoomPunch"], description: "Transition à l'ENTRÉE de ce plan (le 1er reste en cut). Défaut cut." },
@@ -101,6 +102,14 @@ export const TOOLS = [
               color: { type: "string", description: "Couleur du texte en hex. Défaut blanc." },
               strokeColor: { type: "string", description: "Couleur du contour (style outline). Défaut noir." },
               strokeWidth: { type: "number", description: "Épaisseur du contour en px." },
+              font: { type: "string", enum: ["sans", "rounded", "impact", "serif", "script", "display"], description: "Famille : sans (défaut), rounded (arrondie type TikTok/CapCut), impact (grosse condensée), serif, script (manuscrite), display. (Emojis 🎉 supportés, en couleur.)" },
+              fontWeight: { type: "number", description: "Graisse 100-900." },
+              letterSpacing: { type: "number", description: "Interlettrage en px." },
+              lineHeight: { type: "number", description: "Interligne (multiplicateur, défaut 1.24)." },
+              textTransform: { type: "string", enum: ["none", "uppercase"], description: "uppercase = TOUT EN MAJUSCULES." },
+              shadowColor: { type: "string", description: "Ombre portée (hex) — distincte du contour ; \"none\" pour aucune." },
+              shadowBlur: { type: "number", description: "Flou de l'ombre en px." },
+              shadowOffset: { type: "number", description: "Décalage de l'ombre en px (bas-droite)." },
             },
             required: ["text", "startSec", "endSec"],
           },
@@ -140,7 +149,7 @@ export const TOOLS = [
       type: "object",
       properties: {
         variantId: { type: "string", description: "id de la variante à faire évoluer." },
-        patch: { type: "object", description: "Champs à remplacer (segments, captions, grade, audio, transition…). Les champs absents gardent la valeur d'origine. Pour segments/captions : le tableau fourni REMPLACE l'ancien." },
+        patch: { type: "object", description: "Champs à remplacer (segments, captions, grade, audio, fps, background, label…). Les champs absents gardent la valeur d'origine. Pour segments/captions : le tableau fourni REMPLACE l'ancien. Donne un label pour distinguer l'itération ; sinon il est auto-suffixé (v2, v3…)." },
       },
       required: ["variantId", "patch"],
     },
@@ -188,6 +197,12 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const allBeats = a.audio?.beats ?? [];
     const beatsShown = allBeats.length <= 90 ? allBeats : allBeats.filter((_, i) => i % Math.ceil(allBeats.length / 90) === 0);
     const beatsNote = beatsShown.length < allBeats.length ? ` (${beatsShown.length}/${allBeats.length} répartis)` : "";
+    // Colorimétrie traduite dans les UNITÉS de grade (1=neutre sat/contrast, 0=neutre
+    // brightness) → passable telle quelle à create_variant.grade (la mesure brute 0-1
+    // ne l'est pas). Nudge vers l'aspect de la réf.
+    const gsSat = a.color ? Math.round(Math.max(0.6, Math.min(1.4, 0.7 + a.color.saturation * 0.9)) * 100) / 100 : null;
+    const gsBri = a.color ? Math.round(Math.max(-0.4, Math.min(0.4, (a.color.brightness - 0.5) * 0.6)) * 100) / 100 : null;
+    const gsTemp = a.color ? (a.color.warmCold === "warm" ? 0.3 : a.color.warmCold === "cold" ? -0.3 : 0) : null;
     const lines = [
       `RÉFÉRENCE : ${ref.label} (${ref.source})`,
       `Durée : ${a.durationSec.toFixed(1)}s · ${a.width}×${a.height} · ${a.fps} fps · audio: ${a.hasAudio ? "oui" : "non"}`,
@@ -196,7 +211,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       a.shots?.length
         ? `PLANS (${a.shots.length}) — reproduis ce mouvement (n'ajoute PAS de zoom sur un plan static) :\n${a.shots.map((s) => `  #${s.index} [${s.startSec}–${s.endSec}s · ${s.durationSec}s] ${s.motion}${s.motion !== "static" ? ` (intensité ${s.motionIntensity})` : ""}`).join("\n")}`
         : null,
-      a.color ? `Colorimétrie moyenne : saturation ${a.color.saturation} · luminosité ${a.color.brightness} · ${a.color.warmCold}${a.color.bw ? " · N&B" : ""}` : null,
+      a.color ? `Colorimétrie moyenne (mesure 0-1) : saturation ${a.color.saturation} · luminosité ${a.color.brightness} · ${a.color.warmCold}${a.color.bw ? " · N&B" : ""}\n  → gradeSuggested (passe-le TEL QUEL à create_variant.grade) : { saturation: ${gsSat}, contrast: 1, brightness: ${gsBri}, temperature: ${gsTemp} }` : null,
       a.audio && (a.audio.bpm || allBeats.length)
         ? `AUDIO : type ${a.audio.type}${a.audio.bpm ? ` · ~${a.audio.bpm} BPM` : ""}${allBeats.length ? ` · ${allBeats.length} temps forts détectés` : ""}${beatsShown.length ? `\n  Beats (s)${beatsNote} — CALE tes coupes dessus : ${beatsShown.map((b) => b.toFixed(2)).join(", ")}` : ""}`
         : null,
@@ -274,9 +289,13 @@ export async function callTool(userId: string, name: string, args?: Record<strin
 
   if (name === "list_variants") {
     if (!project.variants.length) return { content: [{ type: "text", text: "Aucune variante générée pour l'instant." }] };
-    const content: Content[] = [{ type: "text", text: `VARIANTES — ${project.variants.length} (vignette du 1er frame ; get_variant pour + de détail) :` }];
+    // La plus RÉCENTE en premier (variants est déjà unshift-é à la création).
+    const content: Content[] = [{ type: "text", text: `VARIANTES — ${project.variants.length} (de la + récente à la + ancienne ; get_variant pour + de détail) :` }];
     for (const v of project.variants) {
-      content.push({ type: "text", text: `• id: ${v.id}${v.label ? `  ·  ${v.label}` : ""}` });
+      const dur = v.durationSec ? ` · ${v.durationSec}s` : "";
+      const dt = v.createdAt ? ` · ${new Date(v.createdAt).toISOString().replace("T", " ").slice(0, 16)}` : "";
+      const from = v.derivedFrom ? ` · dérivée de ${v.derivedFrom}` : "";
+      content.push({ type: "text", text: `• id: ${v.id}${v.label ? `  ·  ${v.label}` : ""}${dur}${dt}${from}` });
       if (v.poster) { const img = dataUriToImage(v.poster); if (img) content.push(img); }
     }
     return { content };
@@ -334,7 +353,14 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     // Fusion : les champs du patch écrasent ceux du plan d'origine (un tableau
     // segments/captions fourni REMPLACE l'ancien ; les champs absents sont gardés).
     const merged = { ...v.plan, ...patch } as unknown as EditPlan;
-    const res = await renderVariant(userId, project.id, merged);
+    // Label : celui du patch, sinon auto-suffixe (v2, v3…) pour distinguer les itérations.
+    const patchLabel = typeof patch.label === "string" && patch.label.trim() ? patch.label.trim() : "";
+    if (!patchLabel) {
+      const base = String((v.plan as { label?: string }).label ?? v.label ?? "variante").replace(/\s*\(v\d+\)\s*$/, "");
+      const n = project.variants.filter((x) => String(x.label ?? "").replace(/\s*\(v\d+\)\s*$/, "") === base).length + 1;
+      merged.label = `${base} (v${n})`;
+    }
+    const res = await renderVariant(userId, project.id, merged, { derivedFrom: v.id });
     if ("error" in res) return { content: [{ type: "text", text: `Mise à jour impossible : ${res.error}` }], isError: true };
     const nv = res.variant;
     const content: Content[] = [{ type: "text", text: `✅ Mise à jour → NOUVELLE variante « ${nv.label || nv.id} » (id ${nv.id}) · durée ${res.durationSec}s. Images du rendu :` }];
