@@ -182,6 +182,12 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const a = ref.analysis;
     const cuts = Array.isArray(a.sceneCuts) ? a.sceneCuts : [];
     const phrases = a.transcript?.phrases ?? [];
+    const N_IMG = 5;
+    // Beats : échantillonnés sur TOUTE la durée (pas les 48 premiers → sinon le
+    // dernier tiers de la réf n'a aucun beat et on ne peut pas y caler les coupes).
+    const allBeats = a.audio?.beats ?? [];
+    const beatsShown = allBeats.length <= 90 ? allBeats : allBeats.filter((_, i) => i % Math.ceil(allBeats.length / 90) === 0);
+    const beatsNote = beatsShown.length < allBeats.length ? ` (${beatsShown.length}/${allBeats.length} répartis)` : "";
     const lines = [
       `RÉFÉRENCE : ${ref.label} (${ref.source})`,
       `Durée : ${a.durationSec.toFixed(1)}s · ${a.width}×${a.height} · ${a.fps} fps · audio: ${a.hasAudio ? "oui" : "non"}`,
@@ -191,20 +197,22 @@ export async function callTool(userId: string, name: string, args?: Record<strin
         ? `PLANS (${a.shots.length}) — reproduis ce mouvement (n'ajoute PAS de zoom sur un plan static) :\n${a.shots.map((s) => `  #${s.index} [${s.startSec}–${s.endSec}s · ${s.durationSec}s] ${s.motion}${s.motion !== "static" ? ` (intensité ${s.motionIntensity})` : ""}`).join("\n")}`
         : null,
       a.color ? `Colorimétrie moyenne : saturation ${a.color.saturation} · luminosité ${a.color.brightness} · ${a.color.warmCold}${a.color.bw ? " · N&B" : ""}` : null,
-      a.audio && (a.audio.bpm || a.audio.beats?.length)
-        ? `AUDIO : type ${a.audio.type}${a.audio.bpm ? ` · ~${a.audio.bpm} BPM` : ""}${a.audio.beats?.length ? ` · ${a.audio.beats.length} temps forts détectés` : ""}${a.audio.beats?.length ? `\n  Beats (s) — CALE tes coupes dessus : ${a.audio.beats.slice(0, 48).map((b) => b.toFixed(2)).join(", ")}` : ""}`
+      a.audio && (a.audio.bpm || allBeats.length)
+        ? `AUDIO : type ${a.audio.type}${a.audio.bpm ? ` · ~${a.audio.bpm} BPM` : ""}${allBeats.length ? ` · ${allBeats.length} temps forts détectés` : ""}${beatsShown.length ? `\n  Beats (s)${beatsNote} — CALE tes coupes dessus : ${beatsShown.map((b) => b.toFixed(2)).join(", ")}` : ""}`
         : null,
       a.hookText ? `Hook (parlé) : « ${a.hookText} »` : "Hook parlé : (aucune transcription)",
       phrases.length
         ? `Transcription horodatée :\n${phrases.slice(0, 50).map((p) => `  [${p.startSec.toFixed(1)}–${p.endSec.toFixed(1)}s] ${p.text}`).join("\n")}`
         : a.transcript ? `Transcription : ${a.transcript.fullText}` : "Transcription : indisponible (analyse visuelle).",
       "",
-      `Images clés ci-dessous (${Math.min(a.keyframes.length, MAX_KEYFRAMES)}/${a.keyframes.length}) — observe le hook, le cadrage, le texte à l'écran, le style.`,
+      `Images clés ci-dessous (${Math.min(a.keyframes.length, N_IMG)}/${a.keyframes.length}) — observe le hook, le cadrage, le texte à l'écran, le style. La taille (Ko) est indiquée pour diagnostic : si tu vois « 0 Ko », l'extraction est vide ; si >0 mais image vide chez toi, c'est ton client qui la jette.`,
     ].filter(Boolean);
     const content: Content[] = [{ type: "text", text: lines.join("\n") }];
-    for (const kf of a.keyframes.slice(0, 5)) {
-      const img = dataUriToImage(await shrinkDataUri(kf.dataUri));
-      if (img) content.push({ type: "text", text: `— image à ${kf.t}s —` }, img);
+    for (const kf of a.keyframes.slice(0, N_IMG)) {
+      const small = await shrinkDataUri(kf.dataUri);
+      const img = dataUriToImage(small);
+      const kb = Math.round(((small.split(",")[1] || "").length * 3 / 4) / 1024);
+      if (img) content.push({ type: "text", text: `— image à ${kf.t}s · ${kb} Ko · ${img.mimeType} —` }, img);
     }
     return { content };
   }
