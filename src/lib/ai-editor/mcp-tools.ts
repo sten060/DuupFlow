@@ -211,8 +211,10 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     for (const kf of a.keyframes.slice(0, N_IMG)) {
       const small = await shrinkDataUri(kf.dataUri);
       const img = dataUriToImage(small);
-      const kb = Math.round(((small.split(",")[1] || "").length * 3 / 4) / 1024);
-      if (img) content.push({ type: "text", text: `— image à ${kf.t}s · ${kb} Ko · ${img.mimeType} —` }, img);
+      if (img && img.type === "image") {
+        const kb = Math.round(((small.split(",")[1] || "").length * 3 / 4) / 1024);
+        content.push({ type: "text", text: `— image à ${kf.t}s · ${kb} Ko · ${img.mimeType} —` }, img);
+      }
     }
     return { content };
   }
