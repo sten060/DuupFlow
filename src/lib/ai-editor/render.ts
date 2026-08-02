@@ -192,24 +192,44 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string)
   await fs.writeFile(outPath, await sharp(Buffer.from(svg)).png().toBuffer());
 }
 
-/** Extrait ~5 keyframes du rendu (data URI JPEG) → le monteur VOIT son résultat. */
+/** Extrait ~5 keyframes du rendu (data URI JPEG) → le monteur VOIT son résultat.
+ *  Robuste : vérifie le fichier source (existe + non vide), seek PRÉCIS (-ss après
+ *  -i), et logge le stderr ffmpeg + ignore les frames vides (échec jamais silencieux). */
 async function extractKeyframes(videoPath: string, durationSec: number, dir: string, count = 5): Promise<OutKeyframe[]> {
+  // 1) Le fichier de sortie doit exister ET avoir une taille (évite l'extraction
+  //    avant fin d'écriture, ou sur un fichier absent/tronqué).
+  try {
+    const st = await fs.stat(videoPath);
+    if (!st.size) { console.warn("[ai-editor/keyframes] fichier vide:", videoPath); return []; }
+  } catch {
+    console.warn("[ai-editor/keyframes] fichier introuvable:", videoPath);
+    return [];
+  }
+
   const out: OutKeyframe[] = [];
   const total = durationSec > 0 ? durationSec : 1;
   for (let i = 0; i < count; i++) {
-    const t = Math.max(0.1, (total * (i + 0.5)) / count);
+    const t = Math.max(0.05, (total * (i + 0.5)) / count);
     const p = path.join(dir, `okf_${i}.jpg`);
-    const { code } = await runFFmpeg(
-      ["-hide_banner", "-loglevel", "error", "-ss", t.toFixed(2), "-i", videoPath, "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", "-y", p],
+    // -ss APRÈS -i = seek précis (fiable même près des bornes / GOP longs).
+    const { code, stderr } = await runFFmpeg(
+      ["-hide_banner", "-loglevel", "error", "-i", videoPath, "-ss", t.toFixed(2), "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", "-y", p],
       20_000,
     );
-    if (code !== 0) continue;
+    if (code !== 0) { console.warn(`[ai-editor/keyframes] ffmpeg échec t=${t.toFixed(2)} code=${code}: ${stderr.slice(-160)}`); continue; }
     try {
       const b = await fs.readFile(p);
       await fs.unlink(p).catch(() => {});
-      if (b.length) out.push({ t: Math.round(t * 100) / 100, dataUri: `data:image/jpeg;base64,${b.toString("base64")}` });
-    } catch { /* skip */ }
+      if (b.length > 100 && b[0] === 0xff && b[1] === 0xd8) {
+        out.push({ t: Math.round(t * 100) / 100, dataUri: `data:image/jpeg;base64,${b.toString("base64")}` });
+      } else {
+        console.warn(`[ai-editor/keyframes] frame vide/invalide t=${t.toFixed(2)} (${b.length} o)`);
+      }
+    } catch (e) {
+      console.warn(`[ai-editor/keyframes] lecture échouée t=${t.toFixed(2)}:`, (e as Error)?.message);
+    }
   }
+  if (!out.length) console.warn("[ai-editor/keyframes] 0 frame extraite de", videoPath, "durée", total);
   return out;
 }
 
@@ -446,7 +466,7 @@ export async function renderVariant(
 
     const keyframes = await extractKeyframes(outPath, outDur, dir, 5);
 
-    const variant = await addVariant(userId, projectId, { srcPath: outPath, poster, label: plan.label });
+    const variant = await addVariant(userId, projectId, { srcPath: outPath, poster, label: plan.label, plan: plan as unknown as Record<string, unknown> });
     if (!variant) return { error: "Enregistrement de la variante échoué." };
     return { variant, keyframes, durationSec: Math.round(outDur * 100) / 100 };
   } finally {
@@ -467,6 +487,19 @@ export async function variantKeyframes(userId: string, projectId: string, stored
   const filePath = path.join(projectPaths(userId, projectId).variantsDir, storedName);
   try { await fs.access(filePath); } catch { return []; }
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_kf_"));
+  try {
+    const { dur } = await probeAV(filePath);
+    return await extractKeyframes(filePath, dur, dir, count);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+/** Keyframes d'un fichier de MATIÈRE (pour get_material : voir un rush précis). */
+export async function materialKeyframes(userId: string, projectId: string, storedName: string, count = 6): Promise<OutKeyframe[]> {
+  const filePath = materialAbsPath(userId, projectId, storedName);
+  try { await fs.access(filePath); } catch { return []; }
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_mkf_"));
   try {
     const { dur } = await probeAV(filePath);
     return await extractKeyframes(filePath, dur, dir, count);

@@ -7,7 +7,7 @@
 
 import { getLatestProject } from "./store";
 import type { Project } from "./store";
-import { renderVariant, variantKeyframes } from "./render";
+import { renderVariant, variantKeyframes, materialKeyframes } from "./render";
 import type { EditPlan } from "./render";
 
 export const MAX_KEYFRAMES = 6; // borne le nombre d'images renvoyées (coût tokens user)
@@ -124,6 +124,27 @@ export const TOOLS = [
       required: ["variantId"],
     },
   },
+  {
+    name: "get_material",
+    description: "Renvoie 4-6 KEYFRAMES d'UN fichier de matière précis (par son id). Appelle-le SEULEMENT sur les 2-3 rushes que tu comptes vraiment utiliser (voir où couper) — pas sur tout, pour ne pas saturer ton contexte. Image → renvoie l'image ; audio → infos texte.",
+    inputSchema: {
+      type: "object",
+      properties: { materialId: { type: "string", description: "id d'un fichier (de list_material)." } },
+      required: ["materialId"],
+    },
+  },
+  {
+    name: "update_variant",
+    description: "Modifie une variante existante SANS tout réécrire : donne son id + un patch (mêmes champs que create_variant, seulement ceux à changer). Ex. { captions:[...] } ne touche que les captions, garde les segments. Rend une NOUVELLE variante et renvoie ses keyframes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        variantId: { type: "string", description: "id de la variante à faire évoluer." },
+        patch: { type: "object", description: "Champs à remplacer (segments, captions, grade, audio, transition…). Les champs absents gardent la valeur d'origine. Pour segments/captions : le tableau fourni REMPLACE l'ancien." },
+      },
+      required: ["variantId", "patch"],
+    },
+  },
 ] as const;
 
 /** dataURI "data:image/jpeg;base64,XXX" → bloc image MCP. */
@@ -151,6 +172,13 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       `Durée : ${a.durationSec.toFixed(1)}s · ${a.width}×${a.height} · ${a.fps} fps · audio: ${a.hasAudio ? "oui" : "non"}`,
       `Rythme : ${a.pacing.cutCount} coupe(s)${a.pacing.avgCutSec ? ` · ~${a.pacing.avgCutSec}s/plan` : ""}`,
       cuts.length ? `Coupes (timecodes s) : ${cuts.slice(0, 60).map((c) => c.toFixed(2)).join(", ")}` : null,
+      a.shots?.length
+        ? `PLANS (${a.shots.length}) — reproduis ce mouvement (n'ajoute PAS de zoom sur un plan static) :\n${a.shots.map((s) => `  #${s.index} [${s.startSec}–${s.endSec}s · ${s.durationSec}s] ${s.motion}${s.motion !== "static" ? ` (intensité ${s.motionIntensity})` : ""}`).join("\n")}`
+        : null,
+      a.color ? `Colorimétrie moyenne : saturation ${a.color.saturation} · luminosité ${a.color.brightness} · ${a.color.warmCold}${a.color.bw ? " · N&B" : ""}` : null,
+      a.audio && (a.audio.bpm || a.audio.beats?.length)
+        ? `AUDIO : type ${a.audio.type}${a.audio.bpm ? ` · ~${a.audio.bpm} BPM` : ""}${a.audio.beats?.length ? ` · ${a.audio.beats.length} temps forts détectés` : ""}${a.audio.beats?.length ? `\n  Beats (s) — CALE tes coupes dessus : ${a.audio.beats.slice(0, 48).map((b) => b.toFixed(2)).join(", ")}` : ""}`
+        : null,
       a.hookText ? `Hook (parlé) : « ${a.hookText} »` : "Hook parlé : (aucune transcription)",
       phrases.length
         ? `Transcription horodatée :\n${phrases.slice(0, 50).map((p) => `  [${p.startSec.toFixed(1)}–${p.endSec.toFixed(1)}s] ${p.text}`).join("\n")}`
@@ -182,6 +210,13 @@ export async function callTool(userId: string, name: string, args?: Record<strin
           ? ` · ${meta.durationSec ? meta.durationSec.toFixed(1) + "s" : "audio"}`
           : ` · ${meta.width}×${meta.height}${meta.durationSec ? ` · ${meta.durationSec.toFixed(1)}s` : ""}`;
       content.push({ type: "text", text: `• id: ${m.id}  ·  ${m.name} [${m.kind}]${dims} — ${desc}` });
+      // Index texte des rushes vidéo (coupes + voix) → Claude sait où couper sans
+      // deviner ; get_material(id) pour VOIR un rush précis à la demande.
+      if (m.kind === "video" && meta) {
+        if (meta.sceneCuts?.length) content.push({ type: "text", text: `    ↳ coupes (s) : ${meta.sceneCuts.slice(0, 30).map((c) => c.toFixed(1)).join(", ")}` });
+        if (meta.transcript?.fullText) content.push({ type: "text", text: `    ↳ voix : « ${meta.transcript.fullText.slice(0, 220)} »` });
+        content.push({ type: "text", text: `    ↳ get_material("${m.id}") pour voir les images de ce rush.` });
+      }
       if (meta?.thumb) {
         const img = dataUriToImage(meta.thumb);
         if (img) content.push(img);
@@ -204,7 +239,11 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       const img = dataUriToImage(kf.dataUri);
       if (img) content.push({ type: "text", text: `— rendu à ${kf.t}s —` }, img);
     }
-    if (!res.keyframes.length && v.poster) { const img = dataUriToImage(v.poster); if (img) content.push({ type: "text", text: "Aperçu :" }, img); }
+    if (!res.keyframes.length) {
+      // Échec NON silencieux : le rendu a réussi mais l'extraction n'a rien donné.
+      if (v.poster) { const img = dataUriToImage(v.poster); if (img) content.push({ type: "text", text: "Aperçu (poster) :" }, img); }
+      content.push({ type: "text", text: "⚠ Impossible d'extraire les images du rendu (voir logs serveur). La variante est bien enregistrée — réessaie get_variant, ou régénère." });
+    }
     return { content };
   }
 
@@ -223,12 +262,59 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const v = project.variants.find((x) => x.id === id);
     if (!v) return { content: [{ type: "text", text: `Variante introuvable : ${id}. Vois list_variants pour les id.` }], isError: true };
     const kfs = await variantKeyframes(userId, project.id, v.storedName, 6);
+    if (!kfs.length) {
+      // Échec explicite (plus de « 0 images » muet) : fichier ancien/absent → régénérer.
+      const content: Content[] = [{
+        type: "text",
+        text: `⚠ Aucune image extractible pour la variante « ${v.label || v.id} » (id ${v.id}). Le fichier est probablement ancien ou absent — RÉGÉNÈRE-la avec create_variant, puis rappelle get_variant sur la NOUVELLE variante.`,
+      }];
+      if (v.poster) { const img = dataUriToImage(v.poster); if (img) content.push({ type: "text", text: "Poster (peut être daté) :" }, img); }
+      return { content, isError: true };
+    }
     const content: Content[] = [{ type: "text", text: `VARIANTE « ${v.label || v.id} » (id ${v.id}) — ${kfs.length} image(s) du rendu :` }];
     for (const kf of kfs) {
       const img = dataUriToImage(kf.dataUri);
       if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img);
     }
-    if (!kfs.length && v.poster) { const img = dataUriToImage(v.poster); if (img) content.push(img); }
+    return { content };
+  }
+
+  if (name === "get_material") {
+    const id = String(args?.materialId || "");
+    const m = project.materials.find((x) => x.id === id);
+    if (!m) return { content: [{ type: "text", text: `Matière introuvable : ${id}. Vois list_material.` }], isError: true };
+    if (m.kind === "image") {
+      const content: Content[] = [{ type: "text", text: `IMAGE « ${m.name} » (id ${m.id})${m.desc?.trim() ? ` — « ${m.desc.trim()} »` : ""} :` }];
+      const img = m.analysis?.thumb ? dataUriToImage(m.analysis.thumb) : null;
+      if (img) content.push(img); else content.push({ type: "text", text: "(pas d'aperçu)" });
+      return { content };
+    }
+    if (m.kind === "audio") {
+      const d = m.analysis?.durationSec;
+      return { content: [{ type: "text", text: `AUDIO « ${m.name} » (id ${m.id})${d ? ` · ${d.toFixed(1)}s` : ""}. À utiliser dans create_variant.audio.` }] };
+    }
+    const kfs = await materialKeyframes(userId, project.id, m.storedName, 6);
+    if (!kfs.length) return { content: [{ type: "text", text: `⚠ Aucune image extractible du rush « ${m.name} » (id ${m.id}).` }], isError: true };
+    const content: Content[] = [{ type: "text", text: `RUSH « ${m.name} » (id ${m.id})${m.analysis?.durationSec ? ` · ${m.analysis.durationSec.toFixed(1)}s` : ""} — ${kfs.length} images (timecodes pour tes coupes) :` }];
+    for (const kf of kfs) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }
+    return { content };
+  }
+
+  if (name === "update_variant") {
+    const id = String(args?.variantId || "");
+    const patch = (args?.patch ?? {}) as Record<string, unknown>;
+    const v = project.variants.find((x) => x.id === id);
+    if (!v) return { content: [{ type: "text", text: `Variante introuvable : ${id}. Vois list_variants.` }], isError: true };
+    if (!v.plan) return { content: [{ type: "text", text: `La variante « ${v.label || id} » n'a pas de plan mémorisé (ancienne) — recrée-la une fois avec create_variant, ensuite update_variant marchera.` }], isError: true };
+    // Fusion : les champs du patch écrasent ceux du plan d'origine (un tableau
+    // segments/captions fourni REMPLACE l'ancien ; les champs absents sont gardés).
+    const merged = { ...v.plan, ...patch } as unknown as EditPlan;
+    const res = await renderVariant(userId, project.id, merged);
+    if ("error" in res) return { content: [{ type: "text", text: `Mise à jour impossible : ${res.error}` }], isError: true };
+    const nv = res.variant;
+    const content: Content[] = [{ type: "text", text: `✅ Mise à jour → NOUVELLE variante « ${nv.label || nv.id} » (id ${nv.id}) · durée ${res.durationSec}s. Images du rendu :` }];
+    for (const kf of res.keyframes) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }
+    if (!res.keyframes.length) content.push({ type: "text", text: "⚠ Images non extraites (voir logs serveur)." });
     return { content };
   }
 

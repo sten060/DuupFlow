@@ -20,6 +20,8 @@ import { runFFmpeg } from "@/lib/studio/pipeline";
 import { transcribeVideo } from "@/lib/studio/transcribe";
 import { sceneScores } from "@/lib/studio/analysis";
 import { transcribeViaGroq, isGroqAvailable } from "./transcribe-groq";
+import { analyzeShots, analyzeColor, analyzeAudioBeats } from "./ref-profile";
+import type { Shot, ColorProfile, AudioProfile } from "./ref-profile";
 
 export type Keyframe = { t: number; dataUri: string };
 
@@ -34,7 +36,10 @@ export type ReferenceAnalysis = {
   sceneCuts: number[];
   pacing: { cutCount: number; avgCutSec: number | null };
   hookText: string | null;
-  notes: string[]; // messages de dégradation douce (ex. transcript indispo)
+  shots: Shot[];           // plans : timecodes, durée, mouvement, 2 frames
+  color: ColorProfile;     // colorimétrie moyenne
+  audio: AudioProfile;     // beats / bpm / énergie / type
+  notes: string[];         // messages de dégradation douce (ex. transcript indispo)
 };
 
 /* ── Probe (durée / dims / fps / audio) via ffmpeg -i (stderr) ─────────────── */
@@ -118,12 +123,26 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
     notes.push("Transcription échouée — analyse visuelle seule.");
   }
 
-  // Keyframes.
+  // Keyframes + profil structuré (plans / colorimétrie / beats) — best-effort.
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_kf_"));
   let keyframes: Keyframe[] = [];
+  let shots: Shot[] = [];
+  let color: ColorProfile = { saturation: 0, brightness: 0, warmCold: "neutral", bw: false };
+  let audio: AudioProfile = { bpm: null, beats: [], energy: [], type: "unknown" };
   try {
     const ts = pickTimestamps(meta.durationSec, sceneCuts);
     keyframes = (await Promise.all(ts.map((t, i) => keyframeAt(videoPath, t, dir, i)))).filter((k): k is Keyframe => !!k);
+
+    try {
+      const res = await analyzeShots(videoPath, sceneCuts, meta.durationSec, dir);
+      shots = res.shots;
+      color = await analyzeColor(res.jpegs);
+    } catch { notes.push("Analyse des plans/colorimétrie indisponible."); }
+
+    if (meta.hasAudio) {
+      try { audio = await analyzeAudioBeats(videoPath, meta.durationSec, dir, !!transcript); }
+      catch { notes.push("Analyse audio (beats) indisponible."); }
+    }
   } finally {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
@@ -140,6 +159,9 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
     sceneCuts,
     pacing: { cutCount: sceneCuts.length, avgCutSec },
     hookText,
+    shots,
+    color,
+    audio,
     notes,
   };
 }
@@ -154,6 +176,8 @@ export type MaterialAnalysis = {
   height: number;
   hasAudio?: boolean;   // vidéo : a-t-elle une piste son (utile pour l'attacher)
   thumb: string | null; // 1 vignette JPEG (data URI) ; null pour l'audio
+  sceneCuts?: number[]; // vidéo : timecodes de coupe (index pour découper le rush)
+  transcript?: { phrases: { startSec: number; endSec: number; text: string }[]; fullText: string } | null;
 };
 
 async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis> {
@@ -167,7 +191,24 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
   } finally {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
-  return { kind: "video", durationSec: meta.durationSec, width: meta.width, height: meta.height, hasAudio: meta.hasAudio, thumb };
+  // Coupes du rush (index pour que Claude découpe sans deviner) — best-effort.
+  let sceneCuts: number[] = [];
+  try { sceneCuts = (await sceneScores(videoPath, 0.3)).map((s) => Math.round(s.t * 100) / 100); } catch { /* skip */ }
+  // Transcription du rush (s'il a du son) — best-effort.
+  let transcript: MaterialAnalysis["transcript"] = null;
+  if (meta.hasAudio) {
+    try {
+      let tr = isGroqAvailable() ? await transcribeViaGroq(videoPath) : null;
+      if (!tr) tr = await transcribeVideo(videoPath);
+      if (tr && tr.phrases.length) {
+        transcript = {
+          phrases: tr.phrases.map((p) => ({ startSec: p.startSec, endSec: p.endSec, text: p.text })),
+          fullText: tr.phrases.map((p) => p.text).join(" ").trim(),
+        };
+      }
+    } catch { /* skip */ }
+  }
+  return { kind: "video", durationSec: meta.durationSec, width: meta.width, height: meta.height, hasAudio: meta.hasAudio, thumb, sceneCuts, transcript };
 }
 
 async function analyzeMaterialAudio(audioPath: string): Promise<MaterialAnalysis> {

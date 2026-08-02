@@ -47,6 +47,7 @@ export async function transcribeViaGroq(videoPath: string): Promise<Transcript |
       method: "POST",
       headers: { Authorization: `Bearer ${key}` },
       body: form,
+      signal: AbortSignal.timeout(90_000), // évite tout blocage (upload matière / analyse réf)
     });
     if (!res.ok) {
       console.warn("[ai-editor] Groq transcription HTTP", res.status, (await res.text().catch(() => "")).slice(0, 200));
