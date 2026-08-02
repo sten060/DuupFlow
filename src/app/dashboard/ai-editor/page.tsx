@@ -1,10 +1,10 @@
 "use client";
 
 // Module « Éditeur IA » — Reproduis ce qui marche.
-// Flow : Référence → Ta matière → Génère (1 clic).
-// Mode INTÉGRÉ (défaut, 0 connexion) : l'IA tourne côté serveur (/api/ai-editor/
-// generate) et les variantes rendues s'affichent ici. Mode AVANCÉ (repliable) :
-// brancher son propre Claude via le connecteur MCP (power-users).
+// Flow : Connexion à ton Claude (OAuth, étape 0) → Référence → Matière → workspace.
+// Modèle « pur ton Claude » : l'utilisateur branche son propre Claude via le
+// connecteur MCP (OAuth, sans clé). Il pilote le montage depuis SA conversation ;
+// les variantes créées (outil create_variant) remontent ici en direct (poll).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReferenceAnalysis } from "@/lib/ai-editor/analyze";
@@ -88,7 +88,8 @@ type VariantItem = { id: string; label?: string; poster: string | null };
 
 /* ============ Page ============ */
 export default function AiEditorPage() {
-  const [step, setStep] = useState<"ref" | "material" | "editor">("ref");
+  // Parcours : Connexion (étape 0) → Référence → Matière → workspace.
+  const [step, setStep] = useState<"connect" | "ref" | "material" | "editor">("connect");
 
   // Référence
   const [refFile, setRefFile] = useState<File | null>(null);
@@ -106,11 +107,9 @@ export default function AiEditorPage() {
   // Projet persistant (créé à l'analyse de la réf ; restauré au chargement)
   const [projectId, setProjectId] = useState<string | null>(null);
 
-  // Éditeur — mode INTÉGRÉ (0 connexion) : le user clique « Générer ».
+  // Éditeur — pur « ton Claude » : les variantes créées via le connecteur MCP
+  // (par le Claude du user) remontent ici en direct.
   const [variants, setVariants] = useState<VariantItem[]>([]);
-  const [generating, setGenerating] = useState(false);
-  const [genErr, setGenErr] = useState<string | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false); // mode MCP (power-users)
   const [drawer, setDrawer] = useState<{ open: boolean; variantId?: string; label?: string }>({ open: false });
 
   const analyzeRef = useCallback(async (input: { file?: File; url?: string }) => {
@@ -221,7 +220,21 @@ export default function AiEditorPage() {
 
   const goEditor = () => { setStep("editor"); void refreshProject(); };
 
-  // Rafraîchit les variantes depuis le serveur (générées côté serveur OU via MCP).
+  // Onboarding connexion : on arrive sur l'écran de connexion. Si le user l'a
+  // déjà fait (mémorisé), on saute directement à la référence.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("duupflow_aieditor_connected") === "1") {
+        setStep((s) => (s === "connect" ? "ref" : s));
+      }
+    } catch { /* localStorage indispo */ }
+  }, []);
+  const markConnected = () => {
+    try { localStorage.setItem("duupflow_aieditor_connected", "1"); } catch { /* noop */ }
+    setStep("ref");
+  };
+
+  // Rafraîchit les variantes depuis le serveur (créées par le Claude du user via MCP).
   const refreshProject = useCallback(async () => {
     try {
       const res = await fetch("/api/ai-editor/project");
@@ -231,29 +244,8 @@ export default function AiEditorPage() {
     } catch { /* ignore */ }
   }, []);
 
-  // Génération INTÉGRÉE : un clic → l'IA compose + le serveur rend les variantes.
-  const generate = useCallback(async () => {
-    if (generating) return;
-    setGenerating(true); setGenErr(null);
-    try {
-      const res = await fetch("/api/ai-editor/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, count: 2 }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || `Erreur ${res.status}`);
-      // Recharge depuis le serveur (source de vérité, ordre le plus récent d'abord).
-      await refreshProject();
-    } catch (e) {
-      setGenErr((e as Error)?.message || "Génération échouée");
-    } finally {
-      setGenerating(false);
-    }
-  }, [generating, projectId, refreshProject]);
-
-  // Poll live pendant qu'on est dans le workspace : capte aussi les variantes
-  // créées via le connecteur MCP (mode avancé).
+  // Poll live pendant qu'on est dans le workspace : les variantes créées par le
+  // Claude du user (via le connecteur MCP) apparaissent au fur et à mesure.
   useEffect(() => {
     if (step !== "editor") return;
     const t = setInterval(refreshProject, 5000);
@@ -261,11 +253,14 @@ export default function AiEditorPage() {
   }, [step, refreshProject]);
 
   const variantUrl = (id: string, dl = false) => `/api/ai-editor/variant?projectId=${projectId}&id=${id}${dl ? "&dl=1" : ""}`;
-  const mcpUrl = typeof window !== "undefined" ? `${window.location.origin}/api/ai-editor/mcp` : "/api/ai-editor/mcp";
+  // URL du connecteur MCP — résolue côté client seulement (évite le mismatch
+  // d'hydratation : le serveur ne connaît pas window.location.origin).
+  const [mcpUrl, setMcpUrl] = useState("/api/ai-editor/mcp");
+  useEffect(() => { setMcpUrl(`${window.location.origin}/api/ai-editor/mcp`); }, []);
 
   const refReady = !!refSource;
-  const stepState = (s: "ref" | "material" | "editor") => {
-    const order = { ref: 1, material: 2, editor: 3 };
+  const stepState = (s: "connect" | "ref" | "material" | "editor") => {
+    const order = { connect: 1, ref: 2, material: 3, editor: 4 };
     return order[s] < order[step] ? "done" : order[s] === order[step] ? "active" : "todo";
   };
 
@@ -280,11 +275,77 @@ export default function AiEditorPage() {
           <div className="text-[12px] font-semibold uppercase tracking-[.14em] text-indigo-400">Éditeur IA · Reproduis ce qui marche</div>
           <h1 className="mt-1.5 text-3xl font-extrabold tracking-tight text-[var(--app-text)]">Ta version de ce qui a cartonné</h1>
           <div className="mt-5 flex flex-wrap gap-2">
-            <StepPill n={1} label="Référence" state={stepState("ref")} />
-            <StepPill n={2} label="Ta matière" state={stepState("material")} />
-            <StepPill n={3} label="Génère tes variantes" state={stepState("editor")} />
+            <StepPill n={1} label="Connexion" state={stepState("connect")} />
+            <StepPill n={2} label="Référence" state={stepState("ref")} />
+            <StepPill n={3} label="Ta matière" state={stepState("material")} />
           </div>
         </header>
+      )}
+
+      {/* ============ ÉTAPE 0 · CONNEXION À CLAUDE — split plein écran ============ */}
+      {step === "connect" && (
+        <section className="mt-5 grid flex-1 border-t border-[var(--app-border)] lg:grid-cols-[minmax(360px,520px)_1fr]">
+          {/* ── Action (gauche) ── */}
+          <div
+            className="flex flex-col justify-center border-b border-[var(--app-border)] p-8 sm:p-10 lg:border-b-0 lg:border-r"
+            style={{ background: "rgba(217,119,87,0.05)" }}
+          >
+            <div className="mb-6 flex items-center gap-3">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white shadow-sm">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/claude-color.svg" alt="Claude" className="h-7 w-7" />
+              </span>
+              <div>
+                <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color: "#D97757" }}>Étape 1 · Connexion</div>
+                <h2 className="text-2xl font-extrabold tracking-tight text-[var(--app-text)]">Connecte ton Claude</h2>
+              </div>
+            </div>
+
+            <p className="mb-7 text-sm leading-relaxed text-[var(--app-text-muted)]">
+              Tu piloteras le montage depuis <b className="text-[var(--app-text)]">ton propre Claude</b>. Une seule fois :
+              colle l&apos;adresse ci-dessous dans Claude, puis clique <b className="text-[var(--app-text)]">Autoriser</b>. Aucun mot de passe, aucune clé.
+            </p>
+
+            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">Adresse du connecteur</div>
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] py-2 pl-3 pr-2">
+              <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-[var(--app-text)]">{mcpUrl}</span>
+              <CopyBtn text={mcpUrl} />
+            </div>
+
+            <div className="mt-8">
+              <PrimaryBtn full onClick={markConnected}>J&apos;ai connecté mon Claude → Continuer</PrimaryBtn>
+            </div>
+            <button onClick={() => setStep("ref")} className="mt-3 self-start text-[12px] text-[var(--app-text-faint)] underline hover:text-[var(--app-text-muted)]">
+              Je le ferai plus tard →
+            </button>
+            <p className="mt-6 text-[12px] leading-relaxed text-[var(--app-text-faint)]">
+              Marche sur claude.ai, Claude Desktop et mobile — même en plan gratuit.
+            </p>
+          </div>
+
+          {/* ── Guide 3 étapes (droite) ── */}
+          <aside className="flex flex-col justify-center gap-10 p-8 sm:p-14">
+            <div className="flex items-center gap-2.5 text-[12px] font-bold uppercase tracking-wider" style={{ color: "#D97757" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/claude-color.svg" alt="" className="h-4 w-4" />
+              Connecter à Claude — 3 étapes
+            </div>
+
+            {[
+              { t: "Copie l'adresse", d: <>Clique <b className="text-[var(--app-text)]">Copier</b> à gauche — l&apos;adresse du connecteur est dans ton presse-papier.</> },
+              { t: "Ajoute-la dans Claude", d: <>Dans Claude : <b className="text-[var(--app-text)]">Réglages → Connecteurs → Ajouter un connecteur personnalisé</b>, et colle l&apos;adresse.</> },
+              { t: "Autorise", d: <>Clique <b className="text-[var(--app-text)]">Connecter</b> puis <b className="text-[var(--app-text)]">Autoriser</b> (tu verras l&apos;écran DuupFlow). C&apos;est branché — définitivement.</> },
+            ].map((s, i) => (
+              <div key={i} className="flex items-start gap-4">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[15px] font-bold text-white" style={{ background: "#D97757" }}>{i + 1}</span>
+                <div>
+                  <div className="text-[18px] font-bold text-[var(--app-text)]">{s.t}</div>
+                  <p className="mt-2.5 max-w-2xl text-[15px] leading-loose text-[var(--app-text-muted)]">{s.d}</p>
+                </div>
+              </div>
+            ))}
+          </aside>
+        </section>
       )}
 
       {/* ============ ÉTAPE 1 · RÉFÉRENCE — split plein écran, bords collés ============ */}
@@ -489,10 +550,13 @@ export default function AiEditorPage() {
           <aside className="flex flex-col border-r border-[var(--app-border)] bg-[var(--app-surface)]">
             <div className="border-b border-[var(--app-border)] px-4 py-4">
               <div className="flex items-center gap-2.5 text-[14px] font-bold text-[var(--app-text)]">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" style={{ boxShadow: "0 0 8px rgba(16,185,129,.8)" }} />
-                Prêt à générer
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/claude-color.svg" alt="Claude" className="h-4 w-4" />
+                </span>
+                Piloté par ton Claude
               </div>
-              <div className="mt-0.5 pl-[18px] text-[11.5px] text-[var(--app-text-faint)]">référence + matière analysées</div>
+              <div className="mt-0.5 pl-[30px] text-[11.5px] text-[var(--app-text-faint)]">référence + matière prêtes</div>
             </div>
             <div className="border-b border-[var(--app-border)] px-4 py-4">
               <div className="mb-2.5 text-[10.5px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">Référence reçue</div>
@@ -540,9 +604,11 @@ export default function AiEditorPage() {
                 <p className="py-1 text-[12px] text-[var(--app-text-faint)]">Aucun fichier — ajoute de la matière à reproduire.</p>
               )}
             </div>
-            <div className="mx-3.5 mb-4 mt-auto rounded-xl border p-3 text-[12.5px] text-[var(--app-text)]"
-                 style={{ background: "rgba(99,102,241,.10)", borderColor: "rgba(99,102,241,.3)" }}>
-              ✨ Clique <b className="text-indigo-300">Générer</b> — l&apos;IA reproduit la structure de ta référence avec ta matière.
+            <div className="mx-3.5 mb-4 mt-auto flex items-start gap-2.5 rounded-xl border p-3 text-[12.5px] text-[var(--app-text)]"
+                 style={{ background: "rgba(217,119,87,.09)", borderColor: "rgba(217,119,87,.3)" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/claude-color.svg" alt="" className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>Demande à <b>ton Claude</b> de reproduire ta référence — les variantes apparaissent ici <b>en direct</b>.</span>
             </div>
           </aside>
 
@@ -551,45 +617,25 @@ export default function AiEditorPage() {
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <div className="text-[15px] font-bold text-[var(--app-text)]">Variantes {variants.length > 0 && <span className="text-[var(--app-text-faint)]">· {variants.length}</span>}</div>
-                <div className="text-[12.5px] text-[var(--app-text-faint)]">Ta version de la référence, montée avec ta matière</div>
+                <div className="text-[12.5px] text-[var(--app-text-faint)]">Créées par ton Claude · apparaissent ici en direct</div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {variants.length > 0 && (
-                  <button onClick={() => void refreshProject()} title="Rafraîchir" className="rounded-lg border border-[var(--app-border-strong)] px-3 py-2.5 text-[13px] font-medium text-[var(--app-text)] transition hover:bg-[var(--app-surface-2)]">↻</button>
-                )}
-                <button
-                  onClick={() => void generate()}
-                  disabled={generating || !materials.length}
-                  className="rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{ background: BRAND }}
-                >
-                  {generating ? "⏳ Génération…" : variants.length ? "✨ Régénérer" : "✨ Générer mes variantes"}
-                </button>
-              </div>
+              <button onClick={() => void refreshProject()} title="Rafraîchir" className="shrink-0 rounded-lg border border-[var(--app-border-strong)] px-3 py-2.5 text-[13px] font-medium text-[var(--app-text)] transition hover:bg-[var(--app-surface-2)]">↻ Rafraîchir</button>
             </div>
 
-            {genErr && (
-              <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12.5px] text-red-300">{genErr}</div>
-            )}
-
-            {generating && variants.length === 0 ? (
-              <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))" }}>
-                {[0, 1].map((i) => (
-                  <div key={i} className="aspect-[9/16] animate-pulse rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)]" />
-                ))}
-              </div>
-            ) : variants.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] p-8 text-center">
-                <div className="text-[13.5px] font-semibold text-[var(--app-text)]">Prêt quand tu l&apos;es</div>
-                <p className="mx-auto mt-1.5 max-w-md text-[12.5px] text-[var(--app-text-muted)]">
-                  Clique <b>Générer mes variantes</b> — l&apos;IA analyse ta référence et monte ta matière pour la reproduire.
+            {variants.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] p-10 text-center">
+                <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/claude-color.svg" alt="Claude" className="h-8 w-8" />
+                </span>
+                <div className="text-[15px] font-bold text-[var(--app-text)]">Passe la main à ton Claude</div>
+                <p className="mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-[var(--app-text-muted)]">
+                  Dans <b className="text-[var(--app-text)]">ton Claude</b>, demande-lui de reproduire ta référence avec ta matière.
+                  Les variantes qu&apos;il crée s&apos;affichent ici <b>automatiquement</b>.
                 </p>
-                {!materials.length && (
-                  <p className="mt-2 text-[12px] text-amber-400/90">Ajoute d&apos;abord de la matière (colonne de gauche).</p>
-                )}
-                <div className="mt-4">
-                  <PrimaryBtn onClick={() => void generate()} disabled={generating || !materials.length}>✨ Générer mes variantes</PrimaryBtn>
-                </div>
+                <button onClick={() => setStep("connect")} className="mt-4 text-[12px] text-[var(--app-text-faint)] underline hover:text-[var(--app-text-muted)]">
+                  Pas encore connecté ? → Voir la connexion
+                </button>
               </div>
             ) : (
               <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))" }}>
@@ -613,27 +659,13 @@ export default function AiEditorPage() {
               </div>
             )}
 
-            {/* Mode avancé — piloter avec son PROPRE Claude via MCP (power-users) */}
-            <div className="mt-8 border-t border-[var(--app-border)] pt-4 text-center">
-              <button
-                onClick={() => setShowAdvanced((v) => !v)}
-                className="text-[12px] text-[var(--app-text-faint)] underline transition hover:text-[var(--app-text-muted)]"
-              >
-                ⚙ Mode avancé — piloter avec ton propre Claude {showAdvanced ? "▲" : "▼"}
-              </button>
-              {showAdvanced && (
-                <div className="mx-auto mt-3 max-w-[560px] rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 text-left">
-                  <p className="text-[12.5px] leading-relaxed text-[var(--app-text-muted)]">
-                    Branche DuupFlow comme <b className="text-[var(--app-text)]">connecteur MCP</b> à ton propre Claude (Pro) pour piloter le montage toi-même.
-                    Crée une clé API dans <a href="/dashboard/developers" className="text-indigo-400 hover:text-indigo-300">Développeurs</a>, puis pointe ton Claude sur :
-                  </p>
-                  <div className="mt-2.5 flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg-2)] py-2 pl-3 pr-2">
-                    <span className="flex-1 truncate font-mono text-[12px] text-[var(--app-text)]">{mcpUrl}</span>
-                    <CopyBtn text={mcpUrl} />
-                  </div>
-                </div>
-              )}
-            </div>
+            {variants.length > 0 && (
+              <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-[12px] text-[var(--app-text-faint)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/claude-color.svg" alt="" className="h-3.5 w-3.5" />
+                Créées par <b className="text-[var(--app-text-muted)]">ton Claude</b>. Clique une variante pour la regarder ou la télécharger.
+              </p>
+            )}
           </div>
         </section>
       )}

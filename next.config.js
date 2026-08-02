@@ -88,6 +88,17 @@ const nextConfig = {
       })),
     ];
   },
+  async rewrites() {
+    // Découverte OAuth du connecteur MCP (Éditeur IA) : Claude fetch ces URLs
+    // racine `.well-known` ; on les mappe sur nos routes API. Variante path-scoped
+    // incluse (certains clients probent `/.well-known/...<chemin-ressource>`).
+    return [
+      { source: "/.well-known/oauth-protected-resource", destination: "/api/ai-editor/oauth/protected-resource" },
+      { source: "/.well-known/oauth-protected-resource/:path*", destination: "/api/ai-editor/oauth/protected-resource" },
+      { source: "/.well-known/oauth-authorization-server", destination: "/api/ai-editor/oauth/authorization-server" },
+      { source: "/.well-known/oauth-authorization-server/:path*", destination: "/api/ai-editor/oauth/authorization-server" },
+    ];
+  },
   async headers() {
     // Every UTM short URL gets X-Robots-Tag: noindex, nofollow so any crawler
     // that does reach one (via an external link) drops it from the index.

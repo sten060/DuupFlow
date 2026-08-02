@@ -12,9 +12,37 @@
 
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { TOOLS, callTool } from "@/lib/ai-editor/mcp-tools";
+import { bearerFrom, oauthUserId, wwwAuthenticate } from "@/lib/ai-editor/oauth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+/** 401 avec l'en-tête qui déclenche la découverte OAuth côté Claude. */
+function needsAuth(req: Request) {
+  return new Response(JSON.stringify({ error: "unauthorized" }), {
+    status: 401,
+    headers: { "Content-Type": "application/json", "WWW-Authenticate": wwwAuthenticate(req) },
+  });
+}
+
+/**
+ * Auth du connecteur : deux voies.
+ *  - Token OAuth (JWT, via « Autoriser » dans Claude) → 1 clic, sans clé.
+ *  - Clé API DuupFlow (dflw_…, Bearer) → repli pour Claude Code / power-users.
+ * Renvoie le userId, ou une Response 401 (avec WWW-Authenticate) à retourner tel quel.
+ */
+async function resolveUser(req: Request): Promise<{ userId: string } | { deny: Response }> {
+  const tok = bearerFrom(req);
+  if (!tok) return { deny: needsAuth(req) };
+  if (tok.startsWith("dflw_")) {
+    const auth = await authenticateApiRequest(req);
+    if (!auth.ok) return { deny: needsAuth(req) };
+    return { userId: auth.actor.userId };
+  }
+  const uid = oauthUserId(req);
+  if (!uid) return { deny: needsAuth(req) };
+  return { userId: uid };
+}
 
 const SERVER_INFO = { name: "duupflow-ai-editor", version: "0.1.0" };
 const DEFAULT_PROTOCOL = "2025-06-18";
@@ -29,10 +57,10 @@ function rpcError(id: unknown, code: number, message: string) {
 }
 
 export async function POST(req: Request) {
-  // Auth : clé API DuupFlow en Bearer (réservé aux plans autorisés).
-  const auth = await authenticateApiRequest(req);
-  if (!auth.ok) return auth.response;
-  const userId = auth.actor.userId;
+  // Auth : token OAuth (« Autoriser » dans Claude) OU clé API DuupFlow (Bearer).
+  const resolved = await resolveUser(req);
+  if ("deny" in resolved) return resolved.deny;
+  const userId = resolved.userId;
 
   let body: unknown;
   try { body = await req.json(); } catch { return rpcError(null, -32700, "Parse error"); }
@@ -75,7 +103,10 @@ export async function POST(req: Request) {
   }
 }
 
-// GET : stateless, pas de SSE serveur → non supporté.
-export async function GET() {
+// GET : pas de SSE serveur. Sans auth → 401 + WWW-Authenticate (déclenche la
+// découverte OAuth) ; avec un token valide → 405 (l'échange se fait en POST).
+export async function GET(req: Request) {
+  const resolved = await resolveUser(req);
+  if ("deny" in resolved) return resolved.deny;
   return new Response("MCP endpoint — POST only (JSON-RPC).", { status: 405, headers: { Allow: "POST" } });
 }
