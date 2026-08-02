@@ -1,0 +1,6 @@
+Police embarquée pour le rendu des captions de l'Éditeur IA (sharp/librsvg,
+serveur sans police système).
+
+caption.ttf = Noto Sans (Regular), © Google Inc.
+Licence : SIL Open Font License 1.1 — https://openfontlicense.org
+Source : https://fonts.google.com/noto/specimen/Noto+Sans

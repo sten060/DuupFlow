@@ -7,7 +7,7 @@
 
 import { getLatestProject } from "./store";
 import type { Project } from "./store";
-import { renderVariant } from "./render";
+import { renderVariant, variantKeyframes } from "./render";
 import type { EditPlan } from "./render";
 
 export const MAX_KEYFRAMES = 6; // borne le nombre d'images renvoyées (coût tokens user)
@@ -32,11 +32,26 @@ export const TOOLS = [
   {
     name: "create_variant",
     description:
-      "Assemble UNE variante vidéo à partir de la matière du user selon TON plan de montage : une suite de segments (coupés dans les fichiers de matière) + des captions optionnelles. C'est toi le monteur : choisis l'ordre, les timings et les textes pour reproduire la structure de la référence. Appelle-le plusieurs fois pour plusieurs variantes. (v1 : vidéo sans son.)",
+      "Assemble UNE variante vidéo selon TON plan de montage. Contrôles : segments coupés ; captions stylables (contour/box, couleur, contour, taille, position x/y en %, alignement) ; images animées (zoomIn/zoomOut/panLeft/panRight + cadrage cover/contain/blurFill) ; colorimétrie globale (grade) ; fps ; couleur de fond. Le son des plans vidéo est CONSERVÉ. " +
+      "IMPORTANT : cet outil te RENVOIE des keyframes du rendu + la durée réelle → REGARDE-LES pour vérifier cadrage/rythme/captions, et rappelle l'outil pour corriger. " +
+      "Durées : segment libre (borné à la longueur du fichier pour une vidéo) ; défaut image = 2,5 s. Jusqu'à 40 segments, 30 captions.",
     inputSchema: {
       type: "object",
       properties: {
         aspect: { type: "string", enum: ["9:16", "1:1", "16:9"], description: "Format (défaut 9:16)." },
+        fps: { type: "number", description: "Images/s de sortie (15-60, défaut 30)." },
+        background: { type: "string", description: "Couleur de fond des bandes (letterbox) en hex. Défaut noir." },
+        grade: {
+          type: "object",
+          description: "Colorimétrie GLOBALE (optionnel).",
+          properties: {
+            saturation: { type: "number", description: "1 = neutre, >1 plus saturé, <1 désaturé." },
+            contrast: { type: "number", description: "1 = neutre." },
+            brightness: { type: "number", description: "0 = neutre (-1..1)." },
+            grain: { type: "number", description: "0..1 : grain filmique." },
+            vignette: { type: "boolean", description: "Assombrit les bords." },
+          },
+        },
         segments: {
           type: "array",
           description: "Plans à enchaîner, dans l'ordre.",
@@ -46,6 +61,9 @@ export const TOOLS = [
               materialId: { type: "string", description: "L'\"id\" EXACT d'un fichier renvoyé par list_material (champ « id: … »). PAS le nom du fichier ni l'UUID du nom." },
               startSec: { type: "number", description: "début de la coupe dans le fichier (s)." },
               endSec: { type: "number", description: "fin de la coupe (s). Pour une image : durée d'affichage." },
+              motion: { type: "string", enum: ["none", "zoomIn", "zoomOut", "panLeft", "panRight"], description: "IMAGES : mouvement (Ken Burns) pour éviter le diaporama figé. Défaut none." },
+              motionIntensity: { type: "number", description: "Force du mouvement (0.2-3, défaut 1)." },
+              fit: { type: "string", enum: ["contain", "cover", "blurFill"], description: "IMAGES, cadrage : contain (défaut, bandes) ; cover (remplit, recadre) ; blurFill (image centrée sur fond flou — idéal vertical)." },
             },
             required: ["materialId"],
           },
@@ -59,7 +77,17 @@ export const TOOLS = [
               text: { type: "string" },
               startSec: { type: "number" },
               endSec: { type: "number" },
-              position: { type: "string", enum: ["top", "center", "bottom"] },
+              position: { type: "string", enum: ["top", "center", "bottom"], description: "Position rapide (défaut bottom). Ignorée si x/y fournis." },
+              x: { type: "number", description: "Centre horizontal en % (0-100)." },
+              y: { type: "number", description: "Centre vertical en % (0-100). Ex. réf ≈ 13 (haut)." },
+              align: { type: "string", enum: ["left", "center", "right"], description: "Alignement (défaut center)." },
+              style: { type: "string", enum: ["outline", "box"], description: "outline = gros texte contour (défaut) ; box = fond." },
+              background: { type: "string", description: "Couleur de fond hex → force le style box ; \"none\" → force outline (sans fond)." },
+              size: { type: "string", enum: ["s", "m", "l"], description: "Taille rapide (défaut m)." },
+              fontSize: { type: "number", description: "Taille en px (référence 1080 de large). Prioritaire sur size." },
+              color: { type: "string", description: "Couleur du texte en hex. Défaut blanc." },
+              strokeColor: { type: "string", description: "Couleur du contour (style outline). Défaut noir." },
+              strokeWidth: { type: "number", description: "Épaisseur du contour en px." },
             },
             required: ["text", "startSec", "endSec"],
           },
@@ -71,8 +99,17 @@ export const TOOLS = [
   },
   {
     name: "list_variants",
-    description: "Liste les variantes déjà générées pour le dernier projet (avec vignette).",
+    description: "Liste les variantes déjà générées pour le dernier projet (id + vignette du 1er frame). Pour VOIR une variante en détail, utilise get_variant.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_variant",
+    description: "Renvoie plusieurs KEYFRAMES d'une variante déjà rendue (pour la relire et t'auto-corriger). Donne son id (de list_variants / create_variant).",
+    inputSchema: {
+      type: "object",
+      properties: { variantId: { type: "string", description: "id de la variante." } },
+      required: ["variantId"],
+    },
   },
 ] as const;
 
@@ -137,18 +174,39 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const res = await renderVariant(userId, project.id, (args ?? {}) as unknown as EditPlan);
     if ("error" in res) return { content: [{ type: "text", text: `Rendu impossible : ${res.error}` }], isError: true };
     const v = res.variant;
-    const content: Content[] = [{ type: "text", text: `✅ Variante créée${v.label ? ` « ${v.label} »` : ""} (id ${v.id}). Visible et téléchargeable dans l'Éditeur IA de DuupFlow.` }];
-    if (v.poster) { const img = dataUriToImage(v.poster); if (img) content.push({ type: "text", text: "Aperçu :" }, img); }
+    const content: Content[] = [{
+      type: "text",
+      text: `✅ Variante créée${v.label ? ` « ${v.label} »` : ""} (id ${v.id}) · durée ${res.durationSec}s. Voici des images du RENDU — vérifie cadrage, rythme, position des captions ; rappelle create_variant pour corriger si besoin.`,
+    }];
+    for (const kf of res.keyframes) {
+      const img = dataUriToImage(kf.dataUri);
+      if (img) content.push({ type: "text", text: `— rendu à ${kf.t}s —` }, img);
+    }
+    if (!res.keyframes.length && v.poster) { const img = dataUriToImage(v.poster); if (img) content.push({ type: "text", text: "Aperçu :" }, img); }
     return { content };
   }
 
   if (name === "list_variants") {
     if (!project.variants.length) return { content: [{ type: "text", text: "Aucune variante générée pour l'instant." }] };
-    const content: Content[] = [{ type: "text", text: `VARIANTES — ${project.variants.length} :` }];
+    const content: Content[] = [{ type: "text", text: `VARIANTES — ${project.variants.length} (vignette du 1er frame ; get_variant pour + de détail) :` }];
     for (const v of project.variants) {
-      content.push({ type: "text", text: `• ${v.label || v.id}` });
+      content.push({ type: "text", text: `• id: ${v.id}${v.label ? `  ·  ${v.label}` : ""}` });
       if (v.poster) { const img = dataUriToImage(v.poster); if (img) content.push(img); }
     }
+    return { content };
+  }
+
+  if (name === "get_variant") {
+    const id = String(args?.variantId || "");
+    const v = project.variants.find((x) => x.id === id);
+    if (!v) return { content: [{ type: "text", text: `Variante introuvable : ${id}. Vois list_variants pour les id.` }], isError: true };
+    const kfs = await variantKeyframes(userId, project.id, v.storedName, 6);
+    const content: Content[] = [{ type: "text", text: `VARIANTE « ${v.label || v.id} » (id ${v.id}) — ${kfs.length} image(s) du rendu :` }];
+    for (const kf of kfs) {
+      const img = dataUriToImage(kf.dataUri);
+      if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img);
+    }
+    if (!kfs.length && v.poster) { const img = dataUriToImage(v.poster); if (img) content.push(img); }
     return { content };
   }
 
