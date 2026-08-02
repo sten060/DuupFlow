@@ -43,7 +43,7 @@ export const TOOLS = [
           items: {
             type: "object",
             properties: {
-              materialId: { type: "string", description: "id d'un fichier de list_material." },
+              materialId: { type: "string", description: "L'\"id\" EXACT d'un fichier renvoyé par list_material (champ « id: … »). PAS le nom du fichier ni l'UUID du nom." },
               startSec: { type: "number", description: "début de la coupe dans le fichier (s)." },
               endSec: { type: "number", description: "fin de la coupe (s). Pour une image : durée d'affichage." },
             },
@@ -114,12 +114,15 @@ export async function callTool(userId: string, name: string, args?: Record<strin
   if (name === "list_material") {
     const mats = project.materials;
     if (!mats.length) return { content: [{ type: "text", text: "Aucune matière ajoutée pour l'instant." }] };
-    const content: Content[] = [{ type: "text", text: `MATIÈRE — ${mats.length} fichier(s) :` }];
+    const content: Content[] = [{
+      type: "text",
+      text: `MATIÈRE — ${mats.length} fichier(s). Pour create_variant, utilise l'"id" EXACT ci-dessous comme segments[].materialId (ce n'est PAS le nom du fichier) :`,
+    }];
     for (const m of mats) {
       const meta = m.analysis;
       const desc = m.desc?.trim() ? `« ${m.desc.trim()} »` : "(pas de description)";
       const dims = meta ? ` · ${meta.width}×${meta.height}${meta.durationSec ? ` · ${meta.durationSec.toFixed(1)}s` : ""}` : "";
-      content.push({ type: "text", text: `• ${m.name} [${m.kind}]${dims} — ${desc}` });
+      content.push({ type: "text", text: `• id: ${m.id}  ·  ${m.name} [${m.kind}]${dims} — ${desc}` });
       if (meta?.thumb) {
         const img = dataUriToImage(meta.thumb);
         if (img) content.push(img);
