@@ -126,6 +126,12 @@ export async function saveReference(
   const p = await getProject(userId, projectId);
   if (!p) return null;
   const storedName = `reference${opts.ext.startsWith(".") ? opts.ext : `.${opts.ext}`}`;
+  // Remplacement : si l'ancienne réf avait une autre extension, on retire le fichier
+  // orphelin (la matière et les variantes du projet, elles, sont conservées).
+  const prev = p.reference?.storedName;
+  if (prev && prev !== storedName) {
+    await fs.unlink(path.join(projectDir(userId, projectId), prev)).catch(() => {});
+  }
   await fs.copyFile(opts.srcPath, path.join(projectDir(userId, projectId), storedName));
   p.reference = { source: opts.source, label: opts.label, storedName, analysis: opts.analysis };
   await write(userId, p);
@@ -186,4 +192,47 @@ export async function removeMaterial(userId: string, projectId: string, material
   await fs.unlink(path.join(projectDir(userId, projectId), "material", m.storedName)).catch(() => {});
   await write(userId, p);
   return true;
+}
+
+/** Supprime une variante (fichier mp4 + entrée). */
+export async function removeVariant(userId: string, projectId: string, variantId: string): Promise<boolean> {
+  const p = await getProject(userId, projectId);
+  if (!p) return false;
+  const idx = p.variants.findIndex((x) => x.id === variantId);
+  if (idx < 0) return false;
+  const [v] = p.variants.splice(idx, 1);
+  await fs.unlink(path.join(projectDir(userId, projectId), "variants", v.storedName)).catch(() => {});
+  await write(userId, p);
+  return true;
+}
+
+/** Purge les variantes plus vieilles que maxAgeMs (fichier + entrée), pour TOUS
+ *  les projets de TOUS les users — même politique de rétention que les sorties de
+ *  duplication (appelée par le cron cleanup). La référence et la matière (les
+ *  INTRANTS du projet) sont conservées ; seules les variantes rendues expirent. */
+export async function cleanupOldVariants(maxAgeMs: number): Promise<number> {
+  let removed = 0;
+  const now = Date.now();
+  let userDirs: import("fs").Dirent[];
+  try { userDirs = await fs.readdir(OUT_BASE, { withFileTypes: true }); } catch { return 0; }
+  for (const ue of userDirs) {
+    if (!ue.isDirectory()) continue;
+    let projDirs: import("fs").Dirent[];
+    try { projDirs = await fs.readdir(userRoot(ue.name), { withFileTypes: true }); } catch { continue; }
+    for (const pe of projDirs) {
+      if (!pe.isDirectory()) continue;
+      const p = await getProject(ue.name, pe.name);
+      if (!p || !p.variants.length) continue;
+      const keep: ProjectVariant[] = [];
+      let changed = false;
+      for (const v of p.variants) {
+        if (now - v.createdAt > maxAgeMs) {
+          await fs.unlink(path.join(projectDir(ue.name, pe.name), "variants", v.storedName)).catch(() => {});
+          removed++; changed = true;
+        } else keep.push(v);
+      }
+      if (changed) { p.variants = keep; await write(ue.name, p); }
+    }
+  }
+  return removed;
 }

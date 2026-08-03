@@ -95,6 +95,7 @@ export default function AiEditorPage() {
   const [refFile, setRefFile] = useState<File | null>(null);
   const [refUrl, setRefUrl] = useState("");
   const refInput = useRef<HTMLInputElement | null>(null);
+  const refChangeInput = useRef<HTMLInputElement | null>(null); // changer la réf depuis le workspace
   const [analysis, setAnalysis] = useState<ReferenceAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeErr, setAnalyzeErr] = useState<string | null>(null);
@@ -112,32 +113,41 @@ export default function AiEditorPage() {
   const [variants, setVariants] = useState<VariantItem[]>([]);
   const [drawer, setDrawer] = useState<{ open: boolean; variantId?: string; label?: string }>({ open: false });
 
-  const analyzeRef = useCallback(async (input: { file?: File; url?: string }) => {
+  const analyzeRef = useCallback(async (input: { file?: File; url?: string; replacePid?: string }) => {
     setAnalyzing(true); setAnalyzeErr(null); setAnalysis(null);
     try {
       let res: Response;
       if (input.file) {
         const fd = new FormData();
         fd.append("file", input.file);
+        if (input.replacePid) fd.append("projectId", input.replacePid); // remplace la réf, garde la matière
         res = await fetch("/api/ai-editor/analyze", { method: "POST", body: fd });
       } else {
         res = await fetch("/api/ai-editor/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: input.url }),
+          body: JSON.stringify({ url: input.url, projectId: input.replacePid }),
         });
       }
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || `Erreur ${res.status}`);
       setAnalysis(json.analysis as ReferenceAnalysis);
       setProjectId(json.projectId ?? null);
-      setMaterials([]); // nouvelle réf = nouveau projet
+      if (!input.replacePid) setMaterials([]); // nouvelle réf = nouveau projet ; remplacement = on garde la matière
     } catch (e) {
       setAnalyzeErr((e as Error)?.message || "Analyse échouée");
     } finally {
       setAnalyzing(false);
     }
   }, []);
+  // Changer la référence depuis le workspace (garde la matière + les variantes).
+  const onRefChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.currentTarget.value = "";
+    if (!f || !projectId) return;
+    setRefFile(f); setRefSource({ type: "file", label: f.name });
+    void analyzeRef({ file: f, replacePid: projectId });
+  };
   const addRef = (f?: File) => { if (f) { setRefFile(f); setRefUrl(""); setRefSource({ type: "file", label: f.name }); void analyzeRef({ file: f }); } };
   const onRefPick = (e: React.ChangeEvent<HTMLInputElement>) => addRef(e.target.files?.[0] ?? undefined);
   const analyzeUrl = () => {
@@ -218,6 +228,16 @@ export default function AiEditorPage() {
     });
   };
 
+  // Supprime une variante (fichier serveur + carte). Confirmation : c'est
+  // irréversible, mais une variante se régénère en redemandant à ton Claude.
+  const removeVariant = (id: string) => {
+    if (!projectId) return;
+    if (!window.confirm("Supprimer cette variante ? Télécharge-la d'abord si tu veux la garder.")) return;
+    setVariants((vs) => vs.filter((v) => v.id !== id));
+    setDrawer((d) => (d.variantId === id ? { open: false } : d));
+    void fetch("/api/ai-editor/variant", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId, id }) });
+  };
+
   const goEditor = () => { setStep("editor"); void refreshProject(); };
 
   // Onboarding connexion : on arrive sur l'écran de connexion. Si le user l'a
@@ -268,6 +288,8 @@ export default function AiEditorPage() {
     <main className="relative flex h-full flex-col">
       {/* Input matière — persistant (utilisé à l'étape 2 ET dans le workspace) */}
       <input ref={matInput} type="file" accept="video/*,image/*,audio/*" multiple hidden onChange={onMatPick} />
+      {/* Input « changer la référence » — utilisé depuis le workspace */}
+      <input ref={refChangeInput} type="file" accept="video/*" hidden onChange={onRefChange} />
 
       {/* Header */}
       {step !== "editor" && (
@@ -545,10 +567,10 @@ export default function AiEditorPage() {
 
       {/* ============ ÉTAPE 3 · WORKSPACE (génération intégrée, 0 connexion) ============ */}
       {step === "editor" && (
-        <section className="m-6 grid gap-0 overflow-hidden rounded-2xl border border-[var(--app-border)]" style={{ gridTemplateColumns: "290px 1fr", minHeight: "72vh" }}>
+        <section className="m-6 grid min-h-0 flex-1 gap-0 overflow-hidden rounded-2xl border border-[var(--app-border)]" style={{ gridTemplateColumns: "290px 1fr", gridTemplateRows: "minmax(0, 1fr)" }}>
           {/* Rail contexte */}
-          <aside className="flex flex-col border-r border-[var(--app-border)] bg-[var(--app-surface)]">
-            <div className="border-b border-[var(--app-border)] px-4 py-4">
+          <aside className="flex min-h-0 flex-col border-r border-[var(--app-border)] bg-[var(--app-surface)]">
+            <div className="shrink-0 border-b border-[var(--app-border)] px-4 py-4">
               <div className="flex items-center gap-2.5 text-[14px] font-bold text-[var(--app-text)]">
                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white shadow-sm">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -558,8 +580,18 @@ export default function AiEditorPage() {
               </div>
               <div className="mt-0.5 pl-[30px] text-[11.5px] text-[var(--app-text-faint)]">référence + matière prêtes</div>
             </div>
-            <div className="border-b border-[var(--app-border)] px-4 py-4">
-              <div className="mb-2.5 text-[10.5px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">Référence reçue</div>
+            <div className="shrink-0 border-b border-[var(--app-border)] px-4 py-4">
+              <div className="mb-2.5 flex items-center justify-between gap-2">
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">Référence reçue</div>
+                <button
+                  onClick={() => refChangeInput.current?.click()}
+                  disabled={analyzing}
+                  title="Remplacer la vidéo de référence (ta matière est conservée)"
+                  className={`rounded-md border border-[var(--app-border-strong)] px-2 py-0.5 text-[11px] font-semibold transition ${analyzing ? "cursor-wait text-[var(--app-text-faint)]" : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)]"}`}
+                >
+                  {analyzing ? "⏳ analyse…" : "Changer"}
+                </button>
+              </div>
               <div className="flex items-center gap-3">
                 <div className="h-[60px] w-[44px] shrink-0 overflow-hidden rounded-lg" style={{ background: "linear-gradient(160deg,#2a2340,#123040)" }}>
                   {analysis?.keyframes?.[0] ? (
@@ -582,7 +614,7 @@ export default function AiEditorPage() {
                 </div>
               )}
             </div>
-            <div className="px-4 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
               <div className="mb-2 flex items-center justify-between">
                 <div className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">Ta matière · {materials.length} fichier{materials.length > 1 ? "s" : ""}</div>
                 <button
@@ -604,7 +636,7 @@ export default function AiEditorPage() {
                 <p className="py-1 text-[12px] text-[var(--app-text-faint)]">Aucun fichier — ajoute de la matière à reproduire.</p>
               )}
             </div>
-            <div className="mx-3.5 mb-4 mt-auto flex items-start gap-2.5 rounded-xl border p-3 text-[12.5px] text-[var(--app-text)]"
+            <div className="mx-3.5 mb-4 mt-auto flex shrink-0 items-start gap-2.5 rounded-xl border p-3 text-[12.5px] text-[var(--app-text)]"
                  style={{ background: "rgba(217,119,87,.09)", borderColor: "rgba(217,119,87,.3)" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/claude-color.svg" alt="" className="mt-0.5 h-4 w-4 shrink-0" />
@@ -613,15 +645,16 @@ export default function AiEditorPage() {
           </aside>
 
           {/* Workspace résultats */}
-          <div className="bg-[var(--app-bg-2)] p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex min-h-0 flex-col bg-[var(--app-bg-2)]">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--app-border)] px-6 py-4">
               <div>
                 <div className="text-[15px] font-bold text-[var(--app-text)]">Variantes {variants.length > 0 && <span className="text-[var(--app-text-faint)]">· {variants.length}</span>}</div>
                 <div className="text-[12.5px] text-[var(--app-text-faint)]">Créées par ton Claude · apparaissent ici en direct</div>
               </div>
-              <button onClick={() => void refreshProject()} title="Rafraîchir" className="shrink-0 rounded-lg border border-[var(--app-border-strong)] px-3 py-2.5 text-[13px] font-medium text-[var(--app-text)] transition hover:bg-[var(--app-surface-2)]">↻ Rafraîchir</button>
+              <button onClick={() => void refreshProject()} title="Recharge la liste depuis le serveur. (La liste se met déjà à jour toute seule tant que cet onglet est ouvert ; ce bouton force un rafraîchissement immédiat.)" className="shrink-0 rounded-lg border border-[var(--app-border-strong)] px-3 py-2.5 text-[13px] font-medium text-[var(--app-text)] transition hover:bg-[var(--app-surface-2)]">↻ Rafraîchir</button>
             </div>
 
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
             {variants.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] p-10 text-center">
                 <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white shadow-sm">
@@ -652,7 +685,10 @@ export default function AiEditorPage() {
                     </button>
                     <div className="flex items-center justify-between gap-2 px-2.5 py-2.5">
                       <span className="truncate text-[12.5px] font-semibold text-[var(--app-text)]">{v.label || `Variante ${i + 1}`}</span>
-                      <a href={variantUrl(v.id, true)} className="shrink-0 text-[12px] text-indigo-400 hover:text-indigo-300" title="Télécharger">⬇</a>
+                      <div className="flex shrink-0 items-center gap-2.5">
+                        <a href={variantUrl(v.id, true)} className="text-[12px] text-indigo-400 hover:text-indigo-300" title="Télécharger">⬇</a>
+                        <button onClick={() => removeVariant(v.id)} className="text-[12px] text-[var(--app-text-faint)] transition hover:text-red-400" title="Supprimer">🗑</button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -660,12 +696,16 @@ export default function AiEditorPage() {
             )}
 
             {variants.length > 0 && (
-              <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-[12px] text-[var(--app-text-faint)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/claude-color.svg" alt="" className="h-3.5 w-3.5" />
-                Créées par <b className="text-[var(--app-text-muted)]">ton Claude</b>. Clique une variante pour la regarder ou la télécharger.
-              </p>
+              <div className="mt-6 space-y-1.5 text-center text-[12px] text-[var(--app-text-faint)]">
+                <p className="flex items-center justify-center gap-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/claude-color.svg" alt="" className="h-3.5 w-3.5" />
+                  Créées par <b className="text-[var(--app-text-muted)]">ton Claude</b>. Clique une variante pour la regarder ou la télécharger.
+                </p>
+                <p>⏳ Les variantes sont temporaires — <b className="text-[var(--app-text-muted)]">télécharge</b> celles à garder ; les autres sont supprimées automatiquement.</p>
+              </div>
             )}
+            </div>
           </div>
         </section>
       )}
@@ -697,6 +737,9 @@ export default function AiEditorPage() {
               </div>
             </div>
             <div className="mt-auto flex gap-2.5 border-t border-[var(--app-border)] px-4 py-3.5">
+              {drawer.variantId && (
+                <button onClick={() => removeVariant(drawer.variantId!)} title="Supprimer cette variante" className="shrink-0 rounded-lg border border-red-500/40 px-3.5 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500/10">🗑</button>
+              )}
               <button onClick={() => setDrawer({ open: false })} className="flex-1 rounded-lg border border-[var(--app-border-strong)] px-4 py-2.5 text-sm font-medium text-[var(--app-text)] hover:bg-[var(--app-surface-2)]">Fermer</button>
               {drawer.variantId && (
                 <a href={variantUrl(drawer.variantId, true)} className="flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-semibold text-white hover:brightness-110" style={{ background: BRAND }}>⬇ Télécharger</a>

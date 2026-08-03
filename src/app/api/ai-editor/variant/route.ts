@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import { createClient } from "@/lib/supabase/server";
-import { getProject, projectPaths } from "@/lib/ai-editor/store";
+import { getProject, projectPaths, removeVariant } from "@/lib/ai-editor/store";
 
 export const dynamic = "force-dynamic";
 
@@ -68,4 +68,19 @@ export async function GET(req: NextRequest) {
       "Cache-Control": "private, max-age=60",
     },
   });
+}
+
+// DELETE /api/ai-editor/variant  (JSON { projectId, id }) → supprime une variante.
+export async function DELETE(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+  if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+
+  const body = await req.json().catch(() => null);
+  const projectId = String(body?.projectId || "");
+  const id = String(body?.id || "");
+  if (!projectId || !id) return NextResponse.json({ error: "Paramètres manquants." }, { status: 400 });
+
+  const ok = await removeVariant(user.id, projectId, id);
+  return ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "Variante introuvable." }, { status: 404 });
 }

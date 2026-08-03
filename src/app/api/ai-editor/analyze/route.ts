@@ -10,7 +10,7 @@ import path from "path";
 import { createClient } from "@/lib/supabase/server";
 import { analyzeReferenceVideo } from "@/lib/ai-editor/analyze";
 import { downloadReference } from "@/lib/ai-editor/download";
-import { createProject, saveReference } from "@/lib/ai-editor/store";
+import { createProject, saveReference, getProject } from "@/lib/ai-editor/store";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -30,17 +30,22 @@ export async function POST(req: NextRequest) {
   let source: "file" | "url" = "file";
   let label = "";
   let cleanupDir: string | null = null;
+  // projectId fourni = REMPLACER la référence d'un projet existant (la matière et
+  // les variantes sont conservées). Absent = nouveau projet.
+  let replaceProjectId = "";
 
   if (contentType.includes("application/json")) {
     const body = await req.json().catch(() => null);
     const url = typeof body?.url === "string" ? body.url.trim() : "";
     if (!url) return NextResponse.json({ error: "Lien manquant." }, { status: 400 });
+    replaceProjectId = typeof body?.projectId === "string" ? body.projectId.trim() : "";
     const dl = await downloadReference(url);
     if ("error" in dl) return NextResponse.json({ error: dl.error }, { status: 400 });
     srcPath = dl.path; cleanupDir = dl.dir; source = "url"; label = url; ext = ".mp4";
   } else {
     const form = await req.formData().catch(() => null);
     const file = form?.get("file");
+    replaceProjectId = String(form?.get("projectId") || "");
     if (!(file instanceof File) || file.size === 0) {
       return NextResponse.json({ error: "Fichier de référence manquant." }, { status: 400 });
     }
@@ -55,12 +60,18 @@ export async function POST(req: NextRequest) {
   try {
     const analysis = await analyzeReferenceVideo(srcPath);
 
-    // Persistance : nouveau projet + réf copiée + analyse. (Pas de recette
-    // serveur : le Claude du user lit les keyframes lui-même via le MCP.)
-    const project = await createProject(user.id);
-    await saveReference(user.id, project.id, { srcPath, ext, source, label, analysis });
+    // Persistance : soit on remplace la réf d'un projet existant (matière gardée),
+    // soit on crée un nouveau projet. (Pas de recette serveur : le Claude du user
+    // lit les keyframes lui-même via le MCP.)
+    let pid = "";
+    if (replaceProjectId && (await getProject(user.id, replaceProjectId))) {
+      pid = replaceProjectId;
+    } else {
+      pid = (await createProject(user.id)).id;
+    }
+    await saveReference(user.id, pid, { srcPath, ext, source, label, analysis });
 
-    return NextResponse.json({ projectId: project.id, analysis });
+    return NextResponse.json({ projectId: pid, analysis });
   } catch (e) {
     console.error("[ai-editor/analyze] échec:", e);
     return NextResponse.json({ error: `Analyse échouée : ${(e as Error)?.message?.slice(0, 160) ?? "inconnue"}` }, { status: 500 });

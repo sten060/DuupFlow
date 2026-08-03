@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { cleanupOldFiles } from "@/app/dashboard/utils";
+import { cleanupOldVariants } from "@/lib/ai-editor/store";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,10 @@ export async function GET(req: NextRequest) {
   const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
 
   const deleted = await cleanupOldFiles(maxAgeMs);
-  console.log(`[cron/cleanup] deleted ${deleted} files older than ${maxAgeHours}h`);
+  // Variantes de l'Éditeur IA : même rétention que les sorties de duplication.
+  // (Réf + matière conservées — seules les variantes rendues expirent.)
+  const variantsDeleted = await cleanupOldVariants(maxAgeMs).catch(() => 0);
+  console.log(`[cron/cleanup] deleted ${deleted} files + ${variantsDeleted} variants older than ${maxAgeHours}h`);
 
-  return NextResponse.json({ ok: true, deleted, maxAgeHours });
+  return NextResponse.json({ ok: true, deleted, variantsDeleted, maxAgeHours });
 }
