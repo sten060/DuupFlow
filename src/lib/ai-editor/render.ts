@@ -51,7 +51,7 @@ export type CaptionStyle = "outline" | "box";
 export type CaptionSize = "s" | "m" | "l";
 export type CaptionFont = "sans" | "rounded" | "impact" | "serif" | "script" | "display";
 // Enum → nom de FAMILLE (fontconfig la trouve dans public/fonts/ dès que le .ttf
-// y est déposé ; sinon repli sur ce qui est dispo, pas de crash). + emoji couleur.
+// y est déposé ; sinon repli sur ce qui est dispo, pas de crash).
 const FONT_FAMILY: Record<CaptionFont, string> = {
   sans: "Noto Sans",
   rounded: "Poppins",
@@ -60,9 +60,11 @@ const FONT_FAMILY: Record<CaptionFont, string> = {
   script: "Pacifico",
   display: "Bungee",
 };
-// Fallback emoji ajouté à CHAQUE font-family : Noto Color Emoji (couleur, si le
-// .ttf ~24 Mo est déposé) puis Noto Emoji (monochrome, embarqué) → jamais de tofu.
-const EMOJI_FALLBACK = "'Noto Color Emoji', 'Noto Emoji'";
+// Les emojis ne sont PAS rendus par une police (les polices couleur COLR/CBDT ne
+// sont pas fiables sous librsvg selon la build). On les composite en SVG Twemoji
+// (couleur, plat, lisible en petit ; identique quel que soit l'environnement). Si
+// un asset ne peut être récupéré, repli sur cette police mono → jamais de tofu.
+const EMOJI_TEXT_FALLBACK = "'Noto Emoji', 'Noto Sans'";
 export type EditCaption = {
   text: string;
   startSec: number;
@@ -130,7 +132,7 @@ const hex = (v: unknown, d: string) => (typeof v === "string" && /^#?[0-9a-fA-F]
 /* ── Polices : sharp/librsvg n'a AUCUNE police système en prod (Railway) → le
    texte SVG sortait en carrés (tofu). On embarque les polices dans public/fonts/
    et on restreint fontconfig À CE dossier : fontconfig indexe toutes les familles
-   présentes (Noto Sans, Poppins, Anton, … + Noto Color Emoji en fallback) et fait
+   présentes (Noto Sans, Poppins, Anton, … + Noto Emoji en repli ultime) et fait
    le repli entre elles — jamais de tofu, sans rien installer sur Railway. Déposer
    un nouveau .ttf dans public/fonts/ suffit à activer la famille correspondante. */
 const FONT_DIR = path.join(process.cwd(), "public", "fonts");
@@ -156,8 +158,76 @@ async function ensureFonts(): Promise<void> {
   }
 }
 
+/* ── Emojis en couleur via assets Twemoji (CC-BY 4.0) compositée dans le SVG.
+   Fiable partout (pas de dépendance à une police couleur). Récupérés au CDN
+   jsDelivr (tag immuable) puis mis en cache disque + mémoire ; repli mono si KO. */
+const _seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+const EMOJI_RE = /\p{Extended_Pictographic}/u;
+const isEmojiGrapheme = (g: string) => EMOJI_RE.test(g);
+/** Nom de fichier Twemoji d'un grapheme (règle officielle : on retire FE0F sauf
+ *  si séquence ZWJ), ex. "🔥" → "1f525", "👋🏽" → "1f44b-1f3fd". */
+function twemojiName(g: string): string {
+  const s = g.indexOf("‍") < 0 ? g.replace(/️/g, "") : g;
+  const cps: string[] = [];
+  for (const ch of s) cps.push(ch.codePointAt(0)!.toString(16));
+  return cps.join("-");
+}
+const TWEMOJI_DIR = path.join(os.tmpdir(), "duup_twemoji");
+const TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/";
+const _emojiMem = new Map<string, string | null>();
+/** SVG d'un emoji (ou null si introuvable). Cache mémoire → disque → CDN. */
+async function emojiSvg(name: string): Promise<string | null> {
+  if (_emojiMem.has(name)) return _emojiMem.get(name)!;
+  const file = path.join(TWEMOJI_DIR, `${name}.svg`);
+  let out: string | null = null;
+  try { out = await fs.readFile(file, "utf8"); } catch {}
+  if (!out) {
+    try {
+      const r = await fetch(TWEMOJI_BASE + name + ".svg", { signal: AbortSignal.timeout(6000) });
+      if (r.ok) {
+        const t = await r.text();
+        if (t.includes("<svg")) {
+          out = t;
+          await fs.mkdir(TWEMOJI_DIR, { recursive: true }).catch(() => {});
+          await fs.writeFile(file, t, "utf8").catch(() => {});
+        }
+      }
+    } catch {}
+  }
+  _emojiMem.set(name, out);
+  return out;
+}
+/** Découpe une ligne en segments texte / emoji (graphemes consécutifs regroupés). */
+function segmentRuns(line: string): Array<{ t: "text"; s: string } | { t: "emoji"; g: string }> {
+  const runs: Array<{ t: "text"; s: string } | { t: "emoji"; g: string }> = [];
+  let buf = "";
+  for (const { segment } of _seg.segment(line)) {
+    if (isEmojiGrapheme(segment)) {
+      if (buf) { runs.push({ t: "text", s: buf }); buf = ""; }
+      runs.push({ t: "emoji", g: segment });
+    } else buf += segment;
+  }
+  if (buf) runs.push({ t: "text", s: buf });
+  return runs;
+}
+/** Largeur d'encre d'un run texte, mesurée par le rasteriseur (police réelle). */
+async function measureInk(sharp: typeof import("sharp"), text: string, attrs: string, fsz: number): Promise<number> {
+  if (!text) return 0;
+  const spaceW = fsz * 0.26;
+  if (!text.trim()) return Math.round(text.length * spaceW); // espaces seuls
+  // trim() du rasteriseur enlève les espaces de bord → on les recompte à la main
+  // pour préserver l'espacement autour des emojis (runs texte adjacents).
+  const edge = (text.length - text.trimStart().length) + (text.length - text.trimEnd().length);
+  const w = Math.max(64, Math.ceil(text.length * fsz * 2));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${Math.round(fsz * 2.4)}"><text x="0" y="${Math.round(fsz * 1.6)}" ${attrs} fill="#fff">${esc(text)}</text></svg>`;
+  try {
+    const { info } = await sharp(Buffer.from(svg)).trim({ threshold: 1 }).toBuffer({ resolveWithObject: true });
+    return info.width + Math.round(edge * spaceW);
+  } catch { return Math.round(text.length * fsz * 0.5); }
+}
+
 /** Rasterise une caption stylée : police/poids/interlettrage/interligne/casse,
- *  contour OU boîte, ombre portée, position libre. Emoji couleur en fallback. */
+ *  contour OU boîte, ombre portée, position libre. Emojis couleur (Twemoji). */
 async function captionPng(c: EditCaption, W: number, H: number, outPath: string): Promise<void> {
   await ensureFonts();
   const sharp = (await import("sharp")).default;
@@ -178,27 +248,41 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string)
   const strokeW = Math.max(2, Math.round((c.strokeWidth != null ? c.strokeWidth : fsz * 0.16)));
   const align = c.align === "left" ? "start" : c.align === "right" ? "end" : "middle";
 
-  // Police : famille (repli auto si le .ttf n'est pas encore déposé) + emoji couleur.
+  // Police : famille (repli auto si le .ttf n'est pas encore déposé). Les emojis
+  // ne passent PAS par la police : ils sont compositée en images (voir plus bas).
   const famKey: CaptionFont = c.font && FONT_FAMILY[c.font] ? c.font : "sans";
-  const fontFamily = `'${FONT_FAMILY[famKey]}', ${EMOJI_FALLBACK}`;
+  const textFamily = `'${FONT_FAMILY[famKey]}'`;
   const weight = Math.round(clamp(num(c.fontWeight, style === "outline" ? 900 : 800), 100, 900));
   const ls = clamp(num(c.letterSpacing, 0), -20, 40);
   const lineMul = clamp(num(c.lineHeight, 1.24), 0.9, 2.2);
   const lineH = Math.round(fsz * lineMul);
   const rawText = c.textTransform === "uppercase" ? c.text.toUpperCase() : c.text;
 
+  // Découpe en mots ; on COLLE tout mot purement emoji au précédent → un emoji
+  // terminal ne part jamais seul à la ligne suivante.
+  const estVis = (s: string) => {
+    let v = 0;
+    for (const { segment } of _seg.segment(s)) v += isEmojiGrapheme(segment) ? 2 : 1;
+    return v;
+  };
+  const rawWords = rawText.trim().split(/\s+/).filter(Boolean);
+  const words: string[] = [];
+  for (const w of rawWords) {
+    const allEmoji = EMOJI_RE.test(w) && [..._seg.segment(w)].every((x) => isEmojiGrapheme(x.segment));
+    if (allEmoji && words.length) words[words.length - 1] += " " + w;
+    else words.push(w);
+  }
   const maxChars = Math.max(8, Math.floor(W / (fsz * 0.56)));
-  const words = rawText.trim().split(/\s+/);
   const lines: string[] = [];
   let cur = "";
   for (const w of words) {
-    if ((cur ? cur + " " + w : w).length > maxChars) { if (cur) lines.push(cur); cur = w; }
-    else cur = cur ? cur + " " + w : w;
+    const cand = cur ? cur + " " + w : w;
+    if (estVis(cand) > maxChars) { if (cur) lines.push(cur); cur = w; }
+    else cur = cand;
   }
   if (cur) lines.push(cur);
   const used = lines.slice(0, 5);
   const n = used.length;
-  const longest = used.reduce((m, l) => Math.max(m, l.length), 0);
 
   // Position : x/y en % prioritaires ; sinon top/center/bottom.
   const yPctDefault = c.position === "top" ? 12 : c.position === "center" ? 50 : 85;
@@ -208,33 +292,87 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string)
   const blockH = n * lineH;
   const centerY = Math.round((H * yPct) / 100);
   const firstBaseline = centerY - Math.round(blockH / 2) + fsz;
-  const tspans = used.map((l, i) => `<tspan x="${anchorX}" y="${firstBaseline + i * lineH}">${esc(l)}</tspan>`).join("");
 
-  const fontAttrs = `text-anchor="${align}" font-family="${fontFamily}" font-weight="${weight}" font-size="${fsz}"${ls ? ` letter-spacing="${ls}px"` : ""}`;
+  const lsAttr = ls ? ` letter-spacing="${ls}px"` : "";
+  const textAttrs = `font-family="${textFamily}" font-weight="${weight}" font-size="${fsz}"${lsAttr}`;
+  const emojiTextAttrs = `font-family="${EMOJI_TEXT_FALLBACK}" font-weight="${weight}" font-size="${fsz}"${lsAttr}`;
+  const emojiBox = Math.round(fsz * 0.98);
+  const emojiPad = Math.round(fsz * 0.08);
+  const emojiTop = Math.round(emojiBox * 0.82); // décalage baseline → haut de l'image
+
+  // Mise en page ligne par ligne : on mesure chaque run texte (police réelle) et
+  // on réserve une case carrée par emoji, pour placer chaque élément au pixel.
+  type Placed = { x: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; b64?: string };
+  const placedLines: Array<{ baseline: number; runs: Placed[]; width: number }> = [];
+  let maxLineW = 0;
+  for (let i = 0; i < used.length; i++) {
+    const runs = segmentRuns(used[i]);
+    // 1er passage : largeur d'avance de chaque run.
+    const measured: Array<{ adv: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; b64?: string }> = [];
+    for (const r of runs) {
+      if (r.t === "text") {
+        measured.push({ adv: await measureInk(sharp, r.s, textAttrs, fsz), kind: "text", s: r.s });
+      } else {
+        const svg = await emojiSvg(twemojiName(r.g));
+        if (svg) measured.push({ adv: emojiBox + 2 * emojiPad, kind: "emoji-img", b64: Buffer.from(svg).toString("base64") });
+        else measured.push({ adv: await measureInk(sharp, r.g, emojiTextAttrs, fsz), kind: "emoji-text", s: r.g });
+      }
+    }
+    const lineW = measured.reduce((m, r) => m + r.adv, 0);
+    maxLineW = Math.max(maxLineW, lineW);
+    const baseline = firstBaseline + i * lineH;
+    const startX = align === "start" ? anchorX : align === "end" ? anchorX - lineW : anchorX - Math.round(lineW / 2);
+    // 2e passage : positions absolues.
+    const placed: Placed[] = [];
+    let x = startX;
+    for (const r of measured) {
+      placed.push({ x, kind: r.kind, s: r.s, b64: r.b64 });
+      x += r.adv;
+    }
+    placedLines.push({ baseline, runs: placed, width: lineW });
+  }
+
+  // Éléments SVG : ombre (texte only), fond (box), traits/emplis, images emoji.
+  const shadowEls: string[] = [];
+  const mainEls: string[] = [];
+  const pushText = (x: number, y: number, attrs: string, s: string) => {
+    if (style === "outline") {
+      mainEls.push(`<text x="${x}" y="${y}" ${attrs} fill="${strokeColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="round">${esc(s)}</text>`);
+    }
+    mainEls.push(`<text x="${x}" y="${y}" ${attrs} fill="${color}">${esc(s)}</text>`);
+  };
+  for (const ln of placedLines) {
+    for (const r of ln.runs) {
+      if (r.kind === "emoji-img") {
+        mainEls.push(`<image x="${r.x + emojiPad}" y="${ln.baseline - emojiTop}" width="${emojiBox}" height="${emojiBox}" xlink:href="data:image/svg+xml;base64,${r.b64}"/>`);
+      } else {
+        const attrs = r.kind === "emoji-text" ? emojiTextAttrs : textAttrs;
+        shadowEls.push(`<text x="${r.x}" y="${ln.baseline}" ${attrs} fill="#000">${esc(r.s!)}</text>`);
+        pushText(r.x, ln.baseline, attrs, r.s!);
+      }
+    }
+  }
 
   // Ombre portée (distincte du contour) : copie décalée + floutée derrière.
-  let defs = "", shadowLayer = "";
-  if (typeof c.shadowColor === "string" && c.shadowColor.toLowerCase() !== "none") {
+  let defs = "", shadowGroup = "";
+  if (typeof c.shadowColor === "string" && c.shadowColor.toLowerCase() !== "none" && shadowEls.length) {
     const shColor = hex(c.shadowColor, "#000000");
     const shBlur = clamp(num(c.shadowBlur, Math.round(fsz * 0.06)), 0, fsz);
     const shOff = clamp(num(c.shadowOffset, Math.round(fsz * 0.06)), -fsz, fsz);
     defs = `<defs><filter id="sh" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="${shBlur}"/></filter></defs>`;
-    shadowLayer = `<g transform="translate(${shOff},${shOff})" filter="url(#sh)"><text ${fontAttrs} fill="${shColor}">${tspans}</text></g>`;
+    const els = shadowEls.map((t) => t.replace('fill="#000"', `fill="${shColor}"`)).join("");
+    shadowGroup = `<g transform="translate(${shOff},${shOff})" filter="url(#sh)">${els}</g>`;
   }
 
-  let body: string;
+  let bgRect = "";
   if (style === "box") {
-    const boxW = Math.round(Math.min(W * 0.94, longest * fsz * 0.62 + fsz));
+    const boxW = Math.round(Math.min(W * 0.96, maxLineW + fsz * 0.8));
     const boxX = clamp(align === "start" ? anchorX - Math.round(fsz * 0.4) : align === "end" ? anchorX - boxW + Math.round(fsz * 0.4) : anchorX - Math.round(boxW / 2), 6, W - boxW - 6);
     const boxY = firstBaseline - fsz;
-    body = `${defs}<rect x="${boxX}" y="${boxY}" width="${boxW}" height="${blockH + Math.round(fsz * 0.5)}" rx="16" fill="${boxColor}" fill-opacity="${boxOpacity}"/>
-      ${shadowLayer}<text ${fontAttrs} fill="${color}">${tspans}</text>`;
-  } else {
-    // Contour : 2 passes (base épaisse dessous + remplissage dessus) — portable.
-    body = `${defs}${shadowLayer}<text ${fontAttrs} fill="${strokeColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="round">${tspans}</text>
-      <text ${fontAttrs} fill="${color}">${tspans}</text>`;
+    bgRect = `<rect x="${boxX}" y="${boxY}" width="${boxW}" height="${blockH + Math.round(fsz * 0.5)}" rx="16" fill="${boxColor}" fill-opacity="${boxOpacity}"/>`;
   }
-  const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+
+  const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${defs}${bgRect}${shadowGroup}${mainEls.join("")}</svg>`;
   await fs.writeFile(outPath, await sharp(Buffer.from(svg)).png().toBuffer());
 }
 

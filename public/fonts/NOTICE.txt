@@ -13,9 +13,14 @@ Toutes sous licence SIL Open Font License 1.1 (voir OFL.txt) — redistribuables
 Pour changer une famille : déposer un .ttf ici et adapter FONT_FAMILY dans
 src/lib/ai-editor/render.ts (l'enum pointe vers le NOM DE FAMILLE de la police).
 
-  NotoEmoji.ttf         = Noto Emoji (monochrome)  → fallback emoji des captions · © Google
+  NotoEmoji.ttf         = Noto Emoji (monochrome)  → repli ULTIME emoji · © Google
 
-Emoji : Noto Emoji monochrome embarquée (fiable, ~2 Mo) → les emojis s'affichent
-(en une couleur, jamais de tofu). Pour la COULEUR : déposer NotoColorEmoji.ttf ici
-(famille "Noto Color Emoji", ~24 Mo) → prioritaire si présente (rendu couleur
-best-effort selon la build librsvg). Source : fonts.google.com.
+Emoji : rendus EN COULEUR via les assets SVG Twemoji (compositée dans le SVG de la
+caption, cf. src/lib/ai-editor/render.ts). C'est fiable partout — indépendant de
+toute police couleur (COLR/CBDT), que librsvg ne rend pas de façon garantie. Les
+SVG Twemoji sont récupérés au CDN jsDelivr (tag immuable twitter/twemoji@14.0.2)
+puis mis en cache disque. Si un asset ne peut être récupéré, repli sur la police
+mono Noto Emoji ci-dessus → jamais de tofu.
+
+Twemoji © Twitter, Inc. et contributeurs — graphiques sous licence CC-BY 4.0
+(https://creativecommons.org/licenses/by/4.0/). Source : github.com/twitter/twemoji.

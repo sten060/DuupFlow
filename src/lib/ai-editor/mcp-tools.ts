@@ -91,7 +91,7 @@ export const TOOLS = [
           items: {
             type: "object",
             properties: {
-              text: { type: "string" },
+              text: { type: "string", description: "Le texte. Les emojis 🔥💪🎉 sont rendus EN COULEUR (assets Twemoji) — utilise-les librement." },
               startSec: { type: "number" },
               endSec: { type: "number" },
               position: { type: "string", enum: ["top", "center", "bottom"], description: "Position rapide (défaut bottom). Ignorée si x/y fournis." },
