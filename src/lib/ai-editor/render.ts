@@ -296,9 +296,11 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string)
   const lsAttr = ls ? ` letter-spacing="${ls}px"` : "";
   const textAttrs = `font-family="${textFamily}" font-weight="${weight}" font-size="${fsz}"${lsAttr}`;
   const emojiTextAttrs = `font-family="${EMOJI_TEXT_FALLBACK}" font-weight="${weight}" font-size="${fsz}"${lsAttr}`;
-  const emojiBox = Math.round(fsz * 0.98);
+  // Emoji calé sur l'em-box (≈1.15em pour compenser le padding transparent des SVG
+  // Twemoji et matcher la hauteur des majuscules), centré optiquement sur le texte.
+  const emojiBox = Math.round(fsz * 1.15);
   const emojiPad = Math.round(fsz * 0.08);
-  const emojiTop = Math.round(emojiBox * 0.82); // décalage baseline → haut de l'image
+  const emojiTop = Math.round(fsz * 0.36) + Math.round(emojiBox / 2); // baseline → haut image
 
   // Mise en page ligne par ligne : on mesure chaque run texte (police réelle) et
   // on réserve une case carrée par emoji, pour placer chaque élément au pixel.
@@ -534,21 +536,23 @@ export async function renderVariant(
       durs.push(dur);
     } else {
       const { dur: fullDur, hasAudio } = await probeAV(abs);
-      const start = seg.startSec != null ? num(seg.startSec, 0) : 0;
+      const start = seg.startSec != null ? Math.max(0, num(seg.startSec, 0)) : 0;
       const end = seg.endSec != null ? num(seg.endSec, 0) : null;
-      const segLen = (end != null ? end : fullDur) - start;
-      inputs.push("-i", abs);
-      const s = seg.startSec != null ? `start=${start.toFixed(3)}` : "";
-      const e = seg.endSec != null ? `end=${num(seg.endSec, 0).toFixed(3)}` : "";
-      const trim = s || e ? `trim=${[s, e].filter(Boolean).join(":")},setpts=PTS-STARTPTS,` : "";
-      filters.push(`[${i}:v]${trim}scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
+      const segLen = Math.max(0.1, (end != null ? end : fullDur) - start);
+      // Coupe au niveau de l'INPUT (-ss/-t), PAS par le filtre trim : sur d'anciennes
+      // versions ffmpeg le filtre trim ignore 'start' (le plan repartait du début du
+      // rush). -ss avant -i = seek précis (décodé) sur ffmpeg ≥ 4 ; -t borne la durée.
+      // startSec/endSec = points d'entrée/sortie DANS le fichier (cf. get_material).
+      if (start > 0) inputs.push("-ss", start.toFixed(3));
+      inputs.push("-t", segLen.toFixed(3), "-i", abs);
+      filters.push(`[${i}:v]setpts=PTS-STARTPTS,scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
       if (hasAudio) {
-        const atrim = `atrim=start=${start.toFixed(3)}${end != null ? `:end=${end.toFixed(3)}` : ""},asetpts=N/SR/TB`;
-        filters.push(`[${i}:a]${atrim},aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+        // L'audio est déjà coupé par le seek d'input → pas de re-trim (sync garantie).
+        filters.push(`[${i}:a]asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
       } else {
-        filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${Math.max(0.1, segLen).toFixed(3)},asetpts=N/SR/TB[a${i}]`);
+        filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${segLen.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
       }
-      durs.push(Math.max(0.1, segLen));
+      durs.push(segLen);
     }
     vlabels.push(`[v${i}]`);
     alabels.push(`[a${i}]`);
@@ -563,6 +567,18 @@ export async function renderVariant(
     // fold xfade/acrossfade quand des transitions sont demandées. Sortie fixe →
     // repli propre sur le concat si les transitions échouent.
     const wantTransitions = segs.some((s, i) => i > 0 && xfadeName(s.transition));
+    // Durée totale du montage (identique au calcul d'assemblage) — sert à caler la
+    // piste audio en mode "replace" (pad/coupe exacte).
+    const totalVideoDur = (): number => {
+      if (!wantTransitions) return durs.reduce((a, b) => a + b, 0);
+      let acc = durs[0];
+      for (let i = 1; i < segs.length; i++) {
+        const name = xfadeName(segs[i].transition);
+        const ti = name ? clamp(Math.min(num(segs[i].transitionDuration, 0.25), durs[i] * 0.9, durs[i - 1] * 0.9), 0.05, 1.0) : 0;
+        acc += ti <= 0 ? durs[i] : durs[i] - ti;
+      }
+      return acc;
+    };
     const assemble = (useTrans: boolean): string[] => {
       if (!useTrans) {
         const interleaved = segs.map((_, i) => `${vlabels[i]}${alabels[i]}`).join("");
@@ -626,15 +642,33 @@ export async function renderVariant(
       if (tabs && hasA) {
         const startSec = Math.max(0, num(plan.audio.startSec, 0));
         const vol = clamp(num(plan.audio.volume, 1), 0, 2);
-        const bedVol = plan.audio.mode === "replace" ? 0 : 1;
+        const replace = plan.audio.mode === "replace";
         const tIdx = inputs.reduce((n, a) => (a === "-i" ? n + 1 : n), 0);
         inputs.push("-i", tabs);
-        audioFilters.push(
-          `[aasm]volume=${bedVol}[abed]`,
-          `[${tIdx}:a]atrim=start=${startSec.toFixed(3)},asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo,volume=${vol.toFixed(3)}[atrk]`,
-          `[abed][atrk]amix=inputs=2:duration=first:normalize=0[amixed]`,
-        );
-        audioMap = "[amixed]";
+        const trk = `[${tIdx}:a]atrim=start=${startSec.toFixed(3)},asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo,volume=${vol.toFixed(3)}`;
+        if (replace) {
+          // REMPLACE : le son des plans n'est PAS mixé (pas d'amix, pas de 2e entrée).
+          // On mappe UNIQUEMENT la piste externe, calée sur la durée du montage
+          // (apad puis atrim → silence si trop courte, coupe si trop longue). [aasm]
+          // (son des plans) est consommé par anullsink pour ne pas rester pendant.
+          const total = totalVideoDur().toFixed(3);
+          audioFilters.push(
+            `[aasm]anullsink`,
+            `${trk},apad,atrim=0:${total},asetpts=N/SR/TB[arep]`,
+          );
+          audioMap = "[arep]";
+        } else {
+          // MIX : musique par-dessus le son des plans. Sans l'option 'normalize'
+          // (absente des vieilles versions ffmpeg → cassait le rendu) : amix normalise
+          // en divisant par le nb d'entrées (2) → on rétablit le niveau plein (volume=2).
+          audioFilters.push(
+            `[aasm]aresample=44100,aformat=channel_layouts=stereo[abed]`,
+            `${trk}[atrk]`,
+            `[abed][atrk]amix=inputs=2:duration=first[amx]`,
+            `[amx]volume=2[amixed]`,
+          );
+          audioMap = "[amixed]";
+        }
       }
     }
 
