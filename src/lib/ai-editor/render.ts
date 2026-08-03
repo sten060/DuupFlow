@@ -60,7 +60,9 @@ const FONT_FAMILY: Record<CaptionFont, string> = {
   script: "Pacifico",
   display: "Bungee",
 };
-const EMOJI_FALLBACK = "'Noto Color Emoji'"; // ajouté à chaque font-family
+// Fallback emoji ajouté à CHAQUE font-family : Noto Color Emoji (couleur, si le
+// .ttf ~24 Mo est déposé) puis Noto Emoji (monochrome, embarqué) → jamais de tofu.
+const EMOJI_FALLBACK = "'Noto Color Emoji', 'Noto Emoji'";
 export type EditCaption = {
   text: string;
   startSec: number;
@@ -384,7 +386,8 @@ export async function renderVariant(
       const dur = Math.max(0.3, seg.endSec != null && seg.startSec != null ? seg.endSec - seg.startSec : seg.endSec ?? IMG_DEFAULT_SEC);
       const motion = normMotion(seg.motion);
       const intensity = clamp(num(seg.motionIntensity, 1), 0.2, 3);
-      const fit: SegFit = seg.fit === "cover" || seg.fit === "blurFill" ? seg.fit : "contain";
+      // Défaut blurFill (image sur fond flou) : meilleur que des bandes noires sur du vertical.
+      const fit: SegFit = seg.fit === "cover" || seg.fit === "contain" ? seg.fit : "blurFill";
       // handheld/none = image bouclée bornée (-t) ; zoom/pan = 1 seule image (zoompan la déploie).
       if (motion === "none" || motion === "handheld") inputs.push("-loop", "1", "-t", dur.toFixed(3), "-i", abs);
       else inputs.push("-i", abs);

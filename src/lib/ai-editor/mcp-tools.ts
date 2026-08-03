@@ -9,6 +9,9 @@ import { getLatestProject } from "./store";
 import type { Project } from "./store";
 import { renderVariant, variantKeyframes, materialKeyframes } from "./render";
 import type { EditPlan } from "./render";
+import { analyzeColor } from "./ref-profile";
+
+const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 export const MAX_KEYFRAMES = 6; // borne le nombre d'images renvoyées (coût tokens user)
 
@@ -75,7 +78,7 @@ export const TOOLS = [
               endSec: { type: "number", description: "fin de la coupe (s). Pour une image : durée d'affichage." },
               motion: { type: "string", enum: ["none", "zoomIn", "zoomOut", "panLeft", "panRight", "handheld"], description: "IMAGES : mouvement pour éviter le diaporama figé. handheld = tremblé caméra (idéal pour reproduire un plan handheld de la réf, plus naturel qu'un zoom). Défaut none." },
               motionIntensity: { type: "number", description: "Force du mouvement (0.2-3, défaut 1)." },
-              fit: { type: "string", enum: ["contain", "cover", "blurFill"], description: "IMAGES, cadrage : contain (défaut, bandes) ; cover (remplit, recadre) ; blurFill (image centrée sur fond flou — idéal vertical)." },
+              fit: { type: "string", enum: ["contain", "cover", "blurFill"], description: "IMAGES, cadrage : blurFill (DÉFAUT, image centrée sur fond flou — idéal vertical) ; cover (remplit en recadrant) ; contain (bandes noires)." },
               transition: { type: "string", enum: ["cut", "fade", "whipPan", "slide", "zoomPunch"], description: "Transition à l'ENTRÉE de ce plan (le 1er reste en cut). Défaut cut." },
               transitionDuration: { type: "number", description: "Durée de la transition en s (0.1-0.4 typique). Bornée à la durée des plans." },
             },
@@ -102,7 +105,7 @@ export const TOOLS = [
               color: { type: "string", description: "Couleur du texte en hex. Défaut blanc." },
               strokeColor: { type: "string", description: "Couleur du contour (style outline). Défaut noir." },
               strokeWidth: { type: "number", description: "Épaisseur du contour en px." },
-              font: { type: "string", enum: ["sans", "rounded", "impact", "serif", "script", "display"], description: "Famille : sans (défaut), rounded (arrondie type TikTok/CapCut), impact (grosse condensée), serif, script (manuscrite), display. (Emojis 🎉 supportés, en couleur.)" },
+              font: { type: "string", enum: ["sans", "rounded", "impact", "serif", "script", "display"], description: "Famille : sans (défaut), rounded (arrondie type TikTok/CapCut), impact (grosse condensée), serif, script (manuscrite), display." },
               fontWeight: { type: "number", description: "Graisse 100-900." },
               letterSpacing: { type: "number", description: "Interlettrage en px." },
               lineHeight: { type: "number", description: "Interligne (multiplicateur, défaut 1.24)." },
@@ -197,12 +200,32 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const allBeats = a.audio?.beats ?? [];
     const beatsShown = allBeats.length <= 90 ? allBeats : allBeats.filter((_, i) => i % Math.ceil(allBeats.length / 90) === 0);
     const beatsNote = beatsShown.length < allBeats.length ? ` (${beatsShown.length}/${allBeats.length} répartis)` : "";
-    // Colorimétrie traduite dans les UNITÉS de grade (1=neutre sat/contrast, 0=neutre
-    // brightness) → passable telle quelle à create_variant.grade (la mesure brute 0-1
-    // ne l'est pas). Nudge vers l'aspect de la réf.
-    const gsSat = a.color ? Math.round(Math.max(0.6, Math.min(1.4, 0.7 + a.color.saturation * 0.9)) * 100) / 100 : null;
-    const gsBri = a.color ? Math.round(Math.max(-0.4, Math.min(0.4, (a.color.brightness - 0.5) * 0.6)) * 100) / 100 : null;
-    const gsTemp = a.color ? (a.color.warmCold === "warm" ? 0.3 : a.color.warmCold === "cold" ? -0.3 : 0) : null;
+    // gradeSuggested = ÉCART réf↔matière (pas la valeur absolue de la réf, qui
+    // reflète ses conditions de tournage). On mesure la couleur moyenne de la
+    // matière du user (via ses vignettes) et on suggère la correction qui rapproche
+    // la matière de la réf. Bornes : ±0.2 sat/bright, ±0.3 temperature. Neutre si proches.
+    const warmVal = (w?: string) => (w === "warm" ? 1 : w === "cold" ? -1 : 0);
+    let matColor: { saturation: number; brightness: number; warmCold: string; bw: boolean } | null = null;
+    try {
+      const bufs = project.materials
+        .map((m) => m.analysis?.thumb)
+        .filter((t): t is string => typeof t === "string" && t.includes(","))
+        .map((t) => Buffer.from(t.split(",")[1] || "", "base64"))
+        .filter((b) => b.length > 80);
+      if (bufs.length) matColor = await analyzeColor(bufs);
+    } catch { /* pas de mesure matière */ }
+    let gsSat: number | null = null, gsBri: number | null = null, gsTemp: number | null = null, gsBasis = "";
+    if (a.color && matColor) {
+      gsSat = Math.round((1 + clampN(a.color.saturation - matColor.saturation, -0.2, 0.2)) * 100) / 100;
+      gsBri = Math.round(clampN(a.color.brightness - matColor.brightness, -0.2, 0.2) * 100) / 100;
+      gsTemp = Math.round(clampN((warmVal(a.color.warmCold) - warmVal(matColor.warmCold)) * 0.3, -0.3, 0.3) * 100) / 100;
+      gsBasis = "écart réf↔ta matière";
+    } else if (a.color) {
+      gsSat = Math.round((1 + clampN((a.color.saturation - 0.35) * 0.5, -0.2, 0.2)) * 100) / 100;
+      gsBri = Math.round(clampN((a.color.brightness - 0.5) * 0.4, -0.2, 0.2) * 100) / 100;
+      gsTemp = warmVal(a.color.warmCold) * 0.2;
+      gsBasis = "approx (matière non mesurée)";
+    }
     const lines = [
       `RÉFÉRENCE : ${ref.label} (${ref.source})`,
       `Durée : ${a.durationSec.toFixed(1)}s · ${a.width}×${a.height} · ${a.fps} fps · audio: ${a.hasAudio ? "oui" : "non"}`,
@@ -211,7 +234,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       a.shots?.length
         ? `PLANS (${a.shots.length}) — reproduis ce mouvement (n'ajoute PAS de zoom sur un plan static) :\n${a.shots.map((s) => `  #${s.index} [${s.startSec}–${s.endSec}s · ${s.durationSec}s] ${s.motion}${s.motion !== "static" ? ` (intensité ${s.motionIntensity})` : ""}`).join("\n")}`
         : null,
-      a.color ? `Colorimétrie moyenne (mesure 0-1) : saturation ${a.color.saturation} · luminosité ${a.color.brightness} · ${a.color.warmCold}${a.color.bw ? " · N&B" : ""}\n  → gradeSuggested (passe-le TEL QUEL à create_variant.grade) : { saturation: ${gsSat}, contrast: 1, brightness: ${gsBri}, temperature: ${gsTemp} }` : null,
+      a.color ? `Colorimétrie réf (mesure 0-1) : saturation ${a.color.saturation} · luminosité ${a.color.brightness} · ${a.color.warmCold}${a.color.bw ? " · N&B" : ""}${matColor ? ` | ta matière : sat ${matColor.saturation} · lum ${matColor.brightness} · ${matColor.warmCold}` : ""}\n  → gradeSuggested [${gsBasis}] — passe-le TEL QUEL à create_variant.grade : { saturation: ${gsSat}, contrast: 1, brightness: ${gsBri}, temperature: ${gsTemp} }` : null,
       a.audio && (a.audio.bpm || allBeats.length)
         ? `AUDIO : type ${a.audio.type}${a.audio.bpm ? ` · ~${a.audio.bpm} BPM` : ""}${allBeats.length ? ` · ${allBeats.length} temps forts détectés` : ""}${beatsShown.length ? `\n  Beats (s)${beatsNote} — CALE tes coupes dessus : ${beatsShown.map((b) => b.toFixed(2)).join(", ")}` : ""}`
         : null,

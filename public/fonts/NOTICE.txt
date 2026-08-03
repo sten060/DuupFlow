@@ -13,5 +13,9 @@ Toutes sous licence SIL Open Font License 1.1 (voir OFL.txt) — redistribuables
 Pour changer une famille : déposer un .ttf ici et adapter FONT_FAMILY dans
 src/lib/ai-editor/render.ts (l'enum pointe vers le NOM DE FAMILLE de la police).
 
-Emoji couleur (optionnel) : déposer NotoColorEmoji.ttf ici (famille "Noto Color
-Emoji") → active le fallback emoji des captions. Source : fonts.google.com.
+  NotoEmoji.ttf         = Noto Emoji (monochrome)  → fallback emoji des captions · © Google
+
+Emoji : Noto Emoji monochrome embarquée (fiable, ~2 Mo) → les emojis s'affichent
+(en une couleur, jamais de tofu). Pour la COULEUR : déposer NotoColorEmoji.ttf ici
+(famille "Noto Color Emoji", ~24 Mo) → prioritaire si présente (rendu couleur
+best-effort selon la build librsvg). Source : fonts.google.com.
