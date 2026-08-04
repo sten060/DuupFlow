@@ -147,17 +147,22 @@ async function listCandidateModels(key: string): Promise<string[]> {
     const all = (j?.models ?? [])
       .filter((m) => m.name && (m.supportedGenerationMethods ?? []).includes("generateContent"))
       .map((m) => m.name!.replace(/^models\//, ""))
-      // on écarte ce qui ne fait pas de compréhension vidéo utile
-      .filter((n) => /gemini/.test(n) && !/(embedding|aqa|image-generation|imagen|tts|learnlm)/.test(n));
+      // on écarte ce qui ne fait pas de compréhension vidéo texte utile (génération
+      // d'image, robotique, TTS, embeddings, computer-use…).
+      .filter((n) => /gemini/.test(n) && !/(embedding|aqa|imagen|image|tts|learnlm|robotics|computer-use)/.test(n));
     console.log(`[ai-editor/gemini] modèles dispo (${all.length}) : ${all.join(", ")}`);
+    // On veut le MEILLEUR flash récent NON-lite (précision des captions) qui marche.
     const score = (n: string) => {
-      let s = 0;
-      if (/flash/.test(n)) s += 100;              // flash = rapide + vidéo + pas cher
-      if (/latest/.test(n)) s += 25;              // alias roulant récent
-      if (/-\d{3}$/.test(n)) s += 12;             // versionné -001/-002 (souvent non gaté)
-      if (/lite/.test(n)) s += 4;
-      if (!/(vision|thinking|preview|exp)/.test(n)) s += 3;
-      if (/^gemini-2\.\d+-flash$/.test(n)) s -= 10; // alias nu → souvent gaté aux new users
+      const vm = n.match(/gemini-(\d+(?:\.\d+)?)/);
+      let ver = vm ? parseFloat(vm[1]) : 0;
+      if (!ver && /latest/.test(n)) ver = 2.9;    // alias roulant "flash-latest" = récent
+      let s = ver * 100;                          // version = poids dominant (3.6 > 2.5 > 2.0)
+      if (/flash/.test(n)) s += 50;               // flash > pro (coût/vitesse/vidéo)
+      if (/lite/.test(n)) s -= 40;                // lite = moins précis → à éviter
+      if (/latest/.test(n)) s += 8;
+      if (/-\d{3}$/.test(n)) s += 4;              // versionné explicite
+      if (/(preview|exp|thinking|omni)/.test(n)) s -= 60; // instable → seulement en dernier recours
+      if (/^gemini-\d+(?:\.\d+)?-flash$/.test(n)) s -= 5;  // alias nu (parfois gaté) : léger malus, on tente quand même
       return s;
     };
     return all.sort((a, b) => score(b) - score(a));
@@ -263,21 +268,21 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
 
     let usedModel = "";
     let genRes: Response | null = null;
+    let lastInfo = "";
     const tried = new Set<string>();
     for (const m of candidates) {
       if (tried.has(m)) continue;
       tried.add(m);
       if (tried.size > 8) break; // garde-fou
       const r = await runGen(m);
-      if (r.status === 404) { console.warn(`[ai-editor/gemini] "${m}" indisponible (404) → suivant`); continue; }
-      genRes = r; usedModel = m; break; // premier non-404 (succès ou vraie erreur)
+      if (r.ok) { genRes = r; usedModel = m; break; } // premier 2xx = gagné
+      // Sinon (404 indispo, 400 param, 5xx transitoire) : on passe au suivant. Les
+      // 404/400 sont rejetés AVANT tout traitement vidéo → instantanés et gratuits.
+      lastInfo = `${m}→${r.status}`;
+      console.warn(`[ai-editor/gemini] "${m}" échoue (${r.status}) → suivant`);
     }
     if (!genRes) {
-      console.warn(`[ai-editor/gemini] aucun modèle dispo n'a répondu (tous 404) — essayés : ${[...tried].join(", ")}`);
-      return null;
-    }
-    if (!genRes.ok) {
-      console.warn(`[ai-editor/gemini] generateContent KO (${usedModel}):`, genRes.status, (await genRes.text().catch(() => "")).slice(0, 200));
+      console.warn(`[ai-editor/gemini] aucun modèle n'a répondu OK — essayés : ${[...tried].join(", ")} (dernier : ${lastInfo})`);
       return null;
     }
     const genJson = await genRes.json().catch(() => null) as {
