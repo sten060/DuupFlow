@@ -700,15 +700,25 @@ async function compositeClip(
   }
 
   const vf: string[] = [];
-  const half = layout === "splitV" ? `${W}:${Math.round(H / 2)}` : layout === "splitH" ? `${Math.round(W / 2)}:${H}` : `${W}:${H}`;
-  vf.push(`[0:v]scale=${half}:force_original_aspect_ratio=increase,crop=${half},setsar=1,fps=${fps},format=yuv420p[base]`);
-  let acc = "cv0";
-  vf.push(`[base]pad=${W}:${H}:0:0:color=${bg}[${acc}]`); // base en haut/gauche (split) ou plein (pip)
+  let acc: string;
   let firstPip = 0;
-  if ((layout === "splitV" || layout === "splitH")) {
-    vf.push(`[1:v]scale=${half}:force_original_aspect_ratio=increase,crop=${half},setsar=1,fps=${fps},format=yuv420p[p1]`);
-    const pos = layout === "splitV" ? `0:${Math.round(H / 2)}` : `${Math.round(W / 2)}:0`;
-    vf.push(`[${acc}][p1]overlay=${pos}[cv1]`); acc = "cv1"; firstPip = 1;
+  if (layout === "splitV") {
+    // vstack (robuste, contrairement à pad+overlay) : 2 panneaux empilés, W identique.
+    const hh = Math.floor(H / 2 / 2) * 2; // hauteur paire (libx264)
+    vf.push(`[0:v]scale=${W}:${hh}:force_original_aspect_ratio=increase,crop=${W}:${hh},setsar=1,fps=${fps},format=yuv420p[top]`);
+    vf.push(`[1:v]scale=${W}:${H - hh}:force_original_aspect_ratio=increase,crop=${W}:${H - hh},setsar=1,fps=${fps},format=yuv420p[bot]`);
+    vf.push(`[top][bot]vstack=inputs=2[cv0]`);
+    acc = "cv0"; firstPip = 1;
+  } else if (layout === "splitH") {
+    const ww = Math.floor(W / 2 / 2) * 2; // largeur paire
+    vf.push(`[0:v]scale=${ww}:${H}:force_original_aspect_ratio=increase,crop=${ww}:${H},setsar=1,fps=${fps},format=yuv420p[lft]`);
+    vf.push(`[1:v]scale=${W - ww}:${H}:force_original_aspect_ratio=increase,crop=${W - ww}:${H},setsar=1,fps=${fps},format=yuv420p[rgt]`);
+    vf.push(`[lft][rgt]hstack=inputs=2[cv0]`);
+    acc = "cv0"; firstPip = 1;
+  } else {
+    // pip / single : base plein cadre, incrustations par-dessus.
+    vf.push(`[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,fps=${fps},format=yuv420p[cv0]`);
+    acc = "cv0";
   }
   // Overlays restants en PIP (triés par zIndex), scale/opacity/position + fenêtre.
   const pips = resolved.map((r, k) => ({ r, k })).slice(firstPip).sort((a, b) => num(a.r.o.zIndex, 0) - num(b.r.o.zIndex, 0));
@@ -732,9 +742,11 @@ async function compositeClip(
   if (base.hasAudio) args.push("-map", "0:a?", "-c:a", "aac", "-b:a", "160k");
   args.push("-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-r", String(fps), out);
   const { code, stderr } = await runFFmpeg(args, 5 * 60 * 1000);
-  if (code !== 0) { console.warn("[ai-editor/render] compositeClip KO:", stderr.slice(-200)); return null; }
+  if (code !== 0) { console.warn(`[ai-editor/render] compositeClip KO (layout=${layout}) :`, stderr.slice(-220)); return null; }
   const { dur } = await probeAV(out);
-  return { path: out, durationSec: Math.max(0.1, dur), hasAudio: base.hasAudio };
+  if (dur < 0.1) { console.warn(`[ai-editor/render] compositeClip sortie vide (layout=${layout}) → repli plan simple`); return null; }
+  console.log(`[ai-editor/render] compositeClip OK · layout=${layout} · ${resolved.length} média(s) · ${dur.toFixed(2)}s`);
+  return { path: out, durationSec: dur, hasAudio: base.hasAudio };
 }
 
 export async function renderVariant(

@@ -298,14 +298,23 @@ export async function callTool(userId: string, name: string, args?: Record<strin
         parts.push("CAPTIONS DU MODÈLE : aucun texte incrusté détecté.");
       }
       if (comp.shots.length) {
+        // Intensité MESURÉE (ffmpeg) rattachée au plan Gemini par recouvrement temporel.
+        const ffShots = Array.isArray(a.shots) ? a.shots : [];
+        const matchIntensity = (st: number, en: number): number => {
+          const ov = ffShots.filter((f) => f.endSec > st && f.startSec < en && f.motion !== "static");
+          if (!ov.length) return 1;
+          return Math.round((ov.reduce((s, f) => s + (f.motionIntensity || 1), 0) / ov.length) * 100) / 100;
+        };
         parts.push(
-          `CONTENU DES PLANS (vu par la compréhension) — mouvement/vitesse à reproduire dans segments[] :\n` +
+          `CONTENU DES PLANS — à reproduire dans segments[] (motion+intensité, speed, freezeAt/freezeDuration, punch-in scale+offsetX/offsetY, layout+overlays). Le TYPE de mouvement vient de la compréhension (autorité), l'intensité est mesurée. Valeurs neutres = affichées quand même :\n` +
           comp.shots.map((s) => {
-            const sp = s.speed && Math.abs(s.speed - 1) > 0.05 ? ` · vitesse ${s.speed}× (→ segments[].speed)` : "";
-            const fz = s.freezeAt != null ? ` · FREEZE @${s.freezeAt}s (→ freezeAt/freezeDuration)` : "";
-            const subj = s.subjectX != null && s.subjectY != null ? ` · sujet à ${s.subjectX}%/${s.subjectY}% (→ punch-in : scale + offsetX/offsetY)` : "";
-            const comp2 = s.composition && s.composition !== "single" ? ` · COMPO ${s.composition} (→ segments[].layout + overlays[])` : "";
-            return `  [${s.startSec}–${s.endSec}s · ${s.motion}${sp}${fz}${subj}${comp2}] ${s.content}`;
+            const mo = s.motion ?? "none";
+            const inten = mo !== "none" ? ` (intensité ${matchIntensity(s.startSec, s.endSec)})` : "";
+            const sp = `vitesse ${s.speed ?? 1}×`;
+            const fz = s.freezeAt != null ? `freeze @${s.freezeAt}s` : "pas de freeze";
+            const subj = s.subjectX != null && s.subjectY != null ? `sujet ${s.subjectX}%/${s.subjectY}%` : "sujet 50%/50% (n/d)";
+            const cp = `compo ${s.composition ?? "single"}`;
+            return `  [${s.startSec}–${s.endSec}s] mouvement ${mo}${inten} · ${sp} · ${fz} · ${subj} · ${cp}\n      « ${s.content} »`;
           }).join("\n"),
         );
       }
@@ -318,8 +327,12 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       `Durée : ${a.durationSec.toFixed(1)}s · ${a.width}×${a.height} · ${a.fps} fps · audio: ${a.hasAudio ? "oui" : "non"}`,
       `Rythme : ${a.pacing.cutCount} coupe(s)${a.pacing.avgCutSec ? ` · ~${a.pacing.avgCutSec}s/plan` : ""}`,
       cuts.length ? `Coupes (timecodes s) : ${cuts.slice(0, 60).map((c) => c.toFixed(2)).join(", ")}` : null,
-      a.shots?.length
-        ? `PLANS (${a.shots.length}) — reproduis ce mouvement (n'ajoute PAS de zoom sur un plan static) :\n${a.shots.map((s) => `  #${s.index} [${s.startSec}–${s.endSec}s · ${s.durationSec}s] ${s.motion}${s.motion !== "static" ? ` (intensité ${s.motionIntensity})` : ""}`).join("\n")}`
+      // Mouvement : UN SEUL champ consolidé. Si Gemini a regardé la vidéo, c'est LUI
+      // qui fait autorité sur le TYPE de mouvement (bloc CONTENU DES PLANS ci-dessous,
+      // enrichi de l'intensité MESURÉE ffmpeg) → on masque ce bloc mesuré. Sinon (pas
+      // de compréhension), on retombe sur la mesure ffmpeg (type + intensité).
+      a.shots?.length && !a.comprehension
+        ? `PLANS mesurés (${a.shots.length}) — type ffmpeg (approx) + intensité :\n${a.shots.map((s) => `  #${s.index} [${s.startSec}–${s.endSec}s · ${s.durationSec}s] ${s.motion}${s.motion !== "static" ? ` (intensité ${s.motionIntensity})` : ""}`).join("\n")}`
         : null,
       a.color ? `Colorimétrie réf (mesure 0-1) : saturation ${a.color.saturation} · luminosité ${a.color.brightness} · ${a.color.warmCold}${a.color.bw ? " · N&B" : ""}${matColor ? ` | ta matière : sat ${matColor.saturation} · lum ${matColor.brightness} · ${matColor.warmCold}` : ""}\n  → gradeSuggested [${gsBasis}] — passe-le TEL QUEL à create_variant.grade : { saturation: ${gsSat}, contrast: 1, brightness: ${gsBri}, temperature: ${gsTemp} }` : null,
       a.audio && (a.audio.bpm || allBeats.length)
