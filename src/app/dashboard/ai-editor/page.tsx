@@ -104,6 +104,8 @@ export default function AiEditorPage() {
   // Matière
   const [materials, setMaterials] = useState<Material[]>([]);
   const matInput = useRef<HTMLInputElement | null>(null);
+  const [matDragOver, setMatDragOver] = useState(false); // glisser-déposer matière
+  const [refDragOver, setRefDragOver] = useState(false); // glisser-déposer référence
 
   // Projet persistant (créé à l'analyse de la réf ; restauré au chargement)
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -388,12 +390,13 @@ export default function AiEditorPage() {
               <>
                 <div
                   onClick={() => refInput.current?.click()}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => { e.preventDefault(); addRef(e.dataTransfer.files?.[0]); }}
-                  className="cursor-pointer rounded-xl border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] p-8 text-center transition hover:border-indigo-400/50"
+                  onDragOver={(e) => { e.preventDefault(); if (!refDragOver) setRefDragOver(true); }}
+                  onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setRefDragOver(false); }}
+                  onDrop={(e) => { e.preventDefault(); setRefDragOver(false); addRef(e.dataTransfer.files?.[0]); }}
+                  className={`cursor-pointer rounded-xl border border-dashed p-8 text-center transition ${refDragOver ? "border-indigo-400 bg-indigo-400/10" : "border-[var(--app-border-strong)] bg-[var(--app-surface)] hover:border-indigo-400/50"}`}
                 >
-                  <div className="text-base font-semibold text-[var(--app-text)]">Dépose la vidéo de référence</div>
-                  <div className="mt-1 text-[13px] text-[var(--app-text-faint)]">MP4, MOV — ou colle un lien ci-dessous</div>
+                  <div className="text-base font-semibold text-[var(--app-text)]">{refDragOver ? "Dépose pour analyser" : "Glisse-dépose la vidéo de référence"}</div>
+                  <div className="mt-1 text-[13px] text-[var(--app-text-faint)]">MP4, MOV — glisser-déposer ou cliquer · ou colle un lien ci-dessous</div>
                 </div>
                 <div className="my-6 text-center text-[12px] tracking-wider text-[var(--app-text-faint)]">— OU —</div>
                 <div className="flex gap-2.5">
@@ -508,9 +511,14 @@ export default function AiEditorPage() {
 
       {/* ============ ÉTAPE 2 · MATIÈRE ============ */}
       {step === "material" && (
-        <section className="max-w-4xl px-6 pt-2 pb-10">
+        <section
+          className="max-w-4xl px-6 pt-2 pb-10"
+          onDragOver={(e) => { e.preventDefault(); if (!matDragOver) setMatDragOver(true); }}
+          onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setMatDragOver(false); }}
+          onDrop={(e) => { e.preventDefault(); setMatDragOver(false); if (e.dataTransfer.files?.length) addMaterials(e.dataTransfer.files); }}
+        >
           <p className="mb-6 max-w-[64ch] text-sm text-[var(--app-text-muted)]">
-            Ajoute <b className="text-[var(--app-text)]">ta matière première</b> : tes rushes, images, plans produit… Pour chaque fichier, écris une{" "}
+            Ajoute <b className="text-[var(--app-text)]">ta matière première</b> : tes rushes, images, plans produit… <b className="text-[var(--app-text)]">Glisse-dépose</b> tes fichiers ici (ou clique). Pour chacun, écris une{" "}
             <b className="text-[var(--app-text)]">description</b> — c&apos;est le contexte que l&apos;IA utilisera pour bien placer chaque élément.
           </p>
 
@@ -552,9 +560,12 @@ export default function AiEditorPage() {
             ))}
             <button
               onClick={() => matInput.current?.click()}
-              className="grid min-h-[150px] place-items-center rounded-2xl border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] text-[13px] text-[var(--app-text-muted)] transition hover:border-indigo-400/50"
+              className={`grid min-h-[150px] place-items-center rounded-2xl border border-dashed text-[13px] transition ${matDragOver ? "border-indigo-400 bg-indigo-400/10 text-[var(--app-text)]" : "border-[var(--app-border-strong)] bg-[var(--app-surface)] text-[var(--app-text-muted)] hover:border-indigo-400/50"}`}
             >
-              + Ajouter un fichier
+              <div className="text-center">
+                <div className="font-medium">{matDragOver ? "Dépose tes fichiers ici" : "+ Ajouter un fichier"}</div>
+                <div className="mt-1 text-[11px] text-[var(--app-text-faint)]">glisser-déposer ou cliquer</div>
+              </div>
             </button>
           </div>
 

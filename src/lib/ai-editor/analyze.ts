@@ -22,6 +22,8 @@ import { sceneScores } from "@/lib/studio/analysis";
 import { transcribeViaGroq, isGroqAvailable } from "./transcribe-groq";
 import { analyzeShots, analyzeColor, analyzeAudioBeats } from "./ref-profile";
 import type { Shot, ColorProfile, AudioProfile } from "./ref-profile";
+import { analyzeReferenceWithGemini, isGeminiAvailable } from "./gemini";
+import type { GeminiComprehension } from "./gemini";
 
 export type Keyframe = { t: number; dataUri: string };
 
@@ -39,6 +41,7 @@ export type ReferenceAnalysis = {
   shots: Shot[];           // plans : timecodes, durée, mouvement, 2 frames
   color: ColorProfile;     // colorimétrie moyenne
   audio: AudioProfile;     // beats / bpm / énergie / type
+  comprehension: GeminiComprehension | null; // couche « compréhension » (Gemini regarde la vidéo)
   notes: string[];         // messages de dégradation douce (ex. transcript indispo)
 };
 
@@ -96,6 +99,17 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
   const notes: string[] = [];
   const meta = await probe(videoPath);
 
+  // Couche COMPRÉHENSION (Gemini regarde la vidéo) — lancée EN PARALLÈLE des
+  // mesures ci-dessous, best-effort. Sans GEMINI_API_KEY → null (dégradation douce).
+  // Plafond global (200s) : si Gemini traîne, on rend le profil SANS lui plutôt que
+  // de faire échouer toute l'analyse (la route a un budget de 300s).
+  const comprehensionP: Promise<GeminiComprehension | null> = isGeminiAvailable()
+    ? Promise.race([
+        analyzeReferenceWithGemini(videoPath).catch(() => null),
+        new Promise<null>((r) => setTimeout(() => r(null), 200_000)),
+      ])
+    : Promise.resolve(null);
+
   // Rythme (coupes) — best-effort.
   let sceneCuts: number[] = [];
   try {
@@ -152,6 +166,14 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
     ? Math.round((meta.durationSec / (sceneCuts.length + 1)) * 100) / 100
     : null;
 
+  // On récupère la compréhension (déjà en cours en parallèle).
+  const comprehension = await comprehensionP;
+  if (!comprehension) {
+    notes.push(isGeminiAvailable()
+      ? "Compréhension vidéo (Gemini) indisponible cette fois — profil basé sur les mesures + keyframes."
+      : "Compréhension vidéo (Gemini) désactivée (pas de GEMINI_API_KEY) — captions/contenu des plans non lus.");
+  }
+
   return {
     ...meta,
     keyframes,
@@ -162,6 +184,7 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
     shots,
     color,
     audio,
+    comprehension,
     notes,
   };
 }

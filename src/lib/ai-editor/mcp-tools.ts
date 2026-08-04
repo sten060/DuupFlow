@@ -226,6 +226,34 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       gsTemp = warmVal(a.color.warmCold) * 0.2;
       gsBasis = "approx (matière non mesurée)";
     }
+    // Couche COMPRÉHENSION (Gemini a REGARDÉ la vidéo) : captions lues à l'écran +
+    // contenu des plans + pourquoi ça marche. Valeurs déjà en unités create_variant.
+    const comp = a.comprehension;
+    let compBlock: string | null = null;
+    if (comp) {
+      const parts: string[] = [];
+      if (comp.captions.length) {
+        parts.push(
+          `CAPTIONS DU MODÈLE (${comp.captions.length}) — LUES à l'écran, prêtes à passer TEL QUEL à create_variant.captions (mêmes unités) :\n` +
+          comp.captions.map((c, i) =>
+            `  ${i + 1}. « ${c.text} »${c.emojis ? ` ${c.emojis}` : ""}\n` +
+            `     [${c.startSec}–${c.endSec}s] · x ${c.xPct}% · y ${c.yPct}% · fontSize ${c.fontSizePx} · font "${c.font}" · color ${c.color}` +
+            `${c.hasStroke ? ` · contour ${c.strokeWidthPx}px` : " · sans contour"} · background ${c.background}`,
+          ).join("\n"),
+        );
+      } else {
+        parts.push("CAPTIONS DU MODÈLE : aucun texte incrusté détecté.");
+      }
+      if (comp.shots.length) {
+        parts.push(
+          `CONTENU DES PLANS (vu par la compréhension) :\n` +
+          comp.shots.map((s) => `  [${s.startSec}–${s.endSec}s · ${s.motion}] ${s.content}`).join("\n"),
+        );
+      }
+      if (comp.emojisOverall) parts.push(`Emojis marquants : ${comp.emojisOverall}`);
+      if (comp.whyItWorks) parts.push(`POURQUOI ÇA MARCHE : ${comp.whyItWorks}`);
+      compBlock = parts.join("\n");
+    }
     const lines = [
       `RÉFÉRENCE : ${ref.label} (${ref.source})`,
       `Durée : ${a.durationSec.toFixed(1)}s · ${a.width}×${a.height} · ${a.fps} fps · audio: ${a.hasAudio ? "oui" : "non"}`,
@@ -242,8 +270,10 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       phrases.length
         ? `Transcription horodatée :\n${phrases.slice(0, 50).map((p) => `  [${p.startSec.toFixed(1)}–${p.endSec.toFixed(1)}s] ${p.text}`).join("\n")}`
         : a.transcript ? `Transcription : ${a.transcript.fullText}` : "Transcription : indisponible (analyse visuelle).",
+      compBlock ? "" : null,
+      compBlock,
       "",
-      `Images clés ci-dessous (${Math.min(a.keyframes.length, N_IMG)}/${a.keyframes.length}) — observe le hook, le cadrage, le texte à l'écran, le style. La taille (Ko) est indiquée pour diagnostic : si tu vois « 0 Ko », l'extraction est vide ; si >0 mais image vide chez toi, c'est ton client qui la jette.`,
+      `Images clés ci-dessous (${Math.min(a.keyframes.length, N_IMG)}/${a.keyframes.length}) — ${compBlock ? "les captions/plans ci-dessus sont MESURÉS (fie-toi à eux) ; les images confirment le style." : "observe le hook, le cadrage, le texte à l'écran, le style."} La taille (Ko) est indiquée pour diagnostic : si tu vois « 0 Ko », l'extraction est vide ; si >0 mais image vide chez toi, c'est ton client qui la jette.`,
     ].filter(Boolean);
     const content: Content[] = [{ type: "text", text: lines.join("\n") }];
     for (const kf of a.keyframes.slice(0, N_IMG)) {
