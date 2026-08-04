@@ -10,6 +10,18 @@ import type { Project } from "./store";
 import { renderVariant, variantKeyframes, materialKeyframes } from "./render";
 import type { EditPlan } from "./render";
 import { analyzeColor } from "./ref-profile";
+import { checkUsageForUser, incrementUsage } from "@/lib/usage";
+
+// Garde-fou quota : chaque rendu de variante (create_variant / update_variant)
+// compte comme UNE « vidéo » (le user paie SON Claude, DuupFlow facture le RENDU).
+// Pro = illimité. Sans ça, un Claude connecté rendrait des vidéos sans fin.
+async function guardVariantQuota(userId: string): Promise<Content | null> {
+  const usage = await checkUsageForUser(userId, "videos", 1).catch(() => null);
+  if (usage && !usage.allowed) {
+    return { type: "text", text: `⛔ Quota atteint : ${usage.message ?? "limite de vidéos du plan atteinte."} Le rendu est bloqué tant que le user (ou son hôte) n'a pas plus de quota / un plan supérieur.` };
+  }
+  return null; // autorisé (ou vérif indisponible → on ne bloque pas un render légitime)
+}
 
 const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -396,6 +408,25 @@ export async function callTool(userId: string, name: string, args?: Record<strin
           }).join("\n"),
         );
       }
+      if (comp.cuts?.length) {
+        // Croisement AUDIO (point 4) : un pic d'énergie/drop PILE sur une coupe indique
+        // presque toujours un whoosh/impact → plutôt whipPan/zoomPunch qu'un cut sec.
+        const drops = a.audio?.drops ?? [];
+        const audioHit = (t: number): boolean => drops.some((d) => Math.abs(d.t - t) <= 0.2 && (d.type === "hit" || d.type === "drop") && d.intensity >= 0.4);
+        parts.push(
+          `TRANSITIONS PAR COUPE — nature détectée sur des bandes de vignettes (±0,3s), en unités create_variant (→ segments[].transition du plan qui SUIT la coupe) :\n` +
+          comp.cuts.map((c) => {
+            const conf = c.confidence < 0.5 ? ` · ⚠ confiance ${c.confidence}` : "";
+            const dur = c.durationSec > 0 ? `, durée ${c.durationSec}s` : "";
+            if (c.transition === "other") {
+              return `  @${c.t}s : ⧉ NON REPRODUCTIBLE (pas encore au moteur)${conf}\n      vu : « ${c.unmatched || "?"} »`;
+            }
+            const hint = audioHit(c.t) && (c.transition === "cut" || c.confidence < 0.6)
+              ? ` · 🔊 pic audio sur la coupe → penche pour whipPan/zoomPunch (whoosh/impact)` : "";
+            return `  @${c.t}s : ${c.transition} (intensité ${c.intensity}${dur}) → transition="${c.transition}"${conf}${hint}`;
+          }).join("\n"),
+        );
+      }
       if (comp.emojisOverall) parts.push(`Emojis marquants : ${comp.emojisOverall}`);
       if (comp.duckingPresent) parts.push(`🎚 DUCKING détecté : la musique baisse quand une voix parle → pose audio.duck: true (ou { reduction, attack, release }) quand tu mets une musique sur des plans qui parlent.`);
       if (comp.whyItWorks) parts.push(`POURQUOI ÇA MARCHE : ${comp.whyItWorks}`);
@@ -488,8 +519,11 @@ export async function callTool(userId: string, name: string, args?: Record<strin
   if (name === "create_variant") {
     if (!project.reference) return { content: [{ type: "text", text: "Ajoute d'abord une référence." }], isError: true };
     if (!project.materials.length) return { content: [{ type: "text", text: "Aucune matière : le user doit ajouter des fichiers dans DuupFlow." }], isError: true };
+    const blocked = await guardVariantQuota(userId);
+    if (blocked) return { content: [blocked], isError: true };
     const res = await renderVariant(userId, project.id, (args ?? {}) as unknown as EditPlan);
     if ("error" in res) return { content: [{ type: "text", text: `Rendu impossible : ${res.error}` }], isError: true };
+    await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → compté
     const v = res.variant;
     const content: Content[] = [{
       type: "text",
@@ -587,8 +621,11 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       const n = project.variants.filter((x) => String(x.label ?? "").replace(/\s*\(v\d+\)\s*$/, "") === base).length + 1;
       merged.label = `${base} (v${n})`;
     }
+    const blocked = await guardVariantQuota(userId);
+    if (blocked) return { content: [blocked], isError: true };
     const res = await renderVariant(userId, project.id, merged, { derivedFrom: v.id });
     if ("error" in res) return { content: [{ type: "text", text: `Mise à jour impossible : ${res.error}` }], isError: true };
+    await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → compté
     const nv = res.variant;
     const content: Content[] = [{ type: "text", text: `✅ Mise à jour → NOUVELLE variante « ${nv.label || nv.id} » (id ${nv.id}) · durée ${res.durationSec}s. Images du rendu :` }];
     for (const kf of res.keyframes) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }

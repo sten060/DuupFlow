@@ -22,7 +22,7 @@ import { sceneScores } from "@/lib/studio/analysis";
 import { transcribeViaGroq, isGroqAvailable } from "./transcribe-groq";
 import { analyzeShots, analyzeColor, analyzeAudioBeats } from "./ref-profile";
 import type { Shot, ColorProfile, AudioProfile } from "./ref-profile";
-import { analyzeReferenceWithGemini, isGeminiAvailable } from "./gemini";
+import { analyzeReferenceWithGemini, isGeminiAvailable, type CutStrip } from "./gemini";
 import type { GeminiComprehension } from "./gemini";
 
 export type Keyframe = { t: number; dataUri: string };
@@ -61,6 +61,25 @@ async function probe(videoPath: string): Promise<{ durationSec: number; width: n
     fps: fpsM ? Math.round(parseFloat(fpsM[1]) * 100) / 100 : 0,
     hasAudio,
   };
+}
+
+/** Bande de 6 vignettes sur ±0,3s AUTOUR d'une coupe (une image, gauche→droite =
+ *  avant→après) → base64 JPEG. Montre à Gemini la transition qu'un échantillonnage
+ *  à 2 img/s ne capte pas. null si l'extraction échoue. */
+async function cutStrip(videoPath: string, t: number, dir: string, i: number): Promise<CutStrip | null> {
+  const out = path.join(dir, `cut_${i}.jpg`);
+  const start = Math.max(0, t - 0.3);
+  const { code } = await runFFmpeg(
+    ["-hide_banner", "-loglevel", "error", "-ss", start.toFixed(3), "-t", "0.6", "-i", videoPath,
+      "-vf", "fps=10,scale=240:-1,tile=6x1", "-frames:v", "1", "-q:v", "5", out],
+    30_000,
+  );
+  if (code !== 0) return null;
+  try {
+    const b = await fs.readFile(out);
+    if (!b.length) return null;
+    return { t: Math.round(t * 100) / 100, b64: b.toString("base64") };
+  } catch { return null; }
 }
 
 /** Durée d'un média en secondes (léger, via ffmpeg -i). 0 si indéterminée.
@@ -107,24 +126,37 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
   const notes: string[] = [];
   const meta = await probe(videoPath);
 
-  // Couche COMPRÉHENSION (Gemini regarde la vidéo) — lancée EN PARALLÈLE des
-  // mesures ci-dessous, best-effort. Sans GEMINI_API_KEY → null (dégradation douce).
-  // Plafond global (200s) : si Gemini traîne, on rend le profil SANS lui plutôt que
-  // de faire échouer toute l'analyse (la route a un budget de 300s).
-  const comprehensionP: Promise<GeminiComprehension | null> = isGeminiAvailable()
-    ? Promise.race([
-        analyzeReferenceWithGemini(videoPath).catch(() => null),
-        new Promise<null>((r) => setTimeout(() => r(null), 200_000)),
-      ])
-    : Promise.resolve(null);
-
-  // Rythme (coupes) — best-effort.
+  // Rythme (coupes) — best-effort. Calculé AVANT Gemini : ses timecodes servent à
+  // extraire des bandes de vignettes autour de chaque coupe (détection des transitions).
   let sceneCuts: number[] = [];
   try {
     sceneCuts = (await sceneScores(videoPath, 0.3)).map((s) => Math.round(s.t * 100) / 100);
   } catch {
     notes.push("Détection de coupes indisponible (rythme approximatif).");
   }
+
+  // Bandes de coupes pour Gemini (±0,3s, 6 vignettes) — montrent la NATURE des
+  // transitions (un cut de 0,2s n'apparaît pas à 2 img/s). ~qq ffmpeg rapides.
+  let cutStrips: CutStrip[] = [];
+  if (isGeminiAvailable() && sceneCuts.length) {
+    const sdir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_cut_"));
+    try {
+      const picks = sceneCuts.filter((t) => t > 0.15 && t < meta.durationSec - 0.15).slice(0, 16);
+      cutStrips = (await Promise.all(picks.map((t, i) => cutStrip(videoPath, t, sdir, i)))).filter((s): s is CutStrip => !!s);
+    } catch { /* best-effort */ }
+    finally { await fs.rm(sdir, { recursive: true, force: true }).catch(() => {}); }
+  }
+
+  // Couche COMPRÉHENSION (Gemini regarde la vidéo + les bandes de coupes) — lancée
+  // EN PARALLÈLE des mesures ci-dessous, best-effort. Sans GEMINI_API_KEY → null.
+  // Plafond global (200s) : si Gemini traîne, on rend le profil SANS lui plutôt que
+  // de faire échouer toute l'analyse (la route a un budget de 300s).
+  const comprehensionP: Promise<GeminiComprehension | null> = isGeminiAvailable()
+    ? Promise.race([
+        analyzeReferenceWithGemini(videoPath, cutStrips).catch(() => null),
+        new Promise<null>((r) => setTimeout(() => r(null), 200_000)),
+      ])
+    : Promise.resolve(null);
 
   // Transcript — Groq Whisper d'abord (prod), repli sur whisper LOCAL (dev).
   let transcript: ReferenceAnalysis["transcript"] = null;

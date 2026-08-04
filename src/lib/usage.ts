@@ -47,13 +47,13 @@ export async function checkUsage(
   type: UsageType,
   requestedCount = 1
 ): Promise<UsageCheck> {
-  const t = await getServerT();
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
+    const t = await getServerT();
     return {
       allowed: false,
       userId: null,
@@ -64,19 +64,33 @@ export async function checkUsage(
     };
   }
 
+  return checkUsageForUser(user.id, type, requestedCount);
+}
+
+/**
+ * Même contrôle de quota que checkUsage mais avec un userId EXPLICITE (pas de
+ * cookie de session). Indispensable pour les chemins authentifiés par Bearer
+ * token (API/MCP de l'Éditeur IA) où supabase.auth.getUser() ne renvoie rien.
+ */
+export async function checkUsageForUser(
+  userId: string,
+  type: UsageType,
+  requestedCount = 1
+): Promise<UsageCheck> {
+  const t = await getServerT();
   const admin = createAdminClient();
 
   // Fetch profile — handle guest users (inherit host plan)
   const { data: profile } = await admin
     .from("profiles")
     .select("plan, has_paid, is_guest, host_user_id, payment_overdue")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   if (!profile) {
     return {
       allowed: false,
-      userId: user.id,
+      userId,
       plan: null,
       current: 0,
       limit: 0,
@@ -120,7 +134,7 @@ export async function checkUsage(
   if (effectivePlan === "pro") {
     return {
       allowed: true,
-      userId: user.id,
+      userId,
       plan: effectivePlan,
       current: 0,
       limit: Infinity,
@@ -136,7 +150,7 @@ export async function checkUsage(
   const { data: usage } = await admin
     .from("usage_tracking")
     .select("images_count, videos_count, ai_signatures_count, period_start")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
 
   let current = (usage as any)?.[column] ?? 0;
@@ -157,7 +171,7 @@ export async function checkUsage(
           period_start: newStart.toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
     }
   }
 
@@ -173,7 +187,7 @@ export async function checkUsage(
         : t("errors.quota.upgradeHintSolo");
     return {
       allowed: false,
-      userId: user.id,
+      userId,
       plan: effectivePlan,
       current,
       limit,
@@ -188,7 +202,7 @@ export async function checkUsage(
 
   return {
     allowed: true,
-    userId: user.id,
+    userId,
     plan: effectivePlan,
     current,
     limit,

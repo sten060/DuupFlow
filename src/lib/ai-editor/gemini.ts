@@ -58,14 +58,28 @@ export type GeminiCaption = {
   glow: string;          // effet néon : couleur hex du halo, "none" si aucun
 };
 
+// Une COUPE analysée sur une bande de vignettes (±0,3s), en unités create_variant.
+export type GeminiCut = {
+  t: number;                       // timecode de la coupe (s)
+  transition: "cut" | "fade" | "whipPan" | "slide" | "zoomPunch" | "flash" | "glitch" | "other"; // enum FERMÉ (= create_variant) ; "other" = non reproductible
+  durationSec: number;             // durée estimée de la transition (s)
+  intensity: number;               // 0-1
+  unmatched: string;               // si "other" : ce que Gemini a vu, en texte libre (roadmap) ; sinon ""
+  confidence: number;              // 0-1 : confiance dans le classement
+};
+
 export type GeminiComprehension = {
   whyItWorks: string;
   shots: GeminiShot[];
   captions: GeminiCaption[];
+  cuts: GeminiCut[];               // transitions PAR COUPE (bandes de vignettes)
   emojisOverall: string;
   duckingPresent: boolean;         // la musique baisse-t-elle quand une voix parle (ducking) ?
   model: string;
 };
+
+// Vignettes-bandes autour des coupes, fournies par l'appelant (analyze.ts).
+export type CutStrip = { t: number; b64: string }; // b64 = JPEG (bande de 6 vignettes)
 
 export function geminiKey(): string | null {
   return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || null;
@@ -142,6 +156,21 @@ const SCHEMA = {
         required: ["text", "startSec", "endSec", "xPct", "yPct", "fontSizePx", "color", "font"],
       },
     },
+    cuts: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          t: { type: "NUMBER" },
+          transition: { type: "STRING", enum: ["cut", "fade", "whipPan", "slide", "zoomPunch", "flash", "glitch", "other"] },
+          durationSec: { type: "NUMBER" },
+          intensity: { type: "NUMBER" },
+          unmatched: { type: "STRING" },
+          confidence: { type: "NUMBER" },
+        },
+        required: ["t", "transition", "durationSec", "intensity", "unmatched", "confidence"],
+      },
+    },
     emojisOverall: { type: "STRING" },
     duckingPresent: { type: "BOOLEAN" },
   },
@@ -168,11 +197,19 @@ Objectif : décrire la STRUCTURE et le STYLE, pas raconter le contenu. Sois pré
    - glow : si la caption a un effet NÉON / halo lumineux coloré autour du texte, donne sa couleur hex (#RRGGBB) ; sinon "none".
    S'il n'y a AUCUN texte incrusté, renvoie captions: [].
 
-3) emojisOverall : les emojis marquants de la vidéo en général ("" si aucun).
+3) cuts : la NATURE de chaque transition, à partir des BANDES DE COUPES fournies (une bande = 6 vignettes gauche→droite couvrant ±0,3s autour d'une coupe). Rends UNE entrée par bande, avec le "t" exact donné. Pour chaque coupe :
+   - transition : UNE valeur parmi EXACTEMENT cette liste (ce sont les seuls effets reproductibles) : cut (coupe sèche, l'image change d'un coup sans effet), fade (fondu enchaîné progressif entre les 2 plans), whipPan (filé de caméra flou horizontal/vertical, souvent avec un whoosh), slide (un plan pousse l'autre par glissement), zoomPunch (coupe avec un à-coup de zoom), flash (l'image passe brièvement au blanc ou noir sur la coupe), glitch (déchirures numériques, décalage de couleurs, bruit bref). Si la bande montre clairement une transition qui n'entre dans AUCUNE de ces cases, mets transition="other".
+   - durationSec : durée estimée de la transition (0 pour un cut sec ; 0,1-0,4 typique sinon).
+   - intensity : 0-1 (force de l'effet).
+   - unmatched : SI transition="other", décris en une phrase ce que tu as vu (sinon ""). Ce champ sert à mesurer les effets à ajouter au moteur.
+   - confidence : 0-1, ta confiance dans le classement (mets bas si la bande est ambiguë).
+   S'il n'y a aucune bande fournie, renvoie cuts: [].
 
-4) duckingPresent : true si la MUSIQUE de fond BAISSE nettement quand quelqu'un PARLE (voix off / dialogue) puis remonte quand la voix s'arrête (ducking). false si la musique reste au même niveau, ou s'il n'y a pas de musique, ou pas de voix.
+5) emojisOverall : les emojis marquants de la vidéo en général ("" si aucun).
 
-5) whyItWorks : 2-3 phrases — pourquoi ce format accroche (hook, rythme, promesse, structure). Actionnable.`;
+6) duckingPresent : true si la MUSIQUE de fond BAISSE nettement quand quelqu'un PARLE (voix off / dialogue) puis remonte quand la voix s'arrête (ducking). false si la musique reste au même niveau, ou s'il n'y a pas de musique, ou pas de voix.
+
+7) whyItWorks : 2-3 phrases — pourquoi ce format accroche (hook, rythme, promesse, structure). Actionnable.`;
 
 async function gfetch(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   return fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
@@ -217,7 +254,7 @@ async function listCandidateModels(key: string): Promise<string[]> {
  * Analyse la vidéo de référence avec Gemini (couche compréhension).
  * Best-effort : renvoie null si pas de clé / échec / timeout.
  */
-export async function analyzeReferenceWithGemini(videoPath: string): Promise<GeminiComprehension | null> {
+export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: CutStrip[] = []): Promise<GeminiComprehension | null> {
   const key = geminiKey();
   if (!key) return null;
   // Défaut = gemini-2.0-flash (GA, largement dispo, vidéo). Certaines clés n'ont pas
@@ -280,11 +317,25 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
 
     // 4) generateContent (sortie structurée + fps élevé) — avec REPLI auto si le
     //    modèle est indisponible pour cette clé (404, ex. gemini-2.5-flash).
+    // Bandes de vignettes AUTOUR des coupes (±0,3s, 6 vignettes gauche→droite). La
+    // vidéo est échantillonnée à ~2 img/s → une transition de 0,2s n'apparaît sur
+    // aucune image ; ces bandes la montrent. Envoyées en inline, une par coupe.
+    const strips = cutStrips.slice(0, 16);
+    const stripParts = strips.length
+      ? [
+          { text: `BANDES DE COUPES (${strips.length}) — chaque image est une bande de 6 vignettes prises sur ±0,3s AUTOUR d'une coupe (gauche→droite = avant→après la coupe). Sers-t'en pour remplir "cuts" : une entrée par coupe, avec le "t" donné.` },
+          ...strips.flatMap((s) => [
+            { text: `Coupe à t=${s.t}s :` },
+            { inlineData: { mimeType: "image/jpeg", data: s.b64 } },
+          ]),
+        ]
+      : [];
     const buildBody = (m: string) => ({
       contents: [{
         role: "user",
         parts: [
           { fileData: { mimeType: fileMime, fileUri: uri }, videoMetadata: { fps } },
+          ...stripParts,
           { text: PROMPT },
         ],
       }],
@@ -402,12 +453,27 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
       glow: String((c as { glow?: string })?.glow ?? "none").slice(0, 9),
     })) : [];
 
-    console.log(`[ai-editor/gemini] OK · model=${usedModel} · tokens in=${u?.promptTokenCount ?? "?"} out=${u?.candidatesTokenCount ?? "?"} total=${u?.totalTokenCount ?? "?"} · ${captions.length} caption(s), ${shots.length} plan(s)`);
+    const TRANS = ["cut", "fade", "whipPan", "slide", "zoomPunch", "flash", "glitch", "other"] as const;
+    const cuts: GeminiCut[] = Array.isArray(parsed.cuts) ? parsed.cuts.slice(0, 16).map((c) => {
+      const tr = (TRANS as readonly string[]).includes(String((c as { transition?: string })?.transition)) ? ((c as { transition?: string }).transition as GeminiCut["transition"]) : "cut";
+      return {
+        t: Math.round(clamp((c as { t?: number })?.t, 0, 100000, 0) * 100) / 100,
+        transition: tr,
+        durationSec: Math.round(clamp((c as { durationSec?: number })?.durationSec, 0, 5, 0) * 100) / 100,
+        intensity: Math.round(clamp((c as { intensity?: number })?.intensity, 0, 1, 0.5) * 100) / 100,
+        unmatched: tr === "other" ? String((c as { unmatched?: string })?.unmatched ?? "").slice(0, 200) : "",
+        confidence: Math.round(clamp((c as { confidence?: number })?.confidence, 0, 1, 0.5) * 100) / 100,
+      };
+    }) : [];
+    const nUnmatched = cuts.filter((c) => c.transition === "other").length;
+
+    console.log(`[ai-editor/gemini] OK · model=${usedModel} · tokens in=${u?.promptTokenCount ?? "?"} out=${u?.candidatesTokenCount ?? "?"} total=${u?.totalTokenCount ?? "?"} · ${captions.length} caption(s), ${shots.length} plan(s), ${cuts.length} coupe(s)${nUnmatched ? ` (${nUnmatched} non reproductible·s → roadmap)` : ""}`);
 
     return {
       whyItWorks: String(parsed.whyItWorks ?? "").slice(0, 1000),
       shots,
       captions,
+      cuts,
       emojisOverall: String(parsed.emojisOverall ?? ""),
       duckingPresent: !!(parsed as { duckingPresent?: boolean })?.duckingPresent,
       model: usedModel,
