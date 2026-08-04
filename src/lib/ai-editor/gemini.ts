@@ -134,6 +134,27 @@ async function gfetch(url: string, init: RequestInit, timeoutMs: number): Promis
   return fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
 }
 
+/** Repli : liste les modèles RÉELLEMENT disponibles pour cette clé et choisit un
+ *  « flash » qui supporte generateContent (video-capable). Robuste quel que soit
+ *  l'accès du compte (certaines clés n'ont pas gemini-2.5-flash → 404). */
+async function pickAvailableModel(key: string): Promise<string | null> {
+  try {
+    const r = await gfetch(`${API}/v1beta/models?key=${key}`, { method: "GET" }, 20_000);
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => null) as { models?: { name?: string; supportedGenerationMethods?: string[] }[] } | null;
+    const names = (j?.models ?? [])
+      .filter((m) => m.name && (m.supportedGenerationMethods ?? []).includes("generateContent"))
+      .map((m) => m.name!.replace(/^models\//, ""));
+    return (
+      names.find((n) => /^gemini-2\.\d+-flash$/.test(n)) ||                       // gemini-2.0-flash, 2.5-flash…
+      names.find((n) => /flash/.test(n) && !/(vision|thinking|preview|exp|lite)/.test(n)) ||
+      names.find((n) => /flash/.test(n)) ||
+      names.find((n) => /gemini/.test(n)) ||
+      names[0] || null
+    );
+  } catch { return null; }
+}
+
 /**
  * Analyse la vidéo de référence avec Gemini (couche compréhension).
  * Best-effort : renvoie null si pas de clé / échec / timeout.
@@ -141,7 +162,9 @@ async function gfetch(url: string, init: RequestInit, timeoutMs: number): Promis
 export async function analyzeReferenceWithGemini(videoPath: string): Promise<GeminiComprehension | null> {
   const key = geminiKey();
   if (!key) return null;
-  const model = process.env.AI_EDITOR_GEMINI_MODEL || "gemini-2.5-flash";
+  // Défaut = gemini-2.0-flash (GA, largement dispo, vidéo). Certaines clés n'ont pas
+  // 2.5-flash (404) → repli auto via pickAvailableModel plus bas.
+  const model = process.env.AI_EDITOR_GEMINI_MODEL || "gemini-2.0-flash";
   const fps = Math.max(1, Math.min(10, Number(process.env.AI_EDITOR_GEMINI_FPS) || 2));
 
   try {
@@ -197,29 +220,40 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
     }
     if (state !== "ACTIVE") { console.warn("[ai-editor/gemini] fichier non ACTIVE:", state); return null; }
 
-    // 4) generateContent avec sortie structurée + échantillonnage fps élevé.
-    const genRes = await gfetch(`${API}/v1beta/models/${model}:generateContent?key=${key}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          role: "user",
-          parts: [
-            { fileData: { mimeType: fileMime, fileUri: uri }, videoMetadata: { fps } },
-            { text: PROMPT },
-          ],
-        }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: SCHEMA,
-          temperature: 0.2,
-          maxOutputTokens: 8192,
-          // 2.5-flash « réfléchit » par défaut et consomme le budget de sortie →
-          // on le coupe pour réserver tous les tokens au JSON (évite la troncature).
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
+    // 4) generateContent (sortie structurée + fps élevé) — avec REPLI auto si le
+    //    modèle est indisponible pour cette clé (404, ex. gemini-2.5-flash).
+    const buildBody = (m: string) => ({
+      contents: [{
+        role: "user",
+        parts: [
+          { fileData: { mimeType: fileMime, fileUri: uri }, videoMetadata: { fps } },
+          { text: PROMPT },
+        ],
+      }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: SCHEMA,
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+        // thinkingConfig n'existe QUE sur 2.5+ (l'envoyer à 2.0-flash = 400). Sur
+        // 2.5 on coupe le thinking pour réserver tous les tokens au JSON.
+        ...(/2\.5|thinking/.test(m) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+      },
+    });
+    const runGen = (m: string) => gfetch(`${API}/v1beta/models/${m}:generateContent?key=${key}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildBody(m)),
     }, 150_000);
+
+    let usedModel = model;
+    let genRes = await runGen(model);
+    if (genRes.status === 404) {
+      const alt = await pickAvailableModel(key);
+      if (alt && alt !== model) {
+        console.warn(`[ai-editor/gemini] modèle "${model}" indisponible (404) → repli sur "${alt}"`);
+        usedModel = alt;
+        genRes = await runGen(alt);
+      }
+    }
     if (!genRes.ok) {
       console.warn("[ai-editor/gemini] generateContent KO:", genRes.status, (await genRes.text().catch(() => "")).slice(0, 200));
       return null;
@@ -265,14 +299,14 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
       emojis: String(c?.emojis ?? ""),
     })) : [];
 
-    console.log(`[ai-editor/gemini] OK · tokens in=${u?.promptTokenCount ?? "?"} out=${u?.candidatesTokenCount ?? "?"} total=${u?.totalTokenCount ?? "?"} · ${captions.length} caption(s), ${shots.length} plan(s)`);
+    console.log(`[ai-editor/gemini] OK · model=${usedModel} · tokens in=${u?.promptTokenCount ?? "?"} out=${u?.candidatesTokenCount ?? "?"} total=${u?.totalTokenCount ?? "?"} · ${captions.length} caption(s), ${shots.length} plan(s)`);
 
     return {
       whyItWorks: String(parsed.whyItWorks ?? "").slice(0, 1000),
       shots,
       captions,
       emojisOverall: String(parsed.emojisOverall ?? ""),
-      model,
+      model: usedModel,
     };
   } catch (e) {
     console.warn("[ai-editor/gemini] analyse échouée:", (e as Error)?.message?.slice(0, 200));
