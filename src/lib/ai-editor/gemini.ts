@@ -91,7 +91,8 @@ const SCHEMA = {
           subjectY: { type: "NUMBER" },
           composition: { type: "STRING", enum: ["single", "splitH", "splitV", "pip", "overlay"] },
         },
-        required: ["startSec", "endSec", "content", "motion", "speed"],
+        // subjectX/Y/composition en REQUIRED : sinon Gemini les omet (→ toujours neutres).
+        required: ["startSec", "endSec", "content", "motion", "speed", "subjectX", "subjectY", "composition"],
       },
     },
     captions: {
@@ -125,7 +126,7 @@ const PROMPT = `Tu analyses une vidéo courte (Reel/TikTok) qui a PERFORMÉ, pou
 
 Objectif : décrire la STRUCTURE et le STYLE, pas raconter le contenu. Sois précis et mesuré, pas bavard.
 
-1) shots : découpe en plans. Pour chaque plan : startSec, endSec, content (1 phrase : ce qu'on voit / cadrage), motion = le mouvement DE CAMÉRA le plus proche parmi : none, zoomIn, zoomOut, panLeft, panRight, handheld (caméra à la main, tremblante) — ne devine pas un zoom sur un plan fixe. ET la VITESSE : speed = vitesse de lecture estimée du plan (1 = normal, 0.5 = ralenti/slow-mo, 2 = accéléré) ; hasFreeze = true s'il y a un ARRÊT SUR IMAGE (freeze), avec freezeAt = son timecode en s (dans le plan). ET le CADRAGE : subjectX/subjectY = position en % (0-100, 50/50 = centre) du SUJET principal dans le cadre — sert au monteur pour punch-in (recadrer) sur le sujet ; null si pas de sujet net (plan large/paysage). ET la COMPOSITION : composition = single (un seul média plein cadre) | splitV (2 médias empilés haut/bas) | splitH (2 médias côte à côte) | pip (petite incrustation dans un coin) | overlay (élément incrusté par-dessus, ex. écran d'app, watermark).
+1) shots : découpe en plans. Pour chaque plan : startSec, endSec, content (1 phrase : ce qu'on voit / cadrage), motion = le mouvement DE CAMÉRA le plus proche parmi : none, zoomIn, zoomOut, panLeft, panRight, handheld (caméra à la main, tremblante) — ne devine pas un zoom sur un plan fixe. ET la VITESSE : speed = vitesse de lecture estimée du plan (1 = normal, 0.5 = ralenti/slow-mo, 2 = accéléré) ; hasFreeze = true s'il y a un ARRÊT SUR IMAGE (freeze), avec freezeAt = son timecode en s (dans le plan). ET le CADRAGE : subjectX/subjectY = OBLIGATOIRE, position en % (0-100, 50/50 = centre) du SUJET / point d'intérêt principal dans le cadre — sert au monteur pour punch-in (recadrer) sur le sujet. Donne TOUJOURS une valeur, même approximative (jamais null) : si plan large sans sujet net, mets le centre d'intérêt (souvent 50/50). ET la COMPOSITION : composition = single (un seul média plein cadre) | splitV (2 médias empilés haut/bas) | splitH (2 médias côte à côte) | pip (petite incrustation dans un coin) | overlay (élément incrusté par-dessus, ex. écran d'app, watermark).
 
 2) captions : CHAQUE texte incrusté à l'écran (hook, sous-titres stylés, mots-clés animés…). Pour chacune, EXPRIME les valeurs dans ces unités exactes (celles du moteur de rendu) :
    - text : le texte exact (avec ses emojis s'il y en a).
@@ -323,7 +324,7 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
     const shots: GeminiShot[] = Array.isArray(parsed.shots) ? parsed.shots.slice(0, 40).map((s) => {
       const sf = s as unknown as { hasFreeze?: boolean; freezeAt?: number; subjectX?: number; subjectY?: number };
       const freezeAt = sf?.hasFreeze && Number.isFinite(Number(sf.freezeAt)) ? Math.round(clamp(sf.freezeAt, 0, 100000, 0) * 100) / 100 : null;
-      const subj = (v: unknown): number | null => (Number.isFinite(Number(v)) ? Math.round(clamp(v, 0, 100, 50)) : null);
+      const subj = (v: unknown): number => Math.round(clamp(v, 0, 100, 50)); // toujours un nombre (défaut 50)
       return {
         startSec: Math.round(clamp(s?.startSec, 0, 100000, 0) * 100) / 100,
         endSec: Math.round(clamp(s?.endSec, 0, 100000, 0) * 100) / 100,

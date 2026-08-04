@@ -15,7 +15,10 @@ import { TOOLS, callTool } from "@/lib/ai-editor/mcp-tools";
 import { bearerFrom, oauthUserId, wwwAuthenticate } from "@/lib/ai-editor/oauth";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// 300s : un rendu lourd (plans multiples + composites split/pip + effets vitesse +
+// captions animées) enchaîne plusieurs passes ffmpeg → 60s était trop court et
+// coupait la requête avec une erreur nue (timeout non catchable).
+export const maxDuration = 300;
 
 /** 401 avec l'en-tête qui déclenche la découverte OAuth côté Claude. */
 function needsAuth(req: Request) {

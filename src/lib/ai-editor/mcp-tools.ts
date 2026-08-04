@@ -312,7 +312,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
             const inten = mo !== "none" ? ` (intensité ${matchIntensity(s.startSec, s.endSec)})` : "";
             const sp = `vitesse ${s.speed ?? 1}×`;
             const fz = s.freezeAt != null ? `freeze @${s.freezeAt}s` : "pas de freeze";
-            const subj = s.subjectX != null && s.subjectY != null ? `sujet ${s.subjectX}%/${s.subjectY}%` : "sujet 50%/50% (n/d)";
+            const subj = `sujet ${s.subjectX ?? 50}%/${s.subjectY ?? 50}%`;
             const cp = `compo ${s.composition ?? "single"}`;
             return `  [${s.startSec}–${s.endSec}s] mouvement ${mo}${inten} · ${sp} · ${fz} · ${subj} · ${cp}\n      « ${s.content} »`;
           }).join("\n"),

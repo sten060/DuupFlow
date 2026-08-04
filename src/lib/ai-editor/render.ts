@@ -777,6 +777,9 @@ export async function renderVariant(
     return { error };
   };
 
+  // Tout le corps est enveloppé : AUCUNE exception ne remonte nue au MCP → message
+  // exploitable (préparation des plans, composite, ffmpeg…) + nettoyage garanti.
+  try {
   for (let i = 0; i < segs.length; i++) {
     const seg = segs[i];
     const mat = project.materials.find((m) => m.id === seg.materialId);
@@ -861,7 +864,6 @@ export async function renderVariant(
   const outPath = path.join(dir, "variant.mp4");
   const posterPath = path.join(dir, "poster.jpg");
 
-  try {
     // Assemblage → sortie fixe [vasm][aasm]. Soit concat sec (cut), soit un
     // fold xfade/acrossfade quand des transitions sont demandées. Sortie fixe →
     // repli propre sur le concat si les transitions échouent.
@@ -1071,6 +1073,9 @@ export async function renderVariant(
     const variant = await addVariant(userId, projectId, { srcPath: outPath, poster, label: plan.label, plan: plan as unknown as Record<string, unknown>, durationSec, derivedFrom: extra?.derivedFrom });
     if (!variant) return { error: "Enregistrement de la variante échoué." };
     return { variant, keyframes, durationSec };
+  } catch (e) {
+    console.error("[ai-editor/render] renderVariant exception:", e);
+    return { error: `Rendu échoué : ${(e as Error)?.message?.slice(0, 240) ?? "erreur interne"}` };
   } finally {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
