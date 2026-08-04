@@ -107,6 +107,7 @@ export default function AiEditorPage() {
   const [matDragOver, setMatDragOver] = useState(false); // glisser-déposer matière
   const [refDragOver, setRefDragOver] = useState(false); // glisser-déposer référence
   const [reanalyzing, setReanalyzing] = useState(false); // ré-analyse du profil (débloque un profil figé)
+  const [editCtx, setEditCtx] = useState<string | null>(null); // id local de la matière dont on édite le contexte
 
   // Projet persistant (créé à l'analyse de la réf ; restauré au chargement)
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -662,10 +663,28 @@ export default function AiEditorPage() {
                 </button>
               </div>
               {materials.map((m) => (
-                <div key={m.id} className="group flex items-center gap-2.5 py-1.5 text-[12.5px] text-[var(--app-text-muted)]">
-                  <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md text-[12px]" style={{ background: "var(--app-surface-2)" }}>{m.kind === "image" ? "🖼️" : m.kind === "audio" ? "🎵" : "🎬"}</span>
-                  <span className="flex-1 truncate">{m.name}</span>
-                  <button onClick={() => removeMat(m.id)} title="Retirer" className="shrink-0 text-[var(--app-text-faint)] opacity-0 transition hover:text-red-400/80 group-hover:opacity-100">✕</button>
+                <div key={m.id} className="group py-1.5">
+                  <div className="flex items-center gap-2.5 text-[12.5px] text-[var(--app-text-muted)]">
+                    <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md text-[12px]" style={{ background: "var(--app-surface-2)" }}>{m.kind === "image" ? "🖼️" : m.kind === "audio" ? "🎵" : "🎬"}</span>
+                    <span className="flex-1 truncate">{m.name}</span>
+                    <button onClick={() => setEditCtx(editCtx === m.id ? null : m.id)} title="Modifier le contexte pour l'IA" className={`shrink-0 transition ${editCtx === m.id ? "text-indigo-400" : "text-[var(--app-text-faint)] opacity-0 hover:text-[var(--app-text)] group-hover:opacity-100"}`}>✎</button>
+                    <button onClick={() => removeMat(m.id)} title="Retirer" className="shrink-0 text-[var(--app-text-faint)] opacity-0 transition hover:text-red-400/80 group-hover:opacity-100">✕</button>
+                  </div>
+                  {editCtx === m.id ? (
+                    <textarea
+                      autoFocus
+                      value={m.desc}
+                      onChange={(e) => setDesc(m.id, e.target.value)}
+                      onBlur={() => { saveDesc(m); setEditCtx(null); }}
+                      placeholder="Décris ce fichier pour l'IA (contexte)…"
+                      rows={2}
+                      className="ml-[34px] mt-1.5 block w-[calc(100%-34px)] resize-none rounded-lg border border-[var(--app-border)] bg-[var(--app-bg-2)] px-2 py-1.5 text-[11.5px] text-[var(--app-text)] placeholder:text-[var(--app-text-faint)]"
+                    />
+                  ) : m.desc?.trim() ? (
+                    <button onClick={() => setEditCtx(m.id)} title="Modifier le contexte" className="ml-[34px] mt-0.5 block max-w-[calc(100%-34px)] truncate text-left text-[11px] text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)]">« {m.desc.trim()} »</button>
+                  ) : (
+                    <button onClick={() => setEditCtx(m.id)} title="Ajouter un contexte" className="ml-[34px] mt-0.5 block text-left text-[11px] italic text-[var(--app-text-faint)] opacity-0 transition hover:text-[var(--app-text-muted)] group-hover:opacity-100">+ contexte</button>
+                  )}
                 </div>
               ))}
               {materials.length === 0 && (

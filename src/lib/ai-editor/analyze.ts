@@ -63,6 +63,14 @@ async function probe(videoPath: string): Promise<{ durationSec: number; width: n
   };
 }
 
+/** Durée d'un média en secondes (léger, via ffmpeg -i). 0 si indéterminée.
+ *  Sert aux gardes de durée (réf/matière) AVANT toute analyse coûteuse. */
+export async function probeDurationSec(mediaPath: string): Promise<number> {
+  const { stderr } = await runFFmpeg(["-hide_banner", "-i", mediaPath], 30_000, 64_000);
+  const d = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+  return d ? (+d[1]) * 3600 + (+d[2]) * 60 + parseFloat(d[3]) : 0;
+}
+
 /* ── Une keyframe à l'instant t → JPEG data URI (largeur 480, seek rapide) ─── */
 async function keyframeAt(videoPath: string, t: number, dir: string, i: number): Promise<Keyframe | null> {
   const out = path.join(dir, `kf_${i}.jpg`);

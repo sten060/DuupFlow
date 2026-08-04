@@ -8,13 +8,16 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { createClient } from "@/lib/supabase/server";
-import { analyzeMaterial } from "@/lib/ai-editor/analyze";
-import { addMaterial, updateMaterialDesc, removeMaterial } from "@/lib/ai-editor/store";
+import { analyzeMaterial, probeDurationSec } from "@/lib/ai-editor/analyze";
+import { addMaterial, updateMaterialDesc, removeMaterial, updateMaterialAnalysis, materialAbsPath } from "@/lib/ai-editor/store";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 180;
 
 const MAX_BYTES = 300 * 1024 * 1024;
+// Plafonds de durée (grâce de 3 s pour l'arrondi) : vidéo 2 min, audio seul 4 min.
+const MAT_VIDEO_MAX_SEC = 120;
+const MAT_AUDIO_MAX_SEC = 240;
 
 async function requireUser() {
   const supabase = await createClient();
@@ -43,9 +46,42 @@ export async function POST(req: NextRequest) {
   const tmp = path.join(dir, `mat${ext}`);
   try {
     await fs.writeFile(tmp, Buffer.from(await file.arrayBuffer()));
-    const analysis = await analyzeMaterial(tmp, file.type).catch(() => null);
-    const material = await addMaterial(user.id, projectId, { srcPath: tmp, ext, name: file.name, kind, desc, analysis });
-    if (!material) return NextResponse.json({ error: "Projet introuvable." }, { status: 404 });
+
+    // Garde de durée (vidéo 2 min, audio 4 min) — AVANT toute analyse coûteuse.
+    if (kind !== "image") {
+      const dur = await probeDurationSec(tmp).catch(() => 0);
+      const cap = kind === "audio" ? MAT_AUDIO_MAX_SEC : MAT_VIDEO_MAX_SEC;
+      if (dur > cap + 3) {
+        const mm = Math.floor(cap / 60);
+        return NextResponse.json({ error: `Fichier trop long (${Math.round(dur)} s). Maximum ${mm} min pour ${kind === "audio" ? "un audio" : "une vidéo"}.` }, { status: 413 });
+      }
+    }
+
+    if (kind === "image") {
+      // Image : analyse rapide (vignette/dims) → inline, comme avant.
+      const analysis = await analyzeMaterial(tmp, file.type).catch((e) => { console.error("[ai-editor/material] analyse image KO:", (e as Error)?.message); return null; });
+      const material = await addMaterial(user.id, projectId, { srcPath: tmp, ext, name: file.name, kind, desc, analysis, status: analysis ? "ready" : "failed" });
+      if (!material) return NextResponse.json({ error: "Projet introuvable ou copie échouée." }, { status: 500 });
+      return NextResponse.json({ material });
+    }
+
+    // Audio / vidéo : analyse LONGUE (transcription, beats, drops). On persiste TOUT
+    // DE SUITE (status "analyzing") pour que list_material le voie immédiatement, puis
+    // on analyse en tâche de fond et on met à jour le statut → plus de fichier « qui
+    // n'existe pas » puis apparaît, et plus d'id qui change.
+    const material = await addMaterial(user.id, projectId, { srcPath: tmp, ext, name: file.name, kind, desc, analysis: null, status: "analyzing" });
+    if (!material) return NextResponse.json({ error: "Projet introuvable ou copie échouée." }, { status: 500 });
+    const absPath = materialAbsPath(user.id, projectId, material.storedName); // fichier déjà persisté
+    void (async () => {
+      try {
+        const analysis = await analyzeMaterial(absPath, file.type);
+        await updateMaterialAnalysis(user.id, projectId, material.id, analysis, "ready");
+        console.log(`[ai-editor/material] analyse terminée : ${file.name} (id ${material.id})`);
+      } catch (e) {
+        console.error(`[ai-editor/material] analyse échouée : ${file.name} (id ${material.id})`, e);
+        await updateMaterialAnalysis(user.id, projectId, material.id, null, "failed");
+      }
+    })();
     return NextResponse.json({ material });
   } catch (e) {
     console.error("[ai-editor/material] POST échec:", e);

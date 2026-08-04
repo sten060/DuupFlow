@@ -5,7 +5,7 @@
 // user la référence analysée (keyframes EN IMAGES qu'il VOIT + transcript) et la
 // matière. La génération viendra avec le moteur de rendu.
 
-import { getLatestProject } from "./store";
+import { getLatestProject, projectPaths } from "./store";
 import type { Project } from "./store";
 import { renderVariant, variantKeyframes, materialKeyframes } from "./render";
 import type { EditPlan } from "./render";
@@ -38,7 +38,7 @@ export const TOOLS = [
       "Assemble UNE variante vidéo selon TON plan de montage. Contrôles : segments coupés ; captions stylables (contour/box, couleur, contour, taille, position x/y en %, alignement) ; images animées (zoomIn/zoomOut/panLeft/panRight + cadrage cover/contain/blurFill) ; colorimétrie globale (grade) ; fps ; couleur de fond. Le son des plans vidéo est CONSERVÉ. " +
       "IMPORTANT : cet outil te RENVOIE des keyframes du rendu + la durée réelle → REGARDE-LES pour vérifier cadrage/rythme/captions, et rappelle l'outil pour corriger. " +
       "SYNCHRO MUSIQUE : les timecodes mesurés sur la matière sonore (get_material → beats, drops, énergie) s'utilisent DIRECTEMENT — cale captions[].startSec et les transitions segments[].transition sur les beats/drops (ex. une transition PILE sur un drop, un caption qui apparaît sur un temps fort). " +
-      "Durées : segment libre (borné à la longueur du fichier pour une vidéo) ; défaut image = 2,5 s. Jusqu'à 40 segments, 30 captions.",
+      "Durées : segment libre (borné à la longueur du fichier pour une vidéo) ; défaut image = 2,5 s. Jusqu'à 40 segments, 30 captions. DURÉE TOTALE MAX = 90 s (cible short-form) : au-delà, le rendu est refusé — retire ou raccourcis des plans.",
     inputSchema: {
       type: "object",
       properties: {
@@ -66,6 +66,7 @@ export const TOOLS = [
             startSec: { type: "number", description: "décalage de départ dans la piste (s). Défaut 0." },
             volume: { type: "number", description: "0-2 (1 = normal). Défaut 1." },
             mode: { type: "string", enum: ["mix", "replace"], description: "mix = par-dessus le son des plans (défaut) ; replace = remplace le son des plans." },
+            duck: { description: "MIX only : DUCKING — baisse auto la musique quand une VOIX parle dans les plans, puis la remonte (sinon dialogue + musique se couvrent). true = valeurs par défaut (réduction ~12 dB, attack 0.1s, release 0.4s), ou objet { enabled, threshold (0-1), reduction (dB), attack (s), release (s) }.", anyOf: [{ type: "boolean" }, { type: "object", properties: { enabled: { type: "boolean" }, threshold: { type: "number" }, reduction: { type: "number" }, attack: { type: "number" }, release: { type: "number" } } }] },
           },
           required: ["materialId"],
         },
@@ -78,11 +79,13 @@ export const TOOLS = [
               materialId: { type: "string", description: "L'\"id\" EXACT d'un fichier renvoyé par list_material (champ « id: … »). PAS le nom du fichier ni l'UUID du nom." },
               startSec: { type: "number", description: "début de la coupe dans le fichier (s)." },
               endSec: { type: "number", description: "fin de la coupe (s). Pour une image : durée d'affichage." },
-              motion: { type: "string", enum: ["none", "zoomIn", "zoomOut", "panLeft", "panRight", "handheld"], description: "IMAGES : mouvement pour éviter le diaporama figé. handheld = tremblé caméra (idéal pour reproduire un plan handheld de la réf, plus naturel qu'un zoom). Défaut none." },
+              motion: { type: "string", enum: ["none", "zoomIn", "zoomOut", "panLeft", "panRight", "handheld"], description: "Mouvement de caméra simulé — s'applique aux IMAGES **ET aux RUSHES VIDÉO** (punch-in progressif sur un rush). zoomIn/zoomOut, panLeft/panRight, handheld = tremblé continu. Se compose avec scale/offsetX/offsetY. Défaut none. Réf : get_reference → plans[].mouvement (type + intensité)." },
               motionIntensity: { type: "number", description: "Force du mouvement (0.2-3, défaut 1)." },
               fit: { type: "string", enum: ["contain", "cover", "blurFill"], description: "IMAGES, cadrage : blurFill (DÉFAUT, image centrée sur fond flou — idéal vertical) ; cover (remplit en recadrant) ; contain (bandes noires)." },
-              transition: { type: "string", enum: ["cut", "fade", "whipPan", "slide", "zoomPunch"], description: "Transition à l'ENTRÉE de ce plan (le 1er reste en cut). Défaut cut." },
-              transitionDuration: { type: "number", description: "Durée de la transition en s (0.1-0.4 typique). Bornée à la durée des plans." },
+              transition: { type: "string", enum: ["cut", "fade", "whipPan", "slide", "zoomPunch", "flash", "glitch"], description: "Transition à l'ENTRÉE de ce plan (le 1er reste en cut). flash = passage bref au blanc/noir (coupe sur un drop — voir flashColor) ; glitch = rafale numérique (décalage canaux R/B + bruit) sur l'ouverture du plan (voir glitchIntensity). Défaut cut." },
+              transitionDuration: { type: "number", description: "Durée de la transition en s (0.1-0.4 typique ; flash/glitch ~0.15-0.2). Bornée à la durée des plans." },
+              flashColor: { type: "string", description: "Pour transition \"flash\" : \"white\" (défaut) ou \"black\", ou hex." },
+              glitchIntensity: { type: "number", description: "Pour transition \"glitch\" : 0-1 (défaut 0.6) — ampleur du décalage de canaux et du bruit." },
               speed: { type: "number", description: "VIDÉO : vitesse de lecture 0.25-4 (défaut 1). <1 = ralenti, >1 = accéléré. L'audio du plan suit (pitch modifié). Ignoré sur les images. Réf : get_reference → plans[].speed." },
               freezeAt: { type: "number", description: "VIDÉO : timecode (s) DANS le fichier où faire un ARRÊT SUR IMAGE (freeze). À utiliser avec freezeDuration. Réf : get_reference signale le freeze + son timecode." },
               freezeDuration: { type: "number", description: "Durée du gel en s (avec freezeAt)." },
@@ -110,7 +113,71 @@ export const TOOLS = [
                     opacity: { type: "number", description: "0-1 (défaut 1)." },
                     borderRadius: { type: "number", description: "Coins arrondis en px." },
                     zIndex: { type: "number", description: "Ordre d'empilement (petit = dessous)." },
+                    enter: { type: "string", enum: ["none", "slideLeft", "slideRight", "slideUp", "slideDown", "fade", "pop"], description: "Comment l'incrustation ENTRE dans le cadre. slide* = direction du MOUVEMENT : slideUp glisse vers le haut (entre par le bas), slideDown par le haut, slideLeft par la droite, slideRight par la gauche. fade = fondu ; pop = fondu rapide. Défaut none (apparition sèche). Une seule fenêtre suffit : ne découpe plus un plan en sous-segments pour bouger l'incrustation." },
+                    exit: { type: "string", enum: ["none", "slideLeft", "slideRight", "slideUp", "slideDown", "fade", "pop"], description: "Comment l'incrustation SORT du cadre. Même direction que enter = elle continue dans le même sens (slideUp sort par le haut)." },
+                    enterDuration: { type: "number", description: "Durée de l'entrée en s (défaut 0.4, max 3)." },
+                    exitDuration: { type: "number", description: "Durée de la sortie en s (défaut 0.4, max 3)." },
+                    easing: { type: "string", enum: ["linear", "easeOut", "spring"], description: "Courbe du mouvement : linear (constant) ; easeOut (décélère, défaut) ; spring (léger dépassement puis retour, effet ressort)." },
                   },
+                },
+              },
+              grade: {
+                type: "object",
+                description: "Colorimétrie PROPRE à CE plan (surcharge le grade global). Ex. assombrir la dernière photo « avant » (brightness négatif) pendant le caption pivot pour la bascule visuelle. Réf : get_reference signale un plan assombri par rapport au reste.",
+                properties: {
+                  saturation: { type: "number", description: "1 = neutre." },
+                  contrast: { type: "number", description: "1 = neutre." },
+                  brightness: { type: "number", description: "0 = neutre (-1..1) ; négatif = plus sombre." },
+                  temperature: { type: "number", description: "-1 froid .. +1 chaud." },
+                  grain: { type: "number", description: "0..1." },
+                  vignette: { type: "boolean" },
+                },
+              },
+              freezeGrade: {
+                type: "object",
+                description: "Colorimétrie appliquée UNIQUEMENT pendant la fenêtre de gel (freezeAt/freezeDuration) — ex. la vidéo tourne en couleur, se fige, et le freeze passe en NOIR ET BLANC (saturation 0) avec un texte dessus. Évite de couper le plan en deux. Mêmes clés que grade.",
+                properties: {
+                  saturation: { type: "number", description: "0 = noir et blanc." },
+                  contrast: { type: "number", description: "1 = neutre." },
+                  brightness: { type: "number", description: "0 = neutre (-1..1)." },
+                  temperature: { type: "number", description: "-1 froid .. +1 chaud." },
+                  grain: { type: "number", description: "0..1." },
+                  vignette: { type: "boolean" },
+                },
+              },
+              fadeIn: { type: "number", description: "FONDU d'OUVERTURE : le plan APPARAÎT depuis fadeColor sur N s (0-2). Un fadeOut sur le plan précédent + un fadeIn ici = passage au noir puis réapparition." },
+              fadeOut: { type: "number", description: "FONDU de FERMETURE : le plan se fond vers fadeColor sur N s (0-2). C'est le vrai fondu au noir (≠ transition fade, qui est un fondu enchaîné borné à 0,4s)." },
+              fadeColor: { type: "string", description: "Couleur du fondu : \"black\" (défaut) ou \"white\" (utile), ou hex #RRGGBB." },
+              fadeEasing: { type: "string", enum: ["linear", "easeInOut"], description: "Courbe de l'assombrissement : linear (plat) ou easeInOut (accéléré-décéléré, effet cinéma — défaut)." },
+              blurRegions: {
+                type: "array",
+                description: "MASQUAGE de zones (visage, pseudo, logo, numéro) sur du contenu reposté — nécessité, pas décoration. Chaque zone : position/taille en % du cadre, floutée ou pixelisée, sur une fenêtre. Réf : get_reference signale un flou de zone + sa position.",
+                items: {
+                  type: "object",
+                  properties: {
+                    x: { type: "number", description: "Coin haut-gauche, % du cadre (0-100)." },
+                    y: { type: "number", description: "Position verticale, % du cadre." },
+                    width: { type: "number", description: "Largeur, % du cadre." },
+                    height: { type: "number", description: "Hauteur, % du cadre." },
+                    intensity: { type: "number", description: "0-1 : force du flou / grossièreté des pixels (défaut 0.8)." },
+                    shape: { type: "string", enum: ["rect", "ellipse"], description: "rect (défaut) ou ellipse (idéal pour un visage, bords adoucis)." },
+                    mode: { type: "string", enum: ["blur", "pixelate"], description: "blur = flou gaussien (défaut) ; pixelate = mosaïque." },
+                    startSec: { type: "number", description: "Apparition, relative au plan (défaut 0)." },
+                    endSec: { type: "number", description: "Disparition, relative au plan (défaut : tout le plan)." },
+                  },
+                },
+              },
+              shakeAt: {
+                type: "array",
+                description: "SECOUSSES ponctuelles sur les temps forts (distinct de handheld qui est continu). Passe directement les timecodes de beats/drops que get_material te donne sur la matière audio.",
+                items: {
+                  type: "object",
+                  properties: {
+                    t: { type: "number", description: "Instant de la secousse, s relatives au plan." },
+                    intensity: { type: "number", description: "0-1 (défaut 0.6)." },
+                    duration: { type: "number", description: "Durée de la secousse en s (défaut ~0.18)." },
+                  },
+                  required: ["t"],
                 },
               },
             },
@@ -150,6 +217,7 @@ export const TOOLS = [
               animationDuration: { type: "number", description: "Durée de l'animation d'entrée en s (défaut ~0.35)." },
               words: { type: "array", description: "Pour wordByWord/karaoke : timing par mot (sinon réparti automatiquement sur [startSec,endSec]). Utilise les timecodes de get_material (transcript de la piste audio) pour caler sur la voix.", items: { type: "object", properties: { text: { type: "string" }, start: { type: "number" }, end: { type: "number" } } } },
               highlightColor: { type: "string", description: "karaoke : couleur hex du mot actif." },
+              glow: { type: "object", description: "Effet NÉON : cœur clair (color de la caption) + halo saturé autour. Style pivot omniprésent en short-form.", properties: { color: { type: "string", description: "Couleur hex du halo néon." }, intensity: { type: "number", description: "0.2-3 (défaut 1) : taille/densité du halo." } } },
             },
             required: ["text", "startSec", "endSec"],
           },
@@ -291,7 +359,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
           comp.captions.map((c, i) =>
             `  ${i + 1}. « ${c.text} »${c.emojis ? ` ${c.emojis}` : ""}\n` +
             `     [${c.startSec}–${c.endSec}s] · x ${c.xPct}% · y ${c.yPct}% · fontSize ${c.fontSizePx} · font "${c.font}" · color ${c.color}` +
-            `${c.hasStroke ? ` · contour ${c.strokeWidthPx}px` : " · sans contour"} · background ${c.background}${c.animation && c.animation !== "none" ? ` · animation "${c.animation}"` : ""}`,
+            `${c.hasStroke ? ` · contour ${c.strokeWidthPx}px` : " · sans contour"} · background ${c.background}${c.animation && c.animation !== "none" ? ` · animation "${c.animation}"` : ""}${c.glow && c.glow !== "none" ? ` · NÉON glow ${c.glow} (→ caption.glow)` : ""}`,
           ).join("\n"),
         );
       } else {
@@ -314,11 +382,22 @@ export async function callTool(userId: string, name: string, args?: Record<strin
             const fz = s.freezeAt != null ? `freeze @${s.freezeAt}s` : "pas de freeze";
             const subj = `sujet ${s.subjectX ?? 50}%/${s.subjectY ?? 50}%`;
             const cp = `compo ${s.composition ?? "single"}`;
-            return `  [${s.startSec}–${s.endSec}s] mouvement ${mo}${inten} · ${sp} · ${fz} · ${subj} · ${cp}\n      « ${s.content} »`;
+            const lum = s.relBrightness != null && s.relBrightness <= -0.12 ? ` · ⬛ ASSOMBRI vs le reste (→ segments[].grade.brightness ${s.relBrightness})` : "";
+            const sat = s.relSaturation != null && s.relSaturation <= -0.5 ? ` · ◐ ${s.relSaturation <= -0.9 ? "NOIR & BLANC" : "DÉSATURÉ"} vs le reste (→ segments[].grade.saturation ${Math.max(0, 1 + s.relSaturation).toFixed(2)}, ou freezeGrade.saturation 0 si c'est le freeze)` : "";
+            const oe = s.overlayEnter && s.overlayEnter !== "none" ? ` · ↳ incrustation ENTRE ${s.overlayEnter} (→ overlays[].enter="${s.overlayEnter}")` : "";
+            const ox = s.overlayExit && s.overlayExit !== "none" ? ` · ↰ incrustation SORT ${s.overlayExit} (→ overlays[].exit="${s.overlayExit}")` : "";
+            const fi = s.fadeInFrom && s.fadeInFrom !== "none" ? ` · ▷ OUVRE en fondu depuis ${s.fadeInFrom === "white" ? "blanc" : "noir"} (→ segments[].fadeIn + fadeColor "${s.fadeInFrom}")` : "";
+            const fo = s.fadeOutTo && s.fadeOutTo !== "none" ? ` · ◁ FERME en fondu vers ${s.fadeOutTo === "white" ? "blanc" : "noir"} (→ segments[].fadeOut + fadeColor "${s.fadeOutTo}")` : "";
+            const TR: Record<string, string> = { flash: `⚡ FLASH sur la coupe (→ transition="flash")`, glitch: `▓ GLITCH sur la coupe (→ transition="glitch")`, whip: `filé (→ transition="whipPan")`, slide: `glissement (→ transition="slide")`, zoom: `coupe zoomée (→ transition="zoomPunch")`, fade: `fondu enchaîné (→ transition="fade")` };
+            const tr = s.transitionIn && TR[s.transitionIn] ? ` · ${TR[s.transitionIn]}` : "";
+            const sk = s.shakeOnBeat ? ` · ⭜ SECOUSSE sur un temps fort (→ segments[].shakeAt:[{t,…}])` : "";
+            const bl = s.blurX != null && s.blurX >= 0 && s.blurW ? ` · ▚ FLOU DE ZONE à ${s.blurX}%/${s.blurY}% (${s.blurW}×${s.blurH}% — masquage → segments[].blurRegions:[{x:${s.blurX},y:${s.blurY},width:${s.blurW},height:${s.blurH}}])` : "";
+            return `  [${s.startSec}–${s.endSec}s] mouvement ${mo}${inten} · ${sp} · ${fz} · ${subj} · ${cp}${lum}${sat}${oe}${ox}${fi}${fo}${tr}${sk}${bl}\n      « ${s.content} »`;
           }).join("\n"),
         );
       }
       if (comp.emojisOverall) parts.push(`Emojis marquants : ${comp.emojisOverall}`);
+      if (comp.duckingPresent) parts.push(`🎚 DUCKING détecté : la musique baisse quand une voix parle → pose audio.duck: true (ou { reduction, attack, release }) quand tu mets une musique sur des plans qui parlent.`);
       if (comp.whyItWorks) parts.push(`POURQUOI ÇA MARCHE : ${comp.whyItWorks}`);
       compBlock = parts.join("\n");
     }
@@ -361,20 +440,30 @@ export async function callTool(userId: string, name: string, args?: Record<strin
 
   if (name === "list_material") {
     const mats = project.materials;
+    // Réconciliation : compare les lignes en base au nombre de fichiers RÉELLEMENT
+    // stockés → un écart révèle une ligne perdue (écriture concurrente) ; on le loggue.
+    try {
+      const fs = await import("fs/promises");
+      const files = await fs.readdir(projectPaths(userId, project.id).materialDir).catch(() => [] as string[]);
+      const real = files.filter((f) => !f.startsWith(".")).length;
+      if (real !== mats.length) console.warn(`[ai-editor/list_material] ÉCART fichiers/base : ${real} fichier(s) stocké(s) vs ${mats.length} ligne(s) — perte possible.`);
+    } catch { /* diagnostic best-effort */ }
+    const analyzing = mats.filter((m) => m.status === "analyzing").length;
     if (!mats.length) return { content: [{ type: "text", text: "Aucune matière ajoutée pour l'instant." }] };
     const content: Content[] = [{
       type: "text",
-      text: `MATIÈRE — ${mats.length} fichier(s). Pour create_variant, utilise l'"id" EXACT ci-dessous comme segments[].materialId (ce n'est PAS le nom du fichier) :`,
+      text: `MATIÈRE — ${mats.length} fichier(s)${analyzing ? ` (dont ${analyzing} en cours d'analyse)` : ""}. Pour create_variant, utilise l'"id" EXACT ci-dessous comme segments[].materialId (ce n'est PAS le nom du fichier). Les fichiers « en cours d'analyse » EXISTENT (id déjà stable) — tu peux les utiliser ; leurs beats/drops arrivent quand l'analyse finit (réappelle list_material).`,
     }];
     for (const m of mats) {
       const meta = m.analysis;
       const desc = m.desc?.trim() ? `« ${m.desc.trim()} »` : "(pas de description)";
+      const st = m.status === "analyzing" ? " · ⏳ en cours d'analyse" : m.status === "failed" ? " · ⚠ analyse échouée (fichier utilisable, sans beats/drops)" : "";
       const dims = !meta
         ? ""
         : m.kind === "audio"
           ? ` · ${meta.durationSec ? meta.durationSec.toFixed(1) + "s" : "audio"}`
           : ` · ${meta.width}×${meta.height}${meta.durationSec ? ` · ${meta.durationSec.toFixed(1)}s` : ""}`;
-      content.push({ type: "text", text: `• id: ${m.id}  ·  ${m.name} [${m.kind}]${dims} — ${desc}` });
+      content.push({ type: "text", text: `• id: ${m.id}  ·  ${m.name} [${m.kind}]${dims}${st} — ${desc}` });
       // Résumé audio (matière sonore) : bpm + nb de drops → savoir quel fichier ouvrir
       // sans get_material sur tout.
       const au = meta?.audio;

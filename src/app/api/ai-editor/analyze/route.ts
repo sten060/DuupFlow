@@ -8,7 +8,7 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { createClient } from "@/lib/supabase/server";
-import { analyzeReferenceVideo } from "@/lib/ai-editor/analyze";
+import { analyzeReferenceVideo, probeDurationSec } from "@/lib/ai-editor/analyze";
 import { downloadReference } from "@/lib/ai-editor/download";
 import { createProject, saveReference, getProject, updateReferenceAnalysis, referenceAbsPath } from "@/lib/ai-editor/store";
 
@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const MAX_BYTES = 300 * 1024 * 1024; // 300 Mo
+const REF_MAX_SEC = 120; // référence : 2 min max (+3 s de grâce pour l'arrondi)
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -79,6 +80,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Garde de durée : une référence short-form fait < 2 min. On rejette AVANT
+    // l'analyse (Gemini + transcription) — inutile et coûteux au-delà.
+    const refDur = await probeDurationSec(srcPath).catch(() => 0);
+    if (refDur > REF_MAX_SEC + 3) {
+      return NextResponse.json({ error: `Référence trop longue (${Math.round(refDur)} s). Maximum 2 min.` }, { status: 413 });
+    }
+
     const analysis = await analyzeReferenceVideo(srcPath);
 
     // Persistance : soit on remplace la réf d'un projet existant (matière gardée),

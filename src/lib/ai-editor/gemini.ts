@@ -28,6 +28,16 @@ export type GeminiShot = {
   subjectX: number | null;         // % (0-100) position H du sujet principal (pour punch-in), null si aucun
   subjectY: number | null;         // % (0-100) position V du sujet
   composition: "single" | "splitH" | "splitV" | "pip" | "overlay"; // multi-média détecté (chantier 4)
+  relBrightness: number;           // luminosité RELATIVE au reste du montage (0=idem, <0 plus sombre, >0 plus clair)
+  relSaturation: number;           // saturation RELATIVE au reste (0=idem, -1 = N&B/désaturé, >0 plus saturé)
+  overlayEnter: "none" | "slideLeft" | "slideRight" | "slideUp" | "slideDown" | "fade" | "pop"; // l'incrustation ENTRE-t-elle dans le cadre, et par où
+  overlayExit: "none" | "slideLeft" | "slideRight" | "slideUp" | "slideDown" | "fade" | "pop";  // …et en SORT-elle
+  fadeInFrom: "none" | "black" | "white";  // le plan APPARAÎT-il depuis un fondu (noir/blanc) ?
+  fadeOutTo: "none" | "black" | "white";   // le plan se FOND-il vers le noir/blanc à la fin (séparation de séquences) ?
+  transitionIn: "cut" | "fade" | "flash" | "glitch" | "whip" | "slide" | "zoom"; // comment ce plan ARRIVE (transition entrante)
+  shakeOnBeat: boolean;            // secousse ponctuelle sur un temps fort dans ce plan ?
+  blurX: number; blurY: number;    // % : centre d'une zone FLOUTÉE/masquée (visage/pseudo/logo), -1 si aucune
+  blurW: number; blurH: number;    // % : taille de la zone floutée, 0 si aucune
 };
 
 // Une caption LUE à l'écran, déjà convertie aux unités de create_variant.captions.
@@ -45,6 +55,7 @@ export type GeminiCaption = {
   font: "sans" | "rounded" | "impact" | "serif" | "script" | "display"; // meilleur match parmi les 6
   emojis: string;        // emojis présents dans/à côté de la caption ("" si aucun)
   animation: "none" | "fade" | "pop" | "slideUp" | "typewriter" | "wordByWord" | "karaoke"; // type d'anim détecté
+  glow: string;          // effet néon : couleur hex du halo, "none" si aucun
 };
 
 export type GeminiComprehension = {
@@ -52,6 +63,7 @@ export type GeminiComprehension = {
   shots: GeminiShot[];
   captions: GeminiCaption[];
   emojisOverall: string;
+  duckingPresent: boolean;         // la musique baisse-t-elle quand une voix parle (ducking) ?
   model: string;
 };
 
@@ -90,9 +102,21 @@ const SCHEMA = {
           subjectX: { type: "NUMBER" },
           subjectY: { type: "NUMBER" },
           composition: { type: "STRING", enum: ["single", "splitH", "splitV", "pip", "overlay"] },
+          relBrightness: { type: "NUMBER" },
+          relSaturation: { type: "NUMBER" },
+          overlayEnter: { type: "STRING", enum: ["none", "slideLeft", "slideRight", "slideUp", "slideDown", "fade", "pop"] },
+          overlayExit: { type: "STRING", enum: ["none", "slideLeft", "slideRight", "slideUp", "slideDown", "fade", "pop"] },
+          fadeInFrom: { type: "STRING", enum: ["none", "black", "white"] },
+          fadeOutTo: { type: "STRING", enum: ["none", "black", "white"] },
+          transitionIn: { type: "STRING", enum: ["cut", "fade", "flash", "glitch", "whip", "slide", "zoom"] },
+          shakeOnBeat: { type: "BOOLEAN" },
+          blurX: { type: "NUMBER" },
+          blurY: { type: "NUMBER" },
+          blurW: { type: "NUMBER" },
+          blurH: { type: "NUMBER" },
         },
-        // subjectX/Y/composition en REQUIRED : sinon Gemini les omet (→ toujours neutres).
-        required: ["startSec", "endSec", "content", "motion", "speed", "subjectX", "subjectY", "composition"],
+        // subjectX/Y/composition/relBrightness/relSaturation/overlay*/fade*/transitionIn/shakeOnBeat/blur* en REQUIRED : sinon Gemini les omet.
+        required: ["startSec", "endSec", "content", "motion", "speed", "subjectX", "subjectY", "composition", "relBrightness", "relSaturation", "overlayEnter", "overlayExit", "fadeInFrom", "fadeOutTo", "transitionIn", "shakeOnBeat", "blurX", "blurY", "blurW", "blurH"],
       },
     },
     captions: {
@@ -113,20 +137,22 @@ const SCHEMA = {
           font: { type: "STRING", enum: ["sans", "rounded", "impact", "serif", "script", "display"] },
           emojis: { type: "STRING" },
           animation: { type: "STRING", enum: ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"] },
+          glow: { type: "STRING" },
         },
         required: ["text", "startSec", "endSec", "xPct", "yPct", "fontSizePx", "color", "font"],
       },
     },
     emojisOverall: { type: "STRING" },
+    duckingPresent: { type: "BOOLEAN" },
   },
-  required: ["whyItWorks", "shots", "captions"],
+  required: ["whyItWorks", "shots", "captions", "duckingPresent"],
 };
 
 const PROMPT = `Tu analyses une vidéo courte (Reel/TikTok) qui a PERFORMÉ, pour qu'un monteur en fabrique des variantes. Réponds UNIQUEMENT en JSON conforme au schéma.
 
 Objectif : décrire la STRUCTURE et le STYLE, pas raconter le contenu. Sois précis et mesuré, pas bavard.
 
-1) shots : découpe en plans. Pour chaque plan : startSec, endSec, content (1 phrase : ce qu'on voit / cadrage), motion = le mouvement DE CAMÉRA le plus proche parmi : none, zoomIn, zoomOut, panLeft, panRight, handheld (caméra à la main, tremblante) — ne devine pas un zoom sur un plan fixe. ET la VITESSE : speed = vitesse de lecture estimée du plan (1 = normal, 0.5 = ralenti/slow-mo, 2 = accéléré) ; hasFreeze = true s'il y a un ARRÊT SUR IMAGE (freeze), avec freezeAt = son timecode en s (dans le plan). ET le CADRAGE : subjectX/subjectY = OBLIGATOIRE, position en % (0-100, 50/50 = centre) du SUJET / point d'intérêt principal dans le cadre — sert au monteur pour punch-in (recadrer) sur le sujet. Donne TOUJOURS une valeur, même approximative (jamais null) : si plan large sans sujet net, mets le centre d'intérêt (souvent 50/50). ET la COMPOSITION : composition = single (un seul média plein cadre) | splitV (2 médias empilés haut/bas) | splitH (2 médias côte à côte) | pip (petite incrustation dans un coin) | overlay (élément incrusté par-dessus, ex. écran d'app, watermark).
+1) shots : découpe en plans. Pour chaque plan : startSec, endSec, content (1 phrase : ce qu'on voit / cadrage), motion = le mouvement DE CAMÉRA le plus proche parmi : none, zoomIn, zoomOut, panLeft, panRight, handheld (caméra à la main, tremblante) — ne devine pas un zoom sur un plan fixe. ET la VITESSE : speed = vitesse de lecture estimée du plan (1 = normal, 0.5 = ralenti/slow-mo, 2 = accéléré) ; hasFreeze = true s'il y a un ARRÊT SUR IMAGE (freeze), avec freezeAt = son timecode en s (dans le plan). ET le CADRAGE : subjectX/subjectY = OBLIGATOIRE, position en % (0-100, 50/50 = centre) du SUJET / point d'intérêt principal dans le cadre — sert au monteur pour punch-in (recadrer) sur le sujet. Donne TOUJOURS une valeur, même approximative (jamais null) : si plan large sans sujet net, mets le centre d'intérêt (souvent 50/50). ET la COMPOSITION : composition = single (un seul média plein cadre) | splitV (2 médias empilés haut/bas) | splitH (2 médias côte à côte) | pip (petite incrustation dans un coin) | overlay (élément incrusté par-dessus, ex. écran d'app, watermark). ET relBrightness = luminosité de CE plan RELATIVEMENT au reste du montage : 0 = comme le reste, négatif (jusqu'à -1) = plus SOMBRE (souvent un plan assombri pour une bascule visuelle), positif = plus clair. OBLIGATOIRE. ET si le plan contient une INCRUSTATION (pip/overlay/2e panneau) : overlayEnter = comment elle ENTRE dans le cadre, overlayExit = comment elle en SORT — valeurs : none (elle est là d'un coup / statique), slideLeft/slideRight/slideUp/slideDown = elle GLISSE (indique la direction du MOUVEMENT : slideUp = glisse vers le haut donc entre par le bas, slideDown par le haut, slideLeft vers la gauche donc entre par la droite, slideRight par la gauche), fade = fondu, pop = apparition rapide. Regarde bien : une incrustation qui monte depuis le bas = overlayEnter "slideUp". Si pas d'incrustation OU si elle apparaît sèchement : "none". ET relSaturation = saturation de CE plan RELATIVEMENT au reste : 0 = comme le reste, négatif (jusqu'à -1) = plus DÉSATURÉ, -1 = NOIR ET BLANC total (souvent sur un freeze ou un plan « souvenir »), positif = plus saturé. OBLIGATOIRE. ET les FONDUS au noir/blanc qui séparent des séquences : fadeInFrom = le plan APPARAÎT-il depuis un écran plein (none | black | white) ; fadeOutTo = le plan se FOND-il vers un écran plein à la fin (none | black | white). Un fondu au noir complet entre deux séquences = le plan d'avant a fadeOutTo "black" et le plan d'après fadeInFrom "black". Ne confonds pas avec un simple cut : réserve black/white à un vrai assombrissement/éclaircissement progressif jusqu'à l'écran plein. ET transitionIn = comment ce plan ARRIVE par rapport au précédent : cut (coupe sèche, défaut), fade (fondu enchaîné), flash (l'image passe brièvement au blanc/noir sur la coupe — fréquent sur un drop), glitch (rafale numérique : canaux R/B décalés, bruit, déchirures bref), whip (filé de caméra), slide (glissement), zoom (coupe zoomée). ET shakeOnBeat = true s'il y a une SECOUSSE ponctuelle de l'image sur un temps fort DANS ce plan (distinct d'un handheld continu). ET le MASQUAGE : si une zone est FLOUTÉE ou PIXELISÉE (visage, pseudo, logo, numéro cachés), donne blurX/blurY = centre en % (0-100) et blurW/blurH = taille en % ; si AUCUN flou de zone, blurX=blurY=-1 et blurW=blurH=0.
 
 2) captions : CHAQUE texte incrusté à l'écran (hook, sous-titres stylés, mots-clés animés…). Pour chacune, EXPRIME les valeurs dans ces unités exactes (celles du moteur de rendu) :
    - text : le texte exact (avec ses emojis s'il y en a).
@@ -139,11 +165,14 @@ Objectif : décrire la STRUCTURE et le STYLE, pas raconter le contenu. Sois pré
    - font : la famille la PLUS PROCHE parmi EXACTEMENT ces 6 (ne donne pas le nom réel de la fonte, indevinable — donne le meilleur match) : sans (néo-grotesque type Helvetica/Inter), rounded (arrondie type TikTok/CapCut/Poppins), impact (grasse condensée type Anton), serif (à empattements type Playfair), script (manuscrite type Pacifico), display (fantaisie massive type Bungee).
    - emojis : les emojis de cette caption ("" si aucun).
    - animation : le type d'animation d'apparition, parmi EXACTEMENT : none (statique), fade (fondu), pop (apparition avec rebond/scale), slideUp (glisse depuis le bas), typewriter (lettre par lettre), wordByWord (mot après mot qui apparaissent), karaoke (tous les mots visibles, le mot dit est surligné). Choisis le plus proche.
+   - glow : si la caption a un effet NÉON / halo lumineux coloré autour du texte, donne sa couleur hex (#RRGGBB) ; sinon "none".
    S'il n'y a AUCUN texte incrusté, renvoie captions: [].
 
 3) emojisOverall : les emojis marquants de la vidéo en général ("" si aucun).
 
-4) whyItWorks : 2-3 phrases — pourquoi ce format accroche (hook, rythme, promesse, structure). Actionnable.`;
+4) duckingPresent : true si la MUSIQUE de fond BAISSE nettement quand quelqu'un PARLE (voix off / dialogue) puis remonte quand la voix s'arrête (ducking). false si la musique reste au même niveau, ou s'il n'y a pas de musique, ou pas de voix.
+
+5) whyItWorks : 2-3 phrases — pourquoi ce format accroche (hook, rythme, promesse, structure). Actionnable.`;
 
 async function gfetch(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   return fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
@@ -320,6 +349,12 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
     const MOTIONS = ["none", "zoomIn", "zoomOut", "panLeft", "panRight", "handheld"] as const;
     const ANIMS = ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"] as const;
     const COMPS = ["single", "splitH", "splitV", "pip", "overlay"] as const;
+    const OANIM = ["none", "slideLeft", "slideRight", "slideUp", "slideDown", "fade", "pop"] as const;
+    const oanim = (v: unknown): GeminiShot["overlayEnter"] => (OANIM as readonly string[]).includes(String(v)) ? (v as GeminiShot["overlayEnter"]) : "none";
+    const FADETO = ["none", "black", "white"] as const;
+    const fadeto = (v: unknown): GeminiShot["fadeInFrom"] => (FADETO as readonly string[]).includes(String(v)) ? (v as GeminiShot["fadeInFrom"]) : "none";
+    const TRANSIN = ["cut", "fade", "flash", "glitch", "whip", "slide", "zoom"] as const;
+    const transin = (v: unknown): GeminiShot["transitionIn"] => (TRANSIN as readonly string[]).includes(String(v)) ? (v as GeminiShot["transitionIn"]) : "cut";
 
     const shots: GeminiShot[] = Array.isArray(parsed.shots) ? parsed.shots.slice(0, 40).map((s) => {
       const sf = s as unknown as { hasFreeze?: boolean; freezeAt?: number; subjectX?: number; subjectY?: number };
@@ -335,6 +370,18 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
         subjectX: subj(sf?.subjectX),
         subjectY: subj(sf?.subjectY),
         composition: (COMPS as readonly string[]).includes(String((s as { composition?: string })?.composition)) ? ((s as { composition?: string }).composition as GeminiShot["composition"]) : "single",
+        relBrightness: Math.round(clamp((s as { relBrightness?: number })?.relBrightness, -1, 1, 0) * 100) / 100,
+        relSaturation: Math.round(clamp((s as { relSaturation?: number })?.relSaturation, -1, 1, 0) * 100) / 100,
+        overlayEnter: oanim((s as { overlayEnter?: string })?.overlayEnter),
+        overlayExit: oanim((s as { overlayExit?: string })?.overlayExit),
+        fadeInFrom: fadeto((s as { fadeInFrom?: string })?.fadeInFrom),
+        fadeOutTo: fadeto((s as { fadeOutTo?: string })?.fadeOutTo),
+        transitionIn: transin((s as { transitionIn?: string })?.transitionIn),
+        shakeOnBeat: !!(s as { shakeOnBeat?: boolean })?.shakeOnBeat,
+        blurX: Math.round(clamp((s as { blurX?: number })?.blurX, -1, 100, -1)),
+        blurY: Math.round(clamp((s as { blurY?: number })?.blurY, -1, 100, -1)),
+        blurW: Math.round(clamp((s as { blurW?: number })?.blurW, 0, 100, 0)),
+        blurH: Math.round(clamp((s as { blurH?: number })?.blurH, 0, 100, 0)),
       };
     }) : [];
 
@@ -352,6 +399,7 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
       font: (FONTS as readonly string[]).includes(String(c?.font)) ? (c!.font as GeminiCaption["font"]) : "sans",
       emojis: String(c?.emojis ?? ""),
       animation: (ANIMS as readonly string[]).includes(String((c as { animation?: string })?.animation)) ? ((c as { animation?: string }).animation as GeminiCaption["animation"]) : "none",
+      glow: String((c as { glow?: string })?.glow ?? "none").slice(0, 9),
     })) : [];
 
     console.log(`[ai-editor/gemini] OK · model=${usedModel} · tokens in=${u?.promptTokenCount ?? "?"} out=${u?.candidatesTokenCount ?? "?"} total=${u?.totalTokenCount ?? "?"} · ${captions.length} caption(s), ${shots.length} plan(s)`);
@@ -361,6 +409,7 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
       shots,
       captions,
       emojisOverall: String(parsed.emojisOverall ?? ""),
+      duckingPresent: !!(parsed as { duckingPresent?: boolean })?.duckingPresent,
       model: usedModel,
     };
   } catch (e) {
