@@ -147,6 +147,7 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
   try {
     const bytes = await fs.readFile(videoPath);
     const mime = mimeFor(videoPath);
+    console.log(`[ai-editor/gemini] appel démarré · model=${model} fps=${fps} · ${(bytes.length / 1e6).toFixed(1)} Mo`);
 
     // 1) Démarrer un upload résumable (Files API).
     const startRes = await gfetch(`${API}/upload/v1beta/files?key=${key}`, {
@@ -224,10 +225,15 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
       return null;
     }
     const genJson = await genRes.json().catch(() => null) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
+      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
     } | null;
     const raw = genJson?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-    if (!raw.trim()) { console.warn("[ai-editor/gemini] réponse vide"); return null; }
+    const u = genJson?.usageMetadata;
+    if (!raw.trim()) {
+      console.warn(`[ai-editor/gemini] réponse vide · finishReason=${genJson?.candidates?.[0]?.finishReason ?? "?"} · tokens in=${u?.promptTokenCount ?? "?"} out=${u?.candidatesTokenCount ?? "?"}`);
+      return null;
+    }
 
     const parsed = JSON.parse(raw) as Partial<GeminiComprehension>;
     // Nettoyage/normalisation dans les unités attendues.
@@ -258,6 +264,8 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
       font: (FONTS as readonly string[]).includes(String(c?.font)) ? (c!.font as GeminiCaption["font"]) : "sans",
       emojis: String(c?.emojis ?? ""),
     })) : [];
+
+    console.log(`[ai-editor/gemini] OK · tokens in=${u?.promptTokenCount ?? "?"} out=${u?.candidatesTokenCount ?? "?"} total=${u?.totalTokenCount ?? "?"} · ${captions.length} caption(s), ${shots.length} plan(s)`);
 
     return {
       whyItWorks: String(parsed.whyItWorks ?? "").slice(0, 1000),

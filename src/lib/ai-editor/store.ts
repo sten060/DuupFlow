@@ -138,6 +138,25 @@ export async function saveReference(
   return p;
 }
 
+/** Met à jour l'analyse de la référence SANS recopier le fichier (ré-analyse en
+ *  place : régénère le profil avec le code courant, ex. couche compréhension). */
+export async function updateReferenceAnalysis(
+  userId: string,
+  projectId: string,
+  analysis: ReferenceAnalysis,
+): Promise<Project | null> {
+  const p = await getProject(userId, projectId);
+  if (!p || !p.reference) return null;
+  p.reference = { ...p.reference, analysis };
+  await write(userId, p);
+  return p;
+}
+
+/** Chemin absolu du fichier de référence stocké (pour une ré-analyse en place). */
+export function referenceAbsPath(userId: string, projectId: string, storedName: string): string {
+  return path.join(projectDir(userId, projectId), storedName);
+}
+
 /** Ajoute un fichier de matière (copié dans material/) + son analyse. */
 export async function addMaterial(
   userId: string,

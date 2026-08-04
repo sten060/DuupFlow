@@ -205,26 +205,29 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     // matière du user (via ses vignettes) et on suggère la correction qui rapproche
     // la matière de la réf. Bornes : ±0.2 sat/bright, ±0.3 temperature. Neutre si proches.
     const warmVal = (w?: string) => (w === "warm" ? 1 : w === "cold" ? -1 : 0);
+    // Vignettes de matière exploitables (images + vidéos ont un thumb ; l'audio non).
+    const matBufs = project.materials
+      .map((m) => m.analysis?.thumb)
+      .filter((t): t is string => typeof t === "string" && t.includes(","))
+      .map((t) => Buffer.from(t.split(",")[1] || "", "base64"))
+      .filter((b) => b.length > 80);
+    const matMeasured = matBufs.length;      // combien de vignettes mesurables
+    const matTotal = project.materials.length;
     let matColor: { saturation: number; brightness: number; warmCold: string; bw: boolean } | null = null;
-    try {
-      const bufs = project.materials
-        .map((m) => m.analysis?.thumb)
-        .filter((t): t is string => typeof t === "string" && t.includes(","))
-        .map((t) => Buffer.from(t.split(",")[1] || "", "base64"))
-        .filter((b) => b.length > 80);
-      if (bufs.length) matColor = await analyzeColor(bufs);
-    } catch { /* pas de mesure matière */ }
+    try { if (matMeasured) matColor = await analyzeColor(matBufs); } catch { /* mesure impossible */ }
     let gsSat: number | null = null, gsBri: number | null = null, gsTemp: number | null = null, gsBasis = "";
     if (a.color && matColor) {
       gsSat = Math.round((1 + clampN(a.color.saturation - matColor.saturation, -0.2, 0.2)) * 100) / 100;
       gsBri = Math.round(clampN(a.color.brightness - matColor.brightness, -0.2, 0.2) * 100) / 100;
       gsTemp = Math.round(clampN((warmVal(a.color.warmCold) - warmVal(matColor.warmCold)) * 0.3, -0.3, 0.3) * 100) / 100;
-      gsBasis = "écart réf↔ta matière";
+      gsBasis = `écart réf↔ta matière (mesurée sur ${matMeasured}/${matTotal} fichier(s))`;
     } else if (a.color) {
-      gsSat = Math.round((1 + clampN((a.color.saturation - 0.35) * 0.5, -0.2, 0.2)) * 100) / 100;
-      gsBri = Math.round(clampN((a.color.brightness - 0.5) * 0.4, -0.2, 0.2) * 100) / 100;
-      gsTemp = warmVal(a.color.warmCold) * 0.2;
-      gsBasis = "approx (matière non mesurée)";
+      // Matière NON mesurée → on NE réémet PAS un grade absolu (ça recopierait les
+      // conditions de tournage de la réf, bug corrigé). Grade NEUTRE + signal clair.
+      gsSat = 1; gsBri = 0; gsTemp = 0;
+      gsBasis = matTotal === 0
+        ? "AUCUNE matière ajoutée → grade NEUTRE ; ajoute ta matière (image/vidéo) pour un grade calibré sur l'écart réf↔matière"
+        : `matière non mesurable (${matMeasured}/${matTotal} vignette(s) exploitable(s) — audio exclu) → grade NEUTRE ; ajoute une image/vidéo pour calibrer`;
     }
     // Couche COMPRÉHENSION (Gemini a REGARDÉ la vidéo) : captions lues à l'écran +
     // contenu des plans + pourquoi ça marche. Valeurs déjà en unités create_variant.

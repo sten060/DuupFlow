@@ -10,7 +10,7 @@ import path from "path";
 import { createClient } from "@/lib/supabase/server";
 import { analyzeReferenceVideo } from "@/lib/ai-editor/analyze";
 import { downloadReference } from "@/lib/ai-editor/download";
-import { createProject, saveReference, getProject } from "@/lib/ai-editor/store";
+import { createProject, saveReference, getProject, updateReferenceAnalysis, referenceAbsPath } from "@/lib/ai-editor/store";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -23,6 +23,27 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
 
   const contentType = req.headers.get("content-type") || "";
+
+  // ── Mode RÉ-ANALYSE : { projectId, reanalyze:true } → régénère le profil de la
+  //    référence DÉJÀ stockée (sans ré-upload). Sert à « débloquer » un profil figé
+  //    à l'import (ex. avant l'ajout de la couche compréhension Gemini). ───────────
+  if (contentType.includes("application/json")) {
+    const peek = await req.clone().json().catch(() => null);
+    if (peek?.reanalyze === true) {
+      const projectId = typeof peek?.projectId === "string" ? peek.projectId.trim() : "";
+      const project = projectId ? await getProject(user.id, projectId) : null;
+      if (!project?.reference) return NextResponse.json({ error: "Aucune référence à ré-analyser." }, { status: 404 });
+      const refPath = referenceAbsPath(user.id, projectId, project.reference.storedName);
+      try {
+        const analysis = await analyzeReferenceVideo(refPath);
+        await updateReferenceAnalysis(user.id, projectId, analysis);
+        return NextResponse.json({ projectId, analysis });
+      } catch (e) {
+        console.error("[ai-editor/analyze] ré-analyse échouée:", e);
+        return NextResponse.json({ error: `Ré-analyse échouée : ${(e as Error)?.message?.slice(0, 160) ?? "inconnue"}` }, { status: 500 });
+      }
+    }
+  }
 
   // ── Résolution de la source → fichier temporaire à analyser ─────────────────
   let srcPath: string;

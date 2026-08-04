@@ -106,6 +106,7 @@ export default function AiEditorPage() {
   const matInput = useRef<HTMLInputElement | null>(null);
   const [matDragOver, setMatDragOver] = useState(false); // glisser-déposer matière
   const [refDragOver, setRefDragOver] = useState(false); // glisser-déposer référence
+  const [reanalyzing, setReanalyzing] = useState(false); // ré-analyse du profil (débloque un profil figé)
 
   // Projet persistant (créé à l'analyse de la réf ; restauré au chargement)
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -149,6 +150,20 @@ export default function AiEditorPage() {
     if (!f || !projectId) return;
     setRefFile(f); setRefSource({ type: "file", label: f.name });
     void analyzeRef({ file: f, replacePid: projectId });
+  };
+  // Ré-analyse le profil de la référence DÉJÀ stockée (sans ré-upload) → régénère
+  // avec le code courant (ex. couche compréhension Gemini). Débloque un profil figé.
+  const reanalyzeRef = async () => {
+    if (!projectId || reanalyzing) return;
+    setReanalyzing(true);
+    try {
+      const res = await fetch("/api/ai-editor/analyze", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, reanalyze: true }),
+      });
+      const json = await res.json();
+      if (res.ok && json.analysis) setAnalysis(json.analysis as ReferenceAnalysis);
+    } catch { /* silencieux */ } finally { setReanalyzing(false); }
   };
   const addRef = (f?: File) => { if (f) { setRefFile(f); setRefUrl(""); setRefSource({ type: "file", label: f.name }); void analyzeRef({ file: f }); } };
   const onRefPick = (e: React.ChangeEvent<HTMLInputElement>) => addRef(e.target.files?.[0] ?? undefined);
@@ -594,14 +609,24 @@ export default function AiEditorPage() {
             <div className="shrink-0 border-b border-[var(--app-border)] px-4 py-4">
               <div className="mb-2.5 flex items-center justify-between gap-2">
                 <div className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">Référence reçue</div>
-                <button
-                  onClick={() => refChangeInput.current?.click()}
-                  disabled={analyzing}
-                  title="Remplacer la vidéo de référence (ta matière est conservée)"
-                  className={`rounded-md border border-[var(--app-border-strong)] px-2 py-0.5 text-[11px] font-semibold transition ${analyzing ? "cursor-wait text-[var(--app-text-faint)]" : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)]"}`}
-                >
-                  {analyzing ? "⏳ analyse…" : "Changer"}
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => void reanalyzeRef()}
+                    disabled={analyzing || reanalyzing}
+                    title="Régénère le profil de la référence (sans ré-upload) — utile pour appliquer les dernières améliorations d'analyse (ex. lecture des captions)"
+                    className={`rounded-md border border-[var(--app-border-strong)] px-2 py-0.5 text-[11px] font-semibold transition ${reanalyzing ? "cursor-wait text-[var(--app-text-faint)]" : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)]"}`}
+                  >
+                    {reanalyzing ? "⏳ ré-analyse…" : "↻ Réanalyser"}
+                  </button>
+                  <button
+                    onClick={() => refChangeInput.current?.click()}
+                    disabled={analyzing || reanalyzing}
+                    title="Remplacer la vidéo de référence (ta matière est conservée)"
+                    className={`rounded-md border border-[var(--app-border-strong)] px-2 py-0.5 text-[11px] font-semibold transition ${analyzing ? "cursor-wait text-[var(--app-text-faint)]" : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)]"}`}
+                  >
+                    {analyzing ? "⏳ analyse…" : "Changer"}
+                  </button>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="h-[60px] w-[44px] shrink-0 overflow-hidden rounded-lg" style={{ background: "linear-gradient(160deg,#2a2340,#123040)" }}>
