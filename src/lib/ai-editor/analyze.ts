@@ -142,7 +142,7 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
   let keyframes: Keyframe[] = [];
   let shots: Shot[] = [];
   let color: ColorProfile = { saturation: 0, brightness: 0, warmCold: "neutral", bw: false };
-  let audio: AudioProfile = { bpm: null, beats: [], energy: [], type: "unknown" };
+  let audio: AudioProfile = { bpm: null, beats: [], energy: [], drops: [], durationSec: 0, type: "unknown" };
   try {
     const ts = pickTimestamps(meta.durationSec, sceneCuts);
     keyframes = (await Promise.all(ts.map((t, i) => keyframeAt(videoPath, t, dir, i)))).filter((k): k is Keyframe => !!k);
@@ -201,22 +201,11 @@ export type MaterialAnalysis = {
   thumb: string | null; // 1 vignette JPEG (data URI) ; null pour l'audio
   sceneCuts?: number[]; // vidéo : timecodes de coupe (index pour découper le rush)
   transcript?: { phrases: { startSec: number; endSec: number; text: string }[]; fullText: string } | null;
+  audio?: AudioProfile | null; // matière SONORE (audio OU vidéo avec son) : bpm/beats/energy/drops
 };
 
 async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis> {
   const meta = await probe(videoPath);
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_mkf_"));
-  let thumb: string | null = null;
-  try {
-    const t = meta.durationSec > 0 ? Math.min(0.15 * meta.durationSec, 1.5) : 0.5;
-    const kf = await keyframeAt(videoPath, t, dir, 0);
-    thumb = kf?.dataUri ?? null;
-  } finally {
-    await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
-  }
-  // Coupes du rush (index pour que Claude découpe sans deviner) — best-effort.
-  let sceneCuts: number[] = [];
-  try { sceneCuts = (await sceneScores(videoPath, 0.3)).map((s) => Math.round(s.t * 100) / 100); } catch { /* skip */ }
   // Transcription du rush (s'il a du son) — best-effort.
   let transcript: MaterialAnalysis["transcript"] = null;
   if (meta.hasAudio) {
@@ -231,12 +220,47 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
       }
     } catch { /* skip */ }
   }
-  return { kind: "video", durationSec: meta.durationSec, width: meta.width, height: meta.height, hasAudio: meta.hasAudio, thumb, sceneCuts, transcript };
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_mkf_"));
+  let thumb: string | null = null;
+  let audio: AudioProfile | null = null;
+  try {
+    const t = meta.durationSec > 0 ? Math.min(0.15 * meta.durationSec, 1.5) : 0.5;
+    const kf = await keyframeAt(videoPath, t, dir, 0);
+    thumb = kf?.dataUri ?? null;
+    // Analyse rythme/énergie/drops de la piste son du rush — pour caler coupes/effets.
+    if (meta.hasAudio) {
+      try { audio = await analyzeAudioBeats(videoPath, meta.durationSec, dir, !!transcript); } catch { /* skip */ }
+    }
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+  // Coupes du rush (index pour que Claude découpe sans deviner) — best-effort.
+  let sceneCuts: number[] = [];
+  try { sceneCuts = (await sceneScores(videoPath, 0.3)).map((s) => Math.round(s.t * 100) / 100); } catch { /* skip */ }
+  return { kind: "video", durationSec: meta.durationSec, width: meta.width, height: meta.height, hasAudio: meta.hasAudio, thumb, sceneCuts, transcript, audio };
 }
 
 async function analyzeMaterialAudio(audioPath: string): Promise<MaterialAnalysis> {
   const meta = await probe(audioPath);
-  return { kind: "audio", durationSec: meta.durationSec, width: 0, height: 0, hasAudio: true, thumb: null };
+  // Transcription (si voix) — best-effort ; sert aussi à typer music vs speech.
+  let transcript: MaterialAnalysis["transcript"] = null;
+  try {
+    let tr = isGroqAvailable() ? await transcribeViaGroq(audioPath) : null;
+    if (!tr) tr = await transcribeVideo(audioPath);
+    if (tr && tr.phrases.length) {
+      transcript = {
+        phrases: tr.phrases.map((p) => ({ startSec: p.startSec, endSec: p.endSec, text: p.text })),
+        fullText: tr.phrases.map((p) => p.text).join(" ").trim(),
+      };
+    }
+  } catch { /* skip */ }
+  // Rythme / énergie / drops de la piste (bpm, beats, energy 0.25s, drops).
+  let audio: AudioProfile | null = null;
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_maud_"));
+  try { audio = await analyzeAudioBeats(audioPath, meta.durationSec, dir, !!transcript); }
+  catch { /* skip */ }
+  finally { await fs.rm(dir, { recursive: true, force: true }).catch(() => {}); }
+  return { kind: "audio", durationSec: meta.durationSec, width: 0, height: 0, hasAudio: true, thumb: null, transcript, audio };
 }
 
 async function analyzeMaterialImage(imgPath: string): Promise<MaterialAnalysis> {

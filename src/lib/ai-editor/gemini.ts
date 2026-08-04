@@ -23,6 +23,11 @@ export type GeminiShot = {
   endSec: number;
   content: string;                 // ce qu'on voit dans le plan
   motion: "none" | "zoomIn" | "zoomOut" | "panLeft" | "panRight" | "handheld";
+  speed: number;                   // vitesse estimée (1 = normal, <1 ralenti, >1 accéléré)
+  freezeAt: number | null;         // timecode (s) d'un arrêt sur image dans le plan, sinon null
+  subjectX: number | null;         // % (0-100) position H du sujet principal (pour punch-in), null si aucun
+  subjectY: number | null;         // % (0-100) position V du sujet
+  composition: "single" | "splitH" | "splitV" | "pip" | "overlay"; // multi-média détecté (chantier 4)
 };
 
 // Une caption LUE à l'écran, déjà convertie aux unités de create_variant.captions.
@@ -39,6 +44,7 @@ export type GeminiCaption = {
   background: string;    // "none" ou hex (fond derrière le texte)
   font: "sans" | "rounded" | "impact" | "serif" | "script" | "display"; // meilleur match parmi les 6
   emojis: string;        // emojis présents dans/à côté de la caption ("" si aucun)
+  animation: "none" | "fade" | "pop" | "slideUp" | "typewriter" | "wordByWord" | "karaoke"; // type d'anim détecté
 };
 
 export type GeminiComprehension = {
@@ -78,8 +84,14 @@ const SCHEMA = {
           endSec: { type: "NUMBER" },
           content: { type: "STRING" },
           motion: { type: "STRING", enum: ["none", "zoomIn", "zoomOut", "panLeft", "panRight", "handheld"] },
+          speed: { type: "NUMBER" },
+          hasFreeze: { type: "BOOLEAN" },
+          freezeAt: { type: "NUMBER" },
+          subjectX: { type: "NUMBER" },
+          subjectY: { type: "NUMBER" },
+          composition: { type: "STRING", enum: ["single", "splitH", "splitV", "pip", "overlay"] },
         },
-        required: ["startSec", "endSec", "content", "motion"],
+        required: ["startSec", "endSec", "content", "motion", "speed"],
       },
     },
     captions: {
@@ -99,6 +111,7 @@ const SCHEMA = {
           background: { type: "STRING" },
           font: { type: "STRING", enum: ["sans", "rounded", "impact", "serif", "script", "display"] },
           emojis: { type: "STRING" },
+          animation: { type: "STRING", enum: ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"] },
         },
         required: ["text", "startSec", "endSec", "xPct", "yPct", "fontSizePx", "color", "font"],
       },
@@ -112,7 +125,7 @@ const PROMPT = `Tu analyses une vidéo courte (Reel/TikTok) qui a PERFORMÉ, pou
 
 Objectif : décrire la STRUCTURE et le STYLE, pas raconter le contenu. Sois précis et mesuré, pas bavard.
 
-1) shots : découpe en plans. Pour chaque plan : startSec, endSec, content (1 phrase : ce qu'on voit / cadrage), et motion = le mouvement DE CAMÉRA le plus proche parmi : none, zoomIn, zoomOut, panLeft, panRight, handheld (caméra à la main, tremblante). Ne devine pas un zoom sur un plan fixe.
+1) shots : découpe en plans. Pour chaque plan : startSec, endSec, content (1 phrase : ce qu'on voit / cadrage), motion = le mouvement DE CAMÉRA le plus proche parmi : none, zoomIn, zoomOut, panLeft, panRight, handheld (caméra à la main, tremblante) — ne devine pas un zoom sur un plan fixe. ET la VITESSE : speed = vitesse de lecture estimée du plan (1 = normal, 0.5 = ralenti/slow-mo, 2 = accéléré) ; hasFreeze = true s'il y a un ARRÊT SUR IMAGE (freeze), avec freezeAt = son timecode en s (dans le plan). ET le CADRAGE : subjectX/subjectY = position en % (0-100, 50/50 = centre) du SUJET principal dans le cadre — sert au monteur pour punch-in (recadrer) sur le sujet ; null si pas de sujet net (plan large/paysage). ET la COMPOSITION : composition = single (un seul média plein cadre) | splitV (2 médias empilés haut/bas) | splitH (2 médias côte à côte) | pip (petite incrustation dans un coin) | overlay (élément incrusté par-dessus, ex. écran d'app, watermark).
 
 2) captions : CHAQUE texte incrusté à l'écran (hook, sous-titres stylés, mots-clés animés…). Pour chacune, EXPRIME les valeurs dans ces unités exactes (celles du moteur de rendu) :
    - text : le texte exact (avec ses emojis s'il y en a).
@@ -124,6 +137,7 @@ Objectif : décrire la STRUCTURE et le STYLE, pas raconter le contenu. Sois pré
    - background : "none" si pas de fond, sinon la couleur hex du bloc/boîte derrière le texte.
    - font : la famille la PLUS PROCHE parmi EXACTEMENT ces 6 (ne donne pas le nom réel de la fonte, indevinable — donne le meilleur match) : sans (néo-grotesque type Helvetica/Inter), rounded (arrondie type TikTok/CapCut/Poppins), impact (grasse condensée type Anton), serif (à empattements type Playfair), script (manuscrite type Pacifico), display (fantaisie massive type Bungee).
    - emojis : les emojis de cette caption ("" si aucun).
+   - animation : le type d'animation d'apparition, parmi EXACTEMENT : none (statique), fade (fondu), pop (apparition avec rebond/scale), slideUp (glisse depuis le bas), typewriter (lettre par lettre), wordByWord (mot après mot qui apparaissent), karaoke (tous les mots visibles, le mot dit est surligné). Choisis le plus proche.
    S'il n'y a AUCUN texte incrusté, renvoie captions: [].
 
 3) emojisOverall : les emojis marquants de la vidéo en général ("" si aucun).
@@ -303,13 +317,25 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
     };
     const FONTS = ["sans", "rounded", "impact", "serif", "script", "display"] as const;
     const MOTIONS = ["none", "zoomIn", "zoomOut", "panLeft", "panRight", "handheld"] as const;
+    const ANIMS = ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"] as const;
+    const COMPS = ["single", "splitH", "splitV", "pip", "overlay"] as const;
 
-    const shots: GeminiShot[] = Array.isArray(parsed.shots) ? parsed.shots.slice(0, 40).map((s) => ({
-      startSec: Math.round(clamp(s?.startSec, 0, 100000, 0) * 100) / 100,
-      endSec: Math.round(clamp(s?.endSec, 0, 100000, 0) * 100) / 100,
-      content: String(s?.content ?? "").slice(0, 240),
-      motion: (MOTIONS as readonly string[]).includes(String(s?.motion)) ? (s!.motion as GeminiShot["motion"]) : "none",
-    })) : [];
+    const shots: GeminiShot[] = Array.isArray(parsed.shots) ? parsed.shots.slice(0, 40).map((s) => {
+      const sf = s as unknown as { hasFreeze?: boolean; freezeAt?: number; subjectX?: number; subjectY?: number };
+      const freezeAt = sf?.hasFreeze && Number.isFinite(Number(sf.freezeAt)) ? Math.round(clamp(sf.freezeAt, 0, 100000, 0) * 100) / 100 : null;
+      const subj = (v: unknown): number | null => (Number.isFinite(Number(v)) ? Math.round(clamp(v, 0, 100, 50)) : null);
+      return {
+        startSec: Math.round(clamp(s?.startSec, 0, 100000, 0) * 100) / 100,
+        endSec: Math.round(clamp(s?.endSec, 0, 100000, 0) * 100) / 100,
+        content: String(s?.content ?? "").slice(0, 240),
+        motion: (MOTIONS as readonly string[]).includes(String(s?.motion)) ? (s!.motion as GeminiShot["motion"]) : "none",
+        speed: Math.round(clamp((s as { speed?: number })?.speed, 0.25, 4, 1) * 100) / 100,
+        freezeAt,
+        subjectX: subj(sf?.subjectX),
+        subjectY: subj(sf?.subjectY),
+        composition: (COMPS as readonly string[]).includes(String((s as { composition?: string })?.composition)) ? ((s as { composition?: string }).composition as GeminiShot["composition"]) : "single",
+      };
+    }) : [];
 
     const captions: GeminiCaption[] = Array.isArray(parsed.captions) ? parsed.captions.slice(0, 30).map((c) => ({
       text: String(c?.text ?? "").slice(0, 300),
@@ -324,6 +350,7 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
       background: String(c?.background ?? "none").slice(0, 9),
       font: (FONTS as readonly string[]).includes(String(c?.font)) ? (c!.font as GeminiCaption["font"]) : "sans",
       emojis: String(c?.emojis ?? ""),
+      animation: (ANIMS as readonly string[]).includes(String((c as { animation?: string })?.animation)) ? ((c as { animation?: string }).animation as GeminiCaption["animation"]) : "none",
     })) : [];
 
     console.log(`[ai-editor/gemini] OK · model=${usedModel} · tokens in=${u?.promptTokenCount ?? "?"} out=${u?.candidatesTokenCount ?? "?"} total=${u?.totalTokenCount ?? "?"} · ${captions.length} caption(s), ${shots.length} plan(s)`);

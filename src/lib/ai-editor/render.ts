@@ -25,6 +25,16 @@ import type { ProjectVariant } from "./store";
 export type SegMotion = "none" | "zoomIn" | "zoomOut" | "panLeft" | "panRight" | "handheld";
 export type SegFit = "contain" | "cover" | "blurFill";
 export type SegTransition = "cut" | "fade" | "whipPan" | "slide" | "zoomPunch";
+export type SegLayout = "single" | "splitH" | "splitV" | "pip";
+export type SegOverlay = {
+  materialId: string;
+  x?: number; y?: number;          // position (coin haut-gauche) en % du cadre
+  width?: number;                  // largeur en % du cadre (5-100)
+  startSec?: number; endSec?: number; // fenêtre d'affichage, relative au segment
+  opacity?: number;                // 0-1
+  borderRadius?: number;           // px (coins arrondis)
+  zIndex?: number;                 // ordre d'empilement (petit = dessous)
+};
 export type EditSegment = {
   materialId: string;
   startSec?: number;
@@ -34,6 +44,22 @@ export type EditSegment = {
   fit?: SegFit;
   transition?: SegTransition;      // à l'ENTRÉE du plan (le 1er reste en cut)
   transitionDuration?: number;     // secondes (0.1-0.4 typique), bornée à la durée
+  // ── Vitesse (chantier 1) — VIDÉO uniquement (ignoré silencieusement sur image) ──
+  speed?: number;                  // 0.25-4, défaut 1 (l'audio du plan suit, pitch modifié)
+  freezeAt?: number;               // timecode (s) DANS le fichier → arrêt sur image
+  freezeDuration?: number;         // durée du gel (s)
+  speedRamp?: { from: number; to: number }; // rampe de vitesse progressive sur le plan
+  reverse?: boolean;               // lecture inversée (vidéo + audio)
+  // ── Recadrage (chantier 2) — se COMPOSE avec motion (le mouvement passe par-dessus) ──
+  scale?: number;                  // 1-3 : zoom (punch-in) dans l'image, défaut 1
+  offsetX?: number;                // -50..50 % : position H du recadrage (agit si scale>1)
+  offsetY?: number;                // -50..50 % : position V du recadrage
+  flipH?: boolean;                 // miroir horizontal (levier d'unicité)
+  flipV?: boolean;                 // miroir vertical
+  rotate?: number;                 // rotation en degrés
+  // ── Composition multi-média (chantier 4) ──
+  layout?: SegLayout;              // single (défaut) | splitH | splitV | pip
+  overlays?: SegOverlay[];         // médias additionnels compositée dans le plan
 };
 
 /** Nom de transition xfade (null = cut). */
@@ -60,10 +86,9 @@ const FONT_FAMILY: Record<CaptionFont, string> = {
   script: "Pacifico",
   display: "Bungee",
 };
-// Les emojis ne sont PAS rendus par une police (les polices couleur COLR/CBDT ne
-// sont pas fiables sous librsvg selon la build). On les composite en SVG Twemoji
-// (couleur, plat, lisible en petit ; identique quel que soit l'environnement). Si
-// un asset ne peut être récupéré, repli sur cette police mono → jamais de tofu.
+// Les emojis ne sont PAS rendus par une police (polices couleur COLR/CBDT non
+// fiables sous librsvg) : on composite des images (Fluent 3D, cf. plus bas). Si
+// aucun asset n'est récupérable, repli sur cette police mono → jamais de tofu.
 const EMOJI_TEXT_FALLBACK = "'Noto Emoji', 'Noto Sans'";
 export type EditCaption = {
   text: string;
@@ -88,6 +113,12 @@ export type EditCaption = {
   shadowColor?: string;  // ombre portée (distincte du contour)
   shadowBlur?: number;   // px
   shadowOffset?: number; // px (décalage bas-droite)
+  emojiStyle?: EmojiStyle; // "3d" (Fluent, défaut) | "flat" (Twemoji) — override du défaut du plan
+  // ── Animation (chantier 3) ──
+  animation?: "none" | "fade" | "pop" | "slideUp" | "typewriter" | "wordByWord" | "karaoke";
+  animationDuration?: number;                      // s (défaut ~0.35)
+  words?: { text: string; start: number; end: number }[]; // wordByWord/karaoke : timing par mot
+  highlightColor?: string;                         // karaoké : couleur du mot actif
 };
 
 export type ColorGrade = {
@@ -114,6 +145,7 @@ export type EditPlan = {
   audio?: EditAudioTrack;
   segments: EditSegment[];
   captions?: EditCaption[];
+  emojiStyle?: EmojiStyle; // défaut des emojis de TOUTES les captions ("3d" | "flat")
   label?: string;
 };
 
@@ -158,43 +190,71 @@ async function ensureFonts(): Promise<void> {
   }
 }
 
-/* ── Emojis en couleur via assets Twemoji (CC-BY 4.0) compositée dans le SVG.
-   Fiable partout (pas de dépendance à une police couleur). Récupérés au CDN
-   jsDelivr (tag immuable) puis mis en cache disque + mémoire ; repli mono si KO. */
+/* ── Emojis en COULEUR compositée dans le SVG (image data-URI, pas de police
+   couleur). Set principal : Microsoft Fluent Emoji 3D (licence MIT) — look premium
+   proche d'Apple, mais 100% libre. On adresse chaque emoji par code-point via une
+   map générée (public/fluent-emoji/map.json → chemin de l'asset), les PNG sont
+   récupérés au CDN jsDelivr puis mis en cache disque + mémoire. Repli : Twemoji
+   (CC-BY 4.0, SVG) puis police mono → jamais de tofu. */
 const _seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const EMOJI_RE = /\p{Extended_Pictographic}/u;
 const isEmojiGrapheme = (g: string) => EMOJI_RE.test(g);
-/** Nom de fichier Twemoji d'un grapheme (règle officielle : on retire FE0F sauf
- *  si séquence ZWJ), ex. "🔥" → "1f525", "👋🏽" → "1f44b-1f3fd". */
+/** Code-point d'un grapheme (règle Twemoji : retire FE0F sauf séquence ZWJ). Sert
+ *  de clé pour la map Fluent ET de nom de fichier Twemoji. Ex "🔥"→"1f525". */
 function twemojiName(g: string): string {
   const s = g.indexOf("‍") < 0 ? g.replace(/️/g, "") : g;
   const cps: string[] = [];
   for (const ch of s) cps.push(ch.codePointAt(0)!.toString(16));
   return cps.join("-");
 }
-const TWEMOJI_DIR = path.join(os.tmpdir(), "duup_twemoji");
+const EMOJI_CACHE_DIR = path.join(os.tmpdir(), "duup_emoji");
 const TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/";
-const _emojiMem = new Map<string, string | null>();
-/** SVG d'un emoji (ou null si introuvable). Cache mémoire → disque → CDN. */
-async function emojiSvg(name: string): Promise<string | null> {
-  if (_emojiMem.has(name)) return _emojiMem.get(name)!;
-  const file = path.join(TWEMOJI_DIR, `${name}.svg`);
-  let out: string | null = null;
-  try { out = await fs.readFile(file, "utf8"); } catch {}
-  if (!out) {
-    try {
-      const r = await fetch(TWEMOJI_BASE + name + ".svg", { signal: AbortSignal.timeout(6000) });
-      if (r.ok) {
-        const t = await r.text();
-        if (t.includes("<svg")) {
-          out = t;
-          await fs.mkdir(TWEMOJI_DIR, { recursive: true }).catch(() => {});
-          await fs.writeFile(file, t, "utf8").catch(() => {});
-        }
+const FLUENT_BASE = "https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/";
+const FLUENT_MAP_FILE = path.join(process.cwd(), "public", "fluent-emoji", "map.json");
+const _emojiMem = new Map<string, string | null>();   // clé code-point → data URI (ou null)
+let _fluentMap: Record<string, string> | null | undefined; // undefined = pas encore chargé
+async function fluentMap(): Promise<Record<string, string> | null> {
+  if (_fluentMap !== undefined) return _fluentMap;
+  try { _fluentMap = JSON.parse(await fs.readFile(FLUENT_MAP_FILE, "utf8")); }
+  catch { _fluentMap = null; }
+  return _fluentMap!;
+}
+/** Récupère un asset (URL) → data URI. Cache disque + repli silencieux. */
+async function fetchAssetDataUri(url: string, cacheName: string, mime: string): Promise<string | null> {
+  const file = path.join(EMOJI_CACHE_DIR, cacheName);
+  try { const b = await fs.readFile(file); if (b.length > 80) return `data:${mime};base64,${b.toString("base64")}`; } catch {}
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (r.ok) {
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length > 80) {
+        await fs.mkdir(EMOJI_CACHE_DIR, { recursive: true }).catch(() => {});
+        await fs.writeFile(file, buf).catch(() => {});
+        return `data:${mime};base64,${buf.toString("base64")}`;
       }
-    } catch {}
+    }
+  } catch {}
+  return null;
+}
+export type EmojiStyle = "3d" | "flat"; // 3d = Fluent 3D (défaut) ; flat = Twemoji
+/** Data URI d'un emoji selon le style choisi. "3d" : Fluent 3D (PNG) puis repli
+ *  Twemoji ; "flat" : Twemoji (SVG) directement. Repli ultime mono via null. */
+async function emojiImage(grapheme: string, style: EmojiStyle = "3d"): Promise<string | null> {
+  const key = twemojiName(grapheme);
+  const memKey = `${style}:${key}`;
+  if (_emojiMem.has(memKey)) return _emojiMem.get(memKey)!;
+  let out: string | null = null;
+  // 3d : Fluent d'abord (repli teint non listé → emoji de base sans modificateur).
+  if (style !== "flat") {
+    const map = await fluentMap();
+    if (map) {
+      const pth = map[key] || map[key.replace(/-1f3f[b-f]/g, "")];
+      if (pth) out = await fetchAssetDataUri(FLUENT_BASE + pth.split("/").map(encodeURIComponent).join("/"), `f_${key}.png`, "image/png");
+    }
   }
-  _emojiMem.set(name, out);
+  // Repli (ou style flat) : Twemoji (SVG).
+  if (!out) out = await fetchAssetDataUri(TWEMOJI_BASE + key + ".svg", `t_${key}.svg`, "image/svg+xml");
+  _emojiMem.set(memKey, out);
   return out;
 }
 /** Découpe une ligne en segments texte / emoji (graphemes consécutifs regroupés). */
@@ -227,8 +287,8 @@ async function measureInk(sharp: typeof import("sharp"), text: string, attrs: st
 }
 
 /** Rasterise une caption stylée : police/poids/interlettrage/interligne/casse,
- *  contour OU boîte, ombre portée, position libre. Emojis couleur (Twemoji). */
-async function captionPng(c: EditCaption, W: number, H: number, outPath: string): Promise<void> {
+ *  contour OU boîte, ombre portée, position libre. Emojis couleur (Fluent 3D). */
+async function captionPng(c: EditCaption, W: number, H: number, outPath: string, emojiStyle: EmojiStyle = "3d", hlWord = -1, hlColor = ""): Promise<void> {
   await ensureFonts();
   const sharp = (await import("sharp")).default;
 
@@ -296,27 +356,39 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string)
   const lsAttr = ls ? ` letter-spacing="${ls}px"` : "";
   const textAttrs = `font-family="${textFamily}" font-weight="${weight}" font-size="${fsz}"${lsAttr}`;
   const emojiTextAttrs = `font-family="${EMOJI_TEXT_FALLBACK}" font-weight="${weight}" font-size="${fsz}"${lsAttr}`;
-  // Emoji calé sur l'em-box (≈1.15em pour compenser le padding transparent des SVG
-  // Twemoji et matcher la hauteur des majuscules), centré optiquement sur le texte.
+  // Emoji calé sur l'em-box (≈1.15em pour compenser le padding transparent des assets
+  // et matcher la hauteur des majuscules), centré optiquement sur le texte.
   const emojiBox = Math.round(fsz * 1.15);
   const emojiPad = Math.round(fsz * 0.08);
   const emojiTop = Math.round(fsz * 0.36) + Math.round(emojiBox / 2); // baseline → haut image
 
   // Mise en page ligne par ligne : on mesure chaque run texte (police réelle) et
   // on réserve une case carrée par emoji, pour placer chaque élément au pixel.
-  type Placed = { x: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; b64?: string };
+  type Placed = { x: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string };
   const placedLines: Array<{ baseline: number; runs: Placed[]; width: number }> = [];
   let maxLineW = 0;
+  let wordIdx = 0;                       // compteur GLOBAL de mots (pour hlWord/karaoké)
+  const spaceAdv = Math.round(fsz * 0.26);
   for (let i = 0; i < used.length; i++) {
     const runs = segmentRuns(used[i]);
     // 1er passage : largeur d'avance de chaque run.
-    const measured: Array<{ adv: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; b64?: string }> = [];
+    const measured: Array<{ adv: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string }> = [];
     for (const r of runs) {
       if (r.t === "text") {
-        measured.push({ adv: await measureInk(sharp, r.s, textAttrs, fsz), kind: "text", s: r.s });
+        if (hlWord >= 0) {
+          // Karaoké : on découpe le run en MOTS pour pouvoir en colorer un seul.
+          const wlist = r.s.trim().split(/\s+/).filter(Boolean);
+          for (let wi = 0; wi < wlist.length; wi++) {
+            const isHl = wordIdx === hlWord;
+            measured.push({ adv: await measureInk(sharp, wlist[wi], textAttrs, fsz) + (wi < wlist.length - 1 ? spaceAdv : 0), kind: "text", s: wlist[wi], color: isHl && hlColor ? hlColor : undefined });
+            wordIdx++;
+          }
+        } else {
+          measured.push({ adv: await measureInk(sharp, r.s, textAttrs, fsz), kind: "text", s: r.s });
+        }
       } else {
-        const svg = await emojiSvg(twemojiName(r.g));
-        if (svg) measured.push({ adv: emojiBox + 2 * emojiPad, kind: "emoji-img", b64: Buffer.from(svg).toString("base64") });
+        const dataUri = await emojiImage(r.g, emojiStyle);
+        if (dataUri) measured.push({ adv: emojiBox + 2 * emojiPad, kind: "emoji-img", dataUri });
         else measured.push({ adv: await measureInk(sharp, r.g, emojiTextAttrs, fsz), kind: "emoji-text", s: r.g });
       }
     }
@@ -328,7 +400,7 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string)
     const placed: Placed[] = [];
     let x = startX;
     for (const r of measured) {
-      placed.push({ x, kind: r.kind, s: r.s, b64: r.b64 });
+      placed.push({ x, kind: r.kind, s: r.s, dataUri: r.dataUri, color: r.color });
       x += r.adv;
     }
     placedLines.push({ baseline, runs: placed, width: lineW });
@@ -337,20 +409,20 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string)
   // Éléments SVG : ombre (texte only), fond (box), traits/emplis, images emoji.
   const shadowEls: string[] = [];
   const mainEls: string[] = [];
-  const pushText = (x: number, y: number, attrs: string, s: string) => {
+  const pushText = (x: number, y: number, attrs: string, s: string, fill: string) => {
     if (style === "outline") {
       mainEls.push(`<text x="${x}" y="${y}" ${attrs} fill="${strokeColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="round">${esc(s)}</text>`);
     }
-    mainEls.push(`<text x="${x}" y="${y}" ${attrs} fill="${color}">${esc(s)}</text>`);
+    mainEls.push(`<text x="${x}" y="${y}" ${attrs} fill="${fill}">${esc(s)}</text>`);
   };
   for (const ln of placedLines) {
     for (const r of ln.runs) {
       if (r.kind === "emoji-img") {
-        mainEls.push(`<image x="${r.x + emojiPad}" y="${ln.baseline - emojiTop}" width="${emojiBox}" height="${emojiBox}" xlink:href="data:image/svg+xml;base64,${r.b64}"/>`);
+        mainEls.push(`<image x="${r.x + emojiPad}" y="${ln.baseline - emojiTop}" width="${emojiBox}" height="${emojiBox}" xlink:href="${r.dataUri}"/>`);
       } else {
         const attrs = r.kind === "emoji-text" ? emojiTextAttrs : textAttrs;
         shadowEls.push(`<text x="${r.x}" y="${ln.baseline}" ${attrs} fill="#000">${esc(r.s!)}</text>`);
-        pushText(r.x, ln.baseline, attrs, r.s!);
+        pushText(r.x, ln.baseline, attrs, r.s!, r.color || color); // r.color = mot actif (karaoké)
       }
     }
   }
@@ -431,8 +503,28 @@ function normMotion(m: unknown): SegMotion {
   return "none";
 }
 
-/** Filtre vidéo d'un segment IMAGE (cadrage + éventuel mouvement Ken Burns). */
-function imageVideoFilter(i: number, W: number, H: number, fps: number, bg: string, dur: number, motion: SegMotion, intensity: number, fit: SegFit): string {
+/** Préfixe de RECADRAGE (chantier 2), appliqué à la SOURCE avant fit/motion :
+ *  flip → rotate → punch-in (scale + offset). Renvoie "" (aucun recadrage) ou une
+ *  chaîne de filtres terminée par ",". Se compose avec motion (qui vient après). */
+function spatialPrefix(seg: EditSegment, bg: string): string {
+  const parts: string[] = [];
+  if (seg.flipH) parts.push("hflip");
+  if (seg.flipV) parts.push("vflip");
+  const rot = num(seg.rotate, 0);
+  if (Math.abs(rot) > 0.05) parts.push(`rotate=${(rot * Math.PI / 180).toFixed(5)}:fillcolor=${bg}`);
+  const scale = clamp(num(seg.scale, 1), 1, 3);
+  if (scale > 1.001) {
+    const ox = clamp(num(seg.offsetX, 0), -50, 50) / 100;
+    const oy = clamp(num(seg.offsetY, 0), -50, 50) / 100;
+    const s = scale.toFixed(4);
+    // crop d'une sous-fenêtre iw/s × ih/s, centrée puis décalée par offset (% de la marge).
+    parts.push(`crop=iw/${s}:ih/${s}:(iw-iw/${s})*(0.5+${ox.toFixed(4)}):(ih-ih/${s})*(0.5+${oy.toFixed(4)})`);
+  }
+  return parts.length ? parts.join(",") + "," : "";
+}
+
+/** Filtre vidéo d'un segment IMAGE (recadrage + cadrage + éventuel mouvement Ken Burns). */
+function imageVideoFilter(i: number, W: number, H: number, fps: number, bg: string, dur: number, motion: SegMotion, intensity: number, fit: SegFit, pre = ""): string {
   if (motion === "handheld") {
     // Tremblement procédural (sommes de sinus lissées) sur image bouclée -t dur.
     // Casse l'effet diaporama de façon naturelle (mieux qu'un zoom sur une fixe).
@@ -440,7 +532,7 @@ function imageVideoFilter(i: number, W: number, H: number, fps: number, bg: stri
     const jx = `${(W * amp).toFixed(2)}*(sin(2*PI*1.7*t)+0.6*sin(2*PI*3.3*t+1.1))`;
     const jy = `${(H * amp).toFixed(2)}*(sin(2*PI*2.1*t+0.5)+0.6*sin(2*PI*4.3*t))`;
     const UW = Math.round(W * 1.12), UH = Math.round(H * 1.12);
-    return `[${i}:v]scale=${UW}:${UH}:force_original_aspect_ratio=increase,crop=${UW}:${UH},` +
+    return `[${i}:v]${pre}scale=${UW}:${UH}:force_original_aspect_ratio=increase,crop=${UW}:${UH},` +
       `crop=${W}:${H}:x='(iw-ow)/2+${jx}':y='(ih-oh)/2+${jy}',setsar=1,fps=${fps},format=yuv420p[v${i}]`;
   }
   if (motion !== "none") {
@@ -458,20 +550,20 @@ function imageVideoFilter(i: number, W: number, H: number, fps: number, bg: stri
       zoom = z;
       x = motion === "panRight" ? `(iw-iw/zoom)*on/${frames}` : `(iw-iw/zoom)*(1-on/${frames})`;
     }
-    return `[${i}:v]scale=${UW}:${UH}:force_original_aspect_ratio=increase,crop=${UW}:${UH},` +
+    return `[${i}:v]${pre}scale=${UW}:${UH}:force_original_aspect_ratio=increase,crop=${UW}:${UH},` +
       `zoompan=z='${zoom}':x='${x}':y='${y}':d=${frames}:s=${W}x${H}:fps=${fps},setsar=1,format=yuv420p[v${i}]`;
   }
   if (fit === "cover") {
-    return `[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,fps=${fps},format=yuv420p[v${i}]`;
+    return `[${i}:v]${pre}scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,fps=${fps},format=yuv420p[v${i}]`;
   }
   if (fit === "blurFill") {
-    return `[${i}:v]split=2[b${i}][f${i}];` +
+    return `[${i}:v]${pre}split=2[b${i}][f${i}];` +
       `[b${i}]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=42[bb${i}];` +
       `[f${i}]scale=${W}:${H}:force_original_aspect_ratio=decrease[ff${i}];` +
       `[bb${i}][ff${i}]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2,setsar=1,fps=${fps},format=yuv420p[v${i}]`;
   }
   // contain (défaut)
-  return `[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`;
+  return `[${i}:v]${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`;
 }
 
 /** Chaîne de colorimétrie globale (eq + grain + vignette). "" si neutre. */
@@ -493,6 +585,158 @@ function gradeChain(g?: ColorGrade): string {
   return parts.join(",");
 }
 
+/** Décompose un facteur de vitesse en étages atempo valides ([0.5, 2] chacun). */
+function atempoStages(f: number): number[] {
+  const stages: number[] = [];
+  let r = f;
+  while (r > 2.0 + 1e-6) { stages.push(2.0); r /= 2.0; }
+  while (r < 0.5 - 1e-6) { stages.push(0.5); r /= 0.5; }
+  stages.push(Math.round(r * 1000) / 1000);
+  return stages;
+}
+
+/* ── Vitesse (chantier 1) : pré-rend un plan VIDÉO avec ses effets temporels
+   (freeze → retime speed/rampe → reverse), dans un fichier intermédiaire dont on
+   PROBE la durée finale (pas de calcul analytique fragile). Renvoie null si le plan
+   n'a aucun effet (→ chemin normal). Ordre fixe : gel, puis vitesse/rampe, puis
+   inversion. Audio : suit la vitesse (atempo, pitch modifié), silence pendant le
+   gel, inversé si reverse ; rampe → atempo moyen. */
+async function timeEffectClip(
+  abs: string, start: number, segLen: number, seg: EditSegment, dir: string, idx: number, fps: number,
+): Promise<{ path: string; durationSec: number; hasAudio: boolean } | null> {
+  const spd = clamp(num(seg.speed, 1), 0.25, 4);
+  const rev = !!seg.reverse;
+  const rampRaw = seg.speedRamp;
+  const ramp = rampRaw && Number.isFinite(Number(rampRaw.from)) && Number.isFinite(Number(rampRaw.to))
+    ? { from: clamp(num(rampRaw.from, 1), 0.25, 4), to: clamp(num(rampRaw.to, 1), 0.25, 4) } : null;
+  const rampActive = !!ramp && Math.abs(ramp.from - ramp.to) > 0.01;
+  const fzLocal = seg.freezeAt != null ? num(seg.freezeAt, -1) - start : -1;
+  const fzDur = clamp(num(seg.freezeDuration, 0), 0, 10);
+  const hasFreeze = fzLocal > 0.02 && fzLocal < segLen - 0.02 && fzDur > 0.02;
+  const hasSpeed = Math.abs(spd - 1) > 0.001;
+  if (!rev && !rampActive && !hasFreeze && !hasSpeed) return null;
+
+  const { hasAudio } = await probeAV(abs);
+  const vf: string[] = [], af: string[] = [];
+  let vL = "0:v", aL = "0:a";
+  const L = (p: string) => `${p}${idx}`;
+  let curDur = segLen;
+
+  if (hasFreeze) {
+    vf.push(`[${vL}]trim=0:${fzLocal.toFixed(3)},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=${fzDur.toFixed(3)}[${L("vfa")}]`);
+    vf.push(`[${vL}]trim=start=${fzLocal.toFixed(3)},setpts=PTS-STARTPTS[${L("vfb")}]`);
+    vf.push(`[${L("vfa")}][${L("vfb")}]concat=n=2:v=1:a=0[${L("vf")}]`);
+    vL = L("vf");
+    if (hasAudio) {
+      af.push(`[${aL}]atrim=0:${fzLocal.toFixed(3)},asetpts=N/SR/TB[${L("afa")}]`);
+      af.push(`anullsrc=r=44100:cl=stereo,atrim=0:${fzDur.toFixed(3)},asetpts=N/SR/TB[${L("afs")}]`);
+      af.push(`[${aL}]atrim=start=${fzLocal.toFixed(3)},asetpts=N/SR/TB[${L("afb")}]`);
+      af.push(`[${L("afa")}][${L("afs")}][${L("afb")}]concat=n=3:v=0:a=1[${L("af")}]`);
+      aL = L("af");
+    }
+    curDur += fzDur;
+  }
+
+  if (rampActive && ramp) {
+    const f = ramp.from, t = ramp.to, K = t - f, D = curDur;
+    // setpts logarithmique : out(T) = (D/K)·ln((f + K·T/D)/f) — rampe de vitesse linéaire.
+    vf.push(`[${vL}]setpts='(${D.toFixed(3)}/(${K.toFixed(4)}))*log((${f.toFixed(3)}+(${K.toFixed(4)})*T/${D.toFixed(3)})/${f.toFixed(3)})/TB'[${L("vr")}]`);
+    vL = L("vr");
+    if (hasAudio) { const avg = clamp((f + t) / 2, 0.25, 4); af.push(`[${aL}]${atempoStages(avg).map((s) => `atempo=${s}`).join(",")}[${L("ar")}]`); aL = L("ar"); }
+  } else if (hasSpeed) {
+    vf.push(`[${vL}]setpts=PTS/${spd.toFixed(4)}[${L("vs")}]`);
+    vL = L("vs");
+    if (hasAudio) { af.push(`[${aL}]${atempoStages(spd).map((s) => `atempo=${s}`).join(",")}[${L("as")}]`); aL = L("as"); }
+  }
+
+  if (rev) {
+    vf.push(`[${vL}]reverse[${L("vv")}]`); vL = L("vv");
+    if (hasAudio) { af.push(`[${aL}]areverse[${L("aa")}]`); aL = L("aa"); }
+  }
+
+  vf.push(`[${vL}]format=yuv420p[vout]`);
+  if (hasAudio) af.push(`[${aL}]aresample=44100[aout]`);
+
+  const out = path.join(dir, `timed_${idx}.mp4`);
+  const args = ["-y", "-hide_banner", "-loglevel", "error"];
+  if (start > 0) args.push("-ss", start.toFixed(3));
+  args.push("-t", segLen.toFixed(3), "-i", abs, "-filter_complex", [...vf, ...af].join(";"), "-map", "[vout]");
+  if (hasAudio) args.push("-map", "[aout]", "-c:a", "aac", "-b:a", "160k");
+  args.push("-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-r", String(fps), out);
+  const { code, stderr } = await runFFmpeg(args, 4 * 60 * 1000);
+  if (code !== 0) { console.warn("[ai-editor/render] timeEffectClip KO:", stderr.slice(-200)); return null; }
+  const { dur } = await probeAV(out);
+  return { path: out, durationSec: Math.max(0.1, dur), hasAudio };
+}
+
+/* ── Composition multi-média (chantier 4) : pré-rend un plan avec ses overlays et
+   son layout (splitV/splitH/pip) dans UN fichier WxH → le graphe principal garde
+   1 entrée/plan. base = source déjà coupée/retimée. Renvoie null si rien à composer. */
+async function compositeClip(
+  materials: { id: string; storedName: string; kind: string }[],
+  userId: string, projectId: string,
+  seg: EditSegment, base: { abs: string; start: number; len: number; hasAudio: boolean; loop?: boolean },
+  W: number, H: number, fps: number, bg: string, dir: string, idx: number,
+): Promise<{ path: string; durationSec: number; hasAudio: boolean } | null> {
+  const layout: SegLayout = seg.layout && ["splitH", "splitV", "pip"].includes(seg.layout) ? seg.layout : "single";
+  const resolved: { abs: string; kind: string; o: SegOverlay }[] = [];
+  for (const o of (seg.overlays ?? []).slice(0, 6)) {
+    const mat = materials.find((m) => m.id === o?.materialId);
+    if (!mat || mat.kind === "audio") continue;
+    const oabs = materialAbsPath(userId, projectId, mat.storedName);
+    try { await fs.access(oabs); } catch { continue; }
+    resolved.push({ abs: oabs, kind: mat.kind, o });
+  }
+  if (layout === "single" && !resolved.length) return null;   // rien à composer
+  if (layout !== "single" && !resolved.length) return null;   // split sans 2e média → ignore
+
+  const args = ["-y", "-hide_banner", "-loglevel", "error"];
+  if (base.loop) args.push("-loop", "1");
+  if (base.start > 0) args.push("-ss", base.start.toFixed(3));
+  args.push("-t", base.len.toFixed(3), "-i", base.abs);
+  for (const r of resolved) {
+    if (r.kind === "image") args.push("-loop", "1", "-t", base.len.toFixed(3), "-i", r.abs);
+    else args.push("-t", base.len.toFixed(3), "-i", r.abs);
+  }
+
+  const vf: string[] = [];
+  const half = layout === "splitV" ? `${W}:${Math.round(H / 2)}` : layout === "splitH" ? `${Math.round(W / 2)}:${H}` : `${W}:${H}`;
+  vf.push(`[0:v]scale=${half}:force_original_aspect_ratio=increase,crop=${half},setsar=1,fps=${fps},format=yuv420p[base]`);
+  let acc = "cv0";
+  vf.push(`[base]pad=${W}:${H}:0:0:color=${bg}[${acc}]`); // base en haut/gauche (split) ou plein (pip)
+  let firstPip = 0;
+  if ((layout === "splitV" || layout === "splitH")) {
+    vf.push(`[1:v]scale=${half}:force_original_aspect_ratio=increase,crop=${half},setsar=1,fps=${fps},format=yuv420p[p1]`);
+    const pos = layout === "splitV" ? `0:${Math.round(H / 2)}` : `${Math.round(W / 2)}:0`;
+    vf.push(`[${acc}][p1]overlay=${pos}[cv1]`); acc = "cv1"; firstPip = 1;
+  }
+  // Overlays restants en PIP (triés par zIndex), scale/opacity/position + fenêtre.
+  const pips = resolved.map((r, k) => ({ r, k })).slice(firstPip).sort((a, b) => num(a.r.o.zIndex, 0) - num(b.r.o.zIndex, 0));
+  let ci = 2;
+  for (const { r, k } of pips) {
+    const inIdx = k + 1;
+    const o = r.o;
+    const wpx = Math.max(16, Math.round(clamp(num(o.width, 32), 5, 100) / 100 * W));
+    const op = clamp(num(o.opacity, 1), 0, 1);
+    const xp = Math.round(clamp(num(o.x, 62), 0, 100) / 100 * W);
+    const yp = Math.round(clamp(num(o.y, 60), 0, 100) / 100 * H);
+    const st = num(o.startSec, 0), en = num(o.endSec, base.len);
+    const label = `ov${k}`;
+    vf.push(`[${inIdx}:v]scale=${wpx}:-2,setsar=1,fps=${fps},format=rgba,colorchannelmixer=aa=${op.toFixed(3)}[${label}]`);
+    vf.push(`[${acc}][${label}]overlay=${xp}:${yp}:enable='between(t,${st.toFixed(2)},${en.toFixed(2)})'[cv${ci}]`); acc = `cv${ci}`; ci++;
+  }
+  vf.push(`[${acc}]format=yuv420p[vout]`);
+
+  const out = path.join(dir, `comp_${idx}.mp4`);
+  args.push("-filter_complex", vf.join(";"), "-map", "[vout]");
+  if (base.hasAudio) args.push("-map", "0:a?", "-c:a", "aac", "-b:a", "160k");
+  args.push("-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-r", String(fps), out);
+  const { code, stderr } = await runFFmpeg(args, 5 * 60 * 1000);
+  if (code !== 0) { console.warn("[ai-editor/render] compositeClip KO:", stderr.slice(-200)); return null; }
+  const { dur } = await probeAV(out);
+  return { path: out, durationSec: Math.max(0.1, dur), hasAudio: base.hasAudio };
+}
+
 export async function renderVariant(
   userId: string,
   projectId: string,
@@ -508,57 +752,100 @@ export async function renderVariant(
   const fps = Math.round(clamp(num(plan.fps, 30), 15, 60));
   const bg = hex(plan.background, "#000000").replace("#", "0x"); // ffmpeg color
 
+  // Dossier temp créé AVANT la boucle : les pré-rendus vitesse (timeEffectClip) y écrivent.
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_render_"));
   const inputs: string[] = [];
   const vlabels: string[] = [];
   const alabels: string[] = [];
   const durs: number[] = [];
   const filters: string[] = [];
+  // dir est créé avant la boucle → nettoyage sur les retours d'erreur de validation.
+  const cleanFail = async (error: string): Promise<{ error: string }> => {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+    return { error };
+  };
 
   for (let i = 0; i < segs.length; i++) {
     const seg = segs[i];
     const mat = project.materials.find((m) => m.id === seg.materialId);
-    if (!mat) return { error: `Matière introuvable : ${seg.materialId}. Utilise l'"id" exact renvoyé par list_material.` };
-    if (mat.kind === "audio") return { error: `${mat.name} est un fichier audio — mets-le dans le champ "audio" (piste sonore), pas dans segments.` };
+    if (!mat) return cleanFail(`Matière introuvable : ${seg.materialId}. Utilise l'"id" exact renvoyé par list_material.`);
+    if (mat.kind === "audio") return cleanFail(`${mat.name} est un fichier audio — mets-le dans le champ "audio" (piste sonore), pas dans segments.`);
     const abs = materialAbsPath(userId, projectId, mat.storedName);
-    try { await fs.access(abs); } catch { return { error: `Fichier manquant pour ${mat.name}.` }; }
+    try { await fs.access(abs); } catch { return cleanFail(`Fichier manquant pour ${mat.name}.`); }
+    // Recadrage (chantier 2) : flip/rotate/punch-in appliqué AVANT fit/motion.
+    const pre = spatialPrefix(seg, bg);
 
     if (mat.kind === "image") {
       const dur = Math.max(0.3, seg.endSec != null && seg.startSec != null ? seg.endSec - seg.startSec : seg.endSec ?? IMG_DEFAULT_SEC);
-      const motion = normMotion(seg.motion);
-      const intensity = clamp(num(seg.motionIntensity, 1), 0.2, 3);
-      // Défaut blurFill (image sur fond flou) : meilleur que des bandes noires sur du vertical.
-      const fit: SegFit = seg.fit === "cover" || seg.fit === "contain" ? seg.fit : "blurFill";
-      // handheld/none = image bouclée bornée (-t) ; zoom/pan = 1 seule image (zoompan la déploie).
-      if (motion === "none" || motion === "handheld") inputs.push("-loop", "1", "-t", dur.toFixed(3), "-i", abs);
-      else inputs.push("-i", abs);
-      filters.push(imageVideoFilter(i, W, H, fps, bg, dur, motion, intensity, fit));
-      filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${dur.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
-      durs.push(dur);
+      // Composition (chantier 4) sur une image de base.
+      const comp = (seg.overlays?.length || (seg.layout && seg.layout !== "single"))
+        ? await compositeClip(project.materials, userId, projectId, seg, { abs, start: 0, len: dur, hasAudio: false, loop: true }, W, H, fps, bg, dir, i)
+        : null;
+      if (comp) {
+        inputs.push("-i", comp.path);
+        filters.push(`[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
+        filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${comp.durationSec.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
+        durs.push(comp.durationSec);
+      } else {
+        const motion = normMotion(seg.motion);
+        const intensity = clamp(num(seg.motionIntensity, 1), 0.2, 3);
+        // Défaut blurFill (image sur fond flou) : meilleur que des bandes noires sur du vertical.
+        const fit: SegFit = seg.fit === "cover" || seg.fit === "contain" ? seg.fit : "blurFill";
+        // handheld/none = image bouclée bornée (-t) ; zoom/pan = 1 seule image (zoompan la déploie).
+        if (motion === "none" || motion === "handheld") inputs.push("-loop", "1", "-t", dur.toFixed(3), "-i", abs);
+        else inputs.push("-i", abs);
+        filters.push(imageVideoFilter(i, W, H, fps, bg, dur, motion, intensity, fit, pre));
+        filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${dur.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
+        durs.push(dur);
+      }
     } else {
       const { dur: fullDur, hasAudio } = await probeAV(abs);
       const start = seg.startSec != null ? Math.max(0, num(seg.startSec, 0)) : 0;
       const end = seg.endSec != null ? num(seg.endSec, 0) : null;
       const segLen = Math.max(0.1, (end != null ? end : fullDur) - start);
-      // Coupe au niveau de l'INPUT (-ss/-t), PAS par le filtre trim : sur d'anciennes
-      // versions ffmpeg le filtre trim ignore 'start' (le plan repartait du début du
-      // rush). -ss avant -i = seek précis (décodé) sur ffmpeg ≥ 4 ; -t borne la durée.
-      // startSec/endSec = points d'entrée/sortie DANS le fichier (cf. get_material).
-      if (start > 0) inputs.push("-ss", start.toFixed(3));
-      inputs.push("-t", segLen.toFixed(3), "-i", abs);
-      filters.push(`[${i}:v]setpts=PTS-STARTPTS,scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
-      if (hasAudio) {
-        // L'audio est déjà coupé par le seek d'input → pas de re-trim (sync garantie).
-        filters.push(`[${i}:a]asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+      // Effets VITESSE (chantier 1) : si le plan a speed/freeze/rampe/reverse, on
+      // pré-rend un clip retimé (durée PROBÉE) qu'on injecte comme source du plan.
+      const timed = await timeEffectClip(abs, start, segLen, seg, dir, i, fps);
+      // Composition (chantier 4) : overlays/layout → pré-rend un plan composité WxH.
+      const baseSrc = timed
+        ? { abs: timed.path, start: 0, len: timed.durationSec, hasAudio: timed.hasAudio }
+        : { abs, start, len: segLen, hasAudio };
+      const comp = (seg.overlays?.length || (seg.layout && seg.layout !== "single"))
+        ? await compositeClip(project.materials, userId, projectId, seg, baseSrc, W, H, fps, bg, dir, i)
+        : null;
+      if (comp) {
+        inputs.push("-i", comp.path); // déjà WxH composité
+        filters.push(`[${i}:v]setpts=PTS-STARTPTS,scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
+        if (comp.hasAudio) filters.push(`[${i}:a]asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+        else filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${comp.durationSec.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
+        durs.push(comp.durationSec);
+      } else if (timed) {
+        inputs.push("-i", timed.path); // déjà coupé + retimé (pas de re-cut)
+        filters.push(`[${i}:v]setpts=PTS-STARTPTS,${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
+        if (timed.hasAudio) filters.push(`[${i}:a]asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+        else filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${timed.durationSec.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
+        durs.push(timed.durationSec);
       } else {
-        filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${segLen.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
+        // Coupe au niveau de l'INPUT (-ss/-t), PAS par le filtre trim : sur d'anciennes
+        // versions ffmpeg le filtre trim ignore 'start' (le plan repartait du début du
+        // rush). -ss avant -i = seek précis (décodé) sur ffmpeg ≥ 4 ; -t borne la durée.
+        // startSec/endSec = points d'entrée/sortie DANS le fichier (cf. get_material).
+        if (start > 0) inputs.push("-ss", start.toFixed(3));
+        inputs.push("-t", segLen.toFixed(3), "-i", abs);
+        filters.push(`[${i}:v]setpts=PTS-STARTPTS,${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
+        if (hasAudio) {
+          // L'audio est déjà coupé par le seek d'input → pas de re-trim (sync garantie).
+          filters.push(`[${i}:a]asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+        } else {
+          filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${segLen.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
+        }
+        durs.push(segLen);
       }
-      durs.push(segLen);
     }
     vlabels.push(`[v${i}]`);
     alabels.push(`[a${i}]`);
   }
 
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_render_"));
   const outPath = path.join(dir, "variant.mp4");
   const posterPath = path.join(dir, "poster.jpg");
 
@@ -609,20 +896,84 @@ export async function renderVariant(
     const gradeFilters = grade ? [`[vasm]${grade}[graded]`] : [];
     const gbase = grade ? "graded" : "vasm";
 
-    // Captions (générées 1 fois) : PNG sharp + overlay, chaînées depuis gbase.
+    // Captions (chantier 3 : animées) : PNG sharp + overlay chaînés depuis gbase.
+    // Pour les anims temporelles, l'image est BOUCLÉE (-loop 1 -t vidDur) → les
+    // filtres peuvent utiliser le temps absolu (fade/slide/typewriter). Les anims
+    // par mot (wordByWord/karaoke) génèrent plusieurs PNG timés.
     const captionFilters: string[] = [];
     let last = gbase;
     const caps = (plan.captions ?? []).slice(0, MAX_CAPTIONS).filter((c) => c?.text?.trim());
+    const planEmoji: EmojiStyle = plan.emojiStyle === "flat" ? "flat" : "3d";
+    const vidDur = totalVideoDur();
+    let capIn = inputs.reduce((n, a) => (a === "-i" ? n + 1 : n), 0); // index d'entrée du 1er PNG caption
+    let ccN = 0; // compteur d'étapes d'overlay (labels uniques)
+    const overlay = (src: number | string, st: number, en: number, posExpr = "0:0") => {
+      const inLabel = typeof src === "number" ? `${src}:v` : src; // index d'entrée OU label de filtre
+      const out = `cc${ccN++}`;
+      captionFilters.push(`[${last}][${inLabel}]overlay=${posExpr}:enable='between(t,${st.toFixed(2)},${en.toFixed(2)})'[${out}]`);
+      last = out;
+    };
+    // Découpe le texte en mots avec timing (fournis, sinon répartis sur [st,en]).
+    const wordTiming = (c: EditCaption, st: number, en: number): { text: string; start: number; end: number }[] => {
+      if (Array.isArray(c.words) && c.words.length && c.words.every((w) => w && typeof w.text === "string")) {
+        return c.words.slice(0, 16).map((w) => ({ text: w.text, start: num(w.start, st), end: num(w.end, en) }));
+      }
+      const ws = c.text.trim().split(/\s+/).filter(Boolean).slice(0, 16);
+      const span = Math.max(0.2, en - st) / Math.max(1, ws.length);
+      return ws.map((t, i) => ({ text: t, start: st + i * span, end: st + (i + 1) * span }));
+    };
     try {
       for (let k = 0; k < caps.length; k++) {
         const c = caps[k];
-        const png = path.join(dir, `cap${k}.png`);
-        await captionPng(c, W, H, png);
-        inputs.push("-i", png);
-        const inIdx = segs.length + k;
-        const out = `cc${k}`;
-        captionFilters.push(`[${last}][${inIdx}:v]overlay=0:0:enable='between(t,${num(c.startSec, 0).toFixed(2)},${num(c.endSec, 3).toFixed(2)})'[${out}]`);
-        last = out;
+        const es: EmojiStyle = c.emojiStyle === "flat" || c.emojiStyle === "3d" ? c.emojiStyle : planEmoji;
+        const anim = c.animation ?? "none";
+        const st = num(c.startSec, 0), en = num(c.endSec, 3);
+        const ad = clamp(num(c.animationDuration, 0.35), 0.05, 2);
+
+        if (anim === "wordByWord") {
+          const wt = wordTiming(c, st, en);
+          for (let wi = 0; wi < wt.length; wi++) {
+            const png = path.join(dir, `cap${k}_w${wi}.png`);
+            await captionPng({ ...c, text: wt.slice(0, wi + 1).map((w) => w.text).join(" ") }, W, H, png, es);
+            inputs.push("-i", png);
+            overlay(capIn++, wt[wi].start, wi < wt.length - 1 ? wt[wi + 1].start : en); // fenêtres disjointes
+          }
+        } else if (anim === "karaoke") {
+          const wt = wordTiming(c, st, en);
+          const hlC = hex(c.highlightColor, "#ffd400");
+          const base = path.join(dir, `cap${k}_base.png`);
+          await captionPng(c, W, H, base, es);
+          inputs.push("-i", base); overlay(capIn++, st, en);          // texte complet, tout le temps
+          for (let wi = 0; wi < wt.length; wi++) {
+            const png = path.join(dir, `cap${k}_hl${wi}.png`);
+            await captionPng(c, W, H, png, es, wi, hlC);               // mot wi surligné
+            inputs.push("-i", png); overlay(capIn++, wt[wi].start, wt[wi].end); // par-dessus, pendant le mot
+          }
+        } else {
+          const png = path.join(dir, `cap${k}.png`);
+          await captionPng(c, W, H, png, es);
+          if (anim === "none") { inputs.push("-i", png); overlay(capIn++, st, en); continue; }
+          // Anims temporelles : image bouclée → filtres à temps absolu.
+          inputs.push("-loop", "1", "-t", vidDur.toFixed(3), "-i", png);
+          const inIdx = capIn++;
+          const capf = `capf${k}`;
+          if (anim === "fade") {
+            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${ad.toFixed(2)}:alpha=1,fade=t=out:st=${(en - ad).toFixed(2)}:d=${ad.toFixed(2)}:alpha=1[${capf}]`);
+            overlay(capf, st, en);
+          } else if (anim === "pop") {
+            const pd = Math.min(ad, 0.18);
+            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${pd.toFixed(2)}:alpha=1,fade=t=out:st=${(en - ad).toFixed(2)}:d=${ad.toFixed(2)}:alpha=1[${capf}]`);
+            overlay(capf, st, en);
+          } else if (anim === "typewriter") {
+            // Révélation gauche→droite : on masque l'alpha des pixels à droite du
+            // seuil mobile (taille de sortie constante, contrairement à crop). geq.
+            captionFilters.push(`[${inIdx}:v]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(X,W*min(1,max(0,(T-${st.toFixed(2)})/${ad.toFixed(2)}))),alpha(X,Y),0)'[${capf}]`);
+            overlay(capf, st, en);
+          } else { // slideUp
+            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${ad.toFixed(2)}:alpha=1[${capf}]`);
+            overlay(capf, st, en, `x=0:y='if(between(t,${st.toFixed(2)},${(st + ad).toFixed(2)}),(1-(t-${st.toFixed(2)})/${ad.toFixed(2)})*${Math.round(H * 0.05)},0)'`);
+          }
+        }
       }
     } catch (e) {
       console.warn("[ai-editor/render] captions ignorées:", (e as Error)?.message);

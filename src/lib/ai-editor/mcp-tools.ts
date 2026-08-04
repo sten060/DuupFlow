@@ -37,11 +37,13 @@ export const TOOLS = [
     description:
       "Assemble UNE variante vidéo selon TON plan de montage. Contrôles : segments coupés ; captions stylables (contour/box, couleur, contour, taille, position x/y en %, alignement) ; images animées (zoomIn/zoomOut/panLeft/panRight + cadrage cover/contain/blurFill) ; colorimétrie globale (grade) ; fps ; couleur de fond. Le son des plans vidéo est CONSERVÉ. " +
       "IMPORTANT : cet outil te RENVOIE des keyframes du rendu + la durée réelle → REGARDE-LES pour vérifier cadrage/rythme/captions, et rappelle l'outil pour corriger. " +
+      "SYNCHRO MUSIQUE : les timecodes mesurés sur la matière sonore (get_material → beats, drops, énergie) s'utilisent DIRECTEMENT — cale captions[].startSec et les transitions segments[].transition sur les beats/drops (ex. une transition PILE sur un drop, un caption qui apparaît sur un temps fort). " +
       "Durées : segment libre (borné à la longueur du fichier pour une vidéo) ; défaut image = 2,5 s. Jusqu'à 40 segments, 30 captions.",
     inputSchema: {
       type: "object",
       properties: {
         aspect: { type: "string", enum: ["9:16", "1:1", "16:9"], description: "Format (défaut 9:16)." },
+        emojiStyle: { type: "string", enum: ["3d", "flat"], description: "Style des emojis de TOUTES les captions : \"3d\" = Fluent 3D brillant (défaut, look premium), \"flat\" = Twemoji plat. Surchargable par caption." },
         fps: { type: "number", description: "Images/s de sortie (15-60, défaut 30)." },
         background: { type: "string", description: "Couleur de fond des bandes (letterbox) en hex. Défaut noir." },
         grade: {
@@ -81,6 +83,36 @@ export const TOOLS = [
               fit: { type: "string", enum: ["contain", "cover", "blurFill"], description: "IMAGES, cadrage : blurFill (DÉFAUT, image centrée sur fond flou — idéal vertical) ; cover (remplit en recadrant) ; contain (bandes noires)." },
               transition: { type: "string", enum: ["cut", "fade", "whipPan", "slide", "zoomPunch"], description: "Transition à l'ENTRÉE de ce plan (le 1er reste en cut). Défaut cut." },
               transitionDuration: { type: "number", description: "Durée de la transition en s (0.1-0.4 typique). Bornée à la durée des plans." },
+              speed: { type: "number", description: "VIDÉO : vitesse de lecture 0.25-4 (défaut 1). <1 = ralenti, >1 = accéléré. L'audio du plan suit (pitch modifié). Ignoré sur les images. Réf : get_reference → plans[].speed." },
+              freezeAt: { type: "number", description: "VIDÉO : timecode (s) DANS le fichier où faire un ARRÊT SUR IMAGE (freeze). À utiliser avec freezeDuration. Réf : get_reference signale le freeze + son timecode." },
+              freezeDuration: { type: "number", description: "Durée du gel en s (avec freezeAt)." },
+              speedRamp: { type: "object", description: "VIDÉO : rampe de vitesse progressive sur le plan (accélération/décélération).", properties: { from: { type: "number", description: "Vitesse de départ (0.25-4)." }, to: { type: "number", description: "Vitesse d'arrivée (0.25-4)." } } },
+              reverse: { type: "boolean", description: "VIDÉO : lecture inversée (vidéo + audio). Levier d'unicité." },
+              scale: { type: "number", description: "RECADRAGE : zoom/punch-in dans l'image, 1-3 (défaut 1). Se compose avec motion (le mouvement passe par-dessus). Réf : get_reference indique où est le sujet (subject x/y %)." },
+              offsetX: { type: "number", description: "RECADRAGE : position horizontale du recadrage, -50 à 50 % (agit si scale>1 → pour punch-in sur un sujet décentré). Défaut 0 (centre)." },
+              offsetY: { type: "number", description: "RECADRAGE : position verticale, -50 à 50 %. Défaut 0." },
+              flipH: { type: "boolean", description: "Miroir horizontal — levier d'unicité classique en reposting." },
+              flipV: { type: "boolean", description: "Miroir vertical." },
+              rotate: { type: "number", description: "Rotation en degrés." },
+              layout: { type: "string", enum: ["single", "splitH", "splitV", "pip"], description: "COMPOSITION multi-média : single (défaut) ; splitV (2 médias empilés haut/bas) ; splitH (côte à côte) ; pip (incrustation). Le 2e média d'un split, et les incrustations, sont listés dans overlays[]. Réf : get_reference signale si un plan est un split/une incrustation." },
+              overlays: {
+                type: "array",
+                description: "Médias additionnels compositée dans le plan (réaction, avant/après, watermark, écran d'app…). En split, overlays[0] = 2e panneau ; le reste = incrustations.",
+                items: {
+                  type: "object",
+                  properties: {
+                    materialId: { type: "string", description: "id (list_material) du média à incruster." },
+                    x: { type: "number", description: "Position coin haut-gauche, % du cadre (0-100)." },
+                    y: { type: "number", description: "Position verticale, % du cadre." },
+                    width: { type: "number", description: "Largeur de l'incrustation, % du cadre (5-100)." },
+                    startSec: { type: "number", description: "Apparition, relative au plan." },
+                    endSec: { type: "number", description: "Disparition, relative au plan." },
+                    opacity: { type: "number", description: "0-1 (défaut 1)." },
+                    borderRadius: { type: "number", description: "Coins arrondis en px." },
+                    zIndex: { type: "number", description: "Ordre d'empilement (petit = dessous)." },
+                  },
+                },
+              },
             },
             required: ["materialId"],
           },
@@ -91,7 +123,7 @@ export const TOOLS = [
           items: {
             type: "object",
             properties: {
-              text: { type: "string", description: "Le texte. Les emojis 🔥💪🎉 sont rendus EN COULEUR (assets Twemoji) — utilise-les librement." },
+              text: { type: "string", description: "Le texte. Les emojis 🔥💪🎉 sont rendus EN COULEUR — style 3D premium par défaut, ou plat via emojiStyle. Utilise-les librement." },
               startSec: { type: "number" },
               endSec: { type: "number" },
               position: { type: "string", enum: ["top", "center", "bottom"], description: "Position rapide (défaut bottom). Ignorée si x/y fournis." },
@@ -113,6 +145,11 @@ export const TOOLS = [
               shadowColor: { type: "string", description: "Ombre portée (hex) — distincte du contour ; \"none\" pour aucune." },
               shadowBlur: { type: "number", description: "Flou de l'ombre en px." },
               shadowOffset: { type: "number", description: "Décalage de l'ombre en px (bas-droite)." },
+              emojiStyle: { type: "string", enum: ["3d", "flat"], description: "Style des emojis de CETTE caption : \"3d\" (Fluent 3D, défaut) | \"flat\" (Twemoji). Prioritaire sur le défaut du plan." },
+              animation: { type: "string", enum: ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"], description: "Animation d'apparition (défaut none). wordByWord = mots l'un après l'autre ; karaoke = tous visibles, mot actif surligné (highlightColor). Réf : get_reference → captions[].animation." },
+              animationDuration: { type: "number", description: "Durée de l'animation d'entrée en s (défaut ~0.35)." },
+              words: { type: "array", description: "Pour wordByWord/karaoke : timing par mot (sinon réparti automatiquement sur [startSec,endSec]). Utilise les timecodes de get_material (transcript de la piste audio) pour caler sur la voix.", items: { type: "object", properties: { text: { type: "string" }, start: { type: "number" }, end: { type: "number" } } } },
+              highlightColor: { type: "string", description: "karaoke : couleur hex du mot actif." },
             },
             required: ["text", "startSec", "endSec"],
           },
@@ -181,6 +218,19 @@ async function shrinkDataUri(dataUri: string, width = 360, quality = 60): Promis
   }
 }
 
+/** Lignes de synthèse audio (matière sonore) — timecodes prêts pour create_variant. */
+function formatAudioLines(a: {
+  bpm: number | null; beats: number[]; energy: { t: number; level: number }[];
+  drops: { t: number; type: string; intensity: number }[]; durationSec: number; type: string;
+}): string[] {
+  const lines: string[] = [];
+  lines.push(`🎵 AUDIO mesuré — cale coupes/captions/effets dessus : ${a.durationSec ? a.durationSec.toFixed(1) + "s · " : ""}${a.bpm ? `~${a.bpm} BPM · ` : ""}${a.type}`);
+  if (a.beats?.length) lines.push(`  · beats (s) [temps forts → segments[].transition & captions[].startSec] : ${a.beats.slice(0, 120).map((b) => b.toFixed(2)).join(", ")}`);
+  if (a.drops?.length) lines.push(`  · drops (RUPTURES ≠ beats) : ${a.drops.map((d) => `${d.t.toFixed(2)}s·${d.type}·${d.intensity}`).join("  ")}`);
+  if (a.energy?.length) lines.push(`  · énergie (0-1, ~1s) : ${a.energy.filter((_, i) => i % 4 === 0).slice(0, 60).map((e) => e.level.toFixed(2)).join(" ")}`);
+  return lines;
+}
+
 export async function callTool(userId: string, name: string, args?: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }> {
   const project: Project | null = await getLatestProject(userId);
 
@@ -241,7 +291,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
           comp.captions.map((c, i) =>
             `  ${i + 1}. « ${c.text} »${c.emojis ? ` ${c.emojis}` : ""}\n` +
             `     [${c.startSec}–${c.endSec}s] · x ${c.xPct}% · y ${c.yPct}% · fontSize ${c.fontSizePx} · font "${c.font}" · color ${c.color}` +
-            `${c.hasStroke ? ` · contour ${c.strokeWidthPx}px` : " · sans contour"} · background ${c.background}`,
+            `${c.hasStroke ? ` · contour ${c.strokeWidthPx}px` : " · sans contour"} · background ${c.background}${c.animation && c.animation !== "none" ? ` · animation "${c.animation}"` : ""}`,
           ).join("\n"),
         );
       } else {
@@ -249,8 +299,14 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       }
       if (comp.shots.length) {
         parts.push(
-          `CONTENU DES PLANS (vu par la compréhension) :\n` +
-          comp.shots.map((s) => `  [${s.startSec}–${s.endSec}s · ${s.motion}] ${s.content}`).join("\n"),
+          `CONTENU DES PLANS (vu par la compréhension) — mouvement/vitesse à reproduire dans segments[] :\n` +
+          comp.shots.map((s) => {
+            const sp = s.speed && Math.abs(s.speed - 1) > 0.05 ? ` · vitesse ${s.speed}× (→ segments[].speed)` : "";
+            const fz = s.freezeAt != null ? ` · FREEZE @${s.freezeAt}s (→ freezeAt/freezeDuration)` : "";
+            const subj = s.subjectX != null && s.subjectY != null ? ` · sujet à ${s.subjectX}%/${s.subjectY}% (→ punch-in : scale + offsetX/offsetY)` : "";
+            const comp2 = s.composition && s.composition !== "single" ? ` · COMPO ${s.composition} (→ segments[].layout + overlays[])` : "";
+            return `  [${s.startSec}–${s.endSec}s · ${s.motion}${sp}${fz}${subj}${comp2}] ${s.content}`;
+          }).join("\n"),
         );
       }
       if (comp.emojisOverall) parts.push(`Emojis marquants : ${comp.emojisOverall}`);
@@ -306,6 +362,12 @@ export async function callTool(userId: string, name: string, args?: Record<strin
           ? ` · ${meta.durationSec ? meta.durationSec.toFixed(1) + "s" : "audio"}`
           : ` · ${meta.width}×${meta.height}${meta.durationSec ? ` · ${meta.durationSec.toFixed(1)}s` : ""}`;
       content.push({ type: "text", text: `• id: ${m.id}  ·  ${m.name} [${m.kind}]${dims} — ${desc}` });
+      // Résumé audio (matière sonore) : bpm + nb de drops → savoir quel fichier ouvrir
+      // sans get_material sur tout.
+      const au = meta?.audio;
+      if (au && (au.bpm || au.drops?.length || au.beats?.length)) {
+        content.push({ type: "text", text: `    ↳ audio : ${au.bpm ? `~${au.bpm} BPM` : "rythme n/d"}${au.drops?.length ? ` · ${au.drops.length} drop(s)` : ""}${au.beats?.length ? ` · ${au.beats.length} beats` : ""} — get_material("${m.id}") pour les timecodes` });
+      }
       // Index texte des rushes vidéo (coupes + voix) → Claude sait où couper sans
       // deviner ; get_material(id) pour VOIR un rush précis à la demande.
       if (m.kind === "video" && meta) {
@@ -390,12 +452,19 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       return { content };
     }
     if (m.kind === "audio") {
-      const d = m.analysis?.durationSec;
-      return { content: [{ type: "text", text: `AUDIO « ${m.name} » (id ${m.id})${d ? ` · ${d.toFixed(1)}s` : ""}. À utiliser dans create_variant.audio.` }] };
+      const a = m.analysis?.audio;
+      const content: Content[] = [{ type: "text", text: `AUDIO « ${m.name} » (id ${m.id}) — mets-le dans create_variant.audio.materialId ; les timecodes ci-dessous se passent DIRECTEMENT dans captions[].startSec et segments[].transition.` }];
+      if (a) for (const l of formatAudioLines(a)) content.push({ type: "text", text: l });
+      else content.push({ type: "text", text: "(analyse audio indisponible)" });
+      if (m.analysis?.transcript?.fullText) content.push({ type: "text", text: `  · voix : « ${m.analysis.transcript.fullText.slice(0, 300)} »` });
+      return { content };
     }
     const kfs = await materialKeyframes(userId, project.id, m.storedName, 5);
     if (!kfs.length) return { content: [{ type: "text", text: `⚠ Aucune image extractible du rush « ${m.name} » (id ${m.id}).` }], isError: true };
     const content: Content[] = [{ type: "text", text: `RUSH « ${m.name} » (id ${m.id})${m.analysis?.durationSec ? ` · ${m.analysis.durationSec.toFixed(1)}s` : ""} — ${kfs.length} images (timecodes pour tes coupes) :` }];
+    // Son du rush (si présent) : mêmes timecodes exploitables que pour l'audio.
+    if (m.analysis?.audio) for (const l of formatAudioLines(m.analysis.audio)) content.push({ type: "text", text: l });
+    if (m.analysis?.transcript?.fullText) content.push({ type: "text", text: `  · voix : « ${m.analysis.transcript.fullText.slice(0, 300)} »` });
     for (const kf of kfs) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }
     return { content };
   }

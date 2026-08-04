@@ -15,12 +15,17 @@ src/lib/ai-editor/render.ts (l'enum pointe vers le NOM DE FAMILLE de la police).
 
   NotoEmoji.ttf         = Noto Emoji (monochrome)  → repli ULTIME emoji · © Google
 
-Emoji : rendus EN COULEUR via les assets SVG Twemoji (compositée dans le SVG de la
-caption, cf. src/lib/ai-editor/render.ts). C'est fiable partout — indépendant de
-toute police couleur (COLR/CBDT), que librsvg ne rend pas de façon garantie. Les
-SVG Twemoji sont récupérés au CDN jsDelivr (tag immuable twitter/twemoji@14.0.2)
-puis mis en cache disque. Si un asset ne peut être récupéré, repli sur la police
-mono Noto Emoji ci-dessus → jamais de tofu.
+Emoji : rendus EN COULEUR par compositing d'IMAGES dans le SVG de la caption (cf.
+src/lib/ai-editor/render.ts). Indépendant de toute police couleur (COLR/CBDT), que
+librsvg ne rend pas de façon garantie.
+  · Set PRINCIPAL : Microsoft Fluent Emoji 3D (rendu 3D « premium »). On adresse
+    chaque emoji par code-point via une map générée (public/fluent-emoji/map.json →
+    chemin de l'asset), les PNG sont récupérés au CDN jsDelivr puis mis en cache.
+  · Repli 1 : Twemoji (SVG) pour tout emoji absent du set Fluent.
+  · Repli 2 : police mono Noto Emoji ci-dessus → jamais de tofu.
 
-Twemoji © Twitter, Inc. et contributeurs — graphiques sous licence CC-BY 4.0
-(https://creativecommons.org/licenses/by/4.0/). Source : github.com/twitter/twemoji.
+NB : les emojis Apple (Apple Color Emoji) sont PROPRIÉTAIRES et non-redistribuables
+— interdits ici (risque juridique). Fluent (MIT) est le meilleur équivalent libre.
+
+Fluent Emoji © Microsoft — licence MIT. Source : github.com/microsoft/fluentui-emoji.
+Twemoji © Twitter, Inc. et contributeurs — CC-BY 4.0. Source : github.com/twitter/twemoji.

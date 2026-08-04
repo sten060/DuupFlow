@@ -25,10 +25,17 @@ export type Shot = {
   motionIntensity: number; // 0-1
 };
 export type ColorProfile = { saturation: number; brightness: number; warmCold: "warm" | "cold" | "neutral"; bw: boolean };
+export type AudioDrop = {
+  t: number;                       // timecode (s)
+  type: "buildup" | "drop" | "silence" | "hit";
+  intensity: number;               // 0-1
+};
 export type AudioProfile = {
   bpm: number | null;
-  beats: number[];               // timecodes (s) des temps forts
-  energy: { t: number; e: number }[]; // courbe d'énergie par ~0.5 s
+  beats: number[];               // timecodes (s) des temps forts (pulsation)
+  energy: { t: number; level: number }[]; // courbe d'énergie par 0.25 s (level 0-1 relatif)
+  drops: AudioDrop[];            // RUPTURES d'énergie (≠ beats) : buildup/drop/silence/hit
+  durationSec: number;           // durée de la piste
   type: "music" | "voice+music" | "speech" | "unknown";
 };
 
@@ -142,11 +149,13 @@ export async function analyzeAudioBeats(videoPath: string, durationSec: number, 
     ["-hide_banner", "-loglevel", "error", "-i", videoPath, "-vn", "-ac", "1", "-ar", "22050", "-f", "s16le", "-y", raw],
     120_000,
   );
-  if (code !== 0) return { bpm: null, beats: [], energy: [], type: hasTranscript ? "speech" : "unknown" };
+  const durSec = Math.round((durationSec || 0) * 100) / 100;
+  const empty = (type: AudioProfile["type"]): AudioProfile => ({ bpm: null, beats: [], energy: [], drops: [], durationSec: durSec, type });
+  if (code !== 0) return empty(hasTranscript ? "speech" : "unknown");
   let buf: Buffer;
-  try { buf = await fs.readFile(raw); await fs.unlink(raw).catch(() => {}); } catch { return { bpm: null, beats: [], energy: [], type: "unknown" }; }
+  try { buf = await fs.readFile(raw); await fs.unlink(raw).catch(() => {}); } catch { return empty("unknown"); }
   const N = Math.floor(buf.length / 2);
-  if (N < 4410) return { bpm: null, beats: [], energy: [], type: hasTranscript ? "speech" : "unknown" };
+  if (N < 4410) return empty(hasTranscript ? "speech" : "unknown");
   const s16 = new Int16Array(buf.buffer, buf.byteOffset, N);
 
   const sr = 22050, hop = 512;
@@ -159,14 +168,16 @@ export async function analyzeAudioBeats(videoPath: string, durationSec: number, 
   }
   const perSec = sr / hop;
 
-  // Courbe d'énergie par ~0.5 s.
-  const win = Math.max(1, Math.round(0.5 * perSec));
-  const energy: { t: number; e: number }[] = [];
+  // Courbe d'énergie par 0.25 s, niveau normalisé 0-1 (relatif au pic).
+  const win = Math.max(1, Math.round(0.25 * perSec));
+  const rawE: { t: number; e: number }[] = [];
   for (let i = 0; i < frames; i += win) {
     let s = 0, c = 0;
     for (let j = i; j < Math.min(frames, i + win); j++) { s += env[j]; c++; }
-    energy.push({ t: Math.round((i / perSec) * 10) / 10, e: Math.round((s / Math.max(1, c)) * 1000) / 1000 });
+    rawE.push({ t: Math.round((i / perSec) * 100) / 100, e: s / Math.max(1, c) });
   }
+  const maxE = rawE.reduce((m, x) => Math.max(m, x.e), 1e-6);
+  const energy = rawE.map((x) => ({ t: x.t, level: Math.round((x.e / maxE) * 1000) / 1000 }));
 
   // Onsets : flux d'énergie positif + pics au-dessus d'un seuil adaptatif.
   const flux = new Float32Array(frames);
@@ -198,7 +209,39 @@ export async function analyzeAudioBeats(videoPath: string, durationSec: number, 
     }
   }
 
+  // Ruptures d'énergie (≠ pulsation) : dérivée du niveau RMS, pics au-delà d'un
+  // seuil. buildup (montée soutenue) / drop (saut + maintien haut) / silence (chute
+  // vers le bas) / hit (impact isolé qui retombe). Intensité normalisée 0-1.
+  const L = energy.map((e) => e.level);
+  const nE = L.length, dt = 0.25;
+  const at = (i: number) => Math.round(i * dt * 100) / 100;
+  const c01 = (v: number) => Math.max(0, Math.min(1, Math.round(v * 100) / 100));
+  const rawDrops: AudioDrop[] = [];
+  for (let i = 2; i < nE - 2; i++) {
+    const d = L[i] - L[i - 1];
+    const after = (L[i + 1] + L[i + 2]) / 2;
+    const before = (L[i - 2] + L[i - 1]) / 2;
+    if (d < -0.25 && L[i] < 0.22) rawDrops.push({ t: at(i), type: "silence", intensity: c01(-d) });
+    else if (d > 0.28 && after > 0.55 && after >= L[i] * 0.8) rawDrops.push({ t: at(i), type: "drop", intensity: c01(d + (after - before) * 0.5) });
+    else if (d > 0.3 && after < L[i] * 0.6) rawDrops.push({ t: at(i), type: "hit", intensity: c01(d) });
+  }
+  for (let bi = 0; bi < nE - 4;) {
+    if (L[bi + 1] > L[bi] + 0.01) {
+      let j = bi;
+      while (j < nE - 1 && L[j + 1] >= L[j] - 0.06) j++;
+      if (L[j] - L[bi] > 0.35 && (j - bi) * dt >= 1.0) rawDrops.push({ t: at(bi), type: "buildup", intensity: c01(L[j] - L[bi]) });
+      bi = j + 1;
+    } else bi++;
+  }
+  rawDrops.sort((a, b) => a.t - b.t || b.intensity - a.intensity);
+  const drops: AudioDrop[] = [];
+  for (const dp of rawDrops) {
+    const prev = drops[drops.length - 1];
+    if (prev && Math.abs(prev.t - dp.t) < 0.3) { if (dp.intensity > prev.intensity) drops[drops.length - 1] = dp; }
+    else drops.push(dp);
+  }
+
   const rhythmic = beats.length > Math.max(4, durationSec * 0.7);
   const type: AudioProfile["type"] = hasTranscript ? (rhythmic ? "voice+music" : "speech") : beats.length ? "music" : "unknown";
-  return { bpm, beats: beats.slice(0, 240), energy, type };
+  return { bpm, beats: beats.slice(0, 240), energy, drops: drops.slice(0, 120), durationSec: durSec, type };
 }
