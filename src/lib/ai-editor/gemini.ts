@@ -134,25 +134,34 @@ async function gfetch(url: string, init: RequestInit, timeoutMs: number): Promis
   return fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
 }
 
-/** Repli : liste les modèles RÉELLEMENT disponibles pour cette clé et choisit un
- *  « flash » qui supporte generateContent (video-capable). Robuste quel que soit
- *  l'accès du compte (certaines clés n'ont pas gemini-2.5-flash → 404). */
-async function pickAvailableModel(key: string): Promise<string | null> {
+/** Liste les modèles generateContent RÉELLEMENT visibles par cette clé, ORDONNÉS
+ *  (les plus susceptibles de marcher d'abord) — et LOG la liste pour diagnostic.
+ *  Certaines clés récentes voient les alias nus (gemini-2.0-flash) mais les 404 à
+ *  l'appel (« not available to new users ») → on préfère les noms versionnés/latest
+ *  et on ESSAIE en cascade (un 404 est instantané et gratuit). */
+async function listCandidateModels(key: string): Promise<string[]> {
   try {
     const r = await gfetch(`${API}/v1beta/models?key=${key}`, { method: "GET" }, 20_000);
-    if (!r.ok) return null;
+    if (!r.ok) { console.warn("[ai-editor/gemini] ListModels KO:", r.status); return []; }
     const j = await r.json().catch(() => null) as { models?: { name?: string; supportedGenerationMethods?: string[] }[] } | null;
-    const names = (j?.models ?? [])
+    const all = (j?.models ?? [])
       .filter((m) => m.name && (m.supportedGenerationMethods ?? []).includes("generateContent"))
-      .map((m) => m.name!.replace(/^models\//, ""));
-    return (
-      names.find((n) => /^gemini-2\.\d+-flash$/.test(n)) ||                       // gemini-2.0-flash, 2.5-flash…
-      names.find((n) => /flash/.test(n) && !/(vision|thinking|preview|exp|lite)/.test(n)) ||
-      names.find((n) => /flash/.test(n)) ||
-      names.find((n) => /gemini/.test(n)) ||
-      names[0] || null
-    );
-  } catch { return null; }
+      .map((m) => m.name!.replace(/^models\//, ""))
+      // on écarte ce qui ne fait pas de compréhension vidéo utile
+      .filter((n) => /gemini/.test(n) && !/(embedding|aqa|image-generation|imagen|tts|learnlm)/.test(n));
+    console.log(`[ai-editor/gemini] modèles dispo (${all.length}) : ${all.join(", ")}`);
+    const score = (n: string) => {
+      let s = 0;
+      if (/flash/.test(n)) s += 100;              // flash = rapide + vidéo + pas cher
+      if (/latest/.test(n)) s += 25;              // alias roulant récent
+      if (/-\d{3}$/.test(n)) s += 12;             // versionné -001/-002 (souvent non gaté)
+      if (/lite/.test(n)) s += 4;
+      if (!/(vision|thinking|preview|exp)/.test(n)) s += 3;
+      if (/^gemini-2\.\d+-flash$/.test(n)) s -= 10; // alias nu → souvent gaté aux new users
+      return s;
+    };
+    return all.sort((a, b) => score(b) - score(a));
+  } catch { return []; }
 }
 
 /**
@@ -244,18 +253,31 @@ export async function analyzeReferenceWithGemini(videoPath: string): Promise<Gem
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildBody(m)),
     }, 150_000);
 
-    let usedModel = model;
-    let genRes = await runGen(model);
-    if (genRes.status === 404) {
-      const alt = await pickAvailableModel(key);
-      if (alt && alt !== model) {
-        console.warn(`[ai-editor/gemini] modèle "${model}" indisponible (404) → repli sur "${alt}"`);
-        usedModel = alt;
-        genRes = await runGen(alt);
-      }
+    // Cascade : si AI_EDITOR_GEMINI_MODEL est forcé, on l'essaie d'abord ; sinon on
+    // essaie les modèles réellement visibles par la clé, dans l'ordre, en sautant les
+    // 404 (instantanés/gratuits) jusqu'à ce qu'un réponde.
+    const candidates: string[] = [];
+    if (process.env.AI_EDITOR_GEMINI_MODEL) candidates.push(model);
+    candidates.push(...await listCandidateModels(key));
+    if (!candidates.length) candidates.push(model);
+
+    let usedModel = "";
+    let genRes: Response | null = null;
+    const tried = new Set<string>();
+    for (const m of candidates) {
+      if (tried.has(m)) continue;
+      tried.add(m);
+      if (tried.size > 8) break; // garde-fou
+      const r = await runGen(m);
+      if (r.status === 404) { console.warn(`[ai-editor/gemini] "${m}" indisponible (404) → suivant`); continue; }
+      genRes = r; usedModel = m; break; // premier non-404 (succès ou vraie erreur)
+    }
+    if (!genRes) {
+      console.warn(`[ai-editor/gemini] aucun modèle dispo n'a répondu (tous 404) — essayés : ${[...tried].join(", ")}`);
+      return null;
     }
     if (!genRes.ok) {
-      console.warn("[ai-editor/gemini] generateContent KO:", genRes.status, (await genRes.text().catch(() => "")).slice(0, 200));
+      console.warn(`[ai-editor/gemini] generateContent KO (${usedModel}):`, genRes.status, (await genRes.text().catch(() => "")).slice(0, 200));
       return null;
     }
     const genJson = await genRes.json().catch(() => null) as {
