@@ -104,7 +104,7 @@ function CheckIcon({ color }: { color: string }) {
   );
 }
 
-/* Features available on every plan — Google Drive import (with logo) + file compressor */
+/* Features available on every plan — Google Drive import (with logo) + file compressor + scraper */
 function UniversalFeatures({ color }: { color: string }) {
   const { t } = useTranslation();
   return (
@@ -116,6 +116,18 @@ function UniversalFeatures({ color }: { color: string }) {
       <li className="flex items-start gap-3 text-sm text-[#605f5f]">
         <CheckIcon color={color} />
         {t("tarifs.featCompressor")}
+      </li>
+      <li className="flex items-start gap-3 text-sm text-[#605f5f]">
+        <CheckIcon color={color} />
+        <span>
+          {t("tarifs.featScraper")}
+          <span
+            className="ml-2 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide align-middle"
+            style={{ background: `${color}22`, color }}
+          >
+            {t("tarifs.badgeNew")}
+          </span>
+        </span>
       </li>
     </>
   );
@@ -341,6 +353,7 @@ function PlansComparison() {
         { label: t("tarifs.cmpRowPresets"), values: [false, true] },
         { label: t("tarifs.featGoogleDrive"), logo: "/app/icons8-google-drive-96.png", values: [true, true] },
         { label: t("tarifs.featCompressor"), values: [true, true] },
+        { label: t("tarifs.cmpRowScraper"), values: [t("tarifs.cmpScraperUsage"), t("tarifs.cmpScraperUsage")] },
         { label: t("tarifs.featApi"), values: [false, true] },
       ],
     },
