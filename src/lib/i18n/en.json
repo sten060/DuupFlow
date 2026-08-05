@@ -587,6 +587,9 @@
       },
       "material": {
         "intro": "Add **your raw material**: your footage, images, product shots… **Drag & drop** your files here (or click). For each one, write a **description** — that’s the context the AI uses to place every element well.",
+        "introLead": "Add your files",
+        "introSub": "Your footage, images and sounds. Drag & drop them here, or click to pick them.",
+        "introHint": "Just drop whatever you need to reproduce your reference.",
         "uploading": "Uploading & analyzing…",
         "saved": "✓ saved",
         "kindImage": "Image",
@@ -598,7 +601,15 @@
         "dropHere": "Drop your files here",
         "dragOrClick": "drag & drop or click",
         "back": "← Back",
-        "open": "Open the editor →"
+        "open": "Open the editor →",
+        "guideHeading": "What Claude will do with your material",
+        "g1t": "It looks at your files",
+        "g1d": "Claude opens every clip, image or sound you add and understands what’s inside.",
+        "g2t": "It replays your reference with your files",
+        "g2d": "Same pace, same cuts, same style as the video that crushed it — but with **your** own material.",
+        "g3t": "It hands you several videos",
+        "g3d": "You get several ready-to-post versions, right here on DuupFlow.",
+        "guideTip": "💡 The little **description** under each file helps Claude place every element well (e.g. “front shot of the product”)."
       },
       "ws": {
         "pilotedBy": "Driven by your Claude",

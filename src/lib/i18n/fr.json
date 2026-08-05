@@ -587,6 +587,9 @@
       },
       "material": {
         "intro": "Ajoute **ta matière première** : tes rushes, images, plans produit… **Glisse-dépose** tes fichiers ici (ou clique). Pour chacun, écris une **description** — c’est le contexte que l’IA utilisera pour bien placer chaque élément.",
+        "introLead": "Ajoute tes fichiers",
+        "introSub": "Tes rushes, images et sons. Glisse-dépose-les ici, ou clique pour les choisir.",
+        "introHint": "Dépose simplement le contenu nécessaire pour reproduire ta réf.",
         "uploading": "Upload & analyse…",
         "saved": "✓ enregistré",
         "kindImage": "Image",
@@ -598,7 +601,15 @@
         "dropHere": "Dépose tes fichiers ici",
         "dragOrClick": "glisser-déposer ou cliquer",
         "back": "← Retour",
-        "open": "Ouvrir l’éditeur →"
+        "open": "Ouvrir l’éditeur →",
+        "guideHeading": "Ce que Claude va faire avec ta matière",
+        "g1t": "Il regarde tes fichiers",
+        "g1d": "Claude ouvre chaque rush, image ou son que tu ajoutes et comprend ce qu’il y a dedans.",
+        "g2t": "Il rejoue ta réf avec tes fichiers",
+        "g2d": "Même rythme, mêmes coupes, même style que la vidéo qui a cartonné — mais avec **ta** matière à toi.",
+        "g3t": "Il te rend plusieurs vidéos",
+        "g3d": "Tu récupères plusieurs versions prêtes à poster, ici même sur DuupFlow.",
+        "guideTip": "💡 La petite **description** sous chaque fichier aide Claude à bien placer chaque élément (ex. « plan du produit de face »)."
       },
       "ws": {
         "pilotedBy": "Piloté par ton Claude",

@@ -556,16 +556,21 @@ export default function AiEditorClient() {
       {/* ============ ÉTAPE 2 · MATIÈRE ============ */}
       {step === "material" && (
         <section
-          className="max-w-4xl px-6 pt-2 pb-10"
+          className="mt-5 grid flex-1 border-t border-[var(--app-border)] lg:grid-cols-[minmax(340px,520px)_1fr]"
           onDragOver={(e) => { e.preventDefault(); if (!matDragOver) setMatDragOver(true); }}
           onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setMatDragOver(false); }}
           onDrop={(e) => { e.preventDefault(); setMatDragOver(false); if (e.dataTransfer.files?.length) addMaterials(e.dataTransfer.files); }}
         >
-          <p className="mb-6 max-w-[64ch] text-sm text-[var(--app-text-muted)]">
-            <Rich text={t("dashboard.aiEditor.material.intro")} />
-          </p>
+          {/* ── Zone upload (gauche, bord collé) ── */}
+          <div
+            className="flex flex-col border-b border-[var(--app-border)] p-8 sm:p-10 lg:border-b-0 lg:border-r"
+            style={{ background: "rgba(99,102,241,0.045)" }}
+          >
+          <p className="text-[17px] font-bold text-[var(--app-text)]">{t("dashboard.aiEditor.material.introLead")}</p>
+          <p className="mt-2 max-w-[46ch] text-[13.5px] leading-relaxed text-[var(--app-text-muted)]">{t("dashboard.aiEditor.material.introSub")}</p>
+          <p className="mb-7 mt-1.5 max-w-[46ch] text-[13px] leading-relaxed text-[var(--app-text-faint)]">{t("dashboard.aiEditor.material.introHint")}</p>
 
-          <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))" }}>
+          <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}>
             {materials.map((m) => (
               <div key={m.id} className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
                 <div className="flex gap-3">
@@ -616,6 +621,44 @@ export default function AiEditorClient() {
             <GhostBtn onClick={() => setStep("ref")}>{t("dashboard.aiEditor.material.back")}</GhostBtn>
             <PrimaryBtn onClick={goEditor} disabled={materials.length === 0}>{t("dashboard.aiEditor.material.open")}</PrimaryBtn>
           </div>
+          </div>
+
+          {/* ── Guide (droite) — ce que Claude va faire avec ta matière ── */}
+          <aside className="flex flex-col justify-center gap-10 p-8 sm:p-14">
+            <div className="text-[12px] font-bold uppercase tracking-wider text-indigo-400">{t("dashboard.aiEditor.material.guideHeading")}</div>
+
+            <div className="flex items-start gap-4">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[15px] font-bold text-white" style={{ background: BRAND }}>1</span>
+              <div>
+                <div className="text-[18px] font-bold text-[var(--app-text)]">{t("dashboard.aiEditor.material.g1t")}</div>
+                <p className="mt-2.5 max-w-2xl text-[15px] leading-loose text-[var(--app-text-muted)]"><Rich text={t("dashboard.aiEditor.material.g1d")} /></p>
+              </div>
+            </div>
+
+            <div className="h-px bg-[var(--app-border)]" />
+
+            <div className="flex items-start gap-4">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg,#38BDF8,#6366F1)" }}>2</span>
+              <div>
+                <div className="text-[18px] font-bold text-[var(--app-text)]">{t("dashboard.aiEditor.material.g2t")}</div>
+                <p className="mt-2.5 max-w-2xl text-[15px] leading-loose text-[var(--app-text-muted)]"><Rich text={t("dashboard.aiEditor.material.g2d")} /></p>
+              </div>
+            </div>
+
+            <div className="h-px bg-[var(--app-border)]" />
+
+            <div className="flex items-start gap-4">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[15px] font-bold text-white" style={{ background: BRAND }}>3</span>
+              <div>
+                <div className="text-[18px] font-bold text-[var(--app-text)]">{t("dashboard.aiEditor.material.g3t")}</div>
+                <p className="mt-2.5 max-w-2xl text-[15px] leading-loose text-[var(--app-text-muted)]"><Rich text={t("dashboard.aiEditor.material.g3d")} /></p>
+              </div>
+            </div>
+
+            <p className="rounded-xl border border-[var(--app-border)] bg-[var(--app-bg-2)] px-4 py-3 text-[13.5px] leading-relaxed text-[var(--app-text-muted)]">
+              <Rich text={t("dashboard.aiEditor.material.guideTip")} />
+            </p>
+          </aside>
         </section>
       )}
 
