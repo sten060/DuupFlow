@@ -5,6 +5,7 @@ import ChatBot from "./components/ChatBot";
 import NotificationBell from "./components/NotificationBell";
 import PaymentOverdueModal from "./PaymentOverdueModal";
 import SubscriptionCanceledModal from "./SubscriptionCanceledModal";
+import ClaudeAnnounceModal from "./ClaudeAnnounceModal";
 import ClaritySessionTags, {
   type ClarityPlan,
   type ClaritySegment,
@@ -228,6 +229,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <ChatBot />
       <NotificationBell />
       {tiktok && <TikTokReminder seenAt={tiktok.seenAt} reminderSent={tiktok.reminderSent} />}
+
+      {/* Annonce « Claude × DuupFlow » (Éditeur IA) — une fois par user, à la
+          connexion. Jamais par-dessus un modal BLOQUANT (overdue / churn). */}
+      {!overdue && !cancellationPending && <ClaudeAnnounceModal />}
 
       {/* One-shot popup after a subscription cancellation → Free. Takes
           priority over the overdue modal (churn clears overdue, but guard

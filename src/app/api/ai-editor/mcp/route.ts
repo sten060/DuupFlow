@@ -28,8 +28,8 @@ function needsAuth(req: Request) {
   });
 }
 
-function needsPro() {
-  return new Response(JSON.stringify({ error: "L'Éditeur IA (connecteur MCP) est réservé au plan Pro. Passe au plan Pro pour l'utiliser." }), {
+function needsPaidPlan() {
+  return new Response(JSON.stringify({ error: "L'Éditeur IA (connecteur MCP) est réservé aux plans Solo et Pro. Passe à un plan payant pour l'utiliser." }), {
     status: 403,
     headers: { "Content-Type": "application/json" },
   });
@@ -51,11 +51,12 @@ async function resolveUser(req: Request): Promise<{ userId: string } | { deny: R
   }
   const uid = oauthUserId(req);
   if (!uid) return { deny: needsAuth(req) };
-  // Gate PRO sur la voie OAuth (« Autoriser » en 1 clic) : la voie clé API l'impose
-  // déjà via authenticateApiRequest. Revérifié à CHAQUE requête → coupe aussi l'accès
-  // d'un ex-Pro dont le refresh token survivrait au downgrade.
+  // Gate PLAN PAYANT (Solo ou Pro) sur la voie OAuth (« Autoriser » en 1 clic).
+  // Revérifié à CHAQUE requête → coupe aussi l'accès si le plan tombe en Free
+  // (downgrade) même avec un refresh token encore valide. Les rendus restent bornés
+  // par le quota « vidéos » (Solo 300/mois partagés, Pro illimité).
   const plan = await resolveEffectivePlan(uid);
-  if (plan !== "pro") return { deny: needsPro() };
+  if (plan !== "pro" && plan !== "solo") return { deny: needsPaidPlan() };
   return { userId: uid };
 }
 

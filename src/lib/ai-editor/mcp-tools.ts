@@ -10,7 +10,7 @@ import type { Project } from "./store";
 import { renderVariant, variantKeyframes, materialKeyframes } from "./render";
 import type { EditPlan } from "./render";
 import { analyzeColor } from "./ref-profile";
-import { checkUsageForUser, incrementUsage } from "@/lib/usage";
+import { checkUsageForUser, incrementUsage, logAiEditorRender } from "@/lib/usage";
 
 // Garde-fou quota : chaque rendu de variante (create_variant / update_variant)
 // compte comme UNE « vidéo » (le user paie SON Claude, DuupFlow facture le RENDU).
@@ -528,7 +528,8 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     if (blocked) return { content: [blocked], isError: true };
     const res = await renderVariant(userId, project.id, (args ?? {}) as unknown as EditPlan);
     if ("error" in res) return { content: [{ type: "text", text: `Rendu impossible : ${res.error}` }], isError: true };
-    await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → compté
+    await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → compté (quota vidéo)
+    void logAiEditorRender(userId); // tracking : 1 rendu Éditeur IA de plus pour ce user
     const v = res.variant;
     const content: Content[] = [{
       type: "text",
@@ -630,7 +631,8 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     if (blocked) return { content: [blocked], isError: true };
     const res = await renderVariant(userId, project.id, merged, { derivedFrom: v.id });
     if ("error" in res) return { content: [{ type: "text", text: `Mise à jour impossible : ${res.error}` }], isError: true };
-    await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → compté
+    await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → compté (quota vidéo)
+    void logAiEditorRender(userId); // tracking : 1 rendu Éditeur IA de plus pour ce user
     const nv = res.variant;
     const content: Content[] = [{ type: "text", text: `✅ Mise à jour → NOUVELLE variante « ${nv.label || nv.id} » (id ${nv.id}) · durée ${res.durationSec}s. Images du rendu :` }];
     for (const kf of res.keyframes) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }

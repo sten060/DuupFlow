@@ -1063,9 +1063,9 @@ export default function VideoFormAdvancedClient() {
       <WatermarkSection coverUrl={coverUrl} />
 
       {/* Sections réservées — à venir */}
-      <ComingSoonSection title="Caption (texte incrusté)" />
-      <ComingSoonSection title="Hook" />
-      <ComingSoonSection title="Sous-titres" />
+      <ComingSoonSection title={t("vid.wm.capCaption")} />
+      <ComingSoonSection title={t("vid.wm.capHook")} />
+      <ComingSoonSection title={t("vid.wm.capSubtitles")} />
 
       {/* Templates + Reset — anchor target for the TikTok announcement deep-link */}
       <div id="tiktok-templates" className="scroll-mt-24 rounded-2xl">
@@ -1206,6 +1206,7 @@ function ShapeGlyph({ shape, color, size = 30 }: { shape: string; color: string;
 }
 
 function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [enabled, setEnabled] = useState(false);
   // Sous-sections en accordéon : "base" (forme) puis "logo" (upload perso).
@@ -1282,12 +1283,9 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
           onClick={() => setOpen((o) => !o)}
           className="inline-flex items-center gap-2 cursor-pointer select-none"
         >
-          Watermark visible
+          {t("vid.wm.visible")}
           <InfoTooltip>
-            <span className="whitespace-pre-line">
-              Ajoute un filigrane visible à l&apos;écran : une forme simple (dont tu choisis la couleur) ou ton propre
-              logo. Règle son opacité, sa position, ou fais-le se déplacer aléatoirement sur la vidéo.
-            </span>
+            <span className="whitespace-pre-line">{t("vid.wm.tip")}</span>
           </InfoTooltip>
           <span className="text-[10px] text-[var(--app-text-faint)]">{open ? "▲" : "▼"}</span>
         </button>
@@ -1311,7 +1309,7 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
               />
               <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--app-text-muted)] peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
             </span>
-            <span className="text-[var(--app-text-muted)]">Activer le watermark</span>
+            <span className="text-[var(--app-text-muted)]">{t("vid.wm.enableWm")}</span>
           </label>
 
           <div className={enabled ? "space-y-4" : "space-y-4 opacity-40 pointer-events-none"}>
@@ -1324,7 +1322,7 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
               >
                 <span className="inline-flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full ${source === "shape" ? "bg-sky-400" : "bg-[var(--app-text-faint)]"}`} />
-                  1 · Watermark de base
+                  1 · {t("vid.wm.base")}
                 </span>
                 <span className="text-[10px] text-[var(--app-text-faint)]">{sub === "base" ? "▲" : "▼"}</span>
               </button>
@@ -1332,7 +1330,7 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                 <div className="space-y-4 px-4 pb-4">
                   {/* Formes */}
                   <div>
-                    <div className="mb-2 text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">Forme</div>
+                    <div className="mb-2 text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">{t("vid.wm.shape")}</div>
                     <div className="flex flex-wrap gap-2">
                       {WM_SHAPES.map((s) => {
                         const active = source === "shape" && shape === s.key && !randomShape;
@@ -1340,7 +1338,7 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                           <button
                             key={s.key}
                             type="button"
-                            title={s.label}
+                            title={t(`vid.wm.shape_${s.key}`)}
                             onClick={() => { setShape(s.key); setSource("shape"); setRandomShape(false); }}
                             className={`flex h-11 w-11 items-center justify-center rounded-lg border transition ${
                               active ? "border-sky-300 bg-sky-400/10" : "border-[var(--app-border-strong)] bg-[var(--app-surface)] hover:bg-[var(--app-surface)]"
@@ -1357,13 +1355,13 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                         checked={randomShape}
                         onChange={(e) => { setRandomShape(e.target.checked); if (e.target.checked) setSource("shape"); }}
                       />
-                      Forme aléatoire sur chaque duplication
+                      {t("vid.wm.randomShape")}
                     </label>
                   </div>
 
                   {/* Couleur */}
                   <div>
-                    <div className="mb-2 text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">Couleur</div>
+                    <div className="mb-2 text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">{t("vid.wm.color")}</div>
                     <div className="flex flex-wrap items-center gap-2">
                       {WM_COLORS.map((c) => (
                         <button
@@ -1378,7 +1376,7 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                         />
                       ))}
                       <label className="ml-1 inline-flex items-center gap-1.5 text-[11px] text-[var(--app-text-muted)]">
-                        <span>Perso</span>
+                        <span>{t("vid.wm.custom")}</span>
                         <input
                           type="color"
                           value={color}
@@ -1401,7 +1399,7 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
               >
                 <span className="inline-flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full ${source === "logo" ? "bg-sky-400" : "bg-[var(--app-text-faint)]"}`} />
-                  2 · Mon logo / ma forme
+                  2 · {t("vid.wm.myLogo")}
                 </span>
                 <span className="text-[10px] text-[var(--app-text-faint)]">{sub === "logo" ? "▲" : "▼"}</span>
               </button>
@@ -1413,7 +1411,7 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                       onClick={() => logoInputRef.current?.click()}
                       className="rounded-lg border border-[var(--app-border-strong)] px-3 py-2 text-sm hover:bg-[var(--app-surface-2)]"
                     >
-                      {logoUrl ? "Changer le logo" : "Importer un logo / une forme"}
+                      {logoUrl ? t("vid.wm.changeLogo") : t("vid.wm.importLogo")}
                     </button>
                     {logoUrl && (
                       <>
@@ -1433,9 +1431,7 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                       </>
                     )}
                   </div>
-                  <p className="text-[11px] text-[var(--app-text-faint)]">
-                    Tous formats image acceptés (PNG transparent recommandé, JPG, WEBP, SVG…).
-                  </p>
+                  <p className="text-[11px] text-[var(--app-text-faint)]">{t("vid.wm.formats")}</p>
                 </div>
               )}
             </div>
@@ -1443,18 +1439,18 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
             {/* ── Réglages du watermark choisi ── */}
             <div className="rounded-xl border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-4">
               <div className="mb-3 flex items-center gap-3">
-                <span className="text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">Aperçu & réglages</span>
+                <span className="text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">{t("vid.wm.previewSettings")}</span>
                 <span className="text-[11px] text-[var(--app-text-faint)]">
                   {source === "logo" && logoUrl
-                    ? "Logo perso"
+                    ? t("vid.wm.customLogo")
                     : randomShape
-                    ? "Forme aléatoire par copie"
-                    : `Forme : ${WM_SHAPES.find((s) => s.key === shape)?.label}`}
+                    ? t("vid.wm.randomShapePer")
+                    : t("vid.wm.shapeIs", { label: t(`vid.wm.shape_${shape}`) })}
                 </span>
               </div>
 
               {!hasWatermark ? (
-                <p className="text-[12px] text-[var(--app-text-muted)]">Choisis d&apos;abord une forme ou importe un logo ci-dessus.</p>
+                <p className="text-[12px] text-[var(--app-text-muted)]">{t("vid.wm.chooseFirst")}</p>
               ) : (
                 <div className="flex flex-wrap items-start gap-8">
                   {/* Contrôles (gauche) */}
@@ -1462,7 +1458,7 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                     {/* Opacité — barre réduite pour laisser de la place à l'aperçu */}
                     <div className="max-w-[280px]">
                       <div className="mb-1 flex items-center justify-between text-[12px]">
-                        <span className="text-[var(--app-text-muted)]">Opacité</span>
+                        <span className="text-[var(--app-text-muted)]">{t("vid.wm.opacity")}</span>
                         <span className="text-[var(--app-text-muted)]">{opacity}%</span>
                       </div>
                       <input
@@ -1475,7 +1471,7 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                     {/* Taille de la forme (% de la largeur vidéo) */}
                     <div className="max-w-[280px]">
                       <div className="mb-1 flex items-center justify-between text-[12px]">
-                        <span className="text-[var(--app-text-muted)]">Taille</span>
+                        <span className="text-[var(--app-text-muted)]">{t("vid.wm.size")}</span>
                         <span className="text-[var(--app-text-muted)]">{size}%</span>
                       </div>
                       <input
@@ -1491,14 +1487,14 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                         <input type="checkbox" checked={motion} onChange={(e) => setMotion(e.target.checked)} className="sr-only peer" />
                         <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--app-text-muted)] peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
                       </span>
-                      <span className="text-[var(--app-text-muted)]">Mouvement aléatoire sur la vidéo</span>
+                      <span className="text-[var(--app-text-muted)]">{t("vid.wm.motion")}</span>
                     </label>
 
                     {/* Position fixe OU vitesse */}
                     {motion ? (
                       <div className="max-w-[280px]">
                         <div className="mb-1 flex items-center justify-between text-[12px]">
-                          <span className="text-[var(--app-text-muted)]">Vitesse du watermark</span>
+                          <span className="text-[var(--app-text-muted)]">{t("vid.wm.speed")}</span>
                           <span className="text-[var(--app-text-muted)]">{speed}</span>
                         </div>
                         <input
@@ -1507,19 +1503,19 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                           className="w-full accent-sky-400"
                         />
                         <div className="mt-1 flex justify-between text-[11px] text-[var(--app-text-faint)]">
-                          <span>Lent</span><span>Rapide</span>
+                          <span>{t("vid.wm.slow")}</span><span>{t("vid.wm.fast")}</span>
                         </div>
                       </div>
                     ) : (
                       <div>
-                        <div className="mb-2 text-[12px] text-[var(--app-text-muted)]">Position fixe</div>
+                        <div className="mb-2 text-[12px] text-[var(--app-text-muted)]">{t("vid.wm.fixedPos")}</div>
                         <label className="mb-2 inline-flex cursor-pointer select-none items-center gap-2 text-[12px] text-[var(--app-text-muted)]">
                           <input
                             type="checkbox"
                             checked={randomPosition}
                             onChange={(e) => setRandomPosition(e.target.checked)}
                           />
-                          Position aléatoire à chaque duplication
+                          {t("vid.wm.randomPos")}
                         </label>
                         <div className={`grid w-[132px] grid-cols-3 gap-1.5 ${randomPosition ? "opacity-40 pointer-events-none" : ""}`}>
                           {WM_POSITIONS.map((p) => (
@@ -1527,7 +1523,7 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                               key={p.key}
                               type="button"
                               onClick={() => setPosition(p.key)}
-                              title={p.label}
+                              title={t(`vid.wm.pos_${p.key}`)}
                               className={`h-10 rounded-md border transition ${
                                 position === p.key ? "border-sky-300 bg-sky-400/20" : "border-[var(--app-border-strong)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-2)]"
                               }`}
@@ -1566,12 +1562,12 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
                       </div>
                       {!coverUrl && (
                         <div className="absolute inset-x-0 bottom-0 p-2 text-center text-[10px] text-[var(--app-text-faint)]">
-                          Ajoute une vidéo pour l&apos;aperçu sur ta cover
+                          {t("vid.wm.addVideoPreview")}
                         </div>
                       )}
                     </div>
                     {(motion || randomPosition) && (
-                      <p className="mt-1 text-center text-[10px] text-[var(--app-text-faint)]">Position variable (aperçu centré)</p>
+                      <p className="mt-1 text-center text-[10px] text-[var(--app-text-faint)]">{t("vid.wm.variablePos")}</p>
                     )}
                   </div>
                 </div>
@@ -1588,20 +1584,21 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
 // Placeholders "Bientôt". Caption : le formulaire Phase A est retiré le temps de
 // construire l'éditeur complet (aperçu vidéo live + réglages par vidéo).
 function ComingSoonSection({ title }: { title: string }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <Card
       title={
         <button type="button" onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-2 cursor-pointer select-none">
           {title}
-          <span className="rounded-full border border-[var(--app-border-strong)] px-2 py-0.5 text-[10px] text-[var(--app-text-faint)]">Bientôt</span>
+          <span className="rounded-full border border-[var(--app-border-strong)] px-2 py-0.5 text-[10px] text-[var(--app-text-faint)]">{t("vid.wm.soon")}</span>
           <span className="text-[10px] text-[var(--app-text-faint)]">{open ? "\u25B2" : "\u25BC"}</span>
         </button>
       }
     >
       {open && (
         <p className="mt-1 text-[12px] text-[var(--app-text-muted)]">
-          Cette section arrive bientôt.
+          {t("vid.wm.soonDesc")}
         </p>
       )}
     </Card>

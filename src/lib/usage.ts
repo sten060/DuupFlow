@@ -269,6 +269,27 @@ export async function incrementUsage(
 }
 
 /**
+ * Trace UN rendu de l'Éditeur IA (create_variant / update_variant) dans
+ * usage_events avec le kind dédié 'ai_editor_render' → permet de compter, par
+ * user, combien de vidéos ont été générées AVEC L'ÉDITEUR IA (distinct des
+ * duplications vidéo classiques). Best-effort : n'échoue jamais l'appelant.
+ * ⚠ Nécessite la migration 053 (kind 'ai_editor_render' ajouté à la contrainte).
+ */
+export async function logAiEditorRender(userId: string): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    await admin.from("usage_events").insert({
+      user_id: userId,
+      kind: "ai_editor_render",
+      qty: 1,
+      source: "live",
+    });
+  } catch (err) {
+    console.error("[usage] ai_editor_render event insert failed:", err);
+  }
+}
+
+/**
  * Resets all usage counters for a user (called on invoice renewal).
  */
 export async function resetUsage(userId: string): Promise<void> {

@@ -27,8 +27,10 @@ export default async function AiEditorPage() {
 
   if (process.env.AI_EDITOR_LIVE !== "1") return <AiEditorComingSoon />;
 
+  // Ouvert aux plans PAYANTS (Solo + Pro). Free → écran d'upgrade. Les rendus sont
+  // bornés par le quota « vidéos » (Solo 300/mois, Pro illimité).
   const plan = await resolveEffectivePlan(user.id);
-  if (plan !== "pro") return <AiEditorProGate />;
+  if (plan !== "pro" && plan !== "solo") return <AiEditorProGate />;
 
   return <AiEditorClient />;
 }

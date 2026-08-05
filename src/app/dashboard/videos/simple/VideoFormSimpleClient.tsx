@@ -625,12 +625,11 @@ export default function VideoFormSimpleClient() {
       <div>
         <input type="hidden" name="simpleWatermark" value={simpleWm ? "1" : "0"} />
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-[var(--app-text)]">Watermark</h3>
-          <Toggle checked={simpleWm} onChange={setSimpleWm} label="Activer" />
+          <h3 className="text-sm font-semibold text-[var(--app-text)]">{t("vid.wm.title")}</h3>
+          <Toggle checked={simpleWm} onChange={setSimpleWm} label={t("vid.wm.enable")} />
         </div>
         <p className="mt-2 text-xs text-[var(--app-text-muted)]">
-          Ajoute un filigrane <b>différent et aléatoire sur chaque copie</b> : forme, couleur, taille (40–80&nbsp;%) et
-          vitesse variées, en mouvement sur la vidéo, avec une opacité de 2&nbsp;% (quasi invisible).
+          {t("vid.wm.sDesc1")} <b>{t("vid.wm.sDescBold")}</b> {t("vid.wm.sDesc2")}
         </p>
       </div>
 
