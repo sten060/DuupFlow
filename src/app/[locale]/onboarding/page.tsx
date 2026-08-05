@@ -102,7 +102,15 @@ function OnboardingForm() {
       // Send them to pricing to pick a plan before any account is created.
       const stored = localStorage.getItem("duupflow_selected_plan");
       if (stored !== "solo" && stored !== "pro") {
-        router.replace(`/${locale}/pricing#plans`);
+        // Comp (offered Pro) accounts skip the pricing gate entirely — they get
+        // provisioned as Pro when they submit onboarding. Check server-side so
+        // the allowlist never reaches the client bundle.
+        (async () => {
+          const comp = await fetch("/api/account/comp-pro")
+            .then((r) => r.json())
+            .catch(() => ({ pro: false }));
+          if (!comp?.pro) router.replace(`/${locale}/pricing#plans`);
+        })();
       }
     }
   }, []);

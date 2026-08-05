@@ -309,8 +309,8 @@ export default function VideoFormSimpleClient() {
             // iPhone HEVC can't decode in a <video> on Chrome/Firefox, but ffmpeg
             // handles it server-side (which has its own probe + 1-frame fallback).
             const probe = await probeVideoFile(file);
-            if (probe.duration > 59) {
-              const e = new Error(t("dashboard.videosCommon.durationExceeded", { name: file.name, max: 59, dur: Math.round(probe.duration) }));
+            if (probe.duration > 120) {
+              const e = new Error(t("dashboard.videosCommon.durationExceeded", { name: file.name, max: 120, dur: Math.round(probe.duration) }));
               (e as Error & { validation?: boolean }).validation = true;
               throw e;
             }
@@ -529,7 +529,7 @@ export default function VideoFormSimpleClient() {
         // Detect the client-side size guard by its error CODE (locale-independent —
         // the message itself is now translated) plus the Supabase storage phrase.
         const isStorageSize = rawMsg.includes("CLT-006") || lower.includes("maximum allowed size");
-        // Client-side validation (duration > 59 s) carries a `validation` flag and an
+        // Client-side validation (duration > 120 s) carries a `validation` flag and an
         // already-localized, actionable message — show it as-is.
         const isValidation = (err as { validation?: boolean })?.validation === true;
         const errMsg = isStorageSize
@@ -573,7 +573,7 @@ export default function VideoFormSimpleClient() {
 
       {/* Dropzone — seul élément avec bordure */}
       <div data-tour-id="video-dropzone" className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3">
-        <DriveImportButton accept="video" maxVideoSec={59} onFiles={(fs) => dzAddRef.current?.(fs)} />
+        <DriveImportButton accept="video" maxVideoSec={120} onFiles={(fs) => dzAddRef.current?.(fs)} />
         <Dropzone name="files" accept="video/*" multiple maxFiles={40} addFilesRef={dzAddRef} />
         <div data-tour-id="video-copies" className="max-w-xs">
           <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-1.5">{t("dashboard.videosSimple.copiesLabel")}</label>

@@ -932,8 +932,8 @@ export async function processVideos(
     })
   );
 
-  // ── Server-side duration guard (59 s max) + color probe — run in parallel ──
-  const MAX_DURATION_S = 59;
+  // ── Server-side duration guard (120 s / 2 min max) + color probe — run in parallel ──
+  const MAX_DURATION_S = 120;
   const durResults = await Promise.all(
     fileEntries.map(async (entry) => ({
       entry,
