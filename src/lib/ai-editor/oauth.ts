@@ -16,9 +16,18 @@
 
 import crypto from "crypto";
 
-// Secret de signature. En prod : définir OAUTH_SECRET (Railway). En dev, repli
-// sur une constante pour pouvoir tester en local sans configuration.
-const SECRET = process.env.OAUTH_SECRET || "duupflow-dev-oauth-secret-change-me";
+// Secret de signature (résolu à l'USAGE, pas au chargement du module → n'empêche pas
+// le build). En PRODUCTION, si OAUTH_SECRET est absent, on ÉCHOUE FERMÉ (throw) plutôt
+// que de tourner sur un repli PUBLIC (présent dans le repo → jetons forgeables). En
+// dev seulement, on retombe sur la constante pour tester en local sans configuration.
+function secret(): string {
+  const s = process.env.OAUTH_SECRET;
+  if (s) return s;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("OAUTH_SECRET manquant en production — le connecteur MCP OAuth est désactivé (sécurité).");
+  }
+  return "duupflow-dev-oauth-secret-change-me";
+}
 
 export const RESOURCE_PATH = "/api/ai-editor/mcp";
 export const SCOPES = ["mcp_access", "offline_access"];
@@ -28,7 +37,7 @@ function b64urlJson(obj: unknown): string {
   return Buffer.from(JSON.stringify(obj)).toString("base64url");
 }
 function hmac(data: string): string {
-  return crypto.createHmac("sha256", SECRET).update(data).digest("base64url");
+  return crypto.createHmac("sha256", secret()).update(data).digest("base64url");
 }
 
 export type JwtPayload = Record<string, unknown> & { typ?: string; sub?: string; exp?: number };
@@ -47,11 +56,11 @@ export function verifyJwt(token: string): JwtPayload | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   const [head, body, sig] = parts;
-  const expected = hmac(`${head}.${body}`);
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   try {
+    const expected = hmac(`${head}.${body}`); // peut throw si OAUTH_SECRET absent en prod → fail closed (401)
+    const a = Buffer.from(sig);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as JwtPayload;
     if (typeof payload.exp === "number" && payload.exp < Math.floor(Date.now() / 1000)) return null;
     return payload;

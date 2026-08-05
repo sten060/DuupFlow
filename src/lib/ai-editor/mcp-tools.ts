@@ -209,8 +209,13 @@ export const TOOLS = [
               x: { type: "number", description: "Centre horizontal en % (0-100)." },
               y: { type: "number", description: "Centre vertical en % (0-100). Ex. réf ≈ 13 (haut)." },
               align: { type: "string", enum: ["left", "center", "right"], description: "Alignement (défaut center)." },
-              style: { type: "string", enum: ["outline", "box"], description: "outline = gros texte contour (défaut) ; box = fond." },
-              background: { type: "string", description: "Couleur de fond hex → force le style box ; \"none\" → force outline (sans fond)." },
+              style: { type: "string", enum: ["outline", "box", "sticker"], description: "outline = gros texte contour (défaut) ; box = fond ; sticker = RACCOURCI style TikTok/IG (fond OPAQUE à coins très arrondis + padding généreux + texte gras sans contour). Avec sticker, donne juste background (couleur du bloc) et color (texte) ; le reste est réglé automatiquement." },
+              background: { type: "string", description: "Couleur de fond hex → force le style box ; \"none\" → force outline (sans fond). Le fond est désormais OPAQUE par défaut." },
+              backgroundOpacity: { type: "number", description: "Opacité du fond 0-1 (défaut 1 = opaque). Baisse-la pour un fond translucide." },
+              borderRadius: { type: "number", description: "Coins arrondis du fond en px (@1080). 30-40 = look sticker arrondi ; 0 = coins droits." },
+              padding: { type: "number", description: "Marge intérieure du fond en px (@1080), horizontale ET verticale." },
+              paddingX: { type: "number", description: "Marge intérieure horizontale en px (@1080). Prioritaire sur padding." },
+              paddingY: { type: "number", description: "Marge intérieure verticale en px (@1080). Prioritaire sur padding." },
               size: { type: "string", enum: ["s", "m", "l"], description: "Taille rapide (défaut m)." },
               fontSize: { type: "number", description: "Taille en px (référence 1080 de large). Prioritaire sur size." },
               color: { type: "string", description: "Couleur du texte en hex. Défaut blanc." },
@@ -371,7 +376,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
           comp.captions.map((c, i) =>
             `  ${i + 1}. « ${c.text} »${c.emojis ? ` ${c.emojis}` : ""}\n` +
             `     [${c.startSec}–${c.endSec}s] · x ${c.xPct}% · y ${c.yPct}% · fontSize ${c.fontSizePx} · font "${c.font}" · color ${c.color}` +
-            `${c.hasStroke ? ` · contour ${c.strokeWidthPx}px` : " · sans contour"} · background ${c.background}${c.animation && c.animation !== "none" ? ` · animation "${c.animation}"` : ""}${c.glow && c.glow !== "none" ? ` · NÉON glow ${c.glow} (→ caption.glow)` : ""}`,
+            `${c.hasStroke ? ` · contour ${c.strokeWidthPx}px` : " · sans contour"}${c.background && c.background !== "none" ? ` · background ${c.background}${c.bgRadiusPx ? ` · coins ${c.bgRadiusPx}px` : ""}${c.bgPaddingPx ? ` · padding ${c.bgPaddingPx}px` : ""}${c.bgRadiusPx >= 24 && c.bgPaddingPx >= 20 ? ` (bloc arrondi & padded → style:"sticker")` : ""}` : " · sans fond"}${c.animation && c.animation !== "none" ? ` · animation "${c.animation}"` : ""}${c.glow && c.glow !== "none" ? ` · NÉON glow ${c.glow} (→ caption.glow)` : ""}`,
           ).join("\n"),
         );
       } else {

@@ -79,8 +79,10 @@ export function materialAbsPath(userId: string, projectId: string, storedName: s
   return path.join(projectDir(userId, projectId), "material", storedName);
 }
 
-async function write(userId: string, p: Project): Promise<void> {
-  p.updatedAt = Date.now();
+async function write(userId: string, p: Project, opts?: { touch?: boolean }): Promise<void> {
+  // touch:false = ne PAS bumper updatedAt (ex. purge cron) → sinon un vieux projet
+  // redeviendrait « le plus récent » et getLatestProject basculerait le MCP dessus.
+  if (opts?.touch !== false) p.updatedAt = Date.now();
   await fs.writeFile(projectFile(userId, p.id), JSON.stringify(p), "utf8");
 }
 
@@ -290,17 +292,26 @@ export async function cleanupOldVariants(maxAgeMs: number): Promise<number> {
     try { projDirs = await fs.readdir(userRoot(ue.name), { withFileTypes: true }); } catch { continue; }
     for (const pe of projDirs) {
       if (!pe.isDirectory()) continue;
-      const p = await getProject(ue.name, pe.name);
-      if (!p || !p.variants.length) continue;
-      const keep: ProjectVariant[] = [];
-      let changed = false;
-      for (const v of p.variants) {
-        if (now - v.createdAt > maxAgeMs) {
-          await fs.unlink(path.join(projectDir(ue.name, pe.name), "variants", v.storedName)).catch(() => {});
-          removed++; changed = true;
-        } else keep.push(v);
-      }
-      if (changed) { p.variants = keep; await write(ue.name, p); }
+      // Skip bon marché hors verrou (évite de verrouiller les projets sans variante).
+      const quick = await getProject(ue.name, pe.name);
+      if (!quick || !quick.variants.length) continue;
+      // Mutation SOUS VERROU (comme toutes les écritures) avec RE-LECTURE de l'état
+      // frais → ne clobbere pas un addMaterial/addVariant concurrent. touch:false →
+      // ne fait pas basculer getLatestProject sur ce vieux projet.
+      removed += await withLock(ue.name, pe.name, async () => {
+        const p = await getProject(ue.name, pe.name);
+        if (!p || !p.variants.length) return 0;
+        const keep: ProjectVariant[] = [];
+        let cnt = 0;
+        for (const v of p.variants) {
+          if (now - v.createdAt > maxAgeMs) {
+            await fs.unlink(path.join(projectDir(ue.name, pe.name), "variants", v.storedName)).catch(() => {});
+            cnt++;
+          } else keep.push(v);
+        }
+        if (cnt) { p.variants = keep; await write(ue.name, p, { touch: false }); }
+        return cnt;
+      });
     }
   }
   return removed;

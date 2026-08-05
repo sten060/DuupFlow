@@ -101,21 +101,30 @@ export type EditSegment = {
 /** Nom de transition xfade pour un plan (null = pas de fond xfade → cut ou glitch).
  *  flash → fondu bref via blanc/noir (fadewhite/fadeblack). glitch = géré à part
  *  (rafale sur l'ouverture du plan, pas un fond xfade) → renvoie null ici. */
+// Noms de transitions xfade réellement présents dans ffmpeg 4.4 (@ffmpeg-installer =
+// binaire de PROD). Garde-fou : un nom hors de ce set casse TOUTE la passe vidéo (et
+// fait perdre les autres transitions) → on retombe en cut plutôt que de risquer ça.
+const XFADE_44 = new Set(["fade", "smoothleft", "slideleft", "fadeblack", "fadewhite", "circleopen"]);
 function xfadeTransition(seg: { transition?: unknown; flashColor?: string } | undefined): string | null {
+  let name: string | null;
   switch (String(seg?.transition ?? "cut")) {
-    case "fade": return "fade";
-    case "whipPan": return "smoothleft";
-    case "slide": return "slideleft";
-    case "zoomPunch": return "zoomin";
+    case "fade": name = "fade"; break;
+    case "whipPan": name = "smoothleft"; break;
+    case "slide": name = "slideleft"; break;
+    // ⚠ "zoomin" N'EXISTE PAS en ffmpeg 4.4 (« Undefined constant ») → circleopen
+    // (iris) donne l'à-coup le plus proche parmi les transitions 4.4 valides.
+    case "zoomPunch": name = "circleopen"; break;
     case "flash": {
       const c = String(seg?.flashColor ?? "white").toLowerCase().replace("#", "");
-      return (c.includes("black") || c === "000000" || c === "000") ? "fadeblack" : "fadewhite";
+      name = (c.includes("black") || c === "000000" || c === "000") ? "fadeblack" : "fadewhite";
+      break;
     }
-    default: return null; // cut, glitch
+    default: name = null; // cut, glitch
   }
+  return name && XFADE_44.has(name) ? name : null;
 }
 
-export type CaptionStyle = "outline" | "box";
+export type CaptionStyle = "outline" | "box" | "sticker";
 export type CaptionSize = "s" | "m" | "l";
 export type CaptionFont = "sans" | "rounded" | "impact" | "serif" | "script" | "display";
 // Enum → nom de FAMILLE (fontconfig la trouve dans public/fonts/ dès que le .ttf
@@ -140,8 +149,13 @@ export type EditCaption = {
   x?: number;            // centre horizontal en % (0-100) — prioritaire sur position
   y?: number;            // centre vertical en % (0-100)
   align?: "left" | "center" | "right";
-  style?: CaptionStyle;  // outline (défaut) | box
+  style?: CaptionStyle;  // outline (défaut) | box | sticker (raccourci : fond opaque, très arrondi, padding généreux, gras sans contour)
   background?: string;   // couleur hex du fond → force box ; "none" → force outline
+  backgroundOpacity?: number; // 0-1, opacité du fond (défaut 1 = OPAQUE)
+  borderRadius?: number; // px (@1080) : coins arrondis du fond (30-40 pour un sticker)
+  padding?: number;      // px (@1080) : marge intérieure du fond (X et Y)
+  paddingX?: number;     // px (@1080) : marge intérieure horizontale (prioritaire sur padding)
+  paddingY?: number;     // px (@1080) : marge intérieure verticale (prioritaire sur padding)
   size?: CaptionSize;
   fontSize?: number;     // px (à W=1080), prioritaire sur size
   color?: string;
@@ -344,18 +358,21 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string,
   await ensureFonts();
   const sharp = (await import("sharp")).default;
 
-  // Style : background="none" → outline ; background=couleur → box ; sinon style.
-  let style: CaptionStyle = c.style === "box" ? "box" : "outline";
-  let boxColor = "#000000";
-  let boxOpacity = 0.5;
+  // Style : sticker (fond OPAQUE très arrondi + padding généreux + gras sans contour) |
+  // box (fond) | outline (contour). background="none" → outline (sauf sticker) ; hex → box.
+  const sticker = c.style === "sticker";
+  let style: "outline" | "box" = c.style === "box" || sticker ? "box" : "outline";
+  let boxColor = sticker ? "#ffffff" : "#000000"; // sticker sans background → blanc plein
   if (typeof c.background === "string") {
-    if (c.background.toLowerCase() === "none") style = "outline";
-    else { style = "box"; boxColor = hex(c.background, "#000000"); boxOpacity = 0.62; }
+    if (c.background.toLowerCase() === "none") { if (!sticker) style = "outline"; }
+    else { style = "box"; boxColor = hex(c.background, boxColor); }
   }
+  // Opacité du fond : DÉFAUT 1 (opaque) — corrige l'ancien fond forcé semi-transparent.
+  const boxOpacity = clamp(num(c.backgroundOpacity, 1), 0, 1);
 
   const size: CaptionSize = c.size === "s" || c.size === "l" ? c.size : "m";
   const fsz = c.fontSize && c.fontSize > 6 ? Math.round((c.fontSize * W) / 1080) : Math.round(W * SIZE_RATIO[size]);
-  const color = hex(c.color, "#ffffff");
+  const color = hex(c.color, sticker ? "#111111" : "#ffffff"); // sticker → texte foncé contrasté par défaut
   const strokeColor = hex(c.strokeColor, "#000000");
   const strokeW = Math.max(2, Math.round((c.strokeWidth != null ? c.strokeWidth : fsz * 0.16)));
   const align = c.align === "left" ? "start" : c.align === "right" ? "end" : "middle";
@@ -506,10 +523,20 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string,
 
   let bgRect = "";
   if (style === "box") {
-    const boxW = Math.round(Math.min(W * 0.96, maxLineW + fsz * 0.8));
-    const boxX = clamp(align === "start" ? anchorX - Math.round(fsz * 0.4) : align === "end" ? anchorX - boxW + Math.round(fsz * 0.4) : anchorX - Math.round(boxW / 2), 6, W - boxW - 6);
-    const boxY = firstBaseline - fsz;
-    bgRect = `<rect x="${boxX}" y="${boxY}" width="${boxW}" height="${blockH + Math.round(fsz * 0.5)}" rx="16" fill="${boxColor}" fill-opacity="${boxOpacity}"/>`;
+    // Padding (px @1080). Défauts = ancien rendu implicite (fsz*0.4 / fsz*0.25) → les
+    // captions box existantes ne bougent pas ; sticker = padding plus large.
+    const px1080 = (v: number) => Math.round((v * W) / 1080);
+    const padX = c.paddingX != null ? px1080(c.paddingX) : c.padding != null ? px1080(c.padding) : Math.round(fsz * (sticker ? 0.7 : 0.4));
+    const padY = c.paddingY != null ? px1080(c.paddingY) : c.padding != null ? px1080(c.padding) : Math.round(fsz * (sticker ? 0.45 : 0.25));
+    const extraX = padX - Math.round(fsz * 0.4), extraY = padY - Math.round(fsz * 0.25);
+    const boxW = Math.round(Math.min(W * 0.96, maxLineW + fsz * 0.8 + 2 * extraX));
+    const boxX = clamp(align === "start" ? anchorX - Math.round(fsz * 0.4) - extraX : align === "end" ? anchorX - boxW + Math.round(fsz * 0.4) + extraX : anchorX - Math.round(boxW / 2), 6, W - boxW - 6);
+    const boxY = firstBaseline - fsz - extraY;
+    const boxH = blockH + Math.round(fsz * 0.5) + 2 * extraY;
+    // Rayon des coins (px @1080). Défaut 16 ; sticker ≈ fsz*0.5 (très arrondi). Borné à la demi-boîte.
+    const rx0 = c.borderRadius != null ? px1080(c.borderRadius) : sticker ? Math.round(fsz * 0.5) : 16;
+    const rx = Math.max(0, Math.min(rx0, Math.floor(boxH / 2), Math.floor(boxW / 2)));
+    bgRect = `<rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" rx="${rx}" fill="${boxColor}" fill-opacity="${boxOpacity.toFixed(3)}"/>`;
   }
 
   const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${defs}${glowDefs}${bgRect}${glowGroup}${shadowGroup}${mainEls.join("")}</svg>`;

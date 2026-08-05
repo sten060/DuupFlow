@@ -52,6 +52,8 @@ export type GeminiCaption = {
   hasStroke: boolean;    // contour présent ?
   strokeWidthPx: number; // épaisseur du contour (px @1080), 0 si aucun
   background: string;    // "none" ou hex (fond derrière le texte)
+  bgRadiusPx: number;    // rayon des coins du fond (px @1080), 0 si coins droits / pas de fond
+  bgPaddingPx: number;   // marge intérieure du fond autour du texte (px @1080), 0 si aucune
   font: "sans" | "rounded" | "impact" | "serif" | "script" | "display"; // meilleur match parmi les 6
   emojis: string;        // emojis présents dans/à côté de la caption ("" si aucun)
   animation: "none" | "fade" | "pop" | "slideUp" | "typewriter" | "wordByWord" | "karaoke"; // type d'anim détecté
@@ -148,6 +150,8 @@ const SCHEMA = {
           hasStroke: { type: "BOOLEAN" },
           strokeWidthPx: { type: "NUMBER" },
           background: { type: "STRING" },
+          bgRadiusPx: { type: "NUMBER" },
+          bgPaddingPx: { type: "NUMBER" },
           font: { type: "STRING", enum: ["sans", "rounded", "impact", "serif", "script", "display"] },
           emojis: { type: "STRING" },
           animation: { type: "STRING", enum: ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"] },
@@ -191,6 +195,8 @@ Objectif : décrire la STRUCTURE et le STYLE, pas raconter le contenu. Sois pré
    - color : couleur du texte en hex (#RRGGBB).
    - hasStroke : true s'il y a un contour autour des lettres ; strokeWidthPx : son épaisseur (px @1080), sinon 0.
    - background : "none" si pas de fond, sinon la couleur hex du bloc/boîte derrière le texte.
+   - bgRadiusPx : s'il y a un fond, le rayon des COINS ARRONDIS du bloc en px (@1080). 0 = coins droits ; ~30-40 = look « sticker » très arrondi (fréquent sur TikTok/IG). 0 si pas de fond.
+   - bgPaddingPx : s'il y a un fond, la MARGE INTÉRIEURE entre le texte et le bord du bloc en px (@1080). Un « sticker » a une marge généreuse (~30-50) ; un fond collé au texte ~10. 0 si pas de fond.
    - font : la famille la PLUS PROCHE parmi EXACTEMENT ces 6 (ne donne pas le nom réel de la fonte, indevinable — donne le meilleur match) : sans (néo-grotesque type Helvetica/Inter), rounded (arrondie type TikTok/CapCut/Poppins), impact (grasse condensée type Anton), serif (à empattements type Playfair), script (manuscrite type Pacifico), display (fantaisie massive type Bungee).
    - emojis : les emojis de cette caption ("" si aucun).
    - animation : le type d'animation d'apparition, parmi EXACTEMENT : none (statique), fade (fondu), pop (apparition avec rebond/scale), slideUp (glisse depuis le bas), typewriter (lettre par lettre), wordByWord (mot après mot qui apparaissent), karaoke (tous les mots visibles, le mot dit est surligné). Choisis le plus proche.
@@ -447,6 +453,8 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
       hasStroke: !!c?.hasStroke,
       strokeWidthPx: Math.round(clamp(c?.strokeWidthPx, 0, 40, 0)),
       background: String(c?.background ?? "none").slice(0, 9),
+      bgRadiusPx: Math.round(clamp((c as { bgRadiusPx?: number })?.bgRadiusPx, 0, 120, 0)),
+      bgPaddingPx: Math.round(clamp((c as { bgPaddingPx?: number })?.bgPaddingPx, 0, 120, 0)),
       font: (FONTS as readonly string[]).includes(String(c?.font)) ? (c!.font as GeminiCaption["font"]) : "sans",
       emojis: String(c?.emojis ?? ""),
       animation: (ANIMS as readonly string[]).includes(String((c as { animation?: string })?.animation)) ? ((c as { animation?: string }).animation as GeminiCaption["animation"]) : "none",

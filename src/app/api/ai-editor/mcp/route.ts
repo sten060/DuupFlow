@@ -10,7 +10,7 @@
 // stateless. Les outils (mcp-tools.ts) sont EN LECTURE : ils donnent au Claude du
 // user la réf analysée (keyframes EN IMAGES → il les VOIT) + la matière.
 
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, resolveEffectivePlan } from "@/lib/api-auth";
 import { TOOLS, callTool } from "@/lib/ai-editor/mcp-tools";
 import { bearerFrom, oauthUserId, wwwAuthenticate } from "@/lib/ai-editor/oauth";
 
@@ -25,6 +25,13 @@ function needsAuth(req: Request) {
   return new Response(JSON.stringify({ error: "unauthorized" }), {
     status: 401,
     headers: { "Content-Type": "application/json", "WWW-Authenticate": wwwAuthenticate(req) },
+  });
+}
+
+function needsPro() {
+  return new Response(JSON.stringify({ error: "L'Éditeur IA (connecteur MCP) est réservé au plan Pro. Passe au plan Pro pour l'utiliser." }), {
+    status: 403,
+    headers: { "Content-Type": "application/json" },
   });
 }
 
@@ -44,6 +51,11 @@ async function resolveUser(req: Request): Promise<{ userId: string } | { deny: R
   }
   const uid = oauthUserId(req);
   if (!uid) return { deny: needsAuth(req) };
+  // Gate PRO sur la voie OAuth (« Autoriser » en 1 clic) : la voie clé API l'impose
+  // déjà via authenticateApiRequest. Revérifié à CHAQUE requête → coupe aussi l'accès
+  // d'un ex-Pro dont le refresh token survivrait au downgrade.
+  const plan = await resolveEffectivePlan(uid);
+  if (plan !== "pro") return { deny: needsPro() };
   return { userId: uid };
 }
 

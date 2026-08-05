@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
         console.error(`[ai-editor/material] analyse échouée : ${file.name} (id ${material.id})`, e);
         await updateMaterialAnalysis(user.id, projectId, material.id, null, "failed");
       }
-    })();
+    })().catch((e) => console.error(`[ai-editor/material] tâche de fond en échec dur : ${file.name}`, e)); // garde ultime : jamais d'unhandled rejection
     return NextResponse.json({ material });
   } catch (e) {
     console.error("[ai-editor/material] POST échec:", e);

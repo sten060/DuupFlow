@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
 import { bindNotificationsUser } from "./components/notificationStore";
@@ -58,6 +59,98 @@ function NavItem({
         />
       )}
     </Link>
+  );
+}
+
+type SubLink = { href: string; label: string; icon: React.ReactNode };
+
+// Module « Duplication » fusionné : au survol, un flyout raccroché au module
+// propose de choisir Images ou Vidéos (chacun redirige vers son module). Le
+// flyout est un descendant DOM du conteneur → le :hover CSS le garde ouvert même
+// s'il déborde visuellement à droite (pas de zone morte). Sur mobile, le drawer
+// affiche les deux liens séparément (cf. rendu mobile).
+function DuplicationNavItem({ collapsed, subitems }: { collapsed: boolean; subitems: SubLink[] }) {
+  const pathname = usePathname();
+  const { t } = useTranslation();
+  const active = subitems.some((s) => pathname === s.href || pathname.startsWith(s.href));
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+  // Le flyout est en position: FIXED (calculée depuis le module) pour ÉCHAPPER au
+  // clipping de la sidebar (overflow-y-auto clippe aussi l'horizontal) — sinon le
+  // popup qui déborde à droite est coupé. Un petit délai à la fermeture ponte le gap
+  // trigger→flyout.
+  const show = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.top, left: r.right + 8 });
+    setOpen(true);
+  };
+  const hide = () => { closeTimer.current = setTimeout(() => setOpen(false), 130); };
+
+  return (
+    <div ref={triggerRef} className="relative" onMouseEnter={show} onMouseLeave={hide}>
+      <div
+        tabIndex={0}
+        title={collapsed ? t("dashboard.sidebar.duplication") : undefined}
+        onClick={() => (open ? hide() : show())}
+        className={[
+          "flex cursor-pointer items-center rounded-lg text-sm font-medium transition-all outline-none",
+          collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
+          active ? "text-[var(--app-text)]" : "text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] hover:bg-[var(--app-surface)]",
+        ].join(" ")}
+        style={active ? { background: "rgba(99,102,241,0.13)", boxShadow: "inset 0 0 0 1px rgba(99,102,241,0.22)" } : {}}
+      >
+        <span className={active ? "text-indigo-300" : "text-[var(--app-text-faint)]"}>
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+        </span>
+        {!collapsed && <span className="flex-1 leading-tight">{t("dashboard.sidebar.duplication")}</span>}
+        {!collapsed && (
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-faint)]" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+        )}
+      </div>
+
+      {/* PORTAIL vers <body> : la sidebar a un backdrop-filter, qui fait qu'un enfant
+          position:fixed se cale sur la sidebar (et reste clippé par son overflow). Le
+          portail sort le flyout de la sidebar → plus de clipping. */}
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 200 }}
+          onMouseEnter={show}
+          onMouseLeave={hide}
+        >
+          <div
+            className="min-w-[200px] rounded-2xl border p-2"
+            style={{
+              borderColor: "rgba(99,102,241,0.28)",
+              background: "linear-gradient(180deg, rgba(99,102,241,0.07), rgba(99,102,241,0.02)), var(--app-surface)",
+              boxShadow: "0 14px 38px rgba(0,0,0,.40)",
+            }}
+          >
+            <div className="px-2.5 pb-1.5 pt-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">
+              {t("dashboard.sidebar.duplicationChoose")}
+            </div>
+            {subitems.map((s) => (
+              <Link
+                key={s.href}
+                href={s.href}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold text-[var(--app-text-muted)] transition hover:bg-[rgba(99,102,241,0.12)] hover:text-[var(--app-text)]"
+              >
+                <span className="text-indigo-300">{s.icon}</span>
+                <span>{s.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
   );
 }
 
@@ -134,7 +227,7 @@ export default function Sidebar() {
   // Nav grouped per spec — a separator is drawn between each group:
   //   Accueil · [Images, Vidéos] · [Compresseur, Comparateur] · [Variation IA, Détection IA]
   const NAV_GROUPS: Array<
-    Array<{ href: string; label: string; icon: React.ReactNode; badge?: string; tourId?: string }>
+    Array<{ href: string; label: string; icon: React.ReactNode; badge?: string; tourId?: string; duplication?: SubLink[] }>
   > = [
     [
       {
@@ -149,37 +242,51 @@ export default function Sidebar() {
       },
     ],
     [
+      // Module DUPLICATION fusionné (Images + Vidéos) → flyout de choix au survol.
       {
-        href: "/dashboard/images",
-        label: t("dashboard.sidebar.images"),
-        tourId: "nav-images",
+        href: "/dashboard/videos", // repli (le rendu spécial gère la navigation)
+        label: t("dashboard.sidebar.duplication"),
+        icon: null,
+        duplication: [
+          {
+            href: "/dashboard/images",
+            label: t("dashboard.sidebar.images"),
+            icon: (
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+            ),
+          },
+          {
+            href: "/dashboard/videos",
+            label: t("dashboard.sidebar.videos"),
+            icon: (
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="5" width="14" height="14" rx="2" />
+                <path d="M16 9l5-3v12l-5-3V9z" />
+              </svg>
+            ),
+          },
+        ],
+      },
+      // Éditeur IA — exposé avec un badge « Bientôt » ; l'accès est réservé au plan
+      // Pro (gate serveur sur la page, comme l'API). Les non-Pro voient l'écran d'upgrade.
+      {
+        href: "/dashboard/ai-editor",
+        label: t("dashboard.sidebar.aiEditor"),
+        badge: t("dashboard.sidebar.soon"),
+        tourId: "nav-ai-editor",
         icon: (
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="18" height="18" rx="3" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 4V2" /><path d="M15 16v-2" /><path d="M8 9h2" /><path d="M20 9h2" /><path d="M17.8 11.8 19 13" /><path d="M15 9h0" /><path d="M17.8 6.2 19 5" /><path d="m3 21 9-9" /><path d="M12.2 6.2 11 5" />
           </svg>
         ),
       },
-      {
-        href: "/dashboard/videos",
-        label: t("dashboard.sidebar.videos"),
-        tourId: "nav-videos",
-        icon: (
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="2" y="5" width="14" height="14" rx="2" />
-            <path d="M16 9l5-3v12l-5-3V9z" />
-          </svg>
-        ),
-      },
-      // NOTE : « Éditeur IA » (/dashboard/ai-editor) est volontairement MASQUÉ de
-      // la nav — la route et toute l'infra (API, MCP, rendu) restent en place et
-      // accessibles par URL directe pour les tests privés, mais l'entrée n'est
-      // pas exposée aux users actifs. Ré-ajouter le bloc ici pour la rendre visible.
       {
         href: "/dashboard/import",
         label: "Scraper",
-        badge: t("dashboard.sidebar.nouveau"),
         icon: (
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -357,9 +464,10 @@ export default function Sidebar() {
                   style={{ height: "1px", background: "var(--app-border)" }}
                 />
               )}
-              {group.map((item) => (
-                <NavItem key={item.href} {...item} collapsed={collapsed} />
-              ))}
+              {group.map((item) => item.duplication
+                ? <DuplicationNavItem key="duplication" collapsed={collapsed} subitems={item.duplication} />
+                : <NavItem key={item.href} {...item} collapsed={collapsed} />
+              )}
             </div>
           ))}
         </nav>
@@ -532,9 +640,10 @@ export default function Sidebar() {
         {NAV_GROUPS.map((group, gi) => (
           <div key={gi} className="space-y-0.5">
             {gi > 0 && <div className="mx-3 my-2 h-px" style={{ background: "var(--app-border)" }} />}
-            {group.map((item) => (
-              <NavItem key={item.href} {...item} collapsed={false} />
-            ))}
+            {group.flatMap((item) => item.duplication
+              ? item.duplication.map((s) => <NavItem key={s.href} href={s.href} label={s.label} icon={s.icon} collapsed={false} />)
+              : [<NavItem key={item.href} {...item} collapsed={false} />]
+            )}
           </div>
         ))}
       </nav>
