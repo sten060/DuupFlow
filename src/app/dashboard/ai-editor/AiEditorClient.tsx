@@ -133,6 +133,16 @@ export default function AiEditorClient() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toggleSelect = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
+  // Prompt "démarre la conversation avec ton Claude" — copie presse-papiers.
+  const [promptCopied, setPromptCopied] = useState(false);
+  const copyStarterPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(t("dashboard.aiEditor.ws.promptText"));
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    } catch { /* clipboard indisponible — no-op */ }
+  };
+
   const analyzeRef = useCallback(async (input: { file?: File; url?: string; replacePid?: string }) => {
     setAnalyzing(true); setAnalyzeErr(null); setAnalysis(null);
     try {
@@ -702,14 +712,12 @@ export default function AiEditorClient() {
                 <p className="py-1 text-[12px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ws.noFiles")}</p>
               )}
             </div>
-            <div className="mx-3.5 mb-4 mt-auto flex shrink-0 items-start gap-2.5 rounded-xl border p-3 text-[12.5px] text-[var(--app-text)]"
-                 style={{ background: "rgba(217,119,87,.09)", borderColor: "rgba(217,119,87,.3)" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/claude-color.svg" alt="" className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>
-                <Rich text={t("dashboard.aiEditor.ws.railCta")} />{" "}
-                <button onClick={() => setStep("connect")} className="font-semibold text-[var(--app-text)] underline underline-offset-2 hover:opacity-80">{t("dashboard.aiEditor.ws.reconnect")}</button>
-              </span>
+            <div className="mx-3.5 mb-4 mt-auto shrink-0">
+              <button onClick={() => setStep("connect")} className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border-strong)] px-3 py-2 text-[12.5px] font-semibold text-[var(--app-text)] transition hover:bg-[var(--app-surface-2)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/claude-color.svg" alt="" className="h-4 w-4 shrink-0" />
+                {t("dashboard.aiEditor.ws.reconnect")}
+              </button>
             </div>
           </aside>
 
@@ -753,9 +761,32 @@ export default function AiEditorClient() {
                 <p className="mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-[var(--app-text-muted)]">
                   <Rich text={t("dashboard.aiEditor.ws.emptyDesc")} />
                 </p>
-                <button onClick={() => setStep("connect")} className="mt-4 text-[12px] text-[var(--app-text-faint)] underline hover:text-[var(--app-text-muted)]">
+
+                {/* Que faire maintenant ? — 3 étapes */}
+                <div className="mx-auto mt-6 max-w-md text-left">
+                  <div className="mb-3 text-center text-[13px] font-bold text-[var(--app-text)]">{t("dashboard.aiEditor.ws.stepsTitle")}</div>
+                  <ol className="space-y-2.5">
+                    {[t("dashboard.aiEditor.ws.step1"), t("dashboard.aiEditor.ws.step2"), t("dashboard.aiEditor.ws.step3")].map((s, i) => (
+                      <li key={i} className="flex items-center gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-bg-2)] px-3.5 py-2.5">
+                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-bold text-white" style={{ background: BRAND }}>{i + 1}</span>
+                        <span className="text-[13px] text-[var(--app-text)]">{s}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                <button onClick={() => setStep("connect")} className="mt-5 text-[12px] text-[var(--app-text-faint)] underline hover:text-[var(--app-text-muted)]">
                   {t("dashboard.aiEditor.ws.notConnected")}
                 </button>
+
+                {/* Prompt prêt-à-copier pour démarrer la conversation avec Claude
+                    (le texte n'est pas affiché — juste le bouton de copie). */}
+                <div className="mx-auto mt-5 flex max-w-md flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-bg-2)] px-4 py-3">
+                  <span className="text-[12.5px] font-semibold text-[var(--app-text)]">{t("dashboard.aiEditor.ws.promptHelp")}</span>
+                  <button onClick={copyStarterPrompt} className="shrink-0 rounded-lg px-3 py-1.5 text-[11.5px] font-semibold text-white transition hover:brightness-110" style={{ background: BRAND }}>
+                    {promptCopied ? t("dashboard.aiEditor.ws.promptCopied") : t("dashboard.aiEditor.ws.promptCopy")}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))" }}>
