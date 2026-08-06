@@ -3,7 +3,7 @@
 import Link from "@/components/LocaleLink";
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import { BLUE, CTA_GRAD, Label, NavPill, Footer, SmoothScroll, Brand } from "@/components/landing/shell";
+import { BLUE, CTA_GRAD, Label, NavPill, Footer, SmoothScroll, Brand, FlipInner } from "@/components/landing/shell";
 
 /* ══════════════════════════════════════════════════════════════
  * LANDING — refonte façon template "Lunera" (thème clair, Geist).
@@ -86,12 +86,14 @@ function Hero() {
       <FloatingSocials />
 
       <div className="relative z-10 mx-auto max-w-5xl px-6 pt-40 text-center sm:pt-48">
-        <span className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-[#1a1a1a] shadow-[0_6px_20px_rgba(20,40,90,0.06)] ring-1 ring-black/[0.06] backdrop-blur">
-          <img src="/logo-mark.png" alt="" className="h-4 w-4 object-contain" />
-          {en ? <>500 creators &amp; agencies repost with <Brand /></> : <>500 créateurs et agences repost avec <Brand /></>}
+        <span className="duup-flip mb-6 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-[#1a1a1a] shadow-[0_6px_20px_rgba(20,40,90,0.06)] ring-1 ring-black/[0.06] backdrop-blur">
+          <FlipInner>
+            <img src="/logo-mark.png" alt="" className="h-4 w-4 object-contain" />
+            <span>{en ? <>500 creators &amp; agencies repost with <Brand /></> : <>500 créateurs et agences repost avec <Brand /></>}</span>
+          </FlipInner>
         </span>
-        <h1 className="mx-auto tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(42px, 5.9vw, 70px)", lineHeight: 1.06, fontWeight: 500 }}>
-          {en ? <>Turn one video into<br /><span className="lunera-shine font-semibold">dozens of variants</span> to repost</> : <>Transforme 1 vidéo en<br /><span className="lunera-shine font-semibold">plusieurs variantes</span> à reposter</>}
+        <h1 className="mx-auto tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(42px, 5.9vw, 70px)", lineHeight: 1.14, fontWeight: 500 }}>
+          {en ? <>Turn one video into<br /><span className="lunera-highlight font-semibold">dozens of variants</span> to repost</> : <>Transforme 1 vidéo en<br /><span className="lunera-highlight font-semibold">plusieurs variantes</span> à reposter</>}
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-[#3a3f4b] sm:text-[19px]">
           {en
@@ -103,10 +105,12 @@ function Hero() {
         <div className="mt-12 flex flex-col items-center gap-7 sm:mt-14">
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link href="/pricing"
-              className="inline-flex items-center gap-2.5 rounded-full px-8 py-3.5 text-[15px] font-medium text-white shadow-[0_12px_34px_rgba(90,90,240,0.4)] transition hover:opacity-90"
+              className="duup-flip inline-flex items-center gap-2.5 rounded-full px-8 py-3.5 text-[15px] font-medium text-white shadow-[0_12px_34px_rgba(90,90,240,0.4)] transition hover:opacity-90"
               style={{ background: CTA_GRAD }}>
-              {en ? "Get started" : "Commencer maintenant"}
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              <FlipInner>
+                {en ? "Get started" : "Commencer maintenant"}
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </FlipInner>
             </Link>
           </div>
         </div>
@@ -208,21 +212,39 @@ function AntiAI() {
     </div>
   );
 }
-/* Variation manuelle : réglages experts (sliders) */
-function ManualSliders() {
+/* Éditeur IA : montage piloté par conversation (Claude) → variantes prêtes */
+function AiEditorPanel() {
   const en = useLocale() === "en";
-  const sl: [string, number][] = [["Bitrate", 0.72], ["Saturation", 0.44], [en ? "Speed" : "Vitesse", 0.6], ["Zoom", 0.3]];
   return (
-    <div className="w-full max-w-[300px] rounded-2xl bg-white p-4 ring-1 ring-black/5 shadow-[0_10px_28px_rgba(20,40,90,0.08)]">
-      {sl.map(([label, v], i) => (
-        <div key={i} className="mb-3.5 last:mb-0">
-          <div className="mb-1 flex justify-between text-[11px]"><span className="font-medium text-[#1a1a1a]">{label}</span><span className="text-[#8a8a8a]">{Math.round(v * 100)}%</span></div>
-          <div className="relative h-1.5 rounded-full bg-black/[0.06]">
-            <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${v * 100}%`, background: BLUE }} />
-            <div className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow ring-1 ring-black/10" style={{ left: `${v * 100}%` }} />
+    <div className="w-full max-w-[300px] rounded-2xl bg-white p-3.5 ring-1 ring-black/5 shadow-[0_10px_28px_rgba(20,40,90,0.08)]">
+      {/* En-tête : logo Claude + statut */}
+      <div className="mb-3 flex items-center gap-2">
+        <img src="/claude-color.svg" alt="Claude" className="h-5 w-5" />
+        <span className="text-[12px] font-semibold text-[#1a1a1a]">{en ? "AI Editor" : "Éditeur IA"}</span>
+        <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-[#4686FE]/10 px-2 py-0.5 text-[10px] font-medium" style={{ color: BLUE }}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: BLUE }} />{en ? "Live" : "En ligne"}
+        </span>
+      </div>
+      {/* Prompt utilisateur */}
+      <div className="mb-2 ml-auto w-fit max-w-[88%] rounded-2xl rounded-tr-sm bg-[#1a1a1a] px-3 py-2 text-[11px] leading-snug text-white">
+        {en ? "Dynamic cut, captions on the beat" : "Montage dynamique, captions sur les beats"}
+      </div>
+      {/* Réponse IA */}
+      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-[#605f5f]">
+        <img src="/claude-color.svg" alt="" className="h-3.5 w-3.5" />
+        {en ? "3 variations ready" : "3 variantes prêtes"}
+      </div>
+      {/* Variantes générées */}
+      <div className="grid grid-cols-3 gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="relative aspect-[9/16] overflow-hidden rounded-lg ring-1 ring-black/5">
+            <img src={CLIPS[i]} alt="" className="h-full w-full object-cover" />
+            <span className="absolute right-1 top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-white shadow" style={{ background: BLUE }}>
+              <svg className="h-2 w-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="M20 6 9 17l-5-5" /></svg>
+            </span>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -311,9 +333,9 @@ const FEATURES = [
     en: { title: "AI-detection bypass", desc: "Strips AI signatures (C2PA) so your content passes as native.", back: "Removes AI signatures — including the C2PA standard — from your files, then rewrites a credible “shot by a human” identity: real camera (Canon, Sony, iPhone…), common editing software, recent date and consistent location." },
   },
   {
-    wide: true, art: <ManualSliders />,
-    fr: { title: "Variation manuelle", desc: "Pour les experts : reprends la main sur chaque réglage plutôt que l'auto.", back: "Tu choisis toi-même les traitements appliqués à chaque copie — recadrage / zoom, miroir horizontal, réglages visuels (luminosité, saturation, teinte, gamma) et niveau de métadonnées. Le contrôle total pour ceux qui veulent régler eux-mêmes." },
-    en: { title: "Manual variation", desc: "For experts: take control of every setting instead of the auto mode.", back: "You choose the treatments applied to each copy yourself — crop / zoom, horizontal mirror, visual settings (brightness, saturation, hue, gamma) and metadata level. Full control for those who want to tune it themselves." },
+    wide: true, art: <AiEditorPanel />,
+    fr: { title: "Éditeur IA", desc: "Décris ton montage : l'IA l'assemble depuis tes rushes et sort autant de variantes que tu veux.", back: "Un agent de montage piloté par Claude : tu uploades tes rushes, tu donnes une vidéo de référence, tu décris le résultat. L'IA reproduit le style — coupes calées sur les beats, sous-titres animés, effets, recadrage — et génère des variantes réellement distinctes, modifiables à la demande." },
+    en: { title: "AI Editor", desc: "Describe your edit: the AI builds it from your footage and outputs as many variations as you want.", back: "A Claude-powered editing agent: you upload your footage, hand it a reference video, describe the result. The AI reproduces the style — beat-synced cuts, animated captions, effects, reframing — and generates genuinely distinct variations, editable on demand." },
   },
   {
     wide: true, art: <ScraperGrid />,
@@ -799,14 +821,14 @@ const FAQS = {
     { q: "Est-ce que la qualité baisse ?", a: "Non. La résolution et le bitrate d'origine sont conservés : une 1080p reste 1080p, une 4K reste 4K. Aucune perte visible à l'écran." },
     { q: "Combien de variantes puis-je générer ?", a: "Autant que ton plan le permet — jusqu'à un nombre illimité sur le plan Pro. Le plan gratuit te laisse démarrer sans carte bancaire." },
     { q: "Ça marche sur quelles plateformes ?", a: "Toutes. DuupFlow prépare les fichiers, tu postes où tu veux : TikTok, Instagram, YouTube, X, Reddit, Threads…" },
-    { q: "Combien de temps pour générer 20 variantes ?", a: "Quelques minutes, selon la durée et la résolution de ta source. Compte environ 3 minutes pour 20 variantes vidéo." },
+    { q: "L'éditeur IA, c'est quoi ?", a: "Un agent de montage piloté par conversation : tu uploades tes rushes, tu donnes une vidéo de référence et tu décris le montage voulu. L'IA (Claude) assemble la vidéo à ta place, puis en génère autant de variantes différentes que tu veux. Inclus dans les plans Solo et Pro." },
   ],
   en: [
     { q: "What exactly gets modified in my videos?", a: "The metadata (device, date, encoder, geolocation), a visual signature via micro-variations below the perception threshold, and a unique binary fingerprint. The file is then fully re-encoded. Your edit, audio and framing stay identical to the original." },
     { q: "Does quality drop?", a: "No. The original resolution and bitrate are kept: 1080p stays 1080p, 4K stays 4K. No visible loss on screen." },
     { q: "How many variants can I generate?", a: "As many as your plan allows — up to unlimited on the Pro plan. The free plan lets you start with no credit card." },
     { q: "Which platforms does it work on?", a: "All of them. DuupFlow prepares the files, you post wherever you want: TikTok, Instagram, YouTube, X, Reddit, Threads…" },
-    { q: "How long does it take to generate 20 variants?", a: "A few minutes, depending on your source's length and resolution. Count about 3 minutes for 20 video variants." },
+    { q: "What is the AI editor?", a: "A conversation-driven editing agent: you upload your footage, hand it a reference video and describe the edit you want. The AI (Claude) assembles the video for you, then generates as many different variations as you want. Included in the Solo and Pro plans." },
   ],
 };
 function FAQ() {

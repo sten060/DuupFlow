@@ -763,7 +763,51 @@ body{
 }
 .lunera-flip { animation: lunera-flip .5s cubic-bezier(0.4, 0, 0.2, 1); transform-origin: center; backface-visibility: hidden; }
 
+/* Surligneur plein "vivant" pour un mot du titre hero (façon Magnetly) */
+@keyframes lunera-highlight-shine { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+.lunera-highlight {
+  position: relative;
+  display: inline-block;
+  padding: 0.02em 0.3em;
+  border-radius: 0.4em;
+  color: #fff;
+  background-image: linear-gradient(135deg,#4f7bff 0%,#7c5cff 52%,#9b5cff 100%);
+  background-size: 200% auto;
+  box-shadow: 0 14px 34px rgba(90,90,240,0.30);
+  transform: rotate(-1.6deg);
+  animation: lunera-highlight-shine 4.5s linear infinite;
+  will-change: background-position;
+}
+
+/* Effet "un seul retournement" au survol (boutons Commencer / pastille).
+   La face avant pivote de 180° et une face arrière identique (pré-tournée)
+   prend le relais, à l'endroit : un flip propre, pas une rotation continue.
+   (Nom distinct de .lunera-flip, déjà utilisé par les covers Intégrations.) */
+.duup-flip { perspective: 700px; }
+.duup-flip__rot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+  transition: transform .5s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+.duup-flip:hover .duup-flip__rot { transform: rotateX(180deg); }
+.duup-flip__face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+  white-space: nowrap;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.duup-flip__face--back { position: absolute; inset: 0; transform: rotateX(180deg); }
+
 @media (prefers-reduced-motion: reduce) {
   .lunera-blob-1, .lunera-blob-2, .lunera-blob-3, .lunera-wave-x,
-  .lunera-float-a, .lunera-float-b, .lunera-float-c, .lunera-swap, .lunera-flip, .lunera-bob { animation: none; }
+  .lunera-float-a, .lunera-float-b, .lunera-float-c, .lunera-swap, .lunera-flip, .lunera-bob,
+  .lunera-highlight { animation: none; }
+  .duup-flip__rot, .duup-flip:hover .duup-flip__rot { transition: none; transform: none; }
 }

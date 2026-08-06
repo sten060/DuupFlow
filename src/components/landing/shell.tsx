@@ -33,6 +33,19 @@ export function Brand({ className, style }: { className?: string; style?: CSSPro
   );
 }
 
+/* ── Flip "un seul retournement" au survol ──
+   À placer dans un parent portant la classe `.duup-flip`. Rend deux faces
+   identiques (recto + verso pré-tourné) : au hover le parent bascule de 180°
+   et la vidéo retombe à l'endroit. Le gap éventuel du parent est hérité. */
+export function FlipInner({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="duup-flip__rot">
+      <span className="duup-flip__face">{children}</span>
+      <span className="duup-flip__face duup-flip__face--back" aria-hidden>{children}</span>
+    </span>
+  );
+}
+
 /* ── Nav : large en haut, se réduit en pilule au 1er scroll ── */
 export function NavPill() {
   const en = useLocale() === "en";
@@ -67,9 +80,9 @@ export function NavPill() {
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
           </Link>
           <Link href="/pricing"
-            className={`rounded-full font-medium text-white shadow-[0_10px_26px_rgba(90,90,240,0.35)] transition-all duration-500 hover:opacity-90 ${scrolled ? "px-5 py-2.5 text-sm" : "px-6 py-3 text-[15px]"}`}
+            className={`duup-flip inline-flex items-center rounded-full font-medium text-white shadow-[0_10px_26px_rgba(90,90,240,0.35)] transition-all duration-500 hover:opacity-90 ${scrolled ? "px-5 py-2.5 text-sm" : "px-6 py-3 text-[15px]"}`}
             style={{ background: CTA_GRAD }}>
-            {en ? "Get started" : "Commencer"}
+            <FlipInner>{en ? "Get started" : "Commencer"}</FlipInner>
           </Link>
         </div>
       </nav>
