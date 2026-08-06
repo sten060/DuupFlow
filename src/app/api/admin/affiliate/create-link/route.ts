@@ -5,9 +5,10 @@ import { getStripe } from "@/lib/stripe";
 export const dynamic = "force-dynamic";
 
 /**
- * Crée un affilié "lien seul" : pas de code promo visible pour l'utilisateur.
- * La réduction (% personnalisé) s'applique automatiquement quand quelqu'un
- * arrive via le lien ?ref=CODE.
+ * Crée un affilié. Le lien ?ref=CODE sert UNIQUEMENT au tracking (clic +
+ * attribution de commission) : il n'applique aucune réduction automatiquement.
+ * La réduction filleul (% personnalisé, coupon Stripe) ne s'obtient que si le
+ * filleul saisit le code au checkout — cf. src/app/api/stripe/checkout/route.ts.
  */
 export async function POST(req: NextRequest) {
   const admin = createAdminClient();
@@ -56,8 +57,10 @@ export async function POST(req: NextRequest) {
     stripeCouponId = coupon.id;
 
     // ── 2. Créer le Stripe Promotion Code ────────────────────────────────────
-    // Si visiblePromo: code = CODE (saisissable au checkout par l'utilisateur)
-    // Sinon: code = REFCODE (interne, appliqué automatiquement via le lien)
+    // Si visiblePromo: code = CODE (annoncé au filleul, saisissable au checkout).
+    // Sinon: code = REFCODE (nom interne Stripe, anti-collision).
+    // Dans tous les cas la réduction ne s'applique QUE si le code est saisi au
+    // checkout (lookup par affiliates.code) — jamais automatiquement via le lien.
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const promoCode = await (stripe.promotionCodes.create as any)({

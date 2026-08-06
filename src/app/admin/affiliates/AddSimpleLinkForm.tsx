@@ -282,6 +282,7 @@ export default function AddSimpleLinkForm() {
         >
           <p className="text-white/50">
             Lien partenaire : <span className="text-emerald-300 font-mono">duupflow.com/checkout?ref={upperCode}</span>
+            <span className="text-white/40"> — tracking uniquement (clic + commission)</span>
           </p>
           {noDiscount ? (
             <p className="text-white/50">
@@ -289,7 +290,8 @@ export default function AddSimpleLinkForm() {
             </p>
           ) : (
             <p className="text-white/50">
-              Réduction filleuls : <span className="text-white/70">-{discount}% sur le 1er mois (auto via lien)</span>
+              Réduction filleuls : <span className="text-white/70">-{discount}% sur le 1er mois</span>
+              <span className="text-white/40"> — uniquement si le filleul saisit le code {upperCode} au checkout</span>
             </p>
           )}
           {withPromo && !noDiscount && (
