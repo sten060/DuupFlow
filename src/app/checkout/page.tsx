@@ -162,10 +162,10 @@ function CheckoutContent() {
   useEffect(() => {
     const ref = searchParams.get("ref");
     if (ref) {
+      // Le lien d'affiliation sert UNIQUEMENT au tracking (clic + commission
+      // partenaire). La réduction filleul n'est PAS appliquée automatiquement :
+      // le filleul doit saisir lui-même le code promo au checkout pour l'obtenir.
       localStorage.setItem("duupflow_ref", ref.toUpperCase());
-      // Pré-remplir et valider le code si passé dans l'URL
-      setPromoInput(ref.toUpperCase());
-      validatePromoCode(ref.toUpperCase());
     }
 
     const supabase = createClient();

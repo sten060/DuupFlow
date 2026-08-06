@@ -54,19 +54,18 @@ export async function POST(request: Request) {
   // Le code promo est aussi le code affilié (même chose)
   const effectiveAffiliateCode = promoCode ?? affiliateCode;
 
-  // Résoudre le stripe_promotion_code_id :
-  // - si promoCode tapé manuellement → lookup direct
-  // - si seulement affiliateCode (lien ?ref=) → lookup aussi pour les partenaires lien-seul
+  // Résoudre le stripe_promotion_code_id — UNIQUEMENT si le filleul a saisi un
+  // code promo au checkout. Le lien d'affiliation (?ref → affiliateCode) ne sert
+  // qu'au tracking et à l'attribution de la commission : il n'applique JAMAIS de
+  // réduction automatiquement.
   let stripePromotionCodeId: string | undefined;
-  const codeToLookup = promoCode ?? affiliateCode;
-  if (codeToLookup) {
+  if (promoCode) {
     const { data: affiliate } = await admin
       .from("affiliates")
-      .select("stripe_promotion_code_id, discount_pct")
-      .eq("code", codeToLookup)
+      .select("stripe_promotion_code_id")
+      .eq("code", promoCode)
       .single();
-    // Appliquer si : code promo manuel, ou partenaire lien-seul (discount_pct défini)
-    if (affiliate?.stripe_promotion_code_id && (promoCode || affiliate.discount_pct != null)) {
+    if (affiliate?.stripe_promotion_code_id) {
       stripePromotionCodeId = affiliate.stripe_promotion_code_id;
     }
   }
