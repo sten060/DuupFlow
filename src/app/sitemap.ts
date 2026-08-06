@@ -29,6 +29,11 @@ const FR_ARTICLES: Array<{ slug: string; lastModified: string }> = [];
 // via hreflang). Articles that share one slug across locales set frSlug === enSlug.
 const BILINGUAL_ARTICLES: Array<{ frSlug: string; enSlug: string; lastModified: string }> = [
   {
+    frSlug: "editeur-video-ia",
+    enSlug: "ai-video-editor",
+    lastModified: "2026-08-06",
+  },
+  {
     frSlug: "tiktok-ineligible-recommandations",
     enSlug: "tiktok-ineligible-for-recommendation",
     lastModified: "2026-06-21",

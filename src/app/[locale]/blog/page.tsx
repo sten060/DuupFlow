@@ -29,6 +29,19 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    slug: "editeur-video-ia",
+    slugEn: "ai-video-editor",
+    locale: "fr",
+    title: "L'éditeur vidéo IA de DuupFlow, propulsé par Claude",
+    titleEn: "The DuupFlow AI Video Editor, powered by Claude",
+    excerpt:
+      "DuupFlow donne les outils, tu apportes tes rushes, et Claude fait le montage. Tu décris ce que tu veux, Claude assemble la vidéo et en sort autant de variantes différentes que tu veux.",
+    excerptEn:
+      "DuupFlow gives the tools, you bring your footage, and Claude does the editing. You describe what you want, Claude assembles the video and outputs as many different variations as you want.",
+    publishedAt: "2026-08-06",
+    readingMinutes: 6,
+  },
+  {
     slug: "reposter-meme-video-plusieurs-comptes-tiktok-instagram",
     locale: "fr",
     title: "Reposter la même vidéo sur plusieurs comptes TikTok et Instagram : la méthode qui fonctionne en 2026",
