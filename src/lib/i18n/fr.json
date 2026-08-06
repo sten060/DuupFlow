@@ -172,6 +172,7 @@
     "proFeature7": "Tous formats & presets avancés",
     "proFeature8": "Support prioritaire 7j/7",
     "proFeature9": "Clés API (Make, n8n, Claude Code…)",
+    "featAiEditor": "Accès à l'éditeur IA",
     "featGoogleDrive": "Import Google Drive",
     "featCompressor": "Compresseur de fichiers",
     "featScraper": "Scraper Instagram & TikTok — import à l'usage",
@@ -249,8 +250,8 @@
     "pricingFaq5A": "Le Pixel magique ajoute du bruit imperceptible à chaque pixel de chaque frame. Le résultat est visuellement identique à l'original, mais le hash du fichier est complètement différent. Les plateformes lisent un fichier unique à chaque copie.",
     "pricingFaq6Q": "Comment fonctionne la facturation ?",
     "pricingFaq6A": "La facturation est mensuelle et automatique. Tu reçois une facture par email à chaque renouvellement. Nous acceptons les cartes Visa, Mastercard et American Express via notre partenaire Stripe.",
-    "pricingFaq7Q": "Quelle est la différence entre le plan Pro et le plan Entreprise ?",
-    "pricingFaq7A": "Le plan Pro est conçu pour les créateurs et petites agences, accès complet, copies illimitées, support prioritaire. Le plan Entreprise ajoute l'accès API, un account manager dédié, un SLA personnalisé et un onboarding sur mesure pour les équipes de grande taille.",
+    "pricingFaq7Q": "Quelle est la limite de vidéos de l'éditeur IA ?",
+    "pricingFaq7A": "L'éditeur IA reprend ton quota de duplications vidéo : 300 rendus par mois avec le plan Solo, et illimité avec le plan Pro. Chaque vidéo montée par Claude est décomptée de ce quota.",
     "pricingFaq8Q": "Comment fonctionne la facturation de la Variation IA ?",
     "pricingFaq8A": "La Variation IA est facturée à l'usage via un système de tokens (1 token = 0,40 €). Le prix par image dépend de ton plan : 1,10 € en Free, 0,90 € en Solo, 0,70 € en Pro. Tu recharges quand tu veux, sans engagement. Si une génération échoué (NSFW, erreur technique), tes tokens sont automatiquement remboursés."
   },

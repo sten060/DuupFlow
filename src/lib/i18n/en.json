@@ -172,6 +172,7 @@
     "proFeature7": "All formats & advanced presets",
     "proFeature8": "Priority support 7 days a week",
     "proFeature9": "API keys (Make, n8n, Claude Code…)",
+    "featAiEditor": "AI editor access",
     "featGoogleDrive": "Google Drive import",
     "featCompressor": "File compressor",
     "featScraper": "Instagram & TikTok scraper — pay-as-you-go import",
@@ -249,8 +250,8 @@
     "pricingFaq5A": "Magic Pixel adds imperceptible noise to every pixel of every frame. The result is visually identical to the original, but the file hash is completely different. The platforms read a unique file for every copy.",
     "pricingFaq6Q": "How does billing work?",
     "pricingFaq6A": "Billing is monthly and automatic. You receive an invoice by email at each renewal. We accept Visa, Mastercard and American Express through our partner Stripe.",
-    "pricingFaq7Q": "What is the difference between the Pro and Enterprise plans?",
-    "pricingFaq7A": "The Pro plan is designed for creators and small agencies — full access, unlimited copies, priority support. The Enterprise plan adds API access, a dedicated account manager, a custom SLA, and tailored onboarding for larger teams.",
+    "pricingFaq7Q": "What's the video limit of the AI editor?",
+    "pricingFaq7A": "The AI editor uses your video duplication quota: 300 renders per month on the Solo plan, and unlimited on the Pro plan. Every video Claude edits counts against that quota.",
     "pricingFaq8Q": "How is AI Variation billing handled?",
     "pricingFaq8A": "AI Variation is billed pay-per-use via a token system (1 token = €0.40). The price per image depends on your plan: €1.10 on Free, €0.90 on Solo, €0.70 on Pro. You top up whenever you want, no commitment. If a generation fails (NSFW, technical error), your tokens are refunded automatically."
   },

@@ -38,18 +38,15 @@ const PRICING_FAQ_KEYS = [
 function TestimonialCard({ item }: { item: { text: string; name: string; role: string; avatar: string; color: string } }) {
   return (
     <div
-      className="shrink-0 w-[200px] sm:w-[240px] rounded-xl sm:rounded-2xl border border-black/10 px-3 sm:px-4 py-3 sm:py-3.5 flex flex-col justify-between"
+      className="shrink-0 w-[200px] sm:w-[240px] rounded-xl sm:rounded-2xl border border-black/[0.14] shadow-[0_4px_16px_rgba(20,40,90,0.06)] px-3 sm:px-4 py-3 sm:py-3.5 flex flex-col justify-between"
       style={{ background: "#ffffff" }}
     >
-      <p className="text-[11px] sm:text-xs text-[#605f5f] leading-relaxed mb-2.5 line-clamp-2">
+      <p className="text-[11px] sm:text-[13px] text-[#3f4453] leading-relaxed mb-2.5 line-clamp-2">
         &ldquo;{item.text}&rdquo;
       </p>
       <div className="flex items-center gap-2">
         <img src={item.avatar} alt={item.name} className="h-6 w-6 sm:h-7 sm:w-7 rounded-full object-cover shrink-0" />
-        <div>
-          <p className="text-[11px] sm:text-xs font-semibold text-[#1a1a1a] leading-none mb-0.5">{item.name}</p>
-          <p className="text-[9px] sm:text-[10px] text-[#8a8a8a]">{item.role}</p>
-        </div>
+        <p className="text-[11px] sm:text-[13px] font-semibold text-[#1a1a1a] leading-none">{item.name}</p>
       </div>
     </div>
   );
@@ -101,6 +98,17 @@ function CheckIcon({ color }: { color: string }) {
         <path d="M20 6 9 17l-5-5" />
       </svg>
     </div>
+  );
+}
+
+/* Accès à l'éditeur IA (propulsé par Claude) — logo Claude au lieu du check */
+function AiEditorFeature() {
+  const { t } = useTranslation();
+  return (
+    <li className="flex items-start gap-3 text-sm font-medium text-[#1a1a1a]">
+      <img src="/claude-color.svg" alt="Claude" className="h-5 w-5 object-contain shrink-0 mt-0.5" />
+      {t("tarifs.featAiEditor")}
+    </li>
   );
 }
 
@@ -186,7 +194,6 @@ function PricingCards() {
     t("tarifs.soloFeature3"),
     t("tarifs.soloFeature4"),
     t("tarifs.soloFeature5"),
-    t("tarifs.soloFeature6"),
     t("tarifs.soloFeature8"),
   ];
 
@@ -197,7 +204,6 @@ function PricingCards() {
     t("tarifs.proFeature4"),
     t("tarifs.proFeature5"),
     t("tarifs.proFeature6"),
-    t("tarifs.proFeature7"),
     t("tarifs.proFeature8"),
     t("tarifs.proFeature9"),
   ];
@@ -286,6 +292,7 @@ function PricingCards() {
 
             {/* Features */}
             <ul className="space-y-3.5 flex-1 mt-7">
+              <AiEditorFeature />
               {p.features.map((f, i) => (
                 <li key={i} className="flex items-start gap-3 text-sm text-[#605f5f]">
                   <CheckIcon color={p.color} />
@@ -348,6 +355,7 @@ function PlansComparison() {
     {
       label: t("tarifs.cmpGroupFormats"),
       rows: [
+        { label: t("tarifs.featAiEditor"), logo: "/claude-color.svg", values: [true, true] },
         { label: t("tarifs.cmpRowFormats"), values: [true, true] },
         { label: t("tarifs.cmpRowBatch"), values: [true, true] },
         { label: t("tarifs.cmpRowPresets"), values: [false, true] },
@@ -402,7 +410,7 @@ function PlansComparison() {
             </div>
           ))}
         </div>
-        <div className="h-px" style={{ background: "rgba(255,255,255,0.14)" }} />
+        <div className="h-px" style={{ background: "rgba(0,0,0,0.10)" }} />
 
         {/* Groups */}
         {groups.map((g, gi) => (
@@ -410,7 +418,7 @@ function PlansComparison() {
             <div className="pt-7 pb-1 text-[11px] font-semibold tracking-[0.15em] uppercase text-[#8a8a8a]">{g.label}</div>
             {g.rows.map((row, ri) => (
               <div key={ri} className={`${cols} items-center border-t border-black/10 hover:bg-[#f6f7f9] transition-colors`}>
-                <div className="py-4 pr-3 text-xs sm:text-sm text-white/75 leading-snug flex items-center gap-2">
+                <div className="py-4 pr-3 text-xs sm:text-sm text-[#605f5f] leading-snug flex items-center gap-2">
                   {row.logo && <img src={row.logo} alt="" className="h-4 w-4 object-contain shrink-0" />}
                   {row.label}
                 </div>
