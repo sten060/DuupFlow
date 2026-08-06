@@ -32,6 +32,7 @@ type Props = {
     payment_info: PaymentInfo;
   };
   affiliateLink: string;
+  filleulDiscountPct: number | null;
   payments: Payment[];
   payouts: Payout[];
   clicks: number;
@@ -58,6 +59,7 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string 
 export default function AffiliateDashboardClient({
   affiliate,
   affiliateLink,
+  filleulDiscountPct,
   payments,
   payouts,
   clicks,
@@ -133,13 +135,37 @@ export default function AffiliateDashboardClient({
                 </code>
                 <CopyButton text={affiliateLink} />
               </div>
-              {affiliate.stripe_promotion_code_id && affiliate.discount_pct === null && (
-                <p className="text-xs text-[#605f5f] mt-3">
-                  Code promo : <span className="font-mono font-semibold text-[#1a1a1a]">{affiliate.code}</span>
-                  {" "}— vos filleuls peuvent aussi saisir ce code à la caisse.
-                </p>
-              )}
+              <p className="text-xs text-[#9aa2b2] mt-3">
+                Sert à tracker vos filleuls et votre commission.
+              </p>
             </div>
+
+            {/* Code promo filleuls */}
+            {affiliate.stripe_promotion_code_id && (
+              <div className="rounded-2xl bg-white p-5 ring-1 ring-black/5 shadow-[0_10px_30px_rgba(10,30,90,0.05)]">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <p className="text-[11px] font-semibold text-[#605f5f] uppercase tracking-wider">Code promo filleuls</p>
+                  {filleulDiscountPct != null && (
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full text-white" style={{ background: CTA_GRAD }}>
+                      -{filleulDiscountPct}%
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <code className="flex-1 rounded-xl px-4 py-2.5 text-base font-mono font-bold tracking-wider text-[#1a1a1a] bg-black/[0.03] ring-1 ring-black/5">
+                    {affiliate.code}
+                  </code>
+                  <CopyButton text={affiliate.code} />
+                </div>
+                <p className="text-xs text-[#605f5f] mt-3">
+                  {filleulDiscountPct != null ? (
+                    <>Vos filleuls obtiennent <span className="font-semibold text-[#1a1a1a]">-{filleulDiscountPct}%</span> sur leur 1<sup>er</sup> mois en saisissant ce code au checkout.</>
+                  ) : (
+                    <>Vos filleuls saisissent ce code au checkout pour bénéficier de la réduction.</>
+                  )}
+                </p>
+              </div>
+            )}
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-3">

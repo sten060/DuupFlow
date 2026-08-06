@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getStripe } from "@/lib/stripe";
 import AffiliateDashboardClient from "./AffiliateDashboardClient";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,23 @@ export default async function AffiliateDashboard() {
     .filter((p) => p.commission_paid_at)
     .reduce((s, p) => s + p.commission_cents, 0);
 
+  // % de réduction pour les filleuls : discount_pct en DB, sinon lu sur le
+  // coupon Stripe rattaché au code promo (partenaires "code visible" historiques).
+  let filleulDiscountPct: number | null = affiliate.discount_pct ?? null;
+  if (filleulDiscountPct === null && affiliate.stripe_promotion_code_id) {
+    try {
+      const promo = await getStripe().promotionCodes.retrieve(
+        affiliate.stripe_promotion_code_id,
+        { expand: ["coupon"] }
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const coupon = (promo as any).coupon as { percent_off?: number | null };
+      if (coupon?.percent_off) filleulDiscountPct = coupon.percent_off;
+    } catch {
+      // Stripe inaccessible → on affiche le code sans le pourcentage.
+    }
+  }
+
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.duupflow.com").replace(/\/$/, "");
 
   return (
@@ -91,6 +109,7 @@ export default async function AffiliateDashboard() {
         payment_info: affiliate.payment_info ?? null,
       }}
       affiliateLink={`${appUrl}/?ref=${affiliate.code}`}
+      filleulDiscountPct={filleulDiscountPct}
       payments={allPayments}
       payouts={allPayouts}
       clicks={clickCount}
