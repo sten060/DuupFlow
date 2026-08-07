@@ -62,7 +62,6 @@ export default function UpgradePlanModal({
       name: t("dashboard.plans.starterName"),
       price: "19 €",
       features: [
-        t("dashboard.plans.starterFeat1"),
         t("dashboard.plans.starterFeat2"),
         t("dashboard.plans.starterFeat3"),
         t("dashboard.plans.starterFeat4"),
@@ -220,7 +219,7 @@ export default function UpgradePlanModal({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-[var(--app-text)]">{t("dashboard.plans.title")}</h2>
-            <p className="text-sm text-[var(--app-text-muted)] mt-1">
+            <p className="text-sm text-[var(--app-text)] mt-1">
               {t("dashboard.plans.subtitle")}
             </p>
           </div>
@@ -257,12 +256,16 @@ export default function UpgradePlanModal({
                   {t("dashboard.plans.popular")}
                 </span>
               )}
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--app-text-faint)] mb-1">{p.name}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--app-text)] mb-1">{p.name}</p>
               <div className="flex items-baseline gap-1.5 mb-3">
                 <span className="text-3xl font-bold text-[var(--app-text)]">{p.price}</span>
-                <span className="text-[var(--app-text-faint)] text-xs">{t("dashboard.plans.perMonth")}</span>
+                <span className="text-[var(--app-text)] text-xs">{t("dashboard.plans.perMonth")}</span>
               </div>
-              <ul className="space-y-2.5 text-sm text-[var(--app-text-muted)] mb-6 flex-1 leading-relaxed">
+              <ul className="space-y-2.5 text-sm text-[var(--app-text)] mb-6 flex-1 leading-relaxed">
+                <li className="flex items-start gap-2 font-medium">
+                  <img src="/claude-color.svg" alt="Claude" className="h-4 w-4 shrink-0 mt-0.5 object-contain" />
+                  <span>{t("dashboard.plans.aiEditor")}</span>
+                </li>
                 {p.features.map((f, i) => (
                   <li key={i}>• {f}</li>
                 ))}
@@ -280,7 +283,7 @@ export default function UpgradePlanModal({
           ))}
         </div>
 
-        <p className="text-center text-[11px] text-[var(--app-text-faint)]">
+        <p className="text-center text-[11px] text-[var(--app-text)]">
           {t("dashboard.plans.secure")}
         </p>
         </>

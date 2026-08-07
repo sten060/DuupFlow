@@ -775,6 +775,7 @@
     "plans": {
       "title": "Choisis ton plan",
       "subtitle": "Paiement immédiat via Stripe. Tes limites s'appliquent dès la confirmation.",
+      "aiEditor": "Accès à l'éditeur IA",
       "starterName": "Plan Starter",
       "soloName": "Plan Solo",
       "proName": "Plan Pro",
