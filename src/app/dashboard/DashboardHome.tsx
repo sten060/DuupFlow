@@ -205,6 +205,7 @@ export default function DashboardHome({
   variationAnnouncementPending = false,
   tiktokAnnouncementPending = false,
   effectivePlan = "free",
+  starterAnnounceEligible = false,
   promoEligible = false,
   promoLoginKey = null,
 }: {
@@ -216,6 +217,9 @@ export default function DashboardHome({
   tiktokAnnouncementPending?: boolean;
   /** User's effective plan, used by the announcement modal. */
   effectivePlan?: "free" | "starter" | "solo" | "pro";
+  /** True ONLY for genuinely free users (comp-Pro / guests / paying excluded) →
+   *  gates the one-shot Starter launch pop-up. */
+  starterAnnounceEligible?: boolean;
   /** True for activated free users → shows the -15% launch promo pop-up. */
   promoEligible?: boolean;
   /** Changes on every sign-in (last_sign_in_at) so the promo re-shows per login. */
@@ -244,11 +248,13 @@ export default function DashboardHome({
   // Deferred if another one-shot announcement is due, so pop-ups never stack.
   const [showStarter, setShowStarter] = useState(false);
   useEffect(() => {
-    if (effectivePlan !== "free") return;
+    // Free users ONLY — comp-Pro, guests and paying users are excluded upstream
+    // (starterAnnounceEligible), so a paying user never sees this pop-up.
+    if (!starterAnnounceEligible) return;
     const tiktokWillShow = tiktokAnnouncementPending && localStorage.getItem(TIKTOK_SEEN_KEY) !== "1";
     if (variationAnnouncementPending || tiktokWillShow) return;
     if (localStorage.getItem(STARTER_SEEN_KEY) !== "1") setShowStarter(true);
-  }, [effectivePlan, variationAnnouncementPending, tiktokAnnouncementPending]);
+  }, [starterAnnounceEligible, variationAnnouncementPending, tiktokAnnouncementPending]);
 
   const { t } = useTranslation();
 

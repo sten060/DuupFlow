@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveEffectivePlan } from "@/lib/api-auth";
+import { isCompProEmail } from "@/lib/comp-pro";
 import DashboardHome from "./DashboardHome";
 
 // Emails that always see the launch promo pop-up (testing / demo), regardless of
@@ -80,6 +82,21 @@ export default async function DashboardPage() {
     return profile?.has_paid ? "pro" : "free"; // legacy fallback
   })();
 
+  // Eligibility for the Starter launch pop-up — GENUINELY free users ONLY.
+  // Strict, defense-in-depth: the loose `effectivePlan` above reads
+  // profiles.plan directly, which is null/"free" for comp-Pro accounts and for
+  // guests (whose real plan lives on the host) — so a paying user could see the
+  // pop-up. We gate on the authoritative resolver AND exclude comp-Pro, guests,
+  // and any has_paid signal so a paying user NEVER sees it.
+  let starterAnnounceEligible = false;
+  if (user && !profile?.is_guest && !profile?.has_paid) {
+    const isCompPro = user.email ? isCompProEmail(user.email) : false;
+    if (!isCompPro) {
+      const realPlan = await resolveEffectivePlan(user.id);
+      starterAnnounceEligible = realPlan === "free";
+    }
+  }
+
   // -15% launch promo: shown only to ACTIVATED FREE users — free plan, not a
   // guest, and who have already used the product at least once (a usage_tracking
   // row with any count > 0). Read via the admin client so RLS can't hide it.
@@ -107,6 +124,7 @@ export default async function DashboardPage() {
       variationAnnouncementPending={variationAnnouncementPending}
       tiktokAnnouncementPending={tiktokAnnouncementPending}
       effectivePlan={effectivePlan}
+      starterAnnounceEligible={starterAnnounceEligible}
       promoEligible={promoEligible}
       promoLoginKey={user?.last_sign_in_at ?? null}
     />
