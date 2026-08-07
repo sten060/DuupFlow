@@ -7,6 +7,7 @@ import { processVideos } from "@/app/dashboard/videos/processVideos";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkUsage, incrementUsage } from "@/lib/usage";
+import { maxVideoHeightForPlan } from "@/lib/plans";
 import { jobRegistry, type JobEntry } from "./jobRegistry";
 
 const INPUT_BUCKET = "video-uploads";
@@ -116,6 +117,11 @@ export async function POST(req: Request) {
       { status: 429 }
     );
   }
+
+  // Per-plan output resolution cap (Starter → 1080p). processVideos reads this
+  // from the FormData; Infinity (no cap) is passed as 0.
+  const planCap = maxVideoHeightForPlan(usageCheck.plan);
+  formData.set("maxShortEdge", String(Number.isFinite(planCap) ? planCap : 0));
 
   let dir: string;
   let userId: string;

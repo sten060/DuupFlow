@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Suspense } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 
-type Plan = "solo" | "pro";
+type Plan = "starter" | "solo" | "pro";
 
 // SOLO_FEATURES and PRO_FEATURES moved inside component to use t()
 
@@ -113,19 +113,26 @@ function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const planParam = searchParams.get("plan");
-  const defaultPlan = (planParam as Plan) === "solo" ? "solo" : "pro";
+  const defaultPlan: Plan = planParam === "solo" ? "solo" : planParam === "starter" ? "starter" : "pro";
   // When the user reaches /checkout with an explicit ?plan= (i.e. straight
   // out of onboarding, plan already chosen on the pricing page) we skip the
   // re-selection screen and fire the Stripe redirect immediately.
-  const skipSelection = planParam === "solo" || planParam === "pro";
+  const skipSelection = planParam === "starter" || planParam === "solo" || planParam === "pro";
   const { t, locale } = useTranslation();
+
+  const STARTER_FEATURES = [
+    t("tarifs.starterFeature1"),
+    t("tarifs.starterFeature2"),
+    t("tarifs.starterFeature3"),
+    t("tarifs.soloFeature8"),
+    t("tarifs.featExport1080"),
+  ];
 
   const SOLO_FEATURES = [
     t("tarifs.soloFeature1"),
     t("tarifs.soloFeature2"),
     t("tarifs.soloFeature3"),
     t("tarifs.soloFeature4"),
-    t("tarifs.soloFeature5"),
     t("tarifs.soloFeature6"),
     t("tarifs.soloFeature7"),
   ];
@@ -135,7 +142,6 @@ function CheckoutContent() {
     t("tarifs.proFeature2"),
     t("tarifs.proFeature3"),
     t("tarifs.proFeature4"),
-    t("tarifs.proFeature5"),
     t("tarifs.proFeature6"),
     t("tarifs.proFeature7"),
     t("tarifs.proFeature9"),
@@ -242,8 +248,8 @@ function CheckoutContent() {
     }
   }
 
-  const basePrice = selectedPlan === "solo" ? "39€" : "99€";
-  const discountedPrice = selectedPlan === "solo" ? "29€" : "89€";
+  const basePrice = selectedPlan === "starter" ? "19€" : selectedPlan === "solo" ? "39€" : "99€";
+  const discountedPrice = selectedPlan === "starter" ? "14€" : selectedPlan === "solo" ? "29€" : "89€";
   const price = promoState === "valid" ? discountedPrice : basePrice;
 
   // Post-onboarding: plan already chosen → show a redirect loader while we
@@ -306,6 +312,17 @@ function CheckoutContent() {
 
         {/* Plan cards */}
         <div className="flex flex-col sm:flex-row gap-4 mb-7">
+          <PlanCard
+            name="Starter"
+            price="19€"
+            features={STARTER_FEATURES}
+            selected={selectedPlan === "starter"}
+            onSelect={() => setSelectedPlan("starter")}
+            accentColor="#C4B5FD"
+            accentBg="rgba(196,181,253,0.14)"
+            gradientFrom="#9F7AEA"
+            gradientTo="#7C3AED"
+          />
           <PlanCard
             name="Solo"
             price="39€"
@@ -388,7 +405,9 @@ function CheckoutContent() {
           className="w-full rounded-xl py-3.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
           style={{
             background:
-              selectedPlan === "solo"
+              selectedPlan === "starter"
+                ? "linear-gradient(135deg,#9F7AEA,#7C3AED)"
+                : selectedPlan === "solo"
                 ? "linear-gradient(135deg,#7C3AED,#6366F1)"
                 : "linear-gradient(135deg,#6366F1,#38BDF8)",
           }}
@@ -397,7 +416,7 @@ function CheckoutContent() {
             ? t("checkout.redirecting")
             : promoState === "valid"
             ? t("checkout.subscribePromo", { basePrice, discountedPrice })
-            : t("checkout.subscribe", { plan: selectedPlan === "solo" ? t("checkout.planSolo") : t("checkout.planPro"), price })}
+            : t("checkout.subscribe", { plan: selectedPlan === "starter" ? t("checkout.planStarter") : selectedPlan === "solo" ? t("checkout.planSolo") : t("checkout.planPro"), price })}
         </button>
 
         <p className="text-center text-xs text-white/25 mt-4">

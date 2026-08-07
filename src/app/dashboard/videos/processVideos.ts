@@ -875,6 +875,11 @@ export async function processVideos(
   const channel = (formData.get("channel") as Channel) ?? "simple";
   const mode = (formData.get("mode") as string) ?? "simple";
   const count = Math.max(1, Number(formData.get("count") || 1));
+  // Per-plan output resolution cap (short edge, px). 0 = no cap. Set by the
+  // duplicate-video route from the plan (Starter → 1080). A source whose short
+  // edge exceeds this is downscaled to it (aspect kept, even dims); anything
+  // already ≤ cap is untouched (720p stays 720p).
+  const maxShortEdge = Math.max(0, Number(formData.get("maxShortEdge") || 0));
   const uploadedFiles = (formData.getAll("files") as unknown as File[]).filter(Boolean);
   // Use pre-downloaded files when provided (bypasses Vercel body limit)
   const files: Array<File | PreDownloadedFile> = preDownloadedFiles ?? uploadedFiles;
@@ -1189,9 +1194,18 @@ export async function processVideos(
           extraArgs.push("-crf", String(15 + Math.floor(Math.random() * 6)));
         }
 
+        // Per-plan resolution cap (Starter → 1080p short edge). Bites only when
+        // the source short edge exceeds the cap; forces a re-encode so the
+        // downscale can be applied. ≤ cap sources are left untouched.
+        const capBites =
+          maxShortEdge > 0 &&
+          color.width > 0 &&
+          color.height > 0 &&
+          Math.min(color.width, color.height) > maxShortEdge;
+
         // When video will be re-encoded, ensure even dimensions (no resolution cap).
         // Le watermark force aussi un ré-encodage → préparer format/scale de base.
-        if (vfParts.length > 0 || packs.includes("metadata_technical") || wmOverlay) {
+        if (vfParts.length > 0 || packs.includes("metadata_technical") || wmOverlay || capBites) {
           // ── HDR → SDR conversion when source is BT.2020 / HLG / PQ ──────────
           // Without this, BT.2020 pixel data encoded as H.264 (BT.709) produces
           // a visible yellow/warm tint because of color matrix mismatch.
@@ -1208,7 +1222,19 @@ export async function processVideos(
           // fichier retouché. On repasse donc explicitement aux dimensions
           // d'origine : l'image reste modifiée (l'empreinte change bien), mais le
           // format final reste un format standard.
-          if (color.width > 0 && color.height > 0) {
+          if (capBites) {
+            // Plan cap (Starter → 1080p short edge): downscale keeping aspect
+            // ratio, forcing even dimensions. Only reached when the source short
+            // edge exceeds the cap — other plans never enter this branch.
+            const shortEdge = Math.min(color.width, color.height);
+            const ratio = maxShortEdge / shortEdge;
+            let outW = Math.max(2, Math.round(color.width * ratio));
+            let outH = Math.max(2, Math.round(color.height * ratio));
+            outW -= outW % 2;
+            outH -= outH % 2;
+            vfParts.push(`scale=${outW}:${outH}:flags=lanczos`);
+          } else if (color.width > 0 && color.height > 0) {
+            // Output = source resolution (unchanged behaviour for all plans).
             vfParts.push(`scale=${color.width}:${color.height}:flags=lanczos`);
           } else {
             // Dimensions source inconnues → au moins garantir des dimensions paires.

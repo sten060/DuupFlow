@@ -72,7 +72,7 @@ export async function resolveEffectivePlan(userId: string): Promise<PlanType> {
   // since the API is Pro-only, revokes API access — even if the plan flip to
   // Free hasn't propagated yet (missed webhook, ordering race).
   if (overdue) return "free";
-  return plan === "pro" || plan === "solo" ? plan : "free";
+  return plan === "pro" || plan === "solo" || plan === "starter" ? plan : "free";
 }
 
 /**

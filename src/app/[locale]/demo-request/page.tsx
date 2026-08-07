@@ -36,7 +36,7 @@ export default function DemoRequestPage() {
   useEffect(() => {
     try {
       const p = new URLSearchParams(window.location.search).get("plan");
-      if (p === "solo" || p === "pro") setPlan(p);
+      if (p === "starter" || p === "solo" || p === "pro") setPlan(p);
     } catch {}
   }, []);
 

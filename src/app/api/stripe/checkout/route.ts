@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const plan = body?.plan === "solo" ? "solo" : "pro";
+  const plan = body?.plan === "solo" ? "solo" : body?.plan === "starter" ? "starter" : "pro";
   const locale = body?.locale === "en" ? "en" : "fr";
   const affiliateCode: string | undefined =
     typeof body?.affiliate_code === "string" && body.affiliate_code.trim()
@@ -30,7 +30,9 @@ export async function POST(request: Request) {
       : undefined;
 
   const priceId =
-    plan === "solo"
+    plan === "starter"
+      ? process.env.STRIPE_PRICE_ID_STARTER
+      : plan === "solo"
       ? process.env.STRIPE_PRICE_ID_SOLO
       : process.env.STRIPE_PRICE_ID_PRO ?? process.env.STRIPE_PRICE_ID;
 

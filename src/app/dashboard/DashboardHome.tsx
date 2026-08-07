@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import VariationAnnouncementModal from "./VariationAnnouncementModal";
 import TikTokAnnouncementModal, { TIKTOK_DEST, TIKTOK_SEEN_KEY } from "./TikTokAnnouncementModal";
+import StarterAnnounceModal, { STARTER_SEEN_KEY } from "./StarterAnnounceModal";
 import ReplayMenu from "./onboarding/ReplayMenu";
 import GlobalDocsDrawer from "./components/GlobalDocsDrawer";
 import PromoPopup from "./PromoPopup";
@@ -214,7 +215,7 @@ export default function DashboardHome({
   /** True while tiktok_announce_seen_at IS NULL (one-shot TikTok launch pop-up). */
   tiktokAnnouncementPending?: boolean;
   /** User's effective plan, used by the announcement modal. */
-  effectivePlan?: "free" | "solo" | "pro";
+  effectivePlan?: "free" | "starter" | "solo" | "pro";
   /** True for activated free users → shows the -15% launch promo pop-up. */
   promoEligible?: boolean;
   /** Changes on every sign-in (last_sign_in_at) so the promo re-shows per login. */
@@ -238,6 +239,16 @@ export default function DashboardHome({
     try { localStorage.setItem(TIKTOK_SEEN_KEY, "1"); } catch {}
     setShowTikTok(false);
   };
+
+  // Starter-plan launch pop-up — FREE users only, shown once (localStorage guard).
+  // Deferred if another one-shot announcement is due, so pop-ups never stack.
+  const [showStarter, setShowStarter] = useState(false);
+  useEffect(() => {
+    if (effectivePlan !== "free") return;
+    const tiktokWillShow = tiktokAnnouncementPending && localStorage.getItem(TIKTOK_SEEN_KEY) !== "1";
+    if (variationAnnouncementPending || tiktokWillShow) return;
+    if (localStorage.getItem(STARTER_SEEN_KEY) !== "1") setShowStarter(true);
+  }, [effectivePlan, variationAnnouncementPending, tiktokAnnouncementPending]);
 
   const { t } = useTranslation();
 
@@ -412,6 +423,7 @@ export default function DashboardHome({
 
       {/* One-shot TikTok solution launch announcement */}
       {showTikTok && <TikTokAnnouncementModal onDone={closeTikTok} />}
+      {showStarter && <StarterAnnounceModal onDone={() => setShowStarter(false)} />}
 
 
       {/* -15% launch promo — activated free users only (slides in from the right). */}

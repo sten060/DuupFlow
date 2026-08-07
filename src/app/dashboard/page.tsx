@@ -72,7 +72,8 @@ export default async function DashboardPage() {
     }
   }
   // Effective plan for the announcement modal (drives bonus token wording).
-  const effectivePlan = ((): "free" | "solo" | "pro" => {
+  const effectivePlan = ((): "free" | "starter" | "solo" | "pro" => {
+    if (profile?.plan === "starter") return "starter";
     if (profile?.plan === "solo") return "solo";
     if (profile?.plan === "pro") return "pro";
     if (profile?.plan === "free") return "free";

@@ -362,6 +362,20 @@ function Features() {
               : <FeatCard key={i} span="sm:col-span-2" title={c.title} desc={c.desc} back={c.back}>{f.art}</FeatCard>;
           })}
         </div>
+
+        {/* CTA — voir les tarifs / voir la FAQ */}
+        <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link href="/pricing"
+            className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-medium text-white shadow-[0_12px_34px_rgba(90,90,240,0.4)] transition hover:opacity-90"
+            style={{ background: CTA_GRAD }}>
+            {loc === "en" ? "See pricing" : "Voir les tarifs"}
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </Link>
+          <Link href="/#faq"
+            className="inline-flex items-center rounded-full border border-black/10 bg-white px-7 py-3.5 text-[15px] font-medium text-[#1a1a1a] shadow-[0_10px_30px_rgba(20,40,90,0.06)] transition hover:bg-neutral-50">
+            {loc === "en" ? "See the FAQ" : "Voir la FAQ"}
+          </Link>
+        </div>
       </div>
     </section>
   );
@@ -817,16 +831,20 @@ function Testimonials() {
 /* ─── FAQ ─── */
 const FAQS = {
   fr: [
+    { q: "DuupFlow va me servir à quoi ?", a: "DuupFlow te sert à republier tes meilleurs contenus partout sans être pénalisé. Tu transformes une seule vidéo en dizaines de variantes uniques, prêtes à poster sur plusieurs comptes et plusieurs plateformes — et tu peux même les monter automatiquement avec l'éditeur IA." },
+    { q: "Quels sont les avantages d'utiliser DuupFlow ?", a: "Tu fais du volume de contenu sans effort supplémentaire : à partir d'un seul fichier, tu génères autant de variantes uniques que tu veux, sans être restreint par les plateformes (aucune détection de doublon). Tu alimentes plusieurs comptes, tu testes plus de formats et tu multiplies tes chances de percer — le tout en quelques secondes." },
     { q: "Concrètement, qu'est-ce qui est modifié dans mes vidéos ?", a: "Les métadonnées (appareil, date, encodeur, géolocalisation), une signature visuelle via des micro-variations sous le seuil de perception, et une empreinte binaire unique. Le fichier est ensuite entièrement ré-encodé. Ton montage, ton audio et ton cadrage restent identiques à l'original." },
     { q: "Est-ce que la qualité baisse ?", a: "Non. La résolution et le bitrate d'origine sont conservés : une 1080p reste 1080p, une 4K reste 4K. Aucune perte visible à l'écran." },
-    { q: "Combien de variantes puis-je générer ?", a: "Autant que ton plan le permet — jusqu'à un nombre illimité sur le plan Pro. Le plan gratuit te laisse démarrer sans carte bancaire." },
+    { q: "Combien de variantes puis-je générer ?", a: "Autant que ton plan le permet : jusqu'à 100 vidéos par mois avec le plan Starter, 300 avec Solo, et un nombre illimité avec Pro. Chaque variante ressort unique, prête à alimenter plusieurs comptes." },
     { q: "Ça marche sur quelles plateformes ?", a: "Toutes. DuupFlow prépare les fichiers, tu postes où tu veux : TikTok, Instagram, YouTube, X, Reddit, Threads…" },
     { q: "L'éditeur IA, c'est quoi ?", a: "Un agent de montage piloté par conversation : tu uploades tes rushes, tu donnes une vidéo de référence et tu décris le montage voulu. L'IA (Claude) assemble la vidéo à ta place, puis en génère autant de variantes différentes que tu veux. Inclus dans les plans Solo et Pro." },
   ],
   en: [
+    { q: "What is DuupFlow for?", a: "DuupFlow lets you repost your best content everywhere without getting penalized. Turn a single video into dozens of unique variants, ready to post across multiple accounts and platforms — and you can even edit them automatically with the AI editor." },
+    { q: "What are the benefits of using DuupFlow?", a: "You scale your content with no extra effort: from a single file, generate as many unique variants as you want, without being restricted by the platforms (no duplicate detection). You feed multiple accounts, test more formats and multiply your chances of breaking through — all in a few seconds." },
     { q: "What exactly gets modified in my videos?", a: "The metadata (device, date, encoder, geolocation), a visual signature via micro-variations below the perception threshold, and a unique binary fingerprint. The file is then fully re-encoded. Your edit, audio and framing stay identical to the original." },
     { q: "Does quality drop?", a: "No. The original resolution and bitrate are kept: 1080p stays 1080p, 4K stays 4K. No visible loss on screen." },
-    { q: "How many variants can I generate?", a: "As many as your plan allows — up to unlimited on the Pro plan. The free plan lets you start with no credit card." },
+    { q: "How many variants can I generate?", a: "As many as your plan allows: up to 100 videos per month on Starter, 300 on Solo, and unlimited on Pro. Every variant comes out unique, ready to feed multiple accounts." },
     { q: "Which platforms does it work on?", a: "All of them. DuupFlow prepares the files, you post wherever you want: TikTok, Instagram, YouTube, X, Reddit, Threads…" },
     { q: "What is the AI editor?", a: "A conversation-driven editing agent: you upload your footage, hand it a reference video and describe the edit you want. The AI (Claude) assembles the video for you, then generates as many different variations as you want. Included in the Solo and Pro plans." },
   ],

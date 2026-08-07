@@ -91,7 +91,7 @@ export async function acknowledgeVariationAnnouncement(): Promise<{
   // L'ancien calcul dépendait de la valeur du token : le jour où 1 token est
   // passé de 40 c à 1 c, le bonus aurait été divisé par 40 sans que personne
   // ne le voie. La valeur réelle offerte est ici figée (1,20 € / 2 €).
-  const bonusCents = effectivePlan === "solo" ? 120 : effectivePlan === "free" ? 0 : 200;
+  const bonusCents = effectivePlan === "free" ? 0 : effectivePlan === "pro" ? 200 : 120;
   const bonusTokens = centsToTokens(bonusCents);
 
   if (bonusCents > 0) {

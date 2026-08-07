@@ -38,7 +38,7 @@ export default function RegisterPage() {
   // Stripe paywall applies right after onboarding.
   useEffect(() => {
     const plan = new URLSearchParams(window.location.search).get("plan");
-    if (plan === "solo" || plan === "pro") {
+    if (plan === "starter" || plan === "solo" || plan === "pro") {
       localStorage.setItem("duupflow_selected_plan", plan);
       setAllowed(true);
     } else {
@@ -54,7 +54,7 @@ export default function RegisterPage() {
     const p =
       new URLSearchParams(window.location.search).get("plan") ??
       localStorage.getItem("duupflow_selected_plan");
-    const q = p === "solo" || p === "pro" ? `?plan=${p}` : "";
+    const q = p === "starter" || p === "solo" || p === "pro" ? `?plan=${p}` : "";
     return `${window.location.origin}/auth/callback${q}`;
   }
 

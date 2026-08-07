@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getServerT } from "@/lib/i18n/server";
-import { PLAN_LIMITS } from "./plans";
+import { getPlanLimits } from "./plans";
 
 export type UsageType = "images" | "videos" | "ai_signatures";
 
@@ -141,9 +141,8 @@ export async function checkUsageForUser(
     };
   }
 
-  // Solo / Free → check monthly limits via PLAN_LIMITS
-  const planLimits =
-    effectivePlan === "solo" ? PLAN_LIMITS.solo : PLAN_LIMITS.free;
+  // Starter / Solo / Free → check monthly limits via PLAN_LIMITS
+  const planLimits = getPlanLimits(effectivePlan);
   const limit = planLimits[type === "images" ? "images" : type === "videos" ? "videos" : "ai_signatures"];
   const column = `${type}_count` as const;
 

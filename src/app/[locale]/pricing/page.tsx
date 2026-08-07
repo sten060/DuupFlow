@@ -117,39 +117,34 @@ function UniversalFeatures({ color }: { color: string }) {
   const { t } = useTranslation();
   return (
     <>
-      <li className="flex items-start gap-3 text-sm text-[#605f5f]">
+      <li className="flex items-start gap-3 text-sm text-[#1a1a1a]">
         <img src="/app/icons8-google-drive-96.png" alt="Google Drive" className="h-5 w-5 object-contain shrink-0 mt-0.5" />
         {t("tarifs.featGoogleDrive")}
       </li>
-      <li className="flex items-start gap-3 text-sm text-[#605f5f]">
+      <li className="flex items-start gap-3 text-sm text-[#1a1a1a]">
         <CheckIcon color={color} />
         {t("tarifs.featCompressor")}
       </li>
-      <li className="flex items-start gap-3 text-sm text-[#605f5f]">
+      <li className="flex items-start gap-3 text-sm text-[#1a1a1a]">
         <CheckIcon color={color} />
-        <span>
-          {t("tarifs.featScraper")}
-          <span
-            className="ml-2 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide align-middle"
-            style={{ background: `${color}22`, color }}
-          >
-            {t("tarifs.badgeNew")}
-          </span>
-        </span>
+        {t("tarifs.featScraper")}
       </li>
     </>
   );
 }
 
 /* Plan icons — sit in a rounded-square badge at the top of each card (screen-2 layout) */
-function PlanIcon({ plan, color }: { plan: "solo" | "pro"; color: string }) {
+function PlanIcon({ plan, color }: { plan: "starter" | "solo" | "pro"; color: string }) {
   return (
     <div
       className="h-11 w-11 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shrink-0"
       style={{ background: `${color}1F`, border: `1px solid ${color}3D` }}
     >
       <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        {plan === "solo" ? (
+        {plan === "starter" ? (
+          /* Single ring — a single account, getting started */
+          <circle cx="12" cy="12" r="6" />
+        ) : plan === "solo" ? (
           /* Two interlocking rings — an original and its copy (DuupFlow duplication motif) */
           <>
             <circle cx="9" cy="12" r="5" />
@@ -169,7 +164,7 @@ function PlanIcon({ plan, color }: { plan: "solo" | "pro"; color: string }) {
 }
 
 type Plan = {
-  id: "solo" | "pro";
+  id: "starter" | "solo" | "pro";
   name: string;
   desc: string;
   price: string;
@@ -188,13 +183,21 @@ type Plan = {
 function PricingCards() {
   const { t } = useTranslation();
 
+  const starterFeatures = [
+    t("tarifs.starterFeature1"),
+    t("tarifs.starterFeature2"),
+    t("tarifs.starterFeature3"),
+    t("tarifs.soloFeature8"),
+    t("tarifs.featExport1080"),
+  ];
+
   const soloFeatures = [
     t("tarifs.soloFeature1"),
     t("tarifs.soloFeature2"),
     t("tarifs.soloFeature3"),
     t("tarifs.soloFeature4"),
-    t("tarifs.soloFeature5"),
     t("tarifs.soloFeature8"),
+    t("tarifs.featExport4k"),
   ];
 
   const proFeatures = [
@@ -202,13 +205,28 @@ function PricingCards() {
     t("tarifs.proFeature2"),
     t("tarifs.proFeature3"),
     t("tarifs.proFeature4"),
-    t("tarifs.proFeature5"),
     t("tarifs.proFeature6"),
     t("tarifs.proFeature8"),
     t("tarifs.proFeature9"),
+    t("tarifs.featExport4k"),
   ];
 
   const plans: Plan[] = [
+    {
+      id: "starter",
+      name: t("tarifs.planStarter"),
+      desc: t("tarifs.starterDesc"),
+      price: "19€",
+      color: "#C4B5FD",
+      btnShadow: "0 16px 30px -8px rgba(139,92,246,0.45), 0 6px 12px -4px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.28)",
+      cardBorder: "1px solid rgba(0,0,0,0.08)",
+      btnBg: "linear-gradient(135deg,#9F7AEA,#7C3AED)",
+      cta: t("tarifs.commencer"),
+      href: "/register?plan=starter",
+      demoHref: "/demo-request?plan=starter",
+      popular: false,
+      features: starterFeatures,
+    },
     {
       id: "solo",
       name: t("tarifs.planSolo"),
@@ -221,7 +239,7 @@ function PricingCards() {
       cta: t("tarifs.commencer"),
       href: "/register?plan=solo",
       demoHref: "/demo-request?plan=solo",
-      popular: false,
+      popular: true,
       features: soloFeatures,
     },
     {
@@ -236,13 +254,13 @@ function PricingCards() {
       cta: t("tarifs.commencer"),
       href: "/register?plan=pro",
       demoHref: "/demo-request?plan=pro",
-      popular: true,
+      popular: false,
       features: proFeatures,
     },
   ];
 
   return (
-    <div id="plans" className="scroll-mt-24 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+    <div id="plans" className="scroll-mt-24 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
       {plans.map((p) => (
         <div
           key={p.id}
@@ -294,7 +312,7 @@ function PricingCards() {
             <ul className="space-y-3.5 flex-1 mt-7">
               <AiEditorFeature />
               {p.features.map((f, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-[#605f5f]">
+                <li key={i} className="flex items-start gap-3 text-sm text-[#1a1a1a]">
                   <CheckIcon color={p.color} />
                   {f}
                 </li>
@@ -338,49 +356,49 @@ function PlansComparison() {
     {
       label: t("tarifs.cmpGroupDuplication"),
       rows: [
-        { label: t("tarifs.cmpRowDupImages"), values: ["400", U] },
-        { label: t("tarifs.cmpRowDupVideos"), values: ["300", U] },
-        { label: t("tarifs.cmpRowExportZip"), values: [true, true] },
+        { label: t("tarifs.cmpRowDupImages"), values: ["150", "400", U] },
+        { label: t("tarifs.cmpRowDupVideos"), values: ["100", "300", U] },
+        { label: t("tarifs.cmpRowExportZip"), values: [true, true, true] },
       ],
     },
     {
       label: t("tarifs.cmpGroupUnicite"),
       rows: [
-        { label: t("tarifs.cmpRowMetadata"), values: [true, true] },
-        { label: t("tarifs.cmpRowSignatureIA"), values: ["200", U] },
-        { label: t("tarifs.cmpRowVariationIA"), values: [t("tarifs.cmpVarSolo"), t("tarifs.cmpVarPro")] },
-        { label: t("tarifs.cmpRowTokens"), values: [t("tarifs.cmpTokens3"), t("tarifs.cmpTokens3")] },
+        { label: t("tarifs.cmpRowMetadata"), values: [true, true, true] },
+        { label: t("tarifs.cmpRowSignatureIA"), values: ["80", "200", U] },
+        { label: t("tarifs.cmpRowVariationIA"), values: [true, true, true] },
       ],
     },
     {
       label: t("tarifs.cmpGroupFormats"),
       rows: [
-        { label: t("tarifs.featAiEditor"), logo: "/claude-color.svg", values: [true, true] },
-        { label: t("tarifs.cmpRowFormats"), values: [true, true] },
-        { label: t("tarifs.cmpRowBatch"), values: [true, true] },
-        { label: t("tarifs.cmpRowPresets"), values: [false, true] },
-        { label: t("tarifs.featGoogleDrive"), logo: "/app/icons8-google-drive-96.png", values: [true, true] },
-        { label: t("tarifs.featCompressor"), values: [true, true] },
-        { label: t("tarifs.cmpRowScraper"), values: [t("tarifs.cmpScraperUsage"), t("tarifs.cmpScraperUsage")] },
-        { label: t("tarifs.featApi"), values: [false, true] },
+        { label: t("tarifs.featAiEditor"), logo: "/claude-color.svg", values: [true, true, true] },
+        { label: t("tarifs.cmpRowExportRes"), values: ["1080p", "4K", "4K"] },
+        { label: t("tarifs.cmpRowFormats"), values: [true, true, true] },
+        { label: t("tarifs.cmpRowBatch"), values: [true, true, true] },
+        { label: t("tarifs.cmpRowPresets"), values: [false, false, true] },
+        { label: t("tarifs.featGoogleDrive"), logo: "/app/icons8-google-drive-96.png", values: [true, true, true] },
+        { label: t("tarifs.featCompressor"), values: [true, true, true] },
+        { label: t("tarifs.cmpRowScraper"), values: [t("tarifs.cmpScraperUsage"), t("tarifs.cmpScraperUsage"), t("tarifs.cmpScraperUsage")] },
+        { label: t("tarifs.featApi"), values: [false, false, true] },
       ],
     },
     {
       label: t("tarifs.cmpGroupTeam"),
-      rows: [{ label: t("tarifs.cmpRowMembers"), values: [false, t("tarifs.cmpMembers3")] }],
+      rows: [{ label: t("tarifs.cmpRowMembers"), values: [false, false, t("tarifs.cmpMembers3")] }],
     },
     {
       label: t("tarifs.cmpGroupSupport"),
       rows: [
-        { label: t("tarifs.cmpRowSupportEmail"), values: [true, true] },
-        { label: t("tarifs.cmpRowSupportTelegram"), values: [true, true] },
-        { label: t("tarifs.cmpRowSupportPriority"), values: [false, true] },
+        { label: t("tarifs.cmpRowSupportEmail"), values: [true, true, true] },
+        { label: t("tarifs.cmpRowSupportTelegram"), values: [true, true, true] },
+        { label: t("tarifs.cmpRowSupportPriority"), values: [false, false, true] },
       ],
     },
   ];
 
-  const plans = [t("tarifs.cmpColSolo"), t("tarifs.cmpColPro")];
-  const cols = "grid grid-cols-[minmax(0,1.7fr)_repeat(2,minmax(0,1fr))]";
+  const plans = [t("tarifs.cmpColStarter"), t("tarifs.cmpColSolo"), t("tarifs.cmpColPro")];
+  const cols = "grid grid-cols-[minmax(0,1.7fr)_repeat(3,minmax(0,1fr))]";
 
   const cell = (v: string | boolean) => {
     if (v === true) return <CmpCheck />;

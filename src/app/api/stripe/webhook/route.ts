@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToActiveClient, moveToChurned } from "@/lib/brevo";
 import { resetUsage } from "@/lib/usage";
 import { recordTransaction, creditWelcomeTokens } from "@/lib/tokens-server";
+import { planRank } from "@/lib/plans";
 import Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ async function getUserInfo(
 
 async function markUserPaid(
   userId: string,
-  plan: "solo" | "pro",
+  plan: "starter" | "solo" | "pro",
   customerId?: string,
   subscriptionId?: string
 ) {
@@ -206,10 +207,12 @@ function getSubscriptionId(invoice: Stripe.Invoice): string | null {
   return parent?.subscription_details?.subscription ?? null;
 }
 
-function resolvePlanFromPriceId(priceId: string, metadataPlan?: string): "solo" | "pro" {
+function resolvePlanFromPriceId(priceId: string, metadataPlan?: string): "starter" | "solo" | "pro" {
+  if (priceId && process.env.STRIPE_PRICE_ID_STARTER && priceId === process.env.STRIPE_PRICE_ID_STARTER) return "starter";
   if (priceId && priceId === process.env.STRIPE_PRICE_ID_SOLO) return "solo";
   if (priceId && process.env.STRIPE_PRICE_ID_PRO && priceId === process.env.STRIPE_PRICE_ID_PRO) return "pro";
   // Fallback: use subscription metadata plan field (set at checkout time)
+  if (metadataPlan === "starter") return "starter";
   if (metadataPlan === "solo") return "solo";
   if (metadataPlan === "pro") return "pro";
   return "pro";
@@ -585,10 +588,17 @@ export async function POST(request: NextRequest) {
       // is still Pro) — handing full access back to a non-paying user.
       const inGoodStanding = sub.status === "active" || sub.status === "trialing";
       if (uid && inGoodStanding && sub.items.data[0]?.price?.id) {
-        const plan = resolvePlanFromPriceId(sub.items.data[0].price.id, sub.metadata?.plan);
-        if (plan === "pro") {
-          const admin = createAdminClient();
-          await admin.from("profiles").update({ plan }).eq("id", uid);
+        const resolved = resolvePlanFromPriceId(sub.items.data[0].price.id, sub.metadata?.plan);
+        const admin = createAdminClient();
+        const { data: cur } = await admin.from("profiles").select("plan").eq("id", uid).single();
+        const currentPlan = (cur as { plan: string | null } | null)?.plan ?? null;
+        // Apply UPGRADES (or an equal-tier re-grant, e.g. restoring access after a
+        // resume) immediately. DOWNGRADES must stay deferred to the next billing
+        // cycle (handled by invoice.paid / subscription_cycle) — dropping a paying
+        // user to a lower tier the moment the price changes would revoke access
+        // they've already paid for. This preserves the original Pro→Solo behaviour.
+        if (planRank(resolved) >= planRank(currentPlan)) {
+          await admin.from("profiles").update({ plan: resolved }).eq("id", uid);
         }
       }
       break;

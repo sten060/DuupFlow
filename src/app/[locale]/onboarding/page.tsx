@@ -95,13 +95,13 @@ function OnboardingForm() {
     // Critical when a magic link is opened in another browser: localStorage was
     // empty there, so without this the paywall was silently skipped.
     const p = searchParams.get("plan");
-    if (p === "solo" || p === "pro") {
+    if (p === "starter" || p === "solo" || p === "pro") {
       localStorage.setItem("duupflow_selected_plan", p);
     } else if (!isGuest) {
       // No paid plan chosen — the free tier is no longer offered to new signups.
       // Send them to pricing to pick a plan before any account is created.
       const stored = localStorage.getItem("duupflow_selected_plan");
-      if (stored !== "solo" && stored !== "pro") {
+      if (stored !== "starter" && stored !== "solo" && stored !== "pro") {
         // Comp (offered Pro) accounts skip the pricing gate entirely — they get
         // provisioned as Pro when they submit onboarding. Check server-side so
         // the allowlist never reaches the client bundle.

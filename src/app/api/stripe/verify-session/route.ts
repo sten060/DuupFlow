@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Paiement confirmé — extraire les IDs Stripe depuis la session expandée
-  const plan = session.metadata?.plan === "solo" ? "solo" : "pro";
+  const plan = session.metadata?.plan === "solo" ? "solo" : session.metadata?.plan === "starter" ? "starter" : "pro";
   const affiliateCode = session.metadata?.affiliate_code ?? null;
   const subscriptionId =
     typeof session.subscription === "string"

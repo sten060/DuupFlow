@@ -35,9 +35,10 @@ export const CENTS_PER_TOKEN = 1;
  * change : 110 tokens au lieu de 2,75, pour le même 1,10 €.)
  */
 export const IMAGE_COST_CENTS = {
-  free: 110, // 1,10 € = 110 tokens — sans abonnement
-  solo: 90,  // 0,90 € = 90 tokens
-  pro:  70,  // 0,70 € = 70 tokens
+  free:    110, // 1,10 € = 110 tokens — sans abonnement
+  starter: 90,  // 0,90 € = 90 tokens — même tarif que Solo
+  solo:    90,  // 0,90 € = 90 tokens
+  pro:     70,  // 0,70 € = 70 tokens
 } as const;
 
 /* ── Scraper (« Importer depuis un compte ») ──────────────────────────────────
@@ -177,6 +178,7 @@ export function formatEur(cents: number): string {
 export function imageCostCents(plan: string | null | undefined): number {
   if (plan === "pro")  return IMAGE_COST_CENTS.pro;
   if (plan === "solo") return IMAGE_COST_CENTS.solo;
+  if (plan === "starter") return IMAGE_COST_CENTS.starter;
   return IMAGE_COST_CENTS.free;
 }
 

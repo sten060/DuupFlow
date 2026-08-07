@@ -148,7 +148,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           profile.is_guest !== true &&
           profile.has_paid !== true &&
           !profile.stripe_customer_id &&
-          (pending === "solo" || pending === "pro")
+          (pending === "starter" || pending === "solo" || pending === "pro")
         ) {
           gateToCheckout = pending;
         }
@@ -163,12 +163,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
       //   fantome = none of the above
       const rawPlan = (profile?.plan as string | null) ?? "free";
       const plan: ClarityPlan =
-        rawPlan === "solo" || rawPlan === "pro" ? rawPlan : "free";
+        rawPlan === "starter" || rawPlan === "solo" || rawPlan === "pro" ? rawPlan : "free";
 
       const isPaid =
         profile?.has_paid === true &&
         profile?.payment_overdue !== true &&
-        (rawPlan === "solo" || rawPlan === "pro");
+        (rawPlan === "starter" || rawPlan === "solo" || rawPlan === "pro");
 
       let segment: ClaritySegment = "fantome";
       if (isPaid) {

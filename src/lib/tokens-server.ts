@@ -228,7 +228,7 @@ export async function recordTransaction(opts: {
  */
 export async function creditWelcomeTokens(
   userId: string,
-  plan: "free" | "solo" | "pro",
+  plan: "free" | "starter" | "solo" | "pro",
 ): Promise<{ credited: boolean; balanceCents: number }> {
   const reason = `welcome_${plan}` as const;
   const admin = createAdminClient();
@@ -244,7 +244,7 @@ export async function creditWelcomeTokens(
     return { credited: false, balanceCents: balance };
   }
 
-  const imagesPerPlan = { free: 1, solo: 3, pro: 3 } as const;
+  const imagesPerPlan = { free: 1, starter: 3, solo: 3, pro: 3 } as const;
   const amount = imagesPerPlan[plan] * IMAGE_COST_CENTS[plan];
 
   const result = await recordTransaction({

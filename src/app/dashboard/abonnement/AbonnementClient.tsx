@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { getPlanLimits } from "@/lib/plans";
 import { useTranslation } from "@/lib/i18n/context";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import TokensPanel from "./TokensPanel";
@@ -107,7 +107,7 @@ export default function AbonnementClient({
   currentPeriodEnd,
   isTrialing,
 }: {
-  plan: "free" | "solo" | "pro" | null;
+  plan: "free" | "starter" | "solo" | "pro" | null;
   usage: { images: number; videos: number; ai_signatures: number } | null;
   hasStripePortal: boolean;
   subscriptionPeriodStart: string | null;
@@ -160,7 +160,7 @@ export default function AbonnementClient({
     if (params.get("view") === "tokens") setView("tokens");
     // ?upgrade=1 → auto-open the plan picker (e.g. from the API "Passer au Pro" CTA).
     if (params.get("upgrade") === "1") {
-      if (isFree) setShowFreeUpgradeModal(true);
+      if (isFree || plan === "starter") setShowFreeUpgradeModal(true);
       else if (plan === "solo") setShowUpgradeModal(true);
     }
     if (params.get("view") || params.get("upgrade")) {
@@ -170,18 +170,16 @@ export default function AbonnementClient({
 
   // Per-plan visual identity + display strings
   const planMeta = {
-    free: { color: "#10B981", bg: "rgba(16,185,129,0.10)",  border: "rgba(16,185,129,0.22)",  label: "Free", price: "0 € / mois" },
-    solo: { color: "#A78BFA", bg: "rgba(167,139,250,0.10)", border: "rgba(167,139,250,0.22)", label: "Solo", price: "39 € / mois" },
-    pro:  { color: "#818CF8", bg: "rgba(99,102,241,0.10)",  border: "rgba(99,102,241,0.22)",  label: "Pro",  price: "99 € / mois" },
+    free:    { color: "#10B981", bg: "rgba(16,185,129,0.10)",  border: "rgba(16,185,129,0.22)",  label: "Free",    price: "0 € / mois" },
+    starter: { color: "#C4B5FD", bg: "rgba(196,181,253,0.12)", border: "rgba(196,181,253,0.28)", label: "Starter", price: "19 € / mois" },
+    solo:    { color: "#A78BFA", bg: "rgba(167,139,250,0.10)", border: "rgba(167,139,250,0.22)", label: "Solo",    price: "39 € / mois" },
+    pro:     { color: "#818CF8", bg: "rgba(99,102,241,0.10)",  border: "rgba(99,102,241,0.22)",  label: "Pro",     price: "99 € / mois" },
   } as const;
-  const meta = planMeta[(plan ?? "free") as "free" | "solo" | "pro"];
+  const meta = planMeta[(plan ?? "free") as "free" | "starter" | "solo" | "pro"];
   const { color: planColor, bg: planBg, border: planBorder } = meta;
 
-  // Quotas to display for Solo/Free (Pro shows ∞)
-  const quotaLimits =
-    plan === "solo" ? PLAN_LIMITS.solo
-    : plan === "pro" ? PLAN_LIMITS.pro
-    : PLAN_LIMITS.free;
+  // Quotas to display (Pro shows ∞; Starter/Solo/Free from PLAN_LIMITS)
+  const quotaLimits = getPlanLimits(plan);
 
   async function openPortal(flow: "payment") {
     setPortalPaymentLoading(true);
@@ -376,7 +374,7 @@ export default function AbonnementClient({
             <button
               type="button"
               onClick={() => {
-                if (isFree) setShowFreeUpgradeModal(true);
+                if (isFree || plan === "starter") setShowFreeUpgradeModal(true);
                 else if (plan === "solo") setShowUpgradeModal(true);
                 else setShowDowngradeModal(true);
               }}
@@ -892,6 +890,7 @@ export default function AbonnementClient({
     <UpgradePlanModal
       open={showFreeUpgradeModal}
       onClose={() => setShowFreeUpgradeModal(false)}
+      currentPlan={plan === "starter" ? "starter" : "free"}
     />
     </>
   );

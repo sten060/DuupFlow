@@ -3,10 +3,16 @@ import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getServerT } from "@/lib/i18n/server";
+import { planRank } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+const PRICE_ENV: Record<"starter" | "solo", string | undefined> = {
+  starter: process.env.STRIPE_PRICE_ID_STARTER,
+  solo: process.env.STRIPE_PRICE_ID_SOLO,
+};
+
+export async function POST(request: Request) {
   const t = await getServerT();
   const supabase = await createClient();
   const {
@@ -17,6 +23,12 @@ export async function POST() {
     return NextResponse.json({ error: t("errors.auth.notAuthenticated") }, { status: 401 });
   }
 
+  // Target plan (defaults to "solo" to preserve the original Pro→Solo behaviour
+  // for callers that POST without a body). Downgrade targets are paid tiers
+  // below the current one — Starter or Solo.
+  const body = await request.json().catch(() => ({} as Record<string, unknown>));
+  const target: "starter" | "solo" = body?.plan === "starter" ? "starter" : "solo";
+
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
@@ -24,17 +36,19 @@ export async function POST() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.plan === "solo") {
+  // The downgrade route only moves DOWN the tiers; a same-or-higher target must
+  // go through /api/stripe/upgrade.
+  if (planRank(target) >= planRank(profile?.plan)) {
     return NextResponse.json(
       { error: t("errors.billing.alreadyOnSolo") },
       { status: 400 }
     );
   }
 
-  const soloPriceId = process.env.STRIPE_PRICE_ID_SOLO;
-  if (!soloPriceId) {
+  const targetPriceId = PRICE_ENV[target];
+  if (!targetPriceId) {
     return NextResponse.json(
-      { error: "STRIPE_PRICE_ID_SOLO non configuré." },
+      { error: `STRIPE_PRICE_ID_${target.toUpperCase()} non configuré.` },
       { status: 500 }
     );
   }
@@ -77,14 +91,14 @@ export async function POST() {
     );
   }
 
-  // Switch to Solo price at next billing cycle — no immediate DB update.
-  // The user keeps Pro access until the current period ends;
-  // the webhook invoice.paid (billing_reason: subscription_cycle) will
-  // apply "solo" in DB when the 39€ invoice is paid next month.
+  // Switch to the target price at next billing cycle — no immediate DB update.
+  // The user keeps their current access until the period ends; the webhook
+  // invoice.paid (billing_reason: subscription_cycle) applies the target plan
+  // in DB when the next invoice is paid.
   await getStripe().subscriptions.update(subscriptionId, {
-    items: [{ id: itemId, price: soloPriceId }],
+    items: [{ id: itemId, price: targetPriceId }],
     proration_behavior: "none",
-    metadata: { plan: "solo" },
+    metadata: { plan: target },
   });
 
   return NextResponse.json({ success: true });

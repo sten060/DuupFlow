@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   // Paid plan chosen on the pricing page — the account stays gated at checkout
   // until it's paid (see the dashboard-layout paywall).
-  const pendingPlan = selectedPlan === "solo" || selectedPlan === "pro" ? selectedPlan : null;
+  const pendingPlan = selectedPlan === "starter" || selectedPlan === "solo" || selectedPlan === "pro" ? selectedPlan : null;
 
   // The free tier is no longer offered to new signups: refuse to create an
   // account without a chosen paid plan (the client redirects to pricing on this

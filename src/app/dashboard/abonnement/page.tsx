@@ -6,12 +6,14 @@ import AbonnementClient from "./AbonnementClient";
 
 export const dynamic = "force-dynamic";
 
-function resolvePlanFromPrice(priceId: string, unitAmount: number | null): "solo" | "pro" | null {
+function resolvePlanFromPrice(priceId: string, unitAmount: number | null): "starter" | "solo" | "pro" | null {
   // 1. Match by env var (most precise)
+  if (priceId && process.env.STRIPE_PRICE_ID_STARTER && priceId === process.env.STRIPE_PRICE_ID_STARTER) return "starter";
   if (priceId && process.env.STRIPE_PRICE_ID_SOLO && priceId === process.env.STRIPE_PRICE_ID_SOLO) return "solo";
   if (priceId && process.env.STRIPE_PRICE_ID_PRO && priceId === process.env.STRIPE_PRICE_ID_PRO) return "pro";
   if (priceId && process.env.STRIPE_PRICE_ID && priceId === process.env.STRIPE_PRICE_ID) return "pro";
-  // 2. Fallback by price amount (39€ = solo, 99€ = pro)
+  // 2. Fallback by price amount (19€ = starter, 39€ = solo, 99€ = pro)
+  if (unitAmount === 1900) return "starter";
   if (unitAmount === 3900) return "solo";
   if (unitAmount === 9900) return "pro";
   return null;
@@ -37,7 +39,7 @@ export default async function AbonnementPage() {
   // Default to "free" when profile has no plan set (new tier rollout).
   // Legacy users with has_paid + null plan are treated as "pro" elsewhere
   // (src/lib/usage.ts). Stripe sync below will overwrite if needed.
-  let plan = (profile?.plan as "free" | "solo" | "pro" | null) ?? "free";
+  let plan = (profile?.plan as "free" | "starter" | "solo" | "pro" | null) ?? "free";
   let stripeCustomerId = profile?.stripe_customer_id ?? null;
   const subscriptionPeriodStart = profile?.subscription_period_start ?? null;
   let cancelAtPeriodEnd = false;
@@ -94,8 +96,9 @@ export default async function AbonnementPage() {
         const planRank = (s: import("stripe").default.Subscription) => {
           const priceId = s.items.data[0]?.price?.id ?? "";
           const amount = s.items.data[0]?.price?.unit_amount ?? 0;
-          if (resolvePlanFromPrice(priceId, amount) === "pro") return 1;
-          return 0;
+          const r = resolvePlanFromPrice(priceId, amount);
+          // Keep the highest tier: pro > solo > starter
+          return r === "pro" ? 3 : r === "solo" ? 2 : r === "starter" ? 1 : 0;
         };
         // Sort: best plan first, then most recently created
         allActiveSubs.sort((a, b) => {

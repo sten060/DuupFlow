@@ -22,7 +22,7 @@ export default function VariationAnnouncementModal({
   onDone,
 }: {
   /** User's effective plan — drives the bonus token amount in the copy. */
-  plan: "free" | "solo" | "pro" | null;
+  plan: "free" | "starter" | "solo" | "pro" | null;
   /** Called after the server action resolves (modal can close). */
   onDone: () => void;
 }) {

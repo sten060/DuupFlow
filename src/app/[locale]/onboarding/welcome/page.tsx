@@ -44,7 +44,7 @@ function WelcomeInner() {
     // on le récupère depuis l'URL (?plan=) transmis par le cancel_url Stripe.
     const plan = localStorage.getItem("duupflow_selected_plan") ?? params.get("plan");
     const dest =
-      !isGuest && (plan === "solo" || plan === "pro")
+      !isGuest && (plan === "starter" || plan === "solo" || plan === "pro")
         ? `/checkout?plan=${plan}`
         : "/dashboard";
     localStorage.removeItem("duupflow_selected_plan");
