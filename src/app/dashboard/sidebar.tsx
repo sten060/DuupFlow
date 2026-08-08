@@ -188,6 +188,49 @@ function BottomLink({
   );
 }
 
+// Variante externe de BottomLink : ouvre une URL http(s) dans un nouvel onglet
+// (ex. portail affilié FirstPromoter, hébergé hors de l'app).
+function ExternalBottomLink({
+  href, label, icon, collapsed, badge,
+}: {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  collapsed: boolean;
+  badge?: string;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={collapsed ? label : undefined}
+      className={[
+        "flex items-center rounded-lg text-sm text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] hover:bg-[var(--app-surface)] transition-all w-full mb-1",
+        collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+      ].join(" ")}
+    >
+      <span className="shrink-0">{icon}</span>
+      {!collapsed && <span className="flex-1">{label}</span>}
+      {!collapsed && badge && (
+        <span
+          className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0"
+          style={{ background: "rgba(56,189,248,0.10)", color: "#38BDF8", border: "1px solid rgba(56,189,248,0.22)" }}
+        >
+          {badge}
+        </span>
+      )}
+      {!collapsed && (
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-faint)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          <polyline points="15 3 21 3 21 9" />
+          <line x1="10" y1="14" x2="21" y2="3" />
+        </svg>
+      )}
+    </a>
+  );
+}
+
 function UserIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -504,6 +547,21 @@ export default function Sidebar() {
             }
           />
 
+          <ExternalBottomLink
+            href="https://duupflow.firstpromoter.com/signup"
+            label={t("dashboard.sidebar.affiliation")}
+            collapsed={collapsed}
+            icon={
+              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+            }
+          />
+
           <BottomLink
             href="/dashboard/support"
             label={t("dashboard.sidebar.support")}
@@ -662,6 +720,12 @@ export default function Sidebar() {
           badge={t("dashboard.sidebar.nouveau")}
           collapsed={false}
           icon={<svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>}
+        />
+        <ExternalBottomLink
+          href="https://duupflow.firstpromoter.com/signup"
+          label={t("dashboard.sidebar.affiliation")}
+          collapsed={false}
+          icon={<svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>}
         />
         <BottomLink
           href="/dashboard/support"

@@ -60,30 +60,69 @@ export async function POST(request: Request) {
   // Le code promo est aussi le code affilié (même chose)
   const effectiveAffiliateCode = promoCode ?? affiliateCode;
 
-  // Résoudre le stripe_promotion_code_id — UNIQUEMENT si le filleul a saisi un
-  // code promo au checkout. Le lien d'affiliation (?ref → affiliateCode) ne sert
-  // qu'au tracking et à l'attribution de la commission : il n'applique JAMAIS de
-  // réduction automatiquement.
-  let stripePromotionCodeId: string | undefined;
-  if (promoCode) {
-    const { data: affiliate } = await admin
-      .from("affiliates")
-      .select("stripe_promotion_code_id")
-      .eq("code", promoCode)
-      .single();
-    if (affiliate?.stripe_promotion_code_id) {
-      stripePromotionCodeId = affiliate.stripe_promotion_code_id;
-    }
-  }
+  // ── Anti auto-parrainage ────────────────────────────────────────────────────
+  // Un affilié ne doit pas pouvoir se parrainer lui-même : sinon il prendrait la
+  // réduction filleul ET toucherait sa propre commission (on le paierait pour être
+  // client). On regarde à qui appartient le code (promo ou lien ?ref) dans la table
+  // `affiliates` : si c'est le compte qui paie (même user_id ou même email), on
+  // refuse la réduction ET l'attribution de commission.
+  // NB : ne couvre que les codes du système maison. Les codes FirstPromoter (hors
+  // table) sont protégés par la détection fraude de FirstPromoter côté commission.
+  const affiliateRow = effectiveAffiliateCode
+    ? (
+        await admin
+          .from("affiliates")
+          .select("user_id, email, stripe_promotion_code_id")
+          .eq("code", effectiveAffiliateCode)
+          .single()
+      ).data
+    : null;
 
-  // Fallback : code promo saisi manuellement, créé directement dans Stripe
-  // (hors table affiliates). On l'applique s'il existe et est actif côté Stripe.
-  if (!stripePromotionCodeId && promoCode) {
-    try {
-      const list = await getStripe().promotionCodes.list({ code: promoCode, active: true, limit: 1 });
-      if (list.data[0]) stripePromotionCodeId = list.data[0].id;
-    } catch {
-      // Stripe inaccessible → pas de réduction, le paiement continue au plein tarif.
+  const isSelfReferral = Boolean(
+    affiliateRow &&
+      ((affiliateRow.user_id && affiliateRow.user_id === user.id) ||
+        (affiliateRow.email &&
+          user.email &&
+          affiliateRow.email.toLowerCase() === user.email.toLowerCase()))
+  );
+
+  // Code réellement attribué (vidé si auto-parrainage → pas de commission).
+  const attributedAffiliateCode = isSelfReferral ? undefined : effectiveAffiliateCode;
+
+  // Résoudre le code de réduction Stripe de façon RÉSILIENTE — UNIQUEMENT si le
+  // filleul a saisi un code promo, et que ce n'est PAS un auto-parrainage. Règle
+  // d'or : un code stocké mais supprimé/désactivé côté Stripe ne doit JAMAIS
+  // bloquer le paiement. On ne retient donc qu'un promotion_code réellement ACTIF ;
+  // sinon on facture au plein tarif plutôt que de faire planter le checkout.
+  // (Le lien d'affiliation ?ref ne sert qu'au tracking, il n'applique jamais de
+  // réduction automatiquement.)
+  let stripePromotionCodeId: string | undefined;
+  if (promoCode && !isSelfReferral) {
+    const stripe = getStripe();
+
+    // 1) Code stocké dans la table `affiliates` : on ne le garde que s'il existe
+    //    encore ET qu'il est actif dans Stripe (il a pu être supprimé, ex. après
+    //    migration de l'affilié vers un autre système).
+    const storedId = affiliateRow?.stripe_promotion_code_id;
+    if (storedId) {
+      try {
+        const pc = await stripe.promotionCodes.retrieve(storedId);
+        if (pc.active) stripePromotionCodeId = pc.id;
+      } catch {
+        // Introuvable/supprimé → on ignore et on tente le fallback par libellé.
+      }
+    }
+
+    // 2) Fallback auto-réparateur : retrouver un code ACTIF par son libellé.
+    //    Couvre les codes hors table (créés dans Stripe/FirstPromoter) et le cas
+    //    où l'ID stocké est devenu invalide.
+    if (!stripePromotionCodeId) {
+      try {
+        const list = await stripe.promotionCodes.list({ code: promoCode, active: true, limit: 1 });
+        if (list.data[0]) stripePromotionCodeId = list.data[0].id;
+      } catch {
+        // Stripe inaccessible → pas de réduction, le paiement continue au plein tarif.
+      }
     }
   }
 
@@ -94,7 +133,7 @@ export async function POST(request: Request) {
     client_reference_id: user.id,
     metadata: {
       plan,
-      ...(effectiveAffiliateCode ? { affiliate_code: effectiveAffiliateCode } : {}),
+      ...(attributedAffiliateCode ? { affiliate_code: attributedAffiliateCode } : {}),
       ...(fpTid ? { fp_tid: fpTid } : {}),
     },
     success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -106,7 +145,7 @@ export async function POST(request: Request) {
       metadata: {
         supabase_user_id: user.id,
         plan,
-        ...(effectiveAffiliateCode ? { affiliate_code: effectiveAffiliateCode } : {}),
+        ...(attributedAffiliateCode ? { affiliate_code: attributedAffiliateCode } : {}),
         ...(fpTid ? { fp_tid: fpTid } : {}),
       },
     },
@@ -123,7 +162,21 @@ export async function POST(request: Request) {
     sessionParams.discounts = [{ promotion_code: stripePromotionCodeId }];
   }
 
-  const session = await getStripe().checkout.sessions.create(sessionParams);
+  // Filet de sécurité : si la réduction fait échouer la création de la session
+  // (code devenu invalide entre-temps, etc.), on réessaie SANS réduction plutôt
+  // que de bloquer la vente. Mieux vaut un paiement au plein tarif qu'un paiement
+  // perdu à cause d'un code promo cassé.
+  let session;
+  try {
+    session = await getStripe().checkout.sessions.create(sessionParams);
+  } catch (err) {
+    if (sessionParams.discounts) {
+      delete sessionParams.discounts;
+      session = await getStripe().checkout.sessions.create(sessionParams);
+    } else {
+      throw err;
+    }
+  }
 
   return NextResponse.json({ url: session.url });
 }

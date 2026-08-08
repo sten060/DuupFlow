@@ -144,12 +144,20 @@ const FOOTER_SOCIALS = [
   { name: "X", d: "M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" },
 ];
 function FooterCol({ title, links }: { title: string; links: [string, string][] }) {
+  const linkClass = "text-sm text-white/70 transition hover:text-white";
   return (
     <div>
       <h4 className="text-sm font-semibold text-white">{title}</h4>
       <ul className="mt-4 space-y-3">
         {links.map(([l, h], i) => (
-          <li key={i}><Link href={h} className="text-sm text-white/70 transition hover:text-white">{l}</Link></li>
+          <li key={i}>
+            {/* Lien externe (http…) → <a> nouvel onglet ; interne → LocaleLink. */}
+            {h.startsWith("http") ? (
+              <a href={h} target="_blank" rel="noopener noreferrer" className={linkClass}>{l}</a>
+            ) : (
+              <Link href={h} className={linkClass}>{l}</Link>
+            )}
+          </li>
         ))}
       </ul>
     </div>
@@ -183,7 +191,7 @@ export function Footer() {
             </div>
           </div>
           <FooterCol title={en ? "Product" : "Produit"} links={[[en ? "Features" : "Fonctionnalités", "/#features"], ["FAQ", "/#faq"], [en ? "Pricing" : "Tarifs", "/pricing"]]} />
-          <FooterCol title={en ? "Resources" : "Ressources"} links={[["Blog", "/blog"], ["Contact", "/demo-request"], [en ? "Partners" : "Partenaires", "/partners"]]} />
+          <FooterCol title={en ? "Resources" : "Ressources"} links={[["Blog", "/blog"], ["Contact", "/demo-request"], [en ? "Partners" : "Partenaires", "/partners"], [en ? "Affiliate program" : "Programme d'affiliation", "https://duupflow.firstpromoter.com/signup"]]} />
           <div className="md:max-w-sm md:justify-self-end">
             <h4 className="text-sm font-semibold text-white">{en ? "Stay in the loop" : "Reste informé des nouveautés"}</h4>
             <p className="mt-2 text-sm text-white/70">{en ? "Reposting tips & product updates, no spam." : "Astuces reposting & mises à jour produit, sans spam."}</p>
