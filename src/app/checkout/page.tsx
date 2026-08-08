@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Suspense } from "react";
 import { useTranslation } from "@/lib/i18n/context";
+import { getFpTid } from "@/lib/firstpromoter";
 
 type Plan = "starter" | "solo" | "pro";
 
@@ -231,6 +232,7 @@ function CheckoutContent() {
           locale,
           affiliate_code: affiliateCode,
           ...(validPromo ? { promo_code: validPromo } : {}),
+          ...(getFpTid() ? { fp_tid: getFpTid() } : {}),
         }),
       });
       const data = await res.json();

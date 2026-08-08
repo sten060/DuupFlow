@@ -70,6 +70,21 @@ export default function RootLayout({
             __html: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y)})(window,document,"clarity","script","w20nsuailx");`,
           }}
         />
+        {/* FirstPromoter — script de suivi des parrainages. Pose les cookies
+            `_fprom_ref` / `_fprom_tid` quand un visiteur arrive via un lien
+            d'affilié (?ref=...). Le `tid` est ensuite transmis à Stripe. */}
+        <Script
+          id="firstpromoter"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(w){w.fpr=w.fpr||function(){w.fpr.q=w.fpr.q||[];w.fpr.q[arguments[0]=='set'?'unshift':'push'](arguments);};})(window);fpr("init", {cid:"vhhiak0q"}); fpr("click");`,
+          }}
+        />
+        <Script
+          id="firstpromoter-cdn"
+          src="https://cdn.firstpromoter.com/fpr.js"
+          strategy="afterInteractive"
+        />
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

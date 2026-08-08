@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
 import { flushAcquisition } from "@/lib/acquisition";
+import { getFpTid } from "@/lib/firstpromoter";
 import AuthBrandPanel from "@/components/AuthBrandPanel";
 import { Brand } from "@/components/landing/shell";
 
@@ -212,6 +213,7 @@ function OnboardingForm() {
           locale,
           affiliate_code: affiliateCode,
           ...(storedPromo ? { promo_code: storedPromo } : {}),
+          ...(getFpTid() ? { fp_tid: getFpTid() } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));

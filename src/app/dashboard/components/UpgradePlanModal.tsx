@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "@/lib/i18n/context";
 import { planRank } from "@/lib/plans";
+import { getFpTid } from "@/lib/firstpromoter";
 
 type PaidPlan = "starter" | "solo" | "pro";
 
@@ -167,7 +168,7 @@ export default function UpgradePlanModal({
         headers: { "Content-Type": "application/json" },
         // noTrial: this is an in-app upgrade by an existing (free) user — the
         // 3-day trial is a new-signup acquisition offer only.
-        body: JSON.stringify({ plan: targetPlan, noTrial: true, ...(promoCode ? { promo_code: promoCode } : {}) }),
+        body: JSON.stringify({ plan: targetPlan, noTrial: true, ...(promoCode ? { promo_code: promoCode } : {}), ...(getFpTid() ? { fp_tid: getFpTid() } : {}) }),
       });
       const data = await res.json();
       if (res.ok && data.url) {

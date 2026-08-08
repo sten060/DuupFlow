@@ -28,6 +28,10 @@ export async function POST(request: Request) {
     typeof body?.promo_code === "string" && body.promo_code.trim()
       ? body.promo_code.trim().toUpperCase()
       : undefined;
+  // FirstPromoter : identifiant de visite (tid) transmis par le client pour
+  // attribuer la vente à l'affilié qui a amené le visiteur via son lien ?ref.
+  const fpTid: string | undefined =
+    typeof body?.fp_tid === "string" && body.fp_tid.trim() ? body.fp_tid.trim() : undefined;
 
   const priceId =
     plan === "starter"
@@ -91,6 +95,7 @@ export async function POST(request: Request) {
     metadata: {
       plan,
       ...(effectiveAffiliateCode ? { affiliate_code: effectiveAffiliateCode } : {}),
+      ...(fpTid ? { fp_tid: fpTid } : {}),
     },
     success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     // Sortie du paywall sans payer → retour à l'étape "code promo / payer" de
@@ -102,6 +107,7 @@ export async function POST(request: Request) {
         supabase_user_id: user.id,
         plan,
         ...(effectiveAffiliateCode ? { affiliate_code: effectiveAffiliateCode } : {}),
+        ...(fpTid ? { fp_tid: fpTid } : {}),
       },
     },
   };
