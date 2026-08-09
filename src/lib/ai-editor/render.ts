@@ -431,7 +431,21 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string,
     if (allEmoji && words.length) words[words.length - 1] += " " + w;
     else words.push(w);
   }
-  const maxChars = Math.max(8, Math.floor(W / (fsz * 0.56)));
+  // Largeur max d'une ligne, dérivée d'une MESURE RÉELLE de la police (poids +
+  // interlettrage exacts) au lieu d'un ratio fixe 0.56em — faux pour les polices
+  // larges/display, ce qui laissait les lignes déborder hors cadre. availW garde
+  // une marge : le texte ne touche jamais les bords. Repli sur l'ancien estimé.
+  const availW = W * 0.90;
+  const measAttrs = `font-family="${textFamily}" font-weight="${weight}" font-size="${fsz}"${ls ? ` letter-spacing="${ls}px"` : ""}`;
+  let maxChars = Math.max(8, Math.floor(availW / (fsz * 0.56)));
+  try {
+    const sample = rawText.replace(/\s+/g, " ").trim().slice(0, 120);
+    if (sample) {
+      const totalW = await measureInk(sharp, sample, measAttrs, fsz);
+      const units = Math.max(1, estVis(sample));
+      if (totalW > 0) maxChars = Math.max(8, Math.floor(availW / (totalW / units)));
+    }
+  } catch { /* garde le repli */ }
   const lines: string[] = [];
   let cur = "";
   for (const w of words) {
@@ -1281,10 +1295,17 @@ export async function renderVariant(
     const vidDur = totalVideoDur();
     let capIn = inputs.reduce((n, a) => (a === "-i" ? n + 1 : n), 0); // index d'entrée du 1er PNG caption
     let ccN = 0; // compteur d'étapes d'overlay (labels uniques)
-    const overlay = (src: number | string, st: number, en: number, posExpr = "0:0") => {
+    // `between(t,…)` est inclusif aux DEUX bornes : si la fin d'une caption == le
+    // début de la suivante, les deux se dessinent sur la frame commune (chevauchement
+    // visible). Avec trim=true on termine 1 frame AVANT. On garde trim=false pour les
+    // fenêtres internes du wordByWord (PNG cumulatifs qui se recouvrent → aucun
+    // artefact, et couper y créerait un flicker).
+    const frameEps = 1 / fps;
+    const overlay = (src: number | string, st: number, en: number, posExpr = "0:0", trim = true) => {
       const inLabel = typeof src === "number" ? `${src}:v` : src; // index d'entrée OU label de filtre
       const out = `cc${ccN++}`;
-      captionFilters.push(`[${last}][${inLabel}]overlay=${posExpr}:enable='between(t,${st.toFixed(2)},${en.toFixed(2)})'[${out}]`);
+      const enEff = trim ? Math.max(st + 0.001, en - frameEps) : en;
+      captionFilters.push(`[${last}][${inLabel}]overlay=${posExpr}:enable='between(t,${st.toFixed(2)},${enEff.toFixed(2)})'[${out}]`);
       last = out;
     };
     // Découpe le texte en mots avec timing (fournis, sinon répartis sur [st,en]).
@@ -1319,7 +1340,12 @@ export async function renderVariant(
             const png = path.join(dir, `cap${k}_w${wi}.png`);
             await captionPng({ ...c, text: wt.slice(0, wi + 1).map((w) => w.text).join(" ") }, W, H, png, es);
             inputs.push("-i", png);
-            overlay(capIn++, wt[wi].start, wi < wt.length - 1 ? wt[wi + 1].start : en); // fenêtres disjointes
+            const isLast = wi === wt.length - 1;
+            // 1er mot dès le DÉBUT de la caption (avant : caché jusqu'à son timecode
+            // voix). Fenêtres internes contiguës (trim=false) ; seule la dernière est
+            // coupée d'une frame pour ne pas chevaucher la caption suivante.
+            const wStart = wi === 0 ? st : wt[wi].start;
+            overlay(capIn++, wStart, isLast ? en : wt[wi + 1].start, "0:0", isLast);
           }
         } else if (anim === "karaoke") {
           const wt = wordTiming(c, st, en);
