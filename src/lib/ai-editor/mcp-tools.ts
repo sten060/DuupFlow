@@ -260,7 +260,7 @@ export const TOOLS = [
   },
   {
     name: "get_material",
-    description: "Renvoie 4-6 KEYFRAMES d'UN fichier de matière précis (par son id). Appelle-le SEULEMENT sur les 2-3 rushes que tu comptes vraiment utiliser (voir où couper) — pas sur tout, pour ne pas saturer ton contexte. Image → renvoie l'image ; audio → infos texte.",
+    description: "Renvoie 4-6 KEYFRAMES d'UN fichier de matière précis (par son id). Appelle-le SEULEMENT sur les 2-3 rushes que tu comptes vraiment utiliser (voir où couper) — pas sur tout, pour ne pas saturer ton contexte. Image → renvoie l'image + ses DIMENSIONS source (avec alerte si < 1080p → risque de flou en plein cadre). Vidéo/audio → beats/drops + la VOIX HORODATÉE (intervalles de parole [start–end]) : cale tes captions dessus (sous-titres synchro) et repère où il y a du dialogue vs du silence.",
     inputSchema: {
       type: "object",
       properties: { materialId: { type: "string", description: "id d'un fichier (de list_material)." } },
@@ -313,6 +313,24 @@ function formatAudioLines(a: {
   if (a.beats?.length) lines.push(`  · beats (s) [temps forts → segments[].transition & captions[].startSec] : ${a.beats.slice(0, 120).map((b) => b.toFixed(2)).join(", ")}`);
   if (a.drops?.length) lines.push(`  · drops (RUPTURES ≠ beats) : ${a.drops.map((d) => `${d.t.toFixed(2)}s·${d.type}·${d.intensity}`).join("  ")}`);
   if (a.energy?.length) lines.push(`  · énergie (0-1, ~1s) : ${a.energy.filter((_, i) => i % 4 === 0).slice(0, 60).map((e) => e.level.toFixed(2)).join(" ")}`);
+  return lines;
+}
+
+/** Voix horodatée d'une matière → intervalles de PAROLE (VAD) exploitables pour
+ *  la synchro labiale et des sous-titres calés. Renvoie [] si pas de voix. */
+function formatVoiceLines(
+  transcript: { phrases: { startSec: number; endSec: number; text: string }[]; fullText: string } | null | undefined,
+): string[] {
+  const phrases = transcript?.phrases ?? [];
+  if (!phrases.length) {
+    return transcript?.fullText ? [`  · voix : « ${transcript.fullText.slice(0, 300)} » (sans timecodes)`] : [];
+  }
+  const shown = phrases.slice(0, 40);
+  const lines = [
+    `  · VOIX — intervalles de parole (s) [synchro labiale / captions calées ; le HORS de ces plages = silence] :`,
+    ...shown.map((p) => `    [${p.startSec.toFixed(2)}–${p.endSec.toFixed(2)}s] ${p.text}`),
+  ];
+  if (phrases.length > shown.length) lines.push(`    … (${phrases.length - shown.length} segment(s) de plus)`);
   return lines;
 }
 
@@ -588,7 +606,15 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const m = project.materials.find((x) => x.id === id);
     if (!m) return { content: [{ type: "text", text: `Matière introuvable : ${id}. Vois list_material.` }], isError: true };
     if (m.kind === "image") {
-      const content: Content[] = [{ type: "text", text: `IMAGE « ${m.name} » (id ${m.id})${m.desc?.trim() ? ` — « ${m.desc.trim()} »` : ""} :` }];
+      const w = m.analysis?.width ?? 0, h = m.analysis?.height ?? 0;
+      // Dimensions source + alerte : une image plus petite que le canvas (jusqu'à
+      // 1080×1920 en 9:16) sera upscalée → floue si mise plein cadre.
+      const dim = w && h ? `${w}×${h}px` : "dimensions inconnues";
+      const tooSmall = w > 0 && h > 0 && (w < 1080 || h < 1080);
+      const warn = tooSmall
+        ? ` ⚠ Plus petite que 1080p (${dim}) : elle sera upscalée et paraîtra FLOUE en plein cadre. Utilise-la en incrustation/petit format, ou évite le plein 9:16 (1080×1920).`
+        : "";
+      const content: Content[] = [{ type: "text", text: `IMAGE « ${m.name} » (id ${m.id})${m.desc?.trim() ? ` — « ${m.desc.trim()} »` : ""} · source ${dim}.${warn}` }];
       const img = m.analysis?.thumb ? dataUriToImage(m.analysis.thumb) : null;
       if (img) content.push(img); else content.push({ type: "text", text: "(pas d'aperçu)" });
       return { content };
@@ -598,7 +624,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       const content: Content[] = [{ type: "text", text: `AUDIO « ${m.name} » (id ${m.id}) — mets-le dans create_variant.audio.materialId ; les timecodes ci-dessous se passent DIRECTEMENT dans captions[].startSec et segments[].transition.` }];
       if (a) for (const l of formatAudioLines(a)) content.push({ type: "text", text: l });
       else content.push({ type: "text", text: "(analyse audio indisponible)" });
-      if (m.analysis?.transcript?.fullText) content.push({ type: "text", text: `  · voix : « ${m.analysis.transcript.fullText.slice(0, 300)} »` });
+      for (const l of formatVoiceLines(m.analysis?.transcript)) content.push({ type: "text", text: l });
       return { content };
     }
     const kfs = await materialKeyframes(userId, project.id, m.storedName, 5);
@@ -606,7 +632,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const content: Content[] = [{ type: "text", text: `RUSH « ${m.name} » (id ${m.id})${m.analysis?.durationSec ? ` · ${m.analysis.durationSec.toFixed(1)}s` : ""} — ${kfs.length} images (timecodes pour tes coupes) :` }];
     // Son du rush (si présent) : mêmes timecodes exploitables que pour l'audio.
     if (m.analysis?.audio) for (const l of formatAudioLines(m.analysis.audio)) content.push({ type: "text", text: l });
-    if (m.analysis?.transcript?.fullText) content.push({ type: "text", text: `  · voix : « ${m.analysis.transcript.fullText.slice(0, 300)} »` });
+    for (const l of formatVoiceLines(m.analysis?.transcript)) content.push({ type: "text", text: l });
     for (const kf of kfs) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }
     return { content };
   }
