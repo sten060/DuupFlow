@@ -283,6 +283,19 @@ export default function AiEditorClient() {
     document.body.appendChild(a); a.click(); a.remove();
   };
 
+  // Suppression GROUPÉE des variantes sélectionnées (même endpoint que l'unitaire,
+  // un DELETE par id). Retire les cartes + vide la sélection + ferme le drawer s'il
+  // pointe une variante supprimée.
+  const removeSelected = () => {
+    if (!projectId || !selIds.length) return;
+    if (!window.confirm(t("dashboard.aiEditor.ws.confirmDelete"))) return;
+    const ids = new Set(selIds);
+    setVariants((vs) => vs.filter((v) => !ids.has(v.id)));
+    setSelected(new Set());
+    setDrawer((d) => (d.variantId && ids.has(d.variantId) ? { open: false } : d));
+    for (const id of selIds) void fetch("/api/ai-editor/variant", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId, id }) });
+  };
+
   const goEditor = () => { setStep("editor"); void refreshProject(); };
 
   // Onboarding connexion : on arrive sur l'écran de connexion. Si le user l'a
@@ -787,6 +800,9 @@ export default function AiEditorClient() {
                       ⬇ {t("dashboard.aiEditor.ws.downloadSelected", { n: selIds.length })}
                     </button>
                     <DriveSaveButton files={variants.filter((v) => selected.has(v.id)).map((v, i) => ({ url: variantUrl(v.id, true), name: `${(v.label || `variante-${i + 1}`).replace(/[^\w\-. À-ÿ]/g, "").trim() || `variante-${i + 1}`}.mp4` }))} />
+                    <button onClick={removeSelected} className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-400 transition hover:bg-red-500/10">
+                      🗑 {t("dashboard.aiEditor.ws.deleteTitle")} ({selIds.length})
+                    </button>
                     <button onClick={() => setSelected(new Set())} className="text-[12px] text-[var(--app-text-faint)] underline hover:text-[var(--app-text-muted)]">{t("dashboard.aiEditor.ws.clearSel")}</button>
                   </div>
                 )}
