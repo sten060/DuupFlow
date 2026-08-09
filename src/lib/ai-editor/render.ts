@@ -221,6 +221,36 @@ const IMG_DEFAULT_SEC = 2.5;
 const MAX_SEGMENTS = 40;
 const VARIANT_MAX_SEC = 90; // durée max d'une variante (cible short-form)
 const MAX_CAPTIONS = 30;
+// Plafond DUR d'entrées ffmpeg pour le rendu final. Au-delà de ~60 inputs,
+// ffmpeg sature (file descriptors / threads) et échoue avec
+// « Resource temporarily unavailable » — ce qui, sans garde, épuisait aussi le
+// process Node et faisait tomber le connecteur pour TOUT le monde. Les captions
+// animées par mot (wordByWord/karaoke) qui dépassent ce budget sont dégradées
+// en caption statique (1 entrée) au lieu de faire planter le rendu.
+const MAX_FFMPEG_INPUTS = 48;
+
+/* ── Garde de concurrence des rendus ────────────────────────────────────────
+   Un rendu = un ou plusieurs ffmpeg lourds sur le process du serveur. Sans
+   limite, deux/trois rendus simultanés (ou un rendu qui explose en entrées)
+   saturaient CPU/RAM/FD et rendaient le connecteur muet pour tous. On borne le
+   nombre de rendus concurrents ; les suivants attendent leur tour. */
+const MAX_CONCURRENT_RENDERS = Math.max(1, parseInt(process.env.AI_EDITOR_MAX_RENDERS ?? "2", 10));
+let _activeRenders = 0;
+const _renderQueue: Array<() => void> = [];
+function acquireRenderSlot(): Promise<void> {
+  return new Promise((resolve) => {
+    const tryAcquire = () => {
+      if (_activeRenders < MAX_CONCURRENT_RENDERS) { _activeRenders++; resolve(); }
+      else _renderQueue.push(tryAcquire);
+    };
+    tryAcquire();
+  });
+}
+function releaseRenderSlot() {
+  _activeRenders = Math.max(0, _activeRenders - 1);
+  const next = _renderQueue.shift();
+  if (next) next();
+}
 const SIZE_RATIO: Record<CaptionSize, number> = { s: 0.048, m: 0.058, l: 0.072 };
 const num = (v: unknown, d: number) => (Number.isFinite(Number(v)) ? Number(v) : d);
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -851,7 +881,11 @@ async function timeEffectClip(
     if (hasAudio) { af.push(`[${aL}]areverse[${L("aa")}]`); aL = L("aa"); }
   }
 
-  vf.push(`[${vL}]format=yuv420p[vout]`);
+  // Normalise le débit d'images APRÈS setpts/reverse/rampe : sans ça, un speed
+  // non entier (ex. 1.12 → 30/1.12 fps fractionnaire) laisse un flux à cadence
+  // variable et l'encodeur casse (« Error opening encoder … incorrect
+  // parameters such as bit_rate, rate, width or height »). fps=CFR avant encode.
+  vf.push(`[${vL}]fps=${fps},format=yuv420p[vout]`);
   if (hasAudio) af.push(`[${aL}]aresample=44100[aout]`);
 
   const out = path.join(dir, `timed_${idx}.mp4`);
@@ -1016,6 +1050,11 @@ export async function renderVariant(
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
     return { error };
   };
+
+  // Garde de concurrence : attend un créneau libre avant de lancer le moindre
+  // ffmpeg lourd. Empêche qu'un pic de rendus (ou un rendu qui déraille) sature
+  // le serveur pour tout le monde. Libéré dans le finally.
+  await acquireRenderSlot();
 
   // Tout le corps est enveloppé : AUCUNE exception ne remonte nue au MCP → message
   // exploitable (préparation des plans, composite, ffmpeg…) + nettoyage garanti.
@@ -1261,9 +1300,18 @@ export async function renderVariant(
       for (let k = 0; k < caps.length; k++) {
         const c = caps[k];
         const es: EmojiStyle = c.emojiStyle === "flat" || c.emojiStyle === "3d" ? c.emojiStyle : planEmoji;
-        const anim = c.animation ?? "none";
+        let anim = c.animation ?? "none";
         const st = num(c.startSec, 0), en = num(c.endSec, 3);
         const ad = clamp(num(c.animationDuration, 0.35), 0.05, 2);
+
+        // Budget d'entrées ffmpeg. Plus aucune caption si le plafond est atteint
+        // (mieux que faire échouer TOUT le rendu). Une caption par-mot qui ne
+        // tient pas dans le budget est dégradée en caption statique (1 entrée).
+        if (capIn >= MAX_FFMPEG_INPUTS) break;
+        if (anim === "wordByWord" || anim === "karaoke") {
+          const wc = wordTiming(c, st, en).length + (anim === "karaoke" ? 1 : 0);
+          if (capIn + wc > MAX_FFMPEG_INPUTS) anim = "none";
+        }
 
         if (anim === "wordByWord") {
           const wt = wordTiming(c, st, en);
@@ -1456,6 +1504,7 @@ export async function renderVariant(
     console.error("[ai-editor/render] renderVariant exception:", e);
     return { error: `Rendu échoué : ${(e as Error)?.message?.slice(0, 240) ?? "erreur interne"}` };
   } finally {
+    releaseRenderSlot();
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }
