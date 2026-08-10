@@ -51,7 +51,7 @@ export const TOOLS = [
       "IMPORTANT : cet outil te RENVOIE des keyframes du rendu + la durée réelle → REGARDE-LES pour vérifier cadrage/rythme/captions, et rappelle l'outil pour corriger. " +
       "SYNCHRO MUSIQUE : les timecodes mesurés sur la matière sonore (get_material → beats, drops, énergie) s'utilisent DIRECTEMENT — cale captions[].startSec et les transitions segments[].transition sur les beats/drops (ex. une transition PILE sur un drop, un caption qui apparaît sur un temps fort). " +
       "FIDÉLITÉ MOTION & RYTHME : reproduis le MONTAGE de la réf, pas seulement son texte. get_reference te donne le rythme (nb de coupes · durée moyenne d'un plan) + par plan le mouvement (type+intensité → motion/motionIntensity/scale), la vitesse (speed), les freeze (freezeAt/freezeDuration) et la transition de chaque coupe (→ transition). Colle à la CADENCE : si la réf coupe ~toutes les 1,2 s, garde des plans courts et punchy ; ne laisse pas de plan mou de 6 s là où la réf en enchaîne cinq. Cale les zoomPunch/shakeAt/transitions percutantes sur les beats/drops de la musique. " +
-      "NETTOYAGE DU RUSH (le user envoie ses RUSHS BRUTS, pas une vidéo déjà montée — c'est à TOI de la rendre publiable) : get_material te donne la VOIX horodatée + les ✂️ BLANCS. Découpe le rush en PLUSIEURS segments[] du MÊME fichier (même materialId, [startSec,endSec] différents) qui GARDENT la parole et SAUTENT : les blancs/silences morts signalés, les répétitions et les prises ratées (mêmes phrases redites / faux départs, visibles dans le transcript → garde la meilleure prise). Coupe TOUJOURS aux frontières de silence (entre les phrases) pour une couture audio propre. " +
+      "NETTOYAGE DU RUSH (le user envoie ses RUSHS BRUTS, pas une vidéo déjà montée — c'est à TOI de la rendre publiable) : get_material te donne la VOIX horodatée, les MOTS, les ✂️ BLANCS, les ⏱ MICRO-PAUSES et les 🔁 REPRISES. Découpe le rush en PLUSIEURS segments[] du MÊME fichier (même materialId, [startSec,endSec] différents) qui GARDENT la parole et SAUTENT : les ✂️ BLANCS, les plages 🔁 REPRISES (le locuteur se rate puis répète — tu gardes la DERNIÈRE prise, qui commence à la fin de la plage) et toute redite restante visible dans le transcript. Les ⏱ MICRO-PAUSES (0,15-0,5 s, INTRA-phrase) ne se sautent pas : SUBDIVISE le segment en 2 segments contigus (fin du 1er = début de la pause, début du 2e = fin de la pause, cut sec) → débit resserré, raccord invisible. Coupe TOUJOURS aux frontières de silence, jamais en plein mot. " +
       "LIGNE À NE PAS FRANCHIR : tu enlèves seulement le DÉCHET (blancs, hésitations, ratés, redites). Tu ne choisis JAMAIS « le propos », tu ne réordonnes pas, tu ne réécris pas, tu ne sélectionnes pas « le meilleur passage » : le contenu et l'ordre restent ceux du user. C'est SA prise, juste nettoyée. " +
       "Durées : segment libre (borné à la longueur du fichier pour une vidéo) ; défaut image = 2,5 s. Jusqu'à 40 segments, 30 captions. DURÉE TOTALE MAX = 90 s (cible short-form) : au-delà, le rendu est refusé — retire ou raccourcis des plans.",
     inputSchema: {
@@ -247,7 +247,7 @@ export const TOOLS = [
               emojiStyle: { type: "string", enum: ["3d", "flat"], description: "Style des emojis de CETTE caption : \"3d\" (Fluent 3D, défaut) | \"flat\" (Twemoji). Prioritaire sur le défaut du plan." },
               animation: { type: "string", enum: ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"], description: "Animation d'apparition (défaut none). wordByWord = mots l'un après l'autre ; karaoke = tous visibles, mot actif surligné (highlightColor). Réf : get_reference → captions[].animation." },
               animationDuration: { type: "number", description: "Durée de l'animation d'entrée en s (défaut ~0.35)." },
-              words: { type: "array", description: "Pour wordByWord/karaoke : timing par mot (sinon réparti automatiquement sur [startSec,endSec]). Utilise les timecodes de get_material (transcript de la piste audio) pour caler sur la voix.", items: { type: "object", properties: { text: { type: "string" }, start: { type: "number" }, end: { type: "number" } } } },
+              words: { type: "array", description: "Pour wordByWord/karaoke : timing par mot (sinon réparti automatiquement sur [startSec,endSec]). Utilise les MOTS horodatés de get_material TEL QUEL pour caler sur la voix. `color` (optionnel) = couleur STATIQUE de ce mot (mot-clé en relief dans sa phrase) — compose avec l'animation ; pour une caption FIXE multicolore, utilise plutôt `spans`.", items: { type: "object", properties: { text: { type: "string" }, start: { type: "number" }, end: { type: "number" }, color: { type: "string", description: "Couleur hex de CE mot (ex. mot-clé en jaune) — marche avec wordByWord ET karaoke." } } } },
               highlightColor: { type: "string", description: "karaoke : couleur hex du mot actif." },
               glow: { type: "object", description: "Effet NÉON : cœur clair (color de la caption) + halo saturé autour. Style pivot omniprésent en short-form.", properties: { color: { type: "string", description: "Couleur hex du halo néon." }, intensity: { type: "number", description: "0.2-3 (défaut 1) : taille/densité du halo." } } },
               spans: {
@@ -365,21 +365,82 @@ function formatVoiceLines(
   return lines;
 }
 
-/** NETTOYAGE DU RUSH — blancs / silences morts détectés sur l'ÉNERGIE du signal
- *  audio (VAD réel), PAS sur le transcript : les intervalles Whisper sont des
- *  plages englobantes qui masquent les silences internes (7 blancs sur un rush
- *  test → 1 seul visible via le transcript). Seuil ADAPTATIF (plancher de bruit
- *  du fichier + marge), fusion des runs contigus, minimum 0,5 s (en dessous =
- *  respiration, on garde), bords rognés (~0,12 s) pour ne pas manger les attaques
- *  de syllabes. Repli sur les trous entre phrases si la courbe d'énergie manque. */
+type CleanWord = { startSec: number; endSec: number; text: string };
+type CleanSilence = { start: number; end: number };
+
+/** BUG A — l'ASR étire les fins de mots sur le silence qui les suit (« de » à
+ *  560 ms). On resserre chaque `endSec` sur la fin acoustique réelle : si une
+ *  plage de silence (VAD ~23 ms) DÉMARRE dans le mot, le mot s'arrête là. */
+function tightenWords(
+  words: CleanWord[] | null | undefined,
+  silences: CleanSilence[] | null | undefined,
+): CleanWord[] {
+  const ws = words ?? [];
+  const sil = silences ?? [];
+  if (!ws.length || !sil.length) return ws;
+  return ws.map((w) => {
+    const cut = sil.find((s) => s.start > w.startSec + 0.06 && s.start < w.endSec - 0.02);
+    return cut ? { ...w, endSec: Math.round(Math.max(w.startSec + 0.06, cut.start) * 1000) / 1000 } : w;
+  });
+}
+
+/** NETTOYAGE DU RUSH — blancs & micro-pauses. Source de vérité : les plages de
+ *  SILENCE précises (VAD RMS ~23 ms, analysis.audio.silences). BUG B : chaque
+ *  frontière est SNAPPÉE aux mots (resserrés) — un blanc n'empiète jamais sur un
+ *  mot. BUG C : deux catégories, car elles ne se traitent pas pareil —
+ *  ✂️ BLANCS (≥ 0,5 s) → sauter ENTRE deux segments ; ⏱ MICRO-PAUSES (0,15-0,5 s)
+ *  → SUBDIVISER le segment (2 segments contigus, cut sec) et recoller.
+ *  Replis (anciennes analyses) : courbe d'énergie 0,25 s, puis trous du transcript. */
 function formatSilenceLines(
   transcript: { phrases: { startSec: number; endSec: number; text: string }[]; fullText: string } | null | undefined,
   durationSec: number | null | undefined,
   energy?: { t: number; level: number }[] | null,
+  silences?: CleanSilence[] | null,
+  words?: CleanWord[] | null,
 ): string[] {
-  const MIN_GAP = 0.5;   // s : durée minimale d'un blanc signalé
-  const EDGE_TRIM = 0.12; // s : rognage des bords (protège les attaques de syllabes)
+  const MIN_GAP = 0.5;    // s : seuil BLANC (inter-phrases)
+  const MIN_MICRO = 0.15; // s : seuil micro-pause (en dessous = respiration, on garde)
+  const EDGE_TRIM = 0.12; // s : rognage des bords (voie énergie uniquement)
   let gaps: { start: number; end: number }[] = [];
+
+  const sil = (silences ?? []).filter((s) => s && s.end - s.start >= MIN_MICRO);
+  if (sil.length) {
+    // ── Voie 1 : silences précis (~23 ms) + snap aux mots ──
+    gaps = sil.map((s) => ({ start: s.start, end: s.end }));
+    const ws = (words ?? []).slice().sort((a, b) => a.startSec - b.startSec);
+    if (ws.length) {
+      gaps = gaps.map((g) => {
+        let s = g.start, e = g.end;
+        for (const w of ws) {
+          if (w.startSec < s && w.endSec > s) s = w.endSec;          // mot chevauche le début
+          if (w.startSec < e && w.endSec > e) e = w.startSec;        // mot chevauche la fin
+          if (w.startSec >= s && w.endSec <= e) e = w.startSec;      // mot DANS le blanc (ASR fait foi)
+        }
+        return { start: s, end: e };
+      });
+    }
+    gaps = gaps.filter((g) => g.end - g.start >= MIN_MICRO);
+    const blanks = gaps.filter((g) => g.end - g.start >= MIN_GAP);
+    const micros = gaps.filter((g) => g.end - g.start < MIN_GAP);
+    const out: string[] = [];
+    if (blanks.length) {
+      const total = blanks.reduce((s, g) => s + (g.end - g.start), 0);
+      out.push(
+        `  · ✂️ BLANCS à couper (${blanks.length} · ~${total.toFixed(1)}s au total) — EXCLUS-les des segments[] : garde chaque plage de PAROLE dans un segment séparé et saute ces trous. Coupe aux frontières ci-dessous (= silence) → coutures nettes :`,
+        ...blanks.slice(0, 30).map((g) => `    [${g.start.toFixed(2)}–${g.end.toFixed(2)}s] blanc ${(g.end - g.start).toFixed(1)}s`),
+        ...(blanks.length > 30 ? [`    … (${blanks.length - 30} blanc(s) de plus)`] : []),
+      );
+    }
+    if (micros.length) {
+      const total = micros.reduce((s, g) => s + (g.end - g.start), 0);
+      out.push(
+        `  · ⏱ MICRO-PAUSES à resserrer (${micros.length} · ~${total.toFixed(1)}s) — pauses INTRA-phrase (0,15-0,5 s) : ne saute pas, SUBDIVISE le segment en 2 segments contigus du même fichier (fin du 1er = début de la pause, début du 2e = fin de la pause), cut sec sans transition → raccord invisible, débit punchy :`,
+        ...micros.slice(0, 30).map((g) => `    [${g.start.toFixed(2)}–${g.end.toFixed(2)}s] pause ${(g.end - g.start).toFixed(2)}s`),
+        ...(micros.length > 30 ? [`    … (${micros.length - 30} micro-pause(s) de plus)`] : []),
+      );
+    }
+    return out;
+  }
 
   const e = (energy ?? []).filter((p) => p && Number.isFinite(p.t) && Number.isFinite(p.level));
   if (e.length >= 8) {
@@ -471,33 +532,53 @@ function formatRetakeLines(
     arr.push(i);
     seen.set(key, arr);
   }
-  // Candidats : [début 1re occ → début dernière occ] pour chaque n-gramme répété.
+  // Candidats : pour chaque n-gramme, on CHAÎNE les occurrences successives tant
+  // que l'écart entre deux occurrences consécutives reste < WINDOW (cascades :
+  // 5 tentatives « ou que vos… » = 1 chaîne, pas juste la 1re paire). Plage
+  // candidate = [début 1re occ → début DERNIÈRE occ de la chaîne].
   const cands: { start: number; end: number; sample: string }[] = [];
   for (const [, idxs] of seen) {
     if (idxs.length < 2) continue;
-    const first = idxs[0], last = idxs[idxs.length - 1];
-    if (first + N > last) continue; // chevauchement direct (mots contigus) → pas une reprise
-    const span = ws[last].startSec - ws[first].startSec;
-    if (span < MIN_SPAN || span > WINDOW) continue;
-    cands.push({
-      start: ws[first].startSec,
-      end: ws[last].startSec,
-      sample: ws.slice(first, Math.min(first + 6, ws.length)).map((w) => w.text).join(" "),
-    });
+    let chain: number[] = [];
+    const flush = () => {
+      if (chain.length >= 2) {
+        const first = chain[0], last = chain[chain.length - 1];
+        // chevauchement direct (mots contigus, ex. « très très ») → pas une reprise
+        if (first + N <= last) {
+          const span = ws[last].startSec - ws[first].startSec;
+          if (span >= MIN_SPAN) {
+            cands.push({
+              start: ws[first].startSec,
+              end: ws[last].startSec,
+              sample: ws.slice(first, Math.min(first + 6, ws.length)).map((w) => w.text).join(" "),
+            });
+          }
+        }
+      }
+      chain = [];
+    };
+    for (const i of idxs) {
+      if (chain.length && ws[i].startSec - ws[chain[chain.length - 1]].startSec > WINDOW) flush();
+      chain.push(i);
+    }
+    flush();
   }
   if (!cands.length) return [];
-  // Fusion des n-grammes d'une MÊME reprise. La fin du cluster = le MIN des fins :
-  // chaque fin est « début de la dernière occurrence de SON n-gramme », et le plus
-  // petit = le début de la bonne prise. Prendre le max mangerait le début de la
-  // bonne prise (n-grammes plus profonds dans la phrase → fins plus tardives).
+  // Fusion des n-grammes d'une MÊME zone de reprises. La fin du cluster = la fin
+  // du candidat ANCRE (celui qui démarre le plus tôt = le début de phrase répété,
+  // ex. « ou que vos ») : sa dernière occurrence EST le début de la bonne prise.
+  // Les n-grammes plus profonds dans la phrase (fins plus tardives) étendent la
+  // zone de recouvrement (spanEnd) mais pas la coupe — sinon on mangerait le
+  // début de la bonne prise.
   cands.sort((a, b) => a.start - b.start);
-  const merged: { start: number; end: number; maxEnd: number; sample: string }[] = [];
+  const merged: { start: number; end: number; spanEnd: number; sample: string }[] = [];
   for (const c of cands) {
     const lastM = merged[merged.length - 1];
-    if (lastM && c.start <= lastM.maxEnd + 0.3) {
-      lastM.end = Math.min(lastM.end, c.end);
-      lastM.maxEnd = Math.max(lastM.maxEnd, c.end);
-    } else merged.push({ start: c.start, end: c.end, maxEnd: c.end, sample: c.sample });
+    if (lastM && c.start <= lastM.spanEnd + 0.3) {
+      lastM.spanEnd = Math.max(lastM.spanEnd, c.end);
+      // co-ancre (démarre quasi au même mot que l'ancre) → peut étendre la coupe
+      if (c.start <= lastM.start + 0.15) lastM.end = Math.max(lastM.end, c.end);
+    } else merged.push({ start: c.start, end: c.end, spanEnd: c.end, sample: c.sample });
   }
   const total = merged.reduce((s, c) => s + (c.end - c.start), 0);
   return [
@@ -798,9 +879,13 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       if (a) for (const l of formatAudioLines(a)) content.push({ type: "text", text: l });
       else content.push({ type: "text", text: "(analyse audio indisponible)" });
       for (const l of formatVoiceLines(m.analysis?.transcript)) content.push({ type: "text", text: l });
-      for (const l of formatWordLines(m.analysis?.transcript?.words)) content.push({ type: "text", text: l });
-      for (const l of formatSilenceLines(m.analysis?.transcript, a?.durationSec, a?.energy)) content.push({ type: "text", text: l });
-      for (const l of formatRetakeLines(m.analysis?.transcript?.words)) content.push({ type: "text", text: l });
+      {
+        // Mots RESSERRÉS sur la fin acoustique (Bug A) → mots, blancs et reprises cohérents.
+        const tw = tightenWords(m.analysis?.transcript?.words, a?.silences);
+        for (const l of formatWordLines(tw)) content.push({ type: "text", text: l });
+        for (const l of formatSilenceLines(m.analysis?.transcript, a?.durationSec, a?.energy, a?.silences, tw)) content.push({ type: "text", text: l });
+        for (const l of formatRetakeLines(tw)) content.push({ type: "text", text: l });
+      }
       return { content };
     }
     const kfs = await materialKeyframes(userId, project.id, m.storedName, 5);
@@ -809,9 +894,13 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     // Son du rush (si présent) : mêmes timecodes exploitables que pour l'audio.
     if (m.analysis?.audio) for (const l of formatAudioLines(m.analysis.audio)) content.push({ type: "text", text: l });
     for (const l of formatVoiceLines(m.analysis?.transcript)) content.push({ type: "text", text: l });
-    for (const l of formatWordLines(m.analysis?.transcript?.words)) content.push({ type: "text", text: l });
-    for (const l of formatSilenceLines(m.analysis?.transcript, m.analysis?.durationSec, m.analysis?.audio?.energy)) content.push({ type: "text", text: l });
-    for (const l of formatRetakeLines(m.analysis?.transcript?.words)) content.push({ type: "text", text: l });
+    {
+      // Mots RESSERRÉS sur la fin acoustique (Bug A) → mots, blancs et reprises cohérents.
+      const tw = tightenWords(m.analysis?.transcript?.words, m.analysis?.audio?.silences);
+      for (const l of formatWordLines(tw)) content.push({ type: "text", text: l });
+      for (const l of formatSilenceLines(m.analysis?.transcript, m.analysis?.durationSec, m.analysis?.audio?.energy, m.analysis?.audio?.silences, tw)) content.push({ type: "text", text: l });
+      for (const l of formatRetakeLines(tw)) content.push({ type: "text", text: l });
+    }
     for (const kf of kfs) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }
     return { content };
   }

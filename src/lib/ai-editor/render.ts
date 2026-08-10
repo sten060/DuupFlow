@@ -184,7 +184,7 @@ export type EditCaption = {
   // ── Animation (chantier 3) ──
   animation?: "none" | "fade" | "pop" | "slideUp" | "typewriter" | "wordByWord" | "karaoke";
   animationDuration?: number;                      // s (défaut ~0.35)
-  words?: { text: string; start: number; end: number }[]; // wordByWord/karaoke : timing par mot
+  words?: { text: string; start: number; end: number; color?: string }[]; // wordByWord/karaoke : timing par mot (+ couleur STATIQUE du mot — mot-clé en relief)
   highlightColor?: string;                         // karaoké : couleur du mot actif
   glow?: { color: string; intensity: number };     // effet NÉON (halo saturé autour du texte)
   // ── Captions « designées » (style TikTok) : chaque SPAN = une portion du texte
@@ -1420,15 +1420,26 @@ export async function renderVariant(
       last = out;
     };
     // Découpe le texte en mots avec timing (fournis, sinon répartis sur [st,en]).
-    const wordTiming = (c: EditCaption, st: number, en: number): { text: string; start: number; end: number }[] => {
+    // Chaque mot PORTE son style éventuel (color depuis words[], color/font/italic/
+    // weight depuis les spans) → les anims par mot composent avec les captions designées.
+    type WordTok = { text: string; start: number; end: number; color?: string; font?: CaptionFont; italic?: boolean; weight?: number };
+    const wordTiming = (c: EditCaption, st: number, en: number): WordTok[] => {
       if (Array.isArray(c.words) && c.words.length && c.words.every((w) => w && typeof w.text === "string")) {
-        return c.words.slice(0, 16).map((w) => ({ text: w.text, start: num(w.start, st), end: num(w.end, en) }));
+        return c.words.slice(0, 16).map((w) => ({ text: w.text, start: num(w.start, st), end: num(w.end, en), color: typeof w.color === "string" ? w.color : undefined }));
       }
-      const plain = c.text?.trim() ? c.text : (c.spans ?? []).map((s) => s?.text ?? "").join(" ");
-      const ws = plain.trim().split(/\s+/).filter(Boolean).slice(0, 16);
+      // Tokens depuis text OU spans (chaque token hérite du style de son span).
+      const toks: Omit<WordTok, "start" | "end">[] = c.text?.trim()
+        ? c.text.trim().split(/\s+/).filter(Boolean).map((t) => ({ text: t }))
+        : (c.spans ?? []).flatMap((s) =>
+            (s?.text ?? "").trim().split(/\s+/).filter(Boolean).map((t) => ({ text: t, color: s.color, font: s.font, italic: s.italic, weight: s.weight })));
+      const ws = toks.slice(0, 16);
       const span = Math.max(0.2, en - st) / Math.max(1, ws.length);
-      return ws.map((t, i) => ({ text: t, start: st + i * span, end: st + (i + 1) * span }));
+      return ws.map((t, i) => ({ ...t, start: st + i * span, end: st + (i + 1) * span }));
     };
+    // Style par mot présent ? → l'anim rend via `spans` (couleur/police par mot).
+    const wordsStyled = (wt: WordTok[]): boolean => wt.some((w) => w.color || w.font || w.italic || w.weight != null);
+    const toSpans = (wt: WordTok[]): NonNullable<EditCaption["spans"]> =>
+      wt.map((w) => ({ text: w.text, color: w.color, font: w.font, italic: w.italic, weight: w.weight }));
     try {
       for (let k = 0; k < caps.length; k++) {
         const c = caps[k];
@@ -1448,9 +1459,17 @@ export async function renderVariant(
 
         if (anim === "wordByWord") {
           const wt = wordTiming(c, st, en);
+          const styled = wordsStyled(wt);
           for (let wi = 0; wi < wt.length; wi++) {
             const png = path.join(dir, `cap${k}_w${wi}.png`);
-            await captionPng({ ...c, text: wt.slice(0, wi + 1).map((w) => w.text).join(" ") }, W, H, png, es);
+            const cum = wt.slice(0, wi + 1);
+            // styled → rendu par spans CUMULATIFS (couleur/police par mot conservées) ;
+            // sinon chemin texte inchangé. Dans les deux cas les spans du plan sont
+            // remplacés (des spans statiques figeraient le texte complet à chaque frame).
+            await captionPng(
+              { ...c, text: cum.map((w) => w.text).join(" "), spans: styled ? toSpans(cum) : undefined },
+              W, H, png, es,
+            );
             inputs.push("-i", png);
             const isLast = wi === wt.length - 1;
             // 1er mot dès le DÉBUT de la caption (avant : caché jusqu'à son timecode
@@ -1462,12 +1481,15 @@ export async function renderVariant(
         } else if (anim === "karaoke") {
           const wt = wordTiming(c, st, en);
           const hlC = hex(c.highlightColor, "#ffd400");
+          // styled → base ET calques de surlignage rendus depuis les MÊMES spans
+          // (mots colorés statiques + mot actif surligné : les indices s'alignent).
+          const ck: EditCaption = wordsStyled(wt) ? { ...c, spans: toSpans(wt) } : c;
           const base = path.join(dir, `cap${k}_base.png`);
-          await captionPng(c, W, H, base, es);
+          await captionPng(ck, W, H, base, es);
           inputs.push("-i", base); overlay(capIn++, st, en);          // texte complet, tout le temps
           for (let wi = 0; wi < wt.length; wi++) {
             const png = path.join(dir, `cap${k}_hl${wi}.png`);
-            await captionPng(c, W, H, png, es, wi, hlC);               // mot wi surligné
+            await captionPng(ck, W, H, png, es, wi, hlC);              // mot wi surligné
             inputs.push("-i", png); overlay(capIn++, wt[wi].start, wt[wi].end); // par-dessus, pendant le mot
           }
         } else {

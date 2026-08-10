@@ -37,6 +37,11 @@ export type AudioProfile = {
   drops: AudioDrop[];            // RUPTURES d'énergie (≠ beats) : buildup/drop/silence/hit
   durationSec: number;           // durée de la piste
   type: "music" | "voice+music" | "speech" | "unknown";
+  // Plages de SILENCE précises (VAD RMS ~23 ms, seuil adaptatif au plancher de
+  // bruit du fichier, runs ≥ 0,15 s). Source de vérité du nettoyage de rush :
+  // blancs/micro-pauses, resserrage des fins de mots ASR (qui s'étirent sur le
+  // silence), snap des frontières de coupe. Absent sur les anciennes analyses.
+  silences?: { start: number; end: number }[];
 };
 
 const GRAY = 48; // résolution de comparaison de mouvement
@@ -168,6 +173,33 @@ export async function analyzeAudioBeats(videoPath: string, durationSec: number, 
   }
   const perSec = sr / hop;
 
+  // ── SILENCES précis (VAD RMS ~23 ms) ──────────────────────────────────────
+  // Seuil ADAPTATIF : plancher de bruit (p10 des trames) ×2,5 + marge, borné par
+  // un plafond relatif au pic (p95×0,08) pour ne jamais avaler la parole douce.
+  // Runs contigus sous le seuil, ≥ 0,15 s (en dessous = respiration/attaque),
+  // bords rognés de 0,05 s pour protéger les attaques de syllabes.
+  const sortedEnv = Float32Array.from(env).sort();
+  const envP10 = sortedEnv[Math.floor(sortedEnv.length * 0.10)];
+  const envP95 = sortedEnv[Math.floor(sortedEnv.length * 0.95)];
+  const silThr = Math.min(Math.max(envP10 * 2.5 + 0.002, envP95 * 0.02), Math.max(0.004, envP95 * 0.08));
+  const SIL_MIN = 0.15, SIL_TRIM = 0.05;
+  const silences: { start: number; end: number }[] = [];
+  let silFrom = -1;
+  for (let i = 0; i <= frames; i++) {
+    const quiet = i < frames && env[i] <= silThr;
+    if (quiet && silFrom < 0) silFrom = i;
+    if (!quiet && silFrom >= 0) {
+      const s0 = silFrom / perSec, s1 = i / perSec;
+      if (s1 - s0 >= SIL_MIN) {
+        silences.push({
+          start: Math.round((s0 + (s0 > 0 ? SIL_TRIM : 0)) * 1000) / 1000,
+          end: Math.round((s1 - (i < frames ? SIL_TRIM : 0)) * 1000) / 1000,
+        });
+      }
+      silFrom = -1;
+    }
+  }
+
   // Courbe d'énergie par 0.25 s, niveau normalisé 0-1 (relatif au pic).
   const win = Math.max(1, Math.round(0.25 * perSec));
   const rawE: { t: number; e: number }[] = [];
@@ -243,5 +275,5 @@ export async function analyzeAudioBeats(videoPath: string, durationSec: number, 
 
   const rhythmic = beats.length > Math.max(4, durationSec * 0.7);
   const type: AudioProfile["type"] = hasTranscript ? (rhythmic ? "voice+music" : "speech") : beats.length ? "music" : "unknown";
-  return { bpm, beats: beats.slice(0, 240), energy, drops: drops.slice(0, 120), durationSec: durSec, type };
+  return { bpm, beats: beats.slice(0, 240), energy, drops: drops.slice(0, 120), durationSec: durSec, type, silences: silences.slice(0, 300) };
 }
