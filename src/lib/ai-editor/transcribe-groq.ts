@@ -41,6 +41,15 @@ export async function transcribeViaGroq(videoPath: string): Promise<Transcript |
     form.append("file", new Blob([new Uint8Array(buf)], { type: "audio/mpeg" }), "audio.mp3");
     form.append("model", GROQ_MODEL);
     form.append("response_format", "verbose_json"); // → segments horodatés
+    // Timestamps PAR MOT (word-level) — indispensables pour les captions
+    // wordByWord/karaoke synchro et la détection des reprises. L'endpoint
+    // OpenAI-compatible exige la clé répétée `timestamp_granularities[]`.
+    form.append("timestamp_granularities[]", "word");
+    form.append("timestamp_granularities[]", "segment");
+    // Amorce VERBATIM : Whisper lisse les disfluences (euh, faux départs,
+    // répétitions) — un prompt qui en CONTIENT le pousse à les garder.
+    // Atténuation partielle (le lissage reste intrinsèque au modèle).
+    form.append("prompt", "Euh, donc en fait je... je disais que, euh, on recommence. Umm, so I... I was saying that, uh, let's start over.");
     form.append("temperature", "0");
 
     const res = await fetch(GROQ_URL, {
@@ -53,7 +62,11 @@ export async function transcribeViaGroq(videoPath: string): Promise<Transcript |
       console.warn("[ai-editor] Groq transcription HTTP", res.status, (await res.text().catch(() => "")).slice(0, 200));
       return null;
     }
-    const json = (await res.json()) as { text?: string; segments?: { start: number; end: number; text: string }[] };
+    const json = (await res.json()) as {
+      text?: string;
+      segments?: { start: number; end: number; text: string }[];
+      words?: { word: string; start: number; end: number }[];
+    };
     const segs = json.segments ?? [];
     const phrases = segs.length
       ? segs.map((s) => ({ startSec: s.start, endSec: s.end, text: (s.text || "").trim() })).filter((p) => p.text)
@@ -61,9 +74,11 @@ export async function transcribeViaGroq(videoPath: string): Promise<Transcript |
       ? [{ startSec: 0, endSec: 0, text: json.text.trim() }]
       : [];
     if (!phrases.length) return null;
-    // words : non fournis par ce format — laissés vides (les phrases suffisent
-    // pour hook/contexte ; les captions mot-à-mot du studio gardent le local).
-    return { phrases, words: [] };
+    // Mots horodatés (timestamp_granularities[] "word") → captions synchro + reprises.
+    const words = (json.words ?? [])
+      .map((w) => ({ startSec: w.start, endSec: w.end, text: (w.word || "").trim() }))
+      .filter((w) => w.text.length > 0 && w.endSec > w.startSec);
+    return { phrases, words };
   } catch (e) {
     console.warn("[ai-editor] Groq transcription échouée:", (e as Error)?.message);
     return null;

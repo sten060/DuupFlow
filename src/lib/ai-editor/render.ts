@@ -667,7 +667,9 @@ async function extractKeyframes(videoPath: string, durationSec: number, dir: str
     // -ss APRÈS -i = seek précis. scale 360 + q6 = images légères (~10 Ko) pour ne
     // pas dépasser le budget de réponse du client MCP (sinon il vide les blocs image).
     const { code, stderr } = await runFFmpeg(
-      ["-hide_banner", "-loglevel", "error", "-i", videoPath, "-ss", t.toFixed(2), "-frames:v", "1", "-vf", "scale=360:-2", "-q:v", "6", "-y", p],
+      // format=yuv420p : les sources 10-bit/HDR (iPhone HLG…) sortent du scale en
+      // yuv420p10le que mjpeg refuse → conversion 8-bit explicite avant l'encodeur.
+      ["-hide_banner", "-loglevel", "error", "-i", videoPath, "-ss", t.toFixed(2), "-frames:v", "1", "-vf", "scale=360:-2,format=yuv420p", "-q:v", "6", "-y", p],
       20_000,
     );
     if (code !== 0) { console.warn(`[ai-editor/keyframes] ffmpeg échec t=${t.toFixed(2)} code=${code}: ${stderr.slice(-160)}`); continue; }
@@ -993,7 +995,10 @@ async function timeEffectClip(
   // non entier (ex. 1.12 → 30/1.12 fps fractionnaire) laisse un flux à cadence
   // variable et l'encodeur casse (« Error opening encoder … incorrect
   // parameters such as bit_rate, rate, width or height »). fps=CFR avant encode.
-  vf.push(`[${vL}]fps=${fps},format=yuv420p[vout]`);
+  // + GARDE DE PARITÉ : ce clip est encodé à la résolution SOURCE — une source aux
+  // dimensions impaires (ex. crop téléphone 1215×2160) fait refuser libx264 en
+  // yuv420p (chroma 4:2:0 = dimensions paires obligatoires). trunc(x/2)*2 = filet.
+  vf.push(`[${vL}]fps=${fps},scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p[vout]`);
   if (hasAudio) af.push(`[${aL}]aresample=44100[aout]`);
 
   const out = path.join(dir, `timed_${idx}.mp4`);
@@ -1091,7 +1096,10 @@ async function compositeClip(
     const eIn = clamp(num(o.enterDuration, 0.4), 0.05, 3);
     const eOut = clamp(num(o.exitDuration, 0.4), 0.05, 3);
     const enterEnd = st + eIn;
-    const exitStart = Math.max(st + 0.01, en - eOut);
+    // La sortie ne démarre JAMAIS avant la fin de l'entrée (même bug que les
+    // captions pop : sur une fenêtre courte, les deux fondus se chevauchaient
+    // et l'alpha n'atteignait jamais 1 → incrustation translucide).
+    const exitStart = Math.max(enterEnd + 0.02, en - eOut);
     const pe = easeExpr(`clip((t-${st.toFixed(2)})/${eIn.toFixed(2)},0,1)`, eas);
     const px = easeExpr(`clip((t-${exitStart.toFixed(2)})/${eOut.toFixed(2)},0,1)`, eas);
     // Position d'où l'on ENTRE (à p=0) → arrive à (xp,yp) à p=1.
@@ -1470,12 +1478,21 @@ export async function renderVariant(
           inputs.push("-loop", "1", "-t", vidDur.toFixed(3), "-i", png);
           const inIdx = capIn++;
           const capf = `capf${k}`;
-          if (anim === "fade") {
-            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${ad.toFixed(2)}:alpha=1,fade=t=out:st=${(en - ad).toFixed(2)}:d=${ad.toFixed(2)}:alpha=1[${capf}]`);
-            overlay(capf, st, en);
-          } else if (anim === "pop") {
-            const pd = Math.min(ad, 0.18);
-            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${pd.toFixed(2)}:alpha=1,fade=t=out:st=${(en - ad).toFixed(2)}:d=${ad.toFixed(2)}:alpha=1[${capf}]`);
+          if (anim === "fade" || anim === "pop") {
+            // Entrée : pop = rapide (≤0.18s), fade = ad. Sortie : NE DOIT JAMAIS
+            // commencer avant la fin de l'entrée — sur une caption courte
+            // (en-st < ad), fade-out st=en-ad tombait AVANT le fade-in → l'alpha
+            // n'atteignait jamais 1 (texte gris translucide, non déterministe
+            // selon la durée de chaque caption). On borne : la sortie démarre
+            // après l'entrée, sa durée se comprime, et s'il n'y a pas la place,
+            // pas de fondu de sortie du tout (l'overlay coupe net à `en`).
+            const inD = anim === "pop" ? Math.min(ad, 0.18) : ad;
+            const inEnd = st + inD;
+            const outD = Math.min(ad, Math.max(0, en - inEnd - 0.04));
+            const outPart = outD >= 0.05
+              ? `,fade=t=out:st=${Math.max(inEnd + 0.02, en - outD).toFixed(2)}:d=${outD.toFixed(2)}:alpha=1`
+              : "";
+            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${inD.toFixed(2)}:alpha=1${outPart}[${capf}]`);
             overlay(capf, st, en);
           } else if (anim === "typewriter") {
             // Révélation gauche→droite : on masque l'alpha des pixels à droite du

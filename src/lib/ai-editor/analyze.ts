@@ -20,6 +20,7 @@ import { runFFmpeg } from "@/lib/studio/pipeline";
 import { transcribeVideo } from "@/lib/studio/transcribe";
 import { sceneScores } from "@/lib/studio/analysis";
 import { transcribeViaGroq, isGroqAvailable } from "./transcribe-groq";
+import { transcribeViaDeepgram, isDeepgramAvailable } from "./transcribe-deepgram";
 import { analyzeShots, analyzeColor, analyzeAudioBeats } from "./ref-profile";
 import type { Shot, ColorProfile, AudioProfile } from "./ref-profile";
 import { analyzeReferenceWithGemini, isGeminiAvailable, type CutStrip } from "./gemini";
@@ -158,11 +159,12 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
       ])
     : Promise.resolve(null);
 
-  // Transcript — Groq Whisper d'abord (prod), repli sur whisper LOCAL (dev).
+  // Transcript — Deepgram (verbatim + mots) d'abord, repli Groq Whisper, puis LOCAL.
   let transcript: ReferenceAnalysis["transcript"] = null;
   let hookText: string | null = null;
   try {
-    let tr = isGroqAvailable() ? await transcribeViaGroq(videoPath) : null;
+    let tr = isDeepgramAvailable() ? await transcribeViaDeepgram(videoPath) : null;
+    if (!tr && isGroqAvailable()) tr = await transcribeViaGroq(videoPath);
     if (!tr) tr = await transcribeVideo(videoPath); // repli local
     if (tr && tr.phrases.length) {
       transcript = {
@@ -240,7 +242,13 @@ export type MaterialAnalysis = {
   hasAudio?: boolean;   // vidéo : a-t-elle une piste son (utile pour l'attacher)
   thumb: string | null; // 1 vignette JPEG (data URI) ; null pour l'audio
   sceneCuts?: number[]; // vidéo : timecodes de coupe (index pour découper le rush)
-  transcript?: { phrases: { startSec: number; endSec: number; text: string }[]; fullText: string } | null;
+  transcript?: {
+    phrases: { startSec: number; endSec: number; text: string }[];
+    fullText: string;
+    // Mots horodatés (word-level) : captions wordByWord/karaoke SYNCHRO + détection
+    // des reprises. Absent sur les anciennes analyses (re-upload pour l'obtenir).
+    words?: { startSec: number; endSec: number; text: string }[];
+  } | null;
   audio?: AudioProfile | null; // matière SONORE (audio OU vidéo avec son) : bpm/beats/energy/drops
 };
 
@@ -250,12 +258,15 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
   let transcript: MaterialAnalysis["transcript"] = null;
   if (meta.hasAudio) {
     try {
-      let tr = isGroqAvailable() ? await transcribeViaGroq(videoPath) : null;
+      let tr = isDeepgramAvailable() ? await transcribeViaDeepgram(videoPath) : null;
+      if (!tr && isGroqAvailable()) tr = await transcribeViaGroq(videoPath);
       if (!tr) tr = await transcribeVideo(videoPath);
       if (tr && tr.phrases.length) {
         transcript = {
           phrases: tr.phrases.map((p) => ({ startSec: p.startSec, endSec: p.endSec, text: p.text })),
           fullText: tr.phrases.map((p) => p.text).join(" ").trim(),
+          // Mots horodatés (si le provider les fournit) — captions synchro + reprises.
+          words: tr.words?.length ? tr.words.map((w) => ({ startSec: w.startSec, endSec: w.endSec, text: w.text })) : undefined,
         };
       }
     } catch { /* skip */ }
@@ -285,12 +296,14 @@ async function analyzeMaterialAudio(audioPath: string): Promise<MaterialAnalysis
   // Transcription (si voix) — best-effort ; sert aussi à typer music vs speech.
   let transcript: MaterialAnalysis["transcript"] = null;
   try {
-    let tr = isGroqAvailable() ? await transcribeViaGroq(audioPath) : null;
+    let tr = isDeepgramAvailable() ? await transcribeViaDeepgram(audioPath) : null;
+    if (!tr && isGroqAvailable()) tr = await transcribeViaGroq(audioPath);
     if (!tr) tr = await transcribeVideo(audioPath);
     if (tr && tr.phrases.length) {
       transcript = {
         phrases: tr.phrases.map((p) => ({ startSec: p.startSec, endSec: p.endSec, text: p.text })),
         fullText: tr.phrases.map((p) => p.text).join(" ").trim(),
+        words: tr.words?.length ? tr.words.map((w) => ({ startSec: w.startSec, endSec: w.endSec, text: w.text })) : undefined,
       };
     }
   } catch { /* skip */ }

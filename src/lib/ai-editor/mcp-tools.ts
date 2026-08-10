@@ -365,32 +365,145 @@ function formatVoiceLines(
   return lines;
 }
 
-/** NETTOYAGE DU RUSH — blancs / silences morts déduits des trous ENTRE les plages
- *  de parole (VAD). On ne signale que les trous ≥ MIN_GAP (en dessous = respiration
- *  normale, on garde). Ces plages sont à EXCLURE des segments[] : on garde la parole,
- *  on saute le vide. Couper aux frontières de silence = coutures audio propres. */
+/** NETTOYAGE DU RUSH — blancs / silences morts détectés sur l'ÉNERGIE du signal
+ *  audio (VAD réel), PAS sur le transcript : les intervalles Whisper sont des
+ *  plages englobantes qui masquent les silences internes (7 blancs sur un rush
+ *  test → 1 seul visible via le transcript). Seuil ADAPTATIF (plancher de bruit
+ *  du fichier + marge), fusion des runs contigus, minimum 0,5 s (en dessous =
+ *  respiration, on garde), bords rognés (~0,12 s) pour ne pas manger les attaques
+ *  de syllabes. Repli sur les trous entre phrases si la courbe d'énergie manque. */
 function formatSilenceLines(
   transcript: { phrases: { startSec: number; endSec: number; text: string }[]; fullText: string } | null | undefined,
   durationSec: number | null | undefined,
+  energy?: { t: number; level: number }[] | null,
 ): string[] {
-  const phrases = (transcript?.phrases ?? []).filter((p) => p && p.endSec > p.startSec);
-  if (phrases.length < 1) return [];
-  const MIN_GAP = 0.6; // s : seuil « blanc » — sous ce seuil c'est une respiration, on garde
-  const sorted = [...phrases].sort((a, b) => a.startSec - b.startSec);
-  const gaps: { start: number; end: number }[] = [];
-  if (sorted[0].startSec >= MIN_GAP) gaps.push({ start: 0, end: sorted[0].startSec }); // silence de tête
-  for (let i = 1; i < sorted.length; i++) {
-    const g = sorted[i].startSec - sorted[i - 1].endSec;
-    if (g >= MIN_GAP) gaps.push({ start: sorted[i - 1].endSec, end: sorted[i].startSec });
+  const MIN_GAP = 0.5;   // s : durée minimale d'un blanc signalé
+  const EDGE_TRIM = 0.12; // s : rognage des bords (protège les attaques de syllabes)
+  let gaps: { start: number; end: number }[] = [];
+
+  const e = (energy ?? []).filter((p) => p && Number.isFinite(p.t) && Number.isFinite(p.level));
+  if (e.length >= 8) {
+    // ── Voie principale : énergie du signal (résolution ~0,25 s) ──
+    const step = Math.max(0.05, e.length > 1 ? e[1].t - e[0].t : 0.25);
+    const lv = e.map((p) => p.level).sort((a, b) => a - b);
+    const p10 = lv[Math.floor(lv.length * 0.10)];
+    // Plancher de bruit ×2,5 + marge, borné [0.05, 0.25] : jamais une constante en dur.
+    const thr = Math.max(0.05, Math.min(0.25, p10 * 2.5 + 0.03));
+    let runStart = -1;
+    for (let i = 0; i <= e.length; i++) {
+      const silent = i < e.length && e[i].level <= thr;
+      if (silent && runStart < 0) runStart = e[i].t;
+      if (!silent && runStart >= 0) {
+        const runEnd = i < e.length ? e[i].t : e[e.length - 1].t + step;
+        if (runEnd - runStart >= MIN_GAP) gaps.push({ start: runStart + EDGE_TRIM, end: runEnd - EDGE_TRIM });
+        runStart = -1;
+      }
+    }
+    // Queue de fichier au-delà du dernier point d'énergie.
+    if (durationSec && e.length && durationSec - (e[e.length - 1].t + step) >= MIN_GAP) {
+      gaps.push({ start: e[e.length - 1].t + step, end: durationSec });
+    }
+  } else {
+    // ── Repli : trous entre les plages de parole du transcript ──
+    const phrases = (transcript?.phrases ?? []).filter((p) => p && p.endSec > p.startSec);
+    if (phrases.length < 1) return [];
+    const sorted = [...phrases].sort((a, b) => a.startSec - b.startSec);
+    if (sorted[0].startSec >= MIN_GAP) gaps.push({ start: 0, end: sorted[0].startSec });
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].startSec - sorted[i - 1].endSec >= MIN_GAP) gaps.push({ start: sorted[i - 1].endSec, end: sorted[i].startSec });
+    }
+    const last = sorted[sorted.length - 1].endSec;
+    if (durationSec && durationSec - last >= MIN_GAP) gaps.push({ start: last, end: durationSec });
   }
-  const last = sorted[sorted.length - 1].endSec;
-  if (durationSec && durationSec - last >= MIN_GAP) gaps.push({ start: last, end: durationSec }); // silence de fin
+
+  gaps = gaps.filter((g) => g.end - g.start >= MIN_GAP);
   if (!gaps.length) return [];
   const total = gaps.reduce((s, g) => s + (g.end - g.start), 0);
   return [
     `  · ✂️ BLANCS à couper (${gaps.length} · ~${total.toFixed(1)}s au total) — EXCLUS-les des segments[] : garde chaque plage de PAROLE dans un segment séparé et saute ces trous. Coupe aux frontières ci-dessous (= silence) → coutures nettes :`,
     ...gaps.slice(0, 30).map((g) => `    [${g.start.toFixed(2)}–${g.end.toFixed(2)}s] blanc ${(g.end - g.start).toFixed(1)}s`),
     ...(gaps.length > 30 ? [`    … (${gaps.length - 30} blanc(s) de plus)`] : []),
+  ];
+}
+
+/** MOTS horodatés (word-level) — exposés pour caler captions[].words à la syllabe
+ *  près (wordByWord/karaoke sans dérive) et pour vérifier les coupes. */
+function formatWordLines(
+  words: { startSec: number; endSec: number; text: string }[] | null | undefined,
+): string[] {
+  const ws = (words ?? []).filter((w) => w && w.text && w.endSec > w.startSec);
+  if (!ws.length) return [];
+  const shown = ws.slice(0, 250);
+  const perLine = 10;
+  const lines: string[] = [
+    `  · MOTS horodatés (${ws.length}) — passe-les TEL QUEL dans captions[].words ({text,start,end}) pour des sous-titres synchro SANS dérive :`,
+  ];
+  for (let i = 0; i < shown.length; i += perLine) {
+    lines.push(`    ${shown.slice(i, i + perLine).map((w) => `${w.text}[${w.startSec.toFixed(2)}–${w.endSec.toFixed(2)}]`).join(" ")}`);
+  }
+  if (ws.length > shown.length) lines.push(`    … (${ws.length - shown.length} mot(s) de plus)`);
+  return lines;
+}
+
+/** REPRISES (prises ratées) — n-grammes de mots répétés à courte distance :
+ *  le locuteur se rate puis répète la même phrase. On détecte les séquences de
+ *  ≥3 mots identiques (normalisés) répétées à <15 s d'intervalle → la plage
+ *  [début 1re occurrence, début DERNIÈRE occurrence] est à couper (la dernière
+ *  prise est presque toujours la bonne). Une énumération légitime (« ni A, ni B »)
+ *  ne matche pas : les 3 mots consécutifs diffèrent. Nécessite les mots
+ *  horodatés — sans eux (anciennes analyses), aucune détection. */
+function formatRetakeLines(
+  words: { startSec: number; endSec: number; text: string }[] | null | undefined,
+): string[] {
+  const ws = (words ?? []).filter((w) => w && w.text && w.endSec >= w.startSec);
+  if (ws.length < 8) return [];
+  const N = 3;            // taille du n-gramme
+  const WINDOW = 15;      // s : distance max entre les deux occurrences
+  const MIN_SPAN = 0.8;   // s : plage coupée minimale (évite le bruit)
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9']/g, "");
+  const toks = ws.map((w) => norm(w.text));
+  // Index des n-grammes → positions de départ.
+  const seen = new Map<string, number[]>();
+  for (let i = 0; i + N <= toks.length; i++) {
+    if (toks[i].length < 2) continue; // n-gramme ancré sur un vrai mot
+    const key = toks.slice(i, i + N).join(" ");
+    const arr = seen.get(key) ?? [];
+    arr.push(i);
+    seen.set(key, arr);
+  }
+  // Candidats : [début 1re occ → début dernière occ] pour chaque n-gramme répété.
+  const cands: { start: number; end: number; sample: string }[] = [];
+  for (const [, idxs] of seen) {
+    if (idxs.length < 2) continue;
+    const first = idxs[0], last = idxs[idxs.length - 1];
+    if (first + N > last) continue; // chevauchement direct (mots contigus) → pas une reprise
+    const span = ws[last].startSec - ws[first].startSec;
+    if (span < MIN_SPAN || span > WINDOW) continue;
+    cands.push({
+      start: ws[first].startSec,
+      end: ws[last].startSec,
+      sample: ws.slice(first, Math.min(first + 6, ws.length)).map((w) => w.text).join(" "),
+    });
+  }
+  if (!cands.length) return [];
+  // Fusion des n-grammes d'une MÊME reprise. La fin du cluster = le MIN des fins :
+  // chaque fin est « début de la dernière occurrence de SON n-gramme », et le plus
+  // petit = le début de la bonne prise. Prendre le max mangerait le début de la
+  // bonne prise (n-grammes plus profonds dans la phrase → fins plus tardives).
+  cands.sort((a, b) => a.start - b.start);
+  const merged: { start: number; end: number; maxEnd: number; sample: string }[] = [];
+  for (const c of cands) {
+    const lastM = merged[merged.length - 1];
+    if (lastM && c.start <= lastM.maxEnd + 0.3) {
+      lastM.end = Math.min(lastM.end, c.end);
+      lastM.maxEnd = Math.max(lastM.maxEnd, c.end);
+    } else merged.push({ start: c.start, end: c.end, maxEnd: c.end, sample: c.sample });
+  }
+  const total = merged.reduce((s, c) => s + (c.end - c.start), 0);
+  return [
+    `  · 🔁 REPRISES détectées (${merged.length} · ~${total.toFixed(1)}s) — le locuteur se rate puis répète : EXCLUS chaque plage des segments[] (tu gardes la DERNIÈRE prise, qui commence à la fin de la plage). Aligne tes coupes sur les blancs voisins, jamais en plein mot :`,
+    ...merged.slice(0, 12).map((c) => `    [${c.start.toFixed(2)}–${c.end.toFixed(2)}s] reprise de « ${c.sample} » → coupe cette plage`),
+    ...(merged.length > 12 ? [`    … (${merged.length - 12} reprise(s) de plus)`] : []),
   ];
 }
 
@@ -685,7 +798,9 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       if (a) for (const l of formatAudioLines(a)) content.push({ type: "text", text: l });
       else content.push({ type: "text", text: "(analyse audio indisponible)" });
       for (const l of formatVoiceLines(m.analysis?.transcript)) content.push({ type: "text", text: l });
-      for (const l of formatSilenceLines(m.analysis?.transcript, a?.durationSec)) content.push({ type: "text", text: l });
+      for (const l of formatWordLines(m.analysis?.transcript?.words)) content.push({ type: "text", text: l });
+      for (const l of formatSilenceLines(m.analysis?.transcript, a?.durationSec, a?.energy)) content.push({ type: "text", text: l });
+      for (const l of formatRetakeLines(m.analysis?.transcript?.words)) content.push({ type: "text", text: l });
       return { content };
     }
     const kfs = await materialKeyframes(userId, project.id, m.storedName, 5);
@@ -694,7 +809,9 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     // Son du rush (si présent) : mêmes timecodes exploitables que pour l'audio.
     if (m.analysis?.audio) for (const l of formatAudioLines(m.analysis.audio)) content.push({ type: "text", text: l });
     for (const l of formatVoiceLines(m.analysis?.transcript)) content.push({ type: "text", text: l });
-    for (const l of formatSilenceLines(m.analysis?.transcript, m.analysis?.durationSec)) content.push({ type: "text", text: l });
+    for (const l of formatWordLines(m.analysis?.transcript?.words)) content.push({ type: "text", text: l });
+    for (const l of formatSilenceLines(m.analysis?.transcript, m.analysis?.durationSec, m.analysis?.audio?.energy)) content.push({ type: "text", text: l });
+    for (const l of formatRetakeLines(m.analysis?.transcript?.words)) content.push({ type: "text", text: l });
     for (const kf of kfs) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }
     return { content };
   }
