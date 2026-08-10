@@ -97,7 +97,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isCheckout = normalized.startsWith("/checkout");
   // Les pages "Lunera" (thème clair) ont leur propre nav (pilule) + footer : pas de header global.
   const isLandingHome = normalized === "/";
-  const isLunera = isLandingHome || normalized.startsWith("/blog") || normalized.startsWith("/demo-request") || normalized.startsWith("/pricing") || normalized.startsWith("/login") || normalized.startsWith("/register") || normalized.startsWith("/onboarding") || normalized.startsWith("/partners");
+  const isLunera = isLandingHome || normalized.startsWith("/blog") || normalized.startsWith("/capcut-alternative") || normalized.startsWith("/submagic-alternative") || normalized.startsWith("/demo-request") || normalized.startsWith("/pricing") || normalized.startsWith("/login") || normalized.startsWith("/register") || normalized.startsWith("/onboarding") || normalized.startsWith("/partners");
   const showHeader = !isDashboard && !isAuthPage && !isAffiliatePage && !isOnboardingPage && !isStudioPage && !isCheckout && !isLunera;
 
   return (

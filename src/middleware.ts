@@ -17,6 +17,8 @@ const LOCALIZED_TOP_LEVEL = new Set([
   "partners",
   "demo",
   "blog",
+  "capcut-alternative",
+  "submagic-alternative",
   "legal",
   "login",
   "register",

@@ -15,10 +15,17 @@ const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthl
   { path: "/partners",      changeFrequency: "monthly", priority: 0.5 },
   { path: "/demo",          changeFrequency: "monthly", priority: 0.5 },
   { path: "/blog",          changeFrequency: "weekly",  priority: 0.7 },
+  { path: "/capcut-alternative", changeFrequency: "monthly", priority: 0.8 },
   { path: "/login",         changeFrequency: "yearly",  priority: 0.4 },
   { path: "/register",      changeFrequency: "yearly",  priority: 0.5 },
   { path: "/legal/terms",   changeFrequency: "yearly",  priority: 0.3 },
   { path: "/legal/privacy", changeFrequency: "yearly",  priority: 0.3 },
+];
+
+// EN-only top-level pages (no FR version, no hreflang). The /fr route 301s to
+// /en, so only the canonical /en URL is listed here.
+const EN_ONLY_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly" | "yearly"; priority: number }> = [
+  { path: "/submagic-alternative", changeFrequency: "monthly", priority: 0.8 },
 ];
 
 // FR-only articles. EN URL serves a stub linking to FR, so we only list FR
@@ -62,6 +69,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
   );
 
+  const enOnlyEntries: MetadataRoute.Sitemap = EN_ONLY_PATHS.map(({ path, changeFrequency, priority }) => ({
+    url: `${BASE_URL}/en${path}`,
+    lastModified: now,
+    changeFrequency,
+    priority,
+  }));
+
   const articleEntries: MetadataRoute.Sitemap = FR_ARTICLES.map((a) => ({
     url: `${BASE_URL}/fr/blog/${a.slug}`,
     lastModified: new Date(a.lastModified),
@@ -84,5 +98,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ]);
 
-  return [...localizedEntries, ...articleEntries, ...bilingualEntries];
+  return [...localizedEntries, ...enOnlyEntries, ...articleEntries, ...bilingualEntries];
 }

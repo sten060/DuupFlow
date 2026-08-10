@@ -191,7 +191,7 @@ export function Footer() {
             </div>
           </div>
           <FooterCol title={en ? "Product" : "Produit"} links={[[en ? "Features" : "Fonctionnalités", "/#features"], ["FAQ", "/#faq"], [en ? "Pricing" : "Tarifs", "/pricing"]]} />
-          <FooterCol title={en ? "Resources" : "Ressources"} links={[["Blog", "/blog"], ["Contact", "/demo-request"], [en ? "Partners" : "Partenaires", "/partners"], [en ? "Affiliate program" : "Programme d'affiliation", "https://duupflow.firstpromoter.com/signup"]]} />
+          <FooterCol title={en ? "Resources" : "Ressources"} links={[["Blog", "/blog"], [en ? "CapCut alternative" : "Alternative à CapCut", "/capcut-alternative"], [en ? "Submagic alternative" : "Alternative à Submagic", "/submagic-alternative"], ["Contact", "/demo-request"], [en ? "Partners" : "Partenaires", "/partners"], [en ? "Affiliate program" : "Programme d'affiliation", "https://duupflow.firstpromoter.com/signup"]]} />
           <div className="md:max-w-sm md:justify-self-end">
             <h4 className="text-sm font-semibold text-white">{en ? "Stay in the loop" : "Reste informé des nouveautés"}</h4>
             <p className="mt-2 text-sm text-white/70">{en ? "Reposting tips & product updates, no spam." : "Astuces reposting & mises à jour produit, sans spam."}</p>
