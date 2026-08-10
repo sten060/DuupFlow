@@ -50,6 +50,9 @@ export const TOOLS = [
       "Assemble UNE variante vidéo selon TON plan de montage. Contrôles : segments coupés ; captions stylables (contour/box, couleur, contour, taille, position x/y en %, alignement) ; images animées (zoomIn/zoomOut/panLeft/panRight + cadrage cover/contain/blurFill) ; colorimétrie globale (grade) ; fps ; couleur de fond. Le son des plans vidéo est CONSERVÉ. " +
       "IMPORTANT : cet outil te RENVOIE des keyframes du rendu + la durée réelle → REGARDE-LES pour vérifier cadrage/rythme/captions, et rappelle l'outil pour corriger. " +
       "SYNCHRO MUSIQUE : les timecodes mesurés sur la matière sonore (get_material → beats, drops, énergie) s'utilisent DIRECTEMENT — cale captions[].startSec et les transitions segments[].transition sur les beats/drops (ex. une transition PILE sur un drop, un caption qui apparaît sur un temps fort). " +
+      "FIDÉLITÉ MOTION & RYTHME : reproduis le MONTAGE de la réf, pas seulement son texte. get_reference te donne le rythme (nb de coupes · durée moyenne d'un plan) + par plan le mouvement (type+intensité → motion/motionIntensity/scale), la vitesse (speed), les freeze (freezeAt/freezeDuration) et la transition de chaque coupe (→ transition). Colle à la CADENCE : si la réf coupe ~toutes les 1,2 s, garde des plans courts et punchy ; ne laisse pas de plan mou de 6 s là où la réf en enchaîne cinq. Cale les zoomPunch/shakeAt/transitions percutantes sur les beats/drops de la musique. " +
+      "NETTOYAGE DU RUSH (le user envoie ses RUSHS BRUTS, pas une vidéo déjà montée — c'est à TOI de la rendre publiable) : get_material te donne la VOIX horodatée + les ✂️ BLANCS. Découpe le rush en PLUSIEURS segments[] du MÊME fichier (même materialId, [startSec,endSec] différents) qui GARDENT la parole et SAUTENT : les blancs/silences morts signalés, les répétitions et les prises ratées (mêmes phrases redites / faux départs, visibles dans le transcript → garde la meilleure prise). Coupe TOUJOURS aux frontières de silence (entre les phrases) pour une couture audio propre. " +
+      "LIGNE À NE PAS FRANCHIR : tu enlèves seulement le DÉCHET (blancs, hésitations, ratés, redites). Tu ne choisis JAMAIS « le propos », tu ne réordonnes pas, tu ne réécris pas, tu ne sélectionnes pas « le meilleur passage » : le contenu et l'ordre restent ceux du user. C'est SA prise, juste nettoyée. " +
       "Durées : segment libre (borné à la longueur du fichier pour une vidéo) ; défaut image = 2,5 s. Jusqu'à 40 segments, 30 captions. DURÉE TOTALE MAX = 90 s (cible short-form) : au-delà, le rendu est refusé — retire ou raccourcis des plans.",
     inputSchema: {
       type: "object",
@@ -192,13 +195,25 @@ export const TOOLS = [
                   required: ["t"],
                 },
               },
+              zoomPunch: {
+                type: "object",
+                description: "COUP DE ZOOM d'accroche sur un temps fort (l'effet short-form le plus utilisé, à la CapCut) — plus percutant qu'un shakeAt. Cale `at` sur un beat/drop de get_material.",
+                properties: {
+                  at: { type: "number", description: "Instant du punch, s relatives au plan (0-based)." },
+                  duration: { type: "number", description: "Durée du coup en s, 0.05-0.6 (défaut 0.2). Court = plus sec." },
+                  amount: { type: "number", description: "Facteur de zoom au pic, 1.05-2.5 (défaut 1.4). 1.2-1.6 = punch net ; >1.8 = très agressif." },
+                  direction: { type: "string", enum: ["in", "out"], description: "in (défaut) = zoom vers l'avant sur le beat ; out = le plan est zoomé et RECULE vers le cadre plein sur le beat." },
+                  blur: { type: "number", description: "0-1 : flou synchronisé sur le punch (renforce l'impact). Défaut 0." },
+                },
+                required: ["at"],
+              },
             },
             required: ["materialId"],
           },
         },
         captions: {
           type: "array",
-          description: "Textes incrustés (optionnel).",
+          description: "Textes incrustés (optionnel). Pour un rendu « designé » style TikTok — mot multicolore ou police mixte au sein d'une même ligne — utilise `spans` (voir ce champ) au lieu de `text`.",
           items: {
             type: "object",
             properties: {
@@ -235,6 +250,22 @@ export const TOOLS = [
               words: { type: "array", description: "Pour wordByWord/karaoke : timing par mot (sinon réparti automatiquement sur [startSec,endSec]). Utilise les timecodes de get_material (transcript de la piste audio) pour caler sur la voix.", items: { type: "object", properties: { text: { type: "string" }, start: { type: "number" }, end: { type: "number" } } } },
               highlightColor: { type: "string", description: "karaoke : couleur hex du mot actif." },
               glow: { type: "object", description: "Effet NÉON : cœur clair (color de la caption) + halo saturé autour. Style pivot omniprésent en short-form.", properties: { color: { type: "string", description: "Couleur hex du halo néon." }, intensity: { type: "number", description: "0.2-3 (défaut 1) : taille/densité du halo." } } },
+              spans: {
+                type: "array",
+                description:
+                  "Caption « designée » style TikTok : découpe le texte en PORTIONS qui ont chacune leur couleur et/ou leur police — mot multicolore (blanc/vert/jaune), un mot clé en script pendant que le reste est en gras, etc. QUAND tu fournis spans, il REMPLACE `text` : le texte affiché = la concaténation des `text` des spans (séparés par une espace, dans l'ordre). Chaque span hérite des réglages globaux de la caption (color, font, fontWeight, contour, ombre…) SAUF ce qu'il redéfinit. Mets les emojis dans leur propre span (leur couleur est ignorée : rendus en image). Compatible avec startSec/endSec, position, style, glow, textTransform. Ex. multicolore : [{text:\"TO THE\"},{text:\"LOWER\",color:\"#2ecc40\"},{text:\"LEVELS\",color:\"#ffdc00\"},{text:\"👏\"}] — ex. police mixte : [{text:\"think body\"},{text:\"Pilates\",font:\"script\",italic:true},{text:\"is\"}].",
+                items: {
+                  type: "object",
+                  properties: {
+                    text: { type: "string", description: "La portion de texte (un ou plusieurs mots)." },
+                    color: { type: "string", description: "Couleur hex de CETTE portion (sinon couleur globale de la caption)." },
+                    font: { type: "string", enum: ["sans", "rounded", "impact", "serif", "script", "display"], description: "Police de CETTE portion (sinon police globale). script = manuscrite, serif = Playfair élégant, display = Bungee." },
+                    italic: { type: "boolean", description: "Passe CETTE portion en italique." },
+                    weight: { type: "number", description: "Graisse 100-900 de CETTE portion (sinon graisse globale)." },
+                  },
+                  required: ["text"],
+                },
+              },
             },
             required: ["text", "startSec", "endSec"],
           },
@@ -260,7 +291,7 @@ export const TOOLS = [
   },
   {
     name: "get_material",
-    description: "Renvoie 4-6 KEYFRAMES d'UN fichier de matière précis (par son id). Appelle-le SEULEMENT sur les 2-3 rushes que tu comptes vraiment utiliser (voir où couper) — pas sur tout, pour ne pas saturer ton contexte. Image → renvoie l'image + ses DIMENSIONS source (avec alerte si < 1080p → risque de flou en plein cadre). Vidéo/audio → beats/drops + la VOIX HORODATÉE (intervalles de parole [start–end]) : cale tes captions dessus (sous-titres synchro) et repère où il y a du dialogue vs du silence.",
+    description: "Renvoie 4-6 KEYFRAMES d'UN fichier de matière précis (par son id). Appelle-le SEULEMENT sur les 2-3 rushes que tu comptes vraiment utiliser (voir où couper) — pas sur tout, pour ne pas saturer ton contexte. Image → renvoie l'image + ses DIMENSIONS source (avec alerte si < 1080p → risque de flou en plein cadre). Vidéo/audio → beats/drops + la VOIX HORODATÉE (intervalles de parole [start–end]) + les ✂️ BLANCS à couper : cale tes captions sur la voix (sous-titres synchro) ET sers-toi des blancs pour NETTOYER le rush (voir create_variant → NETTOYAGE DU RUSH : garder la parole, sauter blancs/ratés/redites).",
     inputSchema: {
       type: "object",
       properties: { materialId: { type: "string", description: "id d'un fichier (de list_material)." } },
@@ -332,6 +363,35 @@ function formatVoiceLines(
   ];
   if (phrases.length > shown.length) lines.push(`    … (${phrases.length - shown.length} segment(s) de plus)`);
   return lines;
+}
+
+/** NETTOYAGE DU RUSH — blancs / silences morts déduits des trous ENTRE les plages
+ *  de parole (VAD). On ne signale que les trous ≥ MIN_GAP (en dessous = respiration
+ *  normale, on garde). Ces plages sont à EXCLURE des segments[] : on garde la parole,
+ *  on saute le vide. Couper aux frontières de silence = coutures audio propres. */
+function formatSilenceLines(
+  transcript: { phrases: { startSec: number; endSec: number; text: string }[]; fullText: string } | null | undefined,
+  durationSec: number | null | undefined,
+): string[] {
+  const phrases = (transcript?.phrases ?? []).filter((p) => p && p.endSec > p.startSec);
+  if (phrases.length < 1) return [];
+  const MIN_GAP = 0.6; // s : seuil « blanc » — sous ce seuil c'est une respiration, on garde
+  const sorted = [...phrases].sort((a, b) => a.startSec - b.startSec);
+  const gaps: { start: number; end: number }[] = [];
+  if (sorted[0].startSec >= MIN_GAP) gaps.push({ start: 0, end: sorted[0].startSec }); // silence de tête
+  for (let i = 1; i < sorted.length; i++) {
+    const g = sorted[i].startSec - sorted[i - 1].endSec;
+    if (g >= MIN_GAP) gaps.push({ start: sorted[i - 1].endSec, end: sorted[i].startSec });
+  }
+  const last = sorted[sorted.length - 1].endSec;
+  if (durationSec && durationSec - last >= MIN_GAP) gaps.push({ start: last, end: durationSec }); // silence de fin
+  if (!gaps.length) return [];
+  const total = gaps.reduce((s, g) => s + (g.end - g.start), 0);
+  return [
+    `  · ✂️ BLANCS à couper (${gaps.length} · ~${total.toFixed(1)}s au total) — EXCLUS-les des segments[] : garde chaque plage de PAROLE dans un segment séparé et saute ces trous. Coupe aux frontières ci-dessous (= silence) → coutures nettes :`,
+    ...gaps.slice(0, 30).map((g) => `    [${g.start.toFixed(2)}–${g.end.toFixed(2)}s] blanc ${(g.end - g.start).toFixed(1)}s`),
+    ...(gaps.length > 30 ? [`    … (${gaps.length - 30} blanc(s) de plus)`] : []),
+  ];
 }
 
 export async function callTool(userId: string, name: string, args?: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }> {
@@ -529,7 +589,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       if (m.kind === "video" && meta) {
         if (meta.sceneCuts?.length) content.push({ type: "text", text: `    ↳ coupes (s) : ${meta.sceneCuts.slice(0, 30).map((c) => c.toFixed(1)).join(", ")}` });
         if (meta.transcript?.fullText) content.push({ type: "text", text: `    ↳ voix : « ${meta.transcript.fullText.slice(0, 220)} »` });
-        content.push({ type: "text", text: `    ↳ get_material("${m.id}") pour voir les images de ce rush.` });
+        content.push({ type: "text", text: `    ↳ get_material("${m.id}") pour les images + la VOIX horodatée et les ✂️ BLANCS (à nettoyer : voir create_variant → NETTOYAGE DU RUSH).` });
       }
       if (meta?.thumb) {
         const img = dataUriToImage(meta.thumb);
@@ -625,6 +685,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       if (a) for (const l of formatAudioLines(a)) content.push({ type: "text", text: l });
       else content.push({ type: "text", text: "(analyse audio indisponible)" });
       for (const l of formatVoiceLines(m.analysis?.transcript)) content.push({ type: "text", text: l });
+      for (const l of formatSilenceLines(m.analysis?.transcript, a?.durationSec)) content.push({ type: "text", text: l });
       return { content };
     }
     const kfs = await materialKeyframes(userId, project.id, m.storedName, 5);
@@ -633,6 +694,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     // Son du rush (si présent) : mêmes timecodes exploitables que pour l'audio.
     if (m.analysis?.audio) for (const l of formatAudioLines(m.analysis.audio)) content.push({ type: "text", text: l });
     for (const l of formatVoiceLines(m.analysis?.transcript)) content.push({ type: "text", text: l });
+    for (const l of formatSilenceLines(m.analysis?.transcript, m.analysis?.durationSec)) content.push({ type: "text", text: l });
     for (const kf of kfs) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }
     return { content };
   }

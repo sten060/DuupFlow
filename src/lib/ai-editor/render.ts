@@ -59,6 +59,16 @@ export type SegOverlay = {
   exitDuration?: number;           // s (défaut 0.4)
   easing?: OverlayEasing;          // courbe (défaut easeOut)
 };
+/** Zoom punch : coup de zoom ponctuel sur un temps fort (l'effet d'accroche
+ *  short-form le plus courant, à la CapCut). Bump sinus 0→1→0 sur la fenêtre. */
+export type ZoomPunch = {
+  at: number;                      // timecode (s) DANS le plan (0-based)
+  duration?: number;               // 0.05-0.6 s (défaut 0.2)
+  amount?: number;                 // facteur de zoom au pic, 1.05-2.5 (défaut 1.4)
+  direction?: "in" | "out";        // in = punch vers l'avant (défaut) ; out = plan zoomé qui recule sur le beat
+  blur?: number;                   // 0-1 : flou (gaussien) synchronisé sur le punch (approx du flou radial)
+};
+
 export type EditSegment = {
   materialId: string;
   startSec?: number;
@@ -86,6 +96,7 @@ export type EditSegment = {
   // ── Masquage / secousse ──
   blurRegions?: BlurRegion[];      // flou/pixelisation de zones (visage, pseudo, logo…)
   shakeAt?: ShakeKick[];           // secousses ponctuelles (calées sur les beats/drops)
+  zoomPunch?: ZoomPunch;           // coup de zoom d'accroche sur un temps fort
   // ── Composition multi-média (chantier 4) ──
   layout?: SegLayout;              // single (défaut) | splitH | splitV | pip
   overlays?: SegOverlay[];         // médias additionnels compositée dans le plan
@@ -176,6 +187,13 @@ export type EditCaption = {
   words?: { text: string; start: number; end: number }[]; // wordByWord/karaoke : timing par mot
   highlightColor?: string;                         // karaoké : couleur du mot actif
   glow?: { color: string; intensity: number };     // effet NÉON (halo saturé autour du texte)
+  // ── Captions « designées » (style TikTok) : chaque SPAN = une portion du texte
+  // avec sa propre couleur et/ou sa propre police (mot multicolore, mot en script…).
+  // Quand `spans` est fourni, le texte rendu = la concaténation des `text` (séparés
+  // par une espace) et remplace `text`. Chaque span hérite des réglages globaux
+  // (color/font/fontWeight) sauf pour les champs qu'il redéfinit. Absent → rendu
+  // classique inchangé. Les emojis restent rendus en images (couleur ignorée).
+  spans?: { text: string; color?: string; font?: CaptionFont; italic?: boolean; weight?: number }[];
 };
 
 export type ColorGrade = {
@@ -415,7 +433,42 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string,
   const ls = clamp(num(c.letterSpacing, 0), -20, 40);
   const lineMul = clamp(num(c.lineHeight, 1.24), 0.9, 2.2);
   const lineH = Math.round(fsz * lineMul);
-  const rawText = c.textTransform === "uppercase" ? c.text.toUpperCase() : c.text;
+  const tf = (s: string) => (c.textTransform === "uppercase" ? s.toUpperCase() : s);
+
+  // ── Spans « designés » : style (couleur/police/italique/poids) PAR MOT ──
+  // Quand des spans sont fournis, le texte rendu vient d'eux et chaque mot porte
+  // son propre style. `spanTextStyles` liste, DANS L'ORDRE, le style de chaque mot
+  // texte (les tokens purement emoji sont ignorés : ils sont rendus en image et
+  // ne consomment pas d'index). Cet ordre colle exactement à la séquence de mots
+  // émise par la mise en page ci-dessous (compteur `wordIdx`).
+  type WStyle = { color?: string; attrs?: string };
+  const spans = Array.isArray(c.spans)
+    ? c.spans.filter((s): s is NonNullable<typeof s> => !!s && typeof s.text === "string" && s.text.trim().length > 0)
+    : [];
+  const hasSpans = spans.length > 0;
+  const rawText = hasSpans ? spans.map((s) => tf(s.text)).join(" ") : tf(c.text);
+
+  const spanTextStyles: WStyle[] = [];
+  if (hasSpans) {
+    const lsA = ls ? ` letter-spacing="${ls}px"` : "";
+    for (const sp of spans) {
+      const spColor = typeof sp.color === "string" ? hex(sp.color, color) : undefined;
+      const spFam = sp.font && FONT_FAMILY[sp.font] ? `'${FONT_FAMILY[sp.font]}'` : textFamily;
+      const spW = sp.weight != null ? Math.round(clamp(num(sp.weight, weight), 100, 900)) : weight;
+      const spItalic = sp.italic === true;
+      // On ne pose des attrs que si le span redéfinit la police (famille/poids/italique) ;
+      // sinon la police globale (textAttrs) est réutilisée telle quelle.
+      const attrs = spFam !== textFamily || spW !== weight || spItalic
+        ? `font-family="${spFam}" font-weight="${spW}" font-size="${fsz}"${spItalic ? ` font-style="italic"` : ""}${lsA}`
+        : undefined;
+      for (const tok of tf(sp.text).trim().split(/\s+/).filter(Boolean)) {
+        const allEmoji = EMOJI_RE.test(tok) && [..._seg.segment(tok)].every((x) => isEmojiGrapheme(x.segment));
+        if (allEmoji) continue; // emoji rendu en image → pas de style texte, pas d'index
+        spanTextStyles.push({ color: spColor, attrs });
+      }
+    }
+  }
+  const perWord = hlWord >= 0 || hasSpans;
 
   // Découpe en mots ; on COLLE tout mot purement emoji au précédent → un emoji
   // terminal ne part jamais seul à la ligne suivante.
@@ -477,7 +530,7 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string,
 
   // Mise en page ligne par ligne : on mesure chaque run texte (police réelle) et
   // on réserve une case carrée par emoji, pour placer chaque élément au pixel.
-  type Placed = { x: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string };
+  type Placed = { x: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string; attrs?: string };
   const placedLines: Array<{ baseline: number; runs: Placed[]; width: number }> = [];
   let maxLineW = 0;
   let wordIdx = 0;                       // compteur GLOBAL de mots (pour hlWord/karaoké)
@@ -485,15 +538,20 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string,
   for (let i = 0; i < used.length; i++) {
     const runs = segmentRuns(used[i]);
     // 1er passage : largeur d'avance de chaque run.
-    const measured: Array<{ adv: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string }> = [];
+    const measured: Array<{ adv: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string; attrs?: string }> = [];
     for (const r of runs) {
       if (r.t === "text") {
-        if (hlWord >= 0) {
-          // Karaoké : on découpe le run en MOTS pour pouvoir en colorer un seul.
+        if (perWord) {
+          // Karaoké OU spans designés : on découpe le run en MOTS pour colorer /
+          // habiller chacun individuellement. `wordIdx` (global) indexe à la fois
+          // le mot actif du karaoké (hlWord) et le style de span correspondant.
           const wlist = r.s.trim().split(/\s+/).filter(Boolean);
           for (let wi = 0; wi < wlist.length; wi++) {
-            const isHl = wordIdx === hlWord;
-            measured.push({ adv: await measureInk(sharp, wlist[wi], textAttrs, fsz) + (wi < wlist.length - 1 ? spaceAdv : 0), kind: "text", s: wlist[wi], color: isHl && hlColor ? hlColor : undefined });
+            const st = spanTextStyles[wordIdx];                 // undefined hors spans
+            const isHl = hlWord >= 0 && wordIdx === hlWord;
+            const col = isHl && hlColor ? hlColor : st?.color;  // karaoké prioritaire
+            const attrs = st?.attrs;
+            measured.push({ adv: await measureInk(sharp, wlist[wi], attrs || textAttrs, fsz) + (wi < wlist.length - 1 ? spaceAdv : 0), kind: "text", s: wlist[wi], color: col, attrs });
             wordIdx++;
           }
         } else {
@@ -513,7 +571,7 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string,
     const placed: Placed[] = [];
     let x = startX;
     for (const r of measured) {
-      placed.push({ x, kind: r.kind, s: r.s, dataUri: r.dataUri, color: r.color });
+      placed.push({ x, kind: r.kind, s: r.s, dataUri: r.dataUri, color: r.color, attrs: r.attrs });
       x += r.adv;
     }
     placedLines.push({ baseline, runs: placed, width: lineW });
@@ -533,9 +591,9 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string,
       if (r.kind === "emoji-img") {
         mainEls.push(`<image x="${r.x + emojiPad}" y="${ln.baseline - emojiTop}" width="${emojiBox}" height="${emojiBox}" xlink:href="${r.dataUri}"/>`);
       } else {
-        const attrs = r.kind === "emoji-text" ? emojiTextAttrs : textAttrs;
+        const attrs = r.attrs || (r.kind === "emoji-text" ? emojiTextAttrs : textAttrs); // r.attrs = police du span
         shadowEls.push(`<text x="${r.x}" y="${ln.baseline}" ${attrs} fill="#000">${esc(r.s!)}</text>`);
-        pushText(r.x, ln.baseline, attrs, r.s!, r.color || color); // r.color = mot actif (karaoké)
+        pushText(r.x, ln.baseline, attrs, r.s!, r.color || color); // r.color = mot actif (karaoké) ou couleur du span
       }
     }
   }
@@ -560,7 +618,7 @@ async function captionPng(c: EditCaption, W: number, H: number, outPath: string,
     const r1 = (fsz * 0.03 * glow.intensity).toFixed(2), r2 = (fsz * 0.07 * glow.intensity).toFixed(2), r3 = (fsz * 0.15 * glow.intensity).toFixed(2);
     glowDefs = `<defs><filter id="glow" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="${r1}" result="g1"/><feGaussianBlur stdDeviation="${r2}" result="g2"/><feGaussianBlur stdDeviation="${r3}" result="g3"/><feMerge><feMergeNode in="g3"/><feMergeNode in="g2"/><feMergeNode in="g2"/><feMergeNode in="g1"/><feMergeNode in="g1"/></feMerge></filter></defs>`;
     const gtxt = placedLines.flatMap((ln) => ln.runs.filter((r) => r.kind !== "emoji-img").map((r) =>
-      `<text x="${r.x}" y="${ln.baseline}" ${r.kind === "emoji-text" ? emojiTextAttrs : textAttrs} fill="${glow.color}">${esc(r.s!)}</text>`)).join("");
+      `<text x="${r.x}" y="${ln.baseline}" ${r.attrs || (r.kind === "emoji-text" ? emojiTextAttrs : textAttrs)} fill="${glow.color}">${esc(r.s!)}</text>`)).join("");
     // 2 passes du même halo → néon plus dense (les couches se cumulent).
     glowGroup = `<g filter="url(#glow)">${gtxt}</g><g filter="url(#glow)">${gtxt}</g>`;
   }
@@ -677,8 +735,12 @@ function imageVideoFilter(i: number, W: number, H: number, fps: number, bg: stri
     // `frames` images. Upscale modéré (1,3×) = netteté au zoom sans exploser le CPU.
     const frames = Math.max(2, Math.round(dur * fps));
     const UW = Math.round(W * 1.3), UH = Math.round(H * 1.3);
-    const zMax = (1 + 0.25 * intensity).toFixed(3);
-    const step = (0.0009 * intensity).toFixed(5);
+    const zMaxNum = 1 + 0.25 * intensity;
+    const zMax = zMaxNum.toFixed(3);
+    // step RELATIF à la durée : le zoom couvre TOUT le plan (atteint zMax à la
+    // dernière frame), quelle que soit sa longueur. Avant : step fixe → sur un
+    // plan court le zoom bougeait d'à peine 1-2% (invisible).
+    const step = ((zMaxNum - 1) / frames).toFixed(6);
     let zoom = "1", x = "iw/2-(iw/zoom/2)", y = "ih/2-(ih/zoom/2)";
     if (motion === "zoomIn") zoom = `min(1.0+${step}*on,${zMax})`;
     else if (motion === "zoomOut") zoom = `max(${zMax}-${step}*on,1.0)`;
@@ -723,8 +785,12 @@ function videoMotionFilter(inLabel: string, out: string, W: number, H: number, f
   }
   // zoomIn / zoomOut → zoompan d=1 sur la vidéo.
   const UW = Math.round(W * 1.3 / 2) * 2, UH = Math.round(H * 1.3 / 2) * 2;
-  const zMax = (1 + 0.25 * intensity).toFixed(3);
-  const step = (0.0009 * intensity).toFixed(5);
+  const zMaxNum = 1 + 0.25 * intensity;
+  const zMax = zMaxNum.toFixed(3);
+  // step RELATIF à la durée (zoompan d=1 → `on` compte les frames du plan) : le
+  // zoom couvre tout le plan et atteint zMax à la fin, même sur un plan court.
+  const durFrames = Math.max(1, Math.round(Math.max(0.1, durSec) * fps));
+  const step = ((zMaxNum - 1) / durFrames).toFixed(6);
   const z = motion === "zoomIn" ? `min(1.0+${step}*on,${zMax})` : `max(${zMax}-${step}*on,1.0)`;
   return `${inLabel}scale=${UW}:${UH}:force_original_aspect_ratio=increase,crop=${UW}:${UH},zoompan=z='${z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${W}x${H}:fps=${fps},setsar=1,format=yuv420p${out}`;
 }
@@ -785,6 +851,34 @@ function shakeFilter(inLabel: string, out: string, W: number, H: number, fps: nu
   const UW = Math.round(W * 1.08 / 2) * 2, UH = Math.round(H * 1.08 / 2) * 2;
   return `${inLabel}scale=${UW}:${UH}:force_original_aspect_ratio=increase,crop=${UW}:${UH},` +
     `crop=${W}:${H}:x='(iw-ow)/2+${termsX.join("+")}':y='(ih-oh)/2+${termsY.join("+")}',setsar=1,fps=${fps},format=yuv420p${out}`;
+}
+
+/* ZOOM PUNCH ponctuel (l'accroche short-form la plus utilisée) : bump de zoom
+   sin(0→1→0) sur la fenêtre. Via ZOOMPAN d=1 (comme le motion zoom éprouvé) — PAS
+   via crop, dont w/h ne sont évalués qu'une fois (pas d'animation). Source
+   upscalée par `amount` → net au pic. z reste ≥ 1 (aucun pixel manquant).
+   Sur [in] WxH → [out]. null si invalide. */
+function zoomPunchFilter(inLabel: string, out: string, W: number, H: number, fps: number, p: ZoomPunch): string | null {
+  const at = num(p.at, -1);
+  if (!(at >= 0)) return null;
+  const dur = clamp(num(p.duration, 0.2), 0.05, 0.6);
+  const amount = clamp(num(p.amount, 1.4), 1.05, 2.5);
+  const atF = Math.round(at * fps);
+  const durF = Math.max(1, Math.round(dur * fps));
+  const am3 = amount.toFixed(4);
+  const inWin = `between(on,${atF},${atF + durF})`;
+  const bump = `sin(PI*(on-${atF})/${durF})`;       // 0 → 1 → 0 sur la fenêtre (frames)
+  // in : base 1, punch VERS amount.  out : base amount (plan zoomé), RECULE vers 1 sur le beat.
+  const z = p.direction === "out"
+    ? `if(${inWin},${am3}-(${am3}-1)*${bump},${am3})`
+    : `if(${inWin},1+(${am3}-1)*${bump},1)`;
+  const up = Math.min(2.6, amount);
+  const UW = Math.round(W * up / 2) * 2, UH = Math.round(H * up / 2) * 2;
+  let chain = `${inLabel}scale=${UW}:${UH}:force_original_aspect_ratio=increase,crop=${UW}:${UH},` +
+    `zoompan=z='${z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${W}x${H}:fps=${fps},setsar=1,format=yuv420p`;
+  const blur = clamp(num(p.blur, 0), 0, 1);
+  if (blur > 0.01) chain += `,gblur=sigma=${(blur * 12).toFixed(1)}:enable='between(t,${at.toFixed(3)},${(at + dur).toFixed(3)})'`;
+  return `${chain}${out}`;
 }
 
 /* RAFALE GLITCH sur l'ouverture du plan (transition "glitch") : décalage canaux
@@ -1177,6 +1271,11 @@ export async function renderVariant(
       const sh = shakeFilter(curLabel, `[vsk${i}]`, W, H, fps, seg.shakeAt);
       if (sh) { filters.push(sh); curLabel = `[vsk${i}]`; }
     }
+    // 3bis. Zoom punch d'accroche (coup de zoom sur un temps fort).
+    if (seg.zoomPunch && Number.isFinite(Number(seg.zoomPunch.at))) {
+      const zp = zoomPunchFilter(curLabel, `[vzp${i}]`, W, H, fps, seg.zoomPunch);
+      if (zp) { filters.push(zp); curLabel = `[vzp${i}]`; }
+    }
     // 4. Rafale glitch sur l'ouverture (transition "glitch").
     if (String(seg.transition) === "glitch" && i > 0) {
       const gInt = clamp(num(seg.glitchIntensity, 0.6), 0, 1);
@@ -1290,7 +1389,11 @@ export async function renderVariant(
     // par mot (wordByWord/karaoke) génèrent plusieurs PNG timés.
     const captionFilters: string[] = [];
     let last = gbase;
-    const caps = (plan.captions ?? []).slice(0, MAX_CAPTIONS).filter((c) => c?.text?.trim());
+    // Une caption est valide si elle a un `text` OU au moins un `span` non vide
+    // (captions « designées » multicolore/multi-police fournies uniquement en spans).
+    const caps = (plan.captions ?? []).slice(0, MAX_CAPTIONS).filter(
+      (c) => c?.text?.trim() || (Array.isArray(c?.spans) && c!.spans!.some((s) => s && typeof s.text === "string" && s.text.trim())),
+    );
     const planEmoji: EmojiStyle = plan.emojiStyle === "flat" ? "flat" : "3d";
     const vidDur = totalVideoDur();
     let capIn = inputs.reduce((n, a) => (a === "-i" ? n + 1 : n), 0); // index d'entrée du 1er PNG caption
@@ -1313,7 +1416,8 @@ export async function renderVariant(
       if (Array.isArray(c.words) && c.words.length && c.words.every((w) => w && typeof w.text === "string")) {
         return c.words.slice(0, 16).map((w) => ({ text: w.text, start: num(w.start, st), end: num(w.end, en) }));
       }
-      const ws = c.text.trim().split(/\s+/).filter(Boolean).slice(0, 16);
+      const plain = c.text?.trim() ? c.text : (c.spans ?? []).map((s) => s?.text ?? "").join(" ");
+      const ws = plain.trim().split(/\s+/).filter(Boolean).slice(0, 16);
       const span = Math.max(0.2, en - st) / Math.max(1, ws.length);
       return ws.map((t, i) => ({ text: t, start: st + i * span, end: st + (i + 1) * span }));
     };
