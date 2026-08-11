@@ -29,7 +29,7 @@ async function markUserPaid(
   subscriptionId?: string
 ) {
   const admin = createAdminClient();
-  await admin
+  const { error } = await admin
     .from("profiles")
     .update({
       has_paid: true,
@@ -41,6 +41,18 @@ async function markUserPaid(
       email_sequence_updated_at: new Date().toISOString(),
     })
     .eq("id", userId);
+
+  // NE JAMAIS avaler cette erreur : l'update est atomique, donc un plan refusé
+  // (contrainte profiles_plan_check, cf. migration 054) fait échouer TOUT le
+  // payload — le user paie et reste sur les quotas Free, sans le moindre log.
+  // C'est exactement ce qui est arrivé aux abonnés Starter avant la mig. 054.
+  if (error) {
+    console.error(
+      `[webhook] markUserPaid FAILED user=${userId} plan=${plan} — le profil reste NON mis à jour:`,
+      error.message,
+      error.code,
+    );
+  }
 
   const info = await getUserInfo(userId);
   if (info) {
@@ -428,7 +440,17 @@ export async function POST(request: NextRequest) {
         await resetUsage(uid).catch(console.error);
       }
 
-      await admin.from("profiles").update(updatePayload).eq("id", uid);
+      const { error: invoiceUpdateErr } = await admin
+        .from("profiles")
+        .update(updatePayload)
+        .eq("id", uid);
+      if (invoiceUpdateErr) {
+        console.error(
+          `[webhook] invoice.paid profile update FAILED user=${uid} plan=${plan}:`,
+          invoiceUpdateErr.message,
+          invoiceUpdateErr.code,
+        );
+      }
 
       // If this payment recovers a previously failed cycle, clear the
       // overdue flag and restore the original plan snapshot.

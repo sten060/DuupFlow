@@ -139,7 +139,16 @@ export default async function AbonnementPage() {
         // Restore has_paid if a valid active subscription exists (e.g. after erroneous churn)
         if (!profile?.has_paid) updates.has_paid = true;
         if (Object.keys(updates).length > 0) {
-          await admin.from("profiles").update(updates).eq("id", user.id);
+          const { error: syncErr } = await admin.from("profiles").update(updates).eq("id", user.id);
+          // Silencieux = piège : un plan refusé par profiles_plan_check (cf. mig.
+          // 054) laisserait l'utilisateur sur ses anciens quotas sans trace.
+          if (syncErr) {
+            console.error(
+              `[abonnement] sync Stripe→profil ÉCHOUÉ user=${user.id} plan=${stripePlan}:`,
+              syncErr.message,
+              syncErr.code,
+            );
+          }
         }
       }
     } catch {

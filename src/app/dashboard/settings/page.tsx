@@ -20,7 +20,7 @@ export default async function SettingsPage() {
     .single();
 
   const isGuest = profile?.is_guest ?? false;
-  const plan = (profile?.plan as "solo" | "pro" | null) ?? null;
+  const plan = (profile?.plan as "starter" | "solo" | "pro" | null) ?? null;
 
   // Load invitations (only for Pro hosts)
   let invitations: {

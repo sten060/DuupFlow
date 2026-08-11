@@ -100,7 +100,7 @@ export default function SettingsClient({
   initialFirstName: string;
   initialAgencyName: string;
   isGuest: boolean;
-  plan: "solo" | "pro" | null;
+  plan: "starter" | "solo" | "pro" | null;
   invitations: Invitation[];
   userEmail?: string;
 }) {
@@ -211,10 +211,11 @@ export default function SettingsClient({
 
   const activeInvitations = localInvitations.filter((i) => i.status !== "removed");
   const canInvite = !isGuest && plan === "pro" && activeInvitations.length < 3;
-  const planLabel = plan === "solo" ? "Solo" : plan === "pro" ? "Pro" : null;
-  const planColor = plan === "solo" ? "#A78BFA" : "#818CF8";
-  const planBg = plan === "solo" ? "rgba(167,139,250,0.12)" : "rgba(99,102,241,0.12)";
-  const planBorder = plan === "solo" ? "rgba(167,139,250,0.25)" : "rgba(99,102,241,0.25)";
+  // Identité visuelle par plan — alignée sur /dashboard/abonnement (AbonnementClient).
+  const planLabel = plan === "starter" ? "Starter" : plan === "solo" ? "Solo" : plan === "pro" ? "Pro" : null;
+  const planColor = plan === "starter" ? "#C4B5FD" : plan === "solo" ? "#A78BFA" : "#818CF8";
+  const planBg = plan === "starter" ? "rgba(196,181,253,0.12)" : plan === "solo" ? "rgba(167,139,250,0.12)" : "rgba(99,102,241,0.12)";
+  const planBorder = plan === "starter" ? "rgba(196,181,253,0.28)" : plan === "solo" ? "rgba(167,139,250,0.25)" : "rgba(99,102,241,0.25)";
 
   return (
     <div className="p-8 max-w-5xl">
@@ -424,8 +425,8 @@ export default function SettingsClient({
           </div>
         )}
 
-        {/* Solo — no members notice */}
-        {!isGuest && plan === "solo" && (
+        {/* Starter / Solo — no members notice */}
+        {!isGuest && (plan === "starter" || plan === "solo") && (
           <div>
             <SectionTitle>{t("dashboard.settings.teamSection")}</SectionTitle>
             <Card>

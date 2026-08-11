@@ -162,8 +162,8 @@ export default function VideoFormSimpleClient() {
   const [progress, setProgress] = useState<number | null>(null);
   const [progressMsg, setProgressMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [limitPlan, setLimitPlan] = useState<"free" | "solo" | null>(null);
-  const [quotaWarn, setQuotaWarn] = useState<{ current: number; limit: number; plan: "free" | "solo" } | null>(null);
+  const [limitPlan, setLimitPlan] = useState<"free" | "starter" | "solo" | null>(null);
+  const [quotaWarn, setQuotaWarn] = useState<{ current: number; limit: number; plan: "free" | "starter" | "solo" } | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -399,7 +399,7 @@ export default function VideoFormSimpleClient() {
             // Monthly limit reached → friendly upgrade modal (no badge / inline error).
             if (parsed?.limitReached) {
               removeJob(jobId);
-              setLimitPlan(parsed.plan === "solo" ? "solo" : "free");
+              setLimitPlan(parsed.plan === "solo" ? "solo" : parsed.plan === "starter" ? "starter" : "free");
               setProcessing(false);
               return;
             }

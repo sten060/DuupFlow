@@ -83,8 +83,8 @@ export default function ImageFormClient({ initialImages }: Props) {
   const [progressLabel, setProgressLabel] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
-  const [limitPlan, setLimitPlan] = useState<"free" | "solo" | null>(null);
-  const [quotaWarn, setQuotaWarn] = useState<{ current: number; limit: number; plan: "free" | "solo" } | null>(null);
+  const [limitPlan, setLimitPlan] = useState<"free" | "starter" | "solo" | null>(null);
+  const [quotaWarn, setQuotaWarn] = useState<{ current: number; limit: number; plan: "free" | "starter" | "solo" } | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
 
   // Persisted download list: initialized from server files, grows as new jobs complete.
@@ -312,7 +312,7 @@ export default function ImageFormClient({ initialImages }: Props) {
         // Monthly limit reached → friendly upgrade modal (no inline red bar / badge).
         if (parsed?.limitReached) {
           removeJob(jobId);
-          setLimitPlan(parsed.plan === "solo" ? "solo" : "free");
+          setLimitPlan(parsed.plan === "solo" ? "solo" : parsed.plan === "starter" ? "starter" : "free");
           return;
         }
         setErrorMsg(msg);

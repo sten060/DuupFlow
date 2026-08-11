@@ -6,8 +6,8 @@ import { useTranslation } from "@/lib/i18n/context";
 
 /**
  * Gentle "you're approaching your limit" modal — SAME design as LimitReachedModal,
- * but non-blocking. Shown after a duplication that pushes a free/solo user to
- * >=80% (and <100%) of their monthly quota. Shows used / total / remaining.
+ * but non-blocking. Shown after a duplication that pushes a free/starter/solo user
+ * to >=80% (and <100%) of their monthly quota. Shows used / total / remaining.
  */
 export default function QuotaWarningModal({
   open,
@@ -19,7 +19,7 @@ export default function QuotaWarningModal({
   onUpgrade,
 }: {
   open: boolean;
-  plan: "free" | "solo";
+  plan: "free" | "starter" | "solo";
   resource?: "images" | "videos";
   current: number;
   limit: number;
@@ -31,12 +31,13 @@ export default function QuotaWarningModal({
   useEffect(() => setMounted(true), []);
   if (!open || !mounted) return null;
 
-  const isFree = plan === "free";
   const isVideo = resource === "videos";
   const dup = isVideo ? t("dashboard.limitModal.dupVideos") : t("dashboard.limitModal.dupImages");
-  const cta = isFree ? t("dashboard.limitModal.upgradeSolo") : t("dashboard.limitModal.upgradePro");
+  // Palier du dessus : Free et Starter → Solo, Solo → Pro.
+  const cta = plan === "solo" ? t("dashboard.limitModal.upgradePro") : t("dashboard.limitModal.upgradeSolo");
   const remaining = Math.max(0, limit - current);
-  const hint = isFree ? t("dashboard.quotaWarn.hintFree") : t("dashboard.quotaWarn.hintSolo");
+  const hint =
+    plan === "solo" ? t("dashboard.quotaWarn.hintSolo") : t("dashboard.quotaWarn.hintFree");
   const body = t("dashboard.quotaWarn.body", { current, limit, dup, remaining, hint });
 
   const content = (

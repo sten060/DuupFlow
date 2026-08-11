@@ -544,7 +544,7 @@
       "gate": {
         "badge": "Paid plans only",
         "title": "Unlock the AI Editor",
-        "desc": "Reproduce what went viral: a reference video + your material, and your own Claude builds ready-to-post variants. Available on the Solo and Pro plans.",
+        "desc": "Reproduce what went viral: a reference video + your material, and your own Claude builds ready-to-post variants. Included from the Starter plan up.",
         "cta": "See plans"
       },
       "eyebrow": "AI Editor · Reproduce what works",
@@ -698,6 +698,7 @@
       "dupImages": "image duplications",
       "dupVideos": "video duplications",
       "bodyFree": "You've used all your {dup} this month on the Free plan. The Solo plan is a much better fit for your pace — you unlock a lot more and get right back to it. 🚀",
+      "bodyStarter": "You've used all your {dup} this month on the Starter plan. The Solo plan is a much better fit for your pace — a lot more duplications, and you get right back to it. 🚀",
       "bodySolo": "You've used all your {dup} this month on the Solo plan. The Pro plan is made for you: it's unlimited, no more blocks. 🚀",
       "upgradeSolo": "Upgrade to Solo",
       "upgradePro": "Upgrade to Pro",
@@ -1178,6 +1179,16 @@
       "toc": "On this page",
       "back": "Back to advanced duplication"
     },
+    "affiliateAnnounce": {
+      "pill": "New",
+      "title": "Refer a friend, earn 20%",
+      "lead": "Our affiliate program is finally live. Recommend DuupFlow around you: your friend gets -10% on their subscription, and you earn 20% commission on theirs — on every payment.",
+      "bullet1": "20% recurring commission on every subscribed friend",
+      "bullet2": "-10% off for your friend on their subscription",
+      "bullet3": "Real-time tracking & automatic payouts",
+      "cta": "Join the program",
+      "later": "Maybe later"
+    },
     "tiktokAnnounce": {
       "pill": "New",
       "title": "Stay eligible on TikTok",
@@ -1337,8 +1348,8 @@
       "removeInvite": "Remove",
       "teamLimitReached": "3-member limit reached.",
       "teamInviteInfo": "The invited person will receive a magic link by email to join your workspace. They can use all modules under their own name.",
-      "soloNoInvite": "Invitations not available on Solo",
-      "soloNoInviteDesc": "The Solo plan is personal. Upgrade to Pro to invite up to 3 collaborators to your workspace.",
+      "soloNoInvite": "Invitations not available on your plan",
+      "soloNoInviteDesc": "The Starter and Solo plans are personal. Upgrade to Pro to invite up to 3 collaborators to your workspace.",
       "guestNotice": "You are an invited member",
       "guestNoticeDesc": "You access this workspace as an invited member. Team management is reserved for the account owner.",
       "workspace": "Workspace",

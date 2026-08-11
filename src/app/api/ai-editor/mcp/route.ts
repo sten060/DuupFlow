@@ -29,7 +29,7 @@ function needsAuth(req: Request) {
 }
 
 function needsPaidPlan() {
-  return new Response(JSON.stringify({ error: "L'Éditeur IA (connecteur MCP) est réservé aux plans Solo et Pro. Passe à un plan payant pour l'utiliser." }), {
+  return new Response(JSON.stringify({ error: "L'Éditeur IA (connecteur MCP) est réservé aux plans payants (Starter, Solo, Pro). Passe à un plan payant pour l'utiliser." }), {
     status: 403,
     headers: { "Content-Type": "application/json" },
   });
@@ -51,12 +51,12 @@ async function resolveUser(req: Request): Promise<{ userId: string } | { deny: R
   }
   const uid = oauthUserId(req);
   if (!uid) return { deny: needsAuth(req) };
-  // Gate PLAN PAYANT (Solo ou Pro) sur la voie OAuth (« Autoriser » en 1 clic).
+  // Gate PLAN PAYANT (Starter, Solo ou Pro) sur la voie OAuth (« Autoriser » en 1 clic).
   // Revérifié à CHAQUE requête → coupe aussi l'accès si le plan tombe en Free
   // (downgrade) même avec un refresh token encore valide. Les rendus restent bornés
-  // par le quota « vidéos » (Solo 300/mois partagés, Pro illimité).
+  // par le quota « vidéos » (Starter 100/mois, Solo 300/mois partagés, Pro illimité).
   const plan = await resolveEffectivePlan(uid);
-  if (plan !== "pro" && plan !== "solo") return { deny: needsPaidPlan() };
+  if (plan === "free") return { deny: needsPaidPlan() };
   return { userId: uid };
 }
 

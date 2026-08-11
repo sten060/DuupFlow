@@ -645,9 +645,9 @@ export async function duplicateVideos(formData: FormData) {
     const remaining = usageCheck.limit - usageCheck.current;
     if (remaining <= 0) {
       revalidatePath("/dashboard/videos");
-      const upgradeHint = usageCheck.plan === "free"
-        ? "Passe au plan Solo ou Pro pour augmenter ta limite."
-        : "Attends le renouvellement ou passe au plan Pro.";
+      const upgradeHint = usageCheck.plan === "solo"
+        ? "Attends le renouvellement ou passe au plan Pro."
+        : "Passe au plan Solo ou Pro pour augmenter ta limite.";
       redirect(
         `/dashboard/videos?err=${encodeURIComponent(
           `Limite mensuelle atteinte (${usageCheck.current}/${usageCheck.limit} vidéos). ${upgradeHint}`

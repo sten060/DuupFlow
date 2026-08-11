@@ -180,10 +180,12 @@ export async function checkUsageForUser(
       videos: t("errors.quota.labelVideos"),
       ai_signatures: t("errors.quota.labelAiSignatures"),
     };
+    // Free et Starter se voient proposer le palier du dessus (Solo/Pro) ; Solo,
+    // lui, n'a plus que Pro — d'où le message « attends le renouvellement ».
     const upgradeHint =
-      effectivePlan === "free"
-        ? t("errors.quota.upgradeHintFree")
-        : t("errors.quota.upgradeHintSolo");
+      effectivePlan === "solo"
+        ? t("errors.quota.upgradeHintSolo")
+        : t("errors.quota.upgradeHintFree");
     return {
       allowed: false,
       userId,

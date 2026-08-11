@@ -544,7 +544,7 @@
       "gate": {
         "badge": "Réservé aux plans payants",
         "title": "Débloque l’Éditeur IA",
-        "desc": "Reproduis ce qui a cartonné : une vidéo de référence + ta matière, et ton propre Claude fabrique des variantes prêtes à publier. Disponible sur les plans Solo et Pro.",
+        "desc": "Reproduis ce qui a cartonné : une vidéo de référence + ta matière, et ton propre Claude fabrique des variantes prêtes à publier. Inclus dès le plan Starter.",
         "cta": "Voir les plans"
       },
       "eyebrow": "Éditeur IA · Reproduis ce qui marche",
@@ -698,6 +698,7 @@
       "dupImages": "duplications d'images",
       "dupVideos": "duplications de vidéos",
       "bodyFree": "Tu as utilisé toutes tes {dup} de ce mois sur le plan Free. Le plan Solo est clairement plus adapté à ton rythme : tu débloques bien plus de duplications et tu repars aussitôt. 🚀",
+      "bodyStarter": "Tu as utilisé toutes tes {dup} de ce mois sur le plan Starter. Le plan Solo est clairement plus adapté à ton rythme : bien plus de duplications, et tu repars aussitôt. 🚀",
       "bodySolo": "Tu as utilisé toutes tes {dup} de ce mois sur le plan Solo. Le plan Pro est fait pour ton usage : c'est illimité, fini les blocages. 🚀",
       "upgradeSolo": "Passer au plan Solo",
       "upgradePro": "Passer au plan Pro",
@@ -1187,6 +1188,16 @@
       "bullet3": "À partir de 19€/mois — annulable à tout moment",
       "cta": "Voir les plans"
     },
+    "affiliateAnnounce": {
+      "pill": "Nouveau",
+      "title": "Parraine un ami, gagne 20%",
+      "lead": "Notre programme d'affiliation est enfin disponible. Recommande DuupFlow autour de toi : ton ami profite de -10% sur son abonnement, et tu touches 20% de commission sur le sien — à chaque paiement.",
+      "bullet1": "20% de commission récurrente sur chaque ami abonné",
+      "bullet2": "-10% offerts à ton ami sur son abonnement",
+      "bullet3": "Suivi en temps réel & paiements automatiques",
+      "cta": "Rejoindre le programme",
+      "later": "Plus tard"
+    },
     "tiktokAnnounce": {
       "pill": "Nouveau",
       "title": "Reste éligible sur TikTok",
@@ -1346,8 +1357,8 @@
       "removeInvite": "Retirer",
       "teamLimitReached": "Limite de 3 membres atteinte.",
       "teamInviteInfo": "La personne invitée recevra un lien magique par email pour rejoindre ton workspace. Elle pourra utiliser tous les modules sous son propre prénom.",
-      "soloNoInvite": "Invitations non disponibles en Solo",
-      "soloNoInviteDesc": "Le plan Solo est personnel. Passe au plan Pro pour inviter jusqu'à 3 collaborateurs dans ton workspace.",
+      "soloNoInvite": "Invitations non disponibles sur ton plan",
+      "soloNoInviteDesc": "Les plans Starter et Solo sont personnels. Passe au plan Pro pour inviter jusqu'à 3 collaborateurs dans ton workspace.",
       "guestNotice": "Tu es membre invité·e",
       "guestNoticeDesc": "Tu accèdes à ce workspace en tant que membre invité·e. La gestion de l'équipe est réservée au propriétaire du compte.",
       "workspace": "Workspace",

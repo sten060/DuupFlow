@@ -283,11 +283,11 @@ export async function POST(req: Request) {
             );
           }
           const warning = warningParts.length > 0 ? warningParts.join(" ") : undefined;
-          // Gentle 80% heads-up (free/solo only) once this run lands in the 80–99% zone.
+          // Gentle 80% heads-up (plans à quota : free/starter/solo) une fois dans la zone 80–99 %.
           const _lim = usageCheck.limit;
           const _newCount = (usageCheck.current ?? 0) + deliveredCount;
           const usageWarning =
-            (usageCheck.plan === "free" || usageCheck.plan === "solo") &&
+            (usageCheck.plan === "free" || usageCheck.plan === "starter" || usageCheck.plan === "solo") &&
             Number.isFinite(_lim) && _lim > 0 && _newCount >= _lim * 0.8 && _newCount < _lim
               ? { current: _newCount, limit: _lim, plan: usageCheck.plan }
               : undefined;

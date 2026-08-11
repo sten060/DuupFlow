@@ -207,7 +207,7 @@ export async function POST(req: Request) {
         const _lim = usageCheck.limit;
         const _newCount = (usageCheck.current ?? 0) + processedOk;
         const usageWarning =
-          (usageCheck.plan === "free" || usageCheck.plan === "solo") &&
+          (usageCheck.plan === "free" || usageCheck.plan === "starter" || usageCheck.plan === "solo") &&
           Number.isFinite(_lim) && _lim > 0 && _newCount >= _lim * 0.8 && _newCount < _lim
             ? { current: _newCount, limit: _lim, plan: usageCheck.plan }
             : undefined;

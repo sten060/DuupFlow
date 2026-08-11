@@ -6,8 +6,9 @@ import { useTranslation } from "@/lib/i18n/context";
 
 /**
  * Friendly "limit reached" modal for IMAGE duplication.
- *   • Free  → propose Solo
- *   • Solo  → propose Pro
+ *   • Free    → propose Solo
+ *   • Starter → propose Solo
+ *   • Solo    → propose Pro
  * The primary CTA calls onUpgrade (opens the usual plan picker); "Quitter"
  * just closes and lets the user resume. Centred, light blurred backdrop.
  *
@@ -25,7 +26,7 @@ export default function LimitReachedModal({
   onUpgrade,
 }: {
   open: boolean;
-  plan: "free" | "solo";
+  plan: "free" | "starter" | "solo";
   resource?: "images" | "videos";
   onClose: () => void;
   onUpgrade: () => void;
@@ -35,13 +36,16 @@ export default function LimitReachedModal({
   useEffect(() => setMounted(true), []);
   if (!open || !mounted) return null;
 
-  const isFree = plan === "free";
   const isVideo = resource === "videos";
   const dup = isVideo ? t("dashboard.limitModal.dupVideos") : t("dashboard.limitModal.dupImages");
-  const cta = isFree ? t("dashboard.limitModal.upgradeSolo") : t("dashboard.limitModal.upgradePro");
-  const body = isFree
-    ? t("dashboard.limitModal.bodyFree", { dup })
-    : t("dashboard.limitModal.bodySolo", { dup });
+  // Le palier du dessus : Free et Starter montent vers Solo, Solo vers Pro.
+  const cta = plan === "solo" ? t("dashboard.limitModal.upgradePro") : t("dashboard.limitModal.upgradeSolo");
+  const body =
+    plan === "free"
+      ? t("dashboard.limitModal.bodyFree", { dup })
+      : plan === "starter"
+        ? t("dashboard.limitModal.bodyStarter", { dup })
+        : t("dashboard.limitModal.bodySolo", { dup });
 
   const content = (
     <div
