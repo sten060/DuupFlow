@@ -22,92 +22,17 @@ import { runFFmpeg } from "@/lib/studio/pipeline";
 import { getProject, materialAbsPath, addVariant, projectPaths } from "./store";
 import type { ProjectVariant } from "./store";
 
-export type SegMotion = "none" | "zoomIn" | "zoomOut" | "panLeft" | "panRight" | "handheld";
-export type SegFit = "contain" | "cover" | "blurFill";
-export type SegTransition = "cut" | "fade" | "whipPan" | "slide" | "zoomPunch" | "flash" | "glitch";
-
-// Flou/pixelisation d'une ZONE du plan (masquage visage/pseudo/logo/numéro).
-export type BlurRegion = {
-  x?: number; y?: number;          // coin haut-gauche, % du cadre
-  width?: number; height?: number; // taille, % du cadre
-  intensity?: number;              // 0-1 (force du flou / grossièreté des pixels)
-  startSec?: number; endSec?: number; // fenêtre, relative au plan
-  shape?: "rect" | "ellipse";      // ellipse = visages
-  mode?: "blur" | "pixelate";      // flou gaussien (défaut) ou mosaïque
-};
-// Secousse PONCTUELLE (sur un temps fort / beat) — distincte du handheld (continu).
-export type ShakeKick = {
-  t?: number;                      // instant, s relatives au plan
-  intensity?: number;              // 0-1
-  duration?: number;               // s (défaut ~0.18)
-};
-export type SegLayout = "single" | "splitH" | "splitV" | "pip";
-export type OverlayAnim = "none" | "slideLeft" | "slideRight" | "slideUp" | "slideDown" | "fade" | "pop";
-export type OverlayEasing = "linear" | "easeOut" | "spring";
-export type SegOverlay = {
-  materialId: string;
-  x?: number; y?: number;          // position (coin haut-gauche) en % du cadre
-  width?: number;                  // largeur en % du cadre (5-100)
-  startSec?: number; endSec?: number; // fenêtre d'affichage, relative au segment
-  opacity?: number;                // 0-1
-  borderRadius?: number;           // px (coins arrondis)
-  zIndex?: number;                 // ordre d'empilement (petit = dessous)
-  // ── Animation entrée/sortie ──
-  enter?: OverlayAnim;             // comment l'incrustation ENTRE dans le cadre
-  exit?: OverlayAnim;              // comment elle SORT
-  enterDuration?: number;          // s (défaut 0.4)
-  exitDuration?: number;           // s (défaut 0.4)
-  easing?: OverlayEasing;          // courbe (défaut easeOut)
-};
-/** Zoom punch : coup de zoom ponctuel sur un temps fort (l'effet d'accroche
- *  short-form le plus courant, à la CapCut). Bump sinus 0→1→0 sur la fenêtre. */
-export type ZoomPunch = {
-  at: number;                      // timecode (s) DANS le plan (0-based)
-  duration?: number;               // 0.05-0.6 s (défaut 0.2)
-  amount?: number;                 // facteur de zoom au pic, 1.05-2.5 (défaut 1.4)
-  direction?: "in" | "out";        // in = punch vers l'avant (défaut) ; out = plan zoomé qui recule sur le beat
-  blur?: number;                   // 0-1 : flou (gaussien) synchronisé sur le punch (approx du flou radial)
-};
-
-export type EditSegment = {
-  materialId: string;
-  startSec?: number;
-  endSec?: number;
-  motion?: SegMotion | "zoom-in" | "zoom-out";
-  motionIntensity?: number;
-  fit?: SegFit;
-  transition?: SegTransition;      // à l'ENTRÉE du plan (le 1er reste en cut)
-  transitionDuration?: number;     // secondes (0.1-0.4 typique), bornée à la durée
-  flashColor?: string;             // pour transition "flash" : "white" (défaut) | "black" | hex
-  glitchIntensity?: number;        // pour transition "glitch" : 0-1 (défaut 0.6)
-  // ── Vitesse (chantier 1) — VIDÉO uniquement (ignoré silencieusement sur image) ──
-  speed?: number;                  // 0.25-4, défaut 1 (l'audio du plan suit, pitch modifié)
-  freezeAt?: number;               // timecode (s) DANS le fichier → arrêt sur image
-  freezeDuration?: number;         // durée du gel (s)
-  speedRamp?: { from: number; to: number }; // rampe de vitesse progressive sur le plan
-  reverse?: boolean;               // lecture inversée (vidéo + audio)
-  // ── Recadrage (chantier 2) — se COMPOSE avec motion (le mouvement passe par-dessus) ──
-  scale?: number;                  // 1-3 : zoom (punch-in) dans l'image, défaut 1
-  offsetX?: number;                // -50..50 % : position H du recadrage (agit si scale>1)
-  offsetY?: number;                // -50..50 % : position V du recadrage
-  flipH?: boolean;                 // miroir horizontal (levier d'unicité)
-  flipV?: boolean;                 // miroir vertical
-  rotate?: number;                 // rotation en degrés
-  // ── Masquage / secousse ──
-  blurRegions?: BlurRegion[];      // flou/pixelisation de zones (visage, pseudo, logo…)
-  shakeAt?: ShakeKick[];           // secousses ponctuelles (calées sur les beats/drops)
-  zoomPunch?: ZoomPunch;           // coup de zoom d'accroche sur un temps fort
-  // ── Composition multi-média (chantier 4) ──
-  layout?: SegLayout;              // single (défaut) | splitH | splitV | pip
-  overlays?: SegOverlay[];         // médias additionnels compositée dans le plan
-  grade?: ColorGrade;              // colorimétrie PROPRE au plan (surcharge le grade global)
-  freezeGrade?: ColorGrade;        // colorimétrie appliquée UNIQUEMENT pendant la fenêtre de gel (freeze) — ex. N&B sur le freeze
-  // ── Fondu au noir/blanc (au niveau du plan) — s'assombrit progressivement vers fadeColor ──
-  fadeIn?: number;                 // s (0-2) : le plan APPARAÎT depuis fadeColor
-  fadeOut?: number;                // s (0-2) : le plan se FOND vers fadeColor à la fin
-  fadeColor?: string;              // couleur du fondu (défaut noir) — "white" utile aussi
-  fadeEasing?: "linear" | "easeInOut"; // courbe de l'assombrissement (défaut easeInOut)
-};
+// Types du plan de montage : CENTRALISÉS dans plan-types.ts (le vocabulaire des
+// primitives, partagé entre moteur, schéma MCP et futur éditeur manuel).
+// Ré-exportés ici pour compat : les importeurs historiques passent par "./render".
+import {
+  OVERLAY_ANIMS, OVERLAY_EASINGS,
+  type BlurRegion, type ShakeKick, type SegLayout, type SegOverlay, type ZoomPunch,
+  type EditSegment, type CaptionStyle, type CaptionSize, type CaptionFont, type EmojiStyle,
+  type EditCaption, type ColorGrade, type EditPlan, type OutKeyframe,
+  type SegMotion, type SegFit, type AudioDuck,
+} from "./plan-types";
+export * from "./plan-types";
 
 /** Nom de transition xfade pour un plan (null = pas de fond xfade → cut ou glitch).
  *  flash → fondu bref via blanc/noir (fadewhite/fadeblack). glitch = géré à part
@@ -135,9 +60,6 @@ function xfadeTransition(seg: { transition?: unknown; flashColor?: string } | un
   return name && XFADE_44.has(name) ? name : null;
 }
 
-export type CaptionStyle = "outline" | "box" | "sticker";
-export type CaptionSize = "s" | "m" | "l";
-export type CaptionFont = "sans" | "rounded" | "impact" | "serif" | "script" | "display";
 // Enum → nom de FAMILLE (fontconfig la trouve dans public/fonts/ dès que le .ttf
 // y est déposé ; sinon repli sur ce qui est dispo, pas de crash).
 const FONT_FAMILY: Record<CaptionFont, string> = {
@@ -152,87 +74,6 @@ const FONT_FAMILY: Record<CaptionFont, string> = {
 // fiables sous librsvg) : on composite des images (Fluent 3D, cf. plus bas). Si
 // aucun asset n'est récupérable, repli sur cette police mono → jamais de tofu.
 const EMOJI_TEXT_FALLBACK = "'Noto Emoji', 'Noto Sans'";
-export type EditCaption = {
-  text: string;
-  startSec: number;
-  endSec: number;
-  position?: "top" | "center" | "bottom";
-  x?: number;            // centre horizontal en % (0-100) — prioritaire sur position
-  y?: number;            // centre vertical en % (0-100)
-  align?: "left" | "center" | "right";
-  style?: CaptionStyle;  // outline (défaut) | box | sticker (raccourci : fond opaque, très arrondi, padding généreux, gras sans contour)
-  background?: string;   // couleur hex du fond → force box ; "none" → force outline
-  backgroundOpacity?: number; // 0-1, opacité du fond (défaut 1 = OPAQUE)
-  borderRadius?: number; // px (@1080) : coins arrondis du fond (30-40 pour un sticker)
-  padding?: number;      // px (@1080) : marge intérieure du fond (X et Y)
-  paddingX?: number;     // px (@1080) : marge intérieure horizontale (prioritaire sur padding)
-  paddingY?: number;     // px (@1080) : marge intérieure verticale (prioritaire sur padding)
-  size?: CaptionSize;
-  fontSize?: number;     // px (à W=1080), prioritaire sur size
-  color?: string;
-  strokeColor?: string;
-  strokeWidth?: number;  // px
-  font?: CaptionFont;    // famille de police
-  fontWeight?: number;   // 400-900
-  letterSpacing?: number;// px (interlettrage)
-  lineHeight?: number;   // multiplicateur (défaut 1.24)
-  textTransform?: "none" | "uppercase";
-  shadowColor?: string;  // ombre portée (distincte du contour)
-  shadowBlur?: number;   // px
-  shadowOffset?: number; // px (décalage bas-droite)
-  emojiStyle?: EmojiStyle; // "3d" (Fluent, défaut) | "flat" (Twemoji) — override du défaut du plan
-  // ── Animation (chantier 3) ──
-  animation?: "none" | "fade" | "pop" | "slideUp" | "typewriter" | "wordByWord" | "karaoke";
-  animationDuration?: number;                      // s (défaut ~0.35)
-  words?: { text: string; start: number; end: number; color?: string }[]; // wordByWord/karaoke : timing par mot (+ couleur STATIQUE du mot — mot-clé en relief)
-  highlightColor?: string;                         // karaoké : couleur du mot actif
-  glow?: { color: string; intensity: number };     // effet NÉON (halo saturé autour du texte)
-  // ── Captions « designées » (style TikTok) : chaque SPAN = une portion du texte
-  // avec sa propre couleur et/ou sa propre police (mot multicolore, mot en script…).
-  // Quand `spans` est fourni, le texte rendu = la concaténation des `text` (séparés
-  // par une espace) et remplace `text`. Chaque span hérite des réglages globaux
-  // (color/font/fontWeight) sauf pour les champs qu'il redéfinit. Absent → rendu
-  // classique inchangé. Les emojis restent rendus en images (couleur ignorée).
-  spans?: { text: string; color?: string; font?: CaptionFont; italic?: boolean; weight?: number }[];
-};
-
-export type ColorGrade = {
-  saturation?: number;   // 1 = neutre
-  contrast?: number;     // 1 = neutre
-  brightness?: number;   // 0 = neutre (-1..1)
-  temperature?: number;  // -1 froid .. +1 chaud (0 neutre)
-  grain?: number;        // 0..1
-  vignette?: boolean;
-};
-
-export type AudioDuck = {
-  enabled?: boolean;
-  threshold?: number;      // seuil de déclenchement 0-1 (défaut 0.05)
-  reduction?: number;      // atténuation cible en dB (défaut 12) → pilote le ratio
-  attack?: number;         // s (défaut 0.1) — vitesse de baisse quand la voix arrive
-  release?: number;        // s (défaut 0.4) — vitesse de remontée quand la voix s'arrête
-};
-export type EditAudioTrack = {
-  materialId: string;      // matière audio OU vidéo (on prend sa piste son)
-  startSec?: number;       // décalage dans la piste
-  volume?: number;         // 0-2, défaut 1
-  mode?: "mix" | "replace";// mix (par-dessus le son des plans, défaut) | replace
-  duck?: boolean | AudioDuck; // MIX only : baisse la musique quand une voix parle dans les plans
-};
-
-export type EditPlan = {
-  aspect?: "9:16" | "1:1" | "16:9";
-  fps?: number;
-  background?: string;   // couleur de fond (letterbox), défaut noir
-  grade?: ColorGrade;
-  audio?: EditAudioTrack;
-  segments: EditSegment[];
-  captions?: EditCaption[];
-  emojiStyle?: EmojiStyle; // défaut des emojis de TOUTES les captions ("3d" | "flat")
-  label?: string;
-};
-
-export type OutKeyframe = { t: number; dataUri: string };
 
 const CANVAS: Record<string, [number, number]> = { "9:16": [1080, 1920], "1:1": [1080, 1080], "16:9": [1920, 1080] };
 const IMG_DEFAULT_SEC = 2.5;
@@ -350,7 +191,6 @@ async function fetchAssetDataUri(url: string, cacheName: string, mime: string): 
   } catch {}
   return null;
 }
-export type EmojiStyle = "3d" | "flat"; // 3d = Fluent 3D (défaut) ; flat = Twemoji
 /** Data URI d'un emoji selon le style choisi. "3d" : Fluent 3D (PNG) puis repli
  *  Twemoji ; "flat" : Twemoji (SVG) directement. Repli ultime mono via null. */
 async function emojiImage(grapheme: string, style: EmojiStyle = "3d"): Promise<string | null> {
@@ -401,8 +241,9 @@ async function measureInk(sharp: typeof import("sharp"), text: string, attrs: st
 }
 
 /** Rasterise une caption stylée : police/poids/interlettrage/interligne/casse,
- *  contour OU boîte, ombre portée, position libre. Emojis couleur (Fluent 3D). */
-async function captionPng(c: EditCaption, W: number, H: number, outPath: string, emojiStyle: EmojiStyle = "3d", hlWord = -1, hlColor = ""): Promise<void> {
+ *  contour OU boîte, ombre portée, position libre. Emojis couleur (Fluent 3D).
+ *  Exportée pour les tests visuels (scripts locaux) — pas d'usage externe en prod. */
+export async function captionPng(c: EditCaption, W: number, H: number, outPath: string, emojiStyle: EmojiStyle = "3d", hlWord = -1, hlColor = ""): Promise<void> {
   await ensureFonts();
   const sharp = (await import("sharp")).default;
 
@@ -892,15 +733,20 @@ function glitchBurstFilter(inLabel: string, out: string, intensity: number, dur:
   return `${inLabel}rgbashift=rh=${sh}:bh=${-sh}:enable='${win}',noise=alls=${nz}:allf=t:enable='${win}',format=yuv420p${out}`;
 }
 
-/** Chaîne de colorimétrie globale (eq + grain + vignette). "" si neutre. */
+/** Chaîne de colorimétrie globale (eq + grain + vignette). "" si neutre.
+ *  BORNES DE SOBRIÉTÉ : le modèle a tendance à sur-doser (saturation 1.6, etc.)
+ *  → on plafonne aux plages « impossibles à rater » : saturation ≤ 1.3 (mais 0
+ *  permis : le N&B est un style légitime, ex. freeze noir & blanc), contraste
+ *  [0.7, 1.35], luminosité ±0.3, température ±0.5. L'abus devient physiquement
+ *  impossible quel que soit ce que le plan demande. */
 function gradeChain(g?: ColorGrade): string {
   if (!g) return "";
   const parts: string[] = [];
   const sat = num(g.saturation, 1), con = num(g.contrast, 1), bri = num(g.brightness, 0);
   if (sat !== 1 || con !== 1 || bri !== 0) {
-    parts.push(`eq=saturation=${clamp(sat, 0, 3).toFixed(3)}:contrast=${clamp(con, 0, 3).toFixed(3)}:brightness=${clamp(bri, -1, 1).toFixed(3)}`);
+    parts.push(`eq=saturation=${clamp(sat, 0, 1.3).toFixed(3)}:contrast=${clamp(con, 0.7, 1.35).toFixed(3)}:brightness=${clamp(bri, -0.3, 0.3).toFixed(3)}`);
   }
-  const temp = clamp(num(g.temperature, 0), -1, 1);
+  const temp = clamp(num(g.temperature, 0), -0.5, 0.5);
   if (temp !== 0) {
     // Teinte chaud/froid : +chaud = plus de rouge / moins de bleu (colorbalance).
     parts.push(`colorbalance=rm=${(temp * 0.25).toFixed(3)}:bm=${(-temp * 0.25).toFixed(3)}:rs=${(temp * 0.15).toFixed(3)}:bs=${(-temp * 0.15).toFixed(3)}`);
@@ -965,9 +811,13 @@ async function timeEffectClip(
     }
     vL = L("vf");
     if (hasAudio) {
-      af.push(`[${aL}]atrim=0:${fzLocal.toFixed(3)},asetpts=N/SR/TB[${L("afa")}]`);
+      // COUTURES : micro-fondu 8 ms aux deux jointures parole↔silence du freeze
+      // (atrim coupe l'onde à vif → clic). Fade-out en fin de partie A, fade-in
+      // en tête de partie B ; le silence inséré n'a pas besoin de fondu.
+      const fzF = 0.008, fzFoSt = Math.max(0, fzLocal - fzF);
+      af.push(`[${aL}]atrim=0:${fzLocal.toFixed(3)},afade=t=out:st=${fzFoSt.toFixed(4)}:d=${fzF},asetpts=N/SR/TB[${L("afa")}]`);
       af.push(`anullsrc=r=44100:cl=stereo,atrim=0:${fzDur.toFixed(3)},asetpts=N/SR/TB[${L("afs")}]`);
-      af.push(`[${aL}]atrim=start=${fzLocal.toFixed(3)},asetpts=N/SR/TB[${L("afb")}]`);
+      af.push(`[${aL}]atrim=start=${fzLocal.toFixed(3)},asetpts=N/SR/TB,afade=t=in:st=0:d=${fzF}[${L("afb")}]`);
       af.push(`[${L("afa")}][${L("afs")}][${L("afb")}]concat=n=3:v=0:a=1[${L("af")}]`);
       aL = L("af");
     }
@@ -1013,8 +863,6 @@ async function timeEffectClip(
   return { path: out, durationSec: Math.max(0.1, dur), hasAudio };
 }
 
-const OVERLAY_ANIMS = ["none", "slideLeft", "slideRight", "slideUp", "slideDown", "fade", "pop"];
-const OVERLAY_EASINGS = ["linear", "easeOut", "spring"];
 /* Progression 0→1 mise en forme par la courbe (expr ffmpeg). spring = easeOutBack
    (léger dépassement puis retour), easeOut = quadratique décéléré, linear = brut. */
 function easeExpr(p: string, e: string): string {
@@ -1033,13 +881,30 @@ async function compositeClip(
   W: number, H: number, fps: number, bg: string, dir: string, idx: number,
 ): Promise<{ path: string; durationSec: number; hasAudio: boolean } | null> {
   const layout: SegLayout = seg.layout && ["splitH", "splitV", "pip"].includes(seg.layout) ? seg.layout : "single";
-  const resolved: { abs: string; kind: string; o: SegOverlay }[] = [];
+  // Boîte de chaque incrustation (px, pairs pour libx264) : largeur en % du cadre ;
+  // hauteur en % si fournie (média recadré cover), sinon aspect source — sauf
+  // square/circle qui forcent une boîte CARRÉE. Les CARTES (color, sans média)
+  // sont générées en source lavfi à la taille exacte de leur boîte.
+  const evenPx = (v: number) => Math.max(16, Math.floor(v / 2) * 2);
+  const boxOf = (o: SegOverlay) => {
+    const wpx = evenPx(clamp(num(o.width, 32), 5, 100) / 100 * W);
+    const squared = o.shape === "square" || o.shape === "circle";
+    const hpx = squared ? wpx : o.height != null ? evenPx(clamp(num(o.height, 32), 5, 100) / 100 * H) : 0; // 0 = aspect source
+    return { wpx, hpx };
+  };
+  type ResolvedOverlay = { abs: string | null; kind: string; o: SegOverlay; wpx: number; hpx: number };
+  const resolved: ResolvedOverlay[] = [];
   for (const o of (seg.overlays ?? []).slice(0, 6)) {
+    const { wpx, hpx } = boxOf(o);
     const mat = materials.find((m) => m.id === o?.materialId);
-    if (!mat || mat.kind === "audio") continue;
-    const oabs = materialAbsPath(userId, projectId, mat.storedName);
-    try { await fs.access(oabs); } catch { continue; }
-    resolved.push({ abs: oabs, kind: mat.kind, o });
+    if (mat && mat.kind !== "audio") {
+      const oabs = materialAbsPath(userId, projectId, mat.storedName);
+      try { await fs.access(oabs); } catch { continue; }
+      resolved.push({ abs: oabs, kind: mat.kind, o, wpx, hpx });
+    } else if (!o?.materialId && typeof o?.color === "string" && /^#?[0-9a-fA-F]{6}$/.test(o.color)) {
+      // CARTE DE COULEUR : panneau/fond/badge sans média.
+      resolved.push({ abs: null, kind: "card", o, wpx, hpx: hpx || wpx });
+    }
   }
   if (layout === "single" && !resolved.length) return null;   // rien à composer
   if (layout !== "single" && !resolved.length) return null;   // split sans 2e média → ignore
@@ -1049,7 +914,8 @@ async function compositeClip(
   if (base.start > 0) args.push("-ss", base.start.toFixed(3));
   args.push("-t", base.len.toFixed(3), "-i", base.abs);
   for (const r of resolved) {
-    if (r.kind === "image") args.push("-loop", "1", "-t", base.len.toFixed(3), "-i", r.abs);
+    if (r.abs === null) args.push("-f", "lavfi", "-t", base.len.toFixed(3), "-i", `color=c=${r.o.color!.startsWith("#") ? r.o.color : `#${r.o.color}`}:s=${r.wpx}x${r.hpx}:r=${fps}`);
+    else if (r.kind === "image") args.push("-loop", "1", "-t", base.len.toFixed(3), "-i", r.abs);
     else args.push("-t", base.len.toFixed(3), "-i", r.abs);
   }
 
@@ -1080,7 +946,7 @@ async function compositeClip(
   for (const { r, k } of pips) {
     const inIdx = k + 1;
     const o = r.o;
-    const wpx = Math.max(16, Math.round(clamp(num(o.width, 32), 5, 100) / 100 * W));
+    const wpx = r.wpx, hpx = r.hpx;
     const op = clamp(num(o.opacity, 1), 0, 1);
     const xp = Math.round(clamp(num(o.x, 62), 0, 100) / 100 * W);
     const yp = Math.round(clamp(num(o.y, 60), 0, 100) / 100 * H);
@@ -1122,7 +988,21 @@ async function compositeClip(
     if (enter === "fade" || enter === "pop") fadeChain += `,fade=t=in:st=${st.toFixed(2)}:d=${eIn.toFixed(2)}:alpha=1`;
     if (exit === "fade" || exit === "pop") fadeChain += `,fade=t=out:st=${exitStart.toFixed(2)}:d=${eOut.toFixed(2)}:alpha=1`;
 
-    vf.push(`[${inIdx}:v]scale=${wpx}:-2,setsar=1,fps=${fps},format=rgba,colorchannelmixer=aa=${op.toFixed(3)}${fadeChain}[${label}]`);
+    // Échelle : carte lavfi déjà à la taille exacte ; média → recadrage COVER dans
+    // la boîte w×h (height fourni ou shape carrée/ronde), sinon aspect source.
+    const scalePart = r.abs === null ? "" : hpx > 0
+      ? `scale=${wpx}:${hpx}:force_original_aspect_ratio=increase,crop=${wpx}:${hpx},`
+      : `scale=${wpx}:-2,`;
+    // Masque d'arrondi (enfin RÉEL) : SDF de rectangle arrondi sur l'alpha —
+    // dx=max(|X-cx|-(w/2-r),0), dy idem, dedans ssi dx²+dy²≤r². circle = rayon
+    // plein (la boîte est carrée) ; borderRadius en px @1080 → échelle du canvas.
+    const radPx = r.o.shape === "circle"
+      ? Math.floor(Math.min(wpx, hpx || wpx) / 2)
+      : num(r.o.borderRadius, 0) > 0 ? Math.round(clamp(num(r.o.borderRadius, 0), 0, 400) * W / 1080) : 0;
+    const maskPart = radPx > 0
+      ? `geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lte(pow(max(abs(X-W/2)-(W/2-${radPx}),0),2)+pow(max(abs(Y-H/2)-(H/2-${radPx}),0),2),${radPx * radPx}),alpha(X,Y),0)',`
+      : "";
+    vf.push(`[${inIdx}:v]${scalePart}setsar=1,fps=${fps},format=rgba,${maskPart}colorchannelmixer=aa=${op.toFixed(3)}${fadeChain}[${label}]`);
     vf.push(`[${acc}][${label}]overlay=x='${xExpr}':y='${yExpr}':enable='between(t,${st.toFixed(2)},${en.toFixed(2)})'[cv${ci}]`); acc = `cv${ci}`; ci++;
   }
   vf.push(`[${acc}]format=yuv420p[vout]`);
@@ -1325,9 +1205,17 @@ export async function renderVariant(
   // un TB commun : un plan composité (mp4 pré-rendu) arrive avec un TB différent, ce
   // qui faisait PERDRE les frames du 2e plan lors d'un xfade (transition sur un plan
   // composite). settb=1/fps + fps garantit une base identique et CFR partout.
+  // COUTURES AUDIO : micro-fondu (~12 ms) en entrée ET sortie de chaque plan — le
+  // concat des cuts est sec, la forme d'onde saute à la jointure → clic/pop audible,
+  // surtout sur les micro-coupes du nettoyage de rush. 12 ms ramènent l'onde à zéro
+  // aux bords, inaudible à l'oreille (< seuil de perception d'un fondu). Si la durée
+  // réelle diffère de durs[i], le fade-out tombe hors plage → simple no-op (pas pire
+  // qu'avant). Plans très courts : fondu réduit (≥ 4 ms), jamais plus d'1/8 du plan.
   for (let i = 0; i < segs.length; i++) {
     filters.push(`${vlabels[i]}fps=${fps},setpts=PTS-STARTPTS,settb=1/${fps}[vn${i}]`);
-    filters.push(`${alabels[i]}aresample=44100,asetpts=N/SR/TB,asettb=1/44100[an${i}]`);
+    const sf = Math.min(0.012, Math.max(0.004, durs[i] / 8));
+    const foSt = Math.max(0, durs[i] - sf);
+    filters.push(`${alabels[i]}aresample=44100,afade=t=in:st=0:d=${sf.toFixed(4)},afade=t=out:st=${foSt.toFixed(4)}:d=${sf.toFixed(4)},asetpts=N/SR/TB,asettb=1/44100[an${i}]`);
     vlabels[i] = `[vn${i}]`;
     alabels[i] = `[an${i}]`;
   }
@@ -1457,6 +1345,39 @@ export async function renderVariant(
           if (capIn + wc > MAX_FFMPEG_INPUTS) anim = "none";
         }
 
+        // ── COMPTEUR ANIMÉ : nombre qui défile de from → to sur [st,en], easeOut
+        // (file vite, se pose sur la valeur finale). Rendu comme wordByWord : une
+        // image par étape, étapes DÉDUPLIQUÉES après arrondi. Budget serré →
+        // moins d'étapes ; à 1 seule, valeur finale statique.
+        if (c.counter && Number.isFinite(Number(c.counter.from)) && Number.isFinite(Number(c.counter.to))) {
+          const from = Number(c.counter.from), to = Number(c.counter.to);
+          const dec = clamp(Math.round(num(c.counter.decimals, 0)), 0, 3);
+          const pre = typeof c.counter.prefix === "string" ? c.counter.prefix : "";
+          const suf = typeof c.counter.suffix === "string" ? c.counter.suffix : "";
+          const fmt = (v: number) => {
+            const [int, fr] = v.toFixed(dec).split(".");
+            const g = int.replace(/^(-?)(\d+)/, (_, sg, ds) => sg + ds.replace(/\B(?=(\d{3})+(?!\d))/g, " "));
+            return pre + (fr ? `${g},${fr}` : g) + suf;
+          };
+          const steps = Math.max(1, Math.min(14, MAX_FFMPEG_INPUTS - capIn));
+          const ease = (p: number) => 1 - Math.pow(1 - p, 3); // easeOutCubic
+          const labels: string[] = [], times: number[] = [];
+          for (let i = 0; i < steps; i++) {
+            const p = steps === 1 ? 1 : i / (steps - 1);
+            const label = fmt(from + (to - from) * ease(p));
+            if (!labels.length || labels[labels.length - 1] !== label) { labels.push(label); times.push(st + p * (en - st)); }
+          }
+          times[0] = st;
+          for (let i = 0; i < labels.length; i++) {
+            const png = path.join(dir, `cap${k}_ctr${i}.png`);
+            await captionPng({ ...c, text: labels[i], spans: undefined, words: undefined }, W, H, png, es);
+            inputs.push("-i", png);
+            const isLast = i === labels.length - 1;
+            overlay(capIn++, times[i], isLast ? en : times[i + 1], "0:0", isLast);
+          }
+          continue;
+        }
+
         if (anim === "wordByWord") {
           const wt = wordTiming(c, st, en);
           const styled = wordsStyled(wt);
@@ -1495,35 +1416,46 @@ export async function renderVariant(
         } else {
           const png = path.join(dir, `cap${k}.png`);
           await captionPng(c, W, H, png, es);
-          if (anim === "none") { inputs.push("-i", png); overlay(capIn++, st, en); continue; }
+          // ── SORTIE (exitAnimation) : disparition à `en` — fade/pop = fondu,
+          // slideUp/slideDown = glissement fondu. Même règle de bornage que
+          // l'entrée : la sortie ne démarre JAMAIS avant la fin de l'entrée
+          // (sinon texte gris translucide sur caption courte) ; sans place,
+          // pas de sortie du tout (coupe nette à `en`).
+          const exitName = c.exitAnimation === "fade" || c.exitAnimation === "pop" || c.exitAnimation === "slideUp" || c.exitAnimation === "slideDown" ? c.exitAnimation : "none";
+          if (anim === "none" && exitName === "none") { inputs.push("-i", png); overlay(capIn++, st, en); continue; }
           // Anims temporelles : image bouclée → filtres à temps absolu.
           inputs.push("-loop", "1", "-t", vidDur.toFixed(3), "-i", png);
           const inIdx = capIn++;
           const capf = `capf${k}`;
-          if (anim === "fade" || anim === "pop") {
-            // Entrée : pop = rapide (≤0.18s), fade = ad. Sortie : NE DOIT JAMAIS
-            // commencer avant la fin de l'entrée — sur une caption courte
-            // (en-st < ad), fade-out st=en-ad tombait AVANT le fade-in → l'alpha
-            // n'atteignait jamais 1 (texte gris translucide, non déterministe
-            // selon la durée de chaque caption). On borne : la sortie démarre
-            // après l'entrée, sa durée se comprime, et s'il n'y a pas la place,
-            // pas de fondu de sortie du tout (l'overlay coupe net à `en`).
-            const inD = anim === "pop" ? Math.min(ad, 0.18) : ad;
-            const inEnd = st + inD;
-            const outD = Math.min(ad, Math.max(0, en - inEnd - 0.04));
-            const outPart = outD >= 0.05
-              ? `,fade=t=out:st=${Math.max(inEnd + 0.02, en - outD).toFixed(2)}:d=${outD.toFixed(2)}:alpha=1`
-              : "";
-            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${inD.toFixed(2)}:alpha=1${outPart}[${capf}]`);
-            overlay(capf, st, en);
+          const inD = anim === "none" ? 0 : anim === "pop" ? Math.min(ad, 0.18) : ad;
+          const inEnd = st + inD;
+          // Durée de sortie : exitDuration si sortie explicite (pop = rapide par
+          // défaut), sinon l'auto fondu de sortie historique de fade/pop (= ad).
+          const autoOut = anim === "fade" || anim === "pop";
+          const xdReq = exitName !== "none" ? clamp(num(c.exitDuration, exitName === "pop" ? 0.18 : 0.35), 0.05, 2) : autoOut ? ad : 0;
+          const outD = xdReq > 0 ? Math.min(xdReq, Math.max(0, en - inEnd - 0.04)) : 0;
+          const outSt = Math.max(inEnd + 0.02, en - outD);
+          const outFade = outD >= 0.05 ? `,fade=t=out:st=${outSt.toFixed(2)}:d=${outD.toFixed(2)}:alpha=1` : "";
+          // Glissement de sortie : offset vertical croissant sur [outSt,en].
+          const slideOff = Math.round(H * 0.05);
+          const exitY = (exitName === "slideUp" || exitName === "slideDown") && outD >= 0.05
+            ? `if(gt(t,${outSt.toFixed(2)}),${exitName === "slideUp" ? "-" : ""}((t-${outSt.toFixed(2)})/${outD.toFixed(2)})*${slideOff},0)`
+            : "0";
+          const posExpr = exitY === "0" ? "0:0" : `x=0:y='${exitY}'`;
+          if (anim === "none") {
+            captionFilters.push(`[${inIdx}:v]format=rgba${outFade}[${capf}]`);
+            overlay(capf, st, en, posExpr);
+          } else if (anim === "fade" || anim === "pop") {
+            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${inD.toFixed(2)}:alpha=1${outFade}[${capf}]`);
+            overlay(capf, st, en, posExpr);
           } else if (anim === "typewriter") {
             // Révélation gauche→droite : on masque l'alpha des pixels à droite du
             // seuil mobile (taille de sortie constante, contrairement à crop). geq.
-            captionFilters.push(`[${inIdx}:v]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(X,W*min(1,max(0,(T-${st.toFixed(2)})/${ad.toFixed(2)}))),alpha(X,Y),0)'[${capf}]`);
-            overlay(capf, st, en);
-          } else { // slideUp
-            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${ad.toFixed(2)}:alpha=1[${capf}]`);
-            overlay(capf, st, en, `x=0:y='if(between(t,${st.toFixed(2)},${(st + ad).toFixed(2)}),(1-(t-${st.toFixed(2)})/${ad.toFixed(2)})*${Math.round(H * 0.05)},0)'`);
+            captionFilters.push(`[${inIdx}:v]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(X,W*min(1,max(0,(T-${st.toFixed(2)})/${ad.toFixed(2)}))),alpha(X,Y),0)'${outFade}[${capf}]`);
+            overlay(capf, st, en, posExpr);
+          } else { // slideUp (entrée) — l'offset d'entrée se combine avec la sortie
+            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${ad.toFixed(2)}:alpha=1${outFade}[${capf}]`);
+            overlay(capf, st, en, `x=0:y='if(between(t,${st.toFixed(2)},${(st + ad).toFixed(2)}),(1-(t-${st.toFixed(2)})/${ad.toFixed(2)})*${slideOff},${exitY})'`);
           }
         }
       }

@@ -53,6 +53,7 @@ export const TOOLS = [
       "FIDÉLITÉ MOTION & RYTHME : reproduis le MONTAGE de la réf, pas seulement son texte. get_reference te donne le rythme (nb de coupes · durée moyenne d'un plan) + par plan le mouvement (type+intensité → motion/motionIntensity/scale), la vitesse (speed), les freeze (freezeAt/freezeDuration) et la transition de chaque coupe (→ transition). Colle à la CADENCE : si la réf coupe ~toutes les 1,2 s, garde des plans courts et punchy ; ne laisse pas de plan mou de 6 s là où la réf en enchaîne cinq. Cale les zoomPunch/shakeAt/transitions percutantes sur les beats/drops de la musique. " +
       "NETTOYAGE DU RUSH (le user envoie ses RUSHS BRUTS, pas une vidéo déjà montée — c'est à TOI de la rendre publiable) : get_material te donne la VOIX horodatée, les MOTS, les ✂️ BLANCS, les ⏱ MICRO-PAUSES et les 🔁 REPRISES. Découpe le rush en PLUSIEURS segments[] du MÊME fichier (même materialId, [startSec,endSec] différents) qui GARDENT la parole et SAUTENT : les ✂️ BLANCS, les plages 🔁 REPRISES (le locuteur se rate puis répète — tu gardes la DERNIÈRE prise, qui commence à la fin de la plage) et toute redite restante visible dans le transcript. Les ⏱ MICRO-PAUSES (0,15-0,5 s, INTRA-phrase) ne se sautent pas : SUBDIVISE le segment en 2 segments contigus (fin du 1er = début de la pause, début du 2e = fin de la pause, cut sec) → débit resserré, raccord invisible. Coupe TOUJOURS aux frontières de silence, jamais en plein mot. " +
       "LIGNE À NE PAS FRANCHIR : tu enlèves seulement le DÉCHET (blancs, hésitations, ratés, redites). Tu ne choisis JAMAIS « le propos », tu ne réordonnes pas, tu ne réécris pas, tu ne sélectionnes pas « le meilleur passage » : le contenu et l'ordre restent ceux du user. C'est SA prise, juste nettoyée. " +
+      "B-ROLL / CUTAWAYS : quand la réf insère des plans d'illustration pendant que la voix continue (get_reference → 🎞 CUTAWAY), reproduis-les avec LA MATIÈRE DU USER uniquement : son image/clip en overlay PLEIN CADRE ({ x: 0, y: 0, width: 100, height: 100 }) sur la fenêtre du plan qui parle — le son du plan continue dessous. Choisis l'asset dont la description colle au propos du moment. Pas d'asset adapté → pas de b-roll : JAMAIS de stock, jamais de contenu externe. Même sans réf b-roll, tu PEUX en placer sobrement (1-2 s) pour renourrir l'œil si le user a des assets pertinents. " +
       "Durées : segment libre (borné à la longueur du fichier pour une vidéo) ; défaut image = 2,5 s. Jusqu'à 40 segments, 30 captions. DURÉE TOTALE MAX = 90 s (cible short-form) : au-delà, le rendu est refusé — retire ou raccourcis des plans.",
     inputSchema: {
       type: "object",
@@ -63,13 +64,13 @@ export const TOOLS = [
         background: { type: "string", description: "Couleur de fond des bandes (letterbox) en hex. Défaut noir." },
         grade: {
           type: "object",
-          description: "Colorimétrie GLOBALE (optionnel).",
+          description: "Colorimétrie GLOBALE (optionnel). ⚠️ SOBRIÉTÉ : c'est un ASSAISONNEMENT, pas une sauce — PAS de grade par défaut (omets le champ). N'en mets que si la réf a une ambiance marquée, et alors passe le gradeSuggested de get_reference TEL QUEL (écart MESURÉ réf↔matière) sans l'amplifier. Si tu règles à la main, reste dans ±10-15 % du neutre (ex. saturation 0.9-1.15). Le moteur PLAFONNE de toute façon (saturation ≤ 1.3, contraste 0.7-1.35, brightness ±0.3, température ±0.5) : demander plus n'aura aucun effet.",
           properties: {
-            saturation: { type: "number", description: "1 = neutre, >1 plus saturé, <1 désaturé." },
-            contrast: { type: "number", description: "1 = neutre." },
-            brightness: { type: "number", description: "0 = neutre (-1..1)." },
-            temperature: { type: "number", description: "Teinte : -1 froid (bleuté) .. +1 chaud (doré), 0 neutre." },
-            grain: { type: "number", description: "0..1 : grain filmique." },
+            saturation: { type: "number", description: "1 = neutre. Plage utile 0.9-1.15 ; plafond moteur 1.3 ; 0 = noir & blanc (style assumé)." },
+            contrast: { type: "number", description: "1 = neutre. Plage utile 0.95-1.15 ; plafond moteur 0.7-1.35." },
+            brightness: { type: "number", description: "0 = neutre. Plage utile ±0.08 ; plafond moteur ±0.3." },
+            temperature: { type: "number", description: "Teinte : - froid (bleuté) .. + chaud (doré), 0 neutre. Plage utile ±0.2 ; plafond moteur ±0.5." },
+            grain: { type: "number", description: "0..1 : grain filmique. Plage utile ≤ 0.25." },
             vignette: { type: "boolean", description: "Assombrit les bords." },
           },
         },
@@ -115,18 +116,21 @@ export const TOOLS = [
               layout: { type: "string", enum: ["single", "splitH", "splitV", "pip"], description: "COMPOSITION multi-média : single (défaut) ; splitV (2 médias empilés haut/bas) ; splitH (côte à côte) ; pip (incrustation). Le 2e média d'un split, et les incrustations, sont listés dans overlays[]. Réf : get_reference signale si un plan est un split/une incrustation." },
               overlays: {
                 type: "array",
-                description: "Médias additionnels compositée dans le plan (réaction, avant/après, watermark, écran d'app…). En split, overlays[0] = 2e panneau ; le reste = incrustations.",
+                description: "Médias additionnels compositée dans le plan (réaction, avant/après, watermark, écran d'app…). En split, overlays[0] = 2e panneau ; le reste = incrustations. LAYOUTS COMPOSÉS (edits type OpusClip) — 2 patterns clés : ① SPEAKER EN BULLE : le MÊME rush que le plan en overlay avec shape:\"circle\", width 25-35, en bas — le son du plan continue, l'image se réduit en bulle ronde ; ajoute une carte sombre plein cadre DERRIÈRE (zIndex plus petit) et des captions par-dessus pour le look « liste + bulle ». ② B-ROLL/CUTAWAY : un asset du user (image/clip) en overlay PLEIN CADRE (x0 y0 width 100 height 100) sur 1-2 s pendant que la voix du plan continue. ③ CARTE : color sans materialId = panneau/fond/badge de couleur.",
                 items: {
                   type: "object",
                   properties: {
-                    materialId: { type: "string", description: "id (list_material) du média à incruster." },
+                    materialId: { type: "string", description: "id (list_material) du média à incruster. OMIS si `color` (carte de couleur)." },
+                    color: { type: "string", description: "CARTE DE COULEUR (sans materialId) : rectangle de couleur unie #RRGGBB — panneau plein cadre derrière une liste, fond de bloc, badge. Combine avec borderRadius/width/height." },
                     x: { type: "number", description: "Position coin haut-gauche, % du cadre (0-100)." },
                     y: { type: "number", description: "Position verticale, % du cadre." },
                     width: { type: "number", description: "Largeur de l'incrustation, % du cadre (5-100)." },
+                    height: { type: "number", description: "Hauteur, % du cadre — le média est RECADRÉ (cover) dans la boîte largeur×hauteur. Absent = aspect de la source. Pour une carte : défaut = carrée." },
+                    shape: { type: "string", enum: ["rect", "square", "circle"], description: "square = recadre la source en CARRÉ ; circle = BULLE RONDE (le layout « speaker en bulle » des edits face-cam). Défaut rect." },
                     startSec: { type: "number", description: "Apparition, relative au plan." },
                     endSec: { type: "number", description: "Disparition, relative au plan." },
                     opacity: { type: "number", description: "0-1 (défaut 1)." },
-                    borderRadius: { type: "number", description: "Coins arrondis en px." },
+                    borderRadius: { type: "number", description: "Coins arrondis en px (@1080) — appliqués via masque alpha (marche sur média ET carte)." },
                     zIndex: { type: "number", description: "Ordre d'empilement (petit = dessous)." },
                     enter: { type: "string", enum: ["none", "slideLeft", "slideRight", "slideUp", "slideDown", "fade", "pop"], description: "Comment l'incrustation ENTRE dans le cadre. slide* = direction du MOUVEMENT : slideUp glisse vers le haut (entre par le bas), slideDown par le haut, slideLeft par la droite, slideRight par la gauche. fade = fondu ; pop = fondu rapide. Défaut none (apparition sèche). Une seule fenêtre suffit : ne découpe plus un plan en sous-segments pour bouger l'incrustation." },
                     exit: { type: "string", enum: ["none", "slideLeft", "slideRight", "slideUp", "slideDown", "fade", "pop"], description: "Comment l'incrustation SORT du cadre. Même direction que enter = elle continue dans le même sens (slideUp sort par le haut)." },
@@ -138,13 +142,13 @@ export const TOOLS = [
               },
               grade: {
                 type: "object",
-                description: "Colorimétrie PROPRE à CE plan (surcharge le grade global). Ex. assombrir la dernière photo « avant » (brightness négatif) pendant le caption pivot pour la bascule visuelle. Réf : get_reference signale un plan assombri par rapport au reste.",
+                description: "Colorimétrie PROPRE à CE plan (surcharge le grade global). Ex. assombrir la dernière photo « avant » (brightness négatif) pendant le caption pivot pour la bascule visuelle. Réf : get_reference signale un plan assombri par rapport au reste. ⚠️ Même règle de SOBRIÉTÉ que le grade global : ±10-15 % max, seulement si la réf le justifie (plafonds moteur : sat ≤ 1.3, contraste 0.7-1.35, brightness ±0.3, temp ±0.5).",
                 properties: {
-                  saturation: { type: "number", description: "1 = neutre." },
-                  contrast: { type: "number", description: "1 = neutre." },
-                  brightness: { type: "number", description: "0 = neutre (-1..1) ; négatif = plus sombre." },
-                  temperature: { type: "number", description: "-1 froid .. +1 chaud." },
-                  grain: { type: "number", description: "0..1." },
+                  saturation: { type: "number", description: "1 = neutre. Plage utile 0.9-1.15 ; 0 = noir & blanc." },
+                  contrast: { type: "number", description: "1 = neutre. Plage utile 0.95-1.15." },
+                  brightness: { type: "number", description: "0 = neutre. Plage utile ±0.08 ; négatif = plus sombre." },
+                  temperature: { type: "number", description: "- froid .. + chaud. Plage utile ±0.2." },
+                  grain: { type: "number", description: "0..1. Plage utile ≤ 0.25." },
                   vignette: { type: "boolean" },
                 },
               },
@@ -247,6 +251,20 @@ export const TOOLS = [
               emojiStyle: { type: "string", enum: ["3d", "flat"], description: "Style des emojis de CETTE caption : \"3d\" (Fluent 3D, défaut) | \"flat\" (Twemoji). Prioritaire sur le défaut du plan." },
               animation: { type: "string", enum: ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"], description: "Animation d'apparition (défaut none). wordByWord = mots l'un après l'autre ; karaoke = tous visibles, mot actif surligné (highlightColor). Réf : get_reference → captions[].animation." },
               animationDuration: { type: "number", description: "Durée de l'animation d'entrée en s (défaut ~0.35)." },
+              exitAnimation: { type: "string", enum: ["none", "fade", "pop", "slideUp", "slideDown"], description: "Animation de SORTIE : comment la caption disparaît à endSec — fade (fondu), pop (fondu rapide), slideUp/slideDown (glisse en fondu vers le haut/bas). Défaut none (coupe nette). Compose avec l'animation d'entrée (ex. slideUp d'entrée + slideUp de sortie = passage fluide). Ignorée pour wordByWord/karaoke. NB : fade et pop d'entrée ont déjà un léger fondu de sortie automatique." },
+              exitDuration: { type: "number", description: "Durée de la sortie en s (défaut ~0.35, pop ~0.18)." },
+              counter: {
+                type: "object",
+                description: "COMPTEUR ANIMÉ : le texte devient un NOMBRE qui défile de `from` à `to` sur [startSec,endSec], easing easeOut (file vite puis se pose sur la valeur finale) — le classique « 0 € → 10 000 € » du short-form. REMPLACE text/spans/animation ; le style de la caption (police, couleur, contour, position, taille) s'applique au nombre. Séparateur de milliers automatique. Ex. { from: 0, to: 10000, suffix: \" €\" }.",
+                properties: {
+                  from: { type: "number", description: "Valeur de départ." },
+                  to: { type: "number", description: "Valeur finale (affichée exactement à la fin)." },
+                  decimals: { type: "number", description: "Nombre de décimales (0-3, défaut 0)." },
+                  prefix: { type: "string", description: "Texte avant le nombre (ex. \"+\")." },
+                  suffix: { type: "string", description: "Texte après le nombre (ex. \" €\", \" abonnés\")." },
+                },
+                required: ["from", "to"],
+              },
               words: { type: "array", description: "Pour wordByWord/karaoke : timing par mot (sinon réparti automatiquement sur [startSec,endSec]). Utilise les MOTS horodatés de get_material TEL QUEL pour caler sur la voix. `color` (optionnel) = couleur STATIQUE de ce mot (mot-clé en relief dans sa phrase) — compose avec l'animation ; pour une caption FIXE multicolore, utilise plutôt `spans`.", items: { type: "object", properties: { text: { type: "string" }, start: { type: "number" }, end: { type: "number" }, color: { type: "string", description: "Couleur hex de CE mot (ex. mot-clé en jaune) — marche avec wordByWord ET karaoke." } } } },
               highlightColor: { type: "string", description: "karaoke : couleur hex du mot actif." },
               glow: { type: "object", description: "Effet NÉON : cœur clair (color de la caption) + halo saturé autour. Style pivot omniprésent en short-form.", properties: { color: { type: "string", description: "Couleur hex du halo néon." }, intensity: { type: "number", description: "0.2-3 (défaut 1) : taille/densité du halo." } } },
@@ -681,7 +699,10 @@ export async function callTool(userId: string, name: string, args?: Record<strin
             const tr = s.transitionIn && TR[s.transitionIn] ? ` · ${TR[s.transitionIn]}` : "";
             const sk = s.shakeOnBeat ? ` · ⭜ SECOUSSE sur un temps fort (→ segments[].shakeAt:[{t,…}])` : "";
             const bl = s.blurX != null && s.blurX >= 0 && s.blurW ? ` · ▚ FLOU DE ZONE à ${s.blurX}%/${s.blurY}% (${s.blurW}×${s.blurH}% — masquage → segments[].blurRegions:[{x:${s.blurX},y:${s.blurY},width:${s.blurW},height:${s.blurH}}])` : "";
-            return `  [${s.startSec}–${s.endSec}s] mouvement ${mo}${inten} · ${sp} · ${fz} · ${subj} · ${cp}${lum}${sat}${oe}${ox}${fi}${fo}${tr}${sk}${bl}\n      « ${s.content} »`;
+            const pp = s.pipShape && s.pipShape !== "none" && s.pipW > 0 ? ` · 🫧 INCRUSTATION ${s.pipShape === "circle" ? "BULLE RONDE" : s.pipShape} à ${s.pipX}%/${s.pipY}% largeur ${s.pipW}% (→ overlays[]: { materialId: LE MÊME rush que le plan pour un speaker en bulle, shape: "${s.pipShape}", x: ${s.pipX}, y: ${s.pipY}, width: ${s.pipW} })` : "";
+            const cd = s.cardColor && s.cardColor !== "none" ? ` · ▮ PANNEAU ${s.cardColor} plein cadre (→ overlays[]: { color: "${s.cardColor}", x: 0, y: 0, width: 100, height: 100, zIndex: 0 } DERRIÈRE bulle/captions — zIndex plus petit que le reste)` : "";
+            const br = s.broll ? ` · 🎞 CUTAWAY B-ROLL — visuel d'illustration, la VOIX CONTINUE (→ pose UN DE TES assets de matière en overlay plein cadre { x: 0, y: 0, width: 100, height: 100 } sur la fenêtre du plan qui parle ; choisis l'asset dont la description colle au propos ; si le user n'a pas d'asset adapté : pas de b-roll, JAMAIS de contenu externe)` : "";
+            return `  [${s.startSec}–${s.endSec}s] mouvement ${mo}${inten} · ${sp} · ${fz} · ${subj} · ${cp}${lum}${sat}${oe}${ox}${fi}${fo}${tr}${sk}${bl}${pp}${cd}${br}\n      « ${s.content} »`;
           }).join("\n"),
         );
       }
