@@ -58,6 +58,7 @@ export type SegOverlay = {
   height?: number;                 // hauteur en % du cadre — média : recadre (cover) dans la boîte w×h ; carte : requis (défaut = carré)
   shape?: OverlayShape;            // square/circle : recadre la source en carré (+ masque rond pour circle)
   startSec?: number; endSec?: number; // fenêtre d'affichage, relative au segment
+  sourceStartSec?: number;         // L3 : point d'entrée DANS le média source (s) — sinon chaque overlay rejoue sa frame 0
   opacity?: number;                // 0-1
   borderRadius?: number;           // px @1080 (coins arrondis — réellement appliqué)
   zIndex?: number;                 // ordre d'empilement (petit = dessous)
@@ -117,6 +118,9 @@ export type EditSegment = {
   fadeOut?: number;                // s (0-2) : le plan se FOND vers fadeColor à la fin
   fadeColor?: string;              // couleur du fondu (défaut noir) — "white" utile aussi
   fadeEasing?: "linear" | "easeInOut"; // courbe de l'assombrissement (défaut easeInOut)
+  // ── Son du plan (L1) — débloque le format « voix off + plans b-roll muets » ──
+  volume?: number;                 // 0-2 : volume du SON DE CE PLAN (défaut 1)
+  mute?: boolean;                  // true = plan muet (raccourci volume 0)
 };
 
 /* ── Captions (textes incrustés) ───────────────────────────────────────────── */
@@ -176,7 +180,9 @@ export type EditCaption = {
   // par une espace) et remplace `text`. Chaque span hérite des réglages globaux
   // (color/font/fontWeight) sauf pour les champs qu'il redéfinit. Absent → rendu
   // classique inchangé. Les emojis restent rendus en images (couleur ignorée).
-  spans?: { text: string; color?: string; font?: CaptionFont; italic?: boolean; weight?: number }[];
+  // L2 : fontSize par span (px @1080) — l'emphase à DEUX TAILLES dans un même
+  // bloc (« to have this » petit, « SINK IN » énorme), pilier du style short-form.
+  spans?: { text: string; color?: string; font?: CaptionFont; italic?: boolean; weight?: number; fontSize?: number }[];
 };
 
 /* ── Colorimétrie / audio / plan ───────────────────────────────────────────── */

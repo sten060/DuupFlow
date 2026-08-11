@@ -4,6 +4,11 @@
 > (une vidéo qui a marché) + sa **matière** (rushs, images, sons). Claude — via
 > le connecteur MCP — perçoit la réf et la reproduit avec la matière du user.
 
+> 📖 **L'analyse de référence (le cœur du produit) a sa propre doc pas-à-pas :
+> [ANALYSE-REF.md](ANALYSE-REF.md)** — à mettre à jour DANS LE MÊME COMMIT que
+> toute modification du pipeline. Ses seuils vivent dans
+> [analysis-config.ts](analysis-config.ts). Test : `npx tsx scripts/ai-editor-ref-e2e.mts`.
+
 ## 📜 Les règles de la feature (ne pas dévier)
 
 1. **La réf EST le template.** Pas de bibliothèque d'effets, pas de galerie de
@@ -98,6 +103,28 @@ de primitives) + `get_material` (matière, voix, blancs, reprises) → compose u
   de graphe se valident par filtergraphs isolés sur le binaire 4.4 + le test
   produit (Claude + keyframes).
 - **Concurrence** : MAX_CONCURRENT_RENDERS (env AI_EDITOR_MAX_RENDERS).
+
+## 🧰 Exigences de qualité de code (analyse & moteur)
+
+Ce module est destiné à être repris par quelqu'un qui n'a pas participé à son
+écriture (un autre Claude Code ou un humain). La structure est un livrable.
+
+- **Une responsabilité par fichier** : analyze.ts orchestre, ref-profile.ts
+  mesure (signal), gemini.ts comprend (vision), transcribe-\*.ts écoutent,
+  render.ts exécute, mcp-tools.ts expose, plan-types.ts nomme.
+- **Aucune constante magique** : tout seuil d'ANALYSE vit dans
+  [analysis-config.ts](analysis-config.ts), nommé, avec la justification de sa
+  valeur. Modifier un seuil = modifier sa justification.
+- **Échecs BRUYANTS** : aucune dégradation silencieuse. Toute étape qui échoue
+  pousse une `note` qui remonte jusqu'à `get_reference` (⚠️/🛑). Un try/catch
+  qui avale une erreur sans la signaler est un bug.
+- **Commentaires sur le POURQUOI** : « on rogne 50 ms pour protéger les
+  attaques de syllabes », pas « boucle sur les frames ».
+- **Docs à jour dans le même commit** : [ANALYSE-REF.md](ANALYSE-REF.md) pour
+  le pipeline d'analyse, ce README pour la charte/architecture.
+- **Test reproductible** : `npx tsx scripts/ai-editor-ref-e2e.mts` (fixture
+  synthétique auto-générée → chaîne complète → vérifications). À lancer après
+  toute modification du pipeline, à enrichir avec toute nouvelle détection.
 
 ## ✅ Checklist « ajouter une primitive »
 

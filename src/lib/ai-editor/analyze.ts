@@ -21,6 +21,7 @@ import { transcribeVideo } from "@/lib/studio/transcribe";
 import { sceneScores } from "@/lib/studio/analysis";
 import { transcribeViaGroq, isGroqAvailable } from "./transcribe-groq";
 import { transcribeViaDeepgram, isDeepgramAvailable } from "./transcribe-deepgram";
+import { REF_KEYFRAMES_MAX, REF_KEYFRAME_WIDTH, REF_KEYFRAME_QV, REF_HOOK_RATIO, REF_HOOK_MAX_SEC, SCENE_CUT_THRESHOLD } from "./analysis-config";
 import { analyzeShots, analyzeColor, analyzeAudioBeats } from "./ref-profile";
 import type { Shot, ColorProfile, AudioProfile } from "./ref-profile";
 import { analyzeReferenceWithGemini, isGeminiAvailable, type CutStrip } from "./gemini";
@@ -35,7 +36,10 @@ export type ReferenceAnalysis = {
   fps: number;
   hasAudio: boolean;
   keyframes: Keyframe[];
-  transcript: { phrases: { startSec: number; endSec: number; text: string }[]; fullText: string } | null;
+  // words : mots horodatés (~ms, Deepgram) — MÊME pipeline que la matière
+  // (get_material). Sert à mesurer la cadence de sous-titrage de la réf et à
+  // croiser voix ↔ captions détectées. Absent sur les anciennes analyses.
+  transcript: { phrases: { startSec: number; endSec: number; text: string }[]; fullText: string; words?: { startSec: number; endSec: number; text: string }[] } | null;
   sceneCuts: number[];
   pacing: { cutCount: number; avgCutSec: number | null };
   hookText: string | null;
@@ -95,7 +99,9 @@ export async function probeDurationSec(mediaPath: string): Promise<number> {
 async function keyframeAt(videoPath: string, t: number, dir: string, i: number): Promise<Keyframe | null> {
   const out = path.join(dir, `kf_${i}.jpg`);
   const { code } = await runFFmpeg(
-    ["-hide_banner", "-loglevel", "error", "-ss", t.toFixed(3), "-i", videoPath, "-frames:v", "1", "-vf", "scale=360:-2", "-q:v", "6", "-y", out],
+    // 480px + q:v 3 (≈ JPEG 90) : le texte fin des captions est le premier à
+    // mourir en compression, et c'est précisément ce qu'on doit pouvoir lire.
+    ["-hide_banner", "-loglevel", "error", "-ss", t.toFixed(3), "-i", videoPath, "-frames:v", "1", "-vf", `scale=${REF_KEYFRAME_WIDTH}:-2`, "-q:v", String(REF_KEYFRAME_QV), "-y", out],
     30_000,
   );
   if (code !== 0) return null;
@@ -109,13 +115,23 @@ async function keyframeAt(videoPath: string, t: number, dir: string, i: number):
   }
 }
 
-/* ── Choix des instants de keyframes : coupes de scène si dispo, sinon régulier ── */
-function pickTimestamps(durationSec: number, sceneCuts: number[], max = 8): number[] {
+/* ── Choix des instants de keyframes : le MILIEU de chaque plan (état stable).
+   Avant : on échantillonnait SUR les coupes — pile pendant les transitions et
+   les animations d'entrée → styles illisibles et faux diagnostics (un « bug
+   d'opacité » inexistant a été rapporté deux fois parce que les frames
+   tombaient systématiquement en pleine animation). ── */
+function pickTimestamps(durationSec: number, sceneCuts: number[], max = REF_KEYFRAMES_MAX): number[] {
   if (durationSec <= 0) return [0.1, 0.5, 1, 1.5, 2].filter((t) => t >= 0);
-  // Toujours inclure une frame très tôt (le HOOK) + répartir le reste.
-  const base = new Set<number>([Math.min(0.15 * durationSec, 0.6)]);
-  const pool = sceneCuts.length >= 3 ? sceneCuts : Array.from({ length: max }, (_, i) => ((i + 0.5) / max) * durationSec);
-  for (const t of pool) if (t > 0.1 && t < durationSec - 0.1) base.add(t);
+  const base = new Set<number>([Math.min(REF_HOOK_RATIO * durationSec, REF_HOOK_MAX_SEC)]); // le HOOK, très tôt
+  if (sceneCuts.length) {
+    const bounds = [0, ...sceneCuts.filter((t) => t > 0.05 && t < durationSec - 0.05).sort((a, b) => a - b), durationSec];
+    for (let i = 0; i + 1 < bounds.length; i++) {
+      const mid = (bounds[i] + bounds[i + 1]) / 2;
+      if (mid > 0.1 && mid < durationSec - 0.1) base.add(Math.round(mid * 100) / 100);
+    }
+  } else {
+    for (let i = 0; i < max; i++) base.add(Math.round(((i + 0.5) / max) * durationSec * 100) / 100);
+  }
   return [...base].sort((a, b) => a - b).slice(0, max);
 }
 
@@ -131,7 +147,7 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
   // extraire des bandes de vignettes autour de chaque coupe (détection des transitions).
   let sceneCuts: number[] = [];
   try {
-    sceneCuts = (await sceneScores(videoPath, 0.3)).map((s) => Math.round(s.t * 100) / 100);
+    sceneCuts = (await sceneScores(videoPath, SCENE_CUT_THRESHOLD)).map((s) => Math.round(s.t * 100) / 100);
   } catch {
     notes.push("Détection de coupes indisponible (rythme approximatif).");
   }
@@ -170,6 +186,8 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
       transcript = {
         phrases: tr.phrases.map((p) => ({ startSec: p.startSec, endSec: p.endSec, text: p.text })),
         fullText: tr.phrases.map((p) => p.text).join(" ").trim(),
+        // Mots horodatés (§5) : même niveau de qualité que get_material.
+        words: tr.words?.length ? tr.words.map((w) => ({ startSec: w.startSec, endSec: w.endSec, text: w.text })) : undefined,
       };
       hookText = tr.phrases[0]?.text?.trim() || null;
     } else {
@@ -287,7 +305,7 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
   }
   // Coupes du rush (index pour que Claude découpe sans deviner) — best-effort.
   let sceneCuts: number[] = [];
-  try { sceneCuts = (await sceneScores(videoPath, 0.3)).map((s) => Math.round(s.t * 100) / 100); } catch { /* skip */ }
+  try { sceneCuts = (await sceneScores(videoPath, SCENE_CUT_THRESHOLD)).map((s) => Math.round(s.t * 100) / 100); } catch { /* skip */ }
   return { kind: "video", durationSec: meta.durationSec, width: meta.width, height: meta.height, hasAudio: meta.hasAudio, thumb, sceneCuts, transcript, audio };
 }
 

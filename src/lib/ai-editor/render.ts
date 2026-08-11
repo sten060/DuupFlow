@@ -79,7 +79,16 @@ const CANVAS: Record<string, [number, number]> = { "9:16": [1080, 1920], "1:1": 
 const IMG_DEFAULT_SEC = 2.5;
 const MAX_SEGMENTS = 40;
 const VARIANT_MAX_SEC = 90; // durée max d'une variante (cible short-form)
-const MAX_CAPTIONS = 30;
+// B2/L4 : les captions ne passent PLUS par le graphe principal (elles étaient en
+// concurrence avec les segments pour le budget d'entrées ffmpeg → au-delà de
+// ~10 s de wordByWord, plus AUCUNE caption ne s'affichait). Elles s'appliquent
+// en PASSES dédiées sur la vidéo assemblée (chunks de 28 entrées) → le plafond
+// remonte à 150 (sous-titrage mot-à-mot d'un 90 s complet).
+const MAX_CAPTIONS = 150;
+// Plafond d'OPS caption (1 op = 1 image incrustée) : borne le nombre de passes
+// (~6 max). Les anims par-mot au-delà sont dégradées en statique — en réservant
+// une op par caption restante pour que TOUTES s'affichent.
+const MAX_CAPTION_OPS = 160;
 // Plafond DUR d'entrées ffmpeg pour le rendu final. Au-delà de ~60 inputs,
 // ffmpeg sature (file descriptors / threads) et échoue avec
 // « Resource temporarily unavailable » — ce qui, sans garde, épuisait aussi le
@@ -262,6 +271,10 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   const size: CaptionSize = c.size === "s" || c.size === "l" ? c.size : "m";
   const fsz = c.fontSize && c.fontSize > 6 ? Math.round((c.fontSize * W) / 1080) : Math.round(W * SIZE_RATIO[size]);
   const color = hex(c.color, sticker ? "#111111" : "#ffffff"); // sticker → texte foncé contrasté par défaut
+  // D1 : strokeColor "none" OU strokeWidth ≤ 0 = PAS de contour (style ombre
+  // douce sans outline — courant dans les réfs). Avant, "none" échouait le parse
+  // hex et retombait silencieusement sur un contour noir.
+  const noStroke = String(c.strokeColor ?? "").trim().toLowerCase() === "none" || (c.strokeWidth != null && num(c.strokeWidth, 1) <= 0);
   const strokeColor = hex(c.strokeColor, "#000000");
   const strokeW = Math.max(2, Math.round((c.strokeWidth != null ? c.strokeWidth : fsz * 0.16)));
   const align = c.align === "left" ? "start" : c.align === "right" ? "end" : "middle";
@@ -282,7 +295,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   // texte (les tokens purement emoji sont ignorés : ils sont rendus en image et
   // ne consomment pas d'index). Cet ordre colle exactement à la séquence de mots
   // émise par la mise en page ci-dessous (compteur `wordIdx`).
-  type WStyle = { color?: string; attrs?: string };
+  type WStyle = { color?: string; attrs?: string; fsz?: number };
   const spans = Array.isArray(c.spans)
     ? c.spans.filter((s): s is NonNullable<typeof s> => !!s && typeof s.text === "string" && s.text.trim().length > 0)
     : [];
@@ -297,15 +310,17 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
       const spFam = sp.font && FONT_FAMILY[sp.font] ? `'${FONT_FAMILY[sp.font]}'` : textFamily;
       const spW = sp.weight != null ? Math.round(clamp(num(sp.weight, weight), 100, 900)) : weight;
       const spItalic = sp.italic === true;
-      // On ne pose des attrs que si le span redéfinit la police (famille/poids/italique) ;
-      // sinon la police globale (textAttrs) est réutilisée telle quelle.
-      const attrs = spFam !== textFamily || spW !== weight || spItalic
-        ? `font-family="${spFam}" font-weight="${spW}" font-size="${fsz}"${spItalic ? ` font-style="italic"` : ""}${lsA}`
+      // L2 : taille PAR SPAN (px @1080) — emphase à deux tailles dans un même bloc.
+      const spSize = sp.fontSize != null && num(sp.fontSize, 0) > 6 ? Math.round(clamp(num(sp.fontSize, fsz), 8, 300) * W / 1080) : fsz;
+      // On ne pose des attrs que si le span redéfinit la police (famille/poids/
+      // italique/taille) ; sinon la police globale (textAttrs) est réutilisée.
+      const attrs = spFam !== textFamily || spW !== weight || spItalic || spSize !== fsz
+        ? `font-family="${spFam}" font-weight="${spW}" font-size="${spSize}"${spItalic ? ` font-style="italic"` : ""}${lsA}`
         : undefined;
       for (const tok of tf(sp.text).trim().split(/\s+/).filter(Boolean)) {
         const allEmoji = EMOJI_RE.test(tok) && [..._seg.segment(tok)].every((x) => isEmojiGrapheme(x.segment));
         if (allEmoji) continue; // emoji rendu en image → pas de style texte, pas d'index
-        spanTextStyles.push({ color: spColor, attrs });
+        spanTextStyles.push({ color: spColor, attrs, fsz: spSize !== fsz ? spSize : undefined });
       }
     }
   }
@@ -392,7 +407,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
             const isHl = hlWord >= 0 && wordIdx === hlWord;
             const col = isHl && hlColor ? hlColor : st?.color;  // karaoké prioritaire
             const attrs = st?.attrs;
-            measured.push({ adv: await measureInk(sharp, wlist[wi], attrs || textAttrs, fsz) + (wi < wlist.length - 1 ? spaceAdv : 0), kind: "text", s: wlist[wi], color: col, attrs });
+            measured.push({ adv: await measureInk(sharp, wlist[wi], attrs || textAttrs, st?.fsz ?? fsz) + (wi < wlist.length - 1 ? spaceAdv : 0), kind: "text", s: wlist[wi], color: col, attrs });
             wordIdx++;
           }
         } else {
@@ -422,7 +437,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   const shadowEls: string[] = [];
   const mainEls: string[] = [];
   const pushText = (x: number, y: number, attrs: string, s: string, fill: string) => {
-    if (style === "outline") {
+    if (style === "outline" && !noStroke) {
       mainEls.push(`<text x="${x}" y="${y}" ${attrs} fill="${strokeColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="round">${esc(s)}</text>`);
     }
     mainEls.push(`<text x="${x}" y="${y}" ${attrs} fill="${fill}">${esc(s)}</text>`);
@@ -562,7 +577,7 @@ function spatialPrefix(seg: EditSegment, bg: string): string {
 }
 
 /** Filtre vidéo d'un segment IMAGE (recadrage + cadrage + éventuel mouvement Ken Burns). */
-function imageVideoFilter(i: number, W: number, H: number, fps: number, bg: string, dur: number, motion: SegMotion, intensity: number, fit: SegFit, pre = ""): string {
+function imageVideoFilter(i: number, si: number, W: number, H: number, fps: number, bg: string, dur: number, motion: SegMotion, intensity: number, fit: SegFit, pre = ""): string {
   if (motion === "handheld") {
     // Tremblement procédural (sommes de sinus lissées) sur image bouclée -t dur.
     // Casse l'effet diaporama de façon naturelle (mieux qu'un zoom sur une fixe).
@@ -571,7 +586,7 @@ function imageVideoFilter(i: number, W: number, H: number, fps: number, bg: stri
     const jy = `${(H * amp).toFixed(2)}*(sin(2*PI*2.1*t+0.5)+0.6*sin(2*PI*4.3*t))`;
     const UW = Math.round(W * 1.12), UH = Math.round(H * 1.12);
     return `[${i}:v]${pre}scale=${UW}:${UH}:force_original_aspect_ratio=increase,crop=${UW}:${UH},` +
-      `crop=${W}:${H}:x='(iw-ow)/2+${jx}':y='(ih-oh)/2+${jy}',setsar=1,fps=${fps},format=yuv420p[v${i}]`;
+      `crop=${W}:${H}:x='(iw-ow)/2+${jx}':y='(ih-oh)/2+${jy}',setsar=1,fps=${fps},format=yuv420p[v${si}]`;
   }
   if (motion !== "none") {
     // NB : l'entrée est UNE seule image (pas de -loop) → zoompan la déploie en
@@ -593,19 +608,19 @@ function imageVideoFilter(i: number, W: number, H: number, fps: number, bg: stri
       x = motion === "panRight" ? `(iw-iw/zoom)*on/${frames}` : `(iw-iw/zoom)*(1-on/${frames})`;
     }
     return `[${i}:v]${pre}scale=${UW}:${UH}:force_original_aspect_ratio=increase,crop=${UW}:${UH},` +
-      `zoompan=z='${zoom}':x='${x}':y='${y}':d=${frames}:s=${W}x${H}:fps=${fps},setsar=1,format=yuv420p[v${i}]`;
+      `zoompan=z='${zoom}':x='${x}':y='${y}':d=${frames}:s=${W}x${H}:fps=${fps},setsar=1,format=yuv420p[v${si}]`;
   }
   if (fit === "cover") {
-    return `[${i}:v]${pre}scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,fps=${fps},format=yuv420p[v${i}]`;
+    return `[${i}:v]${pre}scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,fps=${fps},format=yuv420p[v${si}]`;
   }
   if (fit === "blurFill") {
-    return `[${i}:v]${pre}split=2[b${i}][f${i}];` +
-      `[b${i}]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=42[bb${i}];` +
-      `[f${i}]scale=${W}:${H}:force_original_aspect_ratio=decrease[ff${i}];` +
-      `[bb${i}][ff${i}]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2,setsar=1,fps=${fps},format=yuv420p[v${i}]`;
+    return `[${i}:v]${pre}split=2[b${si}][f${si}];` +
+      `[b${si}]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=42[bb${i}];` +
+      `[f${si}]scale=${W}:${H}:force_original_aspect_ratio=decrease[ff${i}];` +
+      `[bb${i}][ff${i}]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2,setsar=1,fps=${fps},format=yuv420p[v${si}]`;
   }
   // contain (défaut)
-  return `[${i}:v]${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`;
+  return `[${i}:v]${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${si}]`;
 }
 
 /* MOTION sur un flux VIDÉO déjà en WxH ([in] crocheté) → [out]. Étend le mouvement
@@ -916,7 +931,13 @@ async function compositeClip(
   for (const r of resolved) {
     if (r.abs === null) args.push("-f", "lavfi", "-t", base.len.toFixed(3), "-i", `color=c=${r.o.color!.startsWith("#") ? r.o.color : `#${r.o.color}`}:s=${r.wpx}x${r.hpx}:r=${fps}`);
     else if (r.kind === "image") args.push("-loop", "1", "-t", base.len.toFixed(3), "-i", r.abs);
-    else args.push("-t", base.len.toFixed(3), "-i", r.abs);
+    else {
+      // L3 : point d'entrée dans la SOURCE de l'overlay (sinon chaque réutilisation
+      // du même clip rejoue sa première seconde).
+      const srcStart = Math.max(0, num(r.o.sourceStartSec, 0));
+      if (srcStart > 0) args.push("-ss", srcStart.toFixed(3));
+      args.push("-t", base.len.toFixed(3), "-i", r.abs);
+    }
   }
 
   const vf: string[] = [];
@@ -999,8 +1020,12 @@ async function compositeClip(
     const radPx = r.o.shape === "circle"
       ? Math.floor(Math.min(wpx, hpx || wpx) / 2)
       : num(r.o.borderRadius, 0) > 0 ? Math.round(clamp(num(r.o.borderRadius, 0), 0, 400) * W / 1080) : 0;
+    // B6 : rayon borné AUX DIMENSIONS RÉELLES dans l'expression (min(W,H)/2) —
+    // un borderRadius plus grand que la boîte cassait le SDF (artefact plein
+    // cadre au lieu d'un découpage).
+    const R = `min(${radPx},min(W,H)/2)`;
     const maskPart = radPx > 0
-      ? `geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lte(pow(max(abs(X-W/2)-(W/2-${radPx}),0),2)+pow(max(abs(Y-H/2)-(H/2-${radPx}),0),2),${radPx * radPx}),alpha(X,Y),0)',`
+      ? `geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lte(pow(max(abs(X-W/2)-(W/2-${R}),0),2)+pow(max(abs(Y-H/2)-(H/2-${R}),0),2),pow(${R},2)),alpha(X,Y),0)',`
       : "";
     vf.push(`[${inIdx}:v]${scalePart}setsar=1,fps=${fps},format=rgba,${maskPart}colorchannelmixer=aa=${op.toFixed(3)}${fadeChain}[${label}]`);
     vf.push(`[${acc}][${label}]overlay=x='${xExpr}':y='${yExpr}':enable='between(t,${st.toFixed(2)},${en.toFixed(2)})'[cv${ci}]`); acc = `cv${ci}`; ci++;
@@ -1055,6 +1080,49 @@ export async function renderVariant(
   // Tout le corps est enveloppé : AUCUNE exception ne remonte nue au MCP → message
   // exploitable (préparation des plans, composite, ffmpeg…) + nettoyage garanti.
   try {
+  // ── B1 · MUTUALISATION DES DÉCODEURS ────────────────────────────────────────
+  // ffmpeg ouvre un DÉCODEUR (threads + FD) par -i : à ~23 inputs vidéo le
+  // process sature (EAGAIN « Resource temporarily unavailable ») alors qu'un
+  // montage rythmé (0,9 s/plan) demande 40+ plans du MÊME rush. Fix : un input
+  // UNIQUE par fichier utilisé ≥ 2 fois par des plans « simples » (sans retime
+  // ni composition — ceux-là pré-rendent leur propre fichier), splitté en N
+  // branches trim/atrim dans le graphe. 1 fichier = 1 décodeur, N plans.
+  let nInputs = 0;
+  const pushIn = (...a: string[]): number => { inputs.push(...a); return nInputs++; };
+  const probeCache = new Map<string, { dur: number; hasAudio: boolean }>();
+  const probeOnce = async (p: string) => {
+    let r = probeCache.get(p);
+    if (!r) { r = await probeAV(p); probeCache.set(p, r); }
+    return r;
+  };
+  // Reflet EXACT du déclencheur de timeEffectClip (retime → fichier pré-rendu dédié).
+  const needsTimeEffect = (s: EditSegment): boolean => {
+    const spd = clamp(num(s.speed, 1), 0.25, 4);
+    const ramp = s.speedRamp && Number.isFinite(Number(s.speedRamp.from)) && Number.isFinite(Number(s.speedRamp.to))
+      ? { from: clamp(num(s.speedRamp.from, 1), 0.25, 4), to: clamp(num(s.speedRamp.to, 1), 0.25, 4) } : null;
+    return !!s.reverse || (!!ramp && Math.abs(ramp.from - ramp.to) > 0.01) || s.freezeAt != null || Math.abs(spd - 1) > 0.001;
+  };
+  const isComposite = (s: EditSegment): boolean => !!(s.overlays?.length || (s.layout && s.layout !== "single"));
+  // Pré-passe : compte les usages « simples » de chaque rush vidéo.
+  const plainUse = new Map<string, number>();
+  for (const s of segs) {
+    const m = project.materials.find((x) => x.id === s.materialId);
+    if (!m || m.kind !== "video" || isComposite(s) || needsTimeEffect(s)) continue;
+    const p = materialAbsPath(userId, projectId, m.storedName);
+    plainUse.set(p, (plainUse.get(p) ?? 0) + 1);
+  }
+  // Fichiers partagés : 1 input + split/asplit en amont du graphe.
+  const sharedVideo = new Map<string, { inIdx: number; used: number; hasAudio: boolean }>();
+  for (const [p, count] of plainUse) {
+    if (count < 2) continue;
+    try { await fs.access(p); } catch { continue; }
+    const { hasAudio } = await probeOnce(p);
+    const inIdx = pushIn("-i", p);
+    filters.push(`[${inIdx}:v]split=${count}${Array.from({ length: count }, (_, j) => `[sv${inIdx}_${j}]`).join("")}`);
+    if (hasAudio) filters.push(`[${inIdx}:a]asplit=${count}${Array.from({ length: count }, (_, j) => `[sa${inIdx}_${j}]`).join("")}`);
+    sharedVideo.set(p, { inIdx, used: 0, hasAudio });
+  }
+
   for (let i = 0; i < segs.length; i++) {
     const seg = segs[i];
     const mat = project.materials.find((m) => m.id === seg.materialId);
@@ -1064,6 +1132,11 @@ export async function renderVariant(
     try { await fs.access(abs); } catch { return cleanFail(`Fichier manquant pour ${mat.name}.`); }
     // Recadrage (chantier 2) : flip/rotate/punch-in appliqué AVANT fit/motion.
     const pre = spatialPrefix(seg, bg);
+    // B5 : le grade s'applique AU MÉDIA, AVANT le pad → les bandes letterbox
+    // (fond de composition) ne sont jamais teintées/éclaircies par la colorimétrie.
+    const segGrade = gradeChain(seg.grade ?? plan.grade);
+    const gradePre = segGrade ? `${segGrade},` : "";
+    let gradedPrePad = false;
     // motion sur VIDÉO : appliqué en post sur [v_i] (les images l'ont déjà baked via
     // imageVideoFilter/zoompan). Actif seulement pour un rush vidéo NON composité.
     let videoMotionOk = false;
@@ -1075,30 +1148,34 @@ export async function renderVariant(
         ? await compositeClip(project.materials, userId, projectId, seg, { abs, start: 0, len: dur, hasAudio: false, loop: true }, W, H, fps, bg, dir, i)
         : null;
       if (comp) {
-        inputs.push("-i", comp.path);
-        filters.push(`[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
+        const inIdx = pushIn("-i", comp.path);
+        filters.push(`[${inIdx}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,${gradePre}pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
         filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${comp.durationSec.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
         durs.push(comp.durationSec);
+        gradedPrePad = true;
       } else {
         const motion = normMotion(seg.motion);
         const intensity = clamp(num(seg.motionIntensity, 1), 0.2, 3);
         // Défaut blurFill (image sur fond flou) : meilleur que des bandes noires sur du vertical.
         const fit: SegFit = seg.fit === "cover" || seg.fit === "contain" ? seg.fit : "blurFill";
         // handheld/none = image bouclée bornée (-t) ; zoom/pan = 1 seule image (zoompan la déploie).
-        if (motion === "none" || motion === "handheld") inputs.push("-loop", "1", "-t", dur.toFixed(3), "-i", abs);
-        else inputs.push("-i", abs);
-        filters.push(imageVideoFilter(i, W, H, fps, bg, dur, motion, intensity, fit, pre));
+        const inIdx = motion === "none" || motion === "handheld"
+          ? pushIn("-loop", "1", "-t", dur.toFixed(3), "-i", abs)
+          : pushIn("-i", abs);
+        filters.push(imageVideoFilter(inIdx, i, W, H, fps, bg, dur, motion, intensity, fit, pre));
         filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${dur.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
         durs.push(dur);
       }
     } else {
-      const { dur: fullDur, hasAudio } = await probeAV(abs);
+      const { dur: fullDur, hasAudio } = await probeOnce(abs);
       const start = seg.startSec != null ? Math.max(0, num(seg.startSec, 0)) : 0;
       const end = seg.endSec != null ? num(seg.endSec, 0) : null;
       const segLen = Math.max(0.1, (end != null ? end : fullDur) - start);
       // Effets VITESSE (chantier 1) : si le plan a speed/freeze/rampe/reverse, on
       // pré-rend un clip retimé (durée PROBÉE) qu'on injecte comme source du plan.
-      const timed = await timeEffectClip(abs, start, segLen, seg, dir, i, fps);
+      // needsTimeEffect ne fait que refléter le déclencheur interne — l'appel reste
+      // la source de vérité (null = pas de retime).
+      const timed = needsTimeEffect(seg) ? await timeEffectClip(abs, start, segLen, seg, dir, i, fps) : null;
       // Composition (chantier 4) : overlays/layout → pré-rend un plan composité WxH.
       const baseSrc = timed
         ? { abs: timed.path, start: 0, len: timed.durationSec, hasAudio: timed.hasAudio }
@@ -1107,34 +1184,48 @@ export async function renderVariant(
         ? await compositeClip(project.materials, userId, projectId, seg, baseSrc, W, H, fps, bg, dir, i)
         : null;
       if (comp) {
-        inputs.push("-i", comp.path); // déjà WxH composité
-        filters.push(`[${i}:v]setpts=PTS-STARTPTS,scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
-        if (comp.hasAudio) filters.push(`[${i}:a]asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+        const inIdx = pushIn("-i", comp.path); // déjà WxH composité
+        filters.push(`[${inIdx}:v]setpts=PTS-STARTPTS,scale=${W}:${H}:force_original_aspect_ratio=decrease,${gradePre}pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
+        if (comp.hasAudio) filters.push(`[${inIdx}:a]asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
         else filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${comp.durationSec.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
         durs.push(comp.durationSec);
+        gradedPrePad = true;
       } else if (timed) {
-        inputs.push("-i", timed.path); // déjà coupé + retimé (pas de re-cut)
-        filters.push(`[${i}:v]setpts=PTS-STARTPTS,${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
-        if (timed.hasAudio) filters.push(`[${i}:a]asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+        const inIdx = pushIn("-i", timed.path); // déjà coupé + retimé (pas de re-cut)
+        filters.push(`[${inIdx}:v]setpts=PTS-STARTPTS,${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,${gradePre}pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
+        if (timed.hasAudio) filters.push(`[${inIdx}:a]asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
         else filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${timed.durationSec.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
         durs.push(timed.durationSec);
         videoMotionOk = true;
+        gradedPrePad = true;
+      } else if (sharedVideo.has(abs)) {
+        // ── B1 : plan « simple » d'un fichier PARTAGÉ → branche split/trim du
+        // décodeur unique (validé ffmpeg 4.4 : trim=start/end + setpts exacts).
+        const sh = sharedVideo.get(abs)!;
+        const j = sh.used++;
+        filters.push(`[sv${sh.inIdx}_${j}]trim=start=${start.toFixed(3)}:end=${(start + segLen).toFixed(3)},setpts=PTS-STARTPTS,${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,${gradePre}pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
+        if (sh.hasAudio) filters.push(`[sa${sh.inIdx}_${j}]atrim=start=${start.toFixed(3)}:end=${(start + segLen).toFixed(3)},asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+        else filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${segLen.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
+        durs.push(segLen);
+        videoMotionOk = true;
+        gradedPrePad = true;
       } else {
-        // Coupe au niveau de l'INPUT (-ss/-t), PAS par le filtre trim : sur d'anciennes
-        // versions ffmpeg le filtre trim ignore 'start' (le plan repartait du début du
-        // rush). -ss avant -i = seek précis (décodé) sur ffmpeg ≥ 4 ; -t borne la durée.
+        // Fichier utilisé UNE fois : coupe au niveau de l'INPUT (-ss avant -i =
+        // seek précis sans décoder le début ; -t borne la durée).
         // startSec/endSec = points d'entrée/sortie DANS le fichier (cf. get_material).
-        if (start > 0) inputs.push("-ss", start.toFixed(3));
-        inputs.push("-t", segLen.toFixed(3), "-i", abs);
-        filters.push(`[${i}:v]setpts=PTS-STARTPTS,${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
+        const inIdx = start > 0
+          ? (inputs.push("-ss", start.toFixed(3)), pushIn("-t", segLen.toFixed(3), "-i", abs))
+          : pushIn("-t", segLen.toFixed(3), "-i", abs);
+        filters.push(`[${inIdx}:v]setpts=PTS-STARTPTS,${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,${gradePre}pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
         if (hasAudio) {
           // L'audio est déjà coupé par le seek d'input → pas de re-trim (sync garantie).
-          filters.push(`[${i}:a]asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+          filters.push(`[${inIdx}:a]asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
         } else {
           filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${segLen.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
         }
         durs.push(segLen);
         videoMotionOk = true;
+        gradedPrePad = true;
       }
     }
     // ── EFFETS PAR PLAN, enchaînés sur [v_i] (ordre : masque → mouvement → secousse
@@ -1171,9 +1262,10 @@ export async function renderVariant(
       filters.push(glitchBurstFilter(curLabel, `[vgl${i}]`, gInt, gDur));
       curLabel = `[vgl${i}]`;
     }
-    // 5. Grade PAR PLAN (surcharge le grade global) → assombrir/désaturer un plan.
-    const segGrade = gradeChain(seg.grade ?? plan.grade);
-    if (segGrade) { filters.push(`${curLabel}${segGrade}[vg${i}]`); curLabel = `[vg${i}]`; }
+    // 5. Grade PAR PLAN — déjà appliqué AVANT le pad pour les plans vidéo/composités
+    // (B5 : letterbox jamais teinté) ; reste ici pour les images simples
+    // (imageVideoFilter gère son propre fond, dérivé du média).
+    if (segGrade && !gradedPrePad) { filters.push(`${curLabel}${segGrade}[vg${i}]`); curLabel = `[vg${i}]`; }
 
     // 6. Fondu AU NOIR/BLANC au niveau du plan (fadeIn depuis fadeColor, fadeOut vers
     // fadeColor). On superpose un plan de couleur dont l'alpha monte/descend : en
@@ -1215,7 +1307,10 @@ export async function renderVariant(
     filters.push(`${vlabels[i]}fps=${fps},setpts=PTS-STARTPTS,settb=1/${fps}[vn${i}]`);
     const sf = Math.min(0.012, Math.max(0.004, durs[i] / 8));
     const foSt = Math.max(0, durs[i] - sf);
-    filters.push(`${alabels[i]}aresample=44100,afade=t=in:st=0:d=${sf.toFixed(4)},afade=t=out:st=${foSt.toFixed(4)}:d=${sf.toFixed(4)},asetpts=N/SR/TB,asettb=1/44100[an${i}]`);
+    // L1 : volume/mute PAR PLAN (b-roll muet sous une voix off, plan atténué…).
+    const segVol = segs[i].mute ? 0 : clamp(num(segs[i].volume, 1), 0, 2);
+    const volPart = segVol !== 1 ? `volume=${segVol.toFixed(3)},` : "";
+    filters.push(`${alabels[i]}aresample=44100,${volPart}afade=t=in:st=0:d=${sf.toFixed(4)},afade=t=out:st=${foSt.toFixed(4)}:d=${sf.toFixed(4)},asetpts=N/SR/TB,asettb=1/44100[an${i}]`);
     vlabels[i] = `[vn${i}]`;
     alabels[i] = `[an${i}]`;
   }
@@ -1292,25 +1387,29 @@ export async function renderVariant(
     );
     const planEmoji: EmojiStyle = plan.emojiStyle === "flat" ? "flat" : "3d";
     const vidDur = totalVideoDur();
-    let capIn = inputs.reduce((n, a) => (a === "-i" ? n + 1 : n), 0); // index d'entrée du 1er PNG caption
-    let ccN = 0; // compteur d'étapes d'overlay (labels uniques)
+    // ── B2 : les captions deviennent une liste d'OPS appliquées en PASSES
+    // dédiées APRÈS l'assemblage (le graphe principal reste aux segments).
     // `between(t,…)` est inclusif aux DEUX bornes : si la fin d'une caption == le
     // début de la suivante, les deux se dessinent sur la frame commune (chevauchement
     // visible). Avec trim=true on termine 1 frame AVANT. On garde trim=false pour les
     // fenêtres internes du wordByWord (PNG cumulatifs qui se recouvrent → aucun
     // artefact, et couper y créerait un flicker).
     const frameEps = 1 / fps;
-    const overlay = (src: number | string, st: number, en: number, posExpr = "0:0", trim = true) => {
-      const inLabel = typeof src === "number" ? `${src}:v` : src; // index d'entrée OU label de filtre
-      const out = `cc${ccN++}`;
-      const enEff = trim ? Math.max(st + 0.001, en - frameEps) : en;
-      captionFilters.push(`[${last}][${inLabel}]overlay=${posExpr}:enable='between(t,${st.toFixed(2)},${enEff.toFixed(2)})'[${out}]`);
-      last = out;
+    type CapOp = {
+      png: string;
+      st: number; en: number;
+      posExpr: string;                              // "0:0" ou expression x/y
+      trim: boolean;                                // coupe 1 frame avant `en`
+      loop: boolean;                                // input bouclé -loop 1 -t vidDur (anims temporelles)
+      anim?: (src: string, out: string) => string;  // filtre propre à l'op (fade/geq…)
     };
+    const capOps: CapOp[] = [];
+    const pushOp = (png: string, st: number, en: number, opts?: Partial<Pick<CapOp, "posExpr" | "trim" | "loop" | "anim">>) =>
+      capOps.push({ png, st, en, posExpr: opts?.posExpr ?? "0:0", trim: opts?.trim ?? true, loop: opts?.loop ?? false, anim: opts?.anim });
     // Découpe le texte en mots avec timing (fournis, sinon répartis sur [st,en]).
     // Chaque mot PORTE son style éventuel (color depuis words[], color/font/italic/
     // weight depuis les spans) → les anims par mot composent avec les captions designées.
-    type WordTok = { text: string; start: number; end: number; color?: string; font?: CaptionFont; italic?: boolean; weight?: number };
+    type WordTok = { text: string; start: number; end: number; color?: string; font?: CaptionFont; italic?: boolean; weight?: number; fontSize?: number };
     const wordTiming = (c: EditCaption, st: number, en: number): WordTok[] => {
       if (Array.isArray(c.words) && c.words.length && c.words.every((w) => w && typeof w.text === "string")) {
         return c.words.slice(0, 16).map((w) => ({ text: w.text, start: num(w.start, st), end: num(w.end, en), color: typeof w.color === "string" ? w.color : undefined }));
@@ -1319,7 +1418,7 @@ export async function renderVariant(
       const toks: Omit<WordTok, "start" | "end">[] = c.text?.trim()
         ? c.text.trim().split(/\s+/).filter(Boolean).map((t) => ({ text: t }))
         : (c.spans ?? []).flatMap((s) =>
-            (s?.text ?? "").trim().split(/\s+/).filter(Boolean).map((t) => ({ text: t, color: s.color, font: s.font, italic: s.italic, weight: s.weight })));
+            (s?.text ?? "").trim().split(/\s+/).filter(Boolean).map((t) => ({ text: t, color: s.color, font: s.font, italic: s.italic, weight: s.weight, fontSize: s.fontSize })));
       const ws = toks.slice(0, 16);
       const span = Math.max(0.2, en - st) / Math.max(1, ws.length);
       return ws.map((t, i) => ({ ...t, start: st + i * span, end: st + (i + 1) * span }));
@@ -1327,7 +1426,7 @@ export async function renderVariant(
     // Style par mot présent ? → l'anim rend via `spans` (couleur/police par mot).
     const wordsStyled = (wt: WordTok[]): boolean => wt.some((w) => w.color || w.font || w.italic || w.weight != null);
     const toSpans = (wt: WordTok[]): NonNullable<EditCaption["spans"]> =>
-      wt.map((w) => ({ text: w.text, color: w.color, font: w.font, italic: w.italic, weight: w.weight }));
+      wt.map((w) => ({ text: w.text, color: w.color, font: w.font, italic: w.italic, weight: w.weight, fontSize: w.fontSize }));
     try {
       for (let k = 0; k < caps.length; k++) {
         const c = caps[k];
@@ -1336,13 +1435,14 @@ export async function renderVariant(
         const st = num(c.startSec, 0), en = num(c.endSec, 3);
         const ad = clamp(num(c.animationDuration, 0.35), 0.05, 2);
 
-        // Budget d'entrées ffmpeg. Plus aucune caption si le plafond est atteint
-        // (mieux que faire échouer TOUT le rendu). Une caption par-mot qui ne
-        // tient pas dans le budget est dégradée en caption statique (1 entrée).
-        if (capIn >= MAX_FFMPEG_INPUTS) break;
+        // Budget d'OPS (B2) : une caption par-mot qui dépasserait le plafond est
+        // dégradée en statique, en RÉSERVANT une op pour chaque caption restante
+        // → TOUTES les captions s'affichent (plus jamais de sous-titres qui
+        // s'arrêtent à 8 s pour cause de budget).
+        const remainingCaps = caps.length - k - 1;
         if (anim === "wordByWord" || anim === "karaoke") {
           const wc = wordTiming(c, st, en).length + (anim === "karaoke" ? 1 : 0);
-          if (capIn + wc > MAX_FFMPEG_INPUTS) anim = "none";
+          if (capOps.length + wc + remainingCaps > MAX_CAPTION_OPS) anim = "none";
         }
 
         // ── COMPTEUR ANIMÉ : nombre qui défile de from → to sur [st,en], easeOut
@@ -1359,7 +1459,7 @@ export async function renderVariant(
             const g = int.replace(/^(-?)(\d+)/, (_, sg, ds) => sg + ds.replace(/\B(?=(\d{3})+(?!\d))/g, " "));
             return pre + (fr ? `${g},${fr}` : g) + suf;
           };
-          const steps = Math.max(1, Math.min(14, MAX_FFMPEG_INPUTS - capIn));
+          const steps = Math.max(1, Math.min(14, MAX_CAPTION_OPS - capOps.length - remainingCaps));
           const ease = (p: number) => 1 - Math.pow(1 - p, 3); // easeOutCubic
           const labels: string[] = [], times: number[] = [];
           for (let i = 0; i < steps; i++) {
@@ -1371,9 +1471,8 @@ export async function renderVariant(
           for (let i = 0; i < labels.length; i++) {
             const png = path.join(dir, `cap${k}_ctr${i}.png`);
             await captionPng({ ...c, text: labels[i], spans: undefined, words: undefined }, W, H, png, es);
-            inputs.push("-i", png);
             const isLast = i === labels.length - 1;
-            overlay(capIn++, times[i], isLast ? en : times[i + 1], "0:0", isLast);
+            pushOp(png, times[i], isLast ? en : times[i + 1], { trim: isLast });
           }
           continue;
         }
@@ -1391,13 +1490,12 @@ export async function renderVariant(
               { ...c, text: cum.map((w) => w.text).join(" "), spans: styled ? toSpans(cum) : undefined },
               W, H, png, es,
             );
-            inputs.push("-i", png);
             const isLast = wi === wt.length - 1;
             // 1er mot dès le DÉBUT de la caption (avant : caché jusqu'à son timecode
             // voix). Fenêtres internes contiguës (trim=false) ; seule la dernière est
             // coupée d'une frame pour ne pas chevaucher la caption suivante.
             const wStart = wi === 0 ? st : wt[wi].start;
-            overlay(capIn++, wStart, isLast ? en : wt[wi + 1].start, "0:0", isLast);
+            pushOp(png, wStart, isLast ? en : wt[wi + 1].start, { trim: isLast });
           }
         } else if (anim === "karaoke") {
           const wt = wordTiming(c, st, en);
@@ -1407,11 +1505,11 @@ export async function renderVariant(
           const ck: EditCaption = wordsStyled(wt) ? { ...c, spans: toSpans(wt) } : c;
           const base = path.join(dir, `cap${k}_base.png`);
           await captionPng(ck, W, H, base, es);
-          inputs.push("-i", base); overlay(capIn++, st, en);          // texte complet, tout le temps
+          pushOp(base, st, en);                                        // texte complet, tout le temps
           for (let wi = 0; wi < wt.length; wi++) {
             const png = path.join(dir, `cap${k}_hl${wi}.png`);
             await captionPng(ck, W, H, png, es, wi, hlC);              // mot wi surligné
-            inputs.push("-i", png); overlay(capIn++, wt[wi].start, wt[wi].end); // par-dessus, pendant le mot
+            pushOp(png, wt[wi].start, wt[wi].end);                     // par-dessus, pendant le mot
           }
         } else {
           const png = path.join(dir, `cap${k}.png`);
@@ -1422,11 +1520,8 @@ export async function renderVariant(
           // (sinon texte gris translucide sur caption courte) ; sans place,
           // pas de sortie du tout (coupe nette à `en`).
           const exitName = c.exitAnimation === "fade" || c.exitAnimation === "pop" || c.exitAnimation === "slideUp" || c.exitAnimation === "slideDown" ? c.exitAnimation : "none";
-          if (anim === "none" && exitName === "none") { inputs.push("-i", png); overlay(capIn++, st, en); continue; }
+          if (anim === "none" && exitName === "none") { pushOp(png, st, en); continue; }
           // Anims temporelles : image bouclée → filtres à temps absolu.
-          inputs.push("-loop", "1", "-t", vidDur.toFixed(3), "-i", png);
-          const inIdx = capIn++;
-          const capf = `capf${k}`;
           const inD = anim === "none" ? 0 : anim === "pop" ? Math.min(ad, 0.18) : ad;
           const inEnd = st + inD;
           // Durée de sortie : exitDuration si sortie explicite (pop = rapide par
@@ -1443,19 +1538,19 @@ export async function renderVariant(
             : "0";
           const posExpr = exitY === "0" ? "0:0" : `x=0:y='${exitY}'`;
           if (anim === "none") {
-            captionFilters.push(`[${inIdx}:v]format=rgba${outFade}[${capf}]`);
-            overlay(capf, st, en, posExpr);
+            pushOp(png, st, en, { posExpr, loop: true, anim: (src, out) => `[${src}]format=rgba${outFade}[${out}]` });
           } else if (anim === "fade" || anim === "pop") {
-            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${inD.toFixed(2)}:alpha=1${outFade}[${capf}]`);
-            overlay(capf, st, en, posExpr);
+            pushOp(png, st, en, { posExpr, loop: true, anim: (src, out) => `[${src}]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${inD.toFixed(2)}:alpha=1${outFade}[${out}]` });
           } else if (anim === "typewriter") {
             // Révélation gauche→droite : on masque l'alpha des pixels à droite du
             // seuil mobile (taille de sortie constante, contrairement à crop). geq.
-            captionFilters.push(`[${inIdx}:v]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(X,W*min(1,max(0,(T-${st.toFixed(2)})/${ad.toFixed(2)}))),alpha(X,Y),0)'${outFade}[${capf}]`);
-            overlay(capf, st, en, posExpr);
+            pushOp(png, st, en, { posExpr, loop: true, anim: (src, out) => `[${src}]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(X,W*min(1,max(0,(T-${st.toFixed(2)})/${ad.toFixed(2)}))),alpha(X,Y),0)'${outFade}[${out}]` });
           } else { // slideUp (entrée) — l'offset d'entrée se combine avec la sortie
-            captionFilters.push(`[${inIdx}:v]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${ad.toFixed(2)}:alpha=1${outFade}[${capf}]`);
-            overlay(capf, st, en, `x=0:y='if(between(t,${st.toFixed(2)},${(st + ad).toFixed(2)}),(1-(t-${st.toFixed(2)})/${ad.toFixed(2)})*${slideOff},${exitY})'`);
+            pushOp(png, st, en, {
+              posExpr: `x=0:y='if(between(t,${st.toFixed(2)},${(st + ad).toFixed(2)}),(1-(t-${st.toFixed(2)})/${ad.toFixed(2)})*${slideOff},${exitY})'`,
+              loop: true,
+              anim: (src, out) => `[${src}]format=rgba,fade=t=in:st=${st.toFixed(2)}:d=${ad.toFixed(2)}:alpha=1${outFade}[${out}]`,
+            });
           }
         }
       }
@@ -1583,6 +1678,45 @@ export async function renderVariant(
       ({ code, stderr } = await runFFmpeg(buildArgs(false), 10 * 60 * 1000));
     }
     if (code !== 0) return { error: `Rendu FFmpeg échoué : ${stderr.slice(-240)}` };
+
+    // ── B2 · PASSES CAPTIONS : les ops s'appliquent sur la vidéo ASSEMBLÉE, par
+    // chunks de 28 entrées (28 PNG + 1 vidéo = 29, loin du seuil d'EAGAIN). La
+    // timeline de la vidéo assemblée EST celle des captions (temps absolus) →
+    // les fenêtres/anims restent identiques. Audio recopié tel quel (-c:a copy,
+    // aucune perte). Chaque passe ré-encode la vidéo (crf 19, perte invisible).
+    if (capOps.length) {
+      const CHUNK = 28;
+      let curVideo = outPath;
+      for (let c0 = 0; c0 < capOps.length; c0 += CHUNK) {
+        const chunk = capOps.slice(c0, c0 + CHUNK);
+        const passOut = path.join(dir, `cap_pass_${c0}.mp4`);
+        const pargs = ["-y", "-hide_banner", "-loglevel", "error", "-i", curVideo];
+        const pf: string[] = [];
+        let lastL = "0:v";
+        chunk.forEach((op, oi) => {
+          if (op.loop) pargs.push("-loop", "1", "-t", vidDur.toFixed(3), "-i", op.png);
+          else pargs.push("-i", op.png);
+          let src = `${oi + 1}:v`;
+          if (op.anim) { const fout = `cf${oi}`; pf.push(op.anim(src, fout)); src = fout; }
+          const out = `cp${oi}`;
+          const enEff = op.trim ? Math.max(op.st + 0.001, op.en - frameEps) : op.en;
+          pf.push(`[${lastL}][${src}]overlay=${op.posExpr}:enable='between(t,${op.st.toFixed(2)},${enEff.toFixed(2)})'[${out}]`);
+          lastL = out;
+        });
+        pf.push(`[${lastL}]format=yuv420p[vcap]`);
+        pargs.push(
+          "-filter_complex", pf.join(";"),
+          "-map", "[vcap]", "-map", "0:a?",
+          "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p", "-r", String(fps),
+          "-c:a", "copy", "-movflags", "+faststart",
+          passOut,
+        );
+        const pr = await runFFmpeg(pargs, 10 * 60 * 1000);
+        if (pr.code !== 0) return { error: `Rendu des sous-titres échoué (passe ${Math.floor(c0 / CHUNK) + 1}) : ${pr.stderr.slice(-200)}` };
+        curVideo = passOut;
+      }
+      if (curVideo !== outPath) await fs.copyFile(curVideo, outPath);
+    }
 
     const { dur: outDur } = await probeAV(outPath);
 

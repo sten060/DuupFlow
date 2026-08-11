@@ -9,6 +9,7 @@ import { getLatestProject, projectPaths } from "./store";
 import type { Project } from "./store";
 import { renderVariant, variantKeyframes, materialKeyframes } from "./render";
 import type { EditPlan } from "./render";
+import { GAP_BLANK_SEC, GAP_MICRO_SEC, GAP_EDGE_TRIM_FALLBACK_SEC, RETAKE_NGRAM, RETAKE_CHAIN_GAP_SEC, RETAKE_STRICT_GAP_SEC, RETAKE_MIN_SPAN_SEC, REF_IMAGES_SHOWN, MCP_IMAGE_WIDTH, MCP_IMAGE_QUALITY } from "./analysis-config";
 import { analyzeColor } from "./ref-profile";
 import { checkUsageForUser, incrementUsage, logAiEditorRender } from "@/lib/usage";
 
@@ -54,7 +55,7 @@ export const TOOLS = [
       "NETTOYAGE DU RUSH (le user envoie ses RUSHS BRUTS, pas une vidéo déjà montée — c'est à TOI de la rendre publiable) : get_material te donne la VOIX horodatée, les MOTS, les ✂️ BLANCS, les ⏱ MICRO-PAUSES et les 🔁 REPRISES. Découpe le rush en PLUSIEURS segments[] du MÊME fichier (même materialId, [startSec,endSec] différents) qui GARDENT la parole et SAUTENT : les ✂️ BLANCS, les plages 🔁 REPRISES (le locuteur se rate puis répète — tu gardes la DERNIÈRE prise, qui commence à la fin de la plage) et toute redite restante visible dans le transcript. Les ⏱ MICRO-PAUSES (0,15-0,5 s, INTRA-phrase) ne se sautent pas : SUBDIVISE le segment en 2 segments contigus (fin du 1er = début de la pause, début du 2e = fin de la pause, cut sec) → débit resserré, raccord invisible. Coupe TOUJOURS aux frontières de silence, jamais en plein mot. " +
       "LIGNE À NE PAS FRANCHIR : tu enlèves seulement le DÉCHET (blancs, hésitations, ratés, redites). Tu ne choisis JAMAIS « le propos », tu ne réordonnes pas, tu ne réécris pas, tu ne sélectionnes pas « le meilleur passage » : le contenu et l'ordre restent ceux du user. C'est SA prise, juste nettoyée. " +
       "B-ROLL / CUTAWAYS : quand la réf insère des plans d'illustration pendant que la voix continue (get_reference → 🎞 CUTAWAY), reproduis-les avec LA MATIÈRE DU USER uniquement : son image/clip en overlay PLEIN CADRE ({ x: 0, y: 0, width: 100, height: 100 }) sur la fenêtre du plan qui parle — le son du plan continue dessous. Choisis l'asset dont la description colle au propos du moment. Pas d'asset adapté → pas de b-roll : JAMAIS de stock, jamais de contenu externe. Même sans réf b-roll, tu PEUX en placer sobrement (1-2 s) pour renourrir l'œil si le user a des assets pertinents. " +
-      "Durées : segment libre (borné à la longueur du fichier pour une vidéo) ; défaut image = 2,5 s. Jusqu'à 40 segments, 30 captions. DURÉE TOTALE MAX = 90 s (cible short-form) : au-delà, le rendu est refusé — retire ou raccourcis des plans.",
+      "Durées : segment libre (borné à la longueur du fichier pour une vidéo) ; défaut image = 2,5 s. Jusqu'à 40 segments (un même rush peut être découpé en DIZAINES de micro-plans : les décodeurs sont mutualisés par fichier — montage rythmé 0,9 s/plan OK), 150 captions (sous-titrage mot-à-mot complet). DURÉE TOTALE MAX = 90 s (cible short-form) : au-delà, le rendu est refusé — retire ou raccourcis des plans.",
     inputSchema: {
       type: "object",
       properties: {
@@ -102,6 +103,8 @@ export const TOOLS = [
               transitionDuration: { type: "number", description: "Durée de la transition en s (0.1-0.4 typique ; flash/glitch ~0.15-0.2). Bornée à la durée des plans." },
               flashColor: { type: "string", description: "Pour transition \"flash\" : \"white\" (défaut) ou \"black\", ou hex." },
               glitchIntensity: { type: "number", description: "Pour transition \"glitch\" : 0-1 (défaut 0.6) — ampleur du décalage de canaux et du bruit." },
+              volume: { type: "number", description: "Volume du SON DE CE PLAN, 0-2 (défaut 1). 0 = muet — débloque le format « voix off + plans b-roll silencieux »." },
+              mute: { type: "boolean", description: "true = plan MUET (raccourci volume 0)." },
               speed: { type: "number", description: "VIDÉO : vitesse de lecture 0.25-4 (défaut 1). <1 = ralenti, >1 = accéléré. L'audio du plan suit (pitch modifié). Ignoré sur les images. Réf : get_reference → plans[].speed." },
               freezeAt: { type: "number", description: "VIDÉO : timecode (s) DANS le fichier où faire un ARRÊT SUR IMAGE (freeze). À utiliser avec freezeDuration. Réf : get_reference signale le freeze + son timecode." },
               freezeDuration: { type: "number", description: "Durée du gel en s (avec freezeAt)." },
@@ -128,6 +131,7 @@ export const TOOLS = [
                     height: { type: "number", description: "Hauteur, % du cadre — le média est RECADRÉ (cover) dans la boîte largeur×hauteur. Absent = aspect de la source. Pour une carte : défaut = carrée." },
                     shape: { type: "string", enum: ["rect", "square", "circle"], description: "square = recadre la source en CARRÉ ; circle = BULLE RONDE (le layout « speaker en bulle » des edits face-cam). Défaut rect." },
                     startSec: { type: "number", description: "Apparition, relative au plan." },
+                    sourceStartSec: { type: "number", description: "Point d'entrée DANS le média source (s) — sans lui, chaque overlay rejoue sa frame 0 (3 réutilisations du même clip = 3× la même seconde)." },
                     endSec: { type: "number", description: "Disparition, relative au plan." },
                     opacity: { type: "number", description: "0-1 (défaut 1)." },
                     borderRadius: { type: "number", description: "Coins arrondis en px (@1080) — appliqués via masque alpha (marche sur média ET carte)." },
@@ -221,7 +225,7 @@ export const TOOLS = [
           items: {
             type: "object",
             properties: {
-              text: { type: "string", description: "Le texte. Les emojis 🔥💪🎉 sont rendus EN COULEUR — style 3D premium par défaut, ou plat via emojiStyle. Utilise-les librement." },
+              text: { type: "string", description: "Le texte. Les emojis 🔥💪🎉 sont rendus EN COULEUR — style 3D premium par défaut, ou plat via emojiStyle. Utilise-les librement. OPTIONNEL si `spans` est fourni (le texte vient alors des spans)." },
               startSec: { type: "number" },
               endSec: { type: "number" },
               position: { type: "string", enum: ["top", "center", "bottom"], description: "Position rapide (défaut bottom). Ignorée si x/y fournis." },
@@ -238,8 +242,8 @@ export const TOOLS = [
               size: { type: "string", enum: ["s", "m", "l"], description: "Taille rapide (défaut m)." },
               fontSize: { type: "number", description: "Taille en px (référence 1080 de large). Prioritaire sur size." },
               color: { type: "string", description: "Couleur du texte en hex. Défaut blanc." },
-              strokeColor: { type: "string", description: "Couleur du contour (style outline). Défaut noir." },
-              strokeWidth: { type: "number", description: "Épaisseur du contour en px." },
+              strokeColor: { type: "string", description: "Couleur du contour (style outline). Défaut noir. \"none\" = PAS de contour (style ombre douce seule)." },
+              strokeWidth: { type: "number", description: "Épaisseur du contour en px. 0 = pas de contour." },
               font: { type: "string", enum: ["sans", "rounded", "impact", "serif", "script", "display"], description: "Famille : sans (défaut), rounded (arrondie type TikTok/CapCut), impact (grosse condensée), serif, script (manuscrite), display." },
               fontWeight: { type: "number", description: "Graisse 100-900." },
               letterSpacing: { type: "number", description: "Interlettrage en px." },
@@ -280,12 +284,13 @@ export const TOOLS = [
                     font: { type: "string", enum: ["sans", "rounded", "impact", "serif", "script", "display"], description: "Police de CETTE portion (sinon police globale). script = manuscrite, serif = Playfair élégant, display = Bungee." },
                     italic: { type: "boolean", description: "Passe CETTE portion en italique." },
                     weight: { type: "number", description: "Graisse 100-900 de CETTE portion (sinon graisse globale)." },
+                    fontSize: { type: "number", description: "Taille de CETTE portion en px (@1080) — emphase à DEUX TAILLES dans un même bloc (« to have this » petit, « SINK IN » énorme). Sinon taille globale." },
                   },
                   required: ["text"],
                 },
               },
             },
-            required: ["text", "startSec", "endSec"],
+            required: ["startSec", "endSec"],
           },
         },
         label: { type: "string", description: "nom court de la variante (ex. hook utilisé)." },
@@ -340,7 +345,7 @@ export function dataUriToImage(dataUri: string): Content | null {
 /** Recompresse une image (data URI) en plus petit → réponse MCP allégée (les
  *  keyframes de réf stockées sont en 480px ; certains clients vident les blocs
  *  image si la réponse est trop lourde). Repli sur l'original si sharp échoue. */
-async function shrinkDataUri(dataUri: string, width = 360, quality = 60): Promise<string> {
+async function shrinkDataUri(dataUri: string, width = MCP_IMAGE_WIDTH, quality = MCP_IMAGE_QUALITY): Promise<string> {
   const m = dataUri.match(/^data:[^;]+;base64,(.+)$/);
   if (!m) return dataUri;
   try {
@@ -395,11 +400,22 @@ function tightenWords(
 ): CleanWord[] {
   const ws = words ?? [];
   const sil = silences ?? [];
-  if (!ws.length || !sil.length) return ws;
-  return ws.map((w) => {
+  if (!ws.length) return ws;
+  const tightened = !sil.length ? ws.slice() : ws.map((w) => {
     const cut = sil.find((s) => s.start > w.startSec + 0.06 && s.start < w.endSec - 0.02);
     return cut ? { ...w, endSec: Math.round(Math.max(w.startSec + 0.06, cut.start) * 1000) / 1000 } : w;
   });
+  // D3 — MONOTONIE garantie : l'ASR peut renvoyer des mots qui se chevauchent
+  // (« sera[30.38–30.94] toujours[30.42–30.74] ») et toute logique de découpe
+  // qui suppose des intervalles ordonnés casse en silence. Tri par début puis
+  // clamp de chaque fin sur le début du mot suivant.
+  tightened.sort((a, b) => a.startSec - b.startSec);
+  for (let i = 0; i + 1 < tightened.length; i++) {
+    if (tightened[i].endSec > tightened[i + 1].startSec) {
+      tightened[i] = { ...tightened[i], endSec: Math.round(Math.max(tightened[i].startSec + 0.04, tightened[i + 1].startSec) * 1000) / 1000 };
+    }
+  }
+  return tightened;
 }
 
 /** NETTOYAGE DU RUSH — blancs & micro-pauses. Source de vérité : les plages de
@@ -416,9 +432,9 @@ function formatSilenceLines(
   silences?: CleanSilence[] | null,
   words?: CleanWord[] | null,
 ): string[] {
-  const MIN_GAP = 0.5;    // s : seuil BLANC (inter-phrases)
-  const MIN_MICRO = 0.15; // s : seuil micro-pause (en dessous = respiration, on garde)
-  const EDGE_TRIM = 0.12; // s : rognage des bords (voie énergie uniquement)
+  const MIN_GAP = GAP_BLANK_SEC;
+  const MIN_MICRO = GAP_MICRO_SEC;
+  const EDGE_TRIM = GAP_EDGE_TRIM_FALLBACK_SEC; // voie énergie (repli) uniquement
   let gaps: { start: number; end: number }[] = [];
 
   const sil = (silences ?? []).filter((s) => s && s.end - s.start >= MIN_MICRO);
@@ -536,9 +552,13 @@ function formatRetakeLines(
 ): string[] {
   const ws = (words ?? []).filter((w) => w && w.text && w.endSec >= w.startSec);
   if (ws.length < 8) return [];
-  const N = 3;            // taille du n-gramme
-  const WINDOW = 15;      // s : distance max entre les deux occurrences
-  const MIN_SPAN = 0.8;   // s : plage coupée minimale (évite le bruit)
+  const N = RETAKE_NGRAM;
+  // Garde-fous anti FAUX POSITIF (un n-gramme banal — « vous donner un » — qui
+  // revient 10 s plus loin dans une phrase DIFFÉRENTE n'est PAS une reprise ;
+  // le couper détruirait le propos du user) :
+  const CHAIN_GAP = RETAKE_CHAIN_GAP_SEC;
+  const STRICT_GAP = RETAKE_STRICT_GAP_SEC;
+  const MIN_SPAN = RETAKE_MIN_SPAN_SEC;
   const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9']/g, "");
   const toks = ws.map((w) => norm(w.text));
   // Index des n-grammes → positions de départ.
@@ -575,8 +595,19 @@ function formatRetakeLines(
       }
       chain = [];
     };
+    // Similarité ÉTENDUE : le mot APRÈS le n-gramme (ou celui d'AVANT) doit
+    // correspondre aussi — « vous donner un tips » vs « vous donner un branding »
+    // partagent le n-gramme mais pas la suite → réutilisation légitime, pas une
+    // reprise. Une vraie reprise répète le début de phrase À L'IDENTIQUE au-delà
+    // du n-gramme (« ou que vos posts… / ou que vos posts, »).
+    const extended = (a: number, b: number): boolean =>
+      (!!toks[a + N] && toks[a + N] === toks[b + N]) || (a > 0 && b > 0 && !!toks[a - 1] && toks[a - 1] === toks[b - 1]);
     for (const i of idxs) {
-      if (chain.length && ws[i].startSec - ws[chain[chain.length - 1]].startSec > WINDOW) flush();
+      if (chain.length) {
+        const prev = chain[chain.length - 1];
+        const gap = ws[i].startSec - ws[prev].startSec;
+        if (gap > CHAIN_GAP || (gap > STRICT_GAP && !extended(prev, i))) flush();
+      }
       chain.push(i);
     }
     flush();
@@ -619,7 +650,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const a = ref.analysis;
     const cuts = Array.isArray(a.sceneCuts) ? a.sceneCuts : [];
     const phrases = a.transcript?.phrases ?? [];
-    const N_IMG = 5;
+    const N_IMG = REF_IMAGES_SHOWN;
     // Beats : échantillonnés sur TOUTE la durée (pas les 48 premiers → sinon le
     // dernier tiers de la réf n'a aucun beat et on ne peut pas y caler les coupes).
     const allBeats = a.audio?.beats ?? [];
@@ -662,15 +693,26 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       const parts: string[] = [];
       if (comp.captions.length) {
         parts.push(
-          `CAPTIONS DU MODÈLE (${comp.captions.length}) — LUES à l'écran, prêtes à passer TEL QUEL à create_variant.captions (mêmes unités) :\n` +
-          comp.captions.map((c, i) =>
-            `  ${i + 1}. « ${c.text} »${c.emojis ? ` ${c.emojis}` : ""}\n` +
-            `     [${c.startSec}–${c.endSec}s] · x ${c.xPct}% · y ${c.yPct}% · fontSize ${c.fontSizePx} · font "${c.font}" · color ${c.color}` +
-            `${c.hasStroke ? ` · contour ${c.strokeWidthPx}px` : " · sans contour"}${c.background && c.background !== "none" ? ` · background ${c.background}${c.bgRadiusPx ? ` · coins ${c.bgRadiusPx}px` : ""}${c.bgPaddingPx ? ` · padding ${c.bgPaddingPx}px` : ""}${c.bgRadiusPx >= 24 && c.bgPaddingPx >= 20 ? ` (bloc arrondi & padded → style:"sticker")` : ""}` : " · sans fond"}${c.animation && c.animation !== "none" ? ` · animation "${c.animation}"` : ""}${c.glow && c.glow !== "none" ? ` · NÉON glow ${c.glow} (→ caption.glow)` : ""}`,
-          ).join("\n"),
+          `CAPTIONS DE LA RÉF (${comp.captions.length}) — style LU à l'écran, prêt à passer TEL QUEL à create_variant.captions (mêmes unités). REPRODUIS ce style fidèlement, adapte seulement le texte :\n` +
+          comp.captions.map((c, i) => {
+            const nWords = c.text.trim().split(/\s+/).filter(Boolean).length;
+            const stroke = c.hasStroke ? ` · contour ${c.strokeWidthPx}px` : ` · SANS contour (→ strokeColor: "none")`;
+            const shadow = c.shadow !== "none" ? ` · ombre douce ${c.shadow} (→ shadowColor: "${c.shadow}")` : "";
+            const alignS = c.align !== "center" ? ` · align ${c.align}` : "";
+            const emph = c.emphasisText && c.emphasisMul > 1.1
+              ? `\n     ⭐ EMPHASE « ${c.emphasisText} » ×${c.emphasisMul}${c.emphasisColor !== "none" ? ` · ${c.emphasisColor}` : ""} → spans[] : le reste à fontSize ${c.fontSizePx}, cette portion à fontSize ${Math.round(c.fontSizePx * c.emphasisMul)}${c.emphasisColor !== "none" ? ` + color "${c.emphasisColor}"` : ""}`
+              : "";
+            return `  ${i + 1}. « ${c.text} »${c.emojis ? ` ${c.emojis}` : ""} (${nWords} mot${nWords > 1 ? "s" : ""})\n` +
+              `     [${c.startSec}–${c.endSec}s] · x ${c.xPct}% · y ${c.yPct}% · fontSize ${c.fontSizePx} · font "${c.font}" · graisse ${c.fontWeight} · color ${c.color}` +
+              `${stroke}${shadow}${alignS}${c.background && c.background !== "none" ? ` · background ${c.background}${c.bgRadiusPx ? ` · coins ${c.bgRadiusPx}px` : ""}${c.bgPaddingPx ? ` · padding ${c.bgPaddingPx}px` : ""}${c.bgRadiusPx >= 24 && c.bgPaddingPx >= 20 ? ` (bloc arrondi & padded → style:"sticker")` : ""}` : " · sans fond"}${c.animation && c.animation !== "none" ? ` · animation "${c.animation}"` : ""}${c.glow && c.glow !== "none" ? ` · NÉON glow ${c.glow} (→ caption.glow)` : ""}${emph}`;
+          }).join("\n"),
         );
+        // Cadence de sous-titrage mesurée — pour caler le DÉCOUPAGE des tiennes.
+        const avgWords = comp.captions.reduce((s, c) => s + c.text.trim().split(/\s+/).filter(Boolean).length, 0) / comp.captions.length;
+        const avgDur = comp.captions.reduce((s, c) => s + Math.max(0, c.endSec - c.startSec), 0) / comp.captions.length;
+        parts.push(`CADENCE de sous-titrage de la réf : ~${avgWords.toFixed(1)} mots/caption · ~${avgDur.toFixed(2)}s d'affichage — découpe TES captions à la même cadence (pas des blocs de 8 mots si la réf en affiche 3).`);
       } else {
-        parts.push("CAPTIONS DU MODÈLE : aucun texte incrusté détecté.");
+        parts.push("CAPTIONS DE LA RÉF : aucun texte incrusté détecté.");
       }
       if (comp.shots.length) {
         // Intensité MESURÉE (ffmpeg) rattachée au plan Gemini par recouvrement temporel.
@@ -732,6 +774,13 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     }
     const lines = [
       `RÉFÉRENCE : ${ref.label} (${ref.source})`,
+      // ÉCHECS BRUYANTS : les dégradations d'analyse (Gemini KO, transcript indispo,
+      // extraction partielle…) étaient stockées dans a.notes mais JAMAIS montrées →
+      // le consommateur devinait le style de captions sur 5 JPEG. Plus jamais muet.
+      a.notes?.length ? `⚠️ ANALYSE PARTIELLE :\n${a.notes.map((n) => `  · ${n}`).join("\n")}` : null,
+      !a.comprehension
+        ? `🛑 STYLES DE CAPTIONS NON LUS (la couche compréhension Gemini n'a pas tourné sur cette réf). NE DEVINE PAS le style des sous-titres depuis les images — préviens le user que l'analyse de sa référence est PARTIELLE et propose de la ré-uploader (si ça persiste : vérifier GEMINI_API_KEY côté serveur).`
+        : null,
       `Durée : ${a.durationSec.toFixed(1)}s · ${a.width}×${a.height} · ${a.fps} fps · audio: ${a.hasAudio ? "oui" : "non"}`,
       `Rythme : ${a.pacing.cutCount} coupe(s)${a.pacing.avgCutSec ? ` · ~${a.pacing.avgCutSec}s/plan` : ""}`,
       cuts.length ? `Coupes (timecodes s) : ${cuts.slice(0, 60).map((c) => c.toFixed(2)).join(", ")}` : null,
@@ -750,6 +799,9 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       phrases.length
         ? `Transcription horodatée :\n${phrases.slice(0, 50).map((p) => `  [${p.startSec.toFixed(1)}–${p.endSec.toFixed(1)}s] ${p.text}`).join("\n")}`
         : a.transcript ? `Transcription : ${a.transcript.fullText}` : "Transcription : indisponible (analyse visuelle).",
+      // §5 — mots horodatés de la RÉF (même pipeline que get_material) : croiser
+      // la voix avec les captions détectées, mesurer la cadence réelle.
+      ...formatWordLines(tightenWords(a.transcript?.words, a.audio?.silences)),
       compBlock ? "" : null,
       compBlock,
       "",

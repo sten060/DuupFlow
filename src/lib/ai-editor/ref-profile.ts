@@ -13,6 +13,7 @@
 
 import fs from "fs/promises";
 import path from "path";
+import { SILENCE_MIN_SEC, SILENCE_EDGE_TRIM_SEC, SILENCE_FLOOR_FACTOR, SILENCE_MIN_VS_PEAK, SILENCE_MAX_VS_PEAK } from "./analysis-config";
 import { runFFmpeg } from "@/lib/studio/pipeline";
 
 export type ShotMotion = "static" | "zoom" | "pan" | "handheld";
@@ -181,8 +182,8 @@ export async function analyzeAudioBeats(videoPath: string, durationSec: number, 
   const sortedEnv = Float32Array.from(env).sort();
   const envP10 = sortedEnv[Math.floor(sortedEnv.length * 0.10)];
   const envP95 = sortedEnv[Math.floor(sortedEnv.length * 0.95)];
-  const silThr = Math.min(Math.max(envP10 * 2.5 + 0.002, envP95 * 0.02), Math.max(0.004, envP95 * 0.08));
-  const SIL_MIN = 0.15, SIL_TRIM = 0.05;
+  const silThr = Math.min(Math.max(envP10 * SILENCE_FLOOR_FACTOR + 0.002 /* epsilon anti-zéro */, envP95 * SILENCE_MIN_VS_PEAK), Math.max(0.004, envP95 * SILENCE_MAX_VS_PEAK));
+  const SIL_MIN = SILENCE_MIN_SEC, SIL_TRIM = SILENCE_EDGE_TRIM_SEC;
   const silences: { start: number; end: number }[] = [];
   let silFrom = -1;
   for (let i = 0; i <= frames; i++) {

@@ -16,6 +16,8 @@
 import fs from "fs/promises";
 import path from "path";
 
+import { GEMINI_DEFAULT_MODEL, GEMINI_DEFAULT_FPS } from "./analysis-config";
+
 const API = "https://generativelanguage.googleapis.com";
 
 export type GeminiShot = {
@@ -64,6 +66,14 @@ export type GeminiCaption = {
   emojis: string;        // emojis présents dans/à côté de la caption ("" si aucun)
   animation: "none" | "fade" | "pop" | "slideUp" | "typewriter" | "wordByWord" | "karaoke"; // type d'anim détecté
   glow: string;          // effet néon : couleur hex du halo, "none" si aucun
+  fontWeight: number;    // graisse estimée du trait : 400 | 700 | 900
+  shadow: string;        // ombre portée DOUCE (voile diffus, ≠ contour ≠ néon) : hex, "none" si aucune
+  align: "left" | "center" | "right";
+  // EMPHASE : une portion du MÊME bloc nettement plus grosse que le reste
+  // (« to have this » petit / « SINK IN » énorme) — motif central du short-form.
+  emphasisText: string;  // la portion agrandie, "" si tout le bloc est uniforme
+  emphasisMul: number;   // rapport de taille emphase/reste (ex. 1.6), 1 si uniforme
+  emphasisColor: string; // couleur de l'emphase si différente du reste, "none" sinon
 };
 
 // Une COUPE analysée sur une bande de vignettes (±0,3s), en unités create_variant.
@@ -168,8 +178,14 @@ const SCHEMA = {
           emojis: { type: "STRING" },
           animation: { type: "STRING", enum: ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"] },
           glow: { type: "STRING" },
+          fontWeight: { type: "NUMBER" },
+          shadow: { type: "STRING" },
+          align: { type: "STRING", enum: ["left", "center", "right"] },
+          emphasisText: { type: "STRING" },
+          emphasisMul: { type: "NUMBER" },
+          emphasisColor: { type: "STRING" },
         },
-        required: ["text", "startSec", "endSec", "xPct", "yPct", "fontSizePx", "color", "font"],
+        required: ["text", "startSec", "endSec", "xPct", "yPct", "fontSizePx", "color", "font", "fontWeight", "shadow", "align", "emphasisText", "emphasisMul", "emphasisColor"],
       },
     },
     cuts: {
@@ -213,6 +229,10 @@ Objectif : décrire la STRUCTURE et le STYLE, pas raconter le contenu. Sois pré
    - emojis : les emojis de cette caption ("" si aucun).
    - animation : le type d'animation d'apparition, parmi EXACTEMENT : none (statique), fade (fondu), pop (apparition avec rebond/scale), slideUp (glisse depuis le bas), typewriter (lettre par lettre), wordByWord (mot après mot qui apparaissent), karaoke (tous les mots visibles, le mot dit est surligné). Choisis le plus proche.
    - glow : si la caption a un effet NÉON / halo lumineux coloré autour du texte, donne sa couleur hex (#RRGGBB) ; sinon "none".
+   - fontWeight : la GRAISSE estimée du trait : 400 (normal), 700 (gras), 900 (très gras / black). Le short-form est massivement en 700-900 — regarde l'épaisseur réelle, ne mets pas 400 par défaut.
+   - shadow : ombre portée DOUCE derrière les lettres (voile diffus légèrement décalé, SANS bord net — à distinguer du contour, qui a un bord franc, et du néon) : sa couleur hex ; "none" si aucune. Beaucoup de réfs modernes n'ont AUCUN contour, seulement cette ombre douce — dans ce cas hasStroke=false ET shadow=#hex.
+   - align : alignement du bloc de texte : left | center | right.
+   - emphasisText / emphasisMul / emphasisColor : si une PORTION du même bloc est NETTEMENT plus grosse que le reste (ex. « to have this » petit puis « SINK IN » énorme — deux tailles dans un même bloc, motif CENTRAL du short-form actuel, cherche-le activement), donne : le texte exact de la portion agrandie, le RAPPORT de taille (hauteur emphase / hauteur du reste, ex. 1.6), et sa couleur si elle diffère du reste ("none" sinon). Bloc uniforme → emphasisText "", emphasisMul 1, emphasisColor "none".
    S'il n'y a AUCUN texte incrusté, renvoie captions: [].
 
 3) cuts : la NATURE de chaque transition, à partir des BANDES DE COUPES fournies (une bande = 6 vignettes gauche→droite couvrant ±0,3s autour d'une coupe). Rends UNE entrée par bande, avec le "t" exact donné. Pour chaque coupe :
@@ -275,10 +295,12 @@ async function listCandidateModels(key: string): Promise<string[]> {
 export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: CutStrip[] = []): Promise<GeminiComprehension | null> {
   const key = geminiKey();
   if (!key) return null;
-  // Défaut = gemini-2.0-flash (GA, largement dispo, vidéo). Certaines clés n'ont pas
-  // 2.5-flash (404) → repli auto via pickAvailableModel plus bas.
-  const model = process.env.AI_EDITOR_GEMINI_MODEL || "gemini-2.0-flash";
-  const fps = Math.max(1, Math.min(10, Number(process.env.AI_EDITOR_GEMINI_FPS) || 2));
+  // Défaut = ALIAS ROULANT "gemini-flash-latest" : Google RETIRE les modèles
+  // versionnés (gemini-2.0-flash est mort en 2026 → chaque analyse commençait
+  // par un 404). L'alias suit le flash stable du moment ; le repli en cascade
+  // (listCandidateModels) couvre les clés où l'alias n'existe pas.
+  const model = process.env.AI_EDITOR_GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
+  const fps = Math.max(1, Math.min(10, Number(process.env.AI_EDITOR_GEMINI_FPS) || GEMINI_DEFAULT_FPS));
 
   try {
     const bytes = await fs.readFile(videoPath);
@@ -477,6 +499,15 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
       emojis: String(c?.emojis ?? ""),
       animation: (ANIMS as readonly string[]).includes(String((c as { animation?: string })?.animation)) ? ((c as { animation?: string }).animation as GeminiCaption["animation"]) : "none",
       glow: String((c as { glow?: string })?.glow ?? "none").slice(0, 9),
+      fontWeight: ((): number => {
+        const w = Math.round(clamp((c as { fontWeight?: number })?.fontWeight, 100, 900, 800));
+        return w >= 850 ? 900 : w >= 550 ? 700 : 400; // snap sur les 3 graisses réelles
+      })(),
+      shadow: /^#[0-9a-fA-F]{6}$/.test(String((c as { shadow?: string })?.shadow ?? "")) ? String((c as { shadow?: string }).shadow) : "none",
+      align: (["left", "center", "right"] as readonly string[]).includes(String((c as { align?: string })?.align)) ? (String((c as { align?: string }).align) as GeminiCaption["align"]) : "center",
+      emphasisText: String((c as { emphasisText?: string })?.emphasisText ?? "").slice(0, 120),
+      emphasisMul: Math.round(clamp((c as { emphasisMul?: number })?.emphasisMul, 1, 4, 1) * 100) / 100,
+      emphasisColor: /^#[0-9a-fA-F]{6}$/.test(String((c as { emphasisColor?: string })?.emphasisColor ?? "")) ? String((c as { emphasisColor?: string }).emphasisColor) : "none",
     })) : [];
 
     const TRANS = ["cut", "fade", "whipPan", "slide", "zoomPunch", "flash", "glitch", "other"] as const;
