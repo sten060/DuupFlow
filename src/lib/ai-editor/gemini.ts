@@ -115,6 +115,25 @@ export function isGeminiAvailable(): boolean {
   return !!geminiKey();
 }
 
+/* ── Dernière raison d'échec ─────────────────────────────────────────────────
+   Les échecs n'étaient visibles QUE dans les logs serveur : le user voyait
+   « styles non lus » sans savoir pourquoi, et on ne pouvait rien diagnostiquer
+   sans accès à Railway. On mémorise la cause réelle pour la remonter dans
+   l'analyse (→ get_reference). */
+let _lastError = "";
+export function geminiLastError(): string { return _lastError; }
+function failWith(reason: string): null {
+  _lastError = reason;
+  console.warn(`[ai-editor/gemini] ÉCHEC : ${reason}`);
+  return null;
+}
+
+/** Erreur TRANSITOIRE (à réessayer) vs définitive (passer au modèle suivant).
+ *  429 = quota/débit, 500/503/504 = surcharge côté Google. 400/404 = ce modèle
+ *  ne veut pas de cette requête → inutile d'insister. */
+const isTransient = (status: number) => status === 429 || status === 408 || (status >= 500 && status <= 599);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 function mimeFor(p: string): string {
   const ext = path.extname(p).toLowerCase();
   if (ext === ".mov") return "video/quicktime";
@@ -334,11 +353,10 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ file: { displayName: "reference" } }),
-    }, 30_000);
+    }, 60_000);
     const uploadUrl = startRes.headers.get("x-goog-upload-url");
     if (!startRes.ok || !uploadUrl) {
-      console.warn("[ai-editor/gemini] upload start KO:", startRes.status);
-      return null;
+      return failWith(`ouverture de l'upload refusée (HTTP ${startRes.status})${startRes.status === 429 ? " — quota/débit dépassé" : ""}`);
     }
 
     // 2) Envoyer les octets + finaliser.
@@ -350,11 +368,11 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
         "X-Goog-Upload-Command": "upload, finalize",
       },
       body: new Uint8Array(bytes),
-    }, 120_000);
-    if (!upRes.ok) { console.warn("[ai-editor/gemini] upload KO:", upRes.status); return null; }
+    }, 180_000);
+    if (!upRes.ok) return failWith(`envoi du fichier refusé (HTTP ${upRes.status}, ${(bytes.length / 1e6).toFixed(1)} Mo)`);
     const upJson = await upRes.json().catch(() => null) as { file?: { name?: string; uri?: string; state?: string; mimeType?: string } } | null;
     const file = upJson?.file;
-    if (!file?.name || !file?.uri) { console.warn("[ai-editor/gemini] upload sans file.uri"); return null; }
+    if (!file?.name || !file?.uri) return failWith("réponse d'upload sans identifiant de fichier");
 
     // 3) Attendre que la vidéo soit traitée (state ACTIVE).
     let state = file.state || "PROCESSING";
@@ -369,7 +387,7 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
       if (stJson?.uri) uri = stJson.uri;
       if (stJson?.mimeType) fileMime = stJson.mimeType;
     }
-    if (state !== "ACTIVE") { console.warn("[ai-editor/gemini] fichier non ACTIVE:", state); return null; }
+    if (state !== "ACTIVE") return failWith(`la vidéo n'a pas fini d'être traitée par Google au bout de 2 min (état « ${state} »)`);
 
     // 4) generateContent (sortie structurée + fps élevé) — avec REPLI auto si le
     //    modèle est indisponible pour cette clé (404, ex. gemini-2.5-flash).
@@ -399,7 +417,7 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
         responseMimeType: "application/json",
         responseSchema: SCHEMA,
         temperature: 0.2,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 32768, // le schéma s'est enrichi (fill/caveat/emphase/layouts) : à 8192 une réf riche sortait TRONQUÉE
         // thinkingConfig n'existe QUE sur 2.5+ (l'envoyer à 2.0-flash = 400). Sur
         // 2.5 on coupe le thinking pour réserver tous les tokens au JSON.
         ...(/2\.5|thinking/.test(m) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
@@ -425,17 +443,31 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
       if (tried.has(m)) continue;
       tried.add(m);
       if (tried.size > 8) break; // garde-fou
-      const r = await runGen(m);
-      if (r.ok) { genRes = r; usedModel = m; break; } // premier 2xx = gagné
-      // Sinon (404 indispo, 400 param, 5xx transitoire) : on passe au suivant. Les
-      // 404/400 sont rejetés AVANT tout traitement vidéo → instantanés et gratuits.
-      lastInfo = `${m}→${r.status}`;
-      console.warn(`[ai-editor/gemini] "${m}" échoue (${r.status}) → suivant`);
+      // Erreur TRANSITOIRE (quota, surcharge Google, timeout) → on réessaie LE
+      // MÊME modèle après une pause croissante. Changer de modèle ne sert à rien
+      // dans ce cas, et gaspille un traitement vidéo complet à chaque essai.
+      let r: Response | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          r = await runGen(m);
+        } catch (e) {
+          lastInfo = `${m}→réseau/timeout`;
+          console.warn(`[ai-editor/gemini] "${m}" : ${(e as Error)?.name === "TimeoutError" ? "timeout" : (e as Error)?.message}`);
+          if (attempt < 2) { await sleep(2000 * (attempt + 1) ** 2); continue; }
+          r = null; break;
+        }
+        if (r.ok || !isTransient(r.status)) break;
+        console.warn(`[ai-editor/gemini] "${m}" transitoire (${r.status}) → nouvelle tentative dans ${2 * (attempt + 1) ** 2}s`);
+        if (attempt < 2) await sleep(2000 * (attempt + 1) ** 2);
+      }
+      if (r?.ok) { genRes = r; usedModel = m; break; } // premier 2xx = gagné
+      if (!r) { lastInfo = `${m}→injoignable`; continue; }
+      // 400/404 : ce modèle ne veut pas de cette requête → suivant (instantané).
+      const body = await r.text().catch(() => "");
+      lastInfo = `${m}→${r.status}${body ? ` ${body.slice(0, 120)}` : ""}`;
+      console.warn(`[ai-editor/gemini] "${m}" échoue (${r.status}) → suivant · ${body.slice(0, 160)}`);
     }
-    if (!genRes) {
-      console.warn(`[ai-editor/gemini] aucun modèle n'a répondu OK — essayés : ${[...tried].join(", ")} (dernier : ${lastInfo})`);
-      return null;
-    }
+    if (!genRes) return failWith(`aucun modèle n'a répondu (essayés : ${[...tried].join(", ")} · dernier : ${lastInfo})`);
     const genJson = await genRes.json().catch(() => null) as {
       candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
       usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
@@ -443,10 +475,13 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
     const raw = genJson?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
     const u = genJson?.usageMetadata;
     if (!raw.trim()) {
-      console.warn(`[ai-editor/gemini] réponse vide · finishReason=${genJson?.candidates?.[0]?.finishReason ?? "?"} · tokens in=${u?.promptTokenCount ?? "?"} out=${u?.candidatesTokenCount ?? "?"}`);
-      return null;
+      const fr = genJson?.candidates?.[0]?.finishReason ?? "?";
+      return failWith(fr === "MAX_TOKENS"
+        ? `réponse TRONQUÉE (limite de tokens atteinte : ${u?.candidatesTokenCount ?? "?"}) — réf trop riche pour le budget de sortie`
+        : `réponse vide (finishReason=${fr}, tokens out=${u?.candidatesTokenCount ?? "?"})`);
     }
 
+    _lastError = ""; // succès : on efface la dernière cause d'échec
     const parsed = JSON.parse(raw) as Partial<GeminiComprehension>;
     // Nettoyage/normalisation dans les unités attendues.
     const clamp = (v: unknown, lo: number, hi: number, d: number) => {
@@ -555,8 +590,13 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
       duckingPresent: !!(parsed as { duckingPresent?: boolean })?.duckingPresent,
       model: usedModel,
     };
-  } catch (e) {
-    console.warn("[ai-editor/gemini] analyse échouée:", (e as Error)?.message?.slice(0, 200));
-    return null;
+} catch (e) {
+    // Cas VU EN PROD : « Unterminated string in JSON at position 17063 » — la
+    // réponse était TRONQUÉE (budget de sortie atteint) et JSON.parse explosait
+    // ici, avec un message incompréhensible pour le user. On nomme la cause.
+    const msg = (e as Error)?.message ?? "erreur inconnue";
+    return failWith(/JSON|Unterminated|Unexpected/i.test(msg)
+      ? `réponse TRONQUÉE par le budget de sortie (JSON incomplet : ${msg.slice(0, 80)}) — réf trop riche`
+      : `analyse échouée : ${msg.slice(0, 140)}`);
   }
 }

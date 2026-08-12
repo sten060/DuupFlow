@@ -857,7 +857,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       // le consommateur devinait le style de captions sur 5 JPEG. Plus jamais muet.
       a.notes?.length ? `⚠️ ANALYSE PARTIELLE :\n${a.notes.map((n) => `  · ${n}`).join("\n")}` : null,
       !a.comprehension
-        ? `🛑 STYLES DE CAPTIONS NON LUS (la couche compréhension Gemini n'a pas tourné sur cette réf). NE DEVINE PAS le style des sous-titres depuis les images — préviens le user que l'analyse de sa référence est PARTIELLE et propose de la ré-uploader (si ça persiste : vérifier GEMINI_API_KEY côté serveur).`
+        ? `🛑 STYLES DE CAPTIONS NON LUS. NE DEVINE PAS le style des sous-titres depuis les images — préviens le user que l'analyse de sa référence est PARTIELLE et propose de la RÉ-UPLOADER (une nouvelle analyse est relancée à chaque upload).${a.notes?.some((x) => /Gemini/i.test(x)) ? " La cause exacte est indiquée dans ⚠️ ANALYSE PARTIELLE ci-dessus — transmets-la telle quelle au user." : ""}`
         : null,
       `Durée : ${a.durationSec.toFixed(1)}s · ${a.width}×${a.height} · ${a.fps} fps · audio: ${a.hasAudio ? "oui" : "non"}`,
       `Rythme : ${a.pacing.cutCount} coupe(s)${a.pacing.avgCutSec ? ` · ~${a.pacing.avgCutSec}s/plan` : ""}`,

@@ -24,7 +24,7 @@ import { transcribeViaDeepgram, isDeepgramAvailable } from "./transcribe-deepgra
 import { REF_KEYFRAMES_MAX, REF_KEYFRAME_WIDTH, REF_KEYFRAME_QV, REF_HOOK_RATIO, REF_HOOK_MAX_SEC, SCENE_CUT_THRESHOLD } from "./analysis-config";
 import { analyzeShots, analyzeColor, analyzeAudioBeats } from "./ref-profile";
 import type { Shot, ColorProfile, AudioProfile } from "./ref-profile";
-import { analyzeReferenceWithGemini, isGeminiAvailable, type CutStrip } from "./gemini";
+import { analyzeReferenceWithGemini, isGeminiAvailable, geminiLastError, type CutStrip } from "./gemini";
 import type { GeminiComprehension } from "./gemini";
 
 export type Keyframe = { t: number; dataUri: string };
@@ -229,8 +229,12 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
   // On récupère la compréhension (déjà en cours en parallèle).
   const comprehension = await comprehensionP;
   if (!comprehension) {
+    // La CAUSE RÉELLE (quota, timeout, réponse tronquée…) était enfermée dans
+    // les logs serveur : ni le user ni son Claude ne pouvaient diagnostiquer.
+    // Elle remonte maintenant jusqu'à get_reference.
+    const why = geminiLastError();
     notes.push(isGeminiAvailable()
-      ? "Compréhension vidéo (Gemini) indisponible cette fois — profil basé sur les mesures + keyframes."
+      ? `Compréhension vidéo (Gemini) indisponible cette fois${why ? ` — ${why}` : ""}. Ré-uploade la référence pour réessayer.`
       : "Compréhension vidéo (Gemini) désactivée (pas de GEMINI_API_KEY) — captions/contenu des plans non lus.");
   }
 
