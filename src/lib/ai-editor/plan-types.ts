@@ -127,8 +127,22 @@ export type EditSegment = {
 
 export type CaptionStyle = "outline" | "box" | "sticker";
 export type CaptionSize = "s" | "m" | "l";
-export type CaptionFont = "sans" | "rounded" | "impact" | "serif" | "script" | "display";
+// La liste des polices vit dans font-catalog.ts (manifeste) — ajouter une
+// police = une ligne là-bas, rien à toucher ici.
+export type { CaptionFont } from "./font-catalog";
+import type { CaptionFont } from "./font-catalog";
 export type EmojiStyle = "3d" | "flat"; // 3d = Fluent 3D (défaut) ; flat = Twemoji
+
+/** REMPLISSAGE du texte. `solid` = équivalent de `color`. `gradient` = dégradé
+ *  CONTINU sur tout le bloc de texte (pas répété par lettre) — le « métallique »
+ *  gris→blanc omniprésent en short-form. Le contour et l'ombre restent UNIS. */
+export type CaptionFill = {
+  type: "solid" | "gradient";
+  color?: string;      // solid
+  colors?: string[];   // gradient : 2 arrêts minimum, dans l'ordre
+  angle?: number;      // gradient : 0 = gauche→droite, 90 = haut→bas
+  stops?: number[];    // gradient : positions 0-1 (défaut : réparties également)
+};
 
 export type EditCaption = {
   text: string;
@@ -182,7 +196,9 @@ export type EditCaption = {
   // classique inchangé. Les emojis restent rendus en images (couleur ignorée).
   // L2 : fontSize par span (px @1080) — l'emphase à DEUX TAILLES dans un même
   // bloc (« to have this » petit, « SINK IN » énorme), pilier du style short-form.
-  spans?: { text: string; color?: string; font?: CaptionFont; italic?: boolean; weight?: number; fontSize?: number }[];
+  spans?: { text: string; color?: string; font?: CaptionFont; italic?: boolean; weight?: number; fontSize?: number; fill?: CaptionFill }[];
+  /** Remplissage du texte (uni ou DÉGRADÉ). Prioritaire sur `color`. */
+  fill?: CaptionFill;
 };
 
 /* ── Colorimétrie / audio / plan ───────────────────────────────────────────── */

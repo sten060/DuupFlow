@@ -10,6 +10,7 @@ import type { Project } from "./store";
 import { renderVariant, variantKeyframes, materialKeyframes, ENGINE_BUILD } from "./render";
 import { startRenderJob, getRenderJob, waitForJob, runningJobsFor, jobElapsed, type RenderJob } from "./render-jobs";
 import type { EditPlan } from "./render";
+import { CAPTION_FONTS, fontCatalogLines } from "./font-catalog";
 import { GAP_BLANK_SEC, GAP_MICRO_SEC, GAP_EDGE_TRIM_FALLBACK_SEC, RETAKE_NGRAM, RETAKE_CHAIN_GAP_SEC, RETAKE_STRICT_GAP_SEC, RETAKE_MIN_SPAN_SEC, REF_IMAGES_SHOWN, MCP_IMAGE_WIDTH, MCP_IMAGE_QUALITY } from "./analysis-config";
 import { analyzeColor } from "./ref-profile";
 import { checkUsageForUser, incrementUsage, logAiEditorRender } from "@/lib/usage";
@@ -243,10 +244,22 @@ export const TOOLS = [
               paddingY: { type: "number", description: "Marge intérieure verticale en px (@1080). Prioritaire sur padding." },
               size: { type: "string", enum: ["s", "m", "l"], description: "Taille rapide (défaut m)." },
               fontSize: { type: "number", description: "Taille en px (référence 1080 de large). Prioritaire sur size." },
-              color: { type: "string", description: "Couleur du texte en hex. Défaut blanc." },
+              color: { type: "string", description: "Couleur du texte en hex. Défaut blanc. Ignoré si `fill` est fourni." },
+              fill: {
+                type: "object",
+                description: "REMPLISSAGE du texte. Prioritaire sur `color`. « gradient » = dégradé CONTINU sur tout le bloc (le premier mot démarre sombre, le dernier finit clair) — c'est le rendu « métallique » gris→blanc ou doré omniprésent en short-form. À utiliser dès que get_reference signale « ⚠ REMPLISSAGE NON UNI ». Le contour et l'ombre restent UNIS.",
+                properties: {
+                  type: { type: "string", enum: ["solid", "gradient"], description: "solid = couleur unie (équivaut à `color`) ; gradient = dégradé." },
+                  color: { type: "string", description: "solid : la couleur hex." },
+                  colors: { type: "array", description: "gradient : les couleurs hex DANS L'ORDRE (2 minimum).", items: { type: "string" } },
+                  angle: { type: "number", description: "gradient : direction en degrés. 0 = gauche→droite, 90 = haut→bas, 135 = diagonale." },
+                  stops: { type: "array", description: "gradient : positions 0-1 des arrêts (défaut : réparties également).", items: { type: "number" } },
+                },
+                required: ["type"],
+              },
               strokeColor: { type: "string", description: "Couleur du contour (style outline). Défaut noir. \"none\" = PAS de contour (style ombre douce seule)." },
               strokeWidth: { type: "number", description: "Épaisseur du contour en px. 0 = pas de contour." },
-              font: { type: "string", enum: ["sans", "rounded", "impact", "serif", "script", "display"], description: "Famille : sans (défaut), rounded (arrondie type TikTok/CapCut), impact (grosse condensée), serif, script (manuscrite), display." },
+                            font: { type: "string", enum: CAPTION_FONTS, description: `Famille de police, parmi le catalogue : ${fontCatalogLines()}.` },
               fontWeight: { type: "number", description: "Graisse 100-900." },
               letterSpacing: { type: "number", description: "Interlettrage en px." },
               lineHeight: { type: "number", description: "Interligne (multiplicateur, défaut 1.24)." },
@@ -283,9 +296,10 @@ export const TOOLS = [
                   properties: {
                     text: { type: "string", description: "La portion de texte (un ou plusieurs mots)." },
                     color: { type: "string", description: "Couleur hex de CETTE portion (sinon couleur globale de la caption)." },
-                    font: { type: "string", enum: ["sans", "rounded", "impact", "serif", "script", "display"], description: "Police de CETTE portion (sinon police globale). script = manuscrite, serif = Playfair élégant, display = Bungee." },
+                                        font: { type: "string", enum: CAPTION_FONTS, description: `Police de CETTE portion (sinon police globale). Catalogue : ${fontCatalogLines()}.` },
                     italic: { type: "boolean", description: "Passe CETTE portion en italique." },
                     weight: { type: "number", description: "Graisse 100-900 de CETTE portion (sinon graisse globale)." },
+                    fill: { type: "object", description: "Remplissage de CETTE portion (mêmes champs que captions[].fill) — ex. un seul mot en dégradé doré. Écrase le remplissage global.", properties: { type: { type: "string", enum: ["solid", "gradient"] }, color: { type: "string" }, colors: { type: "array", items: { type: "string" } }, angle: { type: "number" }, stops: { type: "array", items: { type: "number" } } } },
                     fontSize: { type: "number", description: "Taille de CETTE portion en px (@1080) — emphase à DEUX TAILLES dans un même bloc (« to have this » petit, « SINK IN » énorme). Sinon taille globale." },
                   },
                   required: ["text"],
@@ -749,12 +763,26 @@ export async function callTool(userId: string, name: string, args?: Record<strin
             const stroke = c.hasStroke ? ` · contour ${c.strokeWidthPx}px` : ` · SANS contour (→ strokeColor: "none")`;
             const shadow = c.shadow !== "none" ? ` · ombre douce ${c.shadow} (→ shadowColor: "${c.shadow}")` : "";
             const alignS = c.align !== "center" ? ` · align ${c.align}` : "";
+            // ── HONNÊTETÉ DE LA MESURE (règle gravée) ───────────────────
+            // Une valeur approximative renvoyée SANS avertissement est pire
+            // qu'une valeur absente : le lecteur reproduit l'erreur en croyant
+            // être fidèle. C'est arrivé (color #ffffff sur un texte dégradé →
+            // rendu blanc plat). L'avertissement est collé À LA CAPTION
+            // concernée ; les captions bien mesurées n'en ont AUCUN, pour que
+            // le signal ne se banalise pas.
+            const grad = c.fillColors ? c.fillColors.split(",").filter(Boolean) : [];
+            const fillWarn = c.fillType === "gradient" && grad.length >= 2
+              ? `\n     ⚠ REMPLISSAGE NON UNI — dégradé ${grad.join(" → ")} (~${c.fillAngle}°)\n       → passe fill: { type: "gradient", colors: ${JSON.stringify(grad)}, angle: ${c.fillAngle} } (et PAS color)`
+              : c.fillType === "texture"
+                ? `\n     ⚠ REMPLISSAGE NON MESURABLE — l'image/la vidéo transparaît dans les lettres (texte évidé).\n       NON REPRODUCTIBLE avec les outils actuels : PRÉVIENS LE USER, ne remplace pas par une couleur unie.`
+                : "";
+            const caveat = c.caveat?.trim() ? `\n     ⚠ MESURE APPROXIMATIVE — ${c.caveat.trim()}` : "";
             const emph = c.emphasisText && c.emphasisMul > 1.1
               ? `\n     ⭐ EMPHASE « ${c.emphasisText} » ×${c.emphasisMul}${c.emphasisColor !== "none" ? ` · ${c.emphasisColor}` : ""} → spans[] : le reste à fontSize ${c.fontSizePx}, cette portion à fontSize ${Math.round(c.fontSizePx * c.emphasisMul)}${c.emphasisColor !== "none" ? ` + color "${c.emphasisColor}"` : ""}`
               : "";
             return `  ${i + 1}. « ${c.text} »${c.emojis ? ` ${c.emojis}` : ""} (${nWords} mot${nWords > 1 ? "s" : ""})\n` +
               `     [${c.startSec}–${c.endSec}s] · x ${c.xPct}% · y ${c.yPct}% · fontSize ${c.fontSizePx} · font "${c.font}" · graisse ${c.fontWeight} · color ${c.color}` +
-              `${stroke}${shadow}${alignS}${c.background && c.background !== "none" ? ` · background ${c.background}${c.bgRadiusPx ? ` · coins ${c.bgRadiusPx}px` : ""}${c.bgPaddingPx ? ` · padding ${c.bgPaddingPx}px` : ""}${c.bgRadiusPx >= 24 && c.bgPaddingPx >= 20 ? ` (bloc arrondi & padded → style:"sticker")` : ""}` : " · sans fond"}${c.animation && c.animation !== "none" ? ` · animation "${c.animation}"` : ""}${c.glow && c.glow !== "none" ? ` · NÉON glow ${c.glow} (→ caption.glow)` : ""}${emph}`;
+              `${stroke}${shadow}${alignS}${fillWarn}${caveat}${c.background && c.background !== "none" ? ` · background ${c.background}${c.bgRadiusPx ? ` · coins ${c.bgRadiusPx}px` : ""}${c.bgPaddingPx ? ` · padding ${c.bgPaddingPx}px` : ""}${c.bgRadiusPx >= 24 && c.bgPaddingPx >= 20 ? ` (bloc arrondi & padded → style:"sticker")` : ""}` : " · sans fond"}${c.animation && c.animation !== "none" ? ` · animation "${c.animation}"` : ""}${c.glow && c.glow !== "none" ? ` · NÉON glow ${c.glow} (→ caption.glow)` : ""}${emph}`;
           }).join("\n"),
         );
         // Cadence de sous-titrage mesurée — pour caler le DÉCOUPAGE des tiennes.

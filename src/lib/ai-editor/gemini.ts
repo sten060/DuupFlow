@@ -17,6 +17,7 @@ import fs from "fs/promises";
 import path from "path";
 
 import { GEMINI_DEFAULT_MODEL, GEMINI_DEFAULT_FPS } from "./analysis-config";
+import { CAPTION_FONTS, fontCatalogLines, type CaptionFont } from "./font-catalog";
 
 const API = "https://generativelanguage.googleapis.com";
 
@@ -62,7 +63,7 @@ export type GeminiCaption = {
   background: string;    // "none" ou hex (fond derrière le texte)
   bgRadiusPx: number;    // rayon des coins du fond (px @1080), 0 si coins droits / pas de fond
   bgPaddingPx: number;   // marge intérieure du fond autour du texte (px @1080), 0 si aucune
-  font: "sans" | "rounded" | "impact" | "serif" | "script" | "display"; // meilleur match parmi les 6
+  font: CaptionFont;     // meilleur match dans le CATALOGUE (font-catalog.ts)
   emojis: string;        // emojis présents dans/à côté de la caption ("" si aucun)
   animation: "none" | "fade" | "pop" | "slideUp" | "typewriter" | "wordByWord" | "karaoke"; // type d'anim détecté
   glow: string;          // effet néon : couleur hex du halo, "none" si aucun
@@ -74,6 +75,14 @@ export type GeminiCaption = {
   emphasisText: string;  // la portion agrandie, "" si tout le bloc est uniforme
   emphasisMul: number;   // rapport de taille emphase/reste (ex. 1.6), 1 si uniforme
   emphasisColor: string; // couleur de l'emphase si différente du reste, "none" sinon
+  // ── REMPLISSAGE du texte : uni, dégradé, ou non mesurable ──
+  fillType: "solid" | "gradient" | "texture"; // texture = la vidéo/une image transparaît dans les lettres
+  fillColors: string;    // dégradé : "#8a95b0,#ffffff" (dans l'ordre) ; sinon ""
+  fillAngle: number;     // dégradé : 0 = gauche→droite, 90 = haut→bas
+  // Réserve d'HONNÊTETÉ : ce que le modèle n'a PAS pu mesurer fidèlement
+  // (police hors catalogue, graisse plus lourde que tout ce qu'on a, texte trop
+  // petit/flou pour lire la couleur…). "" si la mesure est fiable.
+  caveat: string;
 };
 
 // Une COUPE analysée sur une bande de vignettes (±0,3s), en unités create_variant.
@@ -174,7 +183,7 @@ const SCHEMA = {
           background: { type: "STRING" },
           bgRadiusPx: { type: "NUMBER" },
           bgPaddingPx: { type: "NUMBER" },
-          font: { type: "STRING", enum: ["sans", "rounded", "impact", "serif", "script", "display"] },
+          font: { type: "STRING", enum: CAPTION_FONTS },
           emojis: { type: "STRING" },
           animation: { type: "STRING", enum: ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"] },
           glow: { type: "STRING" },
@@ -184,8 +193,12 @@ const SCHEMA = {
           emphasisText: { type: "STRING" },
           emphasisMul: { type: "NUMBER" },
           emphasisColor: { type: "STRING" },
+          fillType: { type: "STRING", enum: ["solid", "gradient", "texture"] },
+          fillColors: { type: "STRING" },
+          fillAngle: { type: "NUMBER" },
+          caveat: { type: "STRING" },
         },
-        required: ["text", "startSec", "endSec", "xPct", "yPct", "fontSizePx", "color", "font", "fontWeight", "shadow", "align", "emphasisText", "emphasisMul", "emphasisColor"],
+        required: ["text", "startSec", "endSec", "xPct", "yPct", "fontSizePx", "color", "font", "fontWeight", "shadow", "align", "emphasisText", "emphasisMul", "emphasisColor", "fillType", "fillColors", "fillAngle", "caveat"],
       },
     },
     cuts: {
@@ -209,6 +222,7 @@ const SCHEMA = {
   required: ["whyItWorks", "shots", "captions", "duckingPresent"],
 };
 
+const FONT_LINES = fontCatalogLines();
 const PROMPT = `Tu analyses une vidéo courte (Reel/TikTok) qui a PERFORMÉ, pour qu'un monteur en fabrique des variantes. Réponds UNIQUEMENT en JSON conforme au schéma.
 
 Objectif : décrire la STRUCTURE et le STYLE, pas raconter le contenu. Sois précis et mesuré, pas bavard.
@@ -225,7 +239,7 @@ Objectif : décrire la STRUCTURE et le STYLE, pas raconter le contenu. Sois pré
    - background : "none" si pas de fond, sinon la couleur hex du bloc/boîte derrière le texte.
    - bgRadiusPx : s'il y a un fond, le rayon des COINS ARRONDIS du bloc en px (@1080). 0 = coins droits ; ~30-40 = look « sticker » très arrondi (fréquent sur TikTok/IG). 0 si pas de fond.
    - bgPaddingPx : s'il y a un fond, la MARGE INTÉRIEURE entre le texte et le bord du bloc en px (@1080). Un « sticker » a une marge généreuse (~30-50) ; un fond collé au texte ~10. 0 si pas de fond.
-   - font : la famille la PLUS PROCHE parmi EXACTEMENT ces 6 (ne donne pas le nom réel de la fonte, indevinable — donne le meilleur match) : sans (néo-grotesque type Helvetica/Inter), rounded (arrondie type TikTok/CapCut/Poppins), impact (grasse condensée type Anton), serif (à empattements type Playfair), script (manuscrite type Pacifico), display (fantaisie massive type Bungee).
+   - font : la famille la PLUS PROCHE parmi EXACTEMENT ces clés (ne donne PAS le nom réel de la fonte, indevinable — donne le meilleur match) : ${FONT_LINES}. Si aucune ne colle vraiment, prends la plus proche ET dis-le dans le champ caveat (ex. « proche de sans mais plus étroite »).
    - emojis : les emojis de cette caption ("" si aucun).
    - animation : le type d'animation d'apparition, parmi EXACTEMENT : none (statique), fade (fondu), pop (apparition avec rebond/scale), slideUp (glisse depuis le bas), typewriter (lettre par lettre), wordByWord (mot après mot qui apparaissent), karaoke (tous les mots visibles, le mot dit est surligné). Choisis le plus proche.
    - glow : si la caption a un effet NÉON / halo lumineux coloré autour du texte, donne sa couleur hex (#RRGGBB) ; sinon "none".
@@ -233,6 +247,8 @@ Objectif : décrire la STRUCTURE et le STYLE, pas raconter le contenu. Sois pré
    - shadow : ombre portée DOUCE derrière les lettres (voile diffus légèrement décalé, SANS bord net — à distinguer du contour, qui a un bord franc, et du néon) : sa couleur hex ; "none" si aucune. Beaucoup de réfs modernes n'ont AUCUN contour, seulement cette ombre douce — dans ce cas hasStroke=false ET shadow=#hex.
    - align : alignement du bloc de texte : left | center | right.
    - emphasisText / emphasisMul / emphasisColor : si une PORTION du même bloc est NETTEMENT plus grosse que le reste (ex. « to have this » petit puis « SINK IN » énorme — deux tailles dans un même bloc, motif CENTRAL du short-form actuel, cherche-le activement), donne : le texte exact de la portion agrandie, le RAPPORT de taille (hauteur emphase / hauteur du reste, ex. 1.6), et sa couleur si elle diffère du reste ("none" sinon). Bloc uniforme → emphasisText "", emphasisMul 1, emphasisColor "none".
+   - fillType / fillColors / fillAngle : le REMPLISSAGE des lettres. Regarde ATTENTIVEMENT l'intérieur des glyphes, pas seulement leur teinte dominante : "solid" = couleur unie ; "gradient" = DÉGRADÉ continu sur le bloc (très courant : « métallique » gris-bleuté → blanc, doré, etc. — le début du texte est plus sombre que la fin) ; "texture" = la VIDÉO OU UNE IMAGE TRANSPARAÎT dans les lettres (texte évidé/masque). Pour un dégradé : fillColors = les couleurs hex dans l'ordre séparées par une virgule (ex. "#8a95b0,#ffffff") et fillAngle = la direction (0 = gauche→droite, 90 = haut→bas, 135 = diagonale). Sinon fillColors = "" et fillAngle = 0. NE SIMPLIFIE PAS un dégradé en couleur unie : c'est une erreur visible au rendu.
+   - caveat : PHRASE COURTE d'honnêteté, ou "" si tout est fiable. Écris-la dès qu'une valeur que tu donnes est APPROXIMATIVE : la vraie police n'existe pas dans les 6 du catalogue (« proche de sans mais plus étroite et plus lourde »), la graisse réelle dépasse tout ce qui est proposé, le texte est trop petit/flou pour lire la couleur avec certitude, le remplissage est une texture non reproductible… Une valeur approximative annoncée comme sûre est PIRE qu'une valeur absente : celui qui te lit reproduira l'erreur en croyant être fidèle.
    S'il n'y a AUCUN texte incrusté, renvoie captions: [].
 
 3) cuts : la NATURE de chaque transition, à partir des BANDES DE COUPES fournies (une bande = 6 vignettes gauche→droite couvrant ±0,3s autour d'une coupe). Rends UNE entrée par bande, avec le "t" exact donné. Pour chaque coupe :
@@ -436,7 +452,7 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
     const clamp = (v: unknown, lo: number, hi: number, d: number) => {
       const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d;
     };
-    const FONTS = ["sans", "rounded", "impact", "serif", "script", "display"] as const;
+    const FONTS = CAPTION_FONTS;
     const MOTIONS = ["none", "zoomIn", "zoomOut", "panLeft", "panRight", "handheld"] as const;
     const ANIMS = ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"] as const;
     const COMPS = ["single", "splitH", "splitV", "pip", "overlay"] as const;
@@ -508,6 +524,10 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
       emphasisText: String((c as { emphasisText?: string })?.emphasisText ?? "").slice(0, 120),
       emphasisMul: Math.round(clamp((c as { emphasisMul?: number })?.emphasisMul, 1, 4, 1) * 100) / 100,
       emphasisColor: /^#[0-9a-fA-F]{6}$/.test(String((c as { emphasisColor?: string })?.emphasisColor ?? "")) ? String((c as { emphasisColor?: string }).emphasisColor) : "none",
+      fillType: (["solid", "gradient", "texture"] as readonly string[]).includes(String((c as { fillType?: string })?.fillType)) ? (String((c as { fillType?: string }).fillType) as GeminiCaption["fillType"]) : "solid",
+      fillColors: String((c as { fillColors?: string })?.fillColors ?? "").split(",").map((x) => x.trim()).filter((x) => /^#[0-9a-fA-F]{6}$/.test(x)).slice(0, 4).join(","),
+      fillAngle: Math.round(clamp((c as { fillAngle?: number })?.fillAngle, 0, 360, 90) / 45) * 45,
+      caveat: String((c as { caveat?: string })?.caveat ?? "").slice(0, 200),
     })) : [];
 
     const TRANS = ["cut", "fade", "whipPan", "slide", "zoomPunch", "flash", "glitch", "other"] as const;

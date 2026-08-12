@@ -9,6 +9,7 @@ import os from "os";
 import path from "path";
 import { createClient } from "@/lib/supabase/server";
 import { analyzeMaterial, probeDurationSec } from "@/lib/ai-editor/analyze";
+import { prepareSdrProxy } from "@/lib/ai-editor/render";
 import { addMaterial, updateMaterialDesc, removeMaterial, updateMaterialAnalysis, materialAbsPath } from "@/lib/ai-editor/store";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +78,11 @@ export async function POST(req: NextRequest) {
         const analysis = await analyzeMaterial(absPath, file.type);
         await updateMaterialAnalysis(user.id, projectId, material.id, analysis, "ready");
         console.log(`[ai-editor/material] analyse terminée : ${file.name} (id ${material.id})`);
+        // Rush HDR (iPhone) → version SDR préparée MAINTENANT, pendant que le user
+        // fait autre chose. Sans ça, la conversion (plusieurs minutes sur de la 4K)
+        // se paie au premier montage, Claude attendant devant. Best-effort : le
+        // rendu sait la refaire si elle manque.
+        if (kind === "video") await prepareSdrProxy(absPath);
       } catch (e) {
         console.error(`[ai-editor/material] analyse échouée : ${file.name} (id ${material.id})`, e);
         await updateMaterialAnalysis(user.id, projectId, material.id, null, "failed");

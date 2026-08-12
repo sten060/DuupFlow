@@ -10,7 +10,8 @@
     "build": "next build",
     "prestart": "node scripts/migrate.cjs",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "fonts:install": "node scripts/install-fonts.mjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

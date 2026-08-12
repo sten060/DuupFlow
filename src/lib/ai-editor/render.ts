@@ -19,6 +19,7 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { runFFmpeg } from "@/lib/studio/pipeline";
+import { FONT_FAMILY, resolveFontKey } from "./font-catalog";
 import { getProject, materialAbsPath, addVariant, projectPaths } from "./store";
 import type { ProjectVariant } from "./store";
 
@@ -28,7 +29,7 @@ import type { ProjectVariant } from "./store";
 import {
   OVERLAY_ANIMS, OVERLAY_EASINGS,
   type BlurRegion, type ShakeKick, type SegLayout, type SegOverlay, type ZoomPunch,
-  type EditSegment, type CaptionStyle, type CaptionSize, type CaptionFont, type EmojiStyle,
+  type EditSegment, type CaptionStyle, type CaptionSize, type CaptionFont, type EmojiStyle, type CaptionFill,
   type EditCaption, type ColorGrade, type EditPlan, type OutKeyframe,
   type SegMotion, type SegFit, type AudioDuck,
 } from "./plan-types";
@@ -62,14 +63,7 @@ function xfadeTransition(seg: { transition?: unknown; flashColor?: string } | un
 
 // Enum → nom de FAMILLE (fontconfig la trouve dans public/fonts/ dès que le .ttf
 // y est déposé ; sinon repli sur ce qui est dispo, pas de crash).
-const FONT_FAMILY: Record<CaptionFont, string> = {
-  sans: "Noto Sans",
-  rounded: "Poppins",
-  impact: "Anton",
-  serif: "Playfair Display",
-  script: "Pacifico",
-  display: "Bungee",
-};
+
 // Les emojis ne sont PAS rendus par une police (polices couleur COLR/CBDT non
 // fiables sous librsvg) : on composite des images (Fluent 3D, cf. plus bas). Si
 // aucun asset n'est récupérable, repli sur cette police mono → jamais de tofu.
@@ -334,10 +328,19 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
 
   // Police : famille (repli auto si le .ttf n'est pas encore déposé). Les emojis
   // ne passent PAS par la police : ils sont compositée en images (voir plus bas).
-  const famKey: CaptionFont = c.font && FONT_FAMILY[c.font] ? c.font : "sans";
+  const famKey: CaptionFont = resolveFontKey(c.font) ?? "sans";
   const textFamily = `'${FONT_FAMILY[famKey]}'`;
   const weight = Math.round(clamp(num(c.fontWeight, style === "outline" ? 900 : 800), 100, 900));
   const ls = clamp(num(c.letterSpacing, 0), -20, 40);
+  // ── GRAISSE RÉELLEMENT VISIBLE ──────────────────────────────────────────
+  // font-weight n'a AUCUN effet quand la famille n'existe qu'en une seule
+  // épaisseur — c'est le cas de TOUTES nos polices (un seul .ttf chacune) :
+  // demander 900 rendait un texte fin, très loin des réfs short-form massives.
+  // On épaissit donc le glyphe nous-mêmes : un contour de la MÊME couleur que
+  // le remplissage, proportionnel à la graisse demandée (400 = rien,
+  // 900 ≈ 5,5 % de la taille). Marche avec n'importe quelle police.
+  const boldFor = (w: number) => Math.max(0, Math.min(1, (w - 400) / 500)) * fsz * 0.055;
+  const fauxBold = boldFor(weight);
   const lineMul = clamp(num(c.lineHeight, 1.24), 0.9, 2.2);
   const lineH = Math.round(fsz * lineMul);
   const tf = (s: string) => (c.textTransform === "uppercase" ? s.toUpperCase() : s);
@@ -348,7 +351,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   // texte (les tokens purement emoji sont ignorés : ils sont rendus en image et
   // ne consomment pas d'index). Cet ordre colle exactement à la séquence de mots
   // émise par la mise en page ci-dessous (compteur `wordIdx`).
-  type WStyle = { color?: string; attrs?: string; fsz?: number };
+  type WStyle = { color?: string; attrs?: string; fsz?: number; bold?: number; fill?: CaptionFill };
   const spans = Array.isArray(c.spans)
     ? c.spans.filter((s): s is NonNullable<typeof s> => !!s && typeof s.text === "string" && s.text.trim().length > 0)
     : [];
@@ -360,7 +363,8 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
     const lsA = ls ? ` letter-spacing="${ls}px"` : "";
     for (const sp of spans) {
       const spColor = typeof sp.color === "string" ? hex(sp.color, color) : undefined;
-      const spFam = sp.font && FONT_FAMILY[sp.font] ? `'${FONT_FAMILY[sp.font]}'` : textFamily;
+      const spKey = resolveFontKey(sp.font);
+      const spFam = spKey ? `'${FONT_FAMILY[spKey]}'` : textFamily;
       const spW = sp.weight != null ? Math.round(clamp(num(sp.weight, weight), 100, 900)) : weight;
       const spItalic = sp.italic === true;
       // L2 : taille PAR SPAN (px @1080) — emphase à deux tailles dans un même bloc.
@@ -373,7 +377,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
       for (const tok of tf(sp.text).trim().split(/\s+/).filter(Boolean)) {
         const allEmoji = EMOJI_RE.test(tok) && [..._seg.segment(tok)].every((x) => isEmojiGrapheme(x.segment));
         if (allEmoji) continue; // emoji rendu en image → pas de style texte, pas d'index
-        spanTextStyles.push({ color: spColor, attrs, fsz: spSize !== fsz ? spSize : undefined });
+        spanTextStyles.push({ color: spColor, attrs, fsz: spSize !== fsz ? spSize : undefined, bold: boldFor(spW), fill: sp.fill });
       }
     }
   }
@@ -439,7 +443,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
 
   // Mise en page ligne par ligne : on mesure chaque run texte (police réelle) et
   // on réserve une case carrée par emoji, pour placer chaque élément au pixel.
-  type Placed = { x: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string; attrs?: string };
+  type Placed = { x: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string; attrs?: string; bold?: number; fill?: CaptionFill };
   const placedLines: Array<{ baseline: number; runs: Placed[]; width: number }> = [];
   let maxLineW = 0;
   let wordIdx = 0;                       // compteur GLOBAL de mots (pour hlWord/karaoké)
@@ -447,7 +451,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   for (let i = 0; i < used.length; i++) {
     const runs = segmentRuns(used[i]);
     // 1er passage : largeur d'avance de chaque run.
-    const measured: Array<{ adv: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string; attrs?: string }> = [];
+    const measured: Array<{ adv: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string; attrs?: string; bold?: number; fill?: CaptionFill }> = [];
     for (const r of runs) {
       if (r.t === "text") {
         if (perWord) {
@@ -460,7 +464,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
             const isHl = hlWord >= 0 && wordIdx === hlWord;
             const col = isHl && hlColor ? hlColor : st?.color;  // karaoké prioritaire
             const attrs = st?.attrs;
-            measured.push({ adv: await measureInk(sharp, wlist[wi], attrs || textAttrs, st?.fsz ?? fsz) + (wi < wlist.length - 1 ? spaceAdv : 0), kind: "text", s: wlist[wi], color: col, attrs });
+            measured.push({ adv: await measureInk(sharp, wlist[wi], attrs || textAttrs, st?.fsz ?? fsz) + (wi < wlist.length - 1 ? spaceAdv : 0), kind: "text", s: wlist[wi], color: col, attrs, bold: st?.bold, fill: st?.fill });
             wordIdx++;
           }
         } else {
@@ -480,20 +484,59 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
     const placed: Placed[] = [];
     let x = startX;
     for (const r of measured) {
-      placed.push({ x, kind: r.kind, s: r.s, dataUri: r.dataUri, color: r.color, attrs: r.attrs });
+      placed.push({ x, kind: r.kind, s: r.s, dataUri: r.dataUri, color: r.color, attrs: r.attrs, bold: r.bold, fill: r.fill });
       x += r.adv;
     }
     placedLines.push({ baseline, runs: placed, width: lineW });
   }
 
+  // ── REMPLISSAGE DÉGRADÉ ──────────────────────────────────────────────────
+  // Le dégradé traverse TOUT LE BLOC de texte (userSpaceOnUse), il n'est pas
+  // répété lettre par lettre : c'est le rendu « métallique » gris→blanc des
+  // réfs short-form, où le premier mot démarre sombre et le dernier finit clair.
+  // Le contour et l'ombre restent UNIS (ils ne prennent pas le dégradé).
+  const fillDefs: string[] = [];
+  const blockX0 = placedLines.length ? Math.min(...placedLines.map((l) => l.runs[0]?.x ?? anchorX)) : anchorX;
+  const blockX1 = placedLines.length ? Math.max(...placedLines.map((l) => (l.runs[0]?.x ?? anchorX) + l.width)) : anchorX;
+  const blockY0 = firstBaseline - fsz;
+  const blockY1 = firstBaseline + (n - 1) * lineH + Math.round(fsz * 0.25);
+  /** Référence SVG (`url(#…)`) pour un remplissage, ou null si uni/absent. */
+  const fillRefFor = (f: CaptionFill | undefined, key: string): string | null => {
+    if (!f || f.type !== "gradient") return null;
+    const cols = (f.colors ?? []).filter((x) => typeof x === "string").map((x) => hex(x, "#ffffff"));
+    if (cols.length < 2) return null;
+    const a = ((num(f.angle, 90) % 360) + 360) % 360;
+    const rad = (a * Math.PI) / 180;
+    const cx = (blockX0 + blockX1) / 2, cy = (blockY0 + blockY1) / 2;
+    const bw = Math.max(1, blockX1 - blockX0), bh = Math.max(1, blockY1 - blockY0);
+    // Demi-longueur projetée : le dégradé couvre exactement la boîte quel que soit l'angle.
+    const half = (Math.abs(Math.cos(rad)) * bw + Math.abs(Math.sin(rad)) * bh) / 2;
+    const dx = Math.cos(rad) * half, dy = Math.sin(rad) * half;
+    const id = `cf_${key}`;
+    const stops = cols.map((col, i) => {
+      const pos = Array.isArray(f.stops) && Number.isFinite(f.stops[i])
+        ? clamp(Number(f.stops[i]), 0, 1)
+        : cols.length === 1 ? 0 : i / (cols.length - 1);
+      return `<stop offset="${(pos * 100).toFixed(1)}%" stop-color="${col}"/>`;
+    }).join("");
+    fillDefs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${(cx - dx).toFixed(1)}" y1="${(cy - dy).toFixed(1)}" x2="${(cx + dx).toFixed(1)}" y2="${(cy + dy).toFixed(1)}">${stops}</linearGradient>`);
+    return `url(#${id})`;
+  };
+  // Remplissage GLOBAL : `fill` prioritaire sur `color` (compat ascendante).
+  const fillCache = new Map<string, string>();
+  const globalFillRef = fillRefFor(c.fill, "g");
+  const globalSolid = c.fill?.type === "solid" && typeof c.fill.color === "string" ? hex(c.fill.color, color) : null;
+
   // Éléments SVG : ombre (texte only), fond (box), traits/emplis, images emoji.
   const shadowEls: string[] = [];
   const mainEls: string[] = [];
-  const pushText = (x: number, y: number, attrs: string, s: string, fill: string) => {
+  const pushText = (x: number, y: number, attrs: string, s: string, fill: string, bold = fauxBold) => {
     if (style === "outline" && !noStroke) {
-      mainEls.push(`<text x="${x}" y="${y}" ${attrs} fill="${strokeColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="round">${esc(s)}</text>`);
+      // Le contour englobe aussi l'épaississement, sinon il paraîtrait plus fin.
+      mainEls.push(`<text x="${x}" y="${y}" ${attrs} fill="${strokeColor}" stroke="${strokeColor}" stroke-width="${(strokeW + bold).toFixed(2)}" stroke-linejoin="round">${esc(s)}</text>`);
     }
-    mainEls.push(`<text x="${x}" y="${y}" ${attrs} fill="${fill}">${esc(s)}</text>`);
+    const boldAttr = bold > 0.2 ? ` stroke="${fill}" stroke-width="${bold.toFixed(2)}" stroke-linejoin="round"` : "";
+    mainEls.push(`<text x="${x}" y="${y}" ${attrs} fill="${fill}"${boldAttr}>${esc(s)}</text>`);
   };
   for (const ln of placedLines) {
     for (const r of ln.runs) {
@@ -502,7 +545,15 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
       } else {
         const attrs = r.attrs || (r.kind === "emoji-text" ? emojiTextAttrs : textAttrs); // r.attrs = police du span
         shadowEls.push(`<text x="${r.x}" y="${ln.baseline}" ${attrs} fill="#000">${esc(r.s!)}</text>`);
-        pushText(r.x, ln.baseline, attrs, r.s!, r.color || color); // r.color = mot actif (karaoké) ou couleur du span
+        // Priorité : dégradé du span > dégradé global > couleur du mot (karaoké/span)
+        // > `fill.solid` > couleur globale. Une seule def SVG par spécification.
+        const runFill = r.fill ? (fillCache.get(JSON.stringify(r.fill)) ?? (() => {
+          const ref = fillRefFor(r.fill, `s${fillCache.size}`);
+          fillCache.set(JSON.stringify(r.fill), ref ?? "");
+          return ref ?? "";
+        })()) : "";
+        const paint = runFill || globalFillRef || r.color || globalSolid || color;
+        pushText(r.x, ln.baseline, attrs, r.s!, paint, r.bold ?? fauxBold);
       }
     }
   }
@@ -550,7 +601,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
     bgRect = `<rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" rx="${rx}" fill="${boxColor}" fill-opacity="${boxOpacity.toFixed(3)}"/>`;
   }
 
-  const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${defs}${glowDefs}${bgRect}${glowGroup}${shadowGroup}${mainEls.join("")}</svg>`;
+  const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${defs}${glowDefs}${fillDefs.length ? `<defs>${fillDefs.join("")}</defs>` : ""}${bgRect}${glowGroup}${shadowGroup}${mainEls.join("")}</svg>`;
   await fs.writeFile(outPath, await sharp(Buffer.from(svg)).png().toBuffer());
 }
 
@@ -1969,7 +2020,14 @@ async function probeColor(p: string): Promise<SrcColor | null> {
    on fabrique UNE FOIS un proxy SDR à côté du rush (réutilisé ensuite).
    Aucun binaire adapté → on retombe sur le comportement actuel (étiquettes
    préservées) : jamais pire qu'avant. */
+/** Petit côté maximal du proxy SDR. La sortie fait au plus 1080 de petit côté
+ *  (canvas 1080×1920 / 1080×1080 / 1920×1080) : tonemapper en 4K PUIS réduire,
+ *  c'est 4× le travail pour rien — mesuré en prod : 409 s pour 29 s de 4K.
+ *  On RÉDUIT D'ABORD, on tonemappe ensuite. */
+const PROXY_SHORT_EDGE = Math.max(480, parseInt(process.env.AI_EDITOR_PROXY_SHORT_EDGE ?? "1080", 10));
 const HDR_FILTERS = [
+  // Réduction AVANT le tonemap (le gain principal), sans jamais agrandir.
+  `scale=w='if(gt(iw\,ih)\,-2\,min(iw\,${PROXY_SHORT_EDGE}))':h='if(gt(iw\,ih)\,min(ih\,${PROXY_SHORT_EDGE})\,-2)'`,
   "zscale=t=linear:npl=100",      // linéarise la courbe HLG/PQ
   "format=gbrpf32le",              // flottant 32 bits pour un tonemap précis
   "zscale=p=bt709",                // primaires BT.2020 → BT.709
@@ -1996,14 +2054,44 @@ async function ffmpegWithTonemap(): Promise<string | null> {
 
 /** Rush HDR → proxy SDR (mis en cache à côté du fichier). Renvoie le chemin à
  *  utiliser : le proxy si la conversion a réussi, l'original sinon. */
+/** Prépare le proxy SDR d'un rush HDR — À APPELER À L'UPLOAD (tâche de fond).
+ *  Le user attend déjà pendant l'upload : c'est là que la conversion doit avoir
+ *  lieu, pas pendant le montage (mesuré : plusieurs minutes d'attente pour
+ *  Claude). Au rendu, le proxy est déjà là → coût ZÉRO. Sans danger : si le
+ *  fichier n'est pas HDR ou si la conversion échoue, il ne se passe rien. */
+export async function prepareSdrProxy(abs: string): Promise<void> {
+  try {
+    const color = await probeColor(abs);
+    if (!color?.isHDR) return;
+    const t0 = Date.now();
+    const used = await sdrProxy(abs, color);
+    if (used !== abs) console.log(`[ai-editor/material] proxy SDR prêt à l'upload en ${((Date.now() - t0) / 1000).toFixed(1)}s : ${path.basename(used)}`);
+  } catch (e) {
+    console.warn("[ai-editor/material] préparation du proxy SDR échouée (le rendu le refera si besoin) :", (e as Error)?.message);
+  }
+}
+
+const _proxyInFlight = new Map<string, Promise<string>>();
 async function sdrProxy(abs: string, color: SrcColor | null): Promise<string> {
   if (!color?.isHDR) return abs;
+  // Deux rendus lancés en même temps sur le même rush ne doivent pas payer
+  // DEUX fois la conversion (plusieurs minutes) : on partage la même promesse.
+  const running = _proxyInFlight.get(abs);
+  if (running) return running;
+  const task = sdrProxyInner(abs);
+  _proxyInFlight.set(abs, task);
+  try { return await task; } finally { _proxyInFlight.delete(abs); }
+}
+async function sdrProxyInner(abs: string): Promise<string> {
   const proxy = abs.replace(/\.[^.]+$/, "") + ".sdr.mp4";
   try { const st = await fs.stat(proxy); if (st.size > 1000) return proxy; } catch { /* à créer */ }
   const bin = await ffmpegWithTonemap();
   if (!bin) return abs;
-  const args = ["-y", "-hide_banner", "-loglevel", "error", "-i", abs, "-vf", HDR_FILTERS,
-    "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p",
+  // Fils : plus généreux que le rendu (c'est un travail unique et bloquant) mais
+  // borné, pour ne pas étouffer la duplication vidéo qui tourne en parallèle.
+  const proxyThreads = String(FF_THREADS * 2);
+  const args = ["-y", "-hide_banner", "-loglevel", "error", "-threads", proxyThreads, "-i", abs, "-vf", HDR_FILTERS,
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p", "-threads", proxyThreads,
     "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
     "-c:a", "copy", "-movflags", "+faststart", proxy];
   const t0 = Date.now();

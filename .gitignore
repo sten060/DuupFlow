@@ -59,3 +59,7 @@ public/videos/*.mp4
 
 # Vidéos de test locales (assets lourds, non versionnés)
 vidéos-test/
+
+# Dossiers Google Fonts bruts (source de scripts/install-fonts.mjs).
+# Seul public/fonts/ est déployé — voir src/lib/ai-editor/font-catalog.ts
+/fonts/
