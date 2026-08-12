@@ -178,17 +178,27 @@ export default function AiEditorClient() {
     setRefFile(f); setRefSource({ type: "file", label: f.name });
     void analyzeRef({ file: f, replacePid: projectId });
   };
-  const addRef = (f?: File) => { if (f) { setRefFile(f); setRefUrl(""); setRefSource({ type: "file", label: f.name }); void analyzeRef({ file: f }); } };
+  // ⚠️ TOUJOURS travailler DANS le projet courant s'il existe (replacePid) : sans
+  // ça, revenir à l'étape « Référence » et déposer une vidéo créait un NOUVEAU
+  // projet — la matière déjà uploadée disparaissait de l'UI et le connecteur MCP
+  // (qui lit le projet le plus récent) basculait sur un projet vide. Un user a
+  // ainsi vu sa matière s'évaporer et une de ses vidéos devenir la référence.
+  // Remplacer la réf conserve matière + variantes (côté serveur aussi).
+  const addRef = (f?: File) => { if (f) { setRefFile(f); setRefUrl(""); setRefSource({ type: "file", label: f.name }); void analyzeRef({ file: f, replacePid: projectId ?? undefined }); } };
   const onRefPick = (e: React.ChangeEvent<HTMLInputElement>) => addRef(e.target.files?.[0] ?? undefined);
   const analyzeUrl = () => {
     const u = refUrl.trim();
     if (u.length < 7) return;
     setRefFile(null);
     setRefSource({ type: "url", label: u });
-    void analyzeRef({ url: u });
+    void analyzeRef({ url: u, replacePid: projectId ?? undefined });
   };
   const resetRef = () => { setRefFile(null); setRefUrl(""); setRefSource(null); setAnalysis(null); setAnalyzeErr(null); };
-  const retryRef = () => { if (refSource?.type === "file" && refFile) void analyzeRef({ file: refFile }); else if (refSource?.type === "url") void analyzeRef({ url: refSource.label }); };
+  const retryRef = () => {
+    const pid = projectId ?? undefined;
+    if (refSource?.type === "file" && refFile) void analyzeRef({ file: refFile, replacePid: pid });
+    else if (refSource?.type === "url") void analyzeRef({ url: refSource.label, replacePid: pid });
+  };
 
   // Restauration : au chargement, recharge le dernier projet du user (persistance).
   useEffect(() => {

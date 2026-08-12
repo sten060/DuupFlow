@@ -122,9 +122,19 @@ Ce module est destiné à être repris par quelqu'un qui n'a pas participé à s
   attaques de syllabes », pas « boucle sur les frames ».
 - **Docs à jour dans le même commit** : [ANALYSE-REF.md](ANALYSE-REF.md) pour
   le pipeline d'analyse, ce README pour la charte/architecture.
-- **Test reproductible** : `npx tsx scripts/ai-editor-ref-e2e.mts` (fixture
-  synthétique auto-générée → chaîne complète → vérifications). À lancer après
-  toute modification du pipeline, à enrichir avec toute nouvelle détection.
+- **Tests reproductibles — À LANCER AVANT TOUT DÉPLOIEMENT** :
+  - `npx tsx scripts/ai-editor-ref-e2e.mts` — chaîne d'ANALYSE de référence
+    (fixture synthétique → Gemini → styles de captions détectés).
+  - `npx tsx scripts/ai-editor-render-e2e.mts` — MOTEUR DE RENDU sur un projet
+    jetable : durées vérifiées sur les 3 chemins (décodeur mutualisé, pré-rendu
+    retimé, composite/b-roll), captions, montage à 39 micro-plans.
+  Règle : **toute régression trouvée en prod devient un cas permanent** dans
+  ces harnais, dans le même commit que le correctif. C'est ce qui manquait —
+  un correctif de perf a cassé les effets de vitesse EN SILENCE, et personne ne
+  l'a vu avant le déploiement.
+- **Invariants plutôt que confiance** : le moteur vérifie APRÈS rendu que la
+  durée du fichier correspond au plan (un écart = filtergraph faux → échec
+  bruyant), et aucun message d'erreur ne peut être vide.
 
 ## ✅ Checklist « ajouter une primitive »
 

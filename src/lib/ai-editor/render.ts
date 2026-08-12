@@ -880,7 +880,11 @@ async function timeEffectClip(
   // + GARDE DE PARITÉ : une dimension impaire (ex. crop téléphone 1215×2160) fait
   // refuser libx264 en yuv420p (chroma 4:2:0 = dimensions paires). trunc = filet.
   const capW = Math.round(W * 1.5), capH = Math.round(H * 1.5);
-  vf.push(`[${vL}]fps=${fps},scale=w=min(iw\,${capW}):h=min(ih\,${capH}):force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p[vout]`);
+  // ⚠️ La virgule d'un min() DOIT être échappée pour le parseur de filtergraph
+  // ('\,'), et en template literal JS il faut donc écrire '\\,' — sinon JS mange
+  // le backslash, ffmpeg coupe le filtre sur la virgule (« Invalid size 'min(iw' »)
+  // et timeEffectClip échoue EN SILENCE : vitesse/freeze/rampe/reverse ignorés.
+  vf.push(`[${vL}]fps=${fps},scale=w=min(iw\\,${capW}):h=min(ih\\,${capH}):force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p[vout]`);
   if (hasAudio) af.push(`[${aL}]aresample=44100[aout]`);
 
   const out = path.join(dir, `timed_${idx}.mp4`);
@@ -1700,7 +1704,13 @@ export async function renderVariant(
     } else {
       ({ code, stderr } = await runFFmpeg(buildArgs(false), 10 * 60 * 1000));
     }
-    if (code !== 0) return { error: `Rendu FFmpeg échoué : ${stderr.slice(-240)}` };
+    if (code !== 0) {
+      // stderr peut être VIDE (kill/OOM/timeout) → un message « Rendu FFmpeg
+      // échoué : » sans rien après n'aide personne. On donne toujours de quoi
+      // agir : code de sortie, durée écoulée, taille du plan.
+      const why = stderr.trim().slice(-240) || `aucune sortie d'erreur (code ${code}) — probable manque de mémoire ou processus tué`;
+      return { error: `Rendu FFmpeg échoué : ${why} [${segs.length} plan(s), ${(elapsed() / 1000).toFixed(0)}s écoulées]` };
+    }
 
     // ── B2 · PASSES CAPTIONS : les ops s'appliquent sur la vidéo ASSEMBLÉE, par
     // chunks de 28 entrées (28 PNG + 1 vidéo = 29, loin du seuil d'EAGAIN). La
@@ -1766,6 +1776,18 @@ export async function renderVariant(
     }
 
     console.log(`[ai-editor/render] variante rendue en ${(elapsed() / 1000).toFixed(1)}s · ${outDur.toFixed(1)}s de vidéo`);
+    // ── INVARIANT DE DURÉE (filet de sécurité) ────────────────────────────────
+    // Le fichier rendu DOIT durer ce que le plan prévoit. Un écart énorme = le
+    // filtergraph ne fait pas ce qu'on croit (ex. une régression de découpage a
+    // produit 993 s au lieu de 49 s en prod, sans que le plafond de 90 s ne se
+    // déclenche : il ne contrôlait que la durée PLANIFIÉE, pas le résultat).
+    // On échoue bruyamment avec les deux chiffres plutôt que de livrer ça.
+    if (plannedDur > 0.5 && outDur > Math.max(plannedDur * 1.5 + 2, VARIANT_MAX_SEC)) {
+      return cleanFail(
+        `Incohérence de rendu : la vidéo produite fait ${outDur.toFixed(1)}s alors que le plan en prévoit ${plannedDur.toFixed(1)}s. ` +
+        `Rendu refusé (bug de découpage probable). Signale-le avec ton plan : segments=${segs.length}, captions=${caps.length}.`,
+      );
+    }
     const durationSec = Math.round(outDur * 100) / 100;
     const variant = await addVariant(userId, projectId, { srcPath: outPath, poster, label: plan.label, plan: plan as unknown as Record<string, unknown>, durationSec, derivedFrom: extra?.derivedFrom });
     if (!variant) return { error: "Enregistrement de la variante échoué." };
