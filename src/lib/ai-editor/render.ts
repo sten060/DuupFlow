@@ -1153,6 +1153,49 @@ export async function renderVariant(
   // Tout le corps est enveloppé : AUCUNE exception ne remonte nue au MCP → message
   // exploitable (préparation des plans, composite, ffmpeg…) + nettoyage garanti.
   try {
+  // Couleur de la matière : si TOUS les rushs vidéo du plan partagent le même
+  // profil HDR, on reporte leurs étiquettes sur le rendu. Profils mélangés
+  // (HDR + SDR) → on ne tague pas : taguer tout en HDR abîmerait les plans SDR.
+  let srcColor: SrcColor | null = null;
+  const colorByPath = new Map<string, SrcColor | null>();
+  {
+    const paths = [...new Set(segs.map((sg) => project.materials.find((m) => m.id === sg.materialId))
+      .filter((m): m is NonNullable<typeof m> => !!m && m.kind === "video")
+      .map((m) => materialAbsPath(userId, projectId, m.storedName)))];
+    const probed = await Promise.all(paths.map(async (pp) => [pp, await probeColor(pp).catch(() => null)] as const));
+    for (const [pp, info] of probed) colorByPath.set(pp, info);
+    const infos = probed.map(([, i]) => i).filter(Boolean) as SrcColor[];
+    const hdr = infos.filter((c) => c.isHDR);
+    if (hdr.length && hdr.length === infos.length && infos.length > 0) {
+      const same = hdr.every((c) => c.space === hdr[0].space && c.trc === hdr[0].trc && c.primaries === hdr[0].primaries);
+      if (same) {
+        srcColor = hdr[0];
+        console.log(`[ai-editor/render] source HDR détectée (${srcColor.space}/${srcColor.primaries}/${srcColor.trc}) → étiquettes de couleur préservées`);
+      } else console.log("[ai-editor/render] profils HDR différents entre rushs → pas de report d'étiquettes");
+    } else if (hdr.length) {
+      console.log(`[ai-editor/render] matière MIXTE (${hdr.length} HDR / ${infos.length}) → pas de report d'étiquettes (les plans SDR seraient faussés)`);
+    }
+  }
+  // Rushs HDR → proxy SDR (une fois par fichier, mis en cache). Si aucun ffmpeg
+  // capable de tonemapper n'est dispo, `sdrProxy` renvoie l'original et on
+  // retombe sur la préservation des étiquettes (colorArgs ci-dessous).
+  const srcOverride = new Map<string, string>();
+  /** Chemin RÉEL à utiliser pour un fichier (proxy SDR si disponible). */
+  function srcPath(pp: string): string { return srcOverride.get(pp) ?? pp; }
+  if (srcColor?.isHDR) {
+    for (const [pp, info] of colorByPath) {
+      if (!info?.isHDR) continue;
+      const use = await sdrProxy(pp, info);
+      if (use !== pp) srcOverride.set(pp, use);
+    }
+  }
+  const convertedAll = srcOverride.size > 0 && [...colorByPath].every(([pp, info]) => !info?.isHDR || srcOverride.has(pp));
+  // Converti en SDR → surtout PAS d'étiquettes HDR sur la sortie.
+  const colorArgs = convertedAll ? [] : colorTagArgs(srcColor);
+  if (convertedAll) console.log("[ai-editor/render] rushs HDR convertis en SDR → couleurs correctes sur tous les lecteurs");
+
+
+
   // ── B1 · MUTUALISATION DES DÉCODEURS ────────────────────────────────────────
   // ffmpeg ouvre un DÉCODEUR (threads + FD) par -i : à ~23 inputs vidéo le
   // process sature (EAGAIN « Resource temporarily unavailable ») alors qu'un
@@ -1196,7 +1239,7 @@ export async function renderVariant(
   for (const s of useSharing ? segs : []) {
     const m = project.materials.find((x) => x.id === s.materialId);
     if (!m || m.kind !== "video" || isComposite(s) || needsTimeEffect(s)) continue;
-    const p = materialAbsPath(userId, projectId, m.storedName);
+    const p = srcPath(materialAbsPath(userId, projectId, m.storedName));
     plainUse.set(p, (plainUse.get(p) ?? 0) + 1);
   }
   // Fichiers partagés : 1 input + split/asplit en amont du graphe.
@@ -1215,28 +1258,6 @@ export async function renderVariant(
   // ffmpeg rend EAGAIN (« Resource temporarily unavailable ») et tue le rendu.
   // On refuse AVANT, avec une consigne exploitable, plutôt que d'échouer au
   // bout de plusieurs minutes de calcul.
-  // Couleur de la matière : si TOUS les rushs vidéo du plan partagent le même
-  // profil HDR, on reporte leurs étiquettes sur le rendu. Profils mélangés
-  // (HDR + SDR) → on ne tague pas : taguer tout en HDR abîmerait les plans SDR.
-  let srcColor: SrcColor | null = null;
-  {
-    const paths = [...new Set(segs.map((sg) => project.materials.find((m) => m.id === sg.materialId))
-      .filter((m): m is NonNullable<typeof m> => !!m && m.kind === "video")
-      .map((m) => materialAbsPath(userId, projectId, m.storedName)))];
-    const infos = (await Promise.all(paths.map((pp) => probeColor(pp).catch(() => null)))).filter(Boolean) as SrcColor[];
-    const hdr = infos.filter((c) => c.isHDR);
-    if (hdr.length && hdr.length === infos.length && infos.length > 0) {
-      const same = hdr.every((c) => c.space === hdr[0].space && c.trc === hdr[0].trc && c.primaries === hdr[0].primaries);
-      if (same) {
-        srcColor = hdr[0];
-        console.log(`[ai-editor/render] source HDR détectée (${srcColor.space}/${srcColor.primaries}/${srcColor.trc}) → étiquettes de couleur préservées`);
-      } else console.log("[ai-editor/render] profils HDR différents entre rushs → pas de report d'étiquettes");
-    } else if (hdr.length) {
-      console.log(`[ai-editor/render] matière MIXTE (${hdr.length} HDR / ${infos.length}) → pas de report d'étiquettes (les plans SDR seraient faussés)`);
-    }
-  }
-  const colorArgs = colorTagArgs(srcColor);
-
   const overlayInputs = segs.reduce((n, sg) => n + Math.min(6, sg.overlays?.length ?? 0), 0);
   if (!useSharing && segs.length + overlayInputs > MAX_SEGMENT_INPUTS) {
     return cleanFail(
@@ -1250,8 +1271,9 @@ export async function renderVariant(
     const mat = project.materials.find((m) => m.id === seg.materialId);
     if (!mat) return cleanFail(`Matière introuvable : ${seg.materialId}. Utilise l'"id" exact renvoyé par list_material.`);
     if (mat.kind === "audio") return cleanFail(`${mat.name} est un fichier audio — mets-le dans le champ "audio" (piste sonore), pas dans segments.`);
-    const abs = materialAbsPath(userId, projectId, mat.storedName);
-    try { await fs.access(abs); } catch { return cleanFail(`Fichier manquant pour ${mat.name}.`); }
+    const absSrc = materialAbsPath(userId, projectId, mat.storedName);
+    try { await fs.access(absSrc); } catch { return cleanFail(`Fichier manquant pour ${mat.name}.`); }
+    const abs = srcPath(absSrc); // proxy SDR si le rush est HDR
     // Recadrage (chantier 2) : flip/rotate/punch-in appliqué AVANT fit/motion.
     const pre = spatialPrefix(seg, bg);
     // B5 : le grade s'applique AU MÉDIA, AVANT le pad → les bandes letterbox
@@ -1937,6 +1959,64 @@ async function probeColor(p: string): Promise<SrcColor | null> {
     return { space, primaries, trc, range: /full|pc/i.test(range) ? "pc" : "tv", isHDR };
   } catch { return null; }
 }
+/* ── Conversion HDR → SDR (proxy mis en cache) ───────────────────────────────
+   PRÉSERVER les étiquettes HDR ne suffit pas : un rush HLG lu par un navigateur
+   (le lecteur de DuupFlow) ou par une plateforme qui ignore le HDR reste
+   DÉLAVÉ à l'écran — le symptôme que le user constate. Le module de duplication
+   a résolu ce même problème en CONVERTISSANT réellement en SDR (zscale +
+   tonemap). Ce filtre est absent du ffmpeg npm de l'éditeur, mais présent dans
+   le ffmpeg SYSTÈME que la duplication utilise en prod. On le cherche donc, et
+   on fabrique UNE FOIS un proxy SDR à côté du rush (réutilisé ensuite).
+   Aucun binaire adapté → on retombe sur le comportement actuel (étiquettes
+   préservées) : jamais pire qu'avant. */
+const HDR_FILTERS = [
+  "zscale=t=linear:npl=100",      // linéarise la courbe HLG/PQ
+  "format=gbrpf32le",              // flottant 32 bits pour un tonemap précis
+  "zscale=p=bt709",                // primaires BT.2020 → BT.709
+  "tonemap=hable:desat=0",         // compresse la luminance HDR → SDR
+  "zscale=t=bt709:m=bt709:r=tv",  // transfert + matrice + plage BT.709
+  "format=yuv420p",                // 8 bits pour H.264
+].join(",");
+
+let _fullFf: string | null | undefined; // undefined = pas encore cherché
+/** Cherche un ffmpeg capable de tonemapper (filtre zscale). null si aucun. */
+async function ffmpegWithTonemap(): Promise<string | null> {
+  if (_fullFf !== undefined) return _fullFf;
+  const { execFileSync } = await import("child_process");
+  const candidates = [process.env.AI_EDITOR_FFMPEG_FULL, "/tmp/ffmpeg", "/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "ffmpeg"].filter(Boolean) as string[];
+  for (const bin of candidates) {
+    try {
+      const out = execFileSync(bin, ["-hide_banner", "-filters"], { encoding: "utf8", timeout: 10_000, stdio: ["ignore", "pipe", "ignore"] });
+      if (/\szscale\s/.test(out)) { console.log(`[ai-editor/render] ffmpeg avec tonemap trouvé : ${bin}`); return (_fullFf = bin); }
+    } catch { /* candidat suivant */ }
+  }
+  console.warn("[ai-editor/render] aucun ffmpeg avec zscale — conversion HDR→SDR impossible, étiquettes préservées à la place");
+  return (_fullFf = null);
+}
+
+/** Rush HDR → proxy SDR (mis en cache à côté du fichier). Renvoie le chemin à
+ *  utiliser : le proxy si la conversion a réussi, l'original sinon. */
+async function sdrProxy(abs: string, color: SrcColor | null): Promise<string> {
+  if (!color?.isHDR) return abs;
+  const proxy = abs.replace(/\.[^.]+$/, "") + ".sdr.mp4";
+  try { const st = await fs.stat(proxy); if (st.size > 1000) return proxy; } catch { /* à créer */ }
+  const bin = await ffmpegWithTonemap();
+  if (!bin) return abs;
+  const args = ["-y", "-hide_banner", "-loglevel", "error", "-i", abs, "-vf", HDR_FILTERS,
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p",
+    "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
+    "-c:a", "copy", "-movflags", "+faststart", proxy];
+  const t0 = Date.now();
+  const { execFile } = await import("child_process");
+  const ok = await new Promise<boolean>((resolve) => {
+    const child = execFile(bin, args, { timeout: 10 * 60 * 1000, maxBuffer: 1 << 20 }, (err) => resolve(!err));
+    child.on("error", () => resolve(false));
+  });
+  if (!ok) { console.warn("[ai-editor/render] conversion HDR→SDR échouée → rush d'origine conservé"); await fs.rm(proxy, { force: true }).catch(() => {}); return abs; }
+  console.log(`[ai-editor/render] proxy SDR créé en ${((Date.now() - t0) / 1000).toFixed(1)}s : ${path.basename(proxy)}`);
+  return proxy;
+}
+
 /** Options d'encodage qui REPORTENT les étiquettes de couleur de la source. */
 function colorTagArgs(c: SrcColor | null): string[] {
   if (!c || !c.isHDR) return [];
