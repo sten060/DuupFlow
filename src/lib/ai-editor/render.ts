@@ -89,6 +89,10 @@ const MAX_CAPTIONS = 150;
 // (~6 max). Les anims par-mot au-delà sont dégradées en statique — en réservant
 // une op par caption restante pour que TOUTES s'affichent.
 const MAX_CAPTION_OPS = 160;
+/** Version du MOTEUR, renvoyée dans la réponse de create_variant et loguée à
+ *  chaque rendu. Sert à répondre en 10 s à « le correctif est-il déployé ? »
+ *  sans fouiller les logs. À INCRÉMENTER à chaque changement du filtergraph. */
+export const ENGINE_BUILD = "2026-08-12.3-trim-duration";
 // Plafond DUR d'entrées ffmpeg pour le rendu final. Au-delà de ~60 inputs,
 // ffmpeg sature (file descriptors / threads) et échoue avec
 // « Resource temporarily unavailable » — ce qui, sans garde, épuisait aussi le
@@ -1075,6 +1079,7 @@ export async function renderVariant(
   if (!project) return { error: "Projet introuvable." };
 
   const segs = Array.isArray(plan.segments) ? plan.segments.slice(0, MAX_SEGMENTS) : [];
+  console.log(`[ai-editor/render] moteur ${ENGINE_BUILD} · ${segs.length} plan(s) demandé(s)`);
   if (segs.length === 0) return { error: "Le plan doit contenir au moins un segment." };
   const [W, H] = CANVAS[plan.aspect ?? "9:16"] ?? CANVAS["9:16"];
   const fps = Math.round(clamp(num(plan.fps, 30), 15, 60));
@@ -1229,8 +1234,14 @@ export async function renderVariant(
         // décodeur unique (validé ffmpeg 4.4 : trim=start/end + setpts exacts).
         const sh = sharedVideo.get(abs)!;
         const j = sh.used++;
-        filters.push(`[sv${sh.inIdx}_${j}]trim=start=${start.toFixed(3)}:end=${(start + segLen).toFixed(3)},setpts=PTS-STARTPTS,${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,${gradePre}pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
-        if (sh.hasAudio) filters.push(`[sa${sh.inIdx}_${j}]atrim=start=${start.toFixed(3)}:end=${(start + segLen).toFixed(3)},asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+        // `duration=` (RELATIF au start) et non `end=` (ABSOLU) : `end` dépend de
+        // la base de temps du conteneur — sur un fichier dont les PTS ne
+        // démarrent pas à 0 (exports 4K, edit list, offset de conteneur), un
+        // `end` absolu produit un plan de la mauvaise longueur. `duration` est
+        // sans ambiguïté : la sortie dure exactement segLen, quelle que soit la
+        // base de temps. Idem audio. + le trim final borne toute dérive.
+        filters.push(`[sv${sh.inIdx}_${j}]trim=start=${start.toFixed(3)}:duration=${segLen.toFixed(3)},setpts=PTS-STARTPTS,trim=duration=${segLen.toFixed(3)},${pre}scale=${W}:${H}:force_original_aspect_ratio=decrease,${gradePre}pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${bg},setsar=1,fps=${fps},format=yuv420p[v${i}]`);
+        if (sh.hasAudio) filters.push(`[sa${sh.inIdx}_${j}]atrim=start=${start.toFixed(3)}:duration=${segLen.toFixed(3)},asetpts=N/SR/TB,atrim=duration=${segLen.toFixed(3)},aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
         else filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${segLen.toFixed(3)},asetpts=N/SR/TB[a${i}]`);
         durs.push(segLen);
         videoMotionOk = true;
@@ -1782,7 +1793,7 @@ export async function renderVariant(
     // produit 993 s au lieu de 49 s en prod, sans que le plafond de 90 s ne se
     // déclenche : il ne contrôlait que la durée PLANIFIÉE, pas le résultat).
     // On échoue bruyamment avec les deux chiffres plutôt que de livrer ça.
-    if (plannedDur > 0.5 && outDur > Math.max(plannedDur * 1.5 + 2, VARIANT_MAX_SEC)) {
+    if (plannedDur > 0.5 && outDur > plannedDur * 1.5 + 2) {
       return cleanFail(
         `Incohérence de rendu : la vidéo produite fait ${outDur.toFixed(1)}s alors que le plan en prévoit ${plannedDur.toFixed(1)}s. ` +
         `Rendu refusé (bug de découpage probable). Signale-le avec ton plan : segments=${segs.length}, captions=${caps.length}.`,

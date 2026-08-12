@@ -7,7 +7,7 @@
 
 import { getLatestProject, projectPaths } from "./store";
 import type { Project } from "./store";
-import { renderVariant, variantKeyframes, materialKeyframes } from "./render";
+import { renderVariant, variantKeyframes, materialKeyframes, ENGINE_BUILD } from "./render";
 import type { EditPlan } from "./render";
 import { GAP_BLANK_SEC, GAP_MICRO_SEC, GAP_EDGE_TRIM_FALLBACK_SEC, RETAKE_NGRAM, RETAKE_CHAIN_GAP_SEC, RETAKE_STRICT_GAP_SEC, RETAKE_MIN_SPAN_SEC, REF_IMAGES_SHOWN, MCP_IMAGE_WIDTH, MCP_IMAGE_QUALITY } from "./analysis-config";
 import { analyzeColor } from "./ref-profile";
@@ -878,7 +878,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const v = res.variant;
     const content: Content[] = [{
       type: "text",
-      text: `✅ Variante créée${v.label ? ` « ${v.label} »` : ""} (id ${v.id}) · durée ${res.durationSec}s. Voici des images du RENDU — vérifie cadrage, rythme, position des captions ; rappelle create_variant pour corriger si besoin.`,
+      text: `✅ Variante créée${v.label ? ` « ${v.label} »` : ""} (id ${v.id}) · durée ${res.durationSec}s · moteur ${ENGINE_BUILD}. Voici des images du RENDU — vérifie cadrage, rythme, position des captions ; rappelle create_variant pour corriger si besoin.`,
     }];
     for (const kf of res.keyframes) {
       const img = dataUriToImage(kf.dataUri);
