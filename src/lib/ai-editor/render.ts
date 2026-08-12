@@ -92,7 +92,18 @@ const MAX_CAPTION_OPS = 160;
 /** Version du MOTEUR, renvoyée dans la réponse de create_variant et loguée à
  *  chaque rendu. Sert à répondre en 10 s à « le correctif est-il déployé ? »
  *  sans fouiller les logs. À INCRÉMENTER à chaque changement du filtergraph. */
-export const ENGINE_BUILD = "2026-08-12.3-trim-duration";
+export const ENGINE_BUILD = "2026-08-12.4-share-optin";
+/** Version du binaire ffmpeg RÉELLEMENT utilisé (prod ≠ local possible : env
+ *  FFMPEG_BIN, ffmpeg système…). Lue une fois, pour les diagnostics. */
+let _ffv: string | null = null;
+async function ffmpegVersion(): Promise<string> {
+  if (_ffv) return _ffv;
+  try {
+    const { stderr } = await runFFmpeg(["-version"], 10_000, 4000);
+    _ffv = (stderr.match(/ffmpeg version (\S+)/)?.[1] ?? "?").slice(0, 24);
+  } catch { _ffv = "?"; }
+  return _ffv;
+}
 // Plafond DUR d'entrées ffmpeg pour le rendu final. Au-delà de ~60 inputs,
 // ffmpeg sature (file descriptors / threads) et échoue avec
 // « Resource temporarily unavailable » — ce qui, sans garde, épuisait aussi le
@@ -1134,9 +1145,16 @@ export async function renderVariant(
     return !!s.reverse || (!!ramp && Math.abs(ramp.from - ramp.to) > 0.01) || s.freezeAt != null || Math.abs(spd - 1) > 0.001;
   };
   const isComposite = (s: EditSegment): boolean => !!(s.overlays?.length || (s.layout && s.layout !== "single"));
+  // La mutualisation n'a de sens QUE pour éviter l'EAGAIN (~23 décodeurs). En
+  // dessous, on garde le chemin historique (-ss/-t par plan), éprouvé depuis le
+  // début et vérifié en prod. Un montage de 3 plans n'a AUCUNE raison de payer
+  // le risque d'un chemin plus récent — ceinture ET bretelles après la
+  // régression de durée signalée en prod (36 s au lieu de 6 s).
+  const SHARE_FROM_SEGMENTS = Math.max(2, parseInt(process.env.AI_EDITOR_SHARE_FROM ?? "14", 10));
+  const useSharing = segs.length >= SHARE_FROM_SEGMENTS;
   // Pré-passe : compte les usages « simples » de chaque rush vidéo.
   const plainUse = new Map<string, number>();
-  for (const s of segs) {
+  for (const s of useSharing ? segs : []) {
     const m = project.materials.find((x) => x.id === s.materialId);
     if (!m || m.kind !== "video" || isComposite(s) || needsTimeEffect(s)) continue;
     const p = materialAbsPath(userId, projectId, m.storedName);
@@ -1794,9 +1812,15 @@ export async function renderVariant(
     // déclenche : il ne contrôlait que la durée PLANIFIÉE, pas le résultat).
     // On échoue bruyamment avec les deux chiffres plutôt que de livrer ça.
     if (plannedDur > 0.5 && outDur > plannedDur * 1.5 + 2) {
+      // DIAGNOSTIC COMPLET dans le message : sans ça on corrige à l'aveugle
+      // (le même symptôme peut venir du chemin mutualisé, du chemin simple, ou
+      // d'un binaire ffmpeg différent de celui testé en local).
+      const ffv = await ffmpegVersion();
+      const detail = segs.slice(0, 4).map((sg, k) => `#${k} ${num(sg.startSec, 0)}→${sg.endSec ?? "?"} (len ${durs[k]?.toFixed(2) ?? "?"})`).join(" · ");
       return cleanFail(
         `Incohérence de rendu : la vidéo produite fait ${outDur.toFixed(1)}s alors que le plan en prévoit ${plannedDur.toFixed(1)}s. ` +
-        `Rendu refusé (bug de découpage probable). Signale-le avec ton plan : segments=${segs.length}, captions=${caps.length}.`,
+        `Rendu refusé (bug de découpage). DIAGNOSTIC À RENVOYER TEL QUEL : moteur ${ENGINE_BUILD} · ffmpeg ${ffv} · ` +
+        `mutualisation ${useSharing ? `OUI (${sharedVideo.size} fichier(s))` : "NON"} · segments=${segs.length} · captions=${caps.length} · ${detail}`,
       );
     }
     const durationSec = Math.round(outDur * 100) / 100;

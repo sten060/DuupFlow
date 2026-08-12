@@ -872,7 +872,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const blocked = await guardVariantQuota(userId);
     if (blocked) return { content: [blocked], isError: true };
     const res = await renderVariant(userId, project.id, (args ?? {}) as unknown as EditPlan);
-    if ("error" in res) return { content: [{ type: "text", text: `Rendu impossible : ${res.error}` }], isError: true };
+    if ("error" in res) return { content: [{ type: "text", text: `Rendu impossible : ${res.error} [moteur ${ENGINE_BUILD}]` }], isError: true };
     await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → compté (quota vidéo)
     void logAiEditorRender(userId); // tracking : 1 rendu Éditeur IA de plus pour ce user
     const v = res.variant;
