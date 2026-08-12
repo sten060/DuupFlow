@@ -92,14 +92,16 @@ const MAX_CAPTION_OPS = 160;
 /** Version du MOTEUR, renvoyée dans la réponse de create_variant et loguée à
  *  chaque rendu. Sert à répondre en 10 s à « le correctif est-il déployé ? »
  *  sans fouiller les logs. À INCRÉMENTER à chaque changement du filtergraph. */
-export const ENGINE_BUILD = "2026-08-12.4-share-optin";
+export const ENGINE_BUILD = "2026-08-12.5-no-share";
 /** Version du binaire ffmpeg RÉELLEMENT utilisé (prod ≠ local possible : env
  *  FFMPEG_BIN, ffmpeg système…). Lue une fois, pour les diagnostics. */
 let _ffv: string | null = null;
 async function ffmpegVersion(): Promise<string> {
   if (_ffv) return _ffv;
   try {
-    const { stderr } = await runFFmpeg(["-version"], 10_000, 4000);
+    // `-version` écrit sur STDOUT (non capturé) → on provoque la BANNIÈRE, qui
+    // part sur stderr, via une entrée inexistante et SANS -hide_banner.
+    const { stderr } = await runFFmpeg(["-i", "__duup_probe_version__"], 10_000, 8000);
     _ffv = (stderr.match(/ffmpeg version (\S+)/)?.[1] ?? "?").slice(0, 24);
   } catch { _ffv = "?"; }
   return _ffv;
@@ -111,6 +113,9 @@ async function ffmpegVersion(): Promise<string> {
 // animées par mot (wordByWord/karaoke) qui dépassent ce budget sont dégradées
 // en caption statique (1 entrée) au lieu de faire planter le rendu.
 const MAX_FFMPEG_INPUTS = 48;
+/** Entrées MAX du graphe principal (1 par plan + incrustations). Mesuré en
+ *  prod : ffmpeg rend EAGAIN vers 24 décodeurs simultanés. 20 = marge. */
+const MAX_SEGMENT_INPUTS = Math.max(4, parseInt(process.env.AI_EDITOR_MAX_SEGMENT_INPUTS ?? "20", 10));
 
 /* ── Garde de concurrence des rendus ────────────────────────────────────────
    Un rendu = un ou plusieurs ffmpeg lourds sur le process du serveur. Sans
@@ -1150,7 +1155,15 @@ export async function renderVariant(
   // début et vérifié en prod. Un montage de 3 plans n'a AUCUNE raison de payer
   // le risque d'un chemin plus récent — ceinture ET bretelles après la
   // régression de durée signalée en prod (36 s au lieu de 6 s).
-  const SHARE_FROM_SEGMENTS = Math.max(2, parseInt(process.env.AI_EDITOR_SHARE_FROM ?? "14", 10));
+  // ⛔ DÉSACTIVÉE PAR DÉFAUT (999) : en PROD ce chemin produit des plans qui
+  // débordent leur durée (×9 sur 21 plans, ×20 sur 39) alors que le MÊME
+  // filtergraph rend juste en local sur toutes les sources reproductibles
+  // (propre, 4K verticale, edit list/PTS décalés) et que les longueurs
+  // calculées sont correctes. Tant que la divergence prod/local n'est pas
+  // expliquée, on n'expose pas les users à un montage faux : le chemin
+  // historique -ss/-t (un input par plan) reprend TOUT. Réactivable pour
+  // investigation via AI_EDITOR_SHARE_FROM.
+  const SHARE_FROM_SEGMENTS = Math.max(2, parseInt(process.env.AI_EDITOR_SHARE_FROM ?? "999", 10));
   const useSharing = segs.length >= SHARE_FROM_SEGMENTS;
   // Pré-passe : compte les usages « simples » de chaque rush vidéo.
   const plainUse = new Map<string, number>();
@@ -1170,6 +1183,18 @@ export async function renderVariant(
     filters.push(`[${inIdx}:v]split=${count}${Array.from({ length: count }, (_, j) => `[sv${inIdx}_${j}]`).join("")}`);
     if (hasAudio) filters.push(`[${inIdx}:a]asplit=${count}${Array.from({ length: count }, (_, j) => `[sa${inIdx}_${j}]`).join("")}`);
     sharedVideo.set(p, { inIdx, used: 0, hasAudio });
+  }
+
+  // Sans mutualisation, chaque plan ouvre son décodeur : au-delà de ~22 entrées
+  // ffmpeg rend EAGAIN (« Resource temporarily unavailable ») et tue le rendu.
+  // On refuse AVANT, avec une consigne exploitable, plutôt que d'échouer au
+  // bout de plusieurs minutes de calcul.
+  const overlayInputs = segs.reduce((n, sg) => n + Math.min(6, sg.overlays?.length ?? 0), 0);
+  if (!useSharing && segs.length + overlayInputs > MAX_SEGMENT_INPUTS) {
+    return cleanFail(
+      `Trop de plans pour un seul rendu : ${segs.length} plan(s)${overlayInputs ? ` + ${overlayInputs} incrustation(s)` : ""} (max ${MAX_SEGMENT_INPUTS}). ` +
+      `Regroupe les plans contigus (un plan de 2 s vaut mieux que quatre de 0,5 s), ou fabrique la variante en deux temps.`,
+    );
   }
 
   for (let i = 0; i < segs.length; i++) {

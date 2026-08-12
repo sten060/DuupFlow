@@ -49,7 +49,7 @@ const mat = await addMaterial(USER, project.id, { srcPath: rush, ext: ".mp4", na
 if (!mat) throw new Error("addMaterial a échoué");
 const MID = mat.id;
 
-type Case = { name: string; plan: Record<string, unknown>; expect: number; tol: number };
+type Case = { name: string; plan: Record<string, unknown>; expect?: number; tol?: number; expectError?: RegExp; env?: Record<string, string> };
 const CASES: Case[] = [
   {
     // ⛔ RÉGRESSION 2026-08-12 : avec 2+ segments du MÊME fichier (décodeur
@@ -71,9 +71,9 @@ const CASES: Case[] = [
   {
     // Cas « montage rythmé » : le nettoyage de rush produit des dizaines de
     // micro-plans contigus du même fichier — c'est CE cas qui a explosé en prod.
-    name: "20 micro-plans contigus (montage rythmé)",
-    plan: { segments: Array.from({ length: 20 }, (_, i) => ({ materialId: MID, startSec: i * 1, endSec: i * 1 + 0.9 })) },
-    expect: 18, tol: 0.8,
+    name: "18 micro-plans contigus (montage rythmé, sous le plafond)",
+    plan: { segments: Array.from({ length: 18 }, (_, i) => ({ materialId: MID, startSec: i * 1, endSec: i * 1 + 0.9 })) },
+    expect: 16.2, tol: 0.8,
   },
   {
     name: "plans + captions (passes de sous-titres)",
@@ -110,23 +110,42 @@ const CASES: Case[] = [
     expect: 9, tol: 0.8, // 2 + 1 + 2 + 2 + 2
   },
   {
-    // Le cas EXACT signalé en prod : rush de 50 s découpé en ~39 micro-plans
-    // contigus (nettoyage). Attendu ≈ la somme des (endSec − startSec).
-    name: "39 micro-plans contigus (cas prod Branding.MP4)",
+    // ⛔ RÉGRESSION PROD 2026-08-12 : au-delà du plafond d'entrées, on doit
+    // REFUSER proprement (message actionnable) et jamais produire un montage
+    // faux — le chemin mutualisé rendait ×9 à ×20 la durée prévue.
+    name: "39 micro-plans → refus explicite (plafond d'entrées)",
     plan: { segments: Array.from({ length: 39 }, (_, i) => ({ materialId: MID, startSec: i * 0.6, endSec: i * 0.6 + 0.5 })) },
-    expect: 19.5, tol: 1,
+    expectError: /Trop de plans/,
+  },
+  {
+    // Le chemin mutualisé reste testable pour investigation (env), il ne doit
+    // pas régresser en local pendant qu'on cherche la divergence prod.
+    name: "mutualisation forcée (investigation) — 16 plans",
+    env: { AI_EDITOR_SHARE_FROM: "2" },
+    plan: { segments: Array.from({ length: 16 }, (_, i) => ({ materialId: MID, startSec: i * 1.2, endSec: i * 1.2 + 1 })) },
+    expect: 16, tol: 0.8,
   },
 ];
 
 let failed = 0;
 for (const c of CASES) {
+  const saved: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(c.env ?? {})) { saved[k] = process.env[k]; process.env[k] = v; }
   const res = await renderVariant(USER, project.id, c.plan as never);
+  for (const [k] of Object.entries(c.env ?? {})) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
+
+  if (c.expectError) {
+    const ok = "error" in res && c.expectError.test(res.error);
+    console.log(`${ok ? "✔" : "✖"} ${c.name} — ${"error" in res ? `refus : ${res.error.slice(0, 90)}…` : `RENDU alors qu'un refus était attendu (${res.durationSec}s)`}`);
+    if (!ok) failed++;
+    continue;
+  }
   if ("error" in res) {
     console.log(`✖ ${c.name}\n    ERREUR : ${res.error}`);
     failed++;
     continue;
   }
-  const ok = Math.abs(res.durationSec - c.expect) <= c.tol;
+  const ok = Math.abs(res.durationSec - (c.expect ?? 0)) <= (c.tol ?? 0.5);
   console.log(`${ok ? "✔" : "✖"} ${c.name} — attendu ~${c.expect}s, obtenu ${res.durationSec}s`);
   if (!ok) failed++;
 }
