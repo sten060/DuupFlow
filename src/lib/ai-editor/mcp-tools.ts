@@ -8,6 +8,7 @@
 import { getLatestProject, projectPaths } from "./store";
 import type { Project } from "./store";
 import { renderVariant, variantKeyframes, materialKeyframes, ENGINE_BUILD } from "./render";
+import { startRenderJob, getRenderJob, waitForJob, runningJobsFor, jobElapsed, type RenderJob } from "./render-jobs";
 import type { EditPlan } from "./render";
 import { GAP_BLANK_SEC, GAP_MICRO_SEC, GAP_EDGE_TRIM_FALLBACK_SEC, RETAKE_NGRAM, RETAKE_CHAIN_GAP_SEC, RETAKE_STRICT_GAP_SEC, RETAKE_MIN_SPAN_SEC, REF_IMAGES_SHOWN, MCP_IMAGE_WIDTH, MCP_IMAGE_QUALITY } from "./analysis-config";
 import { analyzeColor } from "./ref-profile";
@@ -50,6 +51,7 @@ export const TOOLS = [
     description:
       "Assemble UNE variante vidéo selon TON plan de montage. Contrôles : segments coupés ; captions stylables (contour/box, couleur, contour, taille, position x/y en %, alignement) ; images animées (zoomIn/zoomOut/panLeft/panRight + cadrage cover/contain/blurFill) ; colorimétrie globale (grade) ; fps ; couleur de fond. Le son des plans vidéo est CONSERVÉ. " +
       "IMPORTANT : cet outil te RENVOIE des keyframes du rendu + la durée réelle → REGARDE-LES pour vérifier cadrage/rythme/captions, et rappelle l'outil pour corriger. " +
+      "RENDU LONG : si la vidéo n'est pas prête au bout de ~25 s, tu reçois un TICKET (renderId) au lieu d'attendre — récupère-la avec get_render(renderId), qui patiente et répond dès que c'est prêt. Ne relance PAS create_variant dans ce cas : le rendu est déjà en cours. " +
       "SYNCHRO MUSIQUE : les timecodes mesurés sur la matière sonore (get_material → beats, drops, énergie) s'utilisent DIRECTEMENT — cale captions[].startSec et les transitions segments[].transition sur les beats/drops (ex. une transition PILE sur un drop, un caption qui apparaît sur un temps fort). " +
       "FIDÉLITÉ MOTION & RYTHME : reproduis le MONTAGE de la réf, pas seulement son texte. get_reference te donne le rythme (nb de coupes · durée moyenne d'un plan) + par plan le mouvement (type+intensité → motion/motionIntensity/scale), la vitesse (speed), les freeze (freezeAt/freezeDuration) et la transition de chaque coupe (→ transition). Colle à la CADENCE : si la réf coupe ~toutes les 1,2 s, garde des plans courts et punchy ; ne laisse pas de plan mou de 6 s là où la réf en enchaîne cinq. Cale les zoomPunch/shakeAt/transitions percutantes sur les beats/drops de la musique. " +
       "NETTOYAGE DU RUSH (le user envoie ses RUSHS BRUTS, pas une vidéo déjà montée — c'est à TOI de la rendre publiable) : get_material te donne la VOIX horodatée, les MOTS, les ✂️ BLANCS, les ⏱ MICRO-PAUSES et les 🔁 REPRISES. Découpe le rush en PLUSIEURS segments[] du MÊME fichier (même materialId, [startSec,endSec] différents) qui GARDENT la parole et SAUTENT : les ✂️ BLANCS, les plages 🔁 REPRISES (le locuteur se rate puis répète — tu gardes la DERNIÈRE prise, qui commence à la fin de la plage) et toute redite restante visible dans le transcript. Les ⏱ MICRO-PAUSES (0,15-0,5 s, INTRA-phrase) ne se sautent pas : SUBDIVISE le segment en 2 segments contigus (fin du 1er = début de la pause, début du 2e = fin de la pause, cut sec) → débit resserré, raccord invisible. Coupe TOUJOURS aux frontières de silence, jamais en plein mot. " +
@@ -296,6 +298,17 @@ export const TOOLS = [
         label: { type: "string", description: "nom court de la variante (ex. hook utilisé)." },
       },
       required: ["segments"],
+    },
+  },
+  {
+    name: "get_render",
+    description:
+      "Récupère une variante dont le RENDU EST EN COURS (ticket renvoyé par create_variant / update_variant). Un montage lourd (beaucoup de plans, de sous-titres, rushs 4K) prend couramment 2 à 5 minutes : create_variant te rend alors un ticket au lieu de faire attendre la conversation. " +
+      "Appelle get_render avec ce renderId : l'appel PATIENTE jusqu'à ~25 s et te répond dès que la vidéo est prête (avec ses images) ; si c'est encore en cours, rappelle-le. " +
+      "NE RELANCE JAMAIS create_variant pour un rendu déjà en cours : tu lancerais un second rendu qui occuperait une place et ralentirait tout. Sans renderId, l'outil liste tes rendus en cours.",
+    inputSchema: {
+      type: "object",
+      properties: { renderId: { type: "string", description: "Le ticket renvoyé par create_variant / update_variant (ex. « rj_a1b2c3d4 »). Omis → liste les rendus en cours." } },
     },
   },
   {
@@ -637,6 +650,43 @@ function formatRetakeLines(
   ];
 }
 
+/* ── Rendus en tâche de fond (« ticket ») ─────────────────────────────────────
+   Un rendu peut dépasser la minute de patience du client MCP (mesuré : 251 s).
+   On attend un court instant sous cette limite, puis on rend un TICKET. Les
+   petits montages restent instantanés (aucun changement pour eux). */
+const FIRST_WAIT_MS = Math.max(3_000, parseInt(process.env.AI_EDITOR_FIRST_WAIT_MS ?? "25000", 10));
+const POLL_WAIT_MS = Math.max(3_000, parseInt(process.env.AI_EDITOR_POLL_WAIT_MS ?? "25000", 10));
+
+/** Met en forme l'état d'un rendu : ticket en cours, échec, ou résultat complet. */
+async function jobContent(job: RenderJob): Promise<Content[]> {
+  if (job.status === "running") {
+    return [{
+      type: "text",
+      text: `⏳ Rendu EN COURS (ticket ${job.id}) — ${jobElapsed(job)} écoulées. Le serveur travaille, ne relance PAS create_variant : ` +
+        `appelle get_render avec renderId "${job.id}" pour récupérer la vidéo (l'appel patiente jusqu'à ~25 s et te répond dès que c'est prêt). ` +
+        `Un montage lourd (beaucoup de plans, de sous-titres, rushs 4K) prend couramment 2 à 5 minutes.`,
+    }];
+  }
+  if (job.status === "failed" || !job.result) {
+    return [{ type: "text", text: `Rendu impossible : ${job.error ?? "erreur inconnue"} [moteur ${ENGINE_BUILD}]` }];
+  }
+  const res = job.result, v = res.variant;
+  const content: Content[] = [{
+    type: "text",
+    text: `✅ Variante créée${v.label ? ` « ${v.label} »` : ""} (id ${v.id}) · durée ${res.durationSec}s · rendue en ${jobElapsed(job)} · moteur ${ENGINE_BUILD}. ` +
+      `Voici des images du RENDU — vérifie cadrage, rythme, position des captions ; rappelle create_variant pour corriger si besoin.`,
+  }];
+  for (const kf of res.keyframes) {
+    const img = dataUriToImage(kf.dataUri);
+    if (img) content.push({ type: "text", text: `— rendu à ${kf.t}s —` }, img);
+  }
+  if (!res.keyframes.length) {
+    if (v.poster) { const img = dataUriToImage(v.poster); if (img) content.push({ type: "text", text: "Aperçu (poster) :" }, img); }
+    content.push({ type: "text", text: "⚠ Impossible d'extraire les images du rendu (voir logs serveur). La variante est bien enregistrée — réessaie get_variant, ou régénère." });
+  }
+  return content;
+}
+
 export async function callTool(userId: string, name: string, args?: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }> {
   const project: Project | null = await getLatestProject(userId);
 
@@ -871,25 +921,32 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     if (!project.materials.length) return { content: [{ type: "text", text: "Aucune matière : le user doit ajouter des fichiers dans DuupFlow." }], isError: true };
     const blocked = await guardVariantQuota(userId);
     if (blocked) return { content: [blocked], isError: true };
-    const res = await renderVariant(userId, project.id, (args ?? {}) as unknown as EditPlan);
-    if ("error" in res) return { content: [{ type: "text", text: `Rendu impossible : ${res.error} [moteur ${ENGINE_BUILD}]` }], isError: true };
-    await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → compté (quota vidéo)
-    void logAiEditorRender(userId); // tracking : 1 rendu Éditeur IA de plus pour ce user
-    const v = res.variant;
-    const content: Content[] = [{
-      type: "text",
-      text: `✅ Variante créée${v.label ? ` « ${v.label} »` : ""} (id ${v.id}) · durée ${res.durationSec}s · moteur ${ENGINE_BUILD}. Voici des images du RENDU — vérifie cadrage, rythme, position des captions ; rappelle create_variant pour corriger si besoin.`,
-    }];
-    for (const kf of res.keyframes) {
-      const img = dataUriToImage(kf.dataUri);
-      if (img) content.push({ type: "text", text: `— rendu à ${kf.t}s —` }, img);
+    const job = startRenderJob(userId, project.id, (args ?? {}) as unknown as EditPlan, {
+      onDone: async () => {
+        await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → quota vidéo
+        void logAiEditorRender(userId);                            // tracking
+      },
+    });
+    return { content: await jobContent(await waitForJob(job, FIRST_WAIT_MS)) };
+  }
+
+  if (name === "get_render") {
+    const id = String(args?.renderId || "").trim();
+    const job = id ? getRenderJob(id) : null;
+    if (!job || job.userId !== userId) {
+      const running = runningJobsFor(userId);
+      return {
+        content: [{
+          type: "text",
+          text: id
+            ? `Ticket introuvable : ${id} (expiré, ou le serveur a redémarré — dans ce cas le rendu est perdu, relance create_variant).${running.length ? ` Tickets en cours : ${running.map((j) => j.id).join(", ")}.` : ""}`
+            : `Donne le renderId du ticket.${running.length ? ` En cours : ${running.map((j) => `${j.id} (${jobElapsed(j)})`).join(", ")}.` : " Aucun rendu en cours."}`,
+        }],
+        isError: true,
+      };
     }
-    if (!res.keyframes.length) {
-      // Échec NON silencieux : le rendu a réussi mais l'extraction n'a rien donné.
-      if (v.poster) { const img = dataUriToImage(v.poster); if (img) content.push({ type: "text", text: "Aperçu (poster) :" }, img); }
-      content.push({ type: "text", text: "⚠ Impossible d'extraire les images du rendu (voir logs serveur). La variante est bien enregistrée — réessaie get_variant, ou régénère." });
-    }
-    return { content };
+    const done = await waitForJob(job, POLL_WAIT_MS);
+    return { content: await jobContent(done), isError: done.status === "failed" };
   }
 
   if (name === "list_variants") {
@@ -996,15 +1053,16 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     }
     const blocked = await guardVariantQuota(userId);
     if (blocked) return { content: [blocked], isError: true };
-    const res = await renderVariant(userId, project.id, merged, { derivedFrom: v.id });
-    if ("error" in res) return { content: [{ type: "text", text: `Mise à jour impossible : ${res.error}` }], isError: true };
-    await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → compté (quota vidéo)
-    void logAiEditorRender(userId); // tracking : 1 rendu Éditeur IA de plus pour ce user
-    const nv = res.variant;
-    const content: Content[] = [{ type: "text", text: `✅ Mise à jour → NOUVELLE variante « ${nv.label || nv.id} » (id ${nv.id}) · durée ${res.durationSec}s. Images du rendu :` }];
-    for (const kf of res.keyframes) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }
-    if (!res.keyframes.length) content.push({ type: "text", text: "⚠ Images non extraites (voir logs serveur)." });
-    return { content };
+    // Même traitement que create_variant : tâche de fond + ticket (un patch de
+    // sous-titres sur un montage lourd est le cas qui dépassait la patience du client).
+    const job = startRenderJob(userId, project.id, merged, {
+      derivedFrom: v.id,
+      onDone: async () => {
+        await incrementUsage(userId, "videos", 1).catch(() => {});
+        void logAiEditorRender(userId);
+      },
+    });
+    return { content: await jobContent(await waitForJob(job, FIRST_WAIT_MS)) };
   }
 
   return { content: [{ type: "text", text: `Outil inconnu : ${name}` }], isError: true };

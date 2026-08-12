@@ -101,7 +101,7 @@ async function ffmpegVersion(): Promise<string> {
   try {
     // `-version` écrit sur STDOUT (non capturé) → on provoque la BANNIÈRE, qui
     // part sur stderr, via une entrée inexistante et SANS -hide_banner.
-    const { stderr } = await runFFmpeg(["-i", "__duup_probe_version__"], 10_000, 8000);
+    const { stderr } = await runFFmpeg(ffThreaded(["-i", "__duup_probe_version__"]), 10_000, 8000);
     _ffv = (stderr.match(/ffmpeg version (\S+)/)?.[1] ?? "?").slice(0, 24);
   } catch { _ffv = "?"; }
   return _ffv;
@@ -123,6 +123,32 @@ const MAX_SEGMENT_INPUTS = Math.max(4, parseInt(process.env.AI_EDITOR_MAX_SEGMEN
    saturaient CPU/RAM/FD et rendaient le connecteur muet pour tous. On borne le
    nombre de rendus concurrents ; les suivants attendent leur tour. */
 const MAX_CONCURRENT_RENDERS = Math.max(1, parseInt(process.env.AI_EDITOR_MAX_RENDERS ?? "2", 10));
+/* ── Cœurs alloués à ffmpeg (éditeur IA UNIQUEMENT) ──────────────────────────
+   Sans limite, ffmpeg s'attribue TOUS les cœurs de la machine (48 vus par le
+   conteneur) POUR CHAQUE FICHIER OUVERT : 20 plans × 48 = ~960 fils demandés →
+   le système refuse (« Resource temporarily unavailable ») ET la duplication
+   vidéo — qui, elle, se limite poliment à 3 fils par tâche — se retrouve
+   étouffée (6 tâches expirées à 15 min observées en prod juste après un rendu).
+   On applique la même politesse ici. La duplication n'est PAS concernée : elle
+   a ses propres réglages (FFMPEG_VCPU / MAX_CONCURRENT_ENCODES). */
+const FF_THREADS = Math.max(1, parseInt(process.env.AI_EDITOR_FFMPEG_THREADS ?? "4", 10));
+/** Injecte les limites de fils : décodeurs (avant chaque -i), encodeur (avant
+ *  le fichier de sortie = dernier argument) et graphe de filtres (global). */
+function ffThreaded(args: string[]): string[] {
+  // -filter_threads / -filter_complex_threads sont GLOBAUX (avant tout).
+  const out: string[] = ["-filter_threads", String(FF_THREADS), "-filter_complex_threads", String(FF_THREADS)];
+  // Le dernier argument est un fichier de SORTIE… sauf sur les commandes de
+  // simple lecture (`-i fichier`), où il suit `-i`. Y insérer des options
+  // d'encodeur casserait la commande (bug attrapé par le harnais : toutes les
+  // durées tombaient à 0).
+  const lastIsOutput = args.length >= 2 && args[args.length - 2] !== "-i";
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "-i") out.push("-threads", String(FF_THREADS));       // décodeur
+    if (lastIsOutput && i === args.length - 1) out.push("-threads", String(FF_THREADS)); // encodeur
+    out.push(args[i]);
+  }
+  return out;
+}
 /* Deadline GLOBALE d'un rendu. Sans elle, un plan lourd (rushs 4K + composites)
    pouvait occuper un créneau de concurrence pendant très longtemps : le client
    MCP abandonnait (« the connector's server isn't responding »), le user
@@ -913,7 +939,7 @@ async function timeEffectClip(
   args.push("-t", segLen.toFixed(3), "-i", abs, "-filter_complex", [...vf, ...af].join(";"), "-map", "[vout]");
   if (hasAudio) args.push("-map", "[aout]", "-c:a", "aac", "-b:a", "160k");
   args.push("-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-r", String(fps), out);
-  const { code, stderr } = await runFFmpeg(args, 4 * 60 * 1000);
+  const { code, stderr } = await runFFmpeg(ffThreaded(args), 4 * 60 * 1000);
   if (code !== 0) { console.warn("[ai-editor/render] timeEffectClip KO:", stderr.slice(-200)); return null; }
   const { dur } = await probeAV(out);
   return { path: out, durationSec: Math.max(0.1, dur), hasAudio };
@@ -1077,7 +1103,7 @@ async function compositeClip(
   args.push("-filter_complex", vf.join(";"), "-map", "[vout]");
   if (base.hasAudio) args.push("-map", "0:a?", "-c:a", "aac", "-b:a", "160k");
   args.push("-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-r", String(fps), out);
-  const { code, stderr } = await runFFmpeg(args, 5 * 60 * 1000);
+  const { code, stderr } = await runFFmpeg(ffThreaded(args), 5 * 60 * 1000);
   if (code !== 0) { console.warn(`[ai-editor/render] compositeClip KO (layout=${layout}) :`, stderr.slice(-220)); return null; }
   const { dur } = await probeAV(out);
   if (dur < 0.1) { console.warn(`[ai-editor/render] compositeClip sortie vide (layout=${layout}) → repli plan simple`); return null; }
@@ -1189,6 +1215,28 @@ export async function renderVariant(
   // ffmpeg rend EAGAIN (« Resource temporarily unavailable ») et tue le rendu.
   // On refuse AVANT, avec une consigne exploitable, plutôt que d'échouer au
   // bout de plusieurs minutes de calcul.
+  // Couleur de la matière : si TOUS les rushs vidéo du plan partagent le même
+  // profil HDR, on reporte leurs étiquettes sur le rendu. Profils mélangés
+  // (HDR + SDR) → on ne tague pas : taguer tout en HDR abîmerait les plans SDR.
+  let srcColor: SrcColor | null = null;
+  {
+    const paths = [...new Set(segs.map((sg) => project.materials.find((m) => m.id === sg.materialId))
+      .filter((m): m is NonNullable<typeof m> => !!m && m.kind === "video")
+      .map((m) => materialAbsPath(userId, projectId, m.storedName)))];
+    const infos = (await Promise.all(paths.map((pp) => probeColor(pp).catch(() => null)))).filter(Boolean) as SrcColor[];
+    const hdr = infos.filter((c) => c.isHDR);
+    if (hdr.length && hdr.length === infos.length && infos.length > 0) {
+      const same = hdr.every((c) => c.space === hdr[0].space && c.trc === hdr[0].trc && c.primaries === hdr[0].primaries);
+      if (same) {
+        srcColor = hdr[0];
+        console.log(`[ai-editor/render] source HDR détectée (${srcColor.space}/${srcColor.primaries}/${srcColor.trc}) → étiquettes de couleur préservées`);
+      } else console.log("[ai-editor/render] profils HDR différents entre rushs → pas de report d'étiquettes");
+    } else if (hdr.length) {
+      console.log(`[ai-editor/render] matière MIXTE (${hdr.length} HDR / ${infos.length}) → pas de report d'étiquettes (les plans SDR seraient faussés)`);
+    }
+  }
+  const colorArgs = colorTagArgs(srcColor);
+
   const overlayInputs = segs.reduce((n, sg) => n + Math.min(6, sg.overlays?.length ?? 0), 0);
   if (!useSharing && segs.length + overlayInputs > MAX_SEGMENT_INPUTS) {
     return cleanFail(
@@ -1709,7 +1757,7 @@ export async function renderVariant(
       "-filter_complex", [...filters, ...assemble(useTrans), ...gradeFilters, ...captionFilters, voutFilter, ...audioFilters].join(";"),
       "-map", "[vout]", "-map", audioMap,
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-      "-r", String(fps),
+      "-r", String(fps), ...colorArgs,
       "-c:a", "aac", "-b:a", "128k",
       "-movflags", "+faststart",
       outPath,
@@ -1732,7 +1780,7 @@ export async function renderVariant(
       "-y", "-hide_banner", "-loglevel", "error", ...inputs,
       "-filter_complex", [...filters.filter((f) => !isAudioFilter(f)), ...assemble(true).filter((f) => !isAudioFilter(f)), ...gradeFilters, ...captionFilters, voutFilter].join(";"),
       "-map", "[vout]", "-an",
-      "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-r", String(fps), outV,
+      "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-r", String(fps), ...colorArgs, outV,
     ];
     const audioArgs = (): string[] => [
       "-y", "-hide_banner", "-loglevel", "error", ...inputs,
@@ -1747,16 +1795,16 @@ export async function renderVariant(
     if (overDeadline()) return deadlineFail("préparation des plans");
     let code = 0, stderr = "";
     if (wantTransitions) {
-      const rv = await runFFmpeg(videoArgs(), 10 * 60 * 1000);
-      const ra = rv.code === 0 ? await runFFmpeg(audioArgs(), 10 * 60 * 1000) : rv;
-      const rm = ra.code === 0 ? await runFFmpeg(muxArgs(), 5 * 60 * 1000) : ra;
+      const rv = await runFFmpeg(ffThreaded(videoArgs()), 10 * 60 * 1000);
+      const ra = rv.code === 0 ? await runFFmpeg(ffThreaded(audioArgs()), 10 * 60 * 1000) : rv;
+      const rm = ra.code === 0 ? await runFFmpeg(ffThreaded(muxArgs()), 5 * 60 * 1000) : ra;
       code = rm.code; stderr = rm.stderr;
       if (code !== 0) {
         console.warn("[ai-editor/render] two-pass transitions échouée → repli sur cut:", stderr.slice(-160));
-        ({ code, stderr } = await runFFmpeg(buildArgs(false), 10 * 60 * 1000));
+        ({ code, stderr } = await runFFmpeg(ffThreaded(buildArgs(false)), 10 * 60 * 1000));
       }
     } else {
-      ({ code, stderr } = await runFFmpeg(buildArgs(false), 10 * 60 * 1000));
+      ({ code, stderr } = await runFFmpeg(ffThreaded(buildArgs(false)), 10 * 60 * 1000));
     }
     if (code !== 0) {
       // stderr peut être VIDE (kill/OOM/timeout) → un message « Rendu FFmpeg
@@ -1796,11 +1844,11 @@ export async function renderVariant(
         pargs.push(
           "-filter_complex", pf.join(";"),
           "-map", "[vcap]", "-map", "0:a?",
-          "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p", "-r", String(fps),
+          "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p", "-r", String(fps), ...colorArgs,
           "-c:a", "copy", "-movflags", "+faststart",
           passOut,
         );
-        const pr = await runFFmpeg(pargs, 10 * 60 * 1000);
+        const pr = await runFFmpeg(ffThreaded(pargs), 10 * 60 * 1000);
         if (pr.code !== 0) return { error: `Rendu des sous-titres échoué (passe ${Math.floor(c0 / CHUNK) + 1}) : ${pr.stderr.slice(-200)}` };
         curVideo = passOut;
       }
@@ -1811,7 +1859,7 @@ export async function renderVariant(
 
     let poster: string | null = null;
     try {
-      const r = await runFFmpeg(["-y", "-hide_banner", "-loglevel", "error", "-ss", "0.5", "-i", outPath, "-frames:v", "1", "-vf", "scale=480:-2", posterPath], 30_000);
+      const r = await runFFmpeg(ffThreaded(["-y", "-hide_banner", "-loglevel", "error", "-ss", "0.5", "-i", outPath, "-frames:v", "1", "-vf", "scale=480:-2", posterPath]), 30_000);
       if (r.code === 0) {
         const buf = await fs.readFile(posterPath);
         if (buf.length) poster = `data:image/jpeg;base64,${buf.toString("base64")}`;
@@ -1861,9 +1909,48 @@ export async function renderVariant(
   }
 }
 
+/* ── COULEUR DE LA SOURCE (HDR iPhone) ───────────────────────────────────────
+   Les rushs iPhone récents sont en BT.2020 + HLG (HDR). Ré-encodés sans leurs
+   ÉTIQUETTES de couleur, ils sont relus comme du BT.709 : image délavée,
+   désaturée, contraste écrasé — exactement l'écart constaté entre la source et
+   le montage. Le module de duplication convertit proprement en SDR grâce à
+   `zscale`… ABSENT du binaire ffmpeg de l'éditeur (vérifié : `colorspace` ne
+   sait pas lire le HLG non plus). On PRÉSERVE donc les étiquettes d'origine à
+   chaque ré-encodage : le rendu s'affiche comme le rush du user. */
+export type SrcColor = { space: string; primaries: string; trc: string; range: string; isHDR: boolean };
+async function probeColor(p: string): Promise<SrcColor | null> {
+  try {
+    const { stderr } = await runFFmpeg(ffThreaded(["-hide_banner", "-i", p]), 20_000, 64_000);
+    const v = stderr.split("\n").find((l) => /Stream #.*Video:/.test(l)) ?? "";
+    // Forme typique : « yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67) »
+    const m = v.match(/\(([^)]*(?:bt2020|bt709|smpte170m|arib-std-b67|smpte2084)[^)]*)\)/i);
+    const parts = (m?.[1] ?? "").split(/[,/]/).map((x) => x.trim()).filter(Boolean);
+    const pick = (re: RegExp) => parts.find((x) => re.test(x)) ?? "";
+    const range = pick(/^(tv|pc|limited|full)$/i) || "tv";
+    const space = pick(/^(bt2020nc|bt2020c|bt709|smpte170m|bt470bg)$/i);
+    const primaries = parts.filter((x) => /^(bt2020|bt709|smpte170m|bt470bg)$/i.test(x))[1] ?? (space === "bt2020nc" ? "bt2020" : "");
+    const trc = pick(/^(arib-std-b67|smpte2084|bt709|smpte170m|bt470bg|iec61966-2-1)$/i);
+    const is10 = /yuv4\d\dp10|p010/.test(v);
+    const isHEVC = /hevc|h265/i.test(v);
+    const isHDR = /bt2020/i.test(space) || /bt2020/i.test(primaries) || /arib-std-b67|smpte2084/i.test(trc) || (is10 && isHEVC);
+    if (!space && !primaries && !trc) return null;
+    return { space, primaries, trc, range: /full|pc/i.test(range) ? "pc" : "tv", isHDR };
+  } catch { return null; }
+}
+/** Options d'encodage qui REPORTENT les étiquettes de couleur de la source. */
+function colorTagArgs(c: SrcColor | null): string[] {
+  if (!c || !c.isHDR) return [];
+  const a: string[] = [];
+  if (c.space) a.push("-colorspace", c.space);
+  if (c.primaries) a.push("-color_primaries", c.primaries);
+  if (c.trc) a.push("-color_trc", c.trc);
+  a.push("-color_range", c.range);
+  return a;
+}
+
 /* ── Probe durée + présence d'audio (ffmpeg -i, lecture stderr) ───────────── */
 async function probeAV(p: string): Promise<{ dur: number; hasAudio: boolean }> {
-  const { stderr } = await runFFmpeg(["-hide_banner", "-i", p], 30_000, 64_000);
+  const { stderr } = await runFFmpeg(ffThreaded(["-hide_banner", "-i", p]), 30_000, 64_000);
   const d = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
   const dur = d ? (+d[1]) * 3600 + (+d[2]) * 60 + parseFloat(d[3]) : 0;
   return { dur, hasAudio: /Stream #.*Audio:/.test(stderr) };
