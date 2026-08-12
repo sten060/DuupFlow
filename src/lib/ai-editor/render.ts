@@ -103,6 +103,13 @@ const MAX_FFMPEG_INPUTS = 48;
    saturaient CPU/RAM/FD et rendaient le connecteur muet pour tous. On borne le
    nombre de rendus concurrents ; les suivants attendent leur tour. */
 const MAX_CONCURRENT_RENDERS = Math.max(1, parseInt(process.env.AI_EDITOR_MAX_RENDERS ?? "2", 10));
+/* Deadline GLOBALE d'un rendu. Sans elle, un plan lourd (rushs 4K + composites)
+   pouvait occuper un créneau de concurrence pendant très longtemps : le client
+   MCP abandonnait (« the connector's server isn't responding »), le user
+   relançait, et chaque tentative empilait un rendu fantôme jusqu'à saturer les
+   2 créneaux — plus AUCUN outil ne répondait. On échoue proprement avec un
+   message exploitable plutôt que de bloquer tout le monde. */
+const RENDER_DEADLINE_MS = Math.max(60_000, parseInt(process.env.AI_EDITOR_RENDER_DEADLINE_MS ?? "480000", 10));
 let _activeRenders = 0;
 const _renderQueue: Array<() => void> = [];
 function acquireRenderSlot(): Promise<void> {
@@ -523,10 +530,14 @@ async function extractKeyframes(videoPath: string, durationSec: number, dir: str
     // -ss APRÈS -i = seek précis. scale 360 + q6 = images légères (~10 Ko) pour ne
     // pas dépasser le budget de réponse du client MCP (sinon il vide les blocs image).
     const { code, stderr } = await runFFmpeg(
+      // -ss AVANT -i = seek RAPIDE (sans décoder depuis le début) : en seek précis
+      // sur une variante longue/lourde, une seule vignette dépassait les 20 s et
+      // l'exception JETAIT une variante pourtant rendue. Précision suffisante ici
+      // (on veut une vignette de contrôle, pas une frame au 1/100e).
       // format=yuv420p : les sources 10-bit/HDR (iPhone HLG…) sortent du scale en
       // yuv420p10le que mjpeg refuse → conversion 8-bit explicite avant l'encodeur.
-      ["-hide_banner", "-loglevel", "error", "-i", videoPath, "-ss", t.toFixed(2), "-frames:v", "1", "-vf", "scale=360:-2,format=yuv420p", "-q:v", "6", "-y", p],
-      20_000,
+      ["-hide_banner", "-loglevel", "error", "-ss", t.toFixed(2), "-i", videoPath, "-frames:v", "1", "-vf", "scale=360:-2,format=yuv420p", "-q:v", "6", "-y", p],
+      60_000,
     );
     if (code !== 0) { console.warn(`[ai-editor/keyframes] ffmpeg échec t=${t.toFixed(2)} code=${code}: ${stderr.slice(-160)}`); continue; }
     try {
@@ -790,6 +801,7 @@ function atempoStages(f: number): number[] {
    gel, inversé si reverse ; rampe → atempo moyen. */
 async function timeEffectClip(
   abs: string, start: number, segLen: number, seg: EditSegment, dir: string, idx: number, fps: number,
+  W = 1080, H = 1920,
 ): Promise<{ path: string; durationSec: number; hasAudio: boolean } | null> {
   const spd = clamp(num(seg.speed, 1), 0.25, 4);
   const rev = !!seg.reverse;
@@ -860,10 +872,15 @@ async function timeEffectClip(
   // non entier (ex. 1.12 → 30/1.12 fps fractionnaire) laisse un flux à cadence
   // variable et l'encodeur casse (« Error opening encoder … incorrect
   // parameters such as bit_rate, rate, width or height »). fps=CFR avant encode.
-  // + GARDE DE PARITÉ : ce clip est encodé à la résolution SOURCE — une source aux
-  // dimensions impaires (ex. crop téléphone 1215×2160) fait refuser libx264 en
-  // yuv420p (chroma 4:2:0 = dimensions paires obligatoires). trunc(x/2)*2 = filet.
-  vf.push(`[${vL}]fps=${fps},scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p[vout]`);
+  // + PLAFOND DE RÉSOLUTION : ce pré-rendu était encodé à la résolution SOURCE —
+  // un rush 4K (2160×3840) se ré-encodait en 4K alors que la sortie finale fait
+  // W×H. Coût CPU x4 pour ZÉRO gain visible (le plan est rescalé juste après).
+  // On plafonne à 1,5× le canvas : marge suffisante pour un punch-in (scale>1)
+  // sans payer le 4K. min(iw,…) → jamais d'upscale d'une petite source.
+  // + GARDE DE PARITÉ : une dimension impaire (ex. crop téléphone 1215×2160) fait
+  // refuser libx264 en yuv420p (chroma 4:2:0 = dimensions paires). trunc = filet.
+  const capW = Math.round(W * 1.5), capH = Math.round(H * 1.5);
+  vf.push(`[${vL}]fps=${fps},scale=w=min(iw\,${capW}):h=min(ih\,${capH}):force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p[vout]`);
   if (hasAudio) af.push(`[${aL}]aresample=44100[aout]`);
 
   const out = path.join(dir, `timed_${idx}.mp4`);
@@ -1076,6 +1093,11 @@ export async function renderVariant(
   // ffmpeg lourd. Empêche qu'un pic de rendus (ou un rendu qui déraille) sature
   // le serveur pour tout le monde. Libéré dans le finally.
   await acquireRenderSlot();
+  const tStart = Date.now();
+  const elapsed = () => Date.now() - tStart;
+  const overDeadline = () => elapsed() > RENDER_DEADLINE_MS;
+  const deadlineFail = (stage: string) =>
+    cleanFail(`Rendu trop long (${Math.round(elapsed() / 1000)}s, limite ${Math.round(RENDER_DEADLINE_MS / 1000)}s) — abandonné à l'étape « ${stage} » pour ne pas bloquer le serveur. Allège le plan : moins de plans composités (overlays), moins d'effets de vitesse, ou des rushs moins lourds (4K → 1080p).`);
 
   // Tout le corps est enveloppé : AUCUNE exception ne remonte nue au MCP → message
   // exploitable (préparation des plans, composite, ffmpeg…) + nettoyage garanti.
@@ -1175,7 +1197,7 @@ export async function renderVariant(
       // pré-rend un clip retimé (durée PROBÉE) qu'on injecte comme source du plan.
       // needsTimeEffect ne fait que refléter le déclencheur interne — l'appel reste
       // la source de vérité (null = pas de retime).
-      const timed = needsTimeEffect(seg) ? await timeEffectClip(abs, start, segLen, seg, dir, i, fps) : null;
+      const timed = needsTimeEffect(seg) ? await timeEffectClip(abs, start, segLen, seg, dir, i, fps, W, H) : null;
       // Composition (chantier 4) : overlays/layout → pré-rend un plan composité WxH.
       const baseSrc = timed
         ? { abs: timed.path, start: 0, len: timed.durationSec, hasAudio: timed.hasAudio }
@@ -1664,6 +1686,7 @@ export async function renderVariant(
       "-c", "copy", "-map", "0:v:0", "-map", "1:a:0", "-movflags", "+faststart", outPath,
     ];
 
+    if (overDeadline()) return deadlineFail("préparation des plans");
     let code = 0, stderr = "";
     if (wantTransitions) {
       const rv = await runFFmpeg(videoArgs(), 10 * 60 * 1000);
@@ -1684,7 +1707,9 @@ export async function renderVariant(
     // timeline de la vidéo assemblée EST celle des captions (temps absolus) →
     // les fenêtres/anims restent identiques. Audio recopié tel quel (-c:a copy,
     // aucune perte). Chaque passe ré-encode la vidéo (crf 19, perte invisible).
+    console.log(`[ai-editor/render] montage assemblé en ${(elapsed() / 1000).toFixed(1)}s · ${segs.length} plan(s) · ${capOps.length} op(s) caption`);
     if (capOps.length) {
+      if (overDeadline()) return deadlineFail("incrustation des sous-titres");
       const CHUNK = 28;
       let curVideo = outPath;
       for (let c0 = 0; c0 < capOps.length; c0 += CHUNK) {
@@ -1729,8 +1754,18 @@ export async function renderVariant(
       }
     } catch { /* poster best-effort */ }
 
-    const keyframes = await extractKeyframes(outPath, outDur, dir, 5);
+    // Les vignettes de contrôle sont un CONFORT : une variante rendue ne doit
+    // JAMAIS être perdue parce qu'une miniature a échoué/timeout (c'est arrivé
+    // en prod : « ffmpeg timeout après 20s » remontait en exception et jetait
+    // tout le rendu). Échec → on renvoie la variante sans images.
+    let keyframes: OutKeyframe[] = [];
+    try {
+      keyframes = await extractKeyframes(outPath, outDur, dir, 5);
+    } catch (e) {
+      console.warn("[ai-editor/render] keyframes de contrôle indisponibles (variante conservée) :", (e as Error)?.message);
+    }
 
+    console.log(`[ai-editor/render] variante rendue en ${(elapsed() / 1000).toFixed(1)}s · ${outDur.toFixed(1)}s de vidéo`);
     const durationSec = Math.round(outDur * 100) / 100;
     const variant = await addVariant(userId, projectId, { srcPath: outPath, poster, label: plan.label, plan: plan as unknown as Record<string, unknown>, durationSec, derivedFrom: extra?.derivedFrom });
     if (!variant) return { error: "Enregistrement de la variante échoué." };

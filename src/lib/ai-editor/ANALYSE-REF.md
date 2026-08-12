@@ -149,3 +149,7 @@ du pipeline — et à enrichir si tu ajoutes une détection.
   ajout — une réf uploadée avant doit être ré-uploadée.
 - Le disque Railway est ÉPHÉMÈRE : un déploiement efface les fichiers uploadés
   (les métadonnées survivent) → ré-upload nécessaire après chaque deploy.
+- **Rushs 4K** : coûteux à décoder/ré-encoder. Les pré-rendus (effets de
+  vitesse) sont plafonnés à 1,5× le canvas, et un rendu a une deadline globale
+  (`AI_EDITOR_RENDER_DEADLINE_MS`, 8 min) — au-delà il échoue avec un message
+  exploitable au lieu de bloquer les créneaux de rendu pour tout le monde.
