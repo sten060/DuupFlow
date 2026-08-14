@@ -372,85 +372,6 @@ async function flippedBuffer(buf: Buffer): Promise<Buffer> {
   return sharp(buf).flop().toBuffer();
 }
 
-// Metadata similarity — compares EXIF richness, file size, format, ICC, density, chroma, filename.
-// sizeA/sizeB = taille réelle du fichier (pas celle du header 128KB) — crucial pour les vidéos.
-// nameA/nameB = noms de fichiers pour pénaliser les noms différents (intégré dans ce score).
-// durationA/durationB = durée en secondes (vidéo seulement) — permet de calculer le débit et détecter changements CRF/audio.
-async function metadataSimilarity(bufA: Buffer, bufB: Buffer, sizeA?: number, sizeB?: number, nameA?: string, nameB?: string, durationA?: number, durationB?: number): Promise<number> {
-  const [metaA, metaB] = await Promise.all([
-    sharp(bufA, { failOn: "none" }).metadata().catch(() => ({} as sharp.Metadata)),
-    sharp(bufB, { failOn: "none" }).metadata().catch(() => ({} as sharp.Metadata)),
-  ]);
-
-  let score = 100;
-
-  // Format mismatch (jpeg vs png vs webp) — 15pt
-  if (metaA.format && metaB.format && metaA.format !== metaB.format) score -= 15;
-
-  // File size ratio — up to 45pt
-  // Utilise la taille réelle du fichier si disponible (les vidéos dépassent 128KB).
-  // Sans sizeA/sizeB, bufA.length = bufB.length = 128KB → ratio 1.0 → 0pt (bogue vidéo).
-  const realSizeA = sizeA ?? bufA.length;
-  const realSizeB = sizeB ?? bufB.length;
-  if (realSizeA > 0 && realSizeB > 0) {
-    const ratio = Math.min(realSizeA, realSizeB) / Math.max(realSizeA, realSizeB);
-    score -= Math.round((1 - ratio) * 45);
-  }
-
-  // Bitrate ratio (vidéo seulement) — up to 40pt
-  // Détecter les changements CRF (pack technique) et débit audio (pack audio).
-  // taille/durée = débit moyen → très sensible aux changements de CRF et d'encodage audio.
-  if (durationA && durationB && durationA > 0 && durationB > 0 && realSizeA > 0 && realSizeB > 0) {
-    const bitrateA = realSizeA / durationA;
-    const bitrateB = realSizeB / durationB;
-    const bitrateRatio = Math.min(bitrateA, bitrateB) / Math.max(bitrateA, bitrateB);
-    score -= Math.round((1 - bitrateRatio) * 40);
-  }
-
-  // EXIF richness — up to 60pt
-  // Niveau 1 = ~400B, niveau 2 = ~4000B → ratio ~0.10 → pénalité ~54pt
-  const exifA = metaA.exif?.length ?? 0;
-  const exifB = metaB.exif?.length ?? 0;
-  if (exifA > 0 || exifB > 0) {
-    const exifRatio = Math.min(exifA, exifB) / Math.max(exifA, exifB, 1);
-    score -= Math.round((1 - exifRatio) * 60);
-  } else {
-    // Les deux sans EXIF = même signature technique → pénalité légère
-    score -= 5;
-  }
-
-  // ICC color profile presence — 15pt (phone photos have ICC, DuupFlow output doesn't)
-  if (!!metaA.icc !== !!metaB.icc) score -= 15;
-
-  // Density/DPI — up to 20pt
-  const densA = metaA.density ?? 72;
-  const densB = metaB.density ?? 72;
-  const densRatio = Math.min(densA, densB) / Math.max(densA, densB);
-  score -= Math.round((1 - densRatio) * 20);
-
-  // Progressive encoding — 5pt
-  if (metaA.isProgressive !== metaB.isProgressive) score -= 5;
-
-  // Chroma subsampling — 5pt (4:2:0 original vs 4:4:4 duplicate)
-  if (metaA.chromaSubsampling && metaB.chromaSubsampling &&
-      metaA.chromaSubsampling !== metaB.chromaSubsampling) score -= 5;
-
-  // Dimensions — up to 10pt (if crop/resize produces different output dimensions)
-  if (metaA.width && metaB.width && metaA.height && metaB.height) {
-    const wR = Math.min(metaA.width, metaB.width) / Math.max(metaA.width, metaB.width);
-    const hR = Math.min(metaA.height, metaB.height) / Math.max(metaA.height, metaB.height);
-    score -= Math.round((1 - (wR + hR) / 2) * 10);
-  }
-
-  // Filename similarity — up to 15pt (noms différents = forte indication de duplication)
-  if (nameA && nameB) {
-    const fnSim = filenameSimilarity(nameA, nameB);
-    score -= Math.round((1 - fnSim / 100) * 15);
-  }
-
-  return Math.max(0, Math.min(100, score));
-}
-
 export type PairScore = {
   score: number;
   breakdown: {
@@ -468,8 +389,6 @@ export type PairScore = {
     proj: number;      // projection profiles row+col (spatial shift)
     texture: number;   // local variance (grain/noise/contrast)
     ahash: number;     // global luminosity
-    metadata: number;  // file metadata: EXIF richness, ICC, size, format, DPI, chroma
-    filename: number;  // similarité du nom de fichier (100 = identiques, 0 = totalement différents)
     mirrored: boolean;
   };
 };
@@ -537,7 +456,11 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   const normalStructScore = ph * 0.6 + dh * 0.3 + ah * 0.1;
   const mirrored = mirrorStructScore > normalStructScore + 10 && mirrorStructScore > 60;
 
-  // Weights (sum = 0.85 — 15% reserved for metadata computed at file level)
+  // Pondération de l'analyse d'IMAGE uniquement. Les poids ci-dessous somment à
+  // 0.85 pour raisons historiques ; on divise donc par 0.85 pour obtenir un
+  // score visuel sur 100 franc. Les métadonnées ne sont PLUS mélangées ici :
+  // elles vivent dans le score technique (technicalScore.ts), et les deux sont
+  // réunis en un score unique côté appelant (cf. unifiedScore).
   // pHash and dHash removed — redistribués sur les métriques restantes.
   //
   // SSIM         19% — structural+luminance+contrast (industry standard, YouTube/Netflix)
@@ -549,70 +472,42 @@ async function scorePair(bufA: Buffer, bufB: Buffer): Promise<PairScore> {
   // color         9% — RGB histogram (brightness, saturation changes)
   // colorMoments  5% — mean/std/skew per channel (higher-order color stats)
   // luma         10% — luminance histogram 64-bin (brightness/contrast/gamma)
-  // metadata     15% — file metadata (EXIF, ICC, format, size, DPI) — added at file level
+  const WEIGHT_SUM = 0.85;
   const score =
-    ssim * 0.19 + mse * 0.17 + chroma * 0.04 +
-    gradient * 0.04 + proj * 0.05 + spatial * 0.12 +
-    ch * 0.09 + colorMom * 0.05 + luma * 0.10;
+    (ssim * 0.19 + mse * 0.17 + chroma * 0.04 +
+     gradient * 0.04 + proj * 0.05 + spatial * 0.12 +
+     ch * 0.09 + colorMom * 0.05 + luma * 0.10) / WEIGHT_SUM;
 
   return {
     score,
-    breakdown: { ssim, mse, spatial, chroma, color: ch, luma, colorMom, phash: ph, dhash: dh, edgeOr, gradient, proj, texture: tx, ahash: ah, metadata: 100, filename: 100, mirrored },
+    breakdown: { ssim, mse, spatial, chroma, color: ch, luma, colorMom, phash: ph, dhash: dh, edgeOr, gradient, proj, texture: tx, ahash: ah, mirrored },
   };
 }
 
-// Similarité de nom de fichier — compare les noms normalisés (sans extension, en minuscules).
-// Retourne 0–100 : 100 = identiques, 0 = aucun caractère commun.
-function filenameSimilarity(nameA: string, nameB: string): number {
-  const norm = (n: string) => n.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const a = norm(nameA);
-  const b = norm(nameB);
-  if (a === b) return 100;
-  if (!a || !b) return 0;
-  // Jaccard sur bigrammes
-  const bigrams = (s: string) => new Set(Array.from({ length: s.length - 1 }, (_, i) => s.slice(i, i + 2)));
-  const ba = bigrams(a);
-  const bb = bigrams(b);
-  const intersection = [...ba].filter(x => bb.has(x)).length;
-  const union = new Set([...ba, ...bb]).size;
-  return union === 0 ? 0 : Math.round((intersection / union) * 100);
-}
-
-export async function compareFiles(
+/**
+ * Analyse VISUELLE d'une paire de fichiers, à partir de vignettes déjà extraites
+ * (base64 JPEG, produites côté serveur par probeFile — le navigateur ne sait pas
+ * décoder un HEVC iPhone, l'extraction ne peut donc pas être faite côté client).
+ *
+ * Ne renvoie QUE le score image. Le volet métadonnées est calculé séparément
+ * (technicalScore.ts) et les deux sont fusionnés en un score unique par
+ * unifiedScore() — l'utilisateur ne doit lire qu'un seul chiffre.
+ */
+export async function compareVisual(
   framesA: string[],
   framesB: string[],
-  rawA?: string,       // base64 of first ~128KB of file A (for metadata analysis)
-  rawB?: string,       // base64 of first ~128KB of file B
-  sizeA?: number,      // taille réelle du fichier A en octets (obligatoire pour les vidéos)
-  sizeB?: number,      // taille réelle du fichier B en octets
-  nameA?: string,      // nom du fichier A (avec extension)
-  nameB?: string,      // nom du fichier B (avec extension)
-  durationA?: number,  // durée vidéo A en secondes (pour calcul débit)
-  durationB?: number,  // durée vidéo B en secondes
-): Promise<{ score: number; breakdown: PairScore["breakdown"] } | { error: string }> {
+): Promise<{ visual: number; breakdown: PairScore["breakdown"] } | { error: string }> {
   try {
-    if (!framesA.length || !framesB.length) return { error: "Aucun frame reçu" };
+    if (!framesA.length || !framesB.length) return { error: "Aucune image extraite" };
 
     const count = Math.min(framesA.length, framesB.length);
+    const pairs = await Promise.all(
+      Array.from({ length: count }, (_, i) =>
+        scorePair(Buffer.from(framesA[i], "base64"), Buffer.from(framesB[i], "base64"))
+      )
+    );
 
-    // Frame-level analysis (visual similarity) + metadata (file-level)
-    const [pairs, metadata] = await Promise.all([
-      Promise.all(
-        Array.from({ length: count }, (_, i) =>
-          scorePair(Buffer.from(framesA[i], "base64"), Buffer.from(framesB[i], "base64"))
-        )
-      ),
-      rawA && rawB
-        ? metadataSimilarity(Buffer.from(rawA, "base64"), Buffer.from(rawB, "base64"), sizeA, sizeB, nameA, nameB, durationA, durationB)
-        : Promise.resolve(100), // no raw data → assume identical metadata (neutral)
-    ]);
-
-    // Frame-level score (85% max) + metadata (15% max) = 100%
-    // Le nom de fichier est déjà intégré dans metadataSimilarity (jusqu'à -15pt).
-    const avgFrameScore = pairs.reduce((s, p) => s + p.score, 0) / pairs.length;
-    const finalScore = avgFrameScore + metadata * 0.15;
-
-    const avg = (key: keyof Omit<PairScore["breakdown"], "mirrored" | "metadata" | "filename">) =>
+    const avg = (key: keyof Omit<PairScore["breakdown"], "mirrored">) =>
       Math.round(pairs.reduce((s, p) => s + (p.breakdown[key] as number), 0) / pairs.length);
 
     const breakdown: PairScore["breakdown"] = {
@@ -630,12 +525,11 @@ export async function compareFiles(
       proj:     avg("proj"),
       texture:  avg("texture"),
       ahash:    avg("ahash"),
-      metadata: Math.round(metadata),
-      filename: nameA && nameB ? filenameSimilarity(nameA, nameB) : 100,
       mirrored: pairs.some(p => p.breakdown.mirrored),
     };
 
-    return { score: +finalScore.toFixed(2), breakdown };
+    const visual = pairs.reduce((s, p) => s + p.score, 0) / pairs.length;
+    return { visual: +Math.max(0, Math.min(100, visual)).toFixed(2), breakdown };
   } catch (e: any) {
     return { error: e?.message || "Erreur comparaison" };
   }

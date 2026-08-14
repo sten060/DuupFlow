@@ -805,9 +805,172 @@ body{
 }
 .duup-flip__face--back { position: absolute; inset: 0; transform: rotateX(180deg); }
 
+/* ── Bandeau d'outputs (galerie "Fait avec DuupFlow") ──
+   Boucle sans couture : la piste contient le tableau DEUX fois et se déplace
+   de -50% de sa largeur, donc la reprise tombe pile sur la 1re copie.
+   La vitesse est passée en style inline (animationDuration) côté composant. */
+@keyframes duup-marquee-up   { from { transform: translateY(0); }    to { transform: translateY(-50%); } }
+@keyframes duup-marquee-down { from { transform: translateY(-50%); } to { transform: translateY(0); } }
+.duup-marquee-track {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: max-content;
+  will-change: transform;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.duup-marquee-track--up   { animation-name: duup-marquee-up; }
+.duup-marquee-track--down { animation-name: duup-marquee-down; }
+/* Pas de pause au survol : le mur ne s'arrête jamais. */
+
+/* ── Mockups animés des sections fonctionnalités ──
+   Boucles courtes, en CSS pur, sur des éléments décoratifs. */
+/* ── Éditeur IA : une seule scène, six temps ──
+   Les fenêtres sont écrites EN DUR dans chaque temps (pas de gros
+   animation-delay) : c'est la seule façon d'avoir une entrée échelonnée ET une
+   sortie simultanée. Avec des délais, chaque élément repartirait à son propre
+   rythme et la 2e boucle commencerait avec les variantes déjà affichées. */
+@keyframes duup-b1 { 0%, 2%  { opacity: 0; transform: translateY(16px) scale(0.86); } 9%, 88% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; transform: scale(0.96); } }
+@keyframes duup-b2 { 0%, 15% { opacity: 0; transform: translateY(8px); }             21%, 88% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; } }
+@keyframes duup-b3 { 0%, 27% { opacity: 0; transform: translate(-30px, 20px) rotate(-10deg) scale(0.7); } 35%, 88% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; } }
+@keyframes duup-b4 { 0%, 40% { opacity: 0; transform: scale(0.55); } 47% { opacity: 1; transform: scale(1.14); } 52%, 88% { opacity: 1; transform: scale(1); } 94%, 100% { opacity: 0; } }
+@keyframes duup-b5 { 0%, 53% { opacity: 0; transform: translateX(-52px) scale(0.66) rotate(-8deg); } 62%, 88% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; } }
+@keyframes duup-b6 { 0%, 74% { opacity: 0; transform: scale(0.7); } 80%, 88% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; } }
+/* ── Éditeur IA : une prise unique en 3 temps, cycle de 12 s ──
+   1) le curseur dépose la réf, qui s'installe au centre ; elle glisse à gauche
+      pendant que les fichiers bruts montent à droite ;
+   2) Claude monte ; 3) la vidéo finie + la conversation avec Claude.
+   Toutes les fenêtres sont écrites en dur (aucun gros animation-delay) : c'est
+   la seule façon d'avoir des entrées échelonnées ET une remise à zéro commune. */
+@keyframes duup-cursor {
+  0%, 1%   { opacity: 0; transform: translate(46px, 42px); }
+  3%       { opacity: 1; }
+  6%       { opacity: 1; transform: translate(0, 0); }
+  7.5%     { transform: translate(0, 0) scale(0.82); }
+  9%       { opacity: 1; transform: translate(0, 0) scale(1); }
+  12%, 100% { opacity: 0; }
+}
+/* La réf : posée au centre, puis rangée à gauche, un peu plus petite */
+@keyframes duup-ref {
+  0%, 3%    { opacity: 0; transform: translateX(130%) scale(1.1); }
+  8%, 18%   { opacity: 1; transform: translateX(130%) scale(1.1); }
+  25%, 46%  { opacity: 1; transform: translateX(0) scale(1); }
+  50%, 100% { opacity: 0; transform: translateX(0) scale(0.96); }
+}
+/* Les fichiers bruts, à droite, l'un après l'autre (une fenêtre par ligne) */
+@keyframes duup-f1 { 0%, 23% { opacity: 0; transform: translateY(10px); } 28%, 46% { opacity: 1; transform: none; } 50%, 100% { opacity: 0; } }
+@keyframes duup-f2 { 0%, 27% { opacity: 0; transform: translateY(10px); } 32%, 46% { opacity: 1; transform: none; } 50%, 100% { opacity: 0; } }
+@keyframes duup-f3 { 0%, 31% { opacity: 0; transform: translateY(10px); } 36%, 46% { opacity: 1; transform: none; } 50%, 100% { opacity: 0; } }
+/* Claude monte */
+@keyframes duup-work { 0%, 47% { opacity: 0; transform: scale(0.9); } 52%, 62% { opacity: 1; transform: none; } 66%, 100% { opacity: 0; transform: scale(1.04); } }
+@keyframes duup-workbar { 0%, 50% { width: 0; } 63%, 100% { width: 100%; } }
+/* Le final : vidéo + conversation */
+@keyframes duup-final { 0%, 64% { opacity: 0; transform: scale(0.94); } 69%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes duup-msg1  { 0%, 68% { opacity: 0; transform: translateY(8px); } 72%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+/* Le user tape sa réponse, puis l'envoie : le texte quitte le champ… */
+@keyframes duup-typing { 0%, 76% { width: 0; opacity: 1; } 86% { width: 100%; opacity: 1; } 88%, 100% { width: 100%; opacity: 0; } }
+@keyframes duup-caretbeat { 0%, 76% { opacity: 0; } 77%, 87% { opacity: 1; } 88%, 100% { opacity: 0; } }
+/* …et réapparaît dans le fil, aligné à droite */
+@keyframes duup-msg2 { 0%, 88% { opacity: 0; transform: translateY(12px) scale(0.94); } 91%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+.duup-cursor, .duup-ref, .duup-f1, .duup-f2, .duup-f3,
+.duup-work, .duup-final, .duup-msg1, .duup-msg2 {
+  animation-duration: 12s;
+  animation-timing-function: cubic-bezier(0.22, 1.15, 0.3, 1);
+  animation-iteration-count: infinite;
+  opacity: 0;
+}
+.duup-cursor { animation-name: duup-cursor; }
+.duup-ref    { animation-name: duup-ref; }
+.duup-f1     { animation-name: duup-f1; }
+.duup-f2     { animation-name: duup-f2; }
+.duup-f3     { animation-name: duup-f3; }
+.duup-work   { animation-name: duup-work; }
+.duup-final  { animation-name: duup-final; }
+.duup-msg1   { animation-name: duup-msg1; }
+.duup-msg2   { animation-name: duup-msg2; }
+.duup-workbar   { animation: duup-workbar 12s ease-out infinite; width: 0; }
+.duup-typing    { animation: duup-typing 12s steps(30) infinite; white-space: nowrap; overflow: hidden; width: 0; }
+.duup-caretbeat { animation: duup-caretbeat 12s steps(1) infinite; opacity: 0; }
+
+/* Le faisceau qui parcourt la référence pendant que l'IA la lit */
+@keyframes duup-scanline { 0%, 8% { top: -6%; opacity: 0; } 11% { opacity: 1; } 21% { top: 100%; opacity: 1; } 24%, 100% { opacity: 0; } }
+/* L'onde qui part de Claude au moment où il rend la main */
+@keyframes duup-halo { 0%, 42% { box-shadow: 0 0 0 0 rgba(79,123,255,0.5); } 58%, 100% { box-shadow: 0 0 0 28px rgba(79,123,255,0); } }
+.duup-b1, .duup-b2, .duup-b3, .duup-b4, .duup-b5, .duup-b6 {
+  animation-duration: 8s;
+  animation-timing-function: cubic-bezier(0.2, 0.9, 0.25, 1.25);
+  animation-iteration-count: infinite;
+  opacity: 0;
+}
+.duup-b1 { animation-name: duup-b1; }
+.duup-b2 { animation-name: duup-b2; }
+.duup-b3 { animation-name: duup-b3; }
+.duup-b4 { animation-name: duup-b4; }
+.duup-b5 { animation-name: duup-b5; }
+.duup-b6 { animation-name: duup-b6; }
+.duup-scanline { animation: duup-scanline 8s ease-in-out infinite; opacity: 0; }
+.duup-halo     { animation: duup-halo 8s ease-out infinite; }
+
+/* Séquence en 3 temps de l'éditeur IA : style → rushes → montage.
+   TOUT partage la même durée de 9 s et se cale au décalage près, sinon les
+   sous-animations dériveraient par rapport aux panneaux. */
+@keyframes duup-phase {
+  0%        { opacity: 0; transform: translateY(10px); }
+  2%, 30%   { opacity: 1; transform: none; }
+  33%, 100% { opacity: 0; transform: translateY(-8px); }
+}
+@keyframes duup-pop {
+  0%, 1%   { opacity: 0; transform: translateY(7px) scale(0.95); }
+  5%, 100% { opacity: 1; transform: none; }
+}
+@keyframes duup-fill { 0%, 1% { width: 0; } 9%, 100% { width: 100%; } }
+@keyframes duup-scan { 0%, 68% { left: 3%; } 92%, 100% { left: 95%; } }
+.duup-phase { animation: duup-phase 9s ease-in-out infinite; opacity: 0; }
+.duup-pop   { animation: duup-pop 9s cubic-bezier(0.2, 0.9, 0.3, 1.35) infinite; opacity: 0; }
+.duup-fill  { animation: duup-fill 9s ease-out infinite; width: 0; }
+.duup-scan  { animation: duup-scan 9s ease-in-out infinite; }
+
+@keyframes duup-caret { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes duup-seq {
+  0%, 6%    { opacity: 0; transform: translateY(9px) scale(0.94); }
+  15%, 78%  { opacity: 1; transform: none; }
+  90%, 100% { opacity: 0; transform: translateY(-5px) scale(0.97); }
+}
+@keyframes duup-sweep { from { left: 2%; } to { left: 95%; } }
+@keyframes duup-breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+@keyframes duup-type { from { width: 0; } to { width: 100%; } }
+.duup-seq     { animation: duup-seq 6s ease-in-out infinite; opacity: 0; }
+.duup-caret   { animation: duup-caret 1.1s steps(1) infinite; }
+.duup-sweep   { animation: duup-sweep 6s ease-in-out infinite alternate; }
+.duup-breathe { animation: duup-breathe 2.6s ease-in-out infinite; }
+.duup-type    { animation: duup-type 3.2s steps(28) infinite alternate; white-space: nowrap; overflow: hidden; }
+
 @media (prefers-reduced-motion: reduce) {
   .lunera-blob-1, .lunera-blob-2, .lunera-blob-3, .lunera-wave-x,
   .lunera-float-a, .lunera-float-b, .lunera-float-c, .lunera-swap, .lunera-flip, .lunera-bob,
   .lunera-highlight { animation: none; }
   .duup-flip__rot, .duup-flip:hover .duup-flip__rot { transition: none; transform: none; }
+  /* Le composant retombe déjà sur une grille scrollable ; ceci est la ceinture. */
+  .duup-marquee-track { animation: none; }
+  .duup-seq, .duup-caret, .duup-sweep, .duup-breathe, .duup-type,
+  .duup-phase, .duup-pop, .duup-fill, .duup-scan,
+  .duup-b1, .duup-b2, .duup-b3, .duup-b4, .duup-b5, .duup-b6,
+  .duup-scanline, .duup-halo,
+  .duup-cursor, .duup-ref, .duup-f1, .duup-f2, .duup-f3, .duup-work,
+  .duup-final, .duup-msg1, .duup-msg2, .duup-workbar, .duup-typing,
+  .duup-caretbeat { animation: none; }
+  /* Mouvement coupé : on ne garde que le résultat, la vidéo montée. */
+  .duup-cursor, .duup-ref, .duup-f1, .duup-f2, .duup-f3, .duup-work { opacity: 0; }
+  .duup-final, .duup-msg1, .duup-msg2 { opacity: 1; transform: none; }
+  .duup-typing, .duup-caretbeat { opacity: 0; }
+  /* La scène reste lisible d'un bloc, simplement figée. */
+  .duup-b1, .duup-b2, .duup-b3, .duup-b4, .duup-b5, .duup-b6 { opacity: 1; transform: none; }
+  .duup-scanline { opacity: 0; }
+  .duup-seq, .duup-pop { opacity: 1; transform: none; }
+  .duup-type, .duup-fill { width: 100%; }
+  /* Séquence figée : seule la 1re étape reste lisible, les autres se superposeraient. */
+  .duup-phase { opacity: 0; }
+  .duup-phase:first-of-type { opacity: 1; }
 }

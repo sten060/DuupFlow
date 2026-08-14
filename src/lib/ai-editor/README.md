@@ -84,11 +84,19 @@ de primitives) + `get_material` (matière, voix, blancs, reprises) → compose u
 
 ## ⚙️ Contraintes techniques (à connaître avant de coder)
 
-- **ffmpeg 4.4 EXACTEMENT** (`@ffmpeg-installer`, binaire de prod — PAS le
-  ffmpeg système 8.x qui masque les incompatibilités). Valider tout nouveau
-  filtergraph sur `node_modules/@ffmpeg-installer/*/ffmpeg`. Ex. connus :
-  `xfade` limité (cf. XFADE_44), `crop` n'anime pas w/h, `zoompan` d=1 pour
-  le zoom animé.
+- **Le moteur ffmpeg est choisi PAR CAPACITÉ, pas par ordre fixe**
+  (`getFfmpegBin` dans `src/lib/studio/pipeline.ts`) : on prend le premier
+  binaire qui possède les filtres requis (`xfade` = marqueur d'un ffmpeg ≥ 4.3),
+  parmi `FFMPEG_BIN` → `ffmpeg-static` → PATH → `@ffmpeg-installer`. Aucun
+  moderne trouvé → on garde l'ancien et on le dit BRUYAMMENT dans les logs.
+  ⚠ Leçon coûteuse : la prod tournait sur `@ffmpeg-installer/linux-x64` figé en
+  **4.1 (2018)** pendant que les tests locaux utilisaient 4.4/8.x. Résultat :
+  toutes les transitions étaient silencieusement remplacées par des coupes
+  (« No such filter: xfade ») et le moteur ancien produisait des montages faux
+  (durées ×9) impossibles à reproduire en local. **Un filtergraph validé
+  localement ne prouve RIEN si le binaire de prod diffère** — d'où la sélection
+  par capacité et le cas de non-régression « transitions » dans le harnais.
+
 - **Budget : 48 entrées ffmpeg max** par rendu (MAX_FFMPEG_INPUTS) — les
   features génératrices d'entrées (wordByWord, karaoké, compteur) doivent se
   DÉGRADER proprement, jamais faire échouer le rendu.

@@ -110,6 +110,19 @@ const CASES: Case[] = [
     expect: 9, tol: 0.8, // 2 + 1 + 2 + 2 + 2
   },
   {
+    // ⛔ RÉGRESSION PROD 2026-08-13 : la prod tournait sur ffmpeg 4.1, où `xfade`
+    // n'existe pas → TOUTES les transitions retombaient silencieusement en coupe
+    // sèche (« No such filter: xfade » dans les logs). Ce cas échoue si le moteur
+    // sélectionné est trop ancien : la durée doit être RACCOURCIE par les fondus.
+    name: "transitions (fondu/slide) — exige un moteur récent",
+    plan: { segments: [
+      { materialId: MID, startSec: 0, endSec: 3 },
+      { materialId: MID, startSec: 5, endSec: 8, transition: "fade", transitionDuration: 0.4 },
+      { materialId: MID, startSec: 10, endSec: 13, transition: "slide", transitionDuration: 0.4 },
+    ] },
+    expect: 8.2, tol: 0.5, // 9 s − 2 × 0,4 s de recouvrement
+  },
+  {
     // ⛔ RÉGRESSION PROD 2026-08-12 : au-delà du plafond d'entrées, on doit
     // REFUSER proprement (message actionnable) et jamais produire un montage
     // faux — le chemin mutualisé rendait ×9 à ×20 la durée prévue.

@@ -18,7 +18,7 @@
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { runFFmpeg } from "@/lib/studio/pipeline";
+import { runFFmpeg, ffmpegBinPath } from "@/lib/studio/pipeline";
 import { FONT_FAMILY, resolveFontKey } from "./font-catalog";
 import { getProject, materialAbsPath, addVariant, projectPaths } from "./store";
 import type { ProjectVariant } from "./store";
@@ -2025,6 +2025,10 @@ async function probeColor(p: string): Promise<SrcColor | null> {
  *  c'est 4× le travail pour rien — mesuré en prod : 409 s pour 29 s de 4K.
  *  On RÉDUIT D'ABORD, on tonemappe ensuite. */
 const PROXY_SHORT_EDGE = Math.max(480, parseInt(process.env.AI_EDITOR_PROXY_SHORT_EDGE ?? "1080", 10));
+/** Réduction SEULE (rush déjà SDR, juste surdimensionné) : même plafond que la
+ *  conversion HDR. Un 4K pour une sortie 1080p, c'est 4× de pixels transportés
+ *  à CHAQUE rendu — on le paie une fois, à l'upload. */
+const DOWNSCALE_FILTER = `scale=w='if(gt(iw\\,ih)\\,-2\\,min(iw\\,${PROXY_SHORT_EDGE}))':h='if(gt(iw\\,ih)\\,min(ih\\,${PROXY_SHORT_EDGE})\\,-2)',format=yuv420p`;
 const HDR_FILTERS = [
   // Réduction AVANT le tonemap (le gain principal), sans jamais agrandir.
   `scale=w='if(gt(iw\,ih)\,-2\,min(iw\,${PROXY_SHORT_EDGE}))':h='if(gt(iw\,ih)\,min(ih\,${PROXY_SHORT_EDGE})\,-2)'`,
@@ -2062,7 +2066,7 @@ async function ffmpegWithTonemap(): Promise<string | null> {
 export async function prepareSdrProxy(abs: string): Promise<void> {
   try {
     const color = await probeColor(abs);
-    if (!color?.isHDR) return;
+    if (!color?.isHDR && !(await isOversized(abs))) return;
     const t0 = Date.now();
     const used = await sdrProxy(abs, color);
     if (used !== abs) console.log(`[ai-editor/material] proxy SDR prêt à l'upload en ${((Date.now() - t0) / 1000).toFixed(1)}s : ${path.basename(used)}`);
@@ -2071,26 +2075,43 @@ export async function prepareSdrProxy(abs: string): Promise<void> {
   }
 }
 
+/** Le rush est-il nettement plus grand que ce qu'on rend ? Une 4K pour une
+ *  sortie 1080p, c'est 4× de pixels transportés à CHAQUE rendu, pour rien.
+ *  Marge de 20 % : on ne convertit pas un fichier à peine trop grand. */
+async function isOversized(abs: string): Promise<boolean> {
+  try {
+    const { stderr } = await runFFmpeg(ffThreaded(["-hide_banner", "-i", abs]), 20_000, 64_000);
+    const line = stderr.split("\n").find((l) => /Stream #.*Video:/.test(l)) ?? "";
+    const m = line.match(/,\s*(\d{2,5})x(\d{2,5})/);
+    if (!m) return false;
+    return Math.min(+m[1], +m[2]) > PROXY_SHORT_EDGE * 1.2;
+  } catch { return false; }
+}
+
 const _proxyInFlight = new Map<string, Promise<string>>();
 async function sdrProxy(abs: string, color: SrcColor | null): Promise<string> {
-  if (!color?.isHDR) return abs;
+  // Deux raisons de fabriquer un proxy : HDR (couleurs fausses sinon) ET/OU
+  // rush surdimensionné (4K pour une sortie 1080p → rendus 3-4× plus lents).
+  if (!color?.isHDR && !(await isOversized(abs))) return abs;
   // Deux rendus lancés en même temps sur le même rush ne doivent pas payer
   // DEUX fois la conversion (plusieurs minutes) : on partage la même promesse.
   const running = _proxyInFlight.get(abs);
   if (running) return running;
-  const task = sdrProxyInner(abs);
+  const task = sdrProxyInner(abs, !!color?.isHDR);
   _proxyInFlight.set(abs, task);
   try { return await task; } finally { _proxyInFlight.delete(abs); }
 }
-async function sdrProxyInner(abs: string): Promise<string> {
+async function sdrProxyInner(abs: string, isHDR: boolean): Promise<string> {
   const proxy = abs.replace(/\.[^.]+$/, "") + ".sdr.mp4";
   try { const st = await fs.stat(proxy); if (st.size > 1000) return proxy; } catch { /* à créer */ }
-  const bin = await ffmpegWithTonemap();
+  // HDR → il faut un ffmpeg capable de tonemapper. Simple allègement → celui du
+  // moteur suffit (n'importe quel ffmpeg sait réduire une image).
+  const bin = isHDR ? await ffmpegWithTonemap() : ffmpegBinPath();
   if (!bin) return abs;
   // Fils : plus généreux que le rendu (c'est un travail unique et bloquant) mais
   // borné, pour ne pas étouffer la duplication vidéo qui tourne en parallèle.
   const proxyThreads = String(FF_THREADS * 2);
-  const args = ["-y", "-hide_banner", "-loglevel", "error", "-threads", proxyThreads, "-i", abs, "-vf", HDR_FILTERS,
+  const args = ["-y", "-hide_banner", "-loglevel", "error", "-threads", proxyThreads, "-i", abs, "-vf", isHDR ? HDR_FILTERS : DOWNSCALE_FILTER,
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p", "-threads", proxyThreads,
     "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
     "-c:a", "copy", "-movflags", "+faststart", proxy];
@@ -2100,8 +2121,8 @@ async function sdrProxyInner(abs: string): Promise<string> {
     const child = execFile(bin, args, { timeout: 10 * 60 * 1000, maxBuffer: 1 << 20 }, (err) => resolve(!err));
     child.on("error", () => resolve(false));
   });
-  if (!ok) { console.warn("[ai-editor/render] conversion HDR→SDR échouée → rush d'origine conservé"); await fs.rm(proxy, { force: true }).catch(() => {}); return abs; }
-  console.log(`[ai-editor/render] proxy SDR créé en ${((Date.now() - t0) / 1000).toFixed(1)}s : ${path.basename(proxy)}`);
+  if (!ok) { console.warn("[ai-editor/render] préparation du proxy échouée → rush d'origine conservé"); await fs.rm(proxy, { force: true }).catch(() => {}); return abs; }
+  console.log(`[ai-editor/render] proxy ${isHDR ? "SDR (HDR converti)" : "allégé"} créé en ${((Date.now() - t0) / 1000).toFixed(1)}s : ${path.basename(proxy)}`);
   return proxy;
 }
 
@@ -2138,14 +2159,56 @@ export async function variantKeyframes(userId: string, projectId: string, stored
 }
 
 /** Keyframes d'un fichier de MATIÈRE (pour get_material : voir un rush précis). */
-export async function materialKeyframes(userId: string, projectId: string, storedName: string, count = 6): Promise<OutKeyframe[]> {
+export async function materialKeyframes(
+  userId: string, projectId: string, storedName: string, count = 6,
+  /** Bornes de segments (moments/coupes) : on prend le MILIEU de chaque portion,
+   *  au lieu d'un intervalle fixe. Un intervalle fixe donnait 5 images sur 29 s —
+   *  une toutes les 6 s — impossible de décider d'un montage avec ça. Et les bords
+   *  d'un segment sont flous/en mouvement : le milieu est l'état stable. */
+  bounds?: number[],
+): Promise<OutKeyframe[]> {
   const filePath = materialAbsPath(userId, projectId, storedName);
   try { await fs.access(filePath); } catch { return []; }
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_mkf_"));
   try {
     const { dur } = await probeAV(filePath);
+    const marks = [...new Set((bounds ?? []).filter((t) => t > 0.05 && t < dur - 0.05))].sort((a, b) => a - b);
+    if (marks.length && dur > 0) {
+      const edges = [0, ...marks, dur];
+      const mids: number[] = [];
+      for (let i = 0; i + 1 < edges.length; i++) {
+        const mid = (edges[i] + edges[i + 1]) / 2;
+        if (mid > 0.05 && mid < dur - 0.05) mids.push(Math.round(mid * 100) / 100);
+      }
+      // Segments les plus LONGS d'abord (les plus informatifs), puis remis dans l'ordre.
+      const picked = mids
+        .map((t, i) => ({ t, len: edges[i + 1] - edges[i] }))
+        .sort((a, b) => b.len - a.len).slice(0, count)
+        .map((x) => x.t).sort((a, b) => a - b);
+      if (picked.length) return await extractKeyframesAt(filePath, picked, dir);
+    }
     return await extractKeyframes(filePath, dur, dir, count);
   } finally {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
+}
+
+/** Vignettes à des instants PRÉCIS (et non répartis) — même encodage que
+ *  extractKeyframes. Un échec unitaire n'annule pas les autres. */
+async function extractKeyframesAt(videoPath: string, times: number[], dir: string): Promise<OutKeyframe[]> {
+  const out: OutKeyframe[] = [];
+  for (let i = 0; i < times.length; i++) {
+    const t = Math.max(0.05, times[i]);
+    const p = path.join(dir, `mkf_${i}.jpg`);
+    const { code } = await runFFmpeg(ffThreaded(
+      ["-hide_banner", "-loglevel", "error", "-ss", t.toFixed(2), "-i", videoPath, "-frames:v", "1", "-vf", "scale=360:-2,format=yuv420p", "-q:v", "6", "-y", p],
+    ), 60_000);
+    if (code !== 0) continue;
+    try {
+      const b = await fs.readFile(p);
+      await fs.unlink(p).catch(() => {});
+      if (b.length > 100 && b[0] === 0xff && b[1] === 0xd8) out.push({ t: Math.round(t * 100) / 100, dataUri: `data:image/jpeg;base64,${b.toString("base64")}` });
+    } catch { /* image suivante */ }
+  }
+  return out;
 }

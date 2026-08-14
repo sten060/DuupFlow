@@ -15,37 +15,64 @@ import type { ReelFormat } from "./types";
 // ── Résolution du binaire ffmpeg (au RUNTIME, jamais via import) ─────────────
 // Importer @ffmpeg-installer ici casserait le bundling webpack des routes
 // App Router (require dynamique du package par plateforme → webpackEmptyContext).
-// On résout donc le chemin sur disque à l'exécution, comme getFFmpegBin() de
-// processVideos.ts : env → binaire node_modules de la plateforme → PATH.
+// On résout donc le chemin sur disque à l'exécution.
+//
+// ⚠️ ON CHOISIT PAR CAPACITÉ, PAS PAR ORDRE FIXE. La prod tournait sur le
+// binaire @ffmpeg-installer, figé en 4.1 (2018) : `xfade` n'existe pas → TOUTES
+// les transitions étaient silencieusement remplacées par des coupes sèches, et
+// ce moteur ancien produisait des montages faux (durées ×9) que les tests
+// locaux — sur un ffmpeg récent — ne reproduisaient jamais. On prend donc le
+// PREMIER binaire qui sait faire ce dont le moteur a besoin, et on retombe sur
+// l'ancien si aucun moderne n'est disponible (jamais pire qu'avant).
+const REQUIRED_FILTERS = ["xfade"]; // marqueur d'un ffmpeg ≥ 4.3
 let _ffmpegBin: string | null = null;
+
+function hasFilters(bin: string): boolean {
+  try {
+    const out = execSync(`"${bin}" -hide_banner -filters 2>/dev/null`, { encoding: "utf8", shell: "/bin/sh", maxBuffer: 8 << 20 });
+    return REQUIRED_FILTERS.every((f) => out.includes(` ${f} `));
+  } catch { return false; }
+}
+
+function candidateBins(): string[] {
+  const list: string[] = [];
+  const fromEnv = process.env.FFMPEG_BIN || process.env.FFMPEG_PATH;
+  if (fromEnv) list.push(fromEnv);
+  // ffmpeg-static : build RÉCENT (ffmpeg 6+), installé sur la plateforme cible.
+  // ⚠ On vise le fichier SUR DISQUE, jamais `require("ffmpeg-static")` : webpack
+  // bundlerait le module et le chemin résolu pointerait vers le chunk (c'est
+  // exactement le piège documenté plus haut pour @ffmpeg-installer).
+  list.push(path.join(process.cwd(), "node_modules", "ffmpeg-static", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg"));
+  // ffmpeg du système (nixpacks/brew) — souvent récent.
+  try {
+    const found = execSync("command -v ffmpeg", { encoding: "utf8", shell: "/bin/sh" }).trim();
+    if (found) list.push(found);
+  } catch { /* pas dans le PATH */ }
+  // Repli historique : @ffmpeg-installer (4.1 sur Linux, 4.4 sur macOS).
+  list.push(path.join(process.cwd(), "node_modules", "@ffmpeg-installer", `${process.platform}-${process.arch}`, "ffmpeg"));
+  return list.filter((x, i) => x && list.indexOf(x) === i);
+}
+
 function getFfmpegBin(): string {
   if (_ffmpegBin) return _ffmpegBin;
-
-  const fromEnv = process.env.FFMPEG_BIN || process.env.FFMPEG_PATH;
-  if (fromEnv && fsSync.existsSync(fromEnv)) return (_ffmpegBin = fromEnv);
-
-  const installed = path.join(
-    process.cwd(),
-    "node_modules",
-    "@ffmpeg-installer",
-    `${process.platform}-${process.arch}`,
-    "ffmpeg"
-  );
-  if (fsSync.existsSync(installed)) return (_ffmpegBin = installed);
-
-  try {
-    const found = execSync("command -v ffmpeg", {
-      encoding: "utf8",
-      shell: "/bin/sh",
-    }).trim();
-    if (found && fsSync.existsSync(found)) return (_ffmpegBin = found);
-  } catch {
-    /* pas dans le PATH */
+  const cands = candidateBins().filter((b) => b === "ffmpeg" || fsSync.existsSync(b));
+  // 1er passage : un binaire COMPLET (xfade → transitions réelles).
+  for (const b of cands) {
+    if (hasFilters(b)) {
+      console.log(`[ffmpeg] moteur : ${b} (complet)`);
+      return (_ffmpegBin = b);
+    }
   }
-  throw new Error(
-    "ffmpeg introuvable (ni FFMPEG_BIN, ni @ffmpeg-installer, ni PATH)"
-  );
+  // 2e passage : n'importe lequel qui existe, en le signalant BRUYAMMENT.
+  if (cands.length) {
+    console.warn(`[ffmpeg] ⚠ moteur ANCIEN : ${cands[0]} — filtres manquants (${REQUIRED_FILTERS.join(", ")}) : les transitions seront remplacées par des coupes.`);
+    return (_ffmpegBin = cands[0]);
+  }
+  throw new Error("ffmpeg introuvable (ni FFMPEG_BIN, ni ffmpeg-static, ni PATH, ni @ffmpeg-installer)");
 }
+
+/** Chemin du binaire ffmpeg réellement utilisé (sélection par capacité). */
+export function ffmpegBinPath(): string { return getFfmpegBin(); }
 
 // ── Utilitaires ──────────────────────────────────────────────────────────────
 

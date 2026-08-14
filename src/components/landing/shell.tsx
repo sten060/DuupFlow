@@ -22,6 +22,8 @@ export const BLUE = "#4686FE";
 export const INK = "#1a1a1a";
 export const GRAY = "#605f5f";
 export const CTA_GRAD = "linear-gradient(135deg,#4f7bff 0%,#7c5cff 100%)";
+/* Fond des cartes claires de la landing (features, comparatif…) */
+export const CARD_BG = "linear-gradient(180deg,#fcfcfe 0%,#f1f3f7 100%)";
 
 /* Wordmark "DuupFlow" — "Flow" en dégradé de marque (comme la navbar).
    À utiliser partout où le nom apparaît en texte visible. */
@@ -90,11 +92,34 @@ export function NavPill() {
   );
 }
 
-/* ── Petit label de section ── */
-export function Label({ children }: { children: React.ReactNode }) {
+/* ══ Échelle typographique des sections ══
+   Un seul jeu de valeurs pour toute la landing : titres, chapôs et eyebrows.
+   Toute section qui s'en écarte crée une incohérence visible. */
+export const SECTION_TITLE = "font-semibold tracking-[-0.03em] text-[#1a1a1a]";
+export const SECTION_TITLE_STYLE = { fontSize: "clamp(30px, 4vw, 46px)", lineHeight: 1.08 } as const;
+export const SECTION_LEAD = "text-[16px] leading-relaxed text-[#605f5f] sm:text-[17px]";
+
+/* ── Eyebrow de section : un seul style sur toute la page ──
+   Reprend la pastille signature de la landing (dégradé blanc → bleu → violet,
+   liseré blanc, ombre colorée diffuse) plutôt qu'un simple aplat teinté. */
+export function Label({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-full bg-black/[0.04] px-3.5 py-1.5 text-[13px] font-medium text-[#1a1a1a] ring-1 ring-black/5">
-      {children}
+    <span
+      /* min-h : sans elle, une pastille sans icône serait 8 px plus basse. */
+      className="inline-flex min-h-[48px] items-center gap-2.5 rounded-full py-2.5 pl-2.5 pr-5 text-[13px] font-semibold uppercase tracking-[0.11em] shadow-[0_14px_34px_rgba(100,90,240,0.22)] ring-1 ring-white/80 backdrop-blur"
+      style={{ background: "linear-gradient(135deg,#ffffff 0%,#e9efff 52%,#efe8ff 100%)" }}
+    >
+      {icon && (
+        <span className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-[0_4px_10px_rgba(90,90,240,0.35)]" style={{ background: CTA_GRAD }}>
+          {icon}
+        </span>
+      )}
+      <span
+        className={icon ? "" : "pl-2.5"}
+        style={{ backgroundImage: CTA_GRAD, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}
+      >
+        {children}
+      </span>
     </span>
   );
 }
@@ -144,7 +169,9 @@ const FOOTER_SOCIALS = [
   { name: "X", d: "M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" },
 ];
 function FooterCol({ title, links }: { title: string; links: [string, string][] }) {
-  const linkClass = "text-sm text-white/70 transition hover:text-white";
+  /* inline-block + py : sans ça la zone tactile fait 18 px de haut sur mobile,
+     bien en dessous du minimum confortable au pouce. */
+  const linkClass = "inline-block py-1.5 text-sm text-white/70 transition hover:text-white";
   return (
     <div>
       <h4 className="text-sm font-semibold text-white">{title}</h4>
@@ -203,9 +230,9 @@ export function Footer() {
               </Link>
             </div>
             <div className="mt-5 flex gap-5 text-sm text-white/70">
-              <Link href="/legal/terms" className="transition hover:text-white">{en ? "Terms" : "CGU"}</Link>
-              <Link href="/legal/privacy" className="transition hover:text-white">{en ? "Privacy" : "Confidentialité"}</Link>
-              <Link href="/legal" className="transition hover:text-white">{en ? "Legal" : "Mentions légales"}</Link>
+              <Link href="/legal/terms" className="inline-block py-1.5 transition hover:text-white">{en ? "Terms" : "CGU"}</Link>
+              <Link href="/legal/privacy" className="inline-block py-1.5 transition hover:text-white">{en ? "Privacy" : "Confidentialité"}</Link>
+              <Link href="/legal" className="inline-block py-1.5 transition hover:text-white">{en ? "Legal" : "Mentions légales"}</Link>
             </div>
           </div>
         </div>

@@ -3,7 +3,10 @@
 import Link from "@/components/LocaleLink";
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import { BLUE, CTA_GRAD, Label, NavPill, Footer, SmoothScroll, Brand, FlipInner } from "@/components/landing/shell";
+import { BLUE, CTA_GRAD, Label, NavPill, Footer, SmoothScroll, Brand, FlipInner, SECTION_LEAD, SECTION_TITLE, SECTION_TITLE_STYLE } from "@/components/landing/shell";
+import BeforeAfter from "@/components/landing/BeforeAfter";
+import FeatureSections from "@/components/landing/FeatureSections";
+import OutputGallery from "@/components/landing/OutputGallery";
 
 /* ══════════════════════════════════════════════════════════════
  * LANDING — refonte façon template "Lunera" (thème clair, Geist).
@@ -86,7 +89,7 @@ function Hero() {
       <FloatingSocials />
 
       <div className="relative z-10 mx-auto max-w-5xl px-6 pt-40 text-center sm:pt-48">
-        <span className="duup-flip mb-6 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-[#1a1a1a] shadow-[0_6px_20px_rgba(20,40,90,0.06)] ring-1 ring-black/[0.06] backdrop-blur">
+        <span className="duup-flip mb-6 inline-flex max-w-full items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[12px] font-medium text-[#1a1a1a] shadow-[0_6px_20px_rgba(20,40,90,0.06)] ring-1 ring-black/[0.06] backdrop-blur sm:px-4 sm:text-[13px]">
           <FlipInner>
             <img src="/logo-mark.png" alt="" className="h-4 w-4 object-contain" />
             <span>{en ? <>500 creators &amp; agencies repost with <Brand /></> : <>500 créateurs et agences repost avec <Brand /></>}</span>
@@ -155,547 +158,21 @@ function DemoBlock() {
   );
 }
 
-/* ─── FEATURES (bento) ─── */
-const CARD_BG = "linear-gradient(180deg,#fcfcfe 0%,#f1f3f7 100%)";
-/* Covers vidéo réelles (frames extraites — statiques, pas de lecture) */
-const COVERS = ["/videos/cover-1.jpg", "/videos/cover-2.jpg"];
-const CLIPS = ["/videos/clip-1.jpg", "/videos/clip-2.jpg", "/videos/clip-3.jpg", "/videos/clip-4.jpg", "/videos/clip-5.jpg", "/videos/clip-6.jpg"];
-
-/* Duplication : 1 média vertical → copies uniques empilées */
-function DupStack() {
-  return (
-    <div className="relative mx-auto h-[210px] w-[176px]">
-      <div className="absolute left-[48px] top-[24px] h-[185px] w-[104px] rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_6px_16px_rgba(20,40,90,0.05)]" />
-      <div className="absolute left-[24px] top-[12px] h-[185px] w-[104px] rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_10px_24px_rgba(20,40,90,0.07)]" />
-      <div className="absolute left-0 top-0 h-[185px] w-[104px] overflow-hidden rounded-2xl ring-1 ring-black/5 shadow-[0_14px_34px_rgba(20,40,90,0.12)]">
-        <img src={CLIPS[3]} alt="" className="h-full w-full object-cover" />
-      </div>
-      <div className="absolute bottom-1 right-0 rounded-full bg-[#1a1a1a] px-3 py-1 text-[13px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.2)]">× ∞</div>
-    </div>
-  );
-}
-/* Variation automatique : réglages paramétrés tout seuls */
-function AutoPanel() {
-  const en = useLocale() === "en";
-  const rows: [string, string][] = en
-    ? [["Metadata", "Device · date · GPS"], ["Re-encoding", "H.264 · bitrate"], ["Magic pixel", "Invisible noise"]]
-    : [["Métadonnées", "Appareil · date · GPS"], ["Réencodage", "H.264 · bitrate"], ["Pixel magique", "Bruit invisible"]];
-  return (
-    <div className="w-full max-w-[262px] rounded-2xl bg-white p-3.5 ring-1 ring-black/5 shadow-[0_10px_28px_rgba(20,40,90,0.08)]">
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-[12px] font-semibold text-[#1a1a1a]">{en ? "Settings" : "Réglages"}</span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-[#4686FE]/10 px-2 py-0.5 text-[11px] font-medium" style={{ color: BLUE }}>
-          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 1.9 4.8L18 9.5l-4.1 1.7L12 16l-1.9-4.8L6 9.5l4.1-1.7Z" /></svg>Auto
-        </span>
-      </div>
-      {rows.map(([t, s], i) => (
-        <div key={i} className="flex items-center justify-between border-t border-black/[0.06] py-2">
-          <div><p className="text-[12px] font-medium text-[#1a1a1a]">{t}</p><p className="text-[10px] text-[#8a8a8a]">{s}</p></div>
-          <span className="flex h-4 w-7 items-center rounded-full px-0.5" style={{ background: BLUE }}><span className="ml-auto h-3 w-3 rounded-full bg-white" /></span>
-        </div>
-      ))}
-    </div>
-  );
-}
-/* Anti-détection IA : bouclier + jauge détectée → propre */
-function AntiAI() {
-  const en = useLocale() === "en";
-  return (
-    <div className="flex w-full max-w-[220px] flex-col items-center">
-      <div className="flex h-[90px] w-[90px] items-center justify-center rounded-full" style={{ background: "radial-gradient(circle, rgba(70,134,254,0.16), transparent 70%)" }}>
-        <svg className="h-14 w-14" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v5c0 4.4-3 8-7 10-4-2-7-5.6-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
-      </div>
-      <div className="mt-4 w-full">
-        <div className="flex justify-between text-[10px] font-medium"><span className="text-rose-400 line-through">{en ? "AI detected" : "IA détectée"}</span><span className="text-emerald-500">{en ? "Clean ✓" : "Propre ✓"}</span></div>
-        <div className="mt-1.5 h-2 rounded-full bg-black/[0.06]"><div className="h-2 w-full rounded-full bg-gradient-to-r from-rose-300 via-amber-300 to-emerald-400" /></div>
-      </div>
-    </div>
-  );
-}
-/* Éditeur IA : montage piloté par conversation (Claude) → variantes prêtes */
-function AiEditorPanel() {
-  const en = useLocale() === "en";
-  return (
-    <div className="w-full max-w-[300px] rounded-2xl bg-white p-3.5 ring-1 ring-black/5 shadow-[0_10px_28px_rgba(20,40,90,0.08)]">
-      {/* En-tête : logo Claude + statut */}
-      <div className="mb-3 flex items-center gap-2">
-        <img src="/claude-color.svg" alt="Claude" className="h-5 w-5" />
-        <span className="text-[12px] font-semibold text-[#1a1a1a]">{en ? "AI Editor" : "Éditeur IA"}</span>
-        <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-[#4686FE]/10 px-2 py-0.5 text-[10px] font-medium" style={{ color: BLUE }}>
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: BLUE }} />{en ? "Live" : "En ligne"}
-        </span>
-      </div>
-      {/* Prompt utilisateur */}
-      <div className="mb-2 ml-auto w-fit max-w-[88%] rounded-2xl rounded-tr-sm bg-[#1a1a1a] px-3 py-2 text-[11px] leading-snug text-white">
-        {en ? "Dynamic cut, captions on the beat" : "Montage dynamique, captions sur les beats"}
-      </div>
-      {/* Réponse IA */}
-      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-[#605f5f]">
-        <img src="/claude-color.svg" alt="" className="h-3.5 w-3.5" />
-        {en ? "3 variations ready" : "3 variantes prêtes"}
-      </div>
-      {/* Variantes générées */}
-      <div className="grid grid-cols-3 gap-1.5">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="relative aspect-[9/16] overflow-hidden rounded-lg ring-1 ring-black/5">
-            <img src={CLIPS[i]} alt="" className="h-full w-full object-cover" />
-            <span className="absolute right-1 top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-white shadow" style={{ background: BLUE }}>
-              <svg className="h-2 w-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="M20 6 9 17l-5-5" /></svg>
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-/* Scraper : grille du profil, meilleurs clips sélectionnés */
-function ScraperGrid() {
-  const en = useLocale() === "en";
-  const clips: { v: string; best?: boolean }[] = [{ v: "1.2M", best: true }, { v: "840K", best: true }, { v: "12K" }, { v: "3K" }, { v: "620K", best: true }, { v: "9K" }];
-  return (
-    <div className="w-full max-w-[260px]">
-      <div className="mb-2.5 flex items-center gap-2">
-        <span className="h-6 w-6 rounded-full bg-gradient-to-br from-[#dbe6ff] to-[#e6ddff]" />
-        <span className="text-[12px] font-semibold text-[#1a1a1a]">{en ? "@your_account" : "@ton_compte"}</span>
-        <span className="ml-auto text-[10px] font-medium" style={{ color: BLUE }}>Top clips</span>
-      </div>
-      <div className="grid grid-cols-3 gap-1.5">
-        {clips.map((c, i) => (
-          <div key={i} className={`relative aspect-[9/16] overflow-hidden rounded-lg ring-1 ring-black/5 ${c.best ? "ring-2 ring-[#4686FE]" : ""}`}>
-            <img src={CLIPS[i % CLIPS.length]} alt="" className={`h-full w-full object-cover ${c.best ? "" : "opacity-60 grayscale-[0.3]"}`} />
-            {c.best && (
-              <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full text-white shadow" style={{ background: BLUE }}>
-                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="M20 6 9 17l-5-5" /></svg>
-              </span>
-            )}
-            <span className="absolute bottom-1 left-1 rounded bg-black/45 px-1 py-px text-[8px] font-semibold text-white">{c.v}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-const CARD_BACK = "linear-gradient(160deg,#4f7bff 0%,#6a68ff 48%,#8a5cff 100%)";
-function FeatCard({ span, title, desc, back, children }: { span: string; title: string; desc: string; back: string; children: React.ReactNode }) {
-  return (
-    <div className={`${span} group h-[380px] [perspective:1400px]`}>
-      <div className="relative h-full w-full transition-transform duration-[650ms] ease-[cubic-bezier(0.22,1,0.36,1)] [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
-        {/* Recto */}
-        <div className="absolute inset-0 flex flex-col overflow-hidden rounded-[28px] p-7 ring-1 ring-black/[0.06] [backface-visibility:hidden]" style={{ background: CARD_BG }}>
-          <h3 className="text-[22px] font-semibold tracking-tight text-[#1a1a1a]">{title}</h3>
-          <p className="mt-2 max-w-xs text-[15px] leading-relaxed text-[#605f5f]">{desc}</p>
-          <div className="mt-6 flex flex-1 items-end justify-center">{children}</div>
-        </div>
-        {/* Verso */}
-        <div className="absolute inset-0 flex flex-col justify-center overflow-hidden rounded-[28px] p-7 text-white ring-1 ring-white/10 [backface-visibility:hidden] [transform:rotateY(180deg)]" style={{ background: CARD_BACK }}>
-          <h3 className="text-[20px] font-semibold tracking-tight">{title}</h3>
-          <p className="mt-3 text-[14px] leading-relaxed text-white/90">{back}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-function FeatCardWide({ span, title, desc, back, children }: { span: string; title: string; desc: string; back: string; children: React.ReactNode }) {
-  return (
-    <div className={`${span} group h-[340px] [perspective:1600px]`}>
-      <div className="relative h-full w-full transition-transform duration-[650ms] ease-[cubic-bezier(0.22,1,0.36,1)] [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
-        {/* Recto */}
-        <div className="absolute inset-0 flex items-center gap-6 overflow-hidden rounded-[28px] p-7 ring-1 ring-black/[0.06] [backface-visibility:hidden]" style={{ background: CARD_BG }}>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-[22px] font-semibold tracking-tight text-[#1a1a1a]">{title}</h3>
-            <p className="mt-2 text-[15px] leading-relaxed text-[#605f5f]">{desc}</p>
-          </div>
-          <div className="flex w-[46%] shrink-0 items-center justify-center">{children}</div>
-        </div>
-        {/* Verso */}
-        <div className="absolute inset-0 flex flex-col justify-center overflow-hidden rounded-[28px] p-8 text-white ring-1 ring-white/10 [backface-visibility:hidden] [transform:rotateY(180deg)]" style={{ background: CARD_BACK }}>
-          <h3 className="text-[20px] font-semibold tracking-tight">{title}</h3>
-          <p className="mt-3 max-w-lg text-[14px] leading-relaxed text-white/90">{back}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-const FEATURES = [
-  {
-    wide: false, art: <DupStack />,
-    fr: { title: "Duplication vidéos & images", desc: "Transforme 1 fichier en autant de copies uniques que tu veux, en quelques secondes.", back: "Chaque copie est entièrement ré-encodée : une empreinte binaire neuve, tout en conservant ta résolution et ta qualité d'origine (une 1080p reste 1080p, une 4K reste 4K). Fonctionne sur les vidéos (mp4, mov, mkv, avi, webm) comme sur les images." },
-    en: { title: "Video & image duplication", desc: "Turn 1 file into as many unique copies as you want, in seconds.", back: "Each copy is fully re-encoded: a brand-new binary fingerprint, while keeping your original resolution and quality (1080p stays 1080p, 4K stays 4K). Works on videos (mp4, mov, mkv, avi, webm) and images alike." },
-  },
-  {
-    wide: false, art: <AutoPanel />,
-    fr: { title: "Variation automatique", desc: "Métadonnées, réencodage, pixel magique : DuupFlow paramètre tout à ta place.", back: "DuupFlow applique seul les bons traitements : micro-ajustements visuels (luminosité, saturation, teinte, gamma) sous le seuil de l'œil, réécriture des métadonnées techniques (EXIF, DPI, logiciel plausible, GPS, option iPhone réaliste) et « pixel magique » (micro-recadrage + bruit) qui casse l'empreinte pixel. Zéro réglage." },
-    en: { title: "Automatic variation", desc: "Metadata, re-encoding, magic pixel: DuupFlow sets everything up for you.", back: "DuupFlow applies the right treatments on its own: sub-perceptual visual micro-adjustments (brightness, saturation, hue, gamma), rewriting of technical metadata (EXIF, DPI, plausible software, GPS, realistic iPhone option) and a “magic pixel” (micro-crop + noise) that breaks the pixel fingerprint. Zero setup." },
-  },
-  {
-    wide: false, art: <AntiAI />,
-    fr: { title: "Anti-détection IA", desc: "Efface les signatures IA (C2PA) pour que tes contenus passent comme du natif.", back: "Retire les signatures d'IA — dont le standard C2PA — de tes fichiers, puis réécrit une identité crédible de contenu « tourné par un humain » : appareil photo réel (Canon, Sony, iPhone…), logiciel d'édition courant, date récente et localisation cohérentes." },
-    en: { title: "AI-detection bypass", desc: "Strips AI signatures (C2PA) so your content passes as native.", back: "Removes AI signatures — including the C2PA standard — from your files, then rewrites a credible “shot by a human” identity: real camera (Canon, Sony, iPhone…), common editing software, recent date and consistent location." },
-  },
-  {
-    wide: true, art: <AiEditorPanel />,
-    fr: { title: "Éditeur IA", desc: "Décris ton montage : l'IA l'assemble depuis tes rushes et sort autant de variantes que tu veux.", back: "Un agent de montage piloté par Claude : tu uploades tes rushes, tu donnes une vidéo de référence, tu décris le résultat. L'IA reproduit le style — coupes calées sur les beats, sous-titres animés, effets, recadrage — et génère des variantes réellement distinctes, modifiables à la demande." },
-    en: { title: "AI Editor", desc: "Describe your edit: the AI builds it from your footage and outputs as many variations as you want.", back: "A Claude-powered editing agent: you upload your footage, hand it a reference video, describe the result. The AI reproduces the style — beat-synced cuts, animated captions, effects, reframing — and generates genuinely distinct variations, editable on demand." },
-  },
-  {
-    wide: true, art: <ScraperGrid />,
-    fr: { title: "Scraper de profil", desc: "Sélectionne tes meilleurs clips directement depuis ton compte et duplique-les en un clic.", back: "Connecte ton profil (Instagram, TikTok) : DuupFlow scanne tes publications sur une période donnée, les classe par performance (portée via vues ou likes + taux d'engagement) et fait remonter tes meilleurs clips — prêts à dupliquer directement." },
-    en: { title: "Profile scraper", desc: "Pick your best clips straight from your account and duplicate them in one click.", back: "Connect your profile (Instagram, TikTok): DuupFlow scans your posts over a chosen period, ranks them by performance (reach via views or likes + engagement rate) and surfaces your best clips — ready to duplicate directly." },
-  },
-];
-function Features() {
+/* ─── CTA court (entre la galerie et les témoignages) ─── */
+function GalleryCTA() {
   const loc = useLocale();
   return (
-    <section id="features" className="px-6 py-20 sm:py-28">
-      <div className="mx-auto max-w-6xl">
-        <div className="text-center">
-          <Label>{loc === "en" ? "Features" : "Fonctionnalités"}</Label>
-          <h2 className="mx-auto mt-5 max-w-2xl font-semibold tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(30px, 4vw, 46px)", lineHeight: 1.08 }}>
-            {loc === "en" ? "Everything to scale your content production." : "Tout pour scaler ta production de contenu."}
-          </h2>
-        </div>
-        <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-6">
-          {FEATURES.map((f, i) => {
-            const c = f[loc];
-            return f.wide
-              ? <FeatCardWide key={i} span="sm:col-span-3" title={c.title} desc={c.desc} back={c.back}>{f.art}</FeatCardWide>
-              : <FeatCard key={i} span="sm:col-span-2" title={c.title} desc={c.desc} back={c.back}>{f.art}</FeatCard>;
-          })}
-        </div>
-
-        {/* CTA — voir les tarifs / voir la FAQ */}
-        <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href="/pricing"
-            className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-medium text-white shadow-[0_12px_34px_rgba(90,90,240,0.4)] transition hover:opacity-90"
-            style={{ background: CTA_GRAD }}>
-            {loc === "en" ? "See pricing" : "Voir les tarifs"}
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-          </Link>
-          <Link href="/#faq"
-            className="inline-flex items-center rounded-full border border-black/10 bg-white px-7 py-3.5 text-[15px] font-medium text-[#1a1a1a] shadow-[0_10px_30px_rgba(20,40,90,0.06)] transition hover:bg-neutral-50">
-            {loc === "en" ? "See the FAQ" : "Voir la FAQ"}
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ─── INTÉGRATIONS (covers vidéo qui pop en séquence horaire) ─── */
-// Ordre = sens des aiguilles d'une montre depuis midi (top → droite → bas-droite → bas-gauche → gauche)
-// Pool de covers : l'actuelle + 5 autres du dossier, qui tournent toutes les 1,5 s
-const INT_POOL = ["/videos/int-cover.jpg", CLIPS[0], CLIPS[1], CLIPS[2], CLIPS[3], CLIPS[4]];
-const REEL_TILES = [
-  { order: 0, left: "50%", top: "7%", rot: 0 },    // 12h
-  { order: 1, left: "91%", top: "27%", rot: 8 },   // 3h
-  { order: 2, left: "94%", top: "81%", rot: 14 },  // 5h
-  { order: 3, left: "6%", top: "81%", rot: -14 },  // 7h
-  { order: 4, left: "9%", top: "27%", rot: -8 },   // 9h
-];
-const AVOID = {
-  fr: ["Le shadow ban de comptes", "Les contenus restreints", "Le contenu non-original"],
-  en: ["Account shadow bans", "Restricted content", "Non-original content"],
-};
-function Integrations() {
-  const loc = useLocale();
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [shown, setShown] = useState(false);
-  const [cover, setCover] = useState(0);
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setShown(true); io.disconnect(); } },
-      { threshold: 0.55, rootMargin: "0px 0px -14% 0px" }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  useEffect(() => {
-    const id = setInterval(() => setCover((c) => c + 1), 1500);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <section className="px-6 py-20 sm:py-24">
-      <div ref={wrapRef} className="mx-auto max-w-6xl text-center">
-        <h2 className="mx-auto max-w-2xl font-semibold tracking-[-0.03em] text-[#1a1a1a]"
-          style={{
-            fontSize: "clamp(30px, 4vw, 46px)", lineHeight: 1.08,
-            opacity: shown ? 1 : 0,
-            transform: shown ? "translateY(0)" : "translateY(26px)",
-            transition: "opacity .7s ease, transform .8s cubic-bezier(0.16,1,0.3,1)",
-          }}>
-          {loc === "en" ? "One video, repost everywhere." : "Une vidéo, reposter partout."}
-        </h2>
-        <div className="mt-16 grid items-center gap-14 lg:mt-20 lg:grid-cols-[1fr_auto_0.9fr] lg:gap-28">
-          {/* Gauche : l'arc de covers — se rétrécit + se décale à gauche à l'apparition */}
-          <div
-            className="relative mx-auto h-[400px] w-full max-w-xl sm:h-[460px]"
-            style={{
-              opacity: shown ? 1 : 0,
-              transform: shown ? "translateX(0) scale(1)" : "translateX(20%) scale(1.16)",
-              transition: "transform 1s cubic-bezier(0.16,1,0.3,1), opacity .7s ease",
-            }}
-          >
-            <div aria-hidden className="absolute inset-x-6 bottom-4 top-[24%] rounded-t-full"
-              style={{ background: "radial-gradient(62% 78% at 50% 100%, rgba(116,142,255,0.34), rgba(116,142,255,0.13) 50%, transparent 76%)" }} />
-            {/* Texte central */}
-            <div className="absolute left-1/2 top-1/2 z-10 w-[200px] -translate-x-1/2 -translate-y-1/2 sm:w-[236px]">
-              <p className="font-semibold tracking-[-0.02em] text-[#1a1a1a]" style={{ fontSize: "clamp(20px, 2.6vw, 27px)", lineHeight: 1.2 }}>
-                {loc === "en" ? <>Multiply &amp; repost your content effortlessly</> : <>Multiplie &amp; repost ton contenu sans effort</>}
-              </p>
-            </div>
-            {/* Covers vidéo */}
-            {REEL_TILES.map((t) => {
-              const src = INT_POOL[cover % INT_POOL.length];
-              return (
-                <div
-                  key={t.order}
-                  className="absolute w-[66px] sm:w-[82px]"
-                  style={{
-                    left: t.left,
-                    top: t.top,
-                    perspective: "700px",
-                    opacity: shown ? 1 : 0,
-                    transform: `translate(-50%,-50%) rotate(${shown ? t.rot : t.rot - 12}deg) scale(${shown ? 1 : 0.15})`,
-                    transition: "opacity .5s ease, transform .7s cubic-bezier(0.34,1.56,0.64,1)",
-                    transitionDelay: `${(shown ? t.order : 0) * 0.16}s`,
-                  }}
-                >
-                  <div key={src} className="lunera-flip overflow-hidden rounded-[18px] bg-[#e9edf5] p-1 shadow-[0_16px_40px_rgba(20,40,90,0.16)] ring-1 ring-black/5">
-                    <div className="relative aspect-[9/16] overflow-hidden rounded-[13px]">
-                      <img src={src} alt="" className="h-full w-full object-cover" />
-                      <span className="absolute inset-0 flex items-center justify-center">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm sm:h-7 sm:w-7">
-                          <svg className="h-3 w-3 translate-x-px text-[#1a1a1a] sm:h-3.5 sm:w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Centre : trait vertical (grandit à l'apparition) */}
-          <div aria-hidden className="hidden h-[320px] w-px origin-center bg-gradient-to-b from-transparent via-black/15 to-transparent lg:block"
-            style={{ opacity: shown ? 1 : 0, transform: shown ? "scaleY(1)" : "scaleY(0)", transition: "transform .9s cubic-bezier(0.22,1,0.36,1) .35s, opacity .5s ease .35s" }} />
-
-          {/* Droite : "Avec DuupFlow évite" */}
-          <div className="text-left">
-            <h3 className="font-semibold tracking-[-0.02em] text-[#1a1a1a]"
-              style={{
-                fontSize: "clamp(22px, 2.6vw, 30px)", lineHeight: 1.15,
-                opacity: shown ? 1 : 0,
-                transform: shown ? "translateX(0)" : "translateX(32px)",
-                transition: "opacity .6s ease .35s, transform .7s cubic-bezier(0.16,1,0.3,1) .35s",
-              }}>
-              {loc === "en" ? <>With <Brand />, you avoid:</> : <>Avec <Brand />, tu évites :</>}
-            </h3>
-            <ul className="mt-6 space-y-3">
-              {AVOID[loc].map((txt, i) => (
-                <li key={i}
-                  style={{
-                    opacity: shown ? 1 : 0,
-                    transform: shown ? "translateX(0) scale(1)" : "translateX(52px) scale(0.94)",
-                    transition: "opacity .55s ease, transform .65s cubic-bezier(0.16,1,0.3,1)",
-                    transitionDelay: `${(shown ? i : 0) * 0.16 + 0.55}s`,
-                  }}
-                >
-                  <div
-                    className="flex items-center gap-3 rounded-2xl px-4 py-3.5 ring-1 ring-black/[0.06] shadow-[0_8px_22px_rgba(20,40,90,0.05)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(20,40,90,0.12)]"
-                    style={{ background: CARD_BG }}
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500 ring-1 ring-red-100">
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
-                    </span>
-                    <span className="text-[15px] font-medium text-[#1a1a1a]">{txt}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ─── HOW IT WORKS ─── (2 colonnes : titre gauche, cartes empilées droite) */
-function VariantsRow() {
-  const en = useLocale() === "en";
-  return (
-    <div className="w-full">
-      <div className="mb-3.5 flex items-center justify-center gap-2 text-[12px] font-medium">
-        <span className="rounded-md bg-white px-2.5 py-1 text-[#1a1a1a] ring-1 ring-black/5">reel.mp4</span>
-        <svg className="h-4 w-4 text-[#8a8a8a]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-        <span className="rounded-md px-2.5 py-1 text-white" style={{ background: BLUE }}>{en ? "20 unique" : "20 uniques"}</span>
-      </div>
-      <div className="grid grid-cols-5 gap-2">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="relative aspect-[9/16] overflow-hidden rounded-md ring-1 ring-black/5">
-            <img src={COVERS[i % COVERS.length]} alt="" className="h-full w-full object-cover" />
-            <span className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-white shadow" style={{ background: BLUE }}>
-              <svg className="h-2 w-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="M20 6 9 17l-5-5" /></svg>
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-const DISPATCH_NETS = [
-  { name: "Instagram", logo: "/instagram%20(1)%20copie.png", handle: "@repost.officiel" },
-  { name: "TikTok", logo: "/tik-tok%20copie.png", handle: "@clips.daily" },
-  { name: "YouTube", logo: "/youtube%20copie.png", handle: "@shorts.hub" },
-  { name: "X", logo: "/twitter%20copie.png", handle: "@viral.feed" },
-  { name: "Reddit", logo: "/reddit%20copie.png", handle: "@u/reposter" },
-  { name: "Threads", logo: "/threads%20copie.png", handle: "@threads.repost" },
-];
-function DispatchList() {
-  const en = useLocale() === "en";
-  // Rotation rapide 1 à 1 : une seule ligne se remplace à chaque tick (round-robin)
-  const [rows, setRows] = useState([0, 1, 2]);
-  useEffect(() => {
-    let turn = 0;   // ligne à remplacer
-    let ptr = 3;    // prochain réseau à assigner
-    const id = setInterval(() => {
-      const r = turn % 3;
-      const val = ptr % DISPATCH_NETS.length;
-      setRows((prev) => { const n = [...prev]; n[r] = val; return n; });
-      turn++; ptr++;
-    }, 650);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <div className="w-full space-y-2.5">
-      {[0, 1, 2].map((row) => {
-        const net = DISPATCH_NETS[rows[row]];
-        const avatar = CLIPS[rows[row] % CLIPS.length];
-        return (
-          <div key={row} className="flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 ring-1 ring-black/5 shadow-[0_6px_16px_rgba(20,40,90,0.05)]">
-            <span key={rows[row]} className="lunera-swap h-8 w-8 shrink-0 overflow-hidden rounded-lg ring-1 ring-black/5">
-              <img src={avatar} alt="" className="h-full w-full object-cover" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold text-[#1a1a1a]">{en ? "Variant" : "Variante"} {row + 1}</p>
-              <p key={rows[row]} className="lunera-swap text-[11px] text-[#8a8a8a]">{net.handle}</p>
-            </div>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600 ring-1 ring-emerald-100">
-                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="M20 6 9 17l-5-5" /></svg>{en ? "Posted" : "Publié"}
-              </span>
-              <span key={rows[row]} className="lunera-swap flex h-6 w-6 shrink-0 items-center justify-center">
-                <img src={net.logo} alt={net.name} className="h-full w-full object-contain" />
-              </span>
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-function DropArt() {
-  const en = useLocale() === "en";
-  return (
-    <div className="flex w-full flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-[#c9d3e6] bg-[#f8f9fc] py-6">
-      <div className="flex items-end justify-center gap-3">
-        {["/videos/up-1.jpg", "/videos/up-2.jpg"].map((src, i) => (
-          <div key={i} className="h-[184px] w-[104px] overflow-hidden rounded-xl bg-white ring-1 ring-black/5 shadow-[0_12px_28px_rgba(20,40,90,0.12)]">
-            <img src={src} alt="" className="h-full w-full object-cover" />
-          </div>
-        ))}
-      </div>
-      <p className="text-xs font-medium text-[#8a8a8a]">{en ? "Drop your videos here — any format" : "Glisse tes vidéos ici — tous formats"}</p>
-    </div>
-  );
-}
-
-const STEPS = [
-  {
-    n: "01",
-    fr: { title: "Importe ta vidéo", desc: "Glisse-dépose la vidéo qui a déjà performé. Tous formats, même en lot." },
-    en: { title: "Import your video", desc: "Drag & drop the video that already performed. Any format, even in batches." },
-    icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>,
-    art: <DropArt />,
-  },
-  {
-    n: "02",
-    fr: { title: "Génère tes variantes", desc: "Choisis le nombre de copies uniques — DuupFlow retravaille chaque fichier en profondeur." },
-    en: { title: "Generate your variants", desc: "Choose the number of unique copies — DuupFlow reworks each file in depth." },
-    icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 1.9 4.8L18 9.5l-4.1 1.7L12 16l-1.9-4.8L6 9.5l4.1-1.7L12 3Z" /></svg>,
-    art: <VariantsRow />,
-  },
-  {
-    n: "03",
-    fr: { title: "Republie partout", desc: "Exporte en un clic et poste sur tous tes comptes, sans doublon. Les vues reviennent." },
-    en: { title: "Repost everywhere", desc: "Export in one click and post to all your accounts, no duplicates. The views come back." },
-    icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" /></svg>,
-    art: <DispatchList />,
-  },
-];
-
-/* "Comment ça marche" — pile de cartes en sticky : la carte active est en grand,
-   les précédentes se réduisent à leur en-tête empilé en haut, la suivante pointe
-   en bas. Le mouvement vertical se fait au fil du scroll (façon template). */
-function HowItWorks() {
-  const loc = useLocale();
-  const secRef = useRef<HTMLElement>(null);
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    const el = secRef.current;
-    if (!el) return;
-    let raf = 0;
-    const update = () => {
-      raf = 0;
-      const rect = el.getBoundingClientRect();
-      const total = el.offsetHeight - window.innerHeight;
-      const p = total > 0 ? Math.min(Math.max(-rect.top, 0), total) / total : 0;
-      setActive(Math.min(Math.floor(p * STEPS.length), STEPS.length - 1));
-    };
-    const on = () => { if (!raf) raf = requestAnimationFrame(update); };
-    update();
-    window.addEventListener("scroll", on, { passive: true });
-    window.addEventListener("resize", on);
-    return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); cancelAnimationFrame(raf); };
-  }, []);
-
-  return (
-    <section ref={secRef} id="how" className="bg-[#f6f7f9]">
-      <div className="mx-auto max-w-6xl px-6 lg:grid lg:grid-cols-[0.85fr_1fr] lg:gap-16">
-        {/* Gauche — titre fixe (sticky, centré) */}
-        <div className="pt-20 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:justify-center lg:pt-0">
-          <div><Label>{loc === "en" ? "How it works" : "Comment ça marche"}</Label></div>
-          <h2 className="mt-6 font-semibold tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(30px, 3.6vw, 48px)", lineHeight: 1.08 }}>
-            {loc === "en" ? "From your video to dozens of variants, in three steps." : "De ta vidéo à des dizaines de variantes, en trois étapes."}
-          </h2>
-          <div className="mt-9 flex items-center gap-2.5">
-            {STEPS.map((_, i) => (
-              <span key={i} className="h-1.5 rounded-full transition-all duration-300"
-                style={{ width: i === active ? 30 : 10, backgroundColor: i <= active ? BLUE : "#d6dbe3" }} />
-            ))}
-          </div>
-        </div>
-
-        {/* Droite — cartes qui s'empilent en sticky (mouvement au scroll) */}
-        <div className="pb-[16vh] pt-[10vh] lg:pt-[16vh]">
-          {STEPS.map((s, i) => (
-            <div key={i} className="sticky"
-              style={{ top: "116px", zIndex: i + 1, marginBottom: i < STEPS.length - 1 ? "58vh" : 0 }}>
-              <div className="relative flex h-[420px] flex-col overflow-hidden rounded-[28px] p-6 ring-1 ring-black/[0.06] shadow-[0_24px_60px_rgba(20,40,90,0.14)] sm:p-8" style={{ background: CARD_BG }}>
-                <span className="pointer-events-none absolute bottom-5 right-6 text-sm font-medium text-black/15">{s.n}</span>
-                <div className="flex items-start gap-3.5">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white" style={{ backgroundColor: BLUE }}>{s.icon}</span>
-                  <div>
-                    <h3 className="text-[19px] font-semibold text-[#1a1a1a]">{s[loc].title}</h3>
-                    <p className="mt-1 text-[14px] leading-relaxed text-[#605f5f]">{s[loc].desc}</p>
-                  </div>
-                </div>
-                <div className="mt-4 flex flex-1 items-center justify-center">{s.art}</div>
-              </div>
-            </div>
-          ))}
-        </div>
+    <section className="px-6 pb-20 sm:pb-24">
+      <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 rounded-[28px] bg-white/70 px-7 py-8 text-center shadow-[0_16px_44px_rgba(90,90,240,0.10)] ring-1 ring-[#4f7bff]/15 backdrop-blur sm:flex-row sm:justify-between sm:text-left">
+        <p className="text-[17px] font-medium tracking-[-0.01em] text-[#1a1a1a] sm:text-[19px]">
+          {loc === "en" ? <>Your next video looks like these. Make it in 3 minutes.</> : <>Ta prochaine vidéo ressemble à ça. Elle te prend 3 minutes.</>}
+        </p>
+        <Link href="/register"
+          className="inline-flex shrink-0 items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-medium text-white shadow-[0_12px_34px_rgba(90,90,240,0.4)] transition hover:opacity-90"
+          style={{ background: CTA_GRAD }}>
+          {loc === "en" ? "Start free" : "Commencer gratuitement"}
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        </Link>
       </div>
     </section>
   );
@@ -804,7 +281,7 @@ function Testimonials() {
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <Label>{loc === "en" ? "Testimonials" : "Témoignages"}</Label>
-          <h2 className="mx-auto mt-5 max-w-2xl font-semibold tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(30px, 4vw, 46px)", lineHeight: 1.08 }}>
+          <h2 className={`mx-auto mt-7 max-w-2xl ${SECTION_TITLE}`} style={SECTION_TITLE_STYLE}>
             {loc === "en" ? <>They already repost with <Brand />.</> : <>Ils repostent déjà avec <Brand />.</>}
           </h2>
         </div>
@@ -818,7 +295,9 @@ function Testimonials() {
             </div>
           ))}
         </div>
-        <div className="mt-14 grid grid-cols-3 gap-5">
+        {/* 3 colonnes en mobile = 96 px par stat, avec des libellés sur 3 lignes.
+            On empile en dessous de sm. */}
+        <div className="mt-14 grid grid-cols-1 gap-8 sm:grid-cols-3 sm:gap-5">
           {STATS.map((s, i) => (
             <AnimatedStat key={i} value={s.value} suffix={s.suffix} decimals={s.decimals} label={s.label[loc]} locale={loc} />
           ))}
@@ -832,7 +311,7 @@ function Testimonials() {
 const FAQS = {
   fr: [
     { q: "DuupFlow va me servir à quoi ?", a: "DuupFlow te sert à republier tes meilleurs contenus partout sans être pénalisé. Tu transformes une seule vidéo en dizaines de variantes uniques, prêtes à poster sur plusieurs comptes et plusieurs plateformes — et tu peux même les monter automatiquement avec l'éditeur IA." },
-    { q: "Quels sont les avantages d'utiliser DuupFlow ?", a: "Tu fais du volume de contenu sans effort supplémentaire : à partir d'un seul fichier, tu génères autant de variantes uniques que tu veux, sans être restreint par les plateformes (aucune détection de doublon). Tu alimentes plusieurs comptes, tu testes plus de formats et tu multiplies tes chances de percer — le tout en quelques secondes." },
+    { q: "Quels sont les avantages d'utiliser DuupFlow ?", a: "Tu fais du volume de contenu sans effort supplémentaire : à partir d'un seul fichier, tu génères autant de variantes uniques que tu veux, chacune ré-encodée en profondeur. Tu alimentes plusieurs comptes, tu testes plus de formats et tu multiplies tes chances de percer — le tout en quelques secondes." },
     { q: "Concrètement, qu'est-ce qui est modifié dans mes vidéos ?", a: "Les métadonnées (appareil, date, encodeur, géolocalisation), une signature visuelle via des micro-variations sous le seuil de perception, et une empreinte binaire unique. Le fichier est ensuite entièrement ré-encodé. Ton montage, ton audio et ton cadrage restent identiques à l'original." },
     { q: "Est-ce que la qualité baisse ?", a: "Non. La résolution et le bitrate d'origine sont conservés : une 1080p reste 1080p, une 4K reste 4K. Aucune perte visible à l'écran." },
     { q: "Combien de variantes puis-je générer ?", a: "Autant que ton plan le permet : jusqu'à 100 vidéos par mois avec le plan Starter, 300 avec Solo, et un nombre illimité avec Pro. Chaque variante ressort unique, prête à alimenter plusieurs comptes." },
@@ -841,7 +320,7 @@ const FAQS = {
   ],
   en: [
     { q: "What is DuupFlow for?", a: "DuupFlow lets you repost your best content everywhere without getting penalized. Turn a single video into dozens of unique variants, ready to post across multiple accounts and platforms — and you can even edit them automatically with the AI editor." },
-    { q: "What are the benefits of using DuupFlow?", a: "You scale your content with no extra effort: from a single file, generate as many unique variants as you want, without being restricted by the platforms (no duplicate detection). You feed multiple accounts, test more formats and multiply your chances of breaking through — all in a few seconds." },
+    { q: "What are the benefits of using DuupFlow?", a: "You scale your content with no extra effort: from a single file, generate as many unique variants as you want, each one re-encoded from the ground up. You feed multiple accounts, test more formats and multiply your chances of breaking through — all in a few seconds." },
     { q: "What exactly gets modified in my videos?", a: "The metadata (device, date, encoder, geolocation), a visual signature via micro-variations below the perception threshold, and a unique binary fingerprint. The file is then fully re-encoded. Your edit, audio and framing stay identical to the original." },
     { q: "Does quality drop?", a: "No. The original resolution and bitrate are kept: 1080p stays 1080p, 4K stays 4K. No visible loss on screen." },
     { q: "How many variants can I generate?", a: "As many as your plan allows: up to 100 videos per month on Starter, 300 on Solo, and unlimited on Pro. Every variant comes out unique, ready to feed multiple accounts." },
@@ -857,10 +336,10 @@ function FAQ() {
         {/* Gauche — titre + CTA */}
         <div className="lg:pt-4">
           <Label>FAQ</Label>
-          <h2 className="mt-6 font-semibold tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(32px, 4.2vw, 52px)", lineHeight: 1.04 }}>
+          <h2 className={`mt-7 ${SECTION_TITLE}`} style={SECTION_TITLE_STYLE}>
             {loc === "en" ? <>The questions<br className="hidden sm:block" /> you're asking.</> : <>Les questions<br className="hidden sm:block" /> que tu te poses.</>}
           </h2>
-          <p className="mt-5 max-w-sm text-[16px] leading-relaxed text-[#605f5f]">
+          <p className={`mt-5 max-w-sm ${SECTION_LEAD}`}>
             {loc === "en" ? "Everything you need to know before getting started." : "Tout ce qu'il faut savoir avant de te lancer."}
           </p>
           <Link href="/demo-request"
@@ -910,7 +389,7 @@ function Blog() {
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <Label>Blog</Label>
-          <h2 className="mt-5 font-semibold tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(30px, 4vw, 46px)", lineHeight: 1.08 }}>
+          <h2 className={`mt-7 ${SECTION_TITLE}`} style={SECTION_TITLE_STYLE}>
             {loc === "en" ? "Repost smarter." : "Reposter plus intelligemment."}
           </h2>
         </div>
@@ -938,7 +417,7 @@ function CTA() {
     <section className="px-6 pb-10">
       <div className="mx-auto max-w-6xl overflow-hidden rounded-[36px] px-8 py-16 text-center sm:py-20"
         style={{ background: "linear-gradient(135deg, #1a1a1a 0%, #202634 60%, #1c2b52 100%)" }}>
-        <h2 className="mx-auto max-w-2xl font-semibold tracking-[-0.03em] text-white" style={{ fontSize: "clamp(30px, 4.4vw, 50px)", lineHeight: 1.08 }}>
+        <h2 className={`mx-auto max-w-2xl ${SECTION_TITLE.replace("text-[#1a1a1a]", "text-white")}`} style={SECTION_TITLE_STYLE}>
           {en ? "Give your videos a second life." : "Donne une seconde vie à tes vidéos."}
         </h2>
         <p className="mx-auto mt-4 max-w-md text-[17px] text-white/70">
@@ -969,7 +448,7 @@ export default function LandingPage() {
       <DemoBlock />
       {/* Englobage blanc arrondi à partir de Fonctionnalités */}
       <div className="relative z-10 rounded-t-[40px] bg-white">
-        {/* Grille fine "blueprint" bleuté/violet qui se fond (Features → Intégrations) */}
+        {/* Grille fine "blueprint" bleuté/violet qui se fond (Features → Avant/après) */}
         <div className="relative overflow-hidden">
           <div aria-hidden className="pointer-events-none absolute inset-0"
             style={{
@@ -979,11 +458,12 @@ export default function LandingPage() {
               WebkitMaskImage: "radial-gradient(122% 88% at 50% 32%, #000 42%, transparent 92%)",
             }} />
           <div className="relative">
-            <Features />
-            <Integrations />
+            <FeatureSections />
+            <BeforeAfter />
           </div>
         </div>
-        <HowItWorks />
+        <OutputGallery />
+        <GalleryCTA />
         <Testimonials />
         <FAQ />
         <Blog />

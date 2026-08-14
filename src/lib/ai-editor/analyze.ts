@@ -24,7 +24,7 @@ import { transcribeViaDeepgram, isDeepgramAvailable } from "./transcribe-deepgra
 import { REF_KEYFRAMES_MAX, REF_KEYFRAME_WIDTH, REF_KEYFRAME_QV, REF_HOOK_RATIO, REF_HOOK_MAX_SEC, SCENE_CUT_THRESHOLD } from "./analysis-config";
 import { analyzeShots, analyzeColor, analyzeAudioBeats } from "./ref-profile";
 import type { Shot, ColorProfile, AudioProfile } from "./ref-profile";
-import { analyzeReferenceWithGemini, isGeminiAvailable, geminiLastError, type CutStrip } from "./gemini";
+import { analyzeReferenceWithGemini, describeMaterial, isGeminiAvailable, geminiLastError, type CutStrip, type MaterialSegment, type MaterialMoment } from "./gemini";
 import type { GeminiComprehension } from "./gemini";
 
 export type Keyframe = { t: number; dataUri: string };
@@ -272,6 +272,14 @@ export type MaterialAnalysis = {
     words?: { startSec: number; endSec: number; text: string }[];
   } | null;
   audio?: AudioProfile | null; // matière SONORE (audio OU vidéo avec son) : bpm/beats/energy/drops
+  // ── DÉCIDER OÙ COUPER (la réf se LIT, la matière se DÉCIDE) ──────────────
+  // Sans ces champs, le monteur transposait les durées de la réf sur la matière
+  // et coupait au milieu des gestes (« rien n'est cut au bon moment »).
+  shots?: Shot[];              // plans mesurés + mouvement RÉELLEMENT présent
+  segments?: MaterialSegment[];// ce que MONTRE chaque portion (décrit par Gemini)
+  moments?: MaterialMoment[];  // instants où quelque chose change = points de coupe candidats
+  voiceReliable?: boolean;     // false = transcript probablement halluciné (piste sans voix)
+  notes?: string[];            // dégradations (ex. description du rush indisponible)
 };
 
 async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis> {
@@ -296,6 +304,8 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_mkf_"));
   let thumb: string | null = null;
   let audio: AudioProfile | null = null;
+  let sceneCuts: number[] = [];
+  let shots: Shot[] = [];
   try {
     const t = meta.durationSec > 0 ? Math.min(0.15 * meta.durationSec, 1.5) : 0.5;
     const kf = await keyframeAt(videoPath, t, dir, 0);
@@ -304,13 +314,56 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
     if (meta.hasAudio) {
       try { audio = await analyzeAudioBeats(videoPath, meta.durationSec, dir, !!transcript); } catch { /* skip */ }
     }
+    // MÊME analyseur que la référence, branché sur la matière : coupes + plans
+    // + mouvement réel. C'est ce qui manquait pour décider des points de coupe.
+    try {
+      sceneCuts = (await sceneScores(videoPath, SCENE_CUT_THRESHOLD)).map((x) => Math.round(x.t * 100) / 100);
+    } catch { /* best-effort */ }
+    try {
+      shots = (await analyzeShots(videoPath, sceneCuts, meta.durationSec, dir)).shots;
+    } catch { /* best-effort */ }
   } finally {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
-  // Coupes du rush (index pour que Claude découpe sans deviner) — best-effort.
-  let sceneCuts: number[] = [];
-  try { sceneCuts = (await sceneScores(videoPath, SCENE_CUT_THRESHOLD)).map((s) => Math.round(s.t * 100) / 100); } catch { /* skip */ }
-  return { kind: "video", durationSec: meta.durationSec, width: meta.width, height: meta.height, hasAudio: meta.hasAudio, thumb, sceneCuts, transcript, audio };
+  // ── Ce que MONTRE le rush + où l'on peut couper (Gemini, best-effort) ─────
+  // La réf se LIT, la matière se DÉCIDE : sans description ni points de coupe,
+  // le monteur transposait les durées de la réf et coupait au milieu des gestes.
+  let segments: MaterialSegment[] = [];
+  let moments: MaterialMoment[] = [];
+  const mNotes: string[] = [];
+  if (isGeminiAvailable()) {
+    try {
+      const d = await describeMaterial(videoPath);
+      if (d) { segments = d.segments; moments = d.moments; }
+      else mNotes.push(`Description du rush indisponible${geminiLastError() ? ` — ${geminiLastError()}` : ""}. Les points de coupe ci-dessous ne viennent que de la MESURE d'image (changements francs) : tu n'as PAS la description de ce qui est à l'écran.`);
+    } catch { mNotes.push("Description du rush indisponible (erreur interne) — points de coupe mesurés uniquement."); }
+  } else {
+    mNotes.push("Description du rush désactivée (pas de GEMINI_API_KEY) — points de coupe mesurés uniquement.");
+  }
+  // Les CHANGEMENTS D'IMAGE mesurés (ffmpeg) complètent les moments vus par
+  // Gemini : sur un screencast, un changement d'écran est franc et se détecte
+  // au pixel. On fusionne sans doublon (tolérance 0,35 s).
+  for (const t of sceneCuts) {
+    if (t < 0.2 || t > meta.durationSec - 0.2) continue;
+    if (moments.some((m) => Math.abs(m.t - t) < 0.35)) continue;
+    moments.push({ t, kind: "ecran", what: "changement d'image (mesuré)" });
+  }
+  moments.sort((a, b) => a.t - b.t);
+
+  // VOIX FIABLE ? Whisper HALLUCINE sur une piste sans parole (« Oh, d'un de
+  // nape… » sur un POV muet) et le texte était présenté comme une vraie
+  // transcription. Signal simple : énergie sonore quasi nulle, ou débit de mots
+  // aberrant (une vraie parole tient dans 1-5 mots/s).
+  let voiceReliable: boolean | undefined;
+  if (transcript) {
+    const words = transcript.fullText.trim().split(/\s+/).filter(Boolean).length;
+    const rate = meta.durationSec > 0 ? words / meta.durationSec : 0;
+    const peak = audio?.energy?.length ? Math.max(...audio.energy.map((e) => e.level)) : 1;
+    const quiet = !meta.hasAudio || peak < 0.06;
+    voiceReliable = !quiet && rate >= 0.3 && rate <= 6;
+  }
+
+  return { kind: "video", durationSec: meta.durationSec, width: meta.width, height: meta.height, hasAudio: meta.hasAudio, thumb, sceneCuts, transcript, audio, shots, segments, moments, voiceReliable, notes: mNotes };
 }
 
 async function analyzeMaterialAudio(audioPath: string): Promise<MaterialAnalysis> {

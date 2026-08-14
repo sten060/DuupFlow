@@ -861,6 +861,12 @@ export async function callTool(userId: string, name: string, args?: Record<strin
         : null,
       `Durée : ${a.durationSec.toFixed(1)}s · ${a.width}×${a.height} · ${a.fps} fps · audio: ${a.hasAudio ? "oui" : "non"}`,
       `Rythme : ${a.pacing.cutCount} coupe(s)${a.pacing.avgCutSec ? ` · ~${a.pacing.avgCutSec}s/plan` : ""}`,
+      // Règle de PRIORITÉ (pas une interdiction) : sans elle, les durées de la réf
+      // étaient transposées telles quelles sur la matière et les coupes tombaient
+      // au milieu des gestes (« rien n'est cut au bon moment »).
+      `⚖️ La réf donne le RYTHME CIBLE (cadence moyenne, style de transitions, structure). Elle ne donne JAMAIS les POINTS DE COUPE. ` +
+      `Les points de coupe se déterminent UNIQUEMENT dans la matière du user : sur un changement d'écran, une fin de geste, une fin de phrase (voir ⏱ MOMENTS dans get_material). ` +
+      `Si tenir la durée cible obligeait à couper au milieu d'une action, c'est la DURÉE qui cède, pas le point de coupe.`,
       cuts.length ? `Coupes (timecodes s) : ${cuts.slice(0, 60).map((c) => c.toFixed(2)).join(", ")}` : null,
       // Mouvement : UN SEUL champ consolidé. Si Gemini a regardé la vidéo, c'est LUI
       // qui fait autorité sur le TYPE de mouvement (bloc CONTENU DES PLANS ci-dessous,
@@ -1046,11 +1052,54 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       }
       return { content };
     }
-    const kfs = await materialKeyframes(userId, project.id, m.storedName, 5);
+    // Images calées sur les MOMENTS (milieu de chaque portion), pas à intervalle
+    // fixe : 5 images sur 29 s ne permettaient aucune décision de montage.
+    const kfBounds = [
+      ...(m.analysis?.moments ?? []).map((x) => x.t),
+      ...(m.analysis?.segments ?? []).flatMap((x) => [x.startSec, x.endSec]),
+      ...(m.analysis?.sceneCuts ?? []),
+    ];
+    const kfs = await materialKeyframes(userId, project.id, m.storedName, 12, kfBounds);
     if (!kfs.length) return { content: [{ type: "text", text: `⚠ Aucune image extractible du rush « ${m.name} » (id ${m.id}).` }], isError: true };
     const content: Content[] = [{ type: "text", text: `RUSH « ${m.name} » (id ${m.id})${m.analysis?.durationSec ? ` · ${m.analysis.durationSec.toFixed(1)}s` : ""} — ${kfs.length} images (timecodes pour tes coupes) :` }];
+    // Échec BRUYANT : sans description, le monteur doit le SAVOIR (sinon il pose
+    // le texte sur la mauvaise image en croyant savoir ce qu'elle montre).
+    for (const n of m.analysis?.notes ?? []) content.push({ type: "text", text: `⚠️ ${n}` });
+    // ── CE QUE MONTRE LE RUSH (§2) : sans ça, le texte se pose sur la mauvaise
+    // image (« Ajoute tes vidéos brutes » affiché sur la landing page).
+    const segs = m.analysis?.segments ?? [];
+    if (segs.length) {
+      content.push({ type: "text", text:
+        `SEGMENTS (${segs.length}) — ce que montre chaque portion. CHOISIS TON TEXTE D'APRÈS ÇA (une caption doit parler de ce qui est À L'ÉCRAN) :\n` +
+        segs.map((sg) => `  [${sg.startSec.toFixed(2)}–${sg.endSec.toFixed(2)}s] « ${sg.content} »` +
+          (sg.handheld ? ` · ⚠ DÉJÀ tremblé (filmé à la main) — n'ajoute PAS de motion "handheld" par-dessus` : sg.motion !== "none" ? ` · mouvement ${sg.motion} déjà présent` : "")).join("\n") });
+    }
+    // ── OÙ COUPER (§1) : le manque n°1. La réf donne le RYTHME, jamais les points.
+    const moms = m.analysis?.moments ?? [];
+    if (moms.length) {
+      content.push({ type: "text", text:
+        `⏱ MOMENTS (${moms.length}) — points de coupe CANDIDATS : coupe DESSUS, pas à côté. ` +
+        `Un plan doit commencer/finir sur un de ces instants (changement d'écran, fin de geste, fin de mouvement), JAMAIS au milieu d'une action :\n` +
+        moms.slice(0, 40).map((mo) => `  ${mo.t.toFixed(2)}s  ${mo.kind === "ecran" ? "changement d'écran" : mo.kind === "geste" ? "geste" : "mouvement"} — ${mo.what}`).join("\n") +
+        (moms.length > 40 ? `\n  … (${moms.length - 40} de plus)` : "") });
+    } else if (m.analysis?.sceneCuts?.length) {
+      content.push({ type: "text", text: `⏱ Changements d'image mesurés (s) — points de coupe candidats : ${m.analysis.sceneCuts.slice(0, 40).map((c) => c.toFixed(2)).join(", ")}` });
+    }
+    // ── §3 : mouvement RÉELLEMENT présent (mesuré), pour ne pas en empiler.
+    const msh = (m.analysis?.shots ?? []).filter((sh) => sh.motion !== "static");
+    if (msh.length) {
+      content.push({ type: "text", text:
+        `🎥 MOUVEMENT DÉJÀ PRÉSENT dans le rush (mesuré) — n'ajoute PAS segments[].motion par-dessus, tu empilerais deux tremblements :\n` +
+        msh.slice(0, 12).map((sh) => `  [${sh.startSec}–${sh.endSec}s] ${sh.motion} (intensité ${sh.motionIntensity})`).join("\n") });
+    }
     // Son du rush (si présent) : mêmes timecodes exploitables que pour l'audio.
     if (m.analysis?.audio) for (const l of formatAudioLines(m.analysis.audio)) content.push({ type: "text", text: l });
+    if (m.analysis?.voiceReliable === false) {
+      // Whisper/Deepgram HALLUCINENT sur une piste sans parole et le texte était
+      // présenté comme une vraie transcription (« Oh, d'un de nape… » sur un POV
+      // muet) → captions inventées. On le dit au lieu de le servir tel quel.
+      content.push({ type: "text", text: `  · ⚠ VOIX NON FIABLE — aucune parole nette détectée sur ce rush. Le transcript ci-dessous est probablement du BRUIT (hallucination de l'ASR) : NE L'UTILISE PAS pour écrire des sous-titres, et ne le cite pas au user.` });
+    }
     for (const l of formatVoiceLines(m.analysis?.transcript)) content.push({ type: "text", text: l });
     {
       // Mots RESSERRÉS sur la fin acoustique (Bug A) → mots, blancs et reprises cohérents.

@@ -323,6 +323,169 @@ async function listCandidateModels(key: string): Promise<string[]> {
   } catch { return []; }
 }
 
+/** Envoie un fichier à l'API Files de Gemini et attend qu'il soit exploitable.
+ *  Mutualisé entre l'analyse de RÉFÉRENCE et la description de MATIÈRE. */
+async function uploadToGemini(key: string, bytes: Buffer, mime: string): Promise<{ uri: string; mime: string } | null> {
+  const startRes = await gfetch(`${API}/upload/v1beta/files?key=${key}`, {
+    method: "POST",
+    headers: {
+      "X-Goog-Upload-Protocol": "resumable",
+      "X-Goog-Upload-Command": "start",
+      "X-Goog-Upload-Header-Content-Length": String(bytes.length),
+      "X-Goog-Upload-Header-Content-Type": mime,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ file: { displayName: "material" } }),
+  }, 60_000);
+  const uploadUrl = startRes.headers.get("x-goog-upload-url");
+  if (!startRes.ok || !uploadUrl) return failWith(`ouverture de l'upload refusée (HTTP ${startRes.status})`);
+  const upRes = await gfetch(uploadUrl, {
+    method: "POST",
+    headers: { "Content-Length": String(bytes.length), "X-Goog-Upload-Offset": "0", "X-Goog-Upload-Command": "upload, finalize" },
+    body: new Uint8Array(bytes),
+  }, 180_000);
+  if (!upRes.ok) return failWith(`envoi du fichier refusé (HTTP ${upRes.status})`);
+  const upJson = await upRes.json().catch(() => null) as { file?: { name?: string; uri?: string; state?: string; mimeType?: string } } | null;
+  const file = upJson?.file;
+  if (!file?.name || !file?.uri) return failWith("réponse d'upload sans identifiant de fichier");
+  let state = file.state || "PROCESSING", uri = file.uri, fileMime = file.mimeType || mime;
+  const deadline = Date.now() + 120_000;
+  while (state === "PROCESSING" && Date.now() < deadline) {
+    await sleep(2500);
+    const st = await gfetch(`${API}/v1beta/${file.name}?key=${key}`, { method: "GET" }, 20_000);
+    const j = await st.json().catch(() => null) as { state?: string; uri?: string; mimeType?: string } | null;
+    if (j?.state) state = j.state;
+    if (j?.uri) uri = j.uri;
+    if (j?.mimeType) fileMime = j.mimeType;
+  }
+  if (state !== "ACTIVE") return failWith(`fichier non traité par Google au bout de 2 min (état « ${state} »)`);
+  return { uri, mime: fileMime };
+}
+
+/* ── MATIÈRE : que montre chaque portion du rush ? ───────────────────────────
+   Symétrique de la compréhension de la réf, mais VOLONTAIREMENT légère : sur la
+   matière on n'a pas besoin du style, on a besoin de SAVOIR CE QU'ON VOIT pour
+   décider où couper et quel texte poser sur quelle image. Sans ça le monteur
+   transpose mécaniquement les durées de la réf et coupe au milieu des gestes. */
+export type MaterialSegment = {
+  startSec: number;
+  endSec: number;
+  content: string;     // une phrase : ce qu'on voit
+  handheld: boolean;   // déjà filmé à main levée ? (→ ne pas rajouter de tremblement)
+  motion: "none" | "zoomIn" | "zoomOut" | "panLeft" | "panRight" | "handheld";
+};
+export type MaterialMoment = { t: number; kind: "ecran" | "geste" | "mouvement"; what: string };
+
+const MATERIAL_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    segments: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          startSec: { type: "NUMBER" }, endSec: { type: "NUMBER" },
+          content: { type: "STRING" },
+          handheld: { type: "BOOLEAN" },
+          motion: { type: "STRING", enum: ["none", "zoomIn", "zoomOut", "panLeft", "panRight", "handheld"] },
+        },
+        required: ["startSec", "endSec", "content", "handheld", "motion"],
+      },
+    },
+    moments: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          t: { type: "NUMBER" },
+          kind: { type: "STRING", enum: ["ecran", "geste", "mouvement"] },
+          what: { type: "STRING" },
+        },
+        required: ["t", "kind", "what"],
+      },
+    },
+  },
+  required: ["segments", "moments"],
+};
+
+const MATERIAL_PROMPT = `Tu regardes un RUSH BRUT (matière d'un créateur : screencast, face-cam, POV…), PAS une vidéo finie. Un monteur doit y découper des plans. Réponds UNIQUEMENT en JSON conforme au schéma.
+
+1) segments : découpe le rush en portions HOMOGÈNES (même écran, même action). Pour chacune : startSec/endSec, content = UNE PHRASE factuelle de ce qu'on voit (ex. « page de connexion, main sur le trackpad », « grille de variantes générées, laptop de face »), motion = le mouvement de caméra réellement présent, handheld = true si l'image tremble déjà (filmé à la main). Sois PRÉCIS sur ce qui est à l'écran : le monteur choisit le texte à afficher d'après ta description.
+
+2) moments : les instants où QUELQUE CHOSE CHANGE — ce sont les points où le monteur peut couper SANS casser une action :
+   · kind "ecran" : changement d'écran/de page, scroll qui s'arrête, nouvelle fenêtre
+   · kind "geste" : une main entre ou sort du cadre, un clic, la FIN d'un geste
+   · kind "mouvement" : un mouvement de caméra démarre ou s'arrête
+   what = 2-4 mots (« landing → menu », « main sort du cadre », « fin du scroll »).
+   Donne-les dans l'ordre. NE PLACE JAMAIS un moment au MILIEU d'un geste continu : le but est de couper dessus, pas à côté.`;
+
+/** Décrit la matière : segments homogènes + points de coupe candidats. */
+export async function describeMaterial(videoPath: string): Promise<{ segments: MaterialSegment[]; moments: MaterialMoment[] } | null> {
+  const key = geminiKey();
+  if (!key) return null;
+  try {
+    const bytes = await fs.readFile(videoPath);
+    const mime = mimeFor(videoPath);
+    const up = await uploadToGemini(key, bytes, mime);
+    if (!up) return null;
+    const body = {
+      contents: [{ role: "user", parts: [{ fileData: { mimeType: up.mime, fileUri: up.uri } }, { text: MATERIAL_PROMPT }] }],
+      generationConfig: { responseMimeType: "application/json", responseSchema: MATERIAL_SCHEMA, temperature: 0.2, maxOutputTokens: 16384 },
+    };
+    // MÊME robustesse que l'analyse de réf : une erreur TRANSITOIRE (quota,
+    // surcharge) se réessaie sur le MÊME modèle, et la cause est enregistrée.
+    // Sans ça l'échec était SILENCIEUX : 0 segment, aucune explication — c'est
+    // ce qui s'est produit une fois sur deux au contrôle.
+    const model = process.env.AI_EDITOR_GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
+    let res: Response | null = null;
+    let last = "";
+    for (const m of [model, ...(await listCandidateModels(key))].slice(0, 4)) {
+      let r: Response | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          r = await gfetch(`${API}/v1beta/models/${m}:generateContent?key=${key}`, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+          }, 150_000);
+        } catch (e) {
+          last = `${m}→${(e as Error)?.name === "TimeoutError" ? "timeout" : "réseau"}`;
+          if (attempt < 2) { await sleep(2000 * (attempt + 1) ** 2); continue; }
+          r = null; break;
+        }
+        if (r.ok || !isTransient(r.status)) break;
+        last = `${m}→${r.status}`;
+        if (attempt < 2) await sleep(2000 * (attempt + 1) ** 2);
+      }
+      if (r?.ok) { res = r; break; }
+      if (r) last = `${m}→${r.status}`;
+    }
+    if (!res) return failWith(`description de la matière : aucun modèle n'a répondu (${last || "cause inconnue"})`) as null;
+    const j = await res.json().catch(() => null) as { candidates?: { content?: { parts?: { text?: string }[] } }[] } | null;
+    const raw = j?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+    if (!raw.trim()) return failWith("description de la matière : réponse vide (budget de sortie ?)") as null;
+    const parsed = JSON.parse(raw) as { segments?: MaterialSegment[]; moments?: MaterialMoment[] };
+    const num = (v: unknown, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
+    const segments = (parsed.segments ?? []).slice(0, 40).map((x) => ({
+      startSec: Math.round(num(x.startSec) * 100) / 100,
+      endSec: Math.round(num(x.endSec) * 100) / 100,
+      content: String(x.content ?? "").slice(0, 200),
+      handheld: !!x.handheld,
+      motion: (["none", "zoomIn", "zoomOut", "panLeft", "panRight", "handheld"] as string[]).includes(String(x.motion)) ? x.motion : "none",
+    })).filter((x) => x.endSec > x.startSec && x.content);
+    const moments = (parsed.moments ?? []).slice(0, 60).map((x) => ({
+      t: Math.round(num(x.t) * 100) / 100,
+      kind: (["ecran", "geste", "mouvement"] as string[]).includes(String(x.kind)) ? x.kind : "ecran",
+      what: String(x.what ?? "").slice(0, 80),
+    })).filter((x) => x.t >= 0).sort((a, b) => a.t - b.t) as MaterialMoment[];
+    console.log(`[ai-editor/gemini] matière décrite : ${segments.length} segment(s), ${moments.length} moment(s)`);
+    return { segments, moments };
+  } catch (e) {
+    const msg = (e as Error)?.message ?? "erreur inconnue";
+    return failWith(/JSON|Unterminated|Unexpected/i.test(msg)
+      ? `description de la matière TRONQUÉE (JSON incomplet : ${msg.slice(0, 70)})`
+      : `description de la matière échouée : ${msg.slice(0, 140)}`) as null;
+  }
+}
+
 /**
  * Analyse la vidéo de référence avec Gemini (couche compréhension).
  * Best-effort : renvoie null si pas de clé / échec / timeout.
