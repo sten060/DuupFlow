@@ -130,9 +130,67 @@ function failWith(reason: string): null {
 
 /** Erreur TRANSITOIRE (à réessayer) vs définitive (passer au modèle suivant).
  *  429 = quota/débit, 500/503/504 = surcharge côté Google. 400/404 = ce modèle
- *  ne veut pas de cette requête → inutile d'insister. */
-const isTransient = (status: number) => status === 429 || status === 408 || (status >= 500 && status <= 599);
+ *  ne veut pas de cette requête → inutile d'insister.
+ *
+ *  ⚠ 403 « The caller does not have permission » EST TRANSITOIRE ICI, et ça a
+ *  coûté cher : après un upload Files API, le fichier passe à ACTIVE AVANT que
+ *  les droits de lecture soient propagés. Mesuré le 2026-08-14 : même modèle,
+ *  même fichier → 403 à t+0 s, 200 à t+17 s. Traité comme définitif, le 403
+ *  faisait dérouler toute la cascade de modèles en quelques secondes et
+ *  l'analyse échouait en accusant le modèle (« aucun modèle n'a répondu »). */
+const isTransient = (status: number) =>
+  status === 429 || status === 408 || status === 403 || (status >= 500 && status <= 599);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Réessais sur erreur transitoire. Calibré sur la propagation des droits du
+ *  fichier uploadé (mesurée à ~17 s) : 4 tentatives espacées de 4/8/12 s
+ *  couvrent 24 s d'attente cumulée avant de changer de modèle. */
+const GEN_ATTEMPTS = 4;
+const backoffMs = (attempt: number) => 4000 * (attempt + 1);
+
+type GenPart = { text?: string; thought?: boolean };
+type GenJson = {
+  candidates?: { content?: { parts?: GenPart[] }; finishReason?: string }[];
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+};
+
+/** Texte UTILE d'une réponse : on écarte les parts de « réflexion »
+ *  (`thought: true`), émises par défaut par les modèles Gemini 3. Les
+ *  concaténer au JSON produisait un « Unexpected token » incompréhensible. */
+function candidateText(j: GenJson | null): string {
+  return (j?.candidates?.[0]?.content?.parts ?? [])
+    .filter((p) => !p.thought)
+    .map((p) => p.text || "")
+    .join("")
+    .trim();
+}
+
+/** Parse la sortie d'un modèle en tolérant l'enrobage ```json, et DISTINGUE les
+ *  deux échecs — ils n'ont pas le même remède :
+ *   · `truncated` : le JSON commence bien mais s'arrête net → budget de sortie,
+ *     réessayer le même modèle ne sert à rien, il faut alléger la demande ;
+ *   · sinon : le modèle a répondu EN PROSE (vu en prod : « The model is
+ *     overloaded… » servi avec un HTTP 200) → un AUTRE modèle peut réussir,
+ *     donc la cascade doit CONTINUER au lieu d'abandonner l'analyse. */
+function parseModelJson(raw: string): { ok: true; value: unknown } | { ok: false; truncated: boolean; why: string } {
+  let s = raw.trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) s = fence[1].trim();
+  const start = s.search(/[[{]/);
+  if (start > 0) s = s.slice(start);
+  try {
+    return { ok: true, value: JSON.parse(s) };
+  } catch (e) {
+    const looksJson = /^[[{]/.test(s);
+    return {
+      ok: false,
+      truncated: looksJson,
+      why: looksJson
+        ? `JSON incomplet (${(e as Error).message.slice(0, 60)})`
+        : `réponse en TEXTE et non en JSON : « ${s.slice(0, 90)} »`,
+    };
+  }
+}
 
 function mimeFor(p: string): string {
   const ext = path.extname(p).toLowerCase();
@@ -303,7 +361,9 @@ async function listCandidateModels(key: string): Promise<string[]> {
       .map((m) => m.name!.replace(/^models\//, ""))
       // on écarte ce qui ne fait pas de compréhension vidéo texte utile (génération
       // d'image, robotique, TTS, embeddings, computer-use…).
-      .filter((n) => /gemini/.test(n) && !/(embedding|aqa|imagen|image|tts|learnlm|robotics|computer-use)/.test(n));
+      // …et les modèles d'ACCÈS ANTICIPÉ (-eap) : mesurés chroniquement en 503
+      // « high demand », ils faisaient perdre 3 tentatives en tête de cascade.
+      .filter((n) => /gemini/.test(n) && !/(embedding|aqa|imagen|image|tts|learnlm|robotics|computer-use|-eap$)/.test(n));
     console.log(`[ai-editor/gemini] modèles dispo (${all.length}) : ${all.join(", ")}`);
     // On veut le MEILLEUR flash récent NON-lite (précision des captions) qui marche.
     const score = (n: string) => {
@@ -437,32 +497,38 @@ export async function describeMaterial(videoPath: string): Promise<{ segments: M
     // Sans ça l'échec était SILENCIEUX : 0 segment, aucune explication — c'est
     // ce qui s'est produit une fois sur deux au contrôle.
     const model = process.env.AI_EDITOR_GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
-    let res: Response | null = null;
+    let res: { segments?: MaterialSegment[]; moments?: MaterialMoment[] } | null = null;
     let last = "";
-    for (const m of [model, ...(await listCandidateModels(key))].slice(0, 4)) {
+    for (const m of [...new Set([model, ...(await listCandidateModels(key))])].slice(0, 6)) {
       let r: Response | null = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < GEN_ATTEMPTS; attempt++) {
         try {
           r = await gfetch(`${API}/v1beta/models/${m}:generateContent?key=${key}`, {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
           }, 150_000);
         } catch (e) {
           last = `${m}→${(e as Error)?.name === "TimeoutError" ? "timeout" : "réseau"}`;
-          if (attempt < 2) { await sleep(2000 * (attempt + 1) ** 2); continue; }
+          if (attempt < GEN_ATTEMPTS - 1) { await sleep(backoffMs(attempt)); continue; }
           r = null; break;
         }
         if (r.ok || !isTransient(r.status)) break;
         last = `${m}→${r.status}`;
-        if (attempt < 2) await sleep(2000 * (attempt + 1) ** 2);
+        if (attempt < GEN_ATTEMPTS - 1) await sleep(backoffMs(attempt));
       }
-      if (r?.ok) { res = r; break; }
-      if (r) last = `${m}→${r.status}`;
+      if (!r) continue;
+      if (!r.ok) { last = `${m}→${r.status}`; continue; }
+      // Un HTTP 200 ne garantit PAS du JSON exploitable (prose, réflexion,
+      // troncature) : on ne quitte la cascade qu'une fois la réponse PARSÉE.
+      const j = await r.json().catch(() => null) as GenJson | null;
+      const raw = candidateText(j);
+      if (!raw) { last = `${m}→vide (finish=${j?.candidates?.[0]?.finishReason ?? "?"})`; continue; }
+      const p = parseModelJson(raw);
+      if (!p.ok) { last = `${m}→${p.why}`; console.warn(`[ai-editor/gemini] matière : "${m}" illisible · ${p.why}`); continue; }
+      res = p.value as { segments?: MaterialSegment[]; moments?: MaterialMoment[] };
+      break;
     }
-    if (!res) return failWith(`description de la matière : aucun modèle n'a répondu (${last || "cause inconnue"})`) as null;
-    const j = await res.json().catch(() => null) as { candidates?: { content?: { parts?: { text?: string }[] } }[] } | null;
-    const raw = j?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-    if (!raw.trim()) return failWith("description de la matière : réponse vide (budget de sortie ?)") as null;
-    const parsed = JSON.parse(raw) as { segments?: MaterialSegment[]; moments?: MaterialMoment[] };
+    if (!res) return failWith(`description de la matière : aucun modèle exploitable (${last || "cause inconnue"})`) as null;
+    const parsed = res;
     const num = (v: unknown, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
     const segments = (parsed.segments ?? []).slice(0, 40).map((x) => ({
       startSec: Math.round(num(x.startSec) * 100) / 100,
@@ -599,7 +665,8 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
     if (!candidates.length) candidates.push(model);
 
     let usedModel = "";
-    let genRes: Response | null = null;
+    let parsed: Partial<GeminiComprehension> | null = null;
+    let u: GenJson["usageMetadata"];
     let lastInfo = "";
     const tried = new Set<string>();
     for (const m of candidates) {
@@ -610,42 +677,57 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
       // MÊME modèle après une pause croissante. Changer de modèle ne sert à rien
       // dans ce cas, et gaspille un traitement vidéo complet à chaque essai.
       let r: Response | null = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < GEN_ATTEMPTS; attempt++) {
         try {
           r = await runGen(m);
         } catch (e) {
           lastInfo = `${m}→réseau/timeout`;
           console.warn(`[ai-editor/gemini] "${m}" : ${(e as Error)?.name === "TimeoutError" ? "timeout" : (e as Error)?.message}`);
-          if (attempt < 2) { await sleep(2000 * (attempt + 1) ** 2); continue; }
+          if (attempt < GEN_ATTEMPTS - 1) { await sleep(backoffMs(attempt)); continue; }
           r = null; break;
         }
         if (r.ok || !isTransient(r.status)) break;
-        console.warn(`[ai-editor/gemini] "${m}" transitoire (${r.status}) → nouvelle tentative dans ${2 * (attempt + 1) ** 2}s`);
-        if (attempt < 2) await sleep(2000 * (attempt + 1) ** 2);
+        console.warn(`[ai-editor/gemini] "${m}" transitoire (${r.status}${r.status === 403 ? " — droits du fichier pas encore propagés" : ""}) → nouvelle tentative dans ${backoffMs(attempt) / 1000}s`);
+        if (attempt < GEN_ATTEMPTS - 1) await sleep(backoffMs(attempt));
       }
-      if (r?.ok) { genRes = r; usedModel = m; break; } // premier 2xx = gagné
       if (!r) { lastInfo = `${m}→injoignable`; continue; }
-      // 400/404 : ce modèle ne veut pas de cette requête → suivant (instantané).
-      const body = await r.text().catch(() => "");
-      lastInfo = `${m}→${r.status}${body ? ` ${body.slice(0, 120)}` : ""}`;
-      console.warn(`[ai-editor/gemini] "${m}" échoue (${r.status}) → suivant · ${body.slice(0, 160)}`);
-    }
-    if (!genRes) return failWith(`aucun modèle n'a répondu (essayés : ${[...tried].join(", ")} · dernier : ${lastInfo})`);
-    const genJson = await genRes.json().catch(() => null) as {
-      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
-    } | null;
-    const raw = genJson?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-    const u = genJson?.usageMetadata;
-    if (!raw.trim()) {
+      if (!r.ok) {
+        // 400/404/403 : ce modèle ne veut pas de cette requête → suivant (instantané).
+        const body = await r.text().catch(() => "");
+        lastInfo = `${m}→${r.status}${body ? ` ${body.slice(0, 120)}` : ""}`;
+        console.warn(`[ai-editor/gemini] "${m}" échoue (${r.status}) → suivant · ${body.slice(0, 160)}`);
+        continue;
+      }
+      // ⚠ Un HTTP 200 ne garantit PAS du JSON exploitable. Vu en prod : une
+      // réponse de PROSE (« The model is overloaded… ») servie en 200, que
+      // JSON.parse faisait exploser — et l'analyse ENTIÈRE était abandonnée en
+      // accusant à tort la richesse de la réf. On ne sort de la cascade qu'une
+      // fois la réponse réellement PARSÉE ; sinon on essaie le modèle suivant.
+      const genJson = await r.json().catch(() => null) as GenJson | null;
+      const raw = candidateText(genJson);
+      const usage = genJson?.usageMetadata;
       const fr = genJson?.candidates?.[0]?.finishReason ?? "?";
-      return failWith(fr === "MAX_TOKENS"
-        ? `réponse TRONQUÉE (limite de tokens atteinte : ${u?.candidatesTokenCount ?? "?"}) — réf trop riche pour le budget de sortie`
-        : `réponse vide (finishReason=${fr}, tokens out=${u?.candidatesTokenCount ?? "?"})`);
+      if (!raw) {
+        lastInfo = fr === "MAX_TOKENS"
+          ? `${m}→TRONQUÉE (budget de sortie atteint, out=${usage?.candidatesTokenCount ?? "?"})`
+          : `${m}→réponse vide (finishReason=${fr})`;
+        console.warn(`[ai-editor/gemini] ${lastInfo}`);
+        continue;
+      }
+      const p = parseModelJson(raw);
+      if (!p.ok) {
+        lastInfo = `${m}→${p.truncated ? `TRONQUÉE (${p.why}, finish=${fr}, out=${usage?.candidatesTokenCount ?? "?"})` : p.why}`;
+        console.warn(`[ai-editor/gemini] "${m}" illisible → suivant · ${lastInfo}`);
+        continue;
+      }
+      parsed = p.value as Partial<GeminiComprehension>;
+      usedModel = m;
+      u = usage;
+      break;
     }
+    if (!parsed) return failWith(`aucun modèle exploitable (essayés : ${[...tried].join(", ")} · dernier : ${lastInfo})`);
 
     _lastError = ""; // succès : on efface la dernière cause d'échec
-    const parsed = JSON.parse(raw) as Partial<GeminiComprehension>;
     // Nettoyage/normalisation dans les unités attendues.
     const clamp = (v: unknown, lo: number, hi: number, d: number) => {
       const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d;
@@ -754,12 +836,10 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
       model: usedModel,
     };
 } catch (e) {
-    // Cas VU EN PROD : « Unterminated string in JSON at position 17063 » — la
-    // réponse était TRONQUÉE (budget de sortie atteint) et JSON.parse explosait
-    // ici, avec un message incompréhensible pour le user. On nomme la cause.
+    // Les échecs de LECTURE de la réponse (troncature, prose, enrobage) sont
+    // désormais traités DANS la cascade, avec leur cause exacte et un repli sur
+    // le modèle suivant. Ce filet ne rattrape donc plus que l'imprévu.
     const msg = (e as Error)?.message ?? "erreur inconnue";
-    return failWith(/JSON|Unterminated|Unexpected/i.test(msg)
-      ? `réponse TRONQUÉE par le budget de sortie (JSON incomplet : ${msg.slice(0, 80)}) — réf trop riche`
-      : `analyse échouée : ${msg.slice(0, 140)}`);
+    return failWith(`analyse échouée : ${msg.slice(0, 160)}`);
   }
 }

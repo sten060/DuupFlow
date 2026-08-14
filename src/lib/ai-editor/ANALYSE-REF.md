@@ -71,7 +71,25 @@ un échantillonnage à 2 img/s ne voit pas un effet de 0,2 s.
 ⚠️ Google RETIRE les modèles versionnés : `gemini-2.0-flash` est mort en 2026
 et a rendu toute la couche muette pendant des semaines). Si l'alias échoue,
 cascade sur les modèles listés par l'API, triés par un score (récent > flash >
-non-lite > non-preview). Override : `AI_EDITOR_GEMINI_MODEL`.
+non-lite > non-preview). Override : `AI_EDITOR_GEMINI_MODEL`. Les modèles
+d'accès anticipé (`-eap`) sont exclus : mesurés chroniquement en 503.
+
+**Deux pièges qui ont fait échouer la couche en prod le 14/08/2026** — les deux
+ressemblaient à « le modèle est cassé » alors qu'aucun ne l'était :
+
+1. **403 après upload = TRANSITOIRE.** Le fichier passe à `ACTIVE` avant que les
+   droits de lecture soient propagés. Mesuré : même modèle, même fichier → 403 à
+   t+0 s, **200 à t+17 s**. Traité comme définitif, ce 403 déroulait toute la
+   cascade en quelques secondes. D'où `isTransient(403)` et 4 tentatives
+   espacées de 4/8/12 s (≈ 24 s de couverture) avant de changer de modèle.
+2. **HTTP 200 ≠ JSON exploitable.** Vu : une réponse en PROSE
+   (« The model is overloaded… ») servie en 200. `JSON.parse` explosait et
+   l'analyse ENTIÈRE était abandonnée en accusant à tort la richesse de la réf.
+   Désormais la lecture (`candidateText` + `parseModelJson`) se fait DANS la
+   cascade : parts de réflexion (`thought:true`, par défaut sur Gemini 3)
+   écartées, enrobage ```json toléré, et une réponse illisible fait passer au
+   modèle SUIVANT au lieu de tout arrêter. La cause exacte est distinguée
+   (tronquée par le budget vs prose) et remontée telle quelle.
 
 **Best-effort MAIS BRUYANT** : tout échec → `comprehension: null` + une note
 dans `analysis.notes`, et `get_reference` affiche alors `🛑 STYLES DE CAPTIONS
