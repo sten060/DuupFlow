@@ -135,9 +135,13 @@ type ColorInfo = {
   height: number;        // source pixel height (0 if unknown)
   fps: number;           // source frame rate (0 if unknown) — needed by zoompan
   audioRate: number;     // source audio sample rate in Hz (0 if none/unknown) — needed by pitch shift
+  // Codec RÉELLEMENT présent dans la source ("hevc", "h264", …). Indispensable
+  // dès qu'on copie le flux au lieu de le ré-encoder : sans lui on écrivait
+  // `encoder=HEVC` sur une piste avc1 recopiée telle quelle.
+  codecName: string;
 };
 async function probeColorInfo(input: string, binPath: string): Promise<ColorInfo> {
-  const defaults: ColorInfo = { isHDR: false, colorSpace: "unknown", colorTransfer: "unknown", colorPrimaries: "unknown", pixFmt: "unknown", width: 0, height: 0, fps: 0, audioRate: 0 };
+  const defaults: ColorInfo = { isHDR: false, colorSpace: "unknown", colorTransfer: "unknown", colorPrimaries: "unknown", pixFmt: "unknown", width: 0, height: 0, fps: 0, audioRate: 0, codecName: "unknown" };
   return new Promise((resolve) => {
     let stderr = "";
     let settled = false;
@@ -169,6 +173,8 @@ async function probeColorInfo(input: string, binPath: string): Promise<ColorInfo
       // (e.g. "0x31637661") can't match because it has <2 digits before the "x".
       const vline = stderr.match(/Stream #\d+:\d+.*?: Video:[^\n]*/);
       if (vline) {
+        const cn = vline[0].match(/Video:\s*([\w.]+)/);
+        if (cn) info.codecName = cn[1].toLowerCase();
         const dim = vline[0].match(/(\d{2,5})x(\d{2,5})/);
         if (dim) { info.width = parseInt(dim[1], 10); info.height = parseInt(dim[2], 10); }
         const f = vline[0].match(/(\d+(?:\.\d+)?)\s*fps/);
@@ -657,6 +663,74 @@ export async function scrubMovVendorId(file: string): Promise<void> {
   }
 }
 
+/**
+ * Options de SORTIE qui exigent un vrai ré-encodage vidéo. Deux raisons de
+ * figurer ici, et il ne faut pas les confondre :
+ *
+ *  · FFmpeg REFUSE l'option avec `-c:v copy` (-profile:v, -level:v, -crf,
+ *    -b:v, -maxrate, -bufsize, -g) → « Error setting option profile ».
+ *  · FFmpeg ACCEPTE l'option mais elle ne fait RIEN sur un flux copié
+ *    (-r, -ss, -t) → le réglage utilisateur disparaît en silence.
+ *
+ * Ce second groupe est le plus dangereux : rien n'échoue, le fichier sort, et
+ * le réglage demandé n'a jamais été appliqué. Mesuré sur un rush iPhone
+ * (images-clés toutes les 0,93 s) : un « cut » de 0,20 s en flux copié
+ * retirait 0,93 s d'image et laissait 0,73 s de désynchronisation son/image,
+ * parce qu'un flux copié ne peut démarrer que sur une image-clé.
+ *
+ * ⚠️ Liste UNIQUE, partagée par ffmpegTier() et par le mode avancé : quand les
+ * deux divergeaient, un réglage pouvait forcer l'encodage d'un côté et pas de
+ * l'autre.
+ */
+const VIDEO_ENCODE_ARGS = [
+  "-crf", "-b:v", "-maxrate", "-bufsize", "-profile:v", "-level:v", "-g",
+  "-r",   // cadence : ignorée en silence par `-c:v copy`
+  "-ss", "-t", // découpe : cale sur l'image-clé et désynchronise en `-c:v copy`
+];
+export function needsVideoEncodeArgs(extraArgs: string[]): boolean {
+  return extraArgs.some((a) => VIDEO_ENCODE_ARGS.includes(a));
+}
+
+/**
+ * Quel régime FFmpeg va tourner, à partir des filtres/args déjà construits.
+ * Quatre paliers :
+ *  1. Aucun filtre → stream copy intégral (quasi instantané, aucun ré-encodage)
+ *  2. Filtres audio seuls → piste vidéo copiée, audio ré-encodé (pas de décodage vidéo)
+ *  3. Args de sortie seuls (ex. -ar) → vidéo copiée, audio ré-encodé avec ces args
+ *  4. Le moindre filtre vidéo → ré-encodage complet
+ * Un watermark visible impose toujours un ré-encodage vidéo complet, tout comme
+ * `forceEncode` (cf. l'incohérence codec ↔ identité iPhone côté appelant).
+ *
+ * Exporté (via `fullEncodeNeeded`) pour que l'appelant sache AVANT de lancer
+ * FFmpeg s'il consomme réellement du CPU — un stream copy n'a rien à faire dans
+ * la file d'attente des encodages (cf. acquireEncodeSlot).
+ */
+function ffmpegTier(
+  vfParts: string[],
+  afParts: string[],
+  extraArgs: string[],
+  wmOverlay?: WatermarkOverlay,
+  forceEncodeFlag = false,
+) {
+  const forceEncode   = !!wmOverlay || forceEncodeFlag;
+  const useStreamCopy = !forceEncode && vfParts.length === 0 && afParts.length === 0 && extraArgs.length === 0;
+  const audioOnly     = !forceEncode && vfParts.length === 0 && afParts.length > 0  && extraArgs.length === 0;
+  const videoCopy = !forceEncode && vfParts.length === 0 && !useStreamCopy && !audioOnly && !needsVideoEncodeArgs(extraArgs);
+  return { useStreamCopy, audioOnly, videoCopy };
+}
+
+/** true = ré-encodage vidéo complet (le seul palier réellement coûteux en CPU). */
+function fullEncodeNeeded(
+  vfParts: string[],
+  afParts: string[],
+  extraArgs: string[],
+  wmOverlay?: WatermarkOverlay,
+  forceEncodeFlag = false,
+): boolean {
+  const t = ffmpegTier(vfParts, afParts, extraArgs, wmOverlay, forceEncodeFlag);
+  return !t.useStreamCopy && !t.audioOnly && !t.videoCopy;
+}
+
 async function runFFmpegSafe(
   input: string,
   output: string,
@@ -681,6 +755,11 @@ async function runFFmpegSafe(
   // Overlay watermark visible — incrusté via filter_complex (movie=…). Quand
   // présent, force un encodage complet et remplace le -vf par un filter_complex.
   wmOverlay?: WatermarkOverlay,
+  // Codec de la SOURCE ("hevc", "h264", …) — sert à ne pas mentir sur le tag
+  // `encoder` quand le flux est recopié au lieu d'être ré-encodé.
+  srcCodec = "unknown",
+  // Force un ré-encodage complet même sans filtre (cf. incohérence codec ↔ iPhone).
+  forceEncodeFlag = false,
 ) {
   const ffmpegBin = binPath ?? await getFFmpegBin();
 
@@ -690,22 +769,7 @@ async function runFFmpegSafe(
   // -max_muxing_queue_size must come AFTER -i (output option, not input option)
   args.push("-max_muxing_queue_size", "1024");
 
-  // Four tiers:
-  // 1. No filters at all → full stream copy (near-instant, no re-encode)
-  // 2. Audio filters only → copy video track, encode audio (fast: no video decode)
-  // 3. Extra output args only (e.g. -ar sample rate) → copy video, encode audio with args
-  // 4. Any video filters → full encode
-  // Un watermark visible impose toujours un ré-encodage vidéo complet.
-  const forceEncode   = !!wmOverlay;
-  const useStreamCopy = !forceEncode && vfParts.length === 0 && afParts.length === 0 && extraArgs.length === 0;
-  const audioOnly     = !forceEncode && vfParts.length === 0 && afParts.length > 0  && extraArgs.length === 0;
-  // videoCopy: only when extraArgs are audio-compatible output options (like -ar, -b:a).
-  // Video encoder options (-profile:v, -crf, -b:v, -maxrate, -bufsize, -g, -level:v) require a real encode —
-  // passing them with -c:v copy causes FFmpeg to reject them ("Error setting option profile").
-  const hasVideoEncodeArgs = extraArgs.some((a) =>
-    ["-crf", "-b:v", "-maxrate", "-bufsize", "-profile:v", "-level:v", "-g"].includes(a)
-  );
-  const videoCopy = !forceEncode && vfParts.length === 0 && !useStreamCopy && !audioOnly && !hasVideoEncodeArgs;
+  const { useStreamCopy, audioOnly, videoCopy } = ffmpegTier(vfParts, afParts, extraArgs, wmOverlay, forceEncodeFlag);
 
   if (useStreamCopy) {
     args.push("-c", "copy");
@@ -806,7 +870,18 @@ async function runFFmpegSafe(
   // valeur qu'un appareil réel y met (le nom du codec, pas celui de l'encodeur).
   // Le nom du codec, comme un appareil réel l'écrit (un vrai .MOV iPhone porte
   // « HEVC » sur sa piste vidéo) — surtout pas « Lavc libx264 ».
-  args.push("-metadata:s:v:0", `encoder=${hevc ? "HEVC" : "H.264"}`);
+  //
+  // ⚠️ Le tag doit décrire le flux RÉELLEMENT écrit. Quand on ré-encode, c'est
+  // le codec choisi ; quand on recopie le flux, c'est celui de la SOURCE. On
+  // écrivait `encoder=HEVC` dans les deux cas : sur une source H.264 recopiée,
+  // le fichier annonçait donc « HEVC » sur une piste `avc1` — exactement le
+  // genre de contradiction interne qu'on cherche à éliminer. Codec inconnu →
+  // on n'écrit rien plutôt que d'inventer.
+  const streamIsCopied = useStreamCopy || audioOnly || videoCopy;
+  const encoderTag = streamIsCopied
+    ? (srcCodec === "hevc" ? "HEVC" : srcCodec === "h264" ? "H.264" : "")
+    : (hevc ? "HEVC" : "H.264");
+  if (encoderTag) args.push("-metadata:s:v:0", `encoder=${encoderTag}`);
   // `vendor_id=FFMP` est écrit par le muxer FFmpeg et dit littéralement qui a
   // encodé le fichier. Le vider le supprime (un iPhone y met [0][0][0][0]).
   args.push("-metadata:s:v:0", "vendor_id=");
@@ -1518,11 +1593,11 @@ export async function processVideos(
         // Add scale helpers whenever a full video encode will happen.
         // video filters → full encode via libx264 (vfParts non-empty)
         // video encoder extraArgs (CRF/bitrate/profile/GOP) → full encode via libx264
-        // Audio-only / stream-copy extraArgs (-ar, -b:a, -ss, -to) do NOT trigger a full
-        // video encode, so they don't need scale and go through the videoCopy tier instead.
-        const willFullEncode = vfParts.length > 0 || !!wmOverlay || extraArgs.some((a) =>
-          ["-crf", "-b:v", "-maxrate", "-bufsize", "-profile:v", "-level:v", "-g"].includes(a)
-        );
+        // Les extraArgs purement audio (-ar, -b:a) ne déclenchent PAS de ré-encodage
+        // vidéo : ils passent par le palier videoCopy et n'ont pas besoin de scale.
+        // La liste de référence est VIDEO_ENCODE_ARGS (partagée avec ffmpegTier) —
+        // elle inclut désormais -r/-ss/-t, qui ne font rien sur un flux copié.
+        const willFullEncode = vfParts.length > 0 || !!wmOverlay || needsVideoEncodeArgs(extraArgs);
         if (willFullEncode) {
           // Same HDR→SDR logic as simple mode.
           if (color.isHDR) {
@@ -1561,7 +1636,25 @@ export async function processVideos(
       if (signal?.aborted) return;
       // Acquire a GLOBAL encode slot so concurrent jobs never exceed the server's
       // ffmpeg budget (per-job concurrency alone wouldn't bound across jobs).
-      await acquireEncodeSlot();
+      //
+      // ⚠ UNIQUEMENT pour un vrai ré-encodage. Le sémaphore borne le CPU ffmpeg ;
+      // or un stream copy (pack « métadonnées » seul) coûte ~0,1 s et zéro calcul.
+      // En le faisant passer par la file, une simple copie pouvait attendre
+      // derrière deux ré-encodages 4K de plusieurs minutes — d'où des
+      // duplications « métadonnées » interminables alors que la commande, elle,
+      // est instantanée. Les copies court-circuitent donc la file.
+      // ── Cohérence codec ↔ identité annoncée ──────────────────────────────
+      // En « priorité d'algorithme » le fichier prétend sortir d'un iPhone, or
+      // un iPhone moderne filme en HEVC. Si la source est du H.264 et qu'aucun
+      // filtre ne déclenche de ré-encodage, on recopiait le flux tel quel : le
+      // .MOV annonçait « iPhone » avec une piste `avc1`. On force donc un vrai
+      // encodage HEVC dans ce seul cas (source déjà HEVC → rien à forcer, on
+      // garde le chemin rapide).
+      const forceEncodeForCodec = useIphoneMeta && color.codecName !== "hevc" && color.codecName !== "unknown";
+      const needsSlot = fullEncodeNeeded(vfParts, afParts, extraArgs, wmOverlay, forceEncodeForCodec);
+      const ffStart = Date.now();
+      if (needsSlot) await acquireEncodeSlot();
+      const ffQueued = Date.now() - ffStart;
       try {
         await runFFmpegSafe(
           tmpIn, tempOutPath, vfParts, afParts, extraArgs, metaArgs,
@@ -1578,12 +1671,20 @@ export async function processVideos(
           // où le fichier prétend sortir d'un iPhone. Sinon on reste en H.264/avc1.
           useIphoneMeta,
           wmOverlay,
+          color.codecName,
+          forceEncodeForCodec,
         );
         // Dernière trace FFmpeg (vendor 'FFMP' du muxer MOV) — non supprimable
         // en ligne de commande, effacée ici sur le fichier produit.
         await scrubMovVendorId(tempOutPath);
+        // Chronos par copie : sans ça, impossible de dire au vu des logs si une
+        // duplication lente a attendu son tour, encodé, ou bloqué ailleurs.
+        console.log(
+          `[processVideos] copie ${fileIndex}/${copyIndex} — mode=${needsSlot ? "encode" : "copy"} ` +
+          `attente=${ffQueued}ms ffmpeg=${Date.now() - ffStart - ffQueued}ms`,
+        );
       } finally {
-        releaseEncodeSlot();
+        if (needsSlot) releaseEncodeSlot();
       }
       outputPaths.push(outPath);
       renames.push({ temp: tempOutPath, final: outPath });

@@ -165,6 +165,53 @@ function parseFfmpegInfo(stderr: string, fileSize: number): { format: Record<str
 
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".tiff", ".tif", ".heic", ".heif", ".avif"]);
 
+/* ── Vignettes pour l'analyse visuelle ──────────────────────────────────────
+   L'extraction se fait CÔTÉ SERVEUR, avec FFmpeg. Le faire dans le navigateur
+   via <video> + canvas paraît moins coûteux, mais Chrome et Firefox ne savent
+   pas décoder le HEVC des rushs iPhone : sur ces fichiers — précisément ceux du
+   produit — l'analyse visuelle ne rendait rien. Le fichier est déjà envoyé au
+   serveur pour la sonde, on en profite.
+
+   5 positions réparties sur la durée : une seule image ne dirait rien d'un
+   mouvement de caméra ou d'un fondu, et une image en tout début de vidéo tombe
+   souvent sur un noir. 320 px de large suffisent — tous les algorithmes
+   ramènent de toute façon l'image à 128 px ou moins. */
+const FRAME_POSITIONS = [0.1, 0.3, 0.5, 0.7, 0.9];
+const FRAME_WIDTH = 320;
+
+function grabFrame(ffmpegBin: string, file: string, atSec: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v: string | null) => { if (!settled) { settled = true; clearTimeout(timer); resolve(v); } };
+    // -ss AVANT -i : recherche rapide (l'option de sortie décoderait tout depuis
+    // le début, ce qui serait ruineux sur une 4K).
+    const p = spawn(ffmpegBin, [
+      "-v", "error", "-ss", atSec.toFixed(3), "-i", file,
+      "-frames:v", "1", "-vf", `scale=${FRAME_WIDTH}:-2`,
+      "-f", "image2", "-c:v", "mjpeg", "-",
+    ], { stdio: ["ignore", "pipe", "ignore"] });
+    const chunks: Buffer[] = [];
+    p.stdout.on("data", (d: Buffer) => chunks.push(d));
+    p.on("error", () => done(null));
+    p.on("close", () => {
+      const buf = Buffer.concat(chunks);
+      done(buf.length > 0 ? buf.toString("base64") : null);
+    });
+    const timer = setTimeout(() => { p.kill("SIGKILL"); done(null); }, 15_000);
+  });
+}
+
+async function extractVideoFrames(ffmpegBin: string, file: string, durationSec: number): Promise<string[]> {
+  // Durée inconnue ou minuscule → une seule image, prise au tout début.
+  if (!(durationSec > 0.2)) {
+    const one = await grabFrame(ffmpegBin, file, 0);
+    return one ? [one] : [];
+  }
+  const positions = FRAME_POSITIONS.map((p) => Math.min(durationSec * p, durationSec - 0.05));
+  const frames = await Promise.all(positions.map((p) => grabFrame(ffmpegBin, file, p)));
+  return frames.filter((f): f is string => !!f);
+}
+
 /**
  * Probe an image file using sharp — reads EXIF, ICC, and format metadata.
  */
@@ -245,7 +292,9 @@ async function probeImage(buf: Buffer, realSize: number, fileName: string): Prom
  * Run ffmpeg -i on a video file and return parsed metadata,
  * or use sharp for images to read EXIF data.
  */
-export async function probeFile(formData: FormData): Promise<{ format: Record<string, any>; streams?: Record<string, any>[] } | { error: string }> {
+export async function probeFile(
+  formData: FormData,
+): Promise<{ format: Record<string, any>; streams?: Record<string, any>[]; frames?: string[] } | { error: string }> {
   const { getServerT } = await import("@/lib/i18n/server");
   const t = await getServerT();
   const file = formData.get("file") as File | null;
@@ -261,8 +310,15 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
   if (isImage) {
     try {
       const result = await probeImage(buf, realSize, file.name);
+      // Vignette unique — une image n'a pas de timeline à échantillonner.
+      // failOn:"none" : une photo légèrement corrompue reste analysable.
+      const thumb = await sharp(buf, { failOn: "none" })
+        .resize(FRAME_WIDTH, null, { fit: "inside" })
+        .jpeg({ quality: 90 })
+        .toBuffer()
+        .catch(() => null);
       console.log(`[probe] image OK, tags=${Object.keys(result.format.tags || {}).length}`);
-      return result;
+      return { ...result, frames: thumb ? [thumb.toString("base64")] : [] };
     } catch (e: any) {
       console.error(`[probe] image error:`, e);
       return { error: e?.message || t("errors.comparator.analyzeImage") };
@@ -285,7 +341,14 @@ export async function probeFile(formData: FormData): Promise<{ format: Record<st
       setTimeout(() => { p.kill("SIGKILL"); reject(new Error("ffmpeg timeout")); }, 10_000);
     });
 
-    return parseFfmpegInfo(stderr, realSize);
+    const info = parseFfmpegInfo(stderr, realSize);
+    // Vignettes pour le volet visuel du score. Un échec ici ne doit jamais faire
+    // échouer la sonde : on renvoie alors une liste vide et le score se rabat
+    // sur le seul volet technique (cf. unifiedScore).
+    const frames = await extractVideoFrames(ffmpegBin, tmpPath, Number(info.format.duration) || 0)
+      .catch(() => [] as string[]);
+    console.log(`[probe] video OK, frames=${frames.length}`);
+    return { ...info, frames };
   } catch (e: any) {
     return { error: e?.message || t("errors.comparator.analyzeFile") };
   } finally {
