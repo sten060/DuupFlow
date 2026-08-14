@@ -1130,8 +1130,20 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       if (m.analysis?.voiceReliable === false) {
         content.push({ type: "text", text: `  · ⛔ BLANCS et REPRISES NON CALCULÉS — ils se déduisent du transcript, or celui-ci vient d'être signalé NON FIABLE ci-dessus. Te les donner reviendrait à te faire couper d'après des données fausses. Pour découper ce rush, appuie-toi sur les ⏱ MOMENTS et les SEGMENTS.` });
       } else {
-        for (const l of formatSilenceLines(m.analysis?.transcript, m.analysis?.durationSec, m.analysis?.audio?.energy, m.analysis?.audio?.silences, tw)) content.push({ type: "text", text: l });
-        for (const l of formatRetakeLines(tw)) content.push({ type: "text", text: l });
+        const sl = formatSilenceLines(m.analysis?.transcript, m.analysis?.durationSec, m.analysis?.audio?.energy, m.analysis?.audio?.silences, tw);
+        for (const l of sl) content.push({ type: "text", text: l });
+        // ⛔ 2e maillon du chaînage. Le 1er (voiceReliable) n'attrape pas tout :
+        // sur un rush musical dont les silences viennent de la voie ÉNERGIE, la
+        // fiabilité restait « vraie » et les REPRISES étaient listées — « coupe
+        // cette plage » sur un refrain de chanson, 1,5 s ôtées d'un hook de 5,7 s.
+        // Si la détection de blancs s'est déclarée INCOHÉRENTE, la mesure du son
+        // de ce fichier n'est pas fiable : les reprises, qui en dépendent aussi,
+        // ne doivent pas être émises non plus.
+        if (sl.some((l) => l.includes("DÉTECTION DE BLANCS INCOHÉRENTE"))) {
+          content.push({ type: "text", text: `  · ⛔ REPRISES NON CALCULÉES — la détection de blancs de ce fichier vient d'être déclarée incohérente ; les reprises reposent sur la même mesure. Ne coupe rien sur cette base.` });
+        } else {
+          for (const l of formatRetakeLines(tw)) content.push({ type: "text", text: l });
+        }
       }
     }
     for (const kf of kfs) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }

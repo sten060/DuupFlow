@@ -1247,7 +1247,11 @@ export async function renderVariant(
       const same = hdr.every((c) => c.space === hdr[0].space && c.trc === hdr[0].trc && c.primaries === hdr[0].primaries);
       if (same) {
         srcColor = hdr[0];
-        console.log(`[ai-editor/render] source HDR détectée (${srcColor.space}/${srcColor.primaries}/${srcColor.trc}) → étiquettes de couleur préservées`);
+        // ⚠ Ce message annonçait « étiquettes préservées » AVANT de savoir si la
+        // conversion aurait lieu — elle a lieu presque toujours, et la sortie est
+        // alors taguée bt709. Le log a fait conclure à tort à une double
+        // conversion chez le lecteur. On décrit ce qu'on SAIT à cet instant.
+        console.log(`[ai-editor/render] source HDR détectée (${srcColor.space}/${srcColor.primaries}/${srcColor.trc}) — décision d'étiquetage prise après conversion`);
       } else console.log("[ai-editor/render] profils HDR différents entre rushs → pas de report d'étiquettes");
     } else if (hdr.length) {
       console.log(`[ai-editor/render] matière MIXTE (${hdr.length} HDR / ${infos.length}) → pas de report d'étiquettes (les plans SDR seraient faussés)`);
@@ -1276,7 +1280,10 @@ export async function renderVariant(
   const convertedAll = srcOverride.size > 0 && [...colorByPath].every(([pp, info]) => !info?.isHDR || srcOverride.has(pp));
   // Converti en SDR → surtout PAS d'étiquettes HDR sur la sortie.
   const colorArgs = convertedAll ? [] : colorTagArgs(srcColor);
-  if (convertedAll) console.log("[ai-editor/render] rushs HDR convertis en SDR → couleurs correctes sur tous les lecteurs");
+  // On dit la DÉCISION finale d'étiquetage, pas un slogan : c'est elle qu'on
+  // vient vérifier dans les logs quand une couleur paraît fausse.
+  if (convertedAll) console.log("[ai-editor/render] rushs HDR convertis en SDR → sortie étiquetée bt709 (aucune étiquette HDR résiduelle)");
+  else if (colorArgs.length) console.log(`[ai-editor/render] ⚠ sortie étiquetée ${srcColor?.space}/${srcColor?.primaries}/${srcColor?.trc} — contenu NON converti (pas de binaire capable ?)`);
 
 
 
@@ -2146,29 +2153,36 @@ const DOWNSCALE_FILTER = `scale=w='if(gt(iw\\,ih)\\,-2\\,min(iw\\,${PROXY_SHORT_
 // quotes, mais on ne parie pas là-dessus d'un binaire à l'autre.
 const SCALE_DOWN = `scale=w='if(gt(iw\\,ih)\\,-2\\,min(iw\\,${PROXY_SHORT_EDGE}))':h='if(gt(iw\\,ih)\\,min(ih\\,${PROXY_SHORT_EDGE})\\,-2)'`;
 
-/** HLG (arib-std-b67) — conversion directe, SANS compression de dynamique. */
-const HLG_FILTERS = [
+/** HDR → SDR, une seule chaîne pour HLG et PQ.
+ *
+ *  ⚠ `npl` (pic nominal, en nits) est LE paramètre qui décide de tout, et la
+ *  valeur par défaut de ffmpeg (100) est fausse pour du HDR réel. Mesuré le
+ *  14/08/2026 sur une mire encodée façon caméra (BT.2100 : pic nominal 1000 nits,
+ *  blanc de référence à 75 % du signal) :
+ *
+ *      chaîne                       gris 128    orange 224/64/16
+ *      conversion directe             255        255/234/32   ← cramé + dérive
+ *      linéaire npl=100 + mobius      234        254/ 80/ 13
+ *      linéaire npl=1000 + mobius     128        210/ 66/ 11  ✔
+ *
+ *  Le piège qui m'a coûté un déploiement : une mire fabriquée SANS npl explicite
+ *  est encodée à 100 nits, et la conversion directe y paraît parfaite. Elle ne
+ *  l'est que sur cette mire. Toute fixture HDR doit être encodée avec
+ *  `npl=1000`, sinon elle valide la mauvaise chaîne. */
+const HDR_FILTERS = [
   SCALE_DOWN,
-  "zscale=t=bt709:m=bt709:p=bt709:r=tv", // transfert + matrice + primaires
-  "format=yuv420p",
-].join(",");
-
-/** PQ (smpte2084) — vraie plage HDR : là, il FAUT compresser. */
-const PQ_FILTERS = [
-  SCALE_DOWN,
-  "zscale=t=linear:npl=100",     // linéarise la courbe PQ
-  "format=gbrpf32le",             // flottant 32 bits pour un tonemap précis
-  "zscale=p=bt709",               // primaires BT.2020 → BT.709
-  "tonemap=mobius:desat=0",       // compresse la dynamique (mobius > hable, mesuré)
+  "zscale=t=linear:npl=1000",   // pic nominal BT.2100, PAS le défaut 100
+  "format=gbrpf32le",            // flottant 32 bits pour un tonemap précis
+  "zscale=p=bt709",              // primaires BT.2020 → BT.709, en lumière linéaire
+  "tonemap=mobius:desat=0",      // mesuré 4× plus fidèle que `hable`
   "zscale=t=bt709:m=bt709:r=tv",
   "format=yuv420p",
 ].join(",");
 
-/** Choisit la chaîne d'après la courbe RÉELLE du fichier. Par défaut (HDR sans
- *  courbe identifiable, ex. 10-bit HEVC tagué BT.2020 seul) : conversion directe,
- *  la moins destructrice des deux. */
-function hdrFiltersFor(trc: string | undefined): string {
-  return /smpte2084|pq/i.test(String(trc ?? "")) ? PQ_FILTERS : HLG_FILTERS;
+/** HLG et PQ passent par la MÊME chaîne : la linéarisation lit la courbe réelle
+ *  dans les métadonnées du fichier, et `npl=1000` est le pic nominal des deux. */
+function hdrFiltersFor(_trc: string | undefined): string {
+  return HDR_FILTERS;
 }
 
 /** Empreinte des chaînes de conversion, INCLUSE DANS LE NOM du proxy.
@@ -2178,7 +2192,7 @@ function hdrFiltersFor(trc: string | undefined): string {
  *  déjà importés — le user retestait et revoyait exactement les mêmes couleurs
  *  fausses, en croyant tester le correctif. Avec l'empreinte, toute modification
  *  des filtres invalide les proxies d'elle-même : impossible d'oublier. */
-const PROXY_REV = createHash("sha1").update(HLG_FILTERS + PQ_FILTERS + DOWNSCALE_FILTER).digest("hex").slice(0, 6);
+const PROXY_REV = createHash("sha1").update(HDR_FILTERS + DOWNSCALE_FILTER).digest("hex").slice(0, 6);
 
 let _fullFf: string | null | undefined; // undefined = pas encore cherché
 /** Cherche un ffmpeg capable de tonemapper (filtre zscale). null si aucun. */
