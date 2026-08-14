@@ -16,6 +16,7 @@
 // Captions rasterisées en PNG (sharp) + overlay — portable (pas de drawtext).
 
 import fs from "fs/promises";
+import { createHash } from "crypto";
 import os from "os";
 import path from "path";
 import { runFFmpeg, ffmpegBinPath } from "@/lib/studio/pipeline";
@@ -2139,7 +2140,11 @@ const DOWNSCALE_FILTER = `scale=w='if(gt(iw\\,ih)\\,-2\\,min(iw\\,${PROXY_SHORT_
    prend `mobius`, mesuré 4× plus fidèle que `hable`. Appliquer une compression
    de dynamique à un signal qui n'en a pas besoin, c'est exactement ce qui
    écrasait les blancs et déviait les teintes. */
-const SCALE_DOWN = `scale=w='if(gt(iw\,ih)\,-2\,min(iw\,${PROXY_SHORT_EDGE}))':h='if(gt(iw\,ih)\,min(ih\,${PROXY_SHORT_EDGE})\,-2)'`;
+// ⚠ DOUBLE antislash obligatoire : dans un template JS, `\,` perd son antislash
+// et sort en virgule nue — le séparateur de filtres de ffmpeg. Ce piège exact a
+// déjà cassé les effets de vitesse en prod ; ici la chaîne s'en sortait par les
+// quotes, mais on ne parie pas là-dessus d'un binaire à l'autre.
+const SCALE_DOWN = `scale=w='if(gt(iw\\,ih)\\,-2\\,min(iw\\,${PROXY_SHORT_EDGE}))':h='if(gt(iw\\,ih)\\,min(ih\\,${PROXY_SHORT_EDGE})\\,-2)'`;
 
 /** HLG (arib-std-b67) — conversion directe, SANS compression de dynamique. */
 const HLG_FILTERS = [
@@ -2165,6 +2170,15 @@ const PQ_FILTERS = [
 function hdrFiltersFor(trc: string | undefined): string {
   return /smpte2084|pq/i.test(String(trc ?? "")) ? PQ_FILTERS : HLG_FILTERS;
 }
+
+/** Empreinte des chaînes de conversion, INCLUSE DANS LE NOM du proxy.
+ *  ⛔ Le proxy était mis en cache sous `<fichier>.sdr.mp4`, sans marqueur de
+ *  version : un proxy fabriqué par une ANCIENNE chaîne était réutilisé pour
+ *  toujours. Corriger la conversion ne corrigeait donc RIEN pour les fichiers
+ *  déjà importés — le user retestait et revoyait exactement les mêmes couleurs
+ *  fausses, en croyant tester le correctif. Avec l'empreinte, toute modification
+ *  des filtres invalide les proxies d'elle-même : impossible d'oublier. */
+const PROXY_REV = createHash("sha1").update(HLG_FILTERS + PQ_FILTERS + DOWNSCALE_FILTER).digest("hex").slice(0, 6);
 
 let _fullFf: string | null | undefined; // undefined = pas encore cherché
 /** Cherche un ffmpeg capable de tonemapper (filtre zscale). null si aucun. */
@@ -2255,7 +2269,7 @@ async function sdrProxy(abs: string, color: SrcColor | null): Promise<string> {
 /** `hdrTrc` = courbe du fichier si HDR (choisit la chaîne de conversion), null sinon. */
 async function sdrProxyInner(abs: string, hdrTrc: string | null): Promise<string> {
   const isHDR = hdrTrc !== null;
-  const proxy = abs.replace(/\.[^.]+$/, "") + ".sdr.mp4";
+  const proxy = abs.replace(/\.[^.]+$/, "") + `.sdr-${PROXY_REV}.mp4`;
   try { const st = await fs.stat(proxy); if (st.size > 1000) return proxy; } catch { /* à créer */ }
   // HDR → il faut un ffmpeg capable de tonemapper. Simple allègement → celui du
   // moteur suffit (n'importe quel ffmpeg sait réduire une image).

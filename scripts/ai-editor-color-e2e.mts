@@ -16,10 +16,17 @@
 //      sortie recevoir des étiquettes HDR alors qu'elle contient des plans SDR
 //      et des PNG → tout le cadre réinterprété par le lecteur.
 //
-// Ce harnais vérifie les DÉCISIONS (mixte détecté, conversion tentée), pas le
-// rendu des couleurs : la conversion exige un ffmpeg avec `zscale`, absent de
-// la plupart des postes de dev. C'est justement pour ça que le défaut n'avait
-// été vu par personne avant la prod.
+//   3. On tonemappait le HLG iPhone avec `hable`. Or le HLG est CONÇU
+//      rétro-compatible : il se CONVERTIT. Mesuré : écart moyen 51 sur 6
+//      couleurs, dont 98 sur le BLANC (« les blancs tirent au beige »).
+//   4. Le proxy converti était mis en cache SANS marqueur de version : un proxy
+//      fabriqué par une ancienne chaîne était réutilisé indéfiniment, donc
+//      corriger la conversion ne changeait rien aux fichiers déjà importés.
+//
+// Ce harnais vérifie les DÉCISIONS (mixte détecté, conversion tentée) ET, si un
+// ffmpeg avec `zscale` est présent, la FIDÉLITÉ RÉELLE des couleurs. Sans
+// zscale il le dit bruyamment : c'est ce trou qui a laissé passer 2 jours de
+// couleurs fausses (voir l'installation indiquée à l'exécution).
 //
 // Usage : npx tsx scripts/ai-editor-color-e2e.mts
 
@@ -32,7 +39,7 @@ const ROOT = await fs.mkdtemp(path.join(os.tmpdir(), "duup_color_"));
 process.env.OUT_BASE = ROOT;
 process.env.AI_EDITOR_MAX_RENDERS = "1";
 
-const { createProject, saveReference, addMaterial } = await import("../src/lib/ai-editor/store");
+const { createProject, saveReference, addMaterial, projectPaths, materialAbsPath } = await import("../src/lib/ai-editor/store");
 const { renderVariant } = await import("../src/lib/ai-editor/render");
 
 const FF = path.join(process.cwd(), "node_modules", "@ffmpeg-installer", `${process.platform}-${process.arch}`, "ffmpeg");
@@ -129,7 +136,6 @@ if (!hasZscale) {
   if ("error" in r2) {
     check(false, "rendu du plan HLG", r2.error.slice(0, 120));
   } else {
-    const { projectPaths } = await import("../src/lib/ai-editor/store");
     const outFile = path.join(projectPaths(USER, project.id).variantsDir, r2.variant.storedName);
     const raw = execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-ss", "1", "-i", outFile,
       "-vf", "crop=2:2:270:480", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
@@ -139,6 +145,30 @@ if (!hasZscale) {
     // Repère : la chaîne `hable` d'origine sortait à 38 ; la conversion directe à 11.
     check(ecart <= 20, "un rush HLG traverse le moteur sans dérive de couleur",
       `obtenu ${got.join("/")} pour ${REF.join("/")} — écart ${ecart} (seuil 20 ; l'ancienne chaîne sortait à 38)`);
+
+    // ⛔ LE PIÈGE QUI A INVALIDÉ UN TEST DU USER : le proxy était mis en cache
+    // sous `<fichier>.sdr.mp4`, sans marqueur de version. Un proxy fabriqué par
+    // une ANCIENNE chaîne de conversion était donc réutilisé indéfiniment —
+    // corriger les couleurs ne changeait RIEN aux fichiers déjà importés, et le
+    // retest montrait exactement la même dérive. On dépose ici un vieux proxy
+    // volontairement FAUX (vert vif) et on vérifie qu'il est IGNORÉ.
+    const stale = materialAbsPath(USER, project.id, mHlg!.storedName).replace(/\.[^.]+$/, "") + ".sdr.mp4";
+    execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error",
+      "-f", "lavfi", "-t", "6", "-i", "color=c=0x00FF00:s=540x960:r=30",
+      "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-y", stale]);
+    const r3 = await renderVariant(USER, project.id, { segments: [{ materialId: mHlg!.id, startSec: 0, endSec: 3 }] } as never);
+    if ("error" in r3) {
+      check(false, "un proxy périmé est ignoré", r3.error.slice(0, 120));
+    } else {
+      const f3 = path.join(projectPaths(USER, project.id).variantsDir, r3.variant.storedName);
+      const raw3 = execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-ss", "1", "-i", f3,
+        "-vf", "crop=2:2:270:480", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        { encoding: "buffer", maxBuffer: 1 << 20 }) as unknown as Buffer;
+      const g3 = [raw3[0], raw3[1], raw3[2]];
+      const e3 = Math.round(g3.reduce((s, v, i) => s + Math.abs(v - REF[i]), 0) / 3);
+      check(e3 <= 20, "un proxy périmé (ancienne chaîne) est IGNORÉ, pas réutilisé",
+        `obtenu ${g3.join("/")} — écart ${e3} (le proxy périmé était vert vif : s'il avait été réutilisé, l'écart exploserait)`);
+    }
   }
 }
 
