@@ -1517,13 +1517,10 @@ export async function renderVariant(
   // réelle diffère de durs[i], le fade-out tombe hors plage → simple no-op (pas pire
   // qu'avant). Plans très courts : fondu réduit (≥ 4 ms), jamais plus d'1/8 du plan.
   for (let i = 0; i < segs.length; i++) {
-    // format + SAR en plus du fps/TB : xfade REFUSE deux entrées qui diffèrent par
-    // le format de pixels ou le rapport de pixels (« Input link parameters do not
-    // match » → code -22), et les plans pré-rendus (vitesse, composite) sortent d'un
-    // mp4 dont le SAR peut différer des plans décodés directement. Vu en prod : les
-    // transitions retombaient en coupes sèches à CHAQUE rendu, en payant en plus un
-    // réencodage complet de repli. Ces deux filtres sont sans effet quand tout
-    // concorde déjà (coût nul), et sauvent le graphe quand ça diverge.
+    // format+setsar en plus du fps/TB : xfade refuse deux entrées de format de
+    // pixels ou de rapport de pixels différents, et les plans pré-rendus (vitesse,
+    // composite) sortent d'un mp4 dont le SAR peut différer des plans décodés
+    // directement. Sans effet quand tout concorde déjà.
     filters.push(`${vlabels[i]}fps=${fps},format=yuv420p,setsar=1,setpts=PTS-STARTPTS,settb=1/${fps}[vn${i}]`);
     const sf = Math.min(0.012, Math.max(0.004, durs[i] / 8));
     const foSt = Math.max(0, durs[i] - sf);
@@ -1575,7 +1572,15 @@ export async function renderVariant(
         const ti = name ? clamp(Math.min(num(segs[i].transitionDuration, 0.25), durs[i] * 0.9, durs[i - 1] * 0.9), 0.05, 1.0) : 0;
         const vo = `[vt${i}]`, ao = `[at${i}]`;
         if (ti <= 0) { // cut (ou glitch) → concat 2 à 2
-          af.push(`${vAcc}${vlabels[i]}concat=n=2:v=1:a=0${vo}`, `${aAcc}${alabels[i]}concat=n=2:v=0:a=1${ao}`);
+          // ⛔ RÉGRESSION PROD 2026-08-14 — `fps` APRÈS le concat n'est PAS
+          // cosmétique : `concat` déclare sa cadence de sortie INCONNUE (1/0), et
+          // `xfade` EXIGE une cadence constante (« The inputs needs to be a constant
+          // frame rate; current rate of 1/0 is invalid » → code -22). Dès qu'un
+          // montage MÉLANGE des cuts et des transitions — le cas normal —, le
+          // concat du cut alimentait le xfade suivant et TOUT le graphe échouait :
+          // aucune transition appliquée, plus un réencodage complet de repli en
+          // coupes sèches à chaque rendu. Reproduit sur ffmpeg 4.4 ET 8.1.2.
+          af.push(`${vAcc}${vlabels[i]}concat=n=2:v=1:a=0,fps=${fps}${vo}`, `${aAcc}${alabels[i]}concat=n=2:v=0:a=1${ao}`);
           accDur += durs[i];
         } else { // crossfade vidéo + audio, borné à la durée des plans
           const offset = Math.max(0, accDur - ti);

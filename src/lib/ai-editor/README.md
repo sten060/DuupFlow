@@ -136,6 +136,10 @@ Ce module est destiné à être repris par quelqu'un qui n'a pas participé à s
   - `npx tsx scripts/ai-editor-render-e2e.mts` — MOTEUR DE RENDU sur un projet
     jetable : durées vérifiées sur les 3 chemins (décodeur mutualisé, pré-rendu
     retimé, composite/b-roll), captions, montage à 39 micro-plans.
+  ⚠ Leçon du 14/08 : tester des cas PURS ne suffit pas. Le cas « transitions »
+  n'utilisait que des fondus ; en prod, un montage MÉLANGE cuts et transitions,
+  et c'est le raccord entre les deux qui cassait (concat → xfade). Un harnais
+  vert sur des cas purs peut masquer un défaut sur 100 % des rendus réels.
   Règle : **toute régression trouvée en prod devient un cas permanent** dans
   ces harnais, dans le même commit que le correctif. C'est ce qui manquait —
   un correctif de perf a cassé les effets de vitesse EN SILENCE, et personne ne

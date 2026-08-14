@@ -123,6 +123,23 @@ const CASES: Case[] = [
     expect: 8.2, tol: 0.5, // 9 s − 2 × 0,4 s de recouvrement
   },
   {
+    // ⛔ RÉGRESSION PROD 2026-08-14 : le cas « transitions » ci-dessus ne mettait
+    // QUE des fondus — or un vrai montage MÉLANGE cuts et transitions. Le cut passe
+    // par un concat, qui déclare sa cadence de sortie inconnue (1/0), et le xfade
+    // suivant refuse (« constant frame rate; current rate of 1/0 is invalid »).
+    // Résultat en prod : AUCUNE transition, et un réencodage de repli à chaque
+    // rendu. Le harnais était vert parce qu'il ne testait pas le mélange.
+    name: "transitions MÉLANGÉES avec des cuts (concat → xfade)",
+    plan: { segments: [
+      { materialId: MID, startSec: 0, endSec: 3 },
+      { materialId: MID, startSec: 5, endSec: 8, transition: "cut" },
+      { materialId: MID, startSec: 10, endSec: 13, transition: "fade", transitionDuration: 0.4 },
+      { materialId: MID, startSec: 15, endSec: 18, transition: "cut" },
+      { materialId: MID, startSec: 20, endSec: 23, transition: "slide", transitionDuration: 0.4 },
+    ] },
+    expect: 14.2, tol: 0.5, // 15 s − 2 × 0,4 s de recouvrement
+  },
+  {
     // ⛔ RÉGRESSION PROD 2026-08-12 : au-delà du plafond d'entrées, on doit
     // REFUSER proprement (message actionnable) et jamais produire un montage
     // faux — le chemin mutualisé rendait ×9 à ×20 la durée prévue.
