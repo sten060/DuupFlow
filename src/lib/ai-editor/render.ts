@@ -2155,23 +2155,28 @@ const SCALE_DOWN = `scale=w='if(gt(iw\\,ih)\\,-2\\,min(iw\\,${PROXY_SHORT_EDGE})
 
 /** HDR → SDR, une seule chaîne pour HLG et PQ.
  *
- *  ⚠ `npl` (pic nominal, en nits) est LE paramètre qui décide de tout, et la
- *  valeur par défaut de ffmpeg (100) est fausse pour du HDR réel. Mesuré le
- *  14/08/2026 sur une mire encodée façon caméra (BT.2100 : pic nominal 1000 nits,
- *  blanc de référence à 75 % du signal) :
+ *  ⚠ `npl` (pic nominal, en nits) décide de TOUT, et il a fallu trois essais pour
+ *  le régler — chacun validé sur une mire, chacun faux sur un vrai fichier.
+ *  Mesures du 14/08/2026 sur un VRAI export iPhone (4K HLG, luminance moyenne de
+ *  l'image de référence : 153) :
  *
- *      chaîne                       gris 128    orange 224/64/16
- *      conversion directe             255        255/234/32   ← cramé + dérive
- *      linéaire npl=100 + mobius      234        254/ 80/ 13
- *      linéaire npl=1000 + mobius     128        210/ 66/ 11  ✔
+ *      chaîne                     luminance    aspect
+ *      conversion directe            212       écran cramé, illisible ← le bug signalé
+ *      linéaire npl=100 + mobius     179       délavé
+ *      linéaire npl=203 + mobius     160       NATUREL ✔
+ *      linéaire npl=400 + mobius     136       assombri
+ *      linéaire npl=1000 + mobius     99       nettement trop sombre
  *
- *  Le piège qui m'a coûté un déploiement : une mire fabriquée SANS npl explicite
- *  est encodée à 100 nits, et la conversion directe y paraît parfaite. Elle ne
- *  l'est que sur cette mire. Toute fixture HDR doit être encodée avec
- *  `npl=1000`, sinon elle valide la mauvaise chaîne. */
+ *  203 nits n'est pas un réglage au jugé : c'est le blanc de RÉFÉRENCE du HDR
+ *  (ITU-R BT.2408), le niveau auquel une caméra expose le blanc diffus.
+ *
+ *  ⛔ Piège qui m'a eu DEUX fois : une mire encodée sans `npl` explicite l'est à
+ *  100 nits, et sur elle une conversion fausse paraît parfaite. Toute fixture HDR
+ *  doit être encodée au MÊME npl que celui utilisé ici, et le réglage doit être
+ *  confirmé sur un vrai fichier caméra — une mire ne suffit pas. */
 const HDR_FILTERS = [
   SCALE_DOWN,
-  "zscale=t=linear:npl=1000",   // pic nominal BT.2100, PAS le défaut 100
+  "zscale=t=linear:npl=203",    // blanc de référence HDR (BT.2408), PAS le défaut 100
   "format=gbrpf32le",            // flottant 32 bits pour un tonemap précis
   "zscale=p=bt709",              // primaires BT.2020 → BT.709, en lumière linéaire
   "tonemap=mobius:desat=0",      // mesuré 4× plus fidèle que `hable`

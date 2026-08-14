@@ -129,10 +129,11 @@ if (!hasZscale) {
   execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error",
     "-f", "lavfi", "-t", "6", "-i", "color=c=0x808080:s=540x960:r=30",
     "-f", "lavfi", "-t", "6", "-i", "sine=frequency=440",
-    // ⚠ `npl=1000` OBLIGATOIRE : sans lui la mire est encodée à 100 nits, et une
-    // conversion FAUSSE y paraît parfaite. C'est ce qui a validé une mauvaise
-    // chaîne et coûté un déploiement de plus.
-    "-vf", "format=yuv420p,zscale=min=bt709:tin=bt709:pin=bt709:m=bt2020nc:t=arib-std-b67:p=bt2020:r=tv:npl=1000,format=yuv420p10le",
+    // ⚠ `npl` explicite OBLIGATOIRE, et ÉGAL à celui de la conversion (203, le
+    // blanc de référence HDR). Sans lui la mire est encodée à 100 nits et une
+    // conversion FAUSSE y paraît parfaite — deux déploiements y sont passés.
+    // Le réglage a été confirmé sur un VRAI export iPhone, pas sur cette mire.
+    "-vf", "format=yuv420p,zscale=min=bt709:tin=bt709:pin=bt709:m=bt2020nc:t=arib-std-b67:p=bt2020:r=tv:npl=203,format=yuv420p10le",
     "-c:v", "libx265", "-crf", "18", "-tag:v", "hvc1",
     "-colorspace", "bt2020nc", "-color_primaries", "bt2020", "-color_trc", "arib-std-b67",
     "-c:a", "aac", "-shortest", "-y", hlg]);
@@ -159,7 +160,7 @@ if (!hasZscale) {
     const ecart = Math.round(got.reduce((s, v, i) => s + Math.abs(v - REF[i]), 0) / 3);
     // Repère : la chaîne `hable` d'origine sortait à 38 ; la conversion directe à 11.
     check(ecart <= 20, "un rush HLG traverse le moteur sans dérive de couleur",
-      `obtenu ${got.join("/")} pour ${REF.join("/")} — écart ${ecart} (seuil 20 ; la conversion directe sortait le gris 128 à 255)`);
+      `obtenu ${got.join("/")} pour ${REF.join("/")} — écart ${ecart} (seuil 20 ; sur un vrai iPhone la conversion directe cramait l'image)`);
 
     // ⛔ LE PIÈGE QUI A INVALIDÉ UN TEST DU USER : le proxy était mis en cache
     // sous `<fichier>.sdr.mp4`, sans marqueur de version. Un proxy fabriqué par
