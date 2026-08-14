@@ -2094,6 +2094,31 @@ export async function prepareSdrProxy(abs: string): Promise<void> {
   }
 }
 
+/** Version à ENVOYER À GEMINI. Deux raisons, dont une qui n'est pas la vitesse :
+ *
+ *  1. TRANSFERT. On expédiait l'original — mesuré : 55 Mo pour une réf iPhone,
+ *     et 57 s passées CHEZ GOOGLE (envoi + traitement) alors que le travail
+ *     local tenait en 10 s. Un 4K pour une lecture à 2 images/seconde et une
+ *     sortie 1080p, c'est du transport pur.
+ *  2. FIDÉLITÉ, et c'est le vrai motif. Gemini regardait la réf EN HDR pendant
+ *     que le moteur, lui, rend en SDR : il lisait des couleurs que la sortie ne
+ *     peut pas reproduire. Le proxy est tonemappé — il voit ce qui SORTIRA.
+ *
+ *  Le proxy n'existe que si le fichier est HDR ou nettement plus grand que le
+ *  canvas (même test que le rendu) : sur un rush déjà léger, aucun coût. Il est
+ *  mis en cache à côté du fichier et partagé avec le rendu — pour la matière il
+ *  est de toute façon fabriqué à l'upload, donc ici c'est GRATUIT. Tout échec
+ *  renvoie l'original : jamais pire qu'avant. */
+export async function proxyForViewing(abs: string): Promise<string> {
+  try {
+    const color = await probeColor(abs);
+    if (!color?.isHDR && !(await isOversized(abs))) return abs;
+    const used = await sdrProxy(abs, color);
+    if (used !== abs) console.log(`[ai-editor/analyze] envoi à Gemini de la version allégée : ${path.basename(used)}`);
+    return used;
+  } catch { return abs; }
+}
+
 /** Le rush est-il nettement plus grand que ce qu'on rend ? Une 4K pour une
  *  sortie 1080p, c'est 4× de pixels transportés à CHAQUE rendu, pour rien.
  *  Marge de 20 % : on ne convertit pas un fichier à peine trop grand. */

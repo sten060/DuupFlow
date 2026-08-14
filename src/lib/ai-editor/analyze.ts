@@ -26,6 +26,7 @@ import { analyzeShots, analyzeColor, analyzeAudioBeats } from "./ref-profile";
 import type { Shot, ColorProfile, AudioProfile } from "./ref-profile";
 import { analyzeReferenceWithGemini, describeMaterial, isGeminiAvailable, geminiLastError, type CutStrip, type MaterialSegment, type MaterialMoment } from "./gemini";
 import type { GeminiComprehension } from "./gemini";
+import { proxyForViewing } from "./render";
 
 export type Keyframe = { t: number; dataUri: string };
 
@@ -168,9 +169,13 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
   // EN PARALLÈLE des mesures ci-dessous, best-effort. Sans GEMINI_API_KEY → null.
   // Plafond global (200s) : si Gemini traîne, on rend le profil SANS lui plutôt que
   // de faire échouer toute l'analyse (la route a un budget de 300s).
+  // On envoie la version ALLÉGÉE (et tonemappée si HDR) : Gemini doit voir ce que
+  // le moteur sait rendre, et 4K pour une lecture à 2 img/s est du transport pur.
+  // Fabrication INCLUSE dans la promesse → les mesures locales démarrent quand même
+  // en parallèle. Fichier déjà léger → aucun proxy, aucun surcoût.
   const comprehensionP: Promise<GeminiComprehension | null> = isGeminiAvailable()
     ? Promise.race([
-        analyzeReferenceWithGemini(videoPath, cutStrips).catch(() => null),
+        proxyForViewing(videoPath).then((p) => analyzeReferenceWithGemini(p, cutStrips)).catch(() => null),
         new Promise<null>((r) => setTimeout(() => r(null), 200_000)),
       ])
     : Promise.resolve(null);
@@ -333,7 +338,9 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
   const mNotes: string[] = [];
   if (isGeminiAvailable()) {
     try {
-      const d = await describeMaterial(videoPath);
+      // Version allégée : pour la matière elle est de toute façon fabriquée à
+      // l'upload (et mise en cache), donc l'envoyer ne coûte rien de plus.
+      const d = await describeMaterial(await proxyForViewing(videoPath));
       if (d) { segments = d.segments; moments = d.moments; }
       else mNotes.push(`Description du rush indisponible${geminiLastError() ? ` — ${geminiLastError()}` : ""}. Les points de coupe ci-dessous ne viennent que de la MESURE d'image (changements francs) : tu n'as PAS la description de ce qui est à l'écran.`);
     } catch { mNotes.push("Description du rush indisponible (erreur interne) — points de coupe mesurés uniquement."); }
