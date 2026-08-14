@@ -35,6 +35,18 @@ import {
 } from "./plan-types";
 export * from "./plan-types";
 
+/** Extrait de la sortie d'erreur ffmpeg les lignes qui NOMMENT la cause.
+ *  ⚠ Leçon du 14/08/2026 : on ne journalisait que la FIN du stderr, or ffmpeg y
+ *  met son épilogue (« Terminating thread with return code -22 ») — inexploitable.
+ *  La ligne utile (« Input link parameters do not match », « No such filter »)
+ *  est en TÊTE. On a perdu une session à voir un « -22 » sans savoir pourquoi. */
+function ffCause(stderr: string, max = 3): string {
+  const lines = stderr.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const hot = lines.filter((l) =>
+    /(error|invalid|do not match|no such filter|failed|unable|cannot|not supported|incompatible|no packets)/i.test(l));
+  return ((hot.length ? hot : lines).slice(0, max).join(" | ") || "aucune sortie d'erreur").slice(0, 400);
+}
+
 /** Nom de transition xfade pour un plan (null = pas de fond xfade → cut ou glitch).
  *  flash → fondu bref via blanc/noir (fadewhite/fadeblack). glitch = géré à part
  *  (rafale sur l'ouverture du plan, pas un fond xfade) → renvoie null ici. */
@@ -1505,7 +1517,14 @@ export async function renderVariant(
   // réelle diffère de durs[i], le fade-out tombe hors plage → simple no-op (pas pire
   // qu'avant). Plans très courts : fondu réduit (≥ 4 ms), jamais plus d'1/8 du plan.
   for (let i = 0; i < segs.length; i++) {
-    filters.push(`${vlabels[i]}fps=${fps},setpts=PTS-STARTPTS,settb=1/${fps}[vn${i}]`);
+    // format + SAR en plus du fps/TB : xfade REFUSE deux entrées qui diffèrent par
+    // le format de pixels ou le rapport de pixels (« Input link parameters do not
+    // match » → code -22), et les plans pré-rendus (vitesse, composite) sortent d'un
+    // mp4 dont le SAR peut différer des plans décodés directement. Vu en prod : les
+    // transitions retombaient en coupes sèches à CHAQUE rendu, en payant en plus un
+    // réencodage complet de repli. Ces deux filtres sont sans effet quand tout
+    // concorde déjà (coût nul), et sauvent le graphe quand ça diverge.
+    filters.push(`${vlabels[i]}fps=${fps},format=yuv420p,setsar=1,setpts=PTS-STARTPTS,settb=1/${fps}[vn${i}]`);
     const sf = Math.min(0.012, Math.max(0.004, durs[i] / 8));
     const foSt = Math.max(0, durs[i] - sf);
     // L1 : volume/mute PAR PLAN (b-roll muet sous une voix off, plan atténué…).
@@ -1873,7 +1892,7 @@ export async function renderVariant(
       const rm = ra.code === 0 ? await runFFmpeg(ffThreaded(muxArgs()), 5 * 60 * 1000) : ra;
       code = rm.code; stderr = rm.stderr;
       if (code !== 0) {
-        console.warn("[ai-editor/render] two-pass transitions échouée → repli sur cut:", stderr.slice(-160));
+        console.warn("[ai-editor/render] two-pass transitions échouée → repli sur cut ·", ffCause(stderr));
         ({ code, stderr } = await runFFmpeg(ffThreaded(buildArgs(false)), 10 * 60 * 1000));
       }
     } else {
@@ -1883,7 +1902,7 @@ export async function renderVariant(
       // stderr peut être VIDE (kill/OOM/timeout) → un message « Rendu FFmpeg
       // échoué : » sans rien après n'aide personne. On donne toujours de quoi
       // agir : code de sortie, durée écoulée, taille du plan.
-      const why = stderr.trim().slice(-240) || `aucune sortie d'erreur (code ${code}) — probable manque de mémoire ou processus tué`;
+      const why = stderr.trim() ? ffCause(stderr, 4) : `aucune sortie d'erreur (code ${code}) — probable manque de mémoire ou processus tué`;
       return { error: `Rendu FFmpeg échoué : ${why} [${segs.length} plan(s), ${(elapsed() / 1000).toFixed(0)}s écoulées]` };
     }
 
