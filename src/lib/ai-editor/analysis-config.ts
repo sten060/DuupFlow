@@ -67,6 +67,15 @@ export const SILENCE_MAX_VS_PEAK = 0.08;
 /** Un trou ≥ ce seuil (s) = BLANC inter-phrases → à SAUTER entre 2 segments. */
 export const GAP_BLANK_SEC = 0.5;
 
+/** Part maximale d'un fichier que les « blancs » peuvent couvrir avant qu'on
+ *  cesse d'y croire. Au-delà, ce n'est pas un rush silencieux : c'est une mesure
+ *  fausse, et l'ordre « coupe ces plages » détruirait le contenu du user.
+ *  Valeur : 60 %. Un rush réellement bavard dépasse rarement 40 % de silence ;
+ *  le cas observé le 14/08 (musique de fond, aucune voix) annonçait 81 %.
+ *  Entre les deux, 60 % laisse passer les rushs vraiment pauses-lourds sans
+ *  laisser passer une détection cassée. */
+export const BLANK_MAX_RATIO = 0.6;
+
 /** Entre SILENCE_MIN et GAP_BLANK = MICRO-PAUSE intra-phrase → à RESSERRER
  *  (subdivision du segment), pas à sauter. Catégories distinctes car les deux
  *  se traitent différemment au montage. */

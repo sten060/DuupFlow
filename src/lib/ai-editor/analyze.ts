@@ -367,7 +367,29 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
     const rate = meta.durationSec > 0 ? words / meta.durationSec : 0;
     const peak = audio?.energy?.length ? Math.max(...audio.energy.map((e) => e.level)) : 1;
     const quiet = !meta.hasAudio || peak < 0.06;
-    voiceReliable = !quiet && rate >= 0.3 && rate <= 6;
+    // ⚠ « Il y a du son » ≠ « quelqu'un parle ». Le seuil d'énergie seul ratait
+    // le cas le plus COURANT en short-form : rush musical sans voix. Une piste à
+    // 0,15 passait le seuil, l'ASR transcrivait les paroles de la chanson, et
+    // tout le nettoyage partait de là (14/08 : 81 % du hook réclamé à la coupe).
+    // Deux signaux indépendants du niveau sonore viennent trancher :
+    //   1. la NATURE du son, déjà classée par l'analyse audio (musique ≠ voix) ;
+    //   2. la CONTRADICTION entre l'ASR et la mesure de silence — si les mots
+    //      tombent majoritairement dans des plages mesurées comme silencieuses,
+    //      l'un des deux ment, et c'est l'ASR (le silence, lui, se mesure).
+    const isMusic = audio?.type === "music";
+    const sil = audio?.silences ?? [];
+    const ws = transcript.words ?? [];
+    let inSilence = 0, spoken = 0;
+    for (const w of ws) {
+      const d = Math.max(0, w.endSec - w.startSec);
+      if (!d) continue;
+      spoken += d;
+      for (const s of sil) inSilence += Math.max(0, Math.min(w.endSec, s.end) - Math.max(w.startSec, s.start));
+    }
+    const contradiction = spoken > 0 && inSilence / spoken > 0.5;
+    voiceReliable = !quiet && !isMusic && !contradiction && rate >= 0.3 && rate <= 6;
+    if (isMusic) mNotes.push("Piste classée MUSIQUE : le transcript est très probablement constitué de paroles de chanson, pas de parole utile.");
+    if (contradiction) mNotes.push("Le transcript place des mots là où le signal est mesuré SILENCIEUX : transcription tenue pour non fiable.");
   }
 
   return { kind: "video", durationSec: meta.durationSec, width: meta.width, height: meta.height, hasAudio: meta.hasAudio, thumb, sceneCuts, transcript, audio, shots, segments, moments, voiceReliable, notes: mNotes };

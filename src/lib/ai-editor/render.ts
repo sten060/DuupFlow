@@ -2123,16 +2123,48 @@ const PROXY_SHORT_EDGE = Math.max(480, parseInt(process.env.AI_EDITOR_PROXY_SHOR
  *  conversion HDR. Un 4K pour une sortie 1080p, c'est 4× de pixels transportés
  *  à CHAQUE rendu — on le paie une fois, à l'upload. */
 const DOWNSCALE_FILTER = `scale=w='if(gt(iw\\,ih)\\,-2\\,min(iw\\,${PROXY_SHORT_EDGE}))':h='if(gt(iw\\,ih)\\,min(ih\\,${PROXY_SHORT_EDGE})\\,-2)',format=yuv420p`;
-const HDR_FILTERS = [
-  // Réduction AVANT le tonemap (le gain principal), sans jamais agrandir.
-  `scale=w='if(gt(iw\,ih)\,-2\,min(iw\,${PROXY_SHORT_EDGE}))':h='if(gt(iw\,ih)\,min(ih\,${PROXY_SHORT_EDGE})\,-2)'`,
-  "zscale=t=linear:npl=100",      // linéarise la courbe HLG/PQ
-  "format=gbrpf32le",              // flottant 32 bits pour un tonemap précis
-  "zscale=p=bt709",                // primaires BT.2020 → BT.709
-  "tonemap=hable:desat=0",         // compresse la luminance HDR → SDR
-  "zscale=t=bt709:m=bt709:r=tv",  // transfert + matrice + plage BT.709
-  "format=yuv420p",                // 8 bits pour H.264
+/* ── HDR → SDR : DEUX courbes, pas une ──────────────────────────────────────
+   ⛔ RÉGRESSION PROD (2 jours de couleurs fausses). On tonemappait TOUT avec
+   `hable`, y compris le HLG des iPhone. Mesuré le 14/08 sur six couleurs de
+   référence, en aller-retour BT.709 → HLG → SDR (écart moyen sur 0-255) :
+
+       chaîne                  écart moyen    dont le BLANC
+       hable (l'ancienne)          51              98   ← « les blancs tirent au beige »
+       mobius                      13              40
+       conversion directe           4               0
+
+   Le HLG est CONÇU rétro-compatible : sa plage utile tient dans le SDR, il se
+   CONVERTIT (transfert + matrice + primaires). Le tonemap, lui, sert au PQ
+   (smpte2084), qui dépasse réellement le SDR et doit être compressé — et là on
+   prend `mobius`, mesuré 4× plus fidèle que `hable`. Appliquer une compression
+   de dynamique à un signal qui n'en a pas besoin, c'est exactement ce qui
+   écrasait les blancs et déviait les teintes. */
+const SCALE_DOWN = `scale=w='if(gt(iw\,ih)\,-2\,min(iw\,${PROXY_SHORT_EDGE}))':h='if(gt(iw\,ih)\,min(ih\,${PROXY_SHORT_EDGE})\,-2)'`;
+
+/** HLG (arib-std-b67) — conversion directe, SANS compression de dynamique. */
+const HLG_FILTERS = [
+  SCALE_DOWN,
+  "zscale=t=bt709:m=bt709:p=bt709:r=tv", // transfert + matrice + primaires
+  "format=yuv420p",
 ].join(",");
+
+/** PQ (smpte2084) — vraie plage HDR : là, il FAUT compresser. */
+const PQ_FILTERS = [
+  SCALE_DOWN,
+  "zscale=t=linear:npl=100",     // linéarise la courbe PQ
+  "format=gbrpf32le",             // flottant 32 bits pour un tonemap précis
+  "zscale=p=bt709",               // primaires BT.2020 → BT.709
+  "tonemap=mobius:desat=0",       // compresse la dynamique (mobius > hable, mesuré)
+  "zscale=t=bt709:m=bt709:r=tv",
+  "format=yuv420p",
+].join(",");
+
+/** Choisit la chaîne d'après la courbe RÉELLE du fichier. Par défaut (HDR sans
+ *  courbe identifiable, ex. 10-bit HEVC tagué BT.2020 seul) : conversion directe,
+ *  la moins destructrice des deux. */
+function hdrFiltersFor(trc: string | undefined): string {
+  return /smpte2084|pq/i.test(String(trc ?? "")) ? PQ_FILTERS : HLG_FILTERS;
+}
 
 let _fullFf: string | null | undefined; // undefined = pas encore cherché
 /** Cherche un ffmpeg capable de tonemapper (filtre zscale). null si aucun. */
@@ -2216,11 +2248,13 @@ async function sdrProxy(abs: string, color: SrcColor | null): Promise<string> {
   // DEUX fois la conversion (plusieurs minutes) : on partage la même promesse.
   const running = _proxyInFlight.get(abs);
   if (running) return running;
-  const task = sdrProxyInner(abs, !!color?.isHDR);
+  const task = sdrProxyInner(abs, color?.isHDR ? (color.trc || "") : null);
   _proxyInFlight.set(abs, task);
   try { return await task; } finally { _proxyInFlight.delete(abs); }
 }
-async function sdrProxyInner(abs: string, isHDR: boolean): Promise<string> {
+/** `hdrTrc` = courbe du fichier si HDR (choisit la chaîne de conversion), null sinon. */
+async function sdrProxyInner(abs: string, hdrTrc: string | null): Promise<string> {
+  const isHDR = hdrTrc !== null;
   const proxy = abs.replace(/\.[^.]+$/, "") + ".sdr.mp4";
   try { const st = await fs.stat(proxy); if (st.size > 1000) return proxy; } catch { /* à créer */ }
   // HDR → il faut un ffmpeg capable de tonemapper. Simple allègement → celui du
@@ -2230,7 +2264,7 @@ async function sdrProxyInner(abs: string, isHDR: boolean): Promise<string> {
   // Fils : plus généreux que le rendu (c'est un travail unique et bloquant) mais
   // borné, pour ne pas étouffer la duplication vidéo qui tourne en parallèle.
   const proxyThreads = String(FF_THREADS * 2);
-  const args = ["-y", "-hide_banner", "-loglevel", "error", "-threads", proxyThreads, "-i", abs, "-vf", isHDR ? HDR_FILTERS : DOWNSCALE_FILTER,
+  const args = ["-y", "-hide_banner", "-loglevel", "error", "-threads", proxyThreads, "-i", abs, "-vf", isHDR ? hdrFiltersFor(hdrTrc!) : DOWNSCALE_FILTER,
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p", "-threads", proxyThreads,
     "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
     "-c:a", "copy", "-movflags", "+faststart", proxy];

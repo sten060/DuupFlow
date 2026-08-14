@@ -11,7 +11,7 @@ import { renderVariant, variantKeyframes, materialKeyframes, ENGINE_BUILD } from
 import { startRenderJob, getRenderJob, waitForJob, runningJobsFor, jobElapsed, type RenderJob } from "./render-jobs";
 import type { EditPlan } from "./render";
 import { CAPTION_FONTS, fontCatalogLines } from "./font-catalog";
-import { GAP_BLANK_SEC, GAP_MICRO_SEC, GAP_EDGE_TRIM_FALLBACK_SEC, RETAKE_NGRAM, RETAKE_CHAIN_GAP_SEC, RETAKE_STRICT_GAP_SEC, RETAKE_MIN_SPAN_SEC, REF_IMAGES_SHOWN, MCP_IMAGE_WIDTH, MCP_IMAGE_QUALITY } from "./analysis-config";
+import { GAP_BLANK_SEC, BLANK_MAX_RATIO, GAP_MICRO_SEC, GAP_EDGE_TRIM_FALLBACK_SEC, RETAKE_NGRAM, RETAKE_CHAIN_GAP_SEC, RETAKE_STRICT_GAP_SEC, RETAKE_MIN_SPAN_SEC, REF_IMAGES_SHOWN, MCP_IMAGE_WIDTH, MCP_IMAGE_QUALITY } from "./analysis-config";
 import { analyzeColor } from "./ref-profile";
 import { checkUsageForUser, incrementUsage, logAiEditorRender } from "@/lib/usage";
 
@@ -464,6 +464,18 @@ function formatSilenceLines(
   const EDGE_TRIM = GAP_EDGE_TRIM_FALLBACK_SEC; // voie énergie (repli) uniquement
   let gaps: { start: number; end: number }[] = [];
 
+  // ── GARDE-FOU DE BON SENS ────────────────────────────────────────────────
+  // Des blancs couvrant l'essentiel d'un fichier, ce n'est pas un rush
+  // silencieux : c'est une mesure fausse. Vu le 14/08 sur un hook de 5,7 s avec
+  // musique de fond : 4,6 s de « blanc » réclamées à la coupe, soit 81 % du
+  // fichier. Le monteur de test a refusé d'obéir ; un autre aurait obéi et rendu
+  // une vidéo vide. Un détecteur qui se trompe ET qui donne un ORDRE est plus
+  // dangereux qu'un détecteur absent → on ne liste rien et on dit pourquoi.
+  const dur = Number(durationSec) || 0;
+  const tooMuch = (bl: { start: number; end: number }[]) =>
+    dur > 0 && bl.reduce((s, g) => s + (g.end - g.start), 0) > dur * BLANK_MAX_RATIO;
+  const BROKEN = `  · ⛔ DÉTECTION DE BLANCS INCOHÉRENTE — les silences mesurés couvrent plus de ${Math.round(BLANK_MAX_RATIO * 100)} % du fichier. Ce n'est pas un rush silencieux, c'est une mesure fausse (musique de fond prise pour du silence, piste sans voix…). Les blancs ne sont donc PAS listés : ne coupe RIEN sur cette base, appuie-toi sur les ⏱ MOMENTS et les SEGMENTS.`;
+
   const sil = (silences ?? []).filter((s) => s && s.end - s.start >= MIN_MICRO);
   if (sil.length) {
     // ── Voie 1 : silences précis (~23 ms) + snap aux mots ──
@@ -484,7 +496,9 @@ function formatSilenceLines(
     const blanks = gaps.filter((g) => g.end - g.start >= MIN_GAP);
     const micros = gaps.filter((g) => g.end - g.start < MIN_GAP);
     const out: string[] = [];
-    if (blanks.length) {
+    if (blanks.length && tooMuch(blanks)) {
+      out.push(BROKEN);
+    } else if (blanks.length) {
       const total = blanks.reduce((s, g) => s + (g.end - g.start), 0);
       out.push(
         `  · ✂️ BLANCS à couper (${blanks.length} · ~${total.toFixed(1)}s au total) — EXCLUS-les des segments[] : garde chaque plage de PAROLE dans un segment séparé et saute ces trous. Coupe aux frontières ci-dessous (= silence) → coutures nettes :`,
@@ -540,6 +554,7 @@ function formatSilenceLines(
 
   gaps = gaps.filter((g) => g.end - g.start >= MIN_GAP);
   if (!gaps.length) return [];
+  if (tooMuch(gaps)) return [BROKEN];
   const total = gaps.reduce((s, g) => s + (g.end - g.start), 0);
   return [
     `  · ✂️ BLANCS à couper (${gaps.length} · ~${total.toFixed(1)}s au total) — EXCLUS-les des segments[] : garde chaque plage de PAROLE dans un segment séparé et saute ces trous. Coupe aux frontières ci-dessous (= silence) → coutures nettes :`,
@@ -1105,8 +1120,19 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       // Mots RESSERRÉS sur la fin acoustique (Bug A) → mots, blancs et reprises cohérents.
       const tw = tightenWords(m.analysis?.transcript?.words, m.analysis?.audio?.silences);
       for (const l of formatWordLines(tw)) content.push({ type: "text", text: l });
-      for (const l of formatSilenceLines(m.analysis?.transcript, m.analysis?.durationSec, m.analysis?.audio?.energy, m.analysis?.audio?.silences, tw)) content.push({ type: "text", text: l });
-      for (const l of formatRetakeLines(tw)) content.push({ type: "text", text: l });
+      // ── LES DÉTECTEURS SONT CHAÎNÉS ────────────────────────────────────────
+      // Blancs et reprises DÉRIVENT du transcript. Si celui-ci est déjà signalé
+      // comme non fiable, les publier quand même revient à ordonner des coupes
+      // à partir de données reconnues fausses — et l'ordre est écrit à
+      // l'impératif (« EXCLUS chaque plage »). Vu le 14/08 : sur un hook de
+      // 5,7 s, 4,6 s de « blanc » et une « reprise » qui n'était que le refrain
+      // d'une chanson. Le monteur a refusé ; un autre aurait obéi.
+      if (m.analysis?.voiceReliable === false) {
+        content.push({ type: "text", text: `  · ⛔ BLANCS et REPRISES NON CALCULÉS — ils se déduisent du transcript, or celui-ci vient d'être signalé NON FIABLE ci-dessus. Te les donner reviendrait à te faire couper d'après des données fausses. Pour découper ce rush, appuie-toi sur les ⏱ MOMENTS et les SEGMENTS.` });
+      } else {
+        for (const l of formatSilenceLines(m.analysis?.transcript, m.analysis?.durationSec, m.analysis?.audio?.energy, m.analysis?.audio?.silences, tw)) content.push({ type: "text", text: l });
+        for (const l of formatRetakeLines(tw)) content.push({ type: "text", text: l });
+      }
     }
     for (const kf of kfs) { const img = dataUriToImage(kf.dataUri); if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img); }
     return { content };

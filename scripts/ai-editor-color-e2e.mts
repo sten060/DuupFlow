@@ -100,6 +100,48 @@ check(!logs.some((l) => /étiquettes de couleur préservées/.test(l)),
 check(logs.some((l) => /HDR converti|proxy SDR|zscale/.test(l)),
   "conversion HDR→SDR tentée sur le plan HDR malgré la matière mixte");
 
+// ── 3) FIDÉLITÉ RÉELLE DES COULEURS (exige un ffmpeg avec zscale) ───────────
+// ⛔ Le défaut le plus visible des deux jours : on tonemappait le HLG iPhone
+// avec `hable`, ce qui écrasait les blancs (98 niveaux d'écart) et déviait
+// toutes les teintes. Le HLG se CONVERTIT (il est rétro-compatible) ; seul le
+// PQ se tonemappe. Ici on part d'une couleur connue, on l'encode en VRAI HLG,
+// on la fait traverser le moteur, et on vérifie qu'elle ressort elle-même.
+const hasZscale = (() => {
+  try { return /\szscale\s/.test(execFileSync("ffmpeg", ["-hide_banner", "-filters"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })); }
+  catch { return false; }
+})();
+if (!hasZscale) {
+  console.log("△ fidélité des couleurs NON VÉRIFIÉE — pas de ffmpeg avec zscale ici.");
+  console.log("  Installe-le : brew tap homebrew-ffmpeg/ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-zimg");
+  console.log("  (c'est précisément ce trou qui a laissé passer 2 jours de couleurs fausses)");
+} else {
+  const REF = [224, 64, 16]; // 0xE04010, orange saturé
+  const hlg = path.join(tmp, "iphone_hlg.mp4");
+  execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error",
+    "-f", "lavfi", "-t", "6", "-i", "color=c=0xE04010:s=540x960:r=30",
+    "-f", "lavfi", "-t", "6", "-i", "sine=frequency=440",
+    "-vf", "format=yuv420p,zscale=min=bt709:tin=bt709:pin=bt709:m=bt2020nc:t=arib-std-b67:p=bt2020:r=tv,format=yuv420p10le",
+    "-c:v", "libx265", "-crf", "18", "-tag:v", "hvc1",
+    "-colorspace", "bt2020nc", "-color_primaries", "bt2020", "-color_trc", "arib-std-b67",
+    "-c:a", "aac", "-shortest", "-y", hlg]);
+  const mHlg = await addMaterial(USER, project.id, { srcPath: hlg, ext: ".mp4", name: "iphone.mp4", kind: "video", desc: "", analysis: null, status: "ready" });
+  const r2 = await renderVariant(USER, project.id, { segments: [{ materialId: mHlg!.id, startSec: 0, endSec: 3 }] } as never);
+  if ("error" in r2) {
+    check(false, "rendu du plan HLG", r2.error.slice(0, 120));
+  } else {
+    const { projectPaths } = await import("../src/lib/ai-editor/store");
+    const outFile = path.join(projectPaths(USER, project.id).variantsDir, r2.variant.storedName);
+    const raw = execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-ss", "1", "-i", outFile,
+      "-vf", "crop=2:2:270:480", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+      { encoding: "buffer", maxBuffer: 1 << 20 }) as unknown as Buffer;
+    const got = [raw[0], raw[1], raw[2]];
+    const ecart = Math.round(got.reduce((s, v, i) => s + Math.abs(v - REF[i]), 0) / 3);
+    // Repère : la chaîne `hable` d'origine sortait à 38 ; la conversion directe à 11.
+    check(ecart <= 20, "un rush HLG traverse le moteur sans dérive de couleur",
+      `obtenu ${got.join("/")} pour ${REF.join("/")} — écart ${ecart} (seuil 20 ; l'ancienne chaîne sortait à 38)`);
+  }
+}
+
 await fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
 await fs.rm(ROOT, { recursive: true, force: true }).catch(() => {});
 console.log(failed ? `\n${failed} vérification(s) EN ÉCHEC` : "\nToutes les vérifications passent ✅");
