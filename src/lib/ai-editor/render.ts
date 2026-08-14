@@ -1024,6 +1024,10 @@ async function compositeClip(
   userId: string, projectId: string,
   seg: EditSegment, base: { abs: string; start: number; len: number; hasAudio: boolean; loop?: boolean },
   W: number, H: number, fps: number, bg: string, dir: string, idx: number,
+  /** Chemin réel d'un média : proxy SDR si le fichier est HDR. Sans ça, un b-roll
+   *  iPhone HLG posé en incrustation entrait brut dans le composite et déviait
+   *  les couleurs de tout le cadre (constaté en prod le 14/08/2026). */
+  resolveSrc: (p: string) => string = (p) => p,
 ): Promise<{ path: string; durationSec: number; hasAudio: boolean } | null> {
   const layout: SegLayout = seg.layout && ["splitH", "splitV", "pip"].includes(seg.layout) ? seg.layout : "single";
   // Boîte de chaque incrustation (px, pairs pour libx264) : largeur en % du cadre ;
@@ -1043,7 +1047,7 @@ async function compositeClip(
     const { wpx, hpx } = boxOf(o);
     const mat = materials.find((m) => m.id === o?.materialId);
     if (mat && mat.kind !== "audio") {
-      const oabs = materialAbsPath(userId, projectId, mat.storedName);
+      const oabs = resolveSrc(materialAbsPath(userId, projectId, mat.storedName));
       try { await fs.access(oabs); } catch { continue; }
       resolved.push({ abs: oabs, kind: mat.kind, o, wpx, hpx });
     } else if (!o?.materialId && typeof o?.color === "string" && /^#?[0-9a-fA-F]{6}$/.test(o.color)) {
@@ -1222,13 +1226,22 @@ export async function renderVariant(
   let srcColor: SrcColor | null = null;
   const colorByPath = new Map<string, SrcColor | null>();
   {
-    const paths = [...new Set(segs.map((sg) => project.materials.find((m) => m.id === sg.materialId))
+    // Les INCRUSTATIONS comptent autant que les plans : un b-roll HDR posé en
+    // overlay n'était ni sondé ni converti, et repeignait tout le cadre.
+    const ids = [...segs.map((sg) => sg.materialId), ...segs.flatMap((sg) => (sg.overlays ?? []).map((o) => o?.materialId))];
+    const paths = [...new Set(ids.map((id) => project.materials.find((m) => m.id === id))
       .filter((m): m is NonNullable<typeof m> => !!m && m.kind === "video")
       .map((m) => materialAbsPath(userId, projectId, m.storedName)))];
     const probed = await Promise.all(paths.map(async (pp) => [pp, await probeColor(pp).catch(() => null)] as const));
     for (const [pp, info] of probed) colorByPath.set(pp, info);
-    const infos = probed.map(([, i]) => i).filter(Boolean) as SrcColor[];
-    const hdr = infos.filter((c) => c.isHDR);
+    // ⚠ Les fichiers NON SONDABLES comptent comme non-HDR. Ils étaient écartés du
+    // décompte (`.filter(Boolean)` avant le vote) : un projet mêlant un rush HLG
+    // et un fichier dont la ligne couleur n'est pas lisible était déclaré « tout
+    // HDR », et la sortie recevait des étiquettes HDR alors qu'elle contient des
+    // plans SDR et des PNG. Tout le cadre était alors réinterprété par le lecteur
+    // — logos et blancs compris. En cas de doute, on NE TAGUE PAS.
+    const infos = probed.map(([, i]) => i);
+    const hdr = infos.filter((c): c is SrcColor => !!c?.isHDR);
     if (hdr.length && hdr.length === infos.length && infos.length > 0) {
       const same = hdr.every((c) => c.space === hdr[0].space && c.trc === hdr[0].trc && c.primaries === hdr[0].primaries);
       if (same) {
@@ -1245,12 +1258,19 @@ export async function renderVariant(
   const srcOverride = new Map<string, string>();
   /** Chemin RÉEL à utiliser pour un fichier (proxy SDR si disponible). */
   function srcPath(pp: string): string { return srcOverride.get(pp) ?? pp; }
-  if (srcColor?.isHDR) {
-    for (const [pp, info] of colorByPath) {
-      if (!info?.isHDR) continue;
-      const use = await sdrProxy(pp, info);
-      if (use !== pp) srcOverride.set(pp, use);
-    }
+  // ⛔ RÉGRESSION PROD 2026-08-14 — la conversion était conditionnée à
+  // `srcColor?.isHDR`, or `srcColor` n'est renseigné QUE si TOUS les rushs sont
+  // HDR et partagent le même profil. Dès qu'un montage MÉLANGEAIT un rush iPhone
+  // HLG et un rush SDR (« matière MIXTE » dans les logs), AUCUNE conversion
+  // n'avait lieu : le plan HLG entrait brut dans le graphe, ses couleurs BT.2020
+  // étaient interprétées comme du BT.709 → image saturée, blancs déviés.
+  // Deux décisions INDÉPENDANTES qui étaient à tort liées :
+  //   · convertir un fichier HDR en SDR   → PAR FICHIER, toujours ;
+  //   · reporter les étiquettes HDR       → seulement si tout est HDR et pareil.
+  for (const [pp, info] of colorByPath) {
+    if (!info?.isHDR) continue;
+    const use = await sdrProxy(pp, info);
+    if (use !== pp) srcOverride.set(pp, use);
   }
   const convertedAll = srcOverride.size > 0 && [...colorByPath].every(([pp, info]) => !info?.isHDR || srcOverride.has(pp));
   // Converti en SDR → surtout PAS d'étiquettes HDR sur la sortie.
@@ -1352,7 +1372,7 @@ export async function renderVariant(
       const dur = Math.max(0.3, seg.endSec != null && seg.startSec != null ? seg.endSec - seg.startSec : seg.endSec ?? IMG_DEFAULT_SEC);
       // Composition (chantier 4) sur une image de base.
       const comp = (seg.overlays?.length || (seg.layout && seg.layout !== "single"))
-        ? await compositeClip(project.materials, userId, projectId, seg, { abs, start: 0, len: dur, hasAudio: false, loop: true }, W, H, fps, bg, dir, i)
+        ? await compositeClip(project.materials, userId, projectId, seg, { abs, start: 0, len: dur, hasAudio: false, loop: true }, W, H, fps, bg, dir, i, srcPath)
         : null;
       if (comp) {
         const inIdx = pushIn("-i", comp.path);
@@ -1388,7 +1408,7 @@ export async function renderVariant(
         ? { abs: timed.path, start: 0, len: timed.durationSec, hasAudio: timed.hasAudio }
         : { abs, start, len: segLen, hasAudio };
       const comp = (seg.overlays?.length || (seg.layout && seg.layout !== "single"))
-        ? await compositeClip(project.materials, userId, projectId, seg, baseSrc, W, H, fps, bg, dir, i)
+        ? await compositeClip(project.materials, userId, projectId, seg, baseSrc, W, H, fps, bg, dir, i, srcPath)
         : null;
       if (comp) {
         const inIdx = pushIn("-i", comp.path); // déjà WxH composité
@@ -1551,6 +1571,42 @@ export async function renderVariant(
       }
       return acc;
     };
+    // ── VIGNETTES DE CONTRÔLE : SUR LES ÉVÉNEMENTS, PAS À INTERVALLE FIXE ─────
+    // Une transition dure 0,15 à 0,4 s. Des vignettes à intervalle régulier ne
+    // tombent JAMAIS dessus : le monteur ne peut ni valider ni infirmer qu'elle
+    // s'applique — angle mort complet sur une fonctionnalité entière (constaté
+    // au test du 14/08 : 5 vignettes, 6 transitions, aucune intersection).
+    // On vise donc ce que le PLAN a DÉCLARÉ, converti dans le temps du montage
+    // final (les transitions raccourcissent la timeline : un événement à 3 s
+    // dans le plan n° 4 n'est pas à 3 s dans la sortie).
+    const eventTimes: number[] = [];
+    {
+      const segStart: number[] = [0];
+      let acc = durs[0];
+      for (let i = 1; i < segs.length; i++) {
+        const name = xfadeTransition(segs[i]);
+        const ti = wantTransitions && name
+          ? clamp(Math.min(num(segs[i].transitionDuration, 0.25), durs[i] * 0.9, durs[i - 1] * 0.9), 0.05, 1.0) : 0;
+        segStart[i] = acc - ti;
+        acc += durs[i] - ti;
+        // MILIEU du fondu : le seul instant où les deux plans sont visibles
+        // ensemble. Sur un cut, juste après le raccord (le nouveau plan).
+        eventTimes.push(ti > 0 ? segStart[i] + ti / 2 : segStart[i] + 0.08);
+      }
+      for (let i = 0; i < segs.length; i++) {
+        const s = segs[i];
+        const zp = s.zoomPunch;
+        if (zp && Number.isFinite(num(zp.at, NaN))) eventTimes.push(segStart[i] + num(zp.at, 0));
+        for (const k of s.shakeAt ?? []) if (Number.isFinite(num(k?.t, NaN))) eventTimes.push(segStart[i] + num(k!.t, 0));
+        // Incrustation : au premier tiers, une fois son animation d'entrée finie.
+        for (const o of s.overlays ?? []) eventTimes.push(segStart[i] + num(o?.startSec, 0) + 0.3);
+      }
+      for (const c of (plan.captions ?? [])) {
+        const a = num(c?.startSec, NaN), b = num(c?.endSec, NaN);
+        if (Number.isFinite(a) && Number.isFinite(b) && b > a) eventTimes.push((a + b) / 2);
+      }
+    }
+
     // Garde de durée : la variante cible le short-form. Au-delà de 90 s on rejette
     // (message exploitable) plutôt que de rendre une vidéo hors-cible et coûteuse.
     const plannedDur = totalVideoDur();
@@ -1969,7 +2025,21 @@ export async function renderVariant(
     // tout le rendu). Échec → on renvoie la variante sans images.
     let keyframes: OutKeyframe[] = [];
     try {
-      keyframes = await extractKeyframes(outPath, outDur, dir, 5);
+      // Événements déclarés d'abord (transitions, punchs, secousses, overlays,
+      // captions), bornés à la durée réelle et dédoublonnés à 0,2 s près. Plafond
+      // à 8 : au-delà, le coût de seek dépasse l'utilité. Aucun événement (montage
+      // en coupes sèches sans effet) → intervalle régulier, comme avant.
+      const uniq: number[] = [];
+      for (const t of eventTimes.filter((x) => Number.isFinite(x) && x > 0.05 && x < outDur - 0.05).sort((a, b) => a - b)) {
+        if (!uniq.length || t - uniq[uniq.length - 1] > 0.2) uniq.push(Math.round(t * 100) / 100);
+      }
+      const picked = uniq.length > 8
+        ? Array.from({ length: 8 }, (_, k) => uniq[Math.round(k * (uniq.length - 1) / 7)])
+        : uniq;
+      keyframes = picked.length
+        ? await extractKeyframesAt(outPath, picked, dir)
+        : await extractKeyframes(outPath, outDur, dir, 5);
+      if (picked.length) console.log(`[ai-editor/render] vignettes sur ${picked.length} événement(s) déclaré(s) : ${picked.join(", ")}s`);
     } catch (e) {
       console.warn("[ai-editor/render] keyframes de contrôle indisponibles (variante conservée) :", (e as Error)?.message);
     }

@@ -133,6 +133,11 @@ Ce module est destiné à être repris par quelqu'un qui n'a pas participé à s
 - **Tests reproductibles — À LANCER AVANT TOUT DÉPLOIEMENT** :
   - `npx tsx scripts/ai-editor-ref-e2e.mts` — chaîne d'ANALYSE de référence
     (fixture synthétique → Gemini → styles de captions détectés).
+  - `npx tsx scripts/ai-editor-color-e2e.mts` — DÉCISIONS COULEUR (HDR iPhone) :
+    matière mixte HDR+SDR reconnue, aucune étiquette HDR sur une sortie mixte,
+    conversion tentée par fichier. ⚠ Vérifie les DÉCISIONS, pas le rendu : la
+    conversion exige un ffmpeg avec `zscale`, absent de la plupart des postes —
+    c'est précisément pourquoi le défaut a atteint la prod.
   - `npx tsx scripts/ai-editor-render-e2e.mts` — MOTEUR DE RENDU sur un projet
     jetable : durées vérifiées sur les 3 chemins (décodeur mutualisé, pré-rendu
     retimé, composite/b-roll), captions, montage à 39 micro-plans.
