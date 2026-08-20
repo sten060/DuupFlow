@@ -8,7 +8,7 @@
 import { getLatestProject, projectPaths } from "./store";
 import type { Project } from "./store";
 import { renderVariant, variantKeyframes, materialKeyframes, ENGINE_BUILD } from "./render";
-import { startRenderJob, getRenderJob, waitForJob, runningJobsFor, jobElapsed, type RenderJob } from "./render-jobs";
+import { startRenderJob, getRenderJob, waitForJob, runningJobsFor, jobElapsed, jobRenderElapsed, isQueued, queuePosition, queueSnapshot, type RenderJob } from "./render-jobs";
 import type { EditPlan } from "./render";
 import { CAPTION_FONTS, fontCatalogLines } from "./font-catalog";
 import { GAP_BLANK_SEC, BLANK_MAX_RATIO, GAP_MICRO_SEC, GAP_EDGE_TRIM_FALLBACK_SEC, RETAKE_NGRAM, RETAKE_CHAIN_GAP_SEC, RETAKE_STRICT_GAP_SEC, RETAKE_MIN_SPAN_SEC, REF_IMAGES_SHOWN, MCP_IMAGE_WIDTH, MCP_IMAGE_QUALITY } from "./analysis-config";
@@ -28,7 +28,40 @@ async function guardVariantQuota(userId: string): Promise<Content | null> {
 
 const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-export const MAX_KEYFRAMES = 6; // borne le nombre d'images renvoyées (coût tokens user)
+/* ── COÛT EN CONTEXTE DES IMAGES ─────────────────────────────────────────────
+   Une image 480px en 9:16 ≈ 550 tokens chez le client. Le moteur en renvoyait
+   à CHAQUE appel, sans moyen de refuser : une session de production (47
+   variantes le 20/08) accumulait ~280 images ≈ 155 000 tokens de vignettes —
+   la conversation saturait et devenait inutilisable, travail perdu.
+   Règle : les outils de CONSULTATION sont muets par défaut (le texte suffit à
+   se repérer), les outils de PRODUCTION montrent le rendu (c'est la boucle
+   d'auto-correction, la retirer viderait le moteur de son intérêt). Dans les
+   deux cas `images` permet de trancher explicitement. */
+const RENDER_KEYFRAMES = Math.max(1, parseInt(process.env.AI_EDITOR_RENDER_KEYFRAMES ?? "3", 10));
+
+/** Fragment de schéma commun — même nom, même sens partout. */
+const IMAGES_PROP = {
+  images: {
+    type: "boolean",
+    description: "Renvoyer des images ? Chaque image coûte ~550 tokens de ton contexte. Mets true SEULEMENT si tu as besoin de VOIR (vérifier un cadrage, une position de caption). Sur une longue série, laisse false : le texte suffit à te repérer.",
+  },
+} as const;
+
+/** Lecture du paramètre `images` avec la valeur par défaut de CET outil. */
+function wantImages(args: Record<string, unknown> | undefined, byDefault: boolean): boolean {
+  const v = args?.images;
+  return typeof v === "boolean" ? v : byDefault;
+}
+
+/** Retire les options d'AFFICHAGE d'un objet qui va être persisté comme PLAN.
+ *  create_variant reçoit les deux mélangés ; sans ce tri, `images` finissait
+ *  enregistré dans le montage et ressortait dans get_variant comme s'il en
+ *  faisait partie. */
+function stripDisplayOpts<T extends Record<string, unknown>>(o: T): Omit<T, "images"> {
+  const { images: _drop, ...plan } = o;
+  void _drop;
+  return plan;
+}
 
 export type Content =
   | { type: "text"; text: string }
@@ -53,6 +86,7 @@ export const TOOLS = [
       "Assemble UNE variante vidéo selon TON plan de montage. Contrôles : segments coupés ; captions stylables (contour/box, couleur, contour, taille, position x/y en %, alignement) ; images animées (zoomIn/zoomOut/panLeft/panRight + cadrage cover/contain/blurFill) ; colorimétrie globale (grade) ; fps ; couleur de fond. Le son des plans vidéo est CONSERVÉ. " +
       "IMPORTANT : cet outil te RENVOIE des keyframes du rendu + la durée réelle → REGARDE-LES pour vérifier cadrage/rythme/captions, et rappelle l'outil pour corriger. " +
       "RENDU LONG : si la vidéo n'est pas prête au bout de ~25 s, tu reçois un TICKET (renderId) au lieu d'attendre — récupère-la avec get_render(renderId), qui patiente et répond dès que c'est prêt. Ne relance PAS create_variant dans ce cas : le rendu est déjà en cours. " +
+      "⚠ UNE VARIANTE À LA FOIS — le serveur n'en rend que 2 en parallèle. Si le user en demande plusieurs (« fais-m'en 10 »), NE LES LANCE PAS D'UN COUP : tu obtiendrais une file de 8 rendus en attente, chacun repoussé de plusieurs minutes, sans rien accélérer. Lance-en une, récupère-la avec get_render, PUIS lance la suivante. Tu peux au maximum en avoir 2 en vol. Si tu reçois un ticket « ⏸ EN FILE », c'est que tu en as déjà trop lancé : attends, n'en ajoute pas. " +
       "SYNCHRO MUSIQUE : les timecodes mesurés sur la matière sonore (get_material → beats, drops, énergie) s'utilisent DIRECTEMENT — cale captions[].startSec et les transitions segments[].transition sur les beats/drops (ex. une transition PILE sur un drop, un caption qui apparaît sur un temps fort). " +
       "FIDÉLITÉ MOTION & RYTHME : reproduis le MONTAGE de la réf, pas seulement son texte. get_reference te donne le rythme (nb de coupes · durée moyenne d'un plan) + par plan le mouvement (type+intensité → motion/motionIntensity/scale), la vitesse (speed), les freeze (freezeAt/freezeDuration) et la transition de chaque coupe (→ transition). Colle à la CADENCE : si la réf coupe ~toutes les 1,2 s, garde des plans courts et punchy ; ne laisse pas de plan mou de 6 s là où la réf en enchaîne cinq. Cale les zoomPunch/shakeAt/transitions percutantes sur les beats/drops de la musique. " +
       "NETTOYAGE DU RUSH (le user envoie ses RUSHS BRUTS, pas une vidéo déjà montée — c'est à TOI de la rendre publiable) : get_material te donne la VOIX horodatée, les MOTS, les ✂️ BLANCS, les ⏱ MICRO-PAUSES et les 🔁 REPRISES. Découpe le rush en PLUSIEURS segments[] du MÊME fichier (même materialId, [startSec,endSec] différents) qui GARDENT la parole et SAUTENT : les ✂️ BLANCS, les plages 🔁 REPRISES (le locuteur se rate puis répète — tu gardes la DERNIÈRE prise, qui commence à la fin de la plage) et toute redite restante visible dans le transcript. Les ⏱ MICRO-PAUSES (0,15-0,5 s, INTRA-phrase) ne se sautent pas : SUBDIVISE le segment en 2 segments contigus (fin du 1er = début de la pause, début du 2e = fin de la pause, cut sec) → débit resserré, raccord invisible. Coupe TOUJOURS aux frontières de silence, jamais en plein mot. " +
@@ -310,6 +344,7 @@ export const TOOLS = [
           },
         },
         label: { type: "string", description: "nom court de la variante (ex. hook utilisé)." },
+        ...IMAGES_PROP,
       },
       required: ["segments"],
     },
@@ -319,23 +354,36 @@ export const TOOLS = [
     description:
       "Récupère une variante dont le RENDU EST EN COURS (ticket renvoyé par create_variant / update_variant). Un montage lourd (beaucoup de plans, de sous-titres, rushs 4K) prend couramment 2 à 5 minutes : create_variant te rend alors un ticket au lieu de faire attendre la conversation. " +
       "Appelle get_render avec ce renderId : l'appel PATIENTE jusqu'à ~25 s et te répond dès que la vidéo est prête (avec ses images) ; si c'est encore en cours, rappelle-le. " +
-      "NE RELANCE JAMAIS create_variant pour un rendu déjà en cours : tu lancerais un second rendu qui occuperait une place et ralentirait tout. Sans renderId, l'outil liste tes rendus en cours.",
+      "NE RELANCE JAMAIS create_variant pour un rendu déjà en cours : tu lancerais un second rendu qui occuperait une place et ralentirait tout. " +
+      "FILE D'ATTENTE : le serveur ne rend que 2 variantes à la fois — au-delà, les rendus ATTENDENT LEUR TOUR (statut « ⏸ EN FILE », avec leur position). Un rendu en file ne consomme rien et n'est pas perdu, il n'a simplement pas commencé. " +
+      "Sans renderId, l'outil te donne l'état complet : ce qui rend, ce qui attend, et à quelle place.",
     inputSchema: {
       type: "object",
-      properties: { renderId: { type: "string", description: "Le ticket renvoyé par create_variant / update_variant (ex. « rj_a1b2c3d4 »). Omis → liste les rendus en cours." } },
+      properties: {
+        renderId: { type: "string", description: "Le ticket renvoyé par create_variant / update_variant (ex. « rj_a1b2c3d4 »). Omis → liste les rendus en cours." },
+        ...IMAGES_PROP,
+      },
     },
   },
   {
     name: "list_variants",
-    description: "Liste les variantes déjà générées pour le dernier projet (id + vignette du 1er frame). Pour VOIR une variante en détail, utilise get_variant.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    description:
+      "Liste les variantes déjà générées pour le dernier projet : id, label, durée, date, filiation. RÉPONSE TEXTE — aucune image, pour ne pas saturer ton contexte (une liste de 40 variantes = 40 images = ~22 000 tokens perdus). " +
+      "Passe images: true SEULEMENT si tu dois vraiment comparer visuellement. Pour reprendre le travail sur une variante, utilise get_variant : il te rend le PLAN DE MONTAGE complet.",
+    inputSchema: { type: "object", properties: { ...IMAGES_PROP }, additionalProperties: false },
   },
   {
     name: "get_variant",
-    description: "Renvoie plusieurs KEYFRAMES d'une variante déjà rendue (pour la relire et t'auto-corriger). Donne son id (de list_variants / create_variant).",
+    description:
+      "Renvoie LE PLAN DE MONTAGE COMPLET d'une variante déjà rendue : segments[], captions[], audio, grade, aspect, fps, label — exactement le payload qui a servi à la fabriquer, prêt à être relu, modifié et repassé à create_variant / update_variant. " +
+      "C'EST TON OUTIL DE REPRISE : si tu arrives sur une conversation neuve (la précédente a été perdue / le user reprend une série commencée ailleurs), appelle-le sur les 1-2 dernières variantes — tu récupères en un appel les réglages exacts (timecodes de coupe, style et calage des captions, musique, colorimétrie) au lieu de tout redeviner. Ne redemande JAMAIS au user des réglages que cet outil peut te rendre. " +
+      "Réponse TEXTE par défaut (le JSON, pas d'image). Passe images: true si tu as en plus besoin de VOIR le rendu.",
     inputSchema: {
       type: "object",
-      properties: { variantId: { type: "string", description: "id de la variante." } },
+      properties: {
+        variantId: { type: "string", description: "id de la variante." },
+        ...IMAGES_PROP,
+      },
       required: ["variantId"],
     },
   },
@@ -344,7 +392,10 @@ export const TOOLS = [
     description: "Renvoie 4-6 KEYFRAMES d'UN fichier de matière précis (par son id). Appelle-le SEULEMENT sur les 2-3 rushes que tu comptes vraiment utiliser (voir où couper) — pas sur tout, pour ne pas saturer ton contexte. Image → renvoie l'image + ses DIMENSIONS source (avec alerte si < 1080p → risque de flou en plein cadre). Vidéo/audio → beats/drops + la VOIX HORODATÉE (intervalles de parole [start–end]) + les ✂️ BLANCS à couper : cale tes captions sur la voix (sous-titres synchro) ET sers-toi des blancs pour NETTOYER le rush (voir create_variant → NETTOYAGE DU RUSH : garder la parole, sauter blancs/ratés/redites).",
     inputSchema: {
       type: "object",
-      properties: { materialId: { type: "string", description: "id d'un fichier (de list_material)." } },
+      properties: {
+        materialId: { type: "string", description: "id d'un fichier (de list_material)." },
+        ...IMAGES_PROP,
+      },
       required: ["materialId"],
     },
   },
@@ -687,11 +738,29 @@ const FIRST_WAIT_MS = Math.max(3_000, parseInt(process.env.AI_EDITOR_FIRST_WAIT_
 const POLL_WAIT_MS = Math.max(3_000, parseInt(process.env.AI_EDITOR_POLL_WAIT_MS ?? "25000", 10));
 
 /** Met en forme l'état d'un rendu : ticket en cours, échec, ou résultat complet. */
-async function jobContent(job: RenderJob): Promise<Content[]> {
+async function jobContent(job: RenderJob, images = true): Promise<Content[]> {
   if (job.status === "running") {
+    const q = queueSnapshot();
+    // ── ATTENTE ≠ TRAVAIL ────────────────────────────────────────────────────
+    // Le serveur ne rend que `max` variantes à la fois ; les autres FONT LA
+    // QUEUE. Annoncer « rendu en cours · 8 min écoulées » à un job qui n'a pas
+    // commencé laissait croire à un serveur bloqué (incident du 20/08 : 5 rendus
+    // lancés d'affilée, 3 en file invisible, un 6e « seul » qui semblait ramer).
+    if (isQueued(job)) {
+      const pos = queuePosition(job);
+      return [{
+        type: "text",
+        text: `⏸ EN FILE D'ATTENTE (ticket ${job.id})${pos ? ` — position ${pos}` : ""} — le rendu n'a PAS encore commencé, il attend son tour depuis ${jobElapsed(job)}. ` +
+          `Le serveur ne rend que ${q.max} variante(s) à la fois (${q.active} en cours, ${q.waiting} en attente) : c'est NORMAL, rien n'est bloqué et rien n'est perdu. ` +
+          `⏱ Compte ~${q.max ? Math.ceil((pos ?? 1) / q.max) * 3 : 3} à ${q.max ? Math.ceil((pos ?? 1) / q.max) * 5 : 5} minutes avant même le début de CE rendu. ` +
+          `Ne relance PAS create_variant — tu ajouterais un rendu de plus derrière celui-ci et tu rallongerais la file pour tout le monde. ` +
+          `⚠ Ne lance pas non plus d'autres variantes tant que la file n'est pas résorbée : au-delà de ${q.max} rendus en vol, tu n'accélères rien, tu empiles. ` +
+          `Appelle get_render avec renderId "${job.id}" pour suivre (l'appel patiente jusqu'à ~25 s).`,
+      }];
+    }
     return [{
       type: "text",
-      text: `⏳ Rendu EN COURS (ticket ${job.id}) — ${jobElapsed(job)} écoulées. Le serveur travaille, ne relance PAS create_variant : ` +
+      text: `⏳ Rendu EN COURS (ticket ${job.id}) — ${jobRenderElapsed(job) ?? jobElapsed(job)} de rendu effectif (${jobElapsed(job)} depuis la demande, file d'attente comprise). Le serveur travaille, ne relance PAS create_variant : ` +
         `appelle get_render avec renderId "${job.id}" pour récupérer la vidéo (l'appel patiente jusqu'à ~25 s et te répond dès que c'est prêt). ` +
         `Un montage lourd (beaucoup de plans, de sous-titres, rushs 4K) prend couramment 2 à 5 minutes.`,
     }];
@@ -700,12 +769,26 @@ async function jobContent(job: RenderJob): Promise<Content[]> {
     return [{ type: "text", text: `Rendu impossible : ${job.error ?? "erreur inconnue"} [moteur ${ENGINE_BUILD}]` }];
   }
   const res = job.result, v = res.variant;
+  const head = `✅ Variante créée${v.label ? ` « ${v.label} »` : ""} (id ${v.id}) · durée ${res.durationSec}s · rendue en ${jobRenderElapsed(job) ?? jobElapsed(job)}${jobRenderElapsed(job) ? ` (${jobElapsed(job)} au total, file d'attente comprise)` : ""} · moteur ${ENGINE_BUILD}.`;
+  if (!images) {
+    return [{
+      type: "text",
+      text: `${head} Images NON renvoyées (images: false) — ton contexte est préservé. ` +
+        `Le plan de montage reste relisable à tout moment avec get_variant("${v.id}") ; ajoute images: true si tu as besoin de VOIR le rendu.`,
+    }];
+  }
+  // Borné : 6 images × des dizaines de rendus saturaient la conversation (47
+  // variantes le 20/08 → session perdue). 3 suffisent à contrôler cadrage,
+  // rythme et position des captions ; get_variant(images:true) en donne plus.
+  const shown = res.keyframes.slice(0, RENDER_KEYFRAMES);
   const content: Content[] = [{
     type: "text",
-    text: `✅ Variante créée${v.label ? ` « ${v.label} »` : ""} (id ${v.id}) · durée ${res.durationSec}s · rendue en ${jobElapsed(job)} · moteur ${ENGINE_BUILD}. ` +
-      `Voici des images du RENDU — vérifie cadrage, rythme, position des captions ; rappelle create_variant pour corriger si besoin.`,
+    text: shown.length
+      ? `${head} Voici ${shown.length} image(s) du RENDU — vérifie cadrage, rythme, position des captions ; rappelle create_variant pour corriger si besoin. ` +
+        `Sur une longue série, passe images: false : tu gardes le plan (get_variant) sans remplir ta conversation de vignettes.`
+      : head,
   }];
-  for (const kf of res.keyframes) {
+  for (const kf of shown) {
     const img = dataUriToImage(kf.dataUri);
     if (img) content.push({ type: "text", text: `— rendu à ${kf.t}s —` }, img);
   }
@@ -714,6 +797,17 @@ async function jobContent(job: RenderJob): Promise<Content[]> {
     content.push({ type: "text", text: "⚠ Impossible d'extraire les images du rendu (voir logs serveur). La variante est bien enregistrée — réessaie get_variant, ou régénère." });
   }
   return content;
+}
+
+/** Attente initiale ADAPTÉE. Tenir la réponse 25 s a un sens quand le rendu
+ *  TRAVAILLE (il peut finir entre-temps). Quand il fait la QUEUE, c'est 25 s
+ *  perdues pour tout le monde : on répond tout de suite sa position, qui est
+ *  une information exploitable — et qui dissuade d'en lancer un de plus. */
+async function firstWait(job: RenderJob): Promise<RenderJob> {
+  const PEEK_MS = Math.min(FIRST_WAIT_MS, 4_000);
+  const early = await waitForJob(job, PEEK_MS);
+  if (early.status !== "running" || isQueued(early)) return early;
+  return waitForJob(early, Math.max(0, FIRST_WAIT_MS - PEEK_MS));
 }
 
 export async function callTool(userId: string, name: string, args?: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }> {
@@ -970,45 +1064,86 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     if (!project.materials.length) return { content: [{ type: "text", text: "Aucune matière : le user doit ajouter des fichiers dans DuupFlow." }], isError: true };
     const blocked = await guardVariantQuota(userId);
     if (blocked) return { content: [blocked], isError: true };
-    const job = startRenderJob(userId, project.id, (args ?? {}) as unknown as EditPlan, {
+    const job = startRenderJob(userId, project.id, stripDisplayOpts(args ?? {}) as unknown as EditPlan, {
       onDone: async () => {
         await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → quota vidéo
         void logAiEditorRender(userId);                            // tracking
       },
     });
-    return { content: await jobContent(await waitForJob(job, FIRST_WAIT_MS)) };
+    return { content: await jobContent(await firstWait(job), wantImages(args, true)) };
   }
 
   if (name === "get_render") {
     const id = String(args?.renderId || "").trim();
     const job = id ? getRenderJob(id) : null;
+    // ── SANS renderId : ce n'est PAS une erreur ──────────────────────────────
+    // « Où en sont mes rendus ? » est une question légitime, et c'était la seule
+    // façon de voir la file. La réponse partait en isError : le client la traitait
+    // comme un échec d'outil au lieu d'un état — bonne info, mauvais canal.
+    if (!id) {
+      const running = runningJobsFor(userId);
+      const q = queueSnapshot();
+      if (!running.length) {
+        return { content: [{ type: "text", text: `Aucun rendu en cours pour toi. Le serveur rend ${q.max} variante(s) à la fois (${q.active} créneau(x) occupé(s) au total, ${q.waiting} en attente).` }] };
+      }
+      const lines = running
+        .slice()
+        .sort((a, b) => a.startedAt - b.startedAt)
+        .map((j) => {
+          const pos = queuePosition(j);
+          return isQueued(j)
+            ? `  ⏸ ${j.id}${j.label ? ` « ${j.label} »` : ""} — EN FILE${pos ? `, position ${pos}` : ""} (pas encore commencé, en attente depuis ${jobElapsed(j)})`
+            : `  ⏳ ${j.id}${j.label ? ` « ${j.label} »` : ""} — RENDU EN COURS depuis ${jobRenderElapsed(j) ?? jobElapsed(j)}`;
+        });
+      return {
+        content: [{
+          type: "text",
+          text: `TES RENDUS — ${running.length} en vol (le serveur en rend ${q.max} à la fois ; ${q.active} créneau(x) occupé(s), ${q.waiting} en attente) :\n${lines.join("\n")}\n\n` +
+            `Rappelle get_render avec un renderId précis pour récupérer une vidéo (l'appel patiente jusqu'à ~25 s). ` +
+            `Tant qu'il reste des ⏸ EN FILE, NE LANCE PAS de nouvelle variante : tu ne gagnerais rien, tu allongerais la file.`,
+        }],
+      };
+    }
     if (!job || job.userId !== userId) {
       const running = runningJobsFor(userId);
       return {
         content: [{
           type: "text",
-          text: id
-            ? `Ticket introuvable : ${id} (expiré, ou le serveur a redémarré — dans ce cas le rendu est perdu, relance create_variant).${running.length ? ` Tickets en cours : ${running.map((j) => j.id).join(", ")}.` : ""}`
-            : `Donne le renderId du ticket.${running.length ? ` En cours : ${running.map((j) => `${j.id} (${jobElapsed(j)})`).join(", ")}.` : " Aucun rendu en cours."}`,
+          text: `Ticket introuvable : ${id} (expiré, ou le serveur a redémarré — dans ce cas le rendu est perdu, relance create_variant).${running.length ? ` Tickets en cours : ${running.map((j) => j.id).join(", ")}.` : ""}`,
         }],
         isError: true,
       };
     }
     const done = await waitForJob(job, POLL_WAIT_MS);
-    return { content: await jobContent(done), isError: done.status === "failed" };
+    return { content: await jobContent(done, wantImages(args, true)), isError: done.status === "failed" };
   }
 
   if (name === "list_variants") {
     if (!project.variants.length) return { content: [{ type: "text", text: "Aucune variante générée pour l'instant." }] };
     // La plus RÉCENTE en premier (variants est déjà unshift-é à la création).
-    const content: Content[] = [{ type: "text", text: `VARIANTES — ${project.variants.length} (de la + récente à la + ancienne ; get_variant pour + de détail) :` }];
+    // Vignettes MUETTES par défaut : la ligne de texte porte déjà tout ce qui
+    // sert à se repérer (id, label, durée, date, filiation) ; le poster est le
+    // 1er frame — souvent identique d'une variante à l'autre — et coûtait ~550
+    // tokens PIÈCE. 47 variantes = 47 images pour zéro information nouvelle.
+    const withImages = wantImages(args, false);
+    const content: Content[] = [{
+      type: "text",
+      text: `VARIANTES — ${project.variants.length} (de la + récente à la + ancienne) :`,
+    }];
     for (const v of project.variants) {
       const dur = v.durationSec ? ` · ${v.durationSec}s` : "";
       const dt = v.createdAt ? ` · ${new Date(v.createdAt).toISOString().replace("T", " ").slice(0, 16)}` : "";
       const from = v.derivedFrom ? ` · dérivée de ${v.derivedFrom}` : "";
-      content.push({ type: "text", text: `• id: ${v.id}${v.label ? `  ·  ${v.label}` : ""}${dur}${dt}${from}` });
-      if (v.poster) { const img = dataUriToImage(v.poster); if (img) content.push(img); }
+      const plan = v.plan ? "" : " · ⚠ sans plan mémorisé (ancienne)";
+      content.push({ type: "text", text: `• id: ${v.id}${v.label ? `  ·  ${v.label}` : ""}${dur}${dt}${from}${plan}` });
+      if (withImages && v.poster) { const img = dataUriToImage(v.poster); if (img) content.push(img); }
     }
+    content.push({
+      type: "text",
+      text: withImages
+        ? "(images demandées explicitement — sur une longue série, laisse images: false)"
+        : "→ get_variant(variantId) te rend le PLAN DE MONTAGE COMPLET d'une variante (segments, captions, audio, grade) : c'est comme ça que tu reprends une série sans rien redeviner. Ajoute images: true ici si tu dois vraiment comparer visuellement.",
+    });
     return { content };
   }
 
@@ -1016,17 +1151,61 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const id = String(args?.variantId || "");
     const v = project.variants.find((x) => x.id === id);
     if (!v) return { content: [{ type: "text", text: `Variante introuvable : ${id}. Vois list_variants pour les id.` }], isError: true };
+    const withImages = wantImages(args, false);
+
+    // ── OUTIL DE REPRISE ─────────────────────────────────────────────────────
+    // Il ne renvoyait QUE des keyframes : on voyait le résultat sans pouvoir lire
+    // les réglages qui l'avaient produit. Après une perte de conversation, la
+    // seule issue était de tout reconstruire à l'aveugle (vu le 20/08 : une série
+    // de 47 variantes irrécupérable, et une soirée de tâtonnement sur le calage
+    // des captions faute de pouvoir lire les valeurs). Le plan est pourtant
+    // persisté depuis toujours (store: ProjectVariant.plan) et update_variant le
+    // relit déjà — il n'était simplement jamais exposé. On le rend ici EN ENTIER :
+    // tronqué, il ferait repartir le lecteur sur des données partielles, ce qui
+    // est pire que pas de données du tout.
+    const dur = v.durationSec ? ` · ${v.durationSec}s` : "";
+    const dt = v.createdAt ? ` · ${new Date(v.createdAt).toISOString().replace("T", " ").slice(0, 16)}` : "";
+    const from = v.derivedFrom ? ` · dérivée de ${v.derivedFrom}` : "";
+    const content: Content[] = [{ type: "text", text: `VARIANTE « ${v.label || v.id} » (id ${v.id})${dur}${dt}${from}` }];
+
+    if (v.plan) {
+      const plan = v.plan as { segments?: unknown[]; captions?: unknown[]; overlays?: unknown[]; audio?: unknown; aspect?: unknown; fps?: unknown };
+      const nSeg = Array.isArray(plan.segments) ? plan.segments.length : 0;
+      const nCap = Array.isArray(plan.captions) ? plan.captions.length : 0;
+      content.push({
+        type: "text",
+        text: `PLAN DE MONTAGE COMPLET — ${nSeg} plan(s), ${nCap} caption(s)${plan.audio ? ", musique" : ", sans musique"}${plan.aspect ? `, format ${String(plan.aspect)}` : ""}${plan.fps ? `, ${String(plan.fps)} fps` : ""}. ` +
+          `C'est EXACTEMENT le payload qui a produit cette vidéo : timecodes de coupe, textes, position/taille/police des captions, calage de la musique, colorimétrie. ` +
+          `Tu peux le relire, le modifier et le repasser tel quel à create_variant, ou n'en changer qu'un morceau avec update_variant("${v.id}", { … }). ` +
+          `Ne demande PAS au user des réglages qui sont écrits ci-dessous.`,
+      });
+      content.push({ type: "text", text: "```json\n" + JSON.stringify(v.plan, null, 1) + "\n```" });
+    } else {
+      content.push({
+        type: "text",
+        text: `⚠ AUCUN PLAN MÉMORISÉ pour cette variante — elle a été créée avant que le moteur ne les enregistre. Ses réglages sont IRRÉCUPÉRABLES : ne les invente pas. ` +
+          `Pour repartir sur une base lisible, recrée-la une fois avec create_variant (le plan sera alors mémorisé), ou appuie-toi sur une variante plus récente via list_variants.`,
+      });
+    }
+
+    if (!withImages) {
+      content.push({ type: "text", text: "(Images non renvoyées — le plan ci-dessus dit tout ce qu'une vignette ne peut pas dire. Ajoute images: true si tu dois VOIR le rendu, par exemple pour vérifier qu'une caption ne recouvre pas le sujet.)" });
+      return { content };
+    }
+
+    // Images demandées explicitement : extraction ffmpeg (coûteuse) faite ici
+    // seulement — par défaut get_variant est instantané et gratuit.
     const kfs = await variantKeyframes(userId, project.id, v.storedName, 5);
     if (!kfs.length) {
-      // Échec explicite (plus de « 0 images » muet) : fichier ancien/absent → régénérer.
-      const content: Content[] = [{
+      // Échec explicite (plus de « 0 images » muet) : fichier ancien/absent.
+      content.push({
         type: "text",
-        text: `⚠ Aucune image extractible pour la variante « ${v.label || v.id} » (id ${v.id}). Le fichier est probablement ancien ou absent — RÉGÉNÈRE-la avec create_variant, puis rappelle get_variant sur la NOUVELLE variante.`,
-      }];
+        text: `⚠ Aucune image extractible (fichier ancien ou absent). ${v.plan ? "Le plan ci-dessus reste valable : tu peux le rejouer tel quel avec create_variant." : "RÉGÉNÈRE la variante avec create_variant."}`,
+      });
       if (v.poster) { const img = dataUriToImage(v.poster); if (img) content.push({ type: "text", text: "Poster (peut être daté) :" }, img); }
-      return { content, isError: true };
+      return { content };
     }
-    const content: Content[] = [{ type: "text", text: `VARIANTE « ${v.label || v.id} » (id ${v.id}) — ${kfs.length} image(s) du rendu :` }];
+    content.push({ type: "text", text: `${kfs.length} image(s) du rendu :` });
     for (const kf of kfs) {
       const img = dataUriToImage(kf.dataUri);
       if (img) content.push({ type: "text", text: `— ${kf.t}s —` }, img);
@@ -1038,6 +1217,12 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const id = String(args?.materialId || "");
     const m = project.materials.find((x) => x.id === id);
     if (!m) return { content: [{ type: "text", text: `Matière introuvable : ${id}. Vois list_material.` }], isError: true };
+    // Défaut TRUE, à l'inverse des outils de consultation : voir le rush est le
+    // but même de cet outil (où couper, ce que montre le plan) et il n'est appelé
+    // que sur 2-3 fichiers par session — il n'a jamais fait partie de l'effet
+    // boule de neige. `images: false` reste disponible pour relire les seules
+    // mesures (voix, blancs, beats) sans repayer les vignettes.
+    const matImages = wantImages(args, true);
     if (m.kind === "image") {
       const w = m.analysis?.width ?? 0, h = m.analysis?.height ?? 0;
       // Dimensions source + alerte : une image plus petite que le canvas (jusqu'à
@@ -1048,8 +1233,9 @@ export async function callTool(userId: string, name: string, args?: Record<strin
         ? ` ⚠ Plus petite que 1080p (${dim}) : elle sera upscalée et paraîtra FLOUE en plein cadre. Utilise-la en incrustation/petit format, ou évite le plein 9:16 (1080×1920).`
         : "";
       const content: Content[] = [{ type: "text", text: `IMAGE « ${m.name} » (id ${m.id})${m.desc?.trim() ? ` — « ${m.desc.trim()} »` : ""} · source ${dim}.${warn}` }];
-      const img = m.analysis?.thumb ? dataUriToImage(m.analysis.thumb) : null;
-      if (img) content.push(img); else content.push({ type: "text", text: "(pas d'aperçu)" });
+      const img = matImages && m.analysis?.thumb ? dataUriToImage(m.analysis.thumb) : null;
+      if (img) content.push(img);
+      else content.push({ type: "text", text: matImages ? "(pas d'aperçu)" : "(aperçu non renvoyé — images: false)" });
       return { content };
     }
     if (m.kind === "audio") {
@@ -1074,9 +1260,11 @@ export async function callTool(userId: string, name: string, args?: Record<strin
       ...(m.analysis?.segments ?? []).flatMap((x) => [x.startSec, x.endSec]),
       ...(m.analysis?.sceneCuts ?? []),
     ];
-    const kfs = await materialKeyframes(userId, project.id, m.storedName, 12, kfBounds);
-    if (!kfs.length) return { content: [{ type: "text", text: `⚠ Aucune image extractible du rush « ${m.name} » (id ${m.id}).` }], isError: true };
-    const content: Content[] = [{ type: "text", text: `RUSH « ${m.name} » (id ${m.id})${m.analysis?.durationSec ? ` · ${m.analysis.durationSec.toFixed(1)}s` : ""} — ${kfs.length} images (timecodes pour tes coupes) :` }];
+    // Extraction ffmpeg SEULEMENT si les images sont voulues : avec images:false
+    // l'appel devient instantané et gratuit (on ne garde que les mesures).
+    const kfs = matImages ? await materialKeyframes(userId, project.id, m.storedName, 12, kfBounds) : [];
+    if (matImages && !kfs.length) return { content: [{ type: "text", text: `⚠ Aucune image extractible du rush « ${m.name} » (id ${m.id}).` }], isError: true };
+    const content: Content[] = [{ type: "text", text: `RUSH « ${m.name} » (id ${m.id})${m.analysis?.durationSec ? ` · ${m.analysis.durationSec.toFixed(1)}s` : ""} — ${kfs.length ? `${kfs.length} images (timecodes pour tes coupes)` : "mesures seules (images: false)"} :` }];
     // Échec BRUYANT : sans description, le monteur doit le SAVOIR (sinon il pose
     // le texte sur la mauvaise image en croyant savoir ce qu'elle montre).
     for (const n of m.analysis?.notes ?? []) content.push({ type: "text", text: `⚠️ ${n}` });
@@ -1158,7 +1346,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     if (!v.plan) return { content: [{ type: "text", text: `La variante « ${v.label || id} » n'a pas de plan mémorisé (ancienne) — recrée-la une fois avec create_variant, ensuite update_variant marchera.` }], isError: true };
     // Fusion : les champs du patch écrasent ceux du plan d'origine (un tableau
     // segments/captions fourni REMPLACE l'ancien ; les champs absents sont gardés).
-    const merged = { ...v.plan, ...patch } as unknown as EditPlan;
+    const merged = stripDisplayOpts({ ...v.plan, ...patch }) as unknown as EditPlan;
     // Label : celui du patch, sinon auto-suffixe (v2, v3…) pour distinguer les itérations.
     const patchLabel = typeof patch.label === "string" && patch.label.trim() ? patch.label.trim() : "";
     if (!patchLabel) {
@@ -1177,7 +1365,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
         void logAiEditorRender(userId);
       },
     });
-    return { content: await jobContent(await waitForJob(job, FIRST_WAIT_MS)) };
+    return { content: await jobContent(await firstWait(job), wantImages(args, true)) };
   }
 
   return { content: [{ type: "text", text: `Outil inconnu : ${name}` }], isError: true };

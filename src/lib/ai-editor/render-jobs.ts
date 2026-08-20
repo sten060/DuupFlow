@@ -17,7 +17,7 @@
 // serveur redémarre de toute façon, le rendu est perdu avec). La variante, elle,
 // est persistée par renderVariant dès qu'elle est prête.
 
-import { renderVariant } from "./render";
+import { renderVariant, renderSlotStats } from "./render";
 import type { EditPlan, OutKeyframe } from "./plan-types";
 import type { ProjectVariant } from "./store";
 
@@ -27,6 +27,11 @@ export type RenderJob = {
   projectId: string;
   label: string;
   startedAt: number;
+  /** Début du travail RÉEL (créneau de rendu obtenu). Tant que c'est `null`,
+   *  le job ATTEND SON TOUR — il ne consomme rien. Distinguer les deux est
+   *  indispensable : annoncer « rendu en cours · 8 min » à un job qui n'a pas
+   *  commencé fait croire que le serveur est bloqué (incident du 20/08). */
+  renderStartedAt: number | null;
   finishedAt: number | null;
   status: "running" | "done" | "failed";
   result: { variant: ProjectVariant; keyframes: OutKeyframe[]; durationSec: number } | null;
@@ -58,7 +63,7 @@ export function startRenderJob(
   const job: RenderJob = {
     id: newJobId(), userId, projectId,
     label: typeof plan.label === "string" ? plan.label : "",
-    startedAt: Date.now(), finishedAt: null,
+    startedAt: Date.now(), renderStartedAt: null, finishedAt: null,
     status: "running", result: null, error: null, waiters: [],
   };
   JOBS.set(job.id, job);
@@ -67,7 +72,10 @@ export function startRenderJob(
   // suite. Aucune exception ne doit remonter ici — elle serait non capturée.
   void (async () => {
     try {
-      const res = await renderVariant(userId, projectId, plan, { derivedFrom: opts?.derivedFrom });
+      const res = await renderVariant(userId, projectId, plan, {
+        derivedFrom: opts?.derivedFrom,
+        onStart: () => { job.renderStartedAt = Date.now(); },
+      });
       if ("error" in res) { job.status = "failed"; job.error = res.error; }
       else { job.status = "done"; job.result = res; }
     } catch (e) {
@@ -113,6 +121,37 @@ export function waitForJob(job: RenderJob, ms: number): Promise<RenderJob> {
 /** Durée écoulée, formatée pour un message lisible. */
 export function jobElapsed(job: RenderJob): string {
   const ms = (job.finishedAt ?? Date.now()) - job.startedAt;
+  return fmt(ms);
+}
+
+/** Durée de RENDU seule (hors attente en file). `null` si pas encore démarré. */
+export function jobRenderElapsed(job: RenderJob): string | null {
+  if (!job.renderStartedAt) return null;
+  return fmt((job.finishedAt ?? Date.now()) - job.renderStartedAt);
+}
+
+function fmt(ms: number): string {
   const s = Math.round(ms / 1000);
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")}s`;
+}
+
+/** Vrai si le job n'a pas encore obtenu son créneau : il ATTEND SON TOUR. */
+export function isQueued(job: RenderJob): boolean {
+  return job.status === "running" && job.renderStartedAt === null;
+}
+
+/** Place dans la file (1 = prochain servi). `null` si le rendu a déjà commencé.
+ *  La file est FIFO : on compte les jobs soumis AVANT celui-ci et qui attendent
+ *  encore. Tous users confondus — les créneaux sont partagés par le serveur. */
+export function queuePosition(job: RenderJob): number | null {
+  if (!isQueued(job)) return null;
+  sweep();
+  let ahead = 0;
+  for (const j of JOBS.values()) if (isQueued(j) && j.startedAt < job.startedAt) ahead++;
+  return ahead + 1;
+}
+
+/** État global de la file, pour un message honnête au client MCP. */
+export function queueSnapshot(): { active: number; max: number; waiting: number } {
+  return renderSlotStats();
 }

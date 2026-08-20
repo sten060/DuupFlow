@@ -179,6 +179,13 @@ function releaseRenderSlot() {
   const next = _renderQueue.shift();
   if (next) next();
 }
+/** État de la file, pour que le MCP puisse DIRE qu'un rendu attend son tour.
+ *  Sans ça, un rendu en file était annoncé « en cours » : le user croyait le
+ *  serveur bloqué (vu le 20/08 : 3 rendus en attente derrière 2 actifs, un 6e
+ *  lancé « seul » a paru mettre 10 min alors qu'il faisait simplement la queue). */
+export function renderSlotStats(): { active: number; max: number; waiting: number } {
+  return { active: _activeRenders, max: MAX_CONCURRENT_RENDERS, waiting: _renderQueue.length };
+}
 const SIZE_RATIO: Record<CaptionSize, number> = { s: 0.048, m: 0.058, l: 0.072 };
 const num = (v: unknown, d: number) => (Number.isFinite(Number(v)) ? Number(v) : d);
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -1183,7 +1190,7 @@ export async function renderVariant(
   userId: string,
   projectId: string,
   plan: EditPlan,
-  extra?: { derivedFrom?: string },
+  extra?: { derivedFrom?: string; onStart?: () => void },
 ): Promise<{ variant: ProjectVariant; keyframes: OutKeyframe[]; durationSec: number } | { error: string }> {
   const project = await getProject(userId, projectId);
   if (!project) return { error: "Projet introuvable." };
@@ -1212,6 +1219,9 @@ export async function renderVariant(
   // ffmpeg lourd. Empêche qu'un pic de rendus (ou un rendu qui déraille) sature
   // le serveur pour tout le monde. Libéré dans le finally.
   await acquireRenderSlot();
+  // Le créneau est obtenu → le travail commence VRAIMENT ici. Tout ce qui
+  // précède était de l'attente en file : on le fait savoir à l'appelant.
+  try { extra?.onStart?.(); } catch { /* purement informatif */ }
   const tStart = Date.now();
   const elapsed = () => Date.now() - tStart;
   const overDeadline = () => elapsed() > RENDER_DEADLINE_MS;
