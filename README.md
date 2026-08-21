@@ -81,10 +81,9 @@ src/
     dashboard/     produit connecté (une page = un dossier)
     api/           80 routes — REST interne, webhooks, API publique v1
     admin/         administration affiliation
-    studio/        ⚠️ MORT — voir « Dettes connues »
   lib/
     ai-editor/     moteur de montage IA — LIRE SON README AVANT DE TOUCHER
-    studio/        ⚠️ MORT (sauf pipeline.ts, dont ai-editor dépend)
+    studio/        socle média PARTAGÉ malgré son nom — voir ci-dessous
     supabase/      3 clients : navigateur, serveur, admin (service_role)
     i18n/          traductions fr/en
   components/
@@ -167,18 +166,32 @@ Railway en production.
 
 Écrit noir sur blanc pour que personne ne perde une journée dessus.
 
-### 🔴 `/studio` est mort — 36 fichiers, 7 050 lignes
+### 🟠 `src/lib/studio/` porte un nom trompeur
 
-Un ancien générateur de reels, avec son propre moteur ffmpeg, son propre
-système de jobs et ses propres composants. **Aucun lien n'y mène nulle part.**
-Jamais terminé : 12 `TODO: brancher`, stockage local, données factices
-(`src/lib/mock-data.ts`).
+Le générateur de reels dont ce dossier tire son nom a été supprimé — son
+interface, ses routes API et ses 8 modules propres (5 676 lignes au total).
 
-C'est l'ancêtre abandonné de l'éditeur IA, pas un module actif.
+**Mais six fichiers sont restés, et ils sont bien vivants** : ce sont les
+fondations média de tout le projet.
 
-⚠️ **Un nœud avant de le supprimer :** `src/lib/ai-editor/render.ts` importe
-`runFFmpeg` depuis `src/lib/studio/pipeline.ts`. Il faut déplacer ce fichier
-d'abord, sinon on casse l'éditeur IA.
+| Fichier | Utilisé par |
+| --- | --- |
+| `pipeline.ts` | **le lanceur ffmpeg du projet entier** |
+| `transcribe.ts` | éditeur IA (repli whisper local) |
+| `captions.ts` | sous-titres |
+| `analysis.ts` | détection des changements de plan |
+| `types.ts` | types partagés |
+| `local-store.ts` | éditeur IA **et** Scraper |
+
+Sept fichiers vivants en dépendent, répartis entre `lib/ai-editor/` et
+`lib/account/`. **Supprimer ce dossier casserait l'éditeur IA et le Scraper.**
+
+Il reste aussi une route API sous le nom studio, `/api/studio/media/[name]` :
+c'est elle qui sert les vidéos téléchargées par le **Scraper**. Vivante.
+
+**Ce qu'il resterait à faire :** renommer `lib/studio/` en quelque chose
+d'honnête (`lib/media/`) et corriger les sept imports. Purement cosmétique,
+mais ça touche le moteur de rendu — à faire en repassant les trois harnais.
 
 ### 🔴 Pages sans lien entrant
 
