@@ -45,6 +45,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# …sauf le gabarit : il ne contient que des NOMS de variables, aucun secret,
+# et c'est lui qui permet à un nouvel arrivant de configurer le projet.
+!.env.example
 
 # vercel
 .vercel

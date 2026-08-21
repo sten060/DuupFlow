@@ -11,10 +11,19 @@ import { cleanupOldVariants } from "@/lib/ai-editor/store";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  // ── REFUS PAR DÉFAUT ────────────────────────────────────────────────────
+  // La garde était `if (secret && …)` : quand CRON_SECRET n'était pas défini,
+  // la vérification sautait et la route devenait PUBLIQUE. Comme elle accepte
+  // `?hours=0`, n'importe qui pouvait effacer les fichiers de TOUS les users.
+  // Un secret absent doit fermer la porte, pas l'ouvrir.
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization") ?? "";
 
-  if (secret && auth !== `Bearer ${secret}`) {
+  if (!secret) {
+    console.error("[cron] CRON_SECRET absent — route refusée (configure la variable d'environnement).");
+    return NextResponse.json({ error: "Cron not configured" }, { status: 503 });
+  }
+  if (auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
