@@ -180,15 +180,20 @@ C'est l'ancêtre abandonné de l'éditeur IA, pas un module actif.
 `runFFmpeg` depuis `src/lib/studio/pipeline.ts`. Il faut déplacer ce fichier
 d'abord, sinon on casse l'éditeur IA.
 
-### 🔴 Fichiers et pages sans lien entrant
+### 🔴 Pages sans lien entrant
 
-- **32 fichiers jamais importés** — restes des versions précédentes.
-- `src/components/Footer.tsx` est **mort**, `SiteFooter.tsx` est **vivant**.
-  Modifier le mauvais fichier ne produit aucun effet visible.
-- `src/components/ui/` (Button, Card, SectionTitle) : **personne ne l'importe.**
-  Un dossier `ui/` laisse croire à un système de composants. Il n'en est pas un.
-- `/dashboard/enhance` : page complète, aucun lien vers elle.
+- `/dashboard/enhance` : page complète, aucun lien vers elle. C'est aussi le
+  seul consommateur de `REPLICATE_API_TOKEN` et de `src/lib/ai/enhance.ts`.
 - `/dashboard/tokens` : remplacée, son contenu a migré dans `/dashboard/abonnement`.
+
+Elles sont conservées pour l'instant : contrairement aux fichiers orphelins,
+supprimer une page est une décision produit, pas un nettoyage.
+
+> **Déjà nettoyé :** 29 fichiers jamais importés (2 819 lignes) ont été
+> supprimés — anciens composants de landing, `VideoFormClient` remplacé par
+> les variantes Simple/Advanced, un `Footer.tsx` mort qui se confondait avec
+> le `SiteFooter.tsx` vivant, et un dossier `components/ui/` que personne
+> n'importait mais qui laissait croire à un système de composants.
 
 ### 🟠 Fichiers très longs
 
