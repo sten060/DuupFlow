@@ -5,19 +5,17 @@ import path from "path";
 import { redirect } from "next/navigation";
 import { getOutDirForCurrentUserRSC } from "@/app/dashboard/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { processVideos, videoPrefix, filterFinals } from "./processVideos";
+import { videoPrefix, filterFinals } from "./processVideos";
 
 const OUTPUT_BUCKET = "video-outputs";
 
-/* =========================================================
-   Server action: duplication (kept for any legacy callers)
-   — forms now call /api/duplicate-video directly via fetch
-   ========================================================= */
-
-export async function duplicateVideos(formData: FormData) {
-  const { channel } = await processVideos(formData);
-  redirect(`/dashboard/videos/${channel}?ok=1`);
-}
+/* La server action `duplicateVideos` vivait ici. Supprimée le 2026-08-22 : plus
+   aucun appelant (les formulaires passent par /api/duplicate-video), et surtout
+   elle appelait processVideos() SANS AUCUN contrôle de quota. Un fichier en
+   « use server » expose chacune de ses fonctions exportées comme un point
+   d'entrée réseau : c'était donc un contournement complet de la limite mensuelle
+   de vidéos. Toute duplication doit passer par /api/duplicate-video, qui réserve
+   le quota avant d'encoder. */
 
 /* ------------------ helpers ------------------ */
 

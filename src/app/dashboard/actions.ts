@@ -11,7 +11,6 @@ import { isRedirectError } from "next/dist/client/components/redirect";
 import os from "os";
 import { getOutDirForCurrentUser, getOutDirForCurrentUserRSC } from "./utils";
 import type { OverlayOptions } from "sharp";
-import { checkUsage, incrementUsage } from "@/lib/usage";
 
 // --- exposer userId à la page vidéos (RSC) ---
 export async function currentUserOutInfo() {
@@ -516,42 +515,6 @@ pipeline = pipeline.composite([overlay]).removeAlpha();
 }
 
 // ============ ACTIONS ============
-export async function duplicate(formData: FormData) {
-  
-
-  const file = formData.get("file") as File | null;
-  const count = Math.max(1, Number(formData.get("count") ?? 1));
-  if (!file) return;
-  const { dir } = await getOutDirForCurrentUser();
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const baseName = file.name.replace(/\.[^.]+$/, "") || "file";
-  const ext = (file.name.split(".").pop() || "png").toLowerCase();
-
-  const mime = file.type || "";
-  const isImage = mime.startsWith("image/");
-  const isVideo = mime.startsWith("video/") || ["mp4", "mov", "mkv", "webm"].includes(ext);
-
-  for (let i = 1; i <= count; i++) {
-    const outName = `${baseName}_${i}_${randSuffix()}.${ext}`;
-    const { dir } = await getOutDirForCurrentUser();
-    const outPath = path.join(dir, outName);
-
-
-    if (isImage) {
-      await processImage(buffer, outPath, i);
-    } else if (isVideo) {
-      await processVideo(buffer, outPath, i, ext);
-    } else {
-      // fallback: simple copie (octet ajouté pour différencier)
-      const changed = Buffer.concat([buffer, Buffer.from([i & 0xff])]);
-      await fs.writeFile(outPath, changed);
-    }
-  }
-
-  revalidatePath("/dashboard");
-  redirect("/dashboard");
-}
 
 // Remplace l'ancien header de clearOut par celui-ci :
 export async function clearOut(formData?: FormData) {
@@ -620,169 +583,14 @@ export async function listOutVideos(): Promise<string[]> {
     .map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
 }
 
-/* ---------- Duplication vidéo ---------- */
-export async function duplicateVideos(formData: FormData) {
-  "use server";
-
-  // ---- lecture données du formulaire ----
-  const filesAll = formData.getAll("files") as File[];
-  if (!filesAll || filesAll.length === 0) throw new Error("Aucun fichier vidéo reçu.");
-  const files = filesAll.slice(0, 25).filter((f) => f.type?.startsWith("video/"));
-
-  const count = Math.max(1, Number(formData.get("count") ?? 1));
-  const selectedFilters = formData.getAll("filters") as string[];
-  const stealthMode = formData.get("stealthMode") === "true";
-
-  // ---- Usage check (Solo plan limits) ----
-  const totalRequested = files.length * count;
-  const usageCheck = await checkUsage("videos", totalRequested);
-  let effectiveTotal = totalRequested;
-  let isPartial = false;
-
-  // Apply partial-fulfillment / hard-block logic for any quota'd plan
-  // (Solo + Free). Pro is unlimited and never hits this branch.
-  if (!usageCheck.allowed && usageCheck.plan && usageCheck.plan !== "pro") {
-    const remaining = usageCheck.limit - usageCheck.current;
-    if (remaining <= 0) {
-      revalidatePath("/dashboard/videos");
-      const upgradeHint = usageCheck.plan === "solo"
-        ? "Attends le renouvellement ou passe au plan Pro."
-        : "Passe au plan Solo ou Pro pour augmenter ta limite.";
-      redirect(
-        `/dashboard/videos?err=${encodeURIComponent(
-          `Limite mensuelle atteinte (${usageCheck.current}/${usageCheck.limit} vidéos). ${upgradeHint}`
-        )}`
-      );
-    }
-    effectiveTotal = remaining;
-    isPartial = true;
-  }
-
-  // ---- dossier de sortie utilisateur ----
-  const { dir: outDir } = await getOutDirForCurrentUser();
-
-  // ---- PROGRESSION (même logique que les images) ----
-  const jobId = crypto.randomUUID();
-  const progressPath = path.join(outDir, `__progress_${jobId}.json`);
-
-  async function writeProgress(percent: number, msg: string) {
-    try {
-      await fs.writeFile(
-        progressPath,
-        JSON.stringify({ percent, msg, at: Date.now() })
-      );
-    } catch {}
-  }
-
-  const total = effectiveTotal;
-  let done = 0;
-
-  // on crée le fichier de progression tout de suite (0%)
-  await writeProgress(0, "Préparation...");
-
-  // ---- duplication ----
-  outer: for (const f of files) {
-    const buffer = Buffer.from(await f.arrayBuffer());
-    const dot = f.name.lastIndexOf(".");
-    const ext = dot >= 0 ? f.name.slice(dot) : ".mp4";
-    const baseName = dot >= 0 ? f.name.slice(0, dot) : f.name;
-    const cleanBase = baseName.replace(/[^a-zA-Z0-9_-]/g, "");
-
-    for (let i = 1; i <= count; i++) {
-      if (done >= effectiveTotal) break outer;
-
-      const name = `${cleanBase}_${i}_${crypto.randomBytes(2).toString("hex")}${ext}`;
-      const outPath = path.join(outDir, name);
-
-      // message en cours
-      await writeProgress(
-        Math.min(99, Math.round((done / total) * 100)),
-        `Encodage ${done + 1}/${total}…`
-      );
-
-      await processVideo(
-        buffer,
-        outPath,
-        i,
-        ext.replace(".", ""),
-        selectedFilters
-      );
-
-      done++;
-      await writeProgress(
-        Math.min(99, Math.round((done / total) * 100)),
-        `Encodage ${done}/${total}…`
-      );
-    }
-  }
-
-  // ---- Increment usage (any quota'd plan: Solo or Free) ----
-  // Pro is unlimited so it doesn't need tracking. All other plans must
-  // count actual videos generated against their monthly quota.
-  if (done > 0 && usageCheck.userId && usageCheck.plan !== "pro") {
-    await incrementUsage(usageCheck.userId, "videos", done).catch(console.error);
-  }
-
-  // fin : 100% + nettoyage du fichier de progression
-  await writeProgress(100, "Terminé ✔");
-  setTimeout(() => fs.unlink(progressPath).catch(() => {}), 1500);
-
-  // revalide & reste sur /dashboard/videos
-  revalidatePath("/dashboard/videos");
-  if (isPartial) {
-    redirect(
-      `/dashboard/videos?ok=1&job=${jobId}&warn=${encodeURIComponent(
-        `Limite atteinte — ${done}/${totalRequested} copies effectuées. Les ${totalRequested - done} restantes ont été annulées.`
-      )}`
-    );
-  }
-  redirect(`/dashboard/videos?ok=1&job=${jobId}`);
-}
-/* ----------- Duplication vidéos (multi-fichiers) ----------- */
-export async function duplicateImages(formData: FormData) {
-  "use server";
-
-  // fichiers (drag&drop → name="files")
-  const filesAll = formData.getAll("files") as File[];
-  if (!filesAll || filesAll.length === 0) {
-    throw new Error("Aucune image reçue.");
-  }
-  if (filesAll.length > 25) {
-    throw new Error("Vous pouvez envoyer 25 fichiers maximum.");
-  }
-  const files = filesAll.slice(0, 25);
-
-  // options (cases à cocher)
-  const fundamentals =
-    formData.get("fundamentals") !== null ||
-    (formData.getAll("filters") as string[]).includes("fundamentals");
-
-  const visuals =
-    formData.get("visuals") !== null ||
-    (formData.getAll("filters") as string[]).includes("visuals");
-
-    const count = Math.max(1, Number(formData.get("count") ?? 1));
-    const { dir: outDir } = await getOutDirForCurrentUser();
-
-  for (const f of files) {
-    if (!f.type?.startsWith("image/")) continue;
-
-    const buffer = Buffer.from(await f.arrayBuffer());
-    const dot = f.name.lastIndexOf(".");
-    const ext = dot >= 0 ? f.name.slice(dot) : ".png";
-    const baseName = dot >= 0 ? f.name.slice(0, dot) : f.name;
-    const cleanBase = baseName.replace(/[^a-zA-Z0-9_-]/g, "");
-
-    for (let i = 1; i <= count; i++) {
-      const name = `${cleanBase}_${i}_${randSuffix()}${ext}`;
-      const outPath = path.join(outDir, name);
-      await processImage(buffer, outPath, i, { fundamentals, visuals });
-    }
-  }
-
-  revalidatePath("/dashboard/images");
-  redirect("/dashboard/images?ok=1");
-}
+/* ---------- Duplication (vidéo + image) : supprimée d'ici ----------
+   Les server actions `duplicate`, `duplicateVideos` et `duplicateImages`
+   vivaient dans ce fichier. Supprimées le 2026-08-22 : plus aucun appelant (les
+   formulaires passent par /api/duplicate-video et /api/duplicate-image-sse) et,
+   pour deux d'entre elles, AUCUN contrôle de quota. Or « use server » en tête de
+   fichier fait de CHAQUE export un point d'entrée réseau : c'était un
+   contournement de la limite mensuelle. Les routes API sont la seule voie —
+   elles réservent le quota avant de produire (cf. src/lib/usage.ts). */
 
 /* ========= Détecteur de contenu similaire (précis) ========= */
 

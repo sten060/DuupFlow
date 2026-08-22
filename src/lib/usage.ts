@@ -68,40 +68,28 @@ export async function checkUsage(
 }
 
 /**
- * Même contrôle de quota que checkUsage mais avec un userId EXPLICITE (pas de
- * cookie de session). Indispensable pour les chemins authentifiés par Bearer
- * token (API/MCP de l'Éditeur IA) où supabase.auth.getUser() ne renvoie rien.
+ * Résout, pour un user, le plan EFFECTIF (invité → plan de l'hôte, impayé →
+ * Free), la limite du type demandé et le compteur courant — en appliquant au
+ * passage la remise à zéro mensuelle du plan Free.
+ *
+ * Extrait de checkUsageForUser() pour que reserveUsage() applique EXACTEMENT
+ * les mêmes règles : deux résolutions divergentes, c'est un quota qui se
+ * contourne selon le chemin emprunté.
  */
-export async function checkUsageForUser(
+async function resolveQuotaContext(
   userId: string,
   type: UsageType,
-  requestedCount = 1
-): Promise<UsageCheck> {
-  const t = await getServerT();
+): Promise<{ plan: string; limit: number; current: number } | null> {
   const admin = createAdminClient();
 
-  // Fetch profile — handle guest users (inherit host plan)
   const { data: profile } = await admin
     .from("profiles")
     .select("plan, has_paid, is_guest, host_user_id, payment_overdue")
     .eq("id", userId)
     .single();
+  if (!profile) return null;
 
-  if (!profile) {
-    return {
-      allowed: false,
-      userId,
-      plan: null,
-      current: 0,
-      limit: 0,
-      message: t("errors.quota.profileNotFound"),
-    };
-  }
-
-  // Guests inherit host plan
   let effectivePlan = profile.plan as string | null;
-  // Past-due state is inherited from the host too — a guest can't have more
-  // access than the account that pays for the seat.
   let overdue = (profile as { payment_overdue?: boolean }).payment_overdue === true;
   if (profile.is_guest && profile.host_user_id) {
     const { data: hostProfile } = await admin
@@ -114,34 +102,13 @@ export async function checkUsageForUser(
       overdue = true;
     }
   }
+  if (!effectivePlan) effectivePlan = profile.has_paid ? "pro" : "free";
+  if (overdue) effectivePlan = "free";
 
-  // Legacy data normalization:
-  //  - has_paid + plan null  → treat as 'pro' (early users without plan column)
-  //  - !has_paid + plan null → treat as 'free' (default tier going forward)
-  if (!effectivePlan) {
-    effectivePlan = profile.has_paid ? "pro" : "free";
-  }
-
-  // Defense-in-depth: a past-due payment forces Free quotas regardless of the
-  // stored plan. `payment_overdue` is the source of truth even when the plan
-  // flip to Free hasn't propagated yet (missed webhook, ordering race). Without
-  // this, a Solo/Pro row that stays paid while overdue keeps full access.
-  if (overdue) {
-    effectivePlan = "free";
-  }
-
-  // Pro → unlimited
   if (effectivePlan === "pro") {
-    return {
-      allowed: true,
-      userId,
-      plan: effectivePlan,
-      current: 0,
-      limit: Infinity,
-    };
+    return { plan: "pro", limit: Infinity, current: 0 };
   }
 
-  // Starter / Solo / Free → check monthly limits via PLAN_LIMITS
   const planLimits = getPlanLimits(effectivePlan);
   const limit = planLimits[type === "images" ? "images" : type === "videos" ? "videos" : "ai_signatures"];
   const column = `${type}_count` as const;
@@ -154,9 +121,8 @@ export async function checkUsageForUser(
 
   let current = (usage as any)?.[column] ?? 0;
 
-  // Free plan: reset the monthly counters once a new period has begun, anchored
-  // on the user's period_start (their free "subscription" date). Solo/Pro reset
-  // via Stripe billing cycles, so the lazy calendar reset is scoped to Free.
+  // Free : remise à zéro paresseuse une fois la fenêtre mensuelle passée
+  // (Starter/Solo/Pro sont remis à zéro par le cycle de facturation Stripe).
   if (effectivePlan === "free" && (usage as any)?.period_start) {
     const newStart = rolledPeriodStart(new Date((usage as any).period_start), new Date());
     if (newStart) {
@@ -174,40 +140,176 @@ export async function checkUsageForUser(
     }
   }
 
-  if (current + requestedCount > limit) {
-    const labels: Record<UsageType, string> = {
-      images: t("errors.quota.labelImages"),
-      videos: t("errors.quota.labelVideos"),
-      ai_signatures: t("errors.quota.labelAiSignatures"),
-    };
-    // Free et Starter se voient proposer le palier du dessus (Solo/Pro) ; Solo,
-    // lui, n'a plus que Pro — d'où le message « attends le renouvellement ».
-    const upgradeHint =
-      effectivePlan === "solo"
-        ? t("errors.quota.upgradeHintSolo")
-        : t("errors.quota.upgradeHintFree");
+  return { plan: effectivePlan, limit, current };
+}
+
+/**
+ * Même contrôle de quota que checkUsage mais avec un userId EXPLICITE (pas de
+ * cookie de session). Indispensable pour les chemins authentifiés par Bearer
+ * token (API/MCP de l'Éditeur IA) où supabase.auth.getUser() ne renvoie rien.
+ */
+export async function checkUsageForUser(
+  userId: string,
+  type: UsageType,
+  requestedCount = 1
+): Promise<UsageCheck> {
+  const t = await getServerT();
+  const ctx = await resolveQuotaContext(userId, type);
+
+  if (!ctx) {
     return {
       allowed: false,
       userId,
-      plan: effectivePlan,
-      current,
-      limit,
-      message: t("errors.quota.limitReached", {
-        current,
-        limit,
-        label: labels[type],
-        hint: upgradeHint,
-      }),
+      plan: null,
+      current: 0,
+      limit: 0,
+      message: t("errors.quota.profileNotFound"),
     };
   }
 
-  return {
-    allowed: true,
-    userId,
-    plan: effectivePlan,
-    current,
-    limit,
+  // Pro → illimité
+  if (!Number.isFinite(ctx.limit)) {
+    return { allowed: true, userId, plan: ctx.plan, current: 0, limit: Infinity };
+  }
+
+  if (ctx.current + requestedCount > ctx.limit) {
+    return {
+      allowed: false,
+      userId,
+      plan: ctx.plan,
+      current: ctx.current,
+      limit: ctx.limit,
+      message: await quotaMessage(type, ctx.plan, ctx.current, ctx.limit),
+    };
+  }
+
+  return { allowed: true, userId, plan: ctx.plan, current: ctx.current, limit: ctx.limit };
+}
+
+/** Message « limite atteinte », identique quel que soit le chemin d'appel. */
+async function quotaMessage(type: UsageType, plan: string, current: number, limit: number): Promise<string> {
+  const t = await getServerT();
+  const labels: Record<UsageType, string> = {
+    images: t("errors.quota.labelImages"),
+    videos: t("errors.quota.labelVideos"),
+    ai_signatures: t("errors.quota.labelAiSignatures"),
   };
+  // Free et Starter se voient proposer le palier du dessus (Solo/Pro) ; Solo,
+  // lui, n'a plus que Pro — d'où le message « attends le renouvellement ».
+  const upgradeHint =
+    plan === "solo" ? t("errors.quota.upgradeHintSolo") : t("errors.quota.upgradeHintFree");
+  return t("errors.quota.limitReached", { current, limit, label: labels[type], hint: upgradeHint });
+}
+
+export interface UsageReservation extends UsageCheck {
+  /**
+   * true  → la réservation est passée par la fonction SQL atomique : deux
+   *         appels concurrents ne peuvent PAS dépasser la limite.
+   * false → repli non atomique (migration 055 pas encore appliquée) : le
+   *         comportement est celui d'avant, une course reste possible.
+   */
+  atomic: boolean;
+}
+
+/**
+ * RÉSERVE `count` unités de quota AVANT de produire quoi que ce soit, en un
+ * seul UPDATE conditionnel (cf. migration 055). C'est ce qui remplace le couple
+ * « checkUsage au début / incrementUsage à la fin » : entre les deux, il y avait
+ * une fenêtre de plusieurs minutes pendant laquelle d'autres jobs passaient le
+ * contrôle avec le même compteur.
+ *
+ * Le surplus non produit (fichier rejeté, copie en échec, arrêt manuel) est
+ * rendu ensuite avec releaseUsage() — on ne facture que le livré.
+ *
+ * ⚠ Ne trace RIEN dans `usage_events` : le journal analytique doit refléter ce
+ * qui a été livré, pas ce qui a été réservé. L'appelant écrit la ligne avec
+ * logUsageEvent() une fois le job terminé.
+ */
+export async function reserveUsage(
+  userId: string,
+  type: UsageType,
+  count = 1
+): Promise<UsageReservation> {
+  const ctx = await resolveQuotaContext(userId, type);
+  if (!ctx) {
+    const t = await getServerT();
+    return { allowed: false, atomic: false, userId, plan: null, current: 0, limit: 0, message: t("errors.quota.profileNotFound") };
+  }
+
+  const unlimited = !Number.isFinite(ctx.limit);
+  const admin = createAdminClient();
+  const rpc = await admin.rpc("consume_usage", {
+    p_user_id: userId,
+    p_type: type,
+    p_amount: count,
+    p_limit: unlimited ? -1 : ctx.limit,
+  });
+
+  if (!rpc.error) {
+    if (rpc.data === null || rpc.data === undefined) {
+      // Refus atomique = quota dépassé. On relit le compteur pour le message.
+      const fresh = await resolveQuotaContext(userId, type);
+      const current = fresh?.current ?? ctx.current;
+      return {
+        allowed: false,
+        atomic: true,
+        userId,
+        plan: ctx.plan,
+        current,
+        limit: ctx.limit,
+        message: await quotaMessage(type, ctx.plan, current, ctx.limit),
+      };
+    }
+    const newCount = rpc.data as number;
+    return { allowed: true, atomic: true, userId, plan: ctx.plan, current: newCount - count, limit: ctx.limit };
+  }
+
+  // ── Repli : la fonction SQL n'est pas là (migration pas encore appliquée,
+  // cache de schéma PostgREST en retard) ou l'appel a échoué. On refait le
+  // contrôle-puis-incrément d'avant : pas de garantie anti-course, mais aucun
+  // user légitime n'est bloqué par une migration manquante.
+  console.warn("[usage] consume_usage indisponible, repli non atomique:", rpc.error.message);
+  if (!unlimited && ctx.current + count > ctx.limit) {
+    return {
+      allowed: false,
+      atomic: false,
+      userId,
+      plan: ctx.plan,
+      current: ctx.current,
+      limit: ctx.limit,
+      message: await quotaMessage(type, ctx.plan, ctx.current, ctx.limit),
+    };
+  }
+  await bumpUsageCounter(userId, type, count).catch((e) => console.error("[usage] repli increment:", e));
+  return { allowed: true, atomic: false, userId, plan: ctx.plan, current: ctx.current, limit: ctx.limit };
+}
+
+/**
+ * Rend `count` unités réservées mais non produites. Best-effort : un échec de
+ * restitution ne doit jamais faire échouer un job qui, lui, a réussi.
+ */
+export async function releaseUsage(userId: string, type: UsageType, count: number): Promise<void> {
+  if (!Number.isFinite(count) || count <= 0) return;
+  const admin = createAdminClient();
+  const rpc = await admin.rpc("release_usage", { p_user_id: userId, p_type: type, p_amount: count });
+  if (!rpc.error) return;
+
+  // Repli non atomique, même logique que reserveUsage().
+  console.warn("[usage] release_usage indisponible, repli non atomique:", rpc.error.message);
+  const column = `${type}_count` as const;
+  const { data: existing } = await admin
+    .from("usage_tracking")
+    .select("images_count, videos_count, ai_signatures_count")
+    .eq("user_id", userId)
+    .single();
+  if (!existing) return;
+  await admin
+    .from("usage_tracking")
+    .update({
+      [column]: Math.max(0, ((existing as any)[column] as number) - count),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId);
 }
 
 /** Map UsageType → usage_events.kind (analytics event log). */
@@ -230,6 +332,16 @@ export async function incrementUsage(
   type: UsageType,
   count = 1
 ): Promise<void> {
+  await bumpUsageCounter(userId, type, count);
+  await logUsageEvent(userId, type, count);
+}
+
+/**
+ * Bouge le compteur, SANS écrire d'événement. Repli non atomique (lecture puis
+ * écriture) : utilisé seulement quand la fonction SQL de la migration 055 n'est
+ * pas disponible.
+ */
+async function bumpUsageCounter(userId: string, type: UsageType, count: number): Promise<void> {
   const admin = createAdminClient();
   const column = `${type}_count` as const;
 
@@ -254,14 +366,22 @@ export async function incrementUsage(
       period_start: new Date().toISOString(),
     });
   }
+}
 
-  // Event log for analytics — one row per call with qty = count.
-  // Failures here MUST NOT break the quota enforcement above.
+/**
+ * Trace UNE ligne dans `usage_events` (journal analytique, cf. Sten Insights).
+ * À appeler avec la quantité RÉELLEMENT produite, une fois le job terminé —
+ * pas au moment de la réservation, sinon un job à moitié raté est sur-compté.
+ * Best-effort : un échec ici ne doit jamais casser un job qui a réussi.
+ */
+export async function logUsageEvent(userId: string, type: UsageType, qty: number): Promise<void> {
+  if (!Number.isFinite(qty) || qty <= 0) return;
   try {
+    const admin = createAdminClient();
     await admin.from("usage_events").insert({
       user_id: userId,
       kind: USAGE_EVENT_KIND[type],
-      qty: count,
+      qty,
       source: "live",
     });
   } catch (err) {

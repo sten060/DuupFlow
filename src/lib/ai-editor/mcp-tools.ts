@@ -13,17 +13,28 @@ import type { EditPlan } from "./render";
 import { CAPTION_FONTS, fontCatalogLines } from "./font-catalog";
 import { GAP_BLANK_SEC, BLANK_MAX_RATIO, GAP_MICRO_SEC, GAP_EDGE_TRIM_FALLBACK_SEC, RETAKE_NGRAM, RETAKE_CHAIN_GAP_SEC, RETAKE_STRICT_GAP_SEC, RETAKE_MIN_SPAN_SEC, REF_IMAGES_SHOWN, MCP_IMAGE_WIDTH, MCP_IMAGE_QUALITY } from "./analysis-config";
 import { analyzeColor } from "./ref-profile";
-import { checkUsageForUser, incrementUsage, logAiEditorRender } from "@/lib/usage";
+import { reserveUsage, releaseUsage, logUsageEvent, logAiEditorRender } from "@/lib/usage";
 
 // Garde-fou quota : chaque rendu de variante (create_variant / update_variant)
 // compte comme UNE « vidéo » (le user paie SON Claude, DuupFlow facture le RENDU).
 // Pro = illimité. Sans ça, un Claude connecté rendrait des vidéos sans fin.
+//
+// ⚠ On RÉSERVE l'unité ici, avant de lancer le rendu — on ne se contente pas de
+// lire le compteur. Les rendus sont détachés et n'incrémentaient qu'à la fin :
+// un Claude qui enchaîne dix create_variant les voyait TOUS passer avec le même
+// compteur, et un Starter à 99/100 repartait avec 109 vidéos. Un rendu qui
+// échoue rend son unité (releaseVariantQuota).
 async function guardVariantQuota(userId: string): Promise<Content | null> {
-  const usage = await checkUsageForUser(userId, "videos", 1).catch(() => null);
+  const usage = await reserveUsage(userId, "videos", 1).catch(() => null);
   if (usage && !usage.allowed) {
     return { type: "text", text: `⛔ Quota atteint : ${usage.message ?? "limite de vidéos du plan atteinte."} Le rendu est bloqué tant que le user (ou son hôte) n'a pas plus de quota / un plan supérieur.` };
   }
   return null; // autorisé (ou vérif indisponible → on ne bloque pas un render légitime)
+}
+
+/** Rendu échoué → l'unité réservée par guardVariantQuota() est rendue. */
+function releaseVariantQuota(userId: string): void {
+  void releaseUsage(userId, "videos", 1).catch(() => {});
 }
 
 const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -1065,10 +1076,8 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const blocked = await guardVariantQuota(userId);
     if (blocked) return { content: [blocked], isError: true };
     const job = startRenderJob(userId, project.id, stripDisplayOpts(args ?? {}) as unknown as EditPlan, {
-      onDone: async () => {
-        await incrementUsage(userId, "videos", 1).catch(() => {}); // rendu réussi → quota vidéo
-        void logAiEditorRender(userId);                            // tracking
-      },
+      onDone: () => { void logUsageEvent(userId, "videos", 1); void logAiEditorRender(userId); }, // quota déjà réservé
+      onFailed: () => releaseVariantQuota(userId),          // rien produit → on rend l'unité
     });
     return { content: await jobContent(await firstWait(job), wantImages(args, true)) };
   }
@@ -1360,10 +1369,8 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     // sous-titres sur un montage lourd est le cas qui dépassait la patience du client).
     const job = startRenderJob(userId, project.id, merged, {
       derivedFrom: v.id,
-      onDone: async () => {
-        await incrementUsage(userId, "videos", 1).catch(() => {});
-        void logAiEditorRender(userId);
-      },
+      onDone: () => { void logUsageEvent(userId, "videos", 1); void logAiEditorRender(userId); },
+      onFailed: () => releaseVariantQuota(userId),
     });
     return { content: await jobContent(await firstWait(job), wantImages(args, true)) };
   }

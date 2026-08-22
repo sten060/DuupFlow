@@ -57,7 +57,7 @@ function sweep(): void {
 /** Lance un rendu en tâche de fond et renvoie son ticket immédiatement. */
 export function startRenderJob(
   userId: string, projectId: string, plan: EditPlan,
-  opts?: { derivedFrom?: string; onDone?: (job: RenderJob) => void | Promise<void> },
+  opts?: { derivedFrom?: string; onDone?: (job: RenderJob) => void | Promise<void>; onFailed?: (job: RenderJob) => void | Promise<void> },
 ): RenderJob {
   sweep();
   const job: RenderJob = {
@@ -84,6 +84,9 @@ export function startRenderJob(
     } finally {
       job.finishedAt = Date.now();
       if (job.status === "done" && opts?.onDone) { try { await opts.onDone(job); } catch { /* best-effort */ } }
+      // Échec : l'appelant a pu réserver du quota avant de lancer le rendu — il
+      // doit pouvoir le rendre, sinon un rendu raté reste facturé.
+      if (job.status !== "done" && opts?.onFailed) { try { await opts.onFailed(job); } catch { /* best-effort */ } }
       for (const w of job.waiters.splice(0)) w();
     }
   })();
