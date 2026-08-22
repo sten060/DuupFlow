@@ -6,7 +6,7 @@ import { getServerT } from "@/lib/i18n/server";
 import { processVideos } from "@/app/dashboard/videos/processVideos";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { checkUsage, incrementUsage } from "@/lib/usage";
+import { checkUsage, reserveUsage, releaseUsage, logUsageEvent } from "@/lib/usage";
 import { maxVideoHeightForPlan } from "@/lib/plans";
 import { jobRegistry, type JobEntry } from "./jobRegistry";
 
@@ -103,8 +103,9 @@ export async function POST(req: Request) {
   const copiesPerSource = Math.max(1, Number(formData.get("count") ?? 1));
   const requestedCount  = Math.max(1, sourceCount * copiesPerSource);
 
+  // Contrôle d'accès + identité du user (le cookie de session vit ici).
   const usageCheck = await checkUsage("videos", requestedCount);
-  if (!usageCheck.allowed) {
+  if (!usageCheck.allowed || !usageCheck.userId) {
     return NextResponse.json(
       {
         error: usageCheck.message ?? t("errors.video.limitReached"),
@@ -113,6 +114,27 @@ export async function POST(req: Request) {
         plan: usageCheck.plan,
         current: usageCheck.current,
         limit: usageCheck.limit,
+      },
+      { status: 429 }
+    );
+  }
+
+  // RÉSERVATION du quota AVANT d'encoder quoi que ce soit. Le contrôle ci-dessus
+  // ne suffit pas : il lit le compteur, et l'incrément n'arrivait qu'à la fin du
+  // job (des minutes plus tard) — deux duplications lancées en parallèle
+  // passaient donc toutes les deux avec le même compteur. Ici le contrôle et
+  // l'incrément sont un seul UPDATE conditionnel (migration 055).
+  // Le surplus non produit est rendu en fin de job (releaseUsage).
+  const reservation = await reserveUsage(usageCheck.userId, "videos", requestedCount);
+  if (!reservation.allowed) {
+    return NextResponse.json(
+      {
+        error: reservation.message ?? t("errors.video.limitReached"),
+        code: "VID-LIMIT",
+        limitReached: true,
+        plan: reservation.plan,
+        current: reservation.current,
+        limit: reservation.limit,
       },
       { status: 429 }
     );
@@ -130,6 +152,8 @@ export async function POST(req: Request) {
   } catch (e: any) {
     const msg = e?.message || String(e) || t("errors.video.authError");
     console.error("[duplicate-video] getOutDir error:", msg);
+    // Rien ne sera encodé → on rend le quota réservé à l'instant.
+    await releaseUsage(usageCheck.userId, "videos", requestedCount).catch(() => {});
     return NextResponse.json({ error: msg, code: "VID-002" }, { status: 500 });
   }
 
@@ -170,6 +194,7 @@ export async function POST(req: Request) {
       try {
         type PreDownloaded = { name: string; tmpPath: string };
         let preDownloadedFiles: PreDownloaded[] | undefined;
+        const tFetch = Date.now();
 
         if (hasDirectUploads) {
           errorCode = "VID-003";
@@ -213,9 +238,14 @@ export async function POST(req: Request) {
 
           await supabase.storage.from(INPUT_BUCKET).remove(storagePaths).catch(() => {});
         }
+        const msFetch = Date.now() - tFetch;
 
         errorCode = "VID-004";
         const hasVolume = !!process.env.OUT_BASE;
+        // Chronos par phase — une duplication lente peut l'être à quatre endroits
+        // (récupération des sources, ffmpeg, sauvegarde storage, téléchargement
+        // navigateur). Sans ces mesures, les logs ne permettent pas de trancher.
+        const tProcess = Date.now();
         const { channel, outputPaths, skippedCount, rejectedFiles, stopped: jobStopped } = await processVideos(
           formData,
           async (pct, msg) => { send({ percent: 8 + Math.round(pct * 0.91), msg }); },
@@ -231,8 +261,10 @@ export async function POST(req: Request) {
         );
         stopped = jobStopped;
         deliveredCount = outputPaths.length;
+        const msProcess = Date.now() - tProcess;
 
         errorCode = "VID-005";
+        const tSave = Date.now();
         if (!hasVolume && (hasStoragePaths || hasDirectUploads) && outputPaths.length > 0) {
           const supabase = createAdminClient();
           await supabase.storage.createBucket(OUTPUT_BUCKET, { public: false, fileSizeLimit: 524288000 }).catch(() => {});
@@ -253,6 +285,11 @@ export async function POST(req: Request) {
             await fs.unlink(outPath).catch(() => {});
           }));
         }
+
+        console.log(
+          `[duplicate-video] job ${jobId ?? "-"} — sources=${msFetch}ms traitement=${msProcess}ms ` +
+          `sauvegarde=${Date.now() - tSave}ms copies=${deliveredCount} volume=${hasVolume}`,
+        );
 
         generationSucceeded = true;
         if (stopped) {
@@ -324,12 +361,15 @@ export async function POST(req: Request) {
         // Keep entry in registry for 2 min to handle late reconnects gracefully
         if (jobId) setTimeout(() => jobRegistry.delete(jobId), 120_000);
 
-        if (generationSucceeded && usageUserId) {
-          // Bill only the copies actually generated — never the requested count.
-          // Rejected files (probe stage) and per-copy ffmpeg failures must not be
-          // charged, and an explicit Stop bills just what was delivered. checkUsage
-          // already gate-kept on the requested count up front.
-          if (deliveredCount > 0) incrementUsage(usageUserId, "videos", deliveredCount).catch(console.error);
+        // Le quota a été RÉSERVÉ en entier au démarrage : on rend maintenant ce
+        // qui n'a pas été produit (fichier rejeté à la sonde, copie en échec,
+        // arrêt manuel, ou job entièrement raté). Le user ne paie que le livré.
+        if (usageUserId) {
+          const unused = requestedCount - deliveredCount;
+          if (unused > 0) await releaseUsage(usageUserId, "videos", unused).catch(console.error);
+          // Journal analytique : la quantité LIVRÉE (la réservation, elle, n'écrit
+          // rien — sinon un job à moitié raté serait sur-compté dans les stats).
+          if (deliveredCount > 0) void logUsageEvent(usageUserId, "videos", deliveredCount);
         }
 
         try { controller.close(); } catch {}

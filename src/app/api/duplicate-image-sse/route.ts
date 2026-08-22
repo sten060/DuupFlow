@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs/promises";
 import { getServerT } from "@/lib/i18n/server";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
-import { checkUsage, incrementUsage } from "@/lib/usage";
+import { checkUsage, reserveUsage, releaseUsage, logUsageEvent } from "@/lib/usage";
 import { runImageOp } from "@/lib/imageProcessingLimiter";
 import { imageJobRegistry } from "./jobRegistry";
 import { processImage, randHex, type Flags } from "@/lib/image-pipeline";
@@ -90,10 +90,11 @@ export async function POST(req: Request) {
     return Response.json({ error: t("errors.image.noImage") }, { status: 400 });
   }
 
-  // Usage check — must be called before ReadableStream constructor so cookies are accessible
+  // Contrôle d'accès + identité du user — AVANT le ReadableStream, seul endroit
+  // où les cookies sont encore lisibles.
   const totalImages = directUploadIds.length * count;
   const usageCheck = await checkUsage("images", totalImages);
-  if (!usageCheck.allowed) {
+  if (!usageCheck.allowed || !usageCheck.userId) {
     return Response.json(
       {
         error: usageCheck.message ?? t("errors.image.limitReached"),
@@ -107,12 +108,33 @@ export async function POST(req: Request) {
     );
   }
 
+  // RÉSERVATION du quota avant de produire quoi que ce soit (même raison que
+  // pour la vidéo : le contrôle ci-dessus lit le compteur, et l'incrément
+  // n'arrivait qu'en fin de job — deux lots lancés en parallèle passaient donc
+  // tous les deux). Le surplus non produit est rendu en fin de job.
+  const reservation = await reserveUsage(usageCheck.userId, "images", totalImages);
+  if (!reservation.allowed) {
+    return Response.json(
+      {
+        error: reservation.message ?? t("errors.image.limitReached"),
+        code: "IMG-LIMIT",
+        limitReached: true,
+        plan: reservation.plan,
+        current: reservation.current,
+        limit: reservation.limit,
+      },
+      { status: 429 }
+    );
+  }
+
   // Resolve user dir before creating ReadableStream (cookies still readable here)
   let dir: string;
   let userId: string;
   try {
     ({ dir, userId } = await getOutDirForCurrentUser());
   } catch (e: any) {
+    // Rien ne sera produit → on rend le quota réservé à l'instant.
+    await releaseUsage(usageCheck.userId, "images", totalImages).catch(() => {});
     return Response.json({ error: e?.message || t("errors.image.authError") }, { status: 500 });
   }
 
@@ -221,10 +243,13 @@ export async function POST(req: Request) {
         // keep the entry ~2 min for late reconnects before dropping it.
         jobEntry.done = true;
         if (jobId) setTimeout(() => imageJobRegistry.delete(jobId), 120_000);
-        // Bill for whatever actually succeeded, even if the batch threw partway —
-        // otherwise already-produced copies would be free (quota bypass).
-        if (processedOk > 0 && usageCheck.userId) {
-          incrementUsage(usageCheck.userId, "images", processedOk).catch(console.error);
+        // Le quota a été RÉSERVÉ en entier au démarrage : on rend ce qui n'a pas
+        // été produit (lot interrompu, image en échec), et on ne trace dans le
+        // journal analytique que ce qui a réellement été livré.
+        if (usageCheck.userId) {
+          const unused = totalImages - processedOk;
+          if (unused > 0) releaseUsage(usageCheck.userId, "images", unused).catch(console.error);
+          if (processedOk > 0) void logUsageEvent(usageCheck.userId, "images", processedOk);
         }
         try { controller.close(); } catch {}
       }

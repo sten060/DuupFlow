@@ -4,12 +4,12 @@
 // plans, le moteur de rendu les exécute.
 //
 // Garde-fou OBLIGATOIRE : c'est DuupFlow qui déclenche l'IA ici → chaque variante
-// compte comme une « vidéo » dans le quota (checkUsage/incrementUsage), sinon la
+// compte comme une « vidéo » dans le quota (réservé AVANT le rendu), sinon la
 // génération n'a pas de frein.
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { checkUsage, incrementUsage } from "@/lib/usage";
+import { reserveUsage, releaseUsage, logUsageEvent } from "@/lib/usage";
 import { directVariants } from "@/lib/ai-editor/director";
 import { getLatestProject } from "@/lib/ai-editor/store";
 
@@ -39,18 +39,24 @@ export async function POST(req: NextRequest) {
   count = Math.max(1, Math.min(3, Math.floor(count) || 2));
 
   // Garde-fou quota : chaque variante = une « vidéo ». Pro = illimité.
-  const usage = await checkUsage("videos", count);
+  // On RÉSERVE avant de générer (et pas « on contrôle puis on facture à la
+  // fin ») : sinon deux générations lancées en même temps passent toutes les
+  // deux le contrôle avec le même compteur. Le surplus est rendu juste après.
+  const usage = await reserveUsage(user.id, "videos", count);
   if (!usage.allowed) {
     return NextResponse.json({ error: usage.message || "Quota atteint.", quota: true }, { status: 402 });
   }
 
   const res = await directVariants(user.id, projectId, count);
-  if ("error" in res) return NextResponse.json({ error: res.error }, { status: 422 });
+  if ("error" in res) {
+    await releaseUsage(user.id, "videos", count).catch(() => {});
+    return NextResponse.json({ error: res.error }, { status: 422 });
+  }
 
   // Ne facture QUE les variantes réellement rendues.
-  if (res.variants.length) {
-    await incrementUsage(user.id, "videos", res.variants.length).catch(() => {});
-  }
+  const unused = count - res.variants.length;
+  if (unused > 0) await releaseUsage(user.id, "videos", unused).catch(() => {});
+  if (res.variants.length) void logUsageEvent(user.id, "videos", res.variants.length);
 
   return NextResponse.json({ variants: res.variants, usedAI: res.usedAI });
 }
