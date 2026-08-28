@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createAnonClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { getServerT } from "@/lib/i18n/server";
+import { teamInviteLimitFor } from "@/lib/team-invite-limit";
 
 export async function POST(req: NextRequest) {
   const t = await getServerT();
@@ -31,9 +32,12 @@ export async function POST(req: NextRequest) {
     .eq("id", user.id)
     .single();
 
+  // Per-host limit: 3 by default, +1 for emails in TEAM_INVITE_BONUS_EMAILS
+  const inviteLimit = teamInviteLimitFor(user.email);
+
   if (hostProfile?.plan !== "pro") {
     return NextResponse.json(
-      { error: t("errors.team.planCannotInvite", { max: 3 }) },
+      { error: t("errors.team.planCannotInvite", { max: inviteLimit }) },
       { status: 403 }
     );
   }
@@ -45,8 +49,11 @@ export async function POST(req: NextRequest) {
     .eq("host_user_id", user.id)
     .in("status", ["pending", "accepted"]);
 
-  if (existing && existing.length >= 3) {
-    return NextResponse.json({ error: t("errors.team.inviteLimitReached") }, { status: 400 });
+  if (existing && existing.length >= inviteLimit) {
+    return NextResponse.json(
+      { error: t("errors.team.inviteLimitReached", { max: inviteLimit }) },
+      { status: 400 }
+    );
   }
 
   // Check if already invited

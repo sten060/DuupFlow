@@ -96,6 +96,7 @@ export default function SettingsClient({
   plan,
   invitations,
   userEmail,
+  inviteLimit = 3,
 }: {
   initialFirstName: string;
   initialAgencyName: string;
@@ -103,6 +104,7 @@ export default function SettingsClient({
   plan: "starter" | "solo" | "pro" | null;
   invitations: Invitation[];
   userEmail?: string;
+  inviteLimit?: number;
 }) {
   const { t, locale, setLocale } = useTranslation();
   const router = useRouter();
@@ -210,7 +212,7 @@ export default function SettingsClient({
   }
 
   const activeInvitations = localInvitations.filter((i) => i.status !== "removed");
-  const canInvite = !isGuest && plan === "pro" && activeInvitations.length < 3;
+  const canInvite = !isGuest && plan === "pro" && activeInvitations.length < inviteLimit;
   // Identité visuelle par plan — alignée sur /dashboard/abonnement (AbonnementClient).
   const planLabel = plan === "starter" ? "Starter" : plan === "solo" ? "Solo" : plan === "pro" ? "Pro" : null;
   const planColor = plan === "starter" ? "#C4B5FD" : plan === "solo" ? "#A78BFA" : "#818CF8";
@@ -339,7 +341,7 @@ export default function SettingsClient({
             <SectionTitle>
               {t("dashboard.settings.teamSection")}{" "}
               <span className="normal-case text-[var(--app-text-faint)] font-normal tracking-normal ml-1">
-                — {activeInvitations.length}/3 {t("dashboard.settings.teamMembers")}
+                — {activeInvitations.length}/{inviteLimit} {t("dashboard.settings.teamMembers")}
               </span>
             </SectionTitle>
             <Card>
@@ -411,7 +413,7 @@ export default function SettingsClient({
                   </button>
                 </form>
               ) : (
-                <p className="text-xs text-[var(--app-text-faint)] text-center py-2">{t("dashboard.settings.teamLimitReached")}</p>
+                <p className="text-xs text-[var(--app-text-faint)] text-center py-2">{t("dashboard.settings.teamLimitReached", { max: inviteLimit })}</p>
               )}
               {inviteMsg && (
                 <p className={`mt-3 text-xs px-3 py-2 rounded-lg ${inviteMsg.type === "ok" ? "text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20" : "text-red-400 bg-red-500/[0.08] border border-red-500/20"}`}>

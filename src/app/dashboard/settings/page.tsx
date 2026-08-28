@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import SettingsClient from "./SettingsClient";
 import { redirect } from "next/navigation";
+import { teamInviteLimitFor } from "@/lib/team-invite-limit";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -63,6 +64,7 @@ export default async function SettingsPage() {
       plan={plan}
       invitations={invitations}
       userEmail={user.email}
+      inviteLimit={teamInviteLimitFor(user.email)}
     />
   );
 }
