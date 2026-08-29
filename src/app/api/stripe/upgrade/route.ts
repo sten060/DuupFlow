@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -75,16 +76,38 @@ export async function POST(request: Request) {
     );
   }
 
-  // Update the existing subscription price — no new subscription created
+  // Update the existing subscription price — no new subscription created.
   // "always_invoice" forces Stripe to immediately charge the prorated difference
-  // instead of deferring it to the next billing cycle
-  await getStripe().subscriptions.update(profile.stripe_subscription_id, {
-    items: [{ id: itemId, price: targetPriceId }],
-    proration_behavior: "always_invoice",
-    metadata: { plan: target },
-  });
+  // instead of deferring it to the next billing cycle.
+  // "error_if_incomplete" rend cet encaissement synchrone : si la carte est
+  // refusée (ou exige une authentification 3DS), Stripe ANNULE toute la mise à
+  // jour et l'abonnement reste sur le plan actuel. Sans ça, une proration
+  // impayée laissait l'abonnement en past_due sur un plan jamais payé, et le
+  // webhook downgradait en Free un client dont le mois était déjà réglé.
+  try {
+    await getStripe().subscriptions.update(profile.stripe_subscription_id, {
+      items: [{ id: itemId, price: targetPriceId }],
+      proration_behavior: "always_invoice",
+      payment_behavior: "error_if_incomplete",
+      metadata: { plan: target },
+    });
+  } catch (err) {
+    if (
+      err instanceof Stripe.errors.StripeCardError ||
+      (err instanceof Stripe.errors.StripeError && err.statusCode === 402)
+    ) {
+      const key =
+        (err as Stripe.errors.StripeCardError).code === "authentication_required"
+          ? "errors.billing.upgradeRequiresAction"
+          : "errors.billing.upgradePaymentFailed";
+      return NextResponse.json({ error: t(key) }, { status: 402 });
+    }
+    throw err;
+  }
 
-  // Update DB immediately (webhook customer.subscription.updated will also fire)
+  // L'update a réussi : avec "error_if_incomplete" ça garantit que la facture
+  // de proration est PAYÉE. On peut donc accorder le plan tout de suite
+  // (le webhook customer.subscription.updated le confirmera aussi).
   await admin
     .from("profiles")
     .update({ plan: target })

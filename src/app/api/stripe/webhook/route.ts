@@ -219,6 +219,131 @@ function getSubscriptionId(invoice: Stripe.Invoice): string | null {
   return parent?.subscription_details?.subscription ?? null;
 }
 
+/**
+ * Comme resolvePlanFromPriceId mais STRICT : ne retourne un plan que si le
+ * price ID correspond exactement à un des prix configurés, sinon null.
+ * Utilisé quand se tromper de plan serait pire que ne rien faire (revert
+ * d'un upgrade échoué).
+ */
+function strictPlanFromPriceId(priceId: string): "starter" | "solo" | "pro" | null {
+  if (process.env.STRIPE_PRICE_ID_STARTER && priceId === process.env.STRIPE_PRICE_ID_STARTER) return "starter";
+  if (process.env.STRIPE_PRICE_ID_SOLO && priceId === process.env.STRIPE_PRICE_ID_SOLO) return "solo";
+  const proPrice = process.env.STRIPE_PRICE_ID_PRO ?? process.env.STRIPE_PRICE_ID;
+  if (proPrice && priceId === proPrice) return "pro";
+  return null;
+}
+
+/**
+ * La facture de proration d'un UPGRADE (billing_reason=subscription_update) a
+ * échoué. Le client a déjà payé son mois sur l'ANCIEN plan — le pauser en Free
+ * serait lui retirer un accès réglé (incident du 29/08/2026).
+ *
+ * À la place : on annule (void) la facture d'upgrade impayée, on rebascule
+ * l'abonnement Stripe sur l'ancien prix (retrouvé via la ligne de crédit de
+ * proration = dernier plan réellement payé) et on garde le client sur ce plan.
+ * Le void ramène l'abonnement en "active" → Stripe émet un
+ * customer.subscription.updated qui reconfirme l'état.
+ *
+ * Retourne true si le cas est traité (il ne faut PAS pauser l'utilisateur),
+ * false si on n'a pas pu l'identifier proprement → l'appelant retombe sur
+ * pauseUserForOverduePayment.
+ */
+async function revertFailedUpgrade(
+  userId: string,
+  invoice: Stripe.Invoice
+): Promise<boolean> {
+  const subId = getSubscriptionId(invoice);
+  if (!subId || !invoice.id) return false;
+
+  // La facture d'upgrade contient une ligne de crédit (montant négatif) pour
+  // le temps non utilisé de l'ANCIEN prix : c'est le plan que le client a
+  // réellement payé. Comme pour getSubscriptionId, le price d'une ligne se
+  // trouve à deux endroits selon la version d'API de l'endpoint webhook :
+  // API 2024-06-20 → line.price.id ; API 2025+ → line.pricing.price_details.price.
+  const linePriceId = (l: Stripe.InvoiceLineItem): string | undefined => {
+    const direct = (l as any).price?.id as string | undefined;
+    if (direct) return direct;
+    return (l as any).pricing?.price_details?.price as string | undefined;
+  };
+  const creditLine = invoice.lines?.data?.find(
+    (l) => l.amount < 0 && linePriceId(l)
+  );
+  const oldPriceId = (creditLine ? linePriceId(creditLine) : undefined) ?? null;
+  const oldPlan = oldPriceId ? strictPlanFromPriceId(oldPriceId) : null;
+  if (!oldPriceId || !oldPlan) {
+    console.error(
+      `[webhook] revertFailedUpgrade: ancien prix introuvable sur la facture ${invoice.id} — fallback pause`
+    );
+    return false;
+  }
+
+  // Re-lire le statut réel de la facture : si elle a été payée entre-temps
+  // (3DS complété…), l'upgrade a finalement réussi — ne rien toucher.
+  const freshInvoice = await getStripe().invoices.retrieve(invoice.id);
+  if (freshInvoice.status === "paid") {
+    console.log(
+      `[webhook] revertFailedUpgrade: facture ${invoice.id} finalement payée — upgrade maintenu`
+    );
+    return true;
+  }
+
+  // 1) Void d'abord : la facture ne doit plus jamais pouvoir être payée une
+  //    fois l'abonnement rebasculé (sinon le client paierait un plan qu'il n'a
+  //    plus). Le void sort aussi l'abonnement de past_due.
+  if (freshInvoice.status === "open") {
+    try {
+      await getStripe().invoices.voidInvoice(invoice.id);
+    } catch (err) {
+      console.error(
+        `[webhook] revertFailedUpgrade: void de la facture ${invoice.id} impossible:`,
+        err
+      );
+      return false;
+    }
+  }
+
+  // 2) Rebasculer l'abonnement sur l'ancien prix, sans nouvelle proration.
+  const sub = await getStripe().subscriptions.retrieve(subId, {
+    expand: ["items.data.price"],
+  });
+  const itemId = sub.items.data[0]?.id;
+  const currentPriceId = sub.items.data[0]?.price?.id;
+  if (itemId && currentPriceId && currentPriceId !== oldPriceId) {
+    await getStripe().subscriptions.update(subId, {
+      items: [{ id: itemId, price: oldPriceId }],
+      proration_behavior: "none",
+      metadata: { plan: oldPlan },
+    });
+  }
+
+  // 3) La DB doit refléter le plan payé. Si un événement arrivé avant nous a
+  //    déjà pausé le user, on corrige juste le snapshot (le retour en "active"
+  //    déclenché par le void fera le resume via le webhook) ; sinon on
+  //    s'assure que le plan payé est bien en place.
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("payment_overdue")
+    .eq("id", userId)
+    .single();
+  if (profile?.payment_overdue) {
+    await admin
+      .from("profiles")
+      .update({ paused_plan: oldPlan })
+      .eq("id", userId);
+  } else {
+    await admin
+      .from("profiles")
+      .update({ plan: oldPlan, has_paid: true })
+      .eq("id", userId);
+  }
+
+  console.log(
+    `[webhook] revertFailedUpgrade: user ${userId} maintenu sur ${oldPlan}, facture ${invoice.id} annulée`
+  );
+  return true;
+}
+
 function resolvePlanFromPriceId(priceId: string, metadataPlan?: string): "starter" | "solo" | "pro" {
   if (priceId && process.env.STRIPE_PRICE_ID_STARTER && priceId === process.env.STRIPE_PRICE_ID_STARTER) return "starter";
   if (priceId && priceId === process.env.STRIPE_PRICE_ID_SOLO) return "solo";
@@ -516,14 +641,27 @@ export async function POST(request: NextRequest) {
       break;
     }
 
-    // Paiement échoué → downgrade auto vers Free + flag pour la modale
+    // Paiement échoué → downgrade auto vers Free + flag pour la modale.
+    // EXCEPTION : la proration d'un upgrade (subscription_update) — le mois en
+    // cours sur l'ancien plan est déjà payé, on annule l'upgrade au lieu de
+    // pauser le client en Free.
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
       const subId = getSubscriptionId(invoice);
       if (subId) {
         const sub = await getStripe().subscriptions.retrieve(subId);
         const uid = sub.metadata?.supabase_user_id;
-        if (uid) await pauseUserForOverduePayment(uid);
+        if (uid) {
+          const billingReason = (invoice as any).billing_reason as string | undefined;
+          let handled = false;
+          if (billingReason === "subscription_update") {
+            handled = await revertFailedUpgrade(uid, invoice).catch((err) => {
+              console.error("[webhook] revertFailedUpgrade failed:", err);
+              return false;
+            });
+          }
+          if (!handled) await pauseUserForOverduePayment(uid);
+        }
       }
       break;
     }
@@ -594,9 +732,36 @@ export async function POST(request: NextRequest) {
       // where payment_failed wasn't fired or arrived in another order.
       if (uid) {
         if (sub.status === "past_due" || sub.status === "unpaid") {
-          await pauseUserForOverduePayment(uid).catch((err) =>
-            console.error("[webhook] pauseUserForOverduePayment failed:", err),
-          );
+          // Si le past_due vient d'une proration d'UPGRADE impayée, ne pas
+          // pauser en Free : le mois de l'ancien plan est déjà payé — on
+          // annule l'upgrade à la place (même logique que payment_failed,
+          // pour couvrir le cas où cet événement arrive en premier).
+          let handled = false;
+          const latestInvoiceId =
+            typeof sub.latest_invoice === "string"
+              ? sub.latest_invoice
+              : (sub.latest_invoice as Stripe.Invoice | null)?.id;
+          if (latestInvoiceId) {
+            try {
+              const latestInvoice = await getStripe().invoices.retrieve(latestInvoiceId);
+              // Pas de test sur le statut de la facture ici : revertFailedUpgrade
+              // est idempotent (payée → upgrade maintenu ; déjà voidée → il ne
+              // reste qu'à vérifier le prix/la DB).
+              if (
+                ((latestInvoice as any).billing_reason as string | undefined) ===
+                "subscription_update"
+              ) {
+                handled = await revertFailedUpgrade(uid, latestInvoice);
+              }
+            } catch (err) {
+              console.error("[webhook] upgrade-failure check failed:", err);
+            }
+          }
+          if (!handled) {
+            await pauseUserForOverduePayment(uid).catch((err) =>
+              console.error("[webhook] pauseUserForOverduePayment failed:", err),
+            );
+          }
         } else if (sub.status === "active") {
           await resumeUserFromOverdue(uid).catch((err) =>
             console.error("[webhook] resumeUserFromOverdue failed:", err),

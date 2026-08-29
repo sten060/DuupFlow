@@ -2287,6 +2287,8 @@
       "alreadyOnPro": "You're already on the Pro plan.",
       "alreadyOnSolo": "You're already on the Solo plan.",
       "subscriptionItemNotFound": "Couldn't find the subscription item.",
+      "upgradePaymentFailed": "The upgrade payment was declined. Your current plan is unchanged — please check your payment method and try again.",
+      "upgradeRequiresAction": "Your bank requires additional authentication for this payment. Please update your card from the billing portal, then try again.",
       "stripeSessionNotFound": "Stripe session not found.",
       "sessionUnauthorized": "Session not authorized.",
       "supabaseUpdateFailed": "Supabase update error.",

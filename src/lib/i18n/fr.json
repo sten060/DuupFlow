@@ -2296,6 +2296,8 @@
       "alreadyOnPro": "Vous êtes déjà sur le plan Pro.",
       "alreadyOnSolo": "Vous êtes déjà sur le plan Solo.",
       "subscriptionItemNotFound": "Impossible de trouver l'item d'abonnement.",
+      "upgradePaymentFailed": "Le paiement de la mise à niveau a été refusé. Votre plan actuel reste inchangé — vérifiez votre moyen de paiement puis réessayez.",
+      "upgradeRequiresAction": "Votre banque exige une authentification supplémentaire pour ce paiement. Mettez à jour votre carte depuis le portail de facturation, puis réessayez.",
       "stripeSessionNotFound": "Session Stripe introuvable",
       "sessionUnauthorized": "Session non autorisée",
       "supabaseUpdateFailed": "Erreur mise à jour Supabase",
