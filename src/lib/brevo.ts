@@ -70,17 +70,20 @@ export async function sendBrevoEmail({
   toName = "",
   subject,
   htmlContent,
+  replyTo,
 }: {
   to: string;
   toName?: string;
   subject: string;
   htmlContent: string;
+  replyTo?: string;
 }): Promise<boolean> {
   const ok = await post("/smtp/email", {
     sender: { name: "DuupFlow", email: "hello@duupflow.com" },
     to: [{ email: to, name: toName }],
     subject,
     htmlContent,
+    ...(replyTo ? { replyTo: { email: replyTo } } : {}),
   });
   if (!ok) throw new Error(`Brevo rejected email to ${to} (subject: ${subject})`);
   return true;
