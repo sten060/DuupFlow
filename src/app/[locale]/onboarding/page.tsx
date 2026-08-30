@@ -25,7 +25,7 @@ type Platform =
 
 type Source =
   | "youtube" | "telegram" | "friend" | "already_knew"
-  | "tiktok"  | "google"   | "other";
+  | "tiktok"  | "instagram" | "google" | "other";
 
 const PLATFORMS: { id: Platform; key: string }[] = [
   { id: "instagram", key: "onboarding.platformInstagram" },
@@ -41,6 +41,8 @@ const PLATFORMS: { id: Platform; key: string }[] = [
 
 const SOURCES: { id: Source; key: string }[] = [
   { id: "youtube",      key: "onboarding.sourceYoutube" },
+  { id: "tiktok",       key: "onboarding.sourceTiktok" },
+  { id: "instagram",    key: "onboarding.sourceInstagram" },
   { id: "telegram",     key: "onboarding.sourceTelegram" },
   { id: "friend",       key: "onboarding.sourceFriend" },
   { id: "google",       key: "onboarding.sourceGoogle" },

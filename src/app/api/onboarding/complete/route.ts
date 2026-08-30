@@ -14,7 +14,7 @@ const ALLOWED_PLATFORMS = new Set([
 ]);
 const ALLOWED_SOURCES = new Set([
   "youtube", "telegram", "friend", "already_knew",
-  "tiktok", "google", "other",
+  "tiktok", "instagram", "google", "other",
 ]);
 
 export async function POST(req: NextRequest) {
