@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, getPlanPriceId, planPriceEnvName } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getServerT } from "@/lib/i18n/server";
 import { planRank } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
-
-const PRICE_ENV: Record<"starter" | "solo" | "pro", string | undefined> = {
-  starter: process.env.STRIPE_PRICE_ID_STARTER,
-  solo: process.env.STRIPE_PRICE_ID_SOLO,
-  pro: process.env.STRIPE_PRICE_ID_PRO ?? process.env.STRIPE_PRICE_ID,
-};
 
 export async function POST(request: Request) {
   const t = await getServerT();
@@ -54,14 +48,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const targetPriceId = PRICE_ENV[target];
-  if (!targetPriceId) {
-    return NextResponse.json(
-      { error: `STRIPE_PRICE_ID_${target.toUpperCase()} non configuré.` },
-      { status: 500 }
-    );
-  }
-
   // Retrieve the current subscription to get the item ID
   const sub = await getStripe().subscriptions.retrieve(
     profile.stripe_subscription_id,
@@ -72,6 +58,17 @@ export async function POST(request: Request) {
   if (!itemId) {
     return NextResponse.json(
       { error: t("errors.billing.subscriptionItemNotFound") },
+      { status: 500 }
+    );
+  }
+
+  // Conserver l'intervalle de facturation ACTUEL : un abonné annuel upgradé
+  // doit recevoir le prix annuel du plan cible, jamais être rebasculé au mois.
+  const interval = sub.items.data[0]?.price?.recurring?.interval === "year" ? "yearly" : "monthly";
+  const targetPriceId = getPlanPriceId(target, interval);
+  if (!targetPriceId) {
+    return NextResponse.json(
+      { error: `${planPriceEnvName(target, interval)} non configuré.` },
       { status: 500 }
     );
   }

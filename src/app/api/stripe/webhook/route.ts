@@ -230,6 +230,10 @@ function strictPlanFromPriceId(priceId: string): "starter" | "solo" | "pro" | nu
   if (process.env.STRIPE_PRICE_ID_SOLO && priceId === process.env.STRIPE_PRICE_ID_SOLO) return "solo";
   const proPrice = process.env.STRIPE_PRICE_ID_PRO ?? process.env.STRIPE_PRICE_ID;
   if (proPrice && priceId === proPrice) return "pro";
+  // Prix annuels — même plan, intervalle différent.
+  if (process.env.STRIPE_PRICE_ID_STARTER_YEARLY && priceId === process.env.STRIPE_PRICE_ID_STARTER_YEARLY) return "starter";
+  if (process.env.STRIPE_PRICE_ID_SOLO_YEARLY && priceId === process.env.STRIPE_PRICE_ID_SOLO_YEARLY) return "solo";
+  if (process.env.STRIPE_PRICE_ID_PRO_YEARLY && priceId === process.env.STRIPE_PRICE_ID_PRO_YEARLY) return "pro";
   return null;
 }
 
@@ -348,6 +352,10 @@ function resolvePlanFromPriceId(priceId: string, metadataPlan?: string): "starte
   if (priceId && process.env.STRIPE_PRICE_ID_STARTER && priceId === process.env.STRIPE_PRICE_ID_STARTER) return "starter";
   if (priceId && priceId === process.env.STRIPE_PRICE_ID_SOLO) return "solo";
   if (priceId && process.env.STRIPE_PRICE_ID_PRO && priceId === process.env.STRIPE_PRICE_ID_PRO) return "pro";
+  // Prix annuels — même plan, intervalle différent.
+  if (priceId && process.env.STRIPE_PRICE_ID_STARTER_YEARLY && priceId === process.env.STRIPE_PRICE_ID_STARTER_YEARLY) return "starter";
+  if (priceId && priceId === process.env.STRIPE_PRICE_ID_SOLO_YEARLY) return "solo";
+  if (priceId && process.env.STRIPE_PRICE_ID_PRO_YEARLY && priceId === process.env.STRIPE_PRICE_ID_PRO_YEARLY) return "pro";
   // Fallback: use subscription metadata plan field (set at checkout time)
   if (metadataPlan === "starter") return "starter";
   if (metadataPlan === "solo") return "solo";

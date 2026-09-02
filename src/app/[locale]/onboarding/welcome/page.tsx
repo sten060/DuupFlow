@@ -43,11 +43,13 @@ function WelcomeInner() {
     // Au retour d'annulation, le plan stocké a déjà été consommé au 1er passage :
     // on le récupère depuis l'URL (?plan=) transmis par le cancel_url Stripe.
     const plan = localStorage.getItem("duupflow_selected_plan") ?? params.get("plan");
+    const billing = localStorage.getItem("duupflow_selected_billing") ?? params.get("billing");
     const dest =
       !isGuest && (plan === "starter" || plan === "solo" || plan === "pro")
-        ? `/checkout?plan=${plan}`
+        ? `/checkout?plan=${plan}${billing === "yearly" ? "&billing=yearly" : ""}`
         : "/dashboard";
     localStorage.removeItem("duupflow_selected_plan");
+    localStorage.removeItem("duupflow_selected_billing");
     setDestination(dest);
     sessionStorage.removeItem("welcome_first_name");
     sessionStorage.removeItem("welcome_is_guest");

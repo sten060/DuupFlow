@@ -100,6 +100,10 @@ function OnboardingForm() {
     const p = searchParams.get("plan");
     if (p === "starter" || p === "solo" || p === "pro") {
       localStorage.setItem("duupflow_selected_plan", p);
+      // L'intervalle (annuel/mensuel) voyage avec le plan dans l'URL d'auth.
+      if (searchParams.get("billing") === "yearly") {
+        localStorage.setItem("duupflow_selected_billing", "yearly");
+      }
     } else if (!isGuest) {
       // No paid plan chosen — the free tier is no longer offered to new signups.
       // Send them to pricing to pick a plan before any account is created.
@@ -205,6 +209,10 @@ function OnboardingForm() {
     setError("");
     try {
       const plan = localStorage.getItem("duupflow_selected_plan") ?? searchParams.get("plan") ?? "pro";
+      const billing =
+        (localStorage.getItem("duupflow_selected_billing") ?? searchParams.get("billing")) === "yearly"
+          ? "yearly"
+          : "monthly";
       const affiliateCode = localStorage.getItem("duupflow_ref") ?? undefined;
       const storedPromo = localStorage.getItem("duupflow_promo") ?? undefined;
       const res = await fetch("/api/stripe/checkout", {
@@ -212,6 +220,7 @@ function OnboardingForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plan,
+          billing,
           locale,
           affiliate_code: affiliateCode,
           ...(storedPromo ? { promo_code: storedPromo } : {}),

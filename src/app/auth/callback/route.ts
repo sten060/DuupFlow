@@ -16,7 +16,8 @@ export async function GET(request: Request) {
   // it survives even when the link is opened in another browser — passed on to
   // onboarding so pending_plan gets set and the paywall applies.
   const planParam = searchParams.get("plan");
-  const planQuery = planParam === "starter" || planParam === "solo" || planParam === "pro" ? `?plan=${planParam}` : "";
+  const billingQuery = searchParams.get("billing") === "yearly" ? "&billing=yearly" : "";
+  const planQuery = planParam === "starter" || planParam === "solo" || planParam === "pro" ? `?plan=${planParam}${billingQuery}` : "";
 
   if (code) {
     const cookieStore = await cookies();

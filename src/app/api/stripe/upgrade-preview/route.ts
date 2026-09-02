@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, getPlanPriceId, planPriceEnvName } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getServerT } from "@/lib/i18n/server";
@@ -29,13 +29,17 @@ export async function GET() {
     return NextResponse.json({ error: t("errors.billing.alreadyOnPro") }, { status: 400 });
   }
 
-  const proPriceId = process.env.STRIPE_PRICE_ID_PRO ?? process.env.STRIPE_PRICE_ID;
-  if (!proPriceId) {
-    return NextResponse.json({ error: "STRIPE_PRICE_ID_PRO non configuré." }, { status: 500 });
-  }
-
   const stripe = getStripe();
   const sub = await stripe.subscriptions.retrieve(profile.stripe_subscription_id, { expand: ["items.data"] });
+
+  // Même intervalle que l'abonnement courant : le preview d'un abonné annuel
+  // doit simuler le prix Pro ANNUEL.
+  const interval = sub.items.data[0]?.price?.recurring?.interval === "year" ? "yearly" : "monthly";
+  const proPriceId = getPlanPriceId("pro", interval);
+  if (!proPriceId) {
+    return NextResponse.json({ error: `${planPriceEnvName("pro", interval)} non configuré.` }, { status: 500 });
+  }
+
   const itemId = sub.items.data[0]?.id;
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
   if (!itemId) {

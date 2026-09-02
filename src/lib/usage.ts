@@ -6,8 +6,8 @@ import { getPlanLimits } from "./plans";
 export type UsageType = "images" | "videos" | "ai_signatures";
 
 /**
- * Free plan: the monthly quota window is anchored on the user's `period_start`
- * (their free "subscription" / first-usage date). Returns the start of the
+ * The monthly quota window is anchored on the user's `period_start` (free:
+ * first-usage date; paid: last Stripe invoice). Returns the start of the
  * current month-window when at least one monthly anniversary has elapsed since
  * `periodStart` — i.e. the counters are stale and should be reset to 0 — or
  * null when we're still inside the same window.
@@ -121,9 +121,13 @@ async function resolveQuotaContext(
 
   let current = (usage as any)?.[column] ?? 0;
 
-  // Free : remise à zéro paresseuse une fois la fenêtre mensuelle passée
-  // (Starter/Solo/Pro sont remis à zéro par le cycle de facturation Stripe).
-  if (effectivePlan === "free" && (usage as any)?.period_start) {
+  // Remise à zéro paresseuse une fois la fenêtre mensuelle passée. Vaut pour
+  // TOUS les plans à quota (free, starter, solo) : en facturation mensuelle,
+  // invoice.paid ré-ancre period_start chaque mois et cette boucle ne se
+  // déclenche jamais ; en facturation ANNUELLE, la facture Stripe n'arrive
+  // qu'une fois par an — sans ce roulement local, un abonné annuel resterait
+  // bloqué sur ses compteurs du premier mois pendant onze mois.
+  if ((usage as any)?.period_start) {
     const newStart = rolledPeriodStart(new Date((usage as any).period_start), new Date());
     if (newStart) {
       current = 0;

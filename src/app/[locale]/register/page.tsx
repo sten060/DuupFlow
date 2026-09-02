@@ -37,9 +37,12 @@ export default function RegisterPage() {
   // the user to pricing (no free direct signup). The plan is persisted so the
   // Stripe paywall applies right after onboarding.
   useEffect(() => {
-    const plan = new URLSearchParams(window.location.search).get("plan");
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get("plan");
     if (plan === "starter" || plan === "solo" || plan === "pro") {
       localStorage.setItem("duupflow_selected_plan", plan);
+      // Intervalle de facturation choisi sur la page pricing (annuel/mensuel).
+      localStorage.setItem("duupflow_selected_billing", params.get("billing") === "yearly" ? "yearly" : "monthly");
       setAllowed(true);
     } else {
       setAllowed(false);
@@ -51,10 +54,11 @@ export default function RegisterPage() {
   // localStorage alone is lost when a magic link is opened in another browser
   // (e.g. a webmail tab) — which let users reach the app without the paywall.
   function authCallbackUrl() {
-    const p =
-      new URLSearchParams(window.location.search).get("plan") ??
-      localStorage.getItem("duupflow_selected_plan");
-    const q = p === "starter" || p === "solo" || p === "pro" ? `?plan=${p}` : "";
+    const params = new URLSearchParams(window.location.search);
+    const p = params.get("plan") ?? localStorage.getItem("duupflow_selected_plan");
+    const b = params.get("billing") ?? localStorage.getItem("duupflow_selected_billing");
+    const yearly = b === "yearly" ? "&billing=yearly" : "";
+    const q = p === "starter" || p === "solo" || p === "pro" ? `?plan=${p}${yearly}` : "";
     return `${window.location.origin}/auth/callback${q}`;
   }
 

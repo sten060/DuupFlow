@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, getPlanPriceId, planPriceEnvName, type BillingInterval } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getServerT } from "@/lib/i18n/server";
@@ -19,6 +19,9 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const plan = body?.plan === "solo" ? "solo" : body?.plan === "starter" ? "starter" : "pro";
+  // Intervalle de facturation : "yearly" uniquement si demandé explicitement —
+  // tout le reste (absent, valeur inconnue) retombe sur le mensuel historique.
+  const billing: BillingInterval = body?.billing === "yearly" ? "yearly" : "monthly";
   const locale = body?.locale === "en" ? "en" : "fr";
   const affiliateCode: string | undefined =
     typeof body?.affiliate_code === "string" && body.affiliate_code.trim()
@@ -33,16 +36,11 @@ export async function POST(request: Request) {
   const fpTid: string | undefined =
     typeof body?.fp_tid === "string" && body.fp_tid.trim() ? body.fp_tid.trim() : undefined;
 
-  const priceId =
-    plan === "starter"
-      ? process.env.STRIPE_PRICE_ID_STARTER
-      : plan === "solo"
-      ? process.env.STRIPE_PRICE_ID_SOLO
-      : process.env.STRIPE_PRICE_ID_PRO ?? process.env.STRIPE_PRICE_ID;
+  const priceId = getPlanPriceId(plan, billing);
 
   if (!priceId) {
     return NextResponse.json(
-      { error: `STRIPE_PRICE_ID_${plan.toUpperCase()} non configuré` },
+      { error: `${planPriceEnvName(plan, billing)} non configuré` },
       { status: 500 }
     );
   }
@@ -133,18 +131,20 @@ export async function POST(request: Request) {
     client_reference_id: user.id,
     metadata: {
       plan,
+      billing,
       ...(attributedAffiliateCode ? { affiliate_code: attributedAffiliateCode } : {}),
       ...(fpTid ? { fp_tid: fpTid } : {}),
     },
     success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     // Sortie du paywall sans payer → retour à l'étape "code promo / payer" de
     // l'onboarding (stylée comme les autres), sans relancer Stripe automatiquement.
-    cancel_url: `${baseUrl}/${locale}/onboarding?paywall=cancelled&plan=${plan}`,
+    cancel_url: `${baseUrl}/${locale}/onboarding?paywall=cancelled&plan=${plan}${billing === "yearly" ? "&billing=yearly" : ""}`,
     subscription_data: {
       // No free trial — checkout charges immediately for the chosen plan.
       metadata: {
         supabase_user_id: user.id,
         plan,
+        billing,
         ...(attributedAffiliateCode ? { affiliate_code: attributedAffiliateCode } : {}),
         ...(fpTid ? { fp_tid: fpTid } : {}),
       },
@@ -162,17 +162,36 @@ export async function POST(request: Request) {
     sessionParams.discounts = [{ promotion_code: stripePromotionCodeId }];
   }
 
-  // Filet de sécurité : si la réduction fait échouer la création de la session
-  // (code devenu invalide entre-temps, etc.), on réessaie SANS réduction plutôt
-  // que de bloquer la vente. Mieux vaut un paiement au plein tarif qu'un paiement
-  // perdu à cause d'un code promo cassé.
+  // Filets de sécurité, du plus précis au plus général :
+  // 1) Client Stripe stocké mais inexistant (supprimé côté Stripe, migration…)
+  //    → sans ce filet l'utilisateur ne peut PLUS PAYER DU TOUT. On refait la
+  //    session par email, Stripe recrée un client, et on purge l'ID mort pour
+  //    que le webhook re-synchronise le bon.
+  // 2) Réduction qui fait échouer la création (code devenu invalide) → on
+  //    réessaie sans réduction plutôt que de bloquer la vente.
+  const createSession = async () => {
+    try {
+      return await getStripe().checkout.sessions.create(sessionParams);
+    } catch (err) {
+      const stale =
+        sessionParams.customer &&
+        (err as { code?: string; param?: string })?.code === "resource_missing" &&
+        (err as { param?: string })?.param === "customer";
+      if (!stale) throw err;
+      delete sessionParams.customer;
+      sessionParams.customer_email = user.email;
+      await admin.from("profiles").update({ stripe_customer_id: null }).eq("id", user.id);
+      return await getStripe().checkout.sessions.create(sessionParams);
+    }
+  };
+
   let session;
   try {
-    session = await getStripe().checkout.sessions.create(sessionParams);
+    session = await createSession();
   } catch (err) {
     if (sessionParams.discounts) {
       delete sessionParams.discounts;
-      session = await getStripe().checkout.sessions.create(sessionParams);
+      session = await createSession();
     } else {
       throw err;
     }

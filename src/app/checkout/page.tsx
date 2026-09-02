@@ -114,6 +114,8 @@ function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const planParam = searchParams.get("plan");
+  // Intervalle choisi sur la page pricing, transmis de bout en bout.
+  const yearlyBilling = searchParams.get("billing") === "yearly";
   const defaultPlan: Plan = planParam === "solo" ? "solo" : planParam === "starter" ? "starter" : "pro";
   // When the user reaches /checkout with an explicit ?plan= (i.e. straight
   // out of onboarding, plan already chosen on the pricing page) we skip the
@@ -229,6 +231,7 @@ function CheckoutContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plan: selectedPlan,
+          billing: yearlyBilling ? "yearly" : "monthly",
           locale,
           affiliate_code: affiliateCode,
           ...(validPromo ? { promo_code: validPromo } : {}),
@@ -250,9 +253,13 @@ function CheckoutContent() {
     }
   }
 
-  const basePrice = selectedPlan === "starter" ? "19€" : selectedPlan === "solo" ? "39€" : "99€";
+  const basePrice = yearlyBilling
+    ? selectedPlan === "starter" ? "13€" : selectedPlan === "solo" ? "28€" : "70€"
+    : selectedPlan === "starter" ? "19€" : selectedPlan === "solo" ? "39€" : "99€";
   const discountedPrice = selectedPlan === "starter" ? "14€" : selectedPlan === "solo" ? "29€" : "89€";
-  const price = promoState === "valid" ? discountedPrice : basePrice;
+  // Les montants promo affichés (14/29/89€) sont calés sur le MENSUEL — en
+  // annuel on affiche le prix annuel plein, Stripe applique la remise réelle.
+  const price = promoState === "valid" && !yearlyBilling ? discountedPrice : basePrice;
 
   // Post-onboarding: plan already chosen → show a redirect loader while we
   // hand off to Stripe, instead of the plan re-selection screen.

@@ -12,10 +12,14 @@ function resolvePlanFromPrice(priceId: string, unitAmount: number | null): "star
   if (priceId && process.env.STRIPE_PRICE_ID_SOLO && priceId === process.env.STRIPE_PRICE_ID_SOLO) return "solo";
   if (priceId && process.env.STRIPE_PRICE_ID_PRO && priceId === process.env.STRIPE_PRICE_ID_PRO) return "pro";
   if (priceId && process.env.STRIPE_PRICE_ID && priceId === process.env.STRIPE_PRICE_ID) return "pro";
-  // 2. Fallback by price amount (19€ = starter, 39€ = solo, 99€ = pro)
-  if (unitAmount === 1900) return "starter";
-  if (unitAmount === 3900) return "solo";
-  if (unitAmount === 9900) return "pro";
+  // 1bis. Prix annuels — même plan, intervalle différent.
+  if (priceId && process.env.STRIPE_PRICE_ID_STARTER_YEARLY && priceId === process.env.STRIPE_PRICE_ID_STARTER_YEARLY) return "starter";
+  if (priceId && process.env.STRIPE_PRICE_ID_SOLO_YEARLY && priceId === process.env.STRIPE_PRICE_ID_SOLO_YEARLY) return "solo";
+  if (priceId && process.env.STRIPE_PRICE_ID_PRO_YEARLY && priceId === process.env.STRIPE_PRICE_ID_PRO_YEARLY) return "pro";
+  // 2. Fallback by price amount — mensuel (19/39/99€) et annuel (156/336/840€)
+  if (unitAmount === 1900 || unitAmount === 15600) return "starter";
+  if (unitAmount === 3900 || unitAmount === 33600) return "solo";
+  if (unitAmount === 9900 || unitAmount === 84000) return "pro";
   return null;
 }
 
