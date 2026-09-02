@@ -1062,8 +1062,10 @@ export default function VideoFormAdvancedClient() {
       {/* Watermark visible (formes / logo perso) */}
       <WatermarkSection coverUrl={coverUrl} />
 
-      {/* Assets (effets visuels : flocons, flashs) */}
-      <AssetsSection coverUrl={coverUrl} />
+      {/* Assets (effets visuels : flocons, flashs) — le module est construit et
+          testé côté serveur, mais pas encore ouvert aux users : on n'affiche que
+          la carte « Bientôt ». Repasser ASSETS_LIVE à true pour le rouvrir. */}
+      {ASSETS_LIVE ? <AssetsSection coverUrl={coverUrl} /> : <ComingSoonSection title={t("vid.assets.title")} />}
 
       {/* Sections réservées — à venir */}
       <ComingSoonSection title={t("vid.wm.capCaption")} />
@@ -1582,6 +1584,11 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
     </Card>
   );
 }
+
+/* Assets ouverts aux users ? false → la section s'affiche en « Bientôt ».
+   Le formulaire n'envoie alors aucun `assetsConfig`, donc le backend n'applique
+   aucun effet : il n'y a rien d'autre à débrancher. */
+const ASSETS_LIVE = false;
 
 /* ================= Assets (effets visuels) ================= */
 /* Deux effets, chacun avec son interrupteur et son opacité — même grammaire que
