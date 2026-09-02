@@ -11,10 +11,18 @@ import {
   prepareWatermark,
   prepareSimpleWatermark,
   resolveWatermarkOverlay,
-  escapeMoviePath,
   type PreparedWatermark,
-  type WatermarkOverlay,
 } from "@/app/dashboard/videos/watermark";
+import {
+  buildOverlayFilterComplex,
+  type VideoOverlay,
+} from "@/app/dashboard/videos/overlays";
+import {
+  prepareAssets,
+  resolveSnowOverlay,
+  resolveFlashFilter,
+  type PreparedAssets,
+} from "@/app/dashboard/videos/assets";
 
 // On Vercel, native binaries cannot be included in the serverless function bundle
 // via NFT tracing or outputFileTracingIncludes (Next.js zero-config limitation).
@@ -698,8 +706,9 @@ export function needsVideoEncodeArgs(extraArgs: string[]): boolean {
  *  2. Filtres audio seuls → piste vidéo copiée, audio ré-encodé (pas de décodage vidéo)
  *  3. Args de sortie seuls (ex. -ar) → vidéo copiée, audio ré-encodé avec ces args
  *  4. Le moindre filtre vidéo → ré-encodage complet
- * Un watermark visible impose toujours un ré-encodage vidéo complet, tout comme
- * `forceEncode` (cf. l'incohérence codec ↔ identité iPhone côté appelant).
+ * La moindre incrustation (watermark visible, asset) impose toujours un
+ * ré-encodage vidéo complet, tout comme `forceEncode` (cf. l'incohérence
+ * codec ↔ identité iPhone côté appelant).
  *
  * Exporté (via `fullEncodeNeeded`) pour que l'appelant sache AVANT de lancer
  * FFmpeg s'il consomme réellement du CPU — un stream copy n'a rien à faire dans
@@ -709,10 +718,10 @@ function ffmpegTier(
   vfParts: string[],
   afParts: string[],
   extraArgs: string[],
-  wmOverlay?: WatermarkOverlay,
+  overlays: VideoOverlay[] = [],
   forceEncodeFlag = false,
 ) {
-  const forceEncode   = !!wmOverlay || forceEncodeFlag;
+  const forceEncode   = overlays.length > 0 || forceEncodeFlag;
   const useStreamCopy = !forceEncode && vfParts.length === 0 && afParts.length === 0 && extraArgs.length === 0;
   const audioOnly     = !forceEncode && vfParts.length === 0 && afParts.length > 0  && extraArgs.length === 0;
   const videoCopy = !forceEncode && vfParts.length === 0 && !useStreamCopy && !audioOnly && !needsVideoEncodeArgs(extraArgs);
@@ -724,10 +733,10 @@ function fullEncodeNeeded(
   vfParts: string[],
   afParts: string[],
   extraArgs: string[],
-  wmOverlay?: WatermarkOverlay,
+  overlays: VideoOverlay[] = [],
   forceEncodeFlag = false,
 ): boolean {
-  const t = ffmpegTier(vfParts, afParts, extraArgs, wmOverlay, forceEncodeFlag);
+  const t = ffmpegTier(vfParts, afParts, extraArgs, overlays, forceEncodeFlag);
   return !t.useStreamCopy && !t.audioOnly && !t.videoCopy;
 }
 
@@ -752,9 +761,10 @@ async function runFFmpegSafe(
   // true = encoder en HEVC/hvc1 (mode « priorité d'algorithme » : identité iPhone).
   // false = H.264/avc1, le comportement par défaut.
   hevc = false,
-  // Overlay watermark visible — incrusté via filter_complex (movie=…). Quand
-  // présent, force un encodage complet et remplace le -vf par un filter_complex.
-  wmOverlay?: WatermarkOverlay,
+  // Incrustations à empiler (watermark visible, assets visuels) — posées via
+  // filter_complex (movie=…). Non vide → encodage complet forcé, et le -vf est
+  // remplacé par le filtergraph construit par buildOverlayFilterComplex().
+  overlays: VideoOverlay[] = [],
   // Codec de la SOURCE ("hevc", "h264", …) — sert à ne pas mentir sur le tag
   // `encoder` quand le flux est recopié au lieu d'être ré-encodé.
   srcCodec = "unknown",
@@ -769,7 +779,7 @@ async function runFFmpegSafe(
   // -max_muxing_queue_size must come AFTER -i (output option, not input option)
   args.push("-max_muxing_queue_size", "1024");
 
-  const { useStreamCopy, audioOnly, videoCopy } = ffmpegTier(vfParts, afParts, extraArgs, wmOverlay, forceEncodeFlag);
+  const { useStreamCopy, audioOnly, videoCopy } = ffmpegTier(vfParts, afParts, extraArgs, overlays, forceEncodeFlag);
 
   if (useStreamCopy) {
     args.push("-c", "copy");
@@ -785,24 +795,11 @@ async function runFFmpegSafe(
     args.push("-c:v", "copy", "-c:a", "aac", "-b:a", "192k");
     if (extraArgs.length) args.push(...extraArgs);
   } else {
-    if (wmOverlay) {
-      // ── Watermark visible : filtergraph avec source image (movie=) + overlay ──
-      // Les filtres vidéo classiques passent sur [0:v] → [wb] ; on charge le PNG du
-      // watermark (opacité via colorchannelmixer, taille via scale), puis overlay à
-      // la position/aux expressions calculées (fixe, aléatoire ou mouvement).
-      const base = vfParts.length ? vfParts.join(",") : "null";
-      const scalePart = wmOverlay.scaleW > 0 ? `,scale=${wmOverlay.scaleW}:-2` : "";
-      const op = wmOverlay.opacity.toFixed(3);
-      // Teinte (mode simple aléatoire) : PNG blanc → couleur via colorchannelmixer
-      // (rr/gg/bb) tout en appliquant l'opacité sur l'alpha (aa).
-      const cmix = wmOverlay.tint
-        ? `colorchannelmixer=rr=${wmOverlay.tint.r.toFixed(3)}:gg=${wmOverlay.tint.g.toFixed(3)}:bb=${wmOverlay.tint.b.toFixed(3)}:aa=${op}`
-        : `colorchannelmixer=aa=${op}`;
-      const wmChain =
-        `movie=${escapeMoviePath(wmOverlay.moviePath)},format=rgba,${cmix}${scalePart}`;
-      const fc =
-        `[0:v]${base}[wb];${wmChain}[wm];` +
-        `[wb][wm]overlay=x='${wmOverlay.x}':y='${wmOverlay.y}':format=auto[vout]`;
+    if (overlays.length) {
+      // ── Incrustations : filtregraph avec sources image (movie=) + overlay ──
+      // Les filtres vidéo classiques passent sur [0:v], puis chaque couche est
+      // composée sur la précédente. L'ordre du tableau = l'ordre d'empilement.
+      const fc = buildOverlayFilterComplex(vfParts, overlays);
       args.push("-filter_complex", fc, "-map", "[vout]", "-map", "0:a:0?");
     } else {
       // -map 0:v:0 : first video stream only (avoids crash on MP4s with embedded cover art)
@@ -1063,6 +1060,16 @@ export async function processVideos(
   }
   totalCopies = validEntries.length * count; // recount after filtering
 
+  // Assets visuels (mode avancé) — flocons / flashs. La texture des flocons est
+  // rasterisée UNE fois par job, aux dimensions de la première vidéo valide :
+  // FFmpeg la redimensionne ensuite pour chaque copie, donc une source d'un
+  // autre format ne casse rien. Préparé ICI et pas avec le watermark : il faut
+  // les dimensions réelles, qui ne sont connues qu'après la sonde.
+  const assetsPrep: PreparedAssets | null =
+    mode === "advanced"
+      ? await prepareAssets(formData, dir, validEntries[0].color.width, validEntries[0].color.height)
+      : null;
+
   // ── Flatten all (file × copy) into one pool so every copy of every file
   // runs concurrently — total time ≈ slowest single copy, not SUM. ───────────
   type Task = { fileName: string; tmpIn: string; fileIndex: number; copyIndex: number; color: ColorInfo; duration: number; bitrateKbps: number };
@@ -1108,9 +1115,17 @@ export async function processVideos(
       const extraArgs: string[] = [];
       // Overlay watermark de cette copie (simple OU avancé) — résolu ici pour que
       // les deux branches de mode + runFFmpegSafe le voient. null si désactivé.
-      const wmOverlay: WatermarkOverlay | undefined = wmPrep
-        ? resolveWatermarkOverlay(wmPrep, color.width)
-        : undefined;
+      const wmOverlay = wmPrep ? resolveWatermarkOverlay(wmPrep, color.width) : undefined;
+      // Assets visuels de cette copie. Vitesse de chute, oscillation, rythme des
+      // flashs : tout est retiré au sort à chaque copie, donc deux copies n'ont
+      // jamais exactement le même rendu.
+      const snowOverlay = assetsPrep ? resolveSnowOverlay(assetsPrep, color.width, color.height) : null;
+      const flashFilter = assetsPrep ? resolveFlashFilter(assetsPrep) : null;
+      // Ordre d'empilement : les flocons d'abord, le watermark par-dessus (il
+      // doit rester lisible, c'est une signature).
+      const overlays: VideoOverlay[] = [];
+      if (snowOverlay) overlays.push(snowOverlay);
+      if (wmOverlay) overlays.push(wmOverlay);
       const packs = String(formData.get("packs") || "")
         .split(",")
         .map((s) => s.trim())
@@ -1280,7 +1295,7 @@ export async function processVideos(
 
         // When video will be re-encoded, ensure even dimensions (no resolution cap).
         // Le watermark force aussi un ré-encodage → préparer format/scale de base.
-        if (vfParts.length > 0 || packs.includes("metadata_technical") || wmOverlay || capBites) {
+        if (vfParts.length > 0 || packs.includes("metadata_technical") || overlays.length > 0 || capBites) {
           // ── HDR → SDR conversion when source is BT.2020 / HLG / PQ ──────────
           // Without this, BT.2020 pixel data encoded as H.264 (BT.709) produces
           // a visible yellow/warm tint because of color matrix mismatch.
@@ -1590,6 +1605,10 @@ export async function processVideos(
           if (geoParts.length) vfParts.unshift(...geoParts);
         }
 
+        // Flashs : une impulsion de luminosité en fin de chaîne, donc APRÈS les
+        // retouches du pack (sinon un pack « luminosité » écraserait le pic).
+        if (flashFilter) vfParts.push(flashFilter);
+
         // Add scale helpers whenever a full video encode will happen.
         // video filters → full encode via libx264 (vfParts non-empty)
         // video encoder extraArgs (CRF/bitrate/profile/GOP) → full encode via libx264
@@ -1597,7 +1616,7 @@ export async function processVideos(
         // vidéo : ils passent par le palier videoCopy et n'ont pas besoin de scale.
         // La liste de référence est VIDEO_ENCODE_ARGS (partagée avec ffmpegTier) —
         // elle inclut désormais -r/-ss/-t, qui ne font rien sur un flux copié.
-        const willFullEncode = vfParts.length > 0 || !!wmOverlay || needsVideoEncodeArgs(extraArgs);
+        const willFullEncode = vfParts.length > 0 || overlays.length > 0 || needsVideoEncodeArgs(extraArgs);
         if (willFullEncode) {
           // Same HDR→SDR logic as simple mode.
           if (color.isHDR) {
@@ -1651,7 +1670,7 @@ export async function processVideos(
       // encodage HEVC dans ce seul cas (source déjà HEVC → rien à forcer, on
       // garde le chemin rapide).
       const forceEncodeForCodec = useIphoneMeta && color.codecName !== "hevc" && color.codecName !== "unknown";
-      const needsSlot = fullEncodeNeeded(vfParts, afParts, extraArgs, wmOverlay, forceEncodeForCodec);
+      const needsSlot = fullEncodeNeeded(vfParts, afParts, extraArgs, overlays, forceEncodeForCodec);
       const ffStart = Date.now();
       if (needsSlot) await acquireEncodeSlot();
       const ffQueued = Date.now() - ffStart;
@@ -1670,7 +1689,7 @@ export async function processVideos(
           // HEVC/hvc1 UNIQUEMENT en « priorité d'algorithme » : c'est le seul cas
           // où le fichier prétend sortir d'un iPhone. Sinon on reste en H.264/avc1.
           useIphoneMeta,
-          wmOverlay,
+          overlays,
           color.codecName,
           forceEncodeForCodec,
         );
@@ -1702,9 +1721,13 @@ export async function processVideos(
     await fs.rename(temp, final).catch(() => {});
   }
 
-  // Nettoyage des PNG temporaires du watermark (formes rasterisées / logo).
+  // Nettoyage des PNG temporaires du watermark (formes rasterisées / logo) et
+  // des textures d'assets (flocons).
   if (wmPrep) {
     for (const f of wmPrep.tempFiles) await fs.unlink(f).catch(() => {});
+  }
+  if (assetsPrep) {
+    for (const f of assetsPrep.tempFiles) await fs.unlink(f).catch(() => {});
   }
 
   // ── Clean up temp input files ─────────────────────────────────────────────

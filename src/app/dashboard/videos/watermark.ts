@@ -7,10 +7,12 @@
 //   2. expose `resolveWatermarkOverlay()` qui, PAR COPIE, choisit la forme +
 //      position (aléatoires si demandé) et renvoie les paramètres d'overlay FFmpeg.
 //
-// L'incrustation elle-même se fait dans runFFmpegSafe() (filter_complex + movie).
+// L'incrustation elle-même est empilée avec les autres couches par
+// buildOverlayFilterComplex() (cf. overlays.ts), appelé depuis runFFmpegSafe().
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { VideoOverlay } from "@/app/dashboard/videos/overlays";
 
 /* ── Formes SVG (miroir de ShapeGlyph côté client) ────────────────────────── */
 function shapeSvg(shape: string, color: string, size = 512): string {
@@ -69,16 +71,8 @@ export type PreparedWatermark = {
   tempFiles: string[];  // à nettoyer en fin de job
 };
 
-export type WatermarkOverlay = {
-  moviePath: string;
-  scaleW: number;   // largeur cible en px (0 = pas de scale)
-  opacity: number;  // 0–1
-  x: string;        // expression overlay
-  y: string;
-  // Teinte optionnelle (fractions 0–1) : applique une couleur sur un PNG blanc via
-  // colorchannelmixer (utilisé par le watermark aléatoire du mode simple).
-  tint?: { r: number; g: number; b: number };
-};
+/** Le watermark n'est qu'une incrustation parmi d'autres — cf. overlays.ts. */
+export type WatermarkOverlay = VideoOverlay;
 
 /**
  * Parse `watermarkConfig` + `watermarkLogo` et prépare les assets (une fois par job).
@@ -253,11 +247,6 @@ export function resolveWatermarkOverlay(prep: PreparedWatermark, width: number):
   }
 
   return { moviePath, scaleW, opacity, x, y };
-}
-
-/** Échappe un chemin pour l'option `movie=` d'un filtergraph FFmpeg. */
-export function escapeMoviePath(p: string): string {
-  return p.replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/'/g, "\\'");
 }
 
 function clampNum(v: unknown, lo: number, hi: number, def: number): number {

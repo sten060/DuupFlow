@@ -1062,6 +1062,9 @@ export default function VideoFormAdvancedClient() {
       {/* Watermark visible (formes / logo perso) */}
       <WatermarkSection coverUrl={coverUrl} />
 
+      {/* Assets (effets visuels : flocons, flashs) */}
+      <AssetsSection coverUrl={coverUrl} />
+
       {/* Sections réservées — à venir */}
       <ComingSoonSection title={t("vid.wm.capCaption")} />
       <ComingSoonSection title={t("vid.wm.capHook")} />
@@ -1574,6 +1577,187 @@ function WatermarkSection({ coverUrl }: { coverUrl?: string | null }) {
               )}
             </div>
           </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ================= Assets (effets visuels) ================= */
+/* Deux effets, chacun avec son interrupteur et son opacité — même grammaire que
+   le watermark. L'aperçu est une simulation CSS : le rendu réel est fait par
+   FFmpeg (cf. src/app/dashboard/videos/assets.ts), il ne peut pas être exact,
+   il sert à se figurer l'intensité choisie. */
+const SNOW_PREVIEW = [
+  { left: 12, size: 3, dur: 3.1, delay: 0 },
+  { left: 28, size: 2, dur: 4.2, delay: 0.7 },
+  { left: 41, size: 4, dur: 2.6, delay: 1.4 },
+  { left: 55, size: 2, dur: 3.8, delay: 0.3 },
+  { left: 68, size: 3, dur: 3.3, delay: 1.9 },
+  { left: 79, size: 2, dur: 4.6, delay: 1.1 },
+  { left: 88, size: 3, dur: 2.9, delay: 2.2 },
+  { left: 6,  size: 2, dur: 3.6, delay: 2.6 },
+];
+
+function AssetPreview({ kind, opacity, coverUrl }: { kind: "snow" | "flash"; opacity: number; coverUrl?: string | null }) {
+  return (
+    <div
+      className="relative w-[86px] shrink-0 overflow-hidden rounded-lg border border-[var(--app-border-strong)] bg-[var(--app-surface-2)]"
+      style={{ aspectRatio: "9 / 16" }}
+    >
+      {coverUrl ? (
+        <img src={coverUrl} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <div className="h-full w-full" style={{ background: "linear-gradient(160deg,#2b3550,#0f1420)" }} />
+      )}
+
+      {kind === "snow" ? (
+        <div className="pointer-events-none absolute inset-0" style={{ opacity: opacity / 100 }}>
+          {SNOW_PREVIEW.map((f, i) => (
+            <span
+              key={i}
+              className="duup-snowfall absolute top-0 rounded-full bg-white"
+              style={{
+                left: `${f.left}%`,
+                height: f.size,
+                width: f.size,
+                animationDuration: `${f.dur}s`,
+                animationDelay: `${f.delay}s`,
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <span
+          className="duup-flashpulse pointer-events-none absolute inset-0 bg-white"
+          style={{ ["--duup-flash-peak" as string]: (opacity / 100) * 0.9 }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AssetsSection({ coverUrl }: { coverUrl?: string | null }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+
+  const [snowOn, setSnowOn] = useState(false);
+  const [snowOpacity, setSnowOpacity] = useState(45);
+  const [flashOn, setFlashOn] = useState(false);
+  const [flashOpacity, setFlashOpacity] = useState(30);
+
+  // Le master coupe tout : sans lui, décocher la section laisserait les assets
+  // actifs dans le JSON envoyé au serveur.
+  const config = useMemo(
+    () => ({
+      snow: { enabled: enabled && snowOn, opacity: snowOpacity },
+      flash: { enabled: enabled && flashOn, opacity: flashOpacity },
+    }),
+    [enabled, snowOn, snowOpacity, flashOn, flashOpacity],
+  );
+
+  const rows = [
+    {
+      key: "snow" as const,
+      label: t("vid.assets.snow"),
+      desc: t("vid.assets.snowDesc"),
+      on: snowOn,
+      setOn: setSnowOn,
+      opacity: snowOpacity,
+      setOpacity: setSnowOpacity,
+    },
+    {
+      key: "flash" as const,
+      label: t("vid.assets.flash"),
+      desc: t("vid.assets.flashDesc"),
+      on: flashOn,
+      setOn: setFlashOn,
+      opacity: flashOpacity,
+      setOpacity: setFlashOpacity,
+    },
+  ];
+
+  return (
+    <Card
+      title={
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex items-center gap-2 cursor-pointer select-none"
+        >
+          {t("vid.assets.title")}
+          <InfoTooltip>
+            <span className="whitespace-pre-line">{t("vid.assets.tip")}</span>
+          </InfoTooltip>
+          <span className="text-[10px] text-[var(--app-text-faint)]">{open ? "▲" : "▼"}</span>
+        </button>
+      }
+    >
+      {/* Config sérialisée pour le serveur */}
+      <input type="hidden" name="assetsConfig" value={JSON.stringify(config)} />
+
+      {open && (
+        <div className="mt-1 space-y-4">
+          {/* Master toggle */}
+          <label className="inline-flex cursor-pointer select-none items-center gap-3 text-sm">
+            <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-[var(--app-surface-2)] transition">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.target.checked)}
+                className="sr-only peer"
+              />
+              <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--app-text-muted)] peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
+            </span>
+            <span className="text-[var(--app-text-muted)]">{t("vid.assets.enable")}</span>
+          </label>
+
+          <div className={enabled ? "space-y-3" : "space-y-3 opacity-40 pointer-events-none"}>
+            {rows.map((r) => (
+              <div
+                key={r.key}
+                className="flex items-start gap-4 rounded-xl border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-4"
+              >
+                <AssetPreview kind={r.key} opacity={r.on ? r.opacity : 0} coverUrl={coverUrl} />
+
+                <div className="min-w-0 flex-1 space-y-3">
+                  <label className="inline-flex cursor-pointer select-none items-center gap-3 text-sm">
+                    <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-[var(--app-surface-2)] transition">
+                      <input
+                        type="checkbox"
+                        checked={r.on}
+                        onChange={(e) => r.setOn(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--app-text-muted)] peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
+                    </span>
+                    <span className="font-medium text-[var(--app-text)]">{r.label}</span>
+                  </label>
+
+                  <p className="text-[12px] leading-relaxed text-[var(--app-text-muted)]">{r.desc}</p>
+
+                  <div className={`max-w-[280px] ${r.on ? "" : "opacity-40 pointer-events-none"}`}>
+                    <div className="mb-1 flex items-center justify-between text-[12px]">
+                      <span className="text-[var(--app-text-muted)]">{t("vid.wm.opacity")}</span>
+                      <span className="text-[var(--app-text-muted)]">{r.opacity}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={r.opacity}
+                      onChange={(e) => r.setOpacity(Number(e.target.value))}
+                      className="w-full accent-sky-400"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-[11px] leading-relaxed text-[var(--app-text-faint)]">{t("vid.assets.perfNote")}</p>
         </div>
       )}
     </Card>
