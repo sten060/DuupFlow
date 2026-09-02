@@ -11,18 +11,31 @@ import { NavPill, Footer, SmoothScroll, Label, BLUE, CTA_GRAD } from "@/componen
 const INPUT =
   "w-full rounded-xl border border-black/10 bg-[#f6f7f9] px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#9aa2b2] outline-none transition focus:border-[#4f7bff]/50 focus:ring-2 focus:ring-[#4f7bff]/15";
 
-const REQUEST_TYPES = ["Démo", "Partenariat", "Affiliation", "Support", "Autre"];
+const requestTypes = (en: boolean) =>
+  en ? ["Demo", "Partnership", "Affiliate", "Support", "Other"] : ["Démo", "Partenariat", "Affiliation", "Support", "Autre"];
 
-const FAQS: [string, string][] = [
-  ["Comment DuupFlow évite-t-il les doublons ?", "Chaque copie reçoit des métadonnées uniques (appareil, date, encodeur), une signature visuelle sous le seuil de perception et une empreinte binaire propre. Ton montage, ton audio et ton cadrage restent identiques."],
-  ["Est-ce que la qualité baisse ?", "Non. Résolution et bitrate d'origine conservés : une 1080p reste 1080p, une 4K reste 4K. Aucune perte visible à l'œil."],
-  ["Ça marche sur quelles plateformes ?", "Toutes. DuupFlow prépare les fichiers, tu postes où tu veux : TikTok, Instagram, YouTube, X, Reddit, Threads…"],
-  ["Puis-je l'utiliser pour une agence / plusieurs comptes ?", "Oui, c'est même l'usage principal. Une vidéo devient des dizaines de variantes uniques à répartir sur tous tes comptes."],
-  ["Combien de temps pour être opérationnel ?", "Quelques minutes : tu importes ta vidéo, tu choisis le nombre de variantes, tu exportes. Compte ~3 min pour 20 variantes."],
-];
+const faqs = (en: boolean): [string, string][] =>
+  en
+    ? [
+        ["How does DuupFlow avoid duplicates?", "Each copy gets unique metadata (device, date, encoder), a visual signature below the perception threshold and its own binary fingerprint. Your edit, audio and framing stay identical."],
+        ["Does the quality drop?", "No. Original resolution and bitrate are preserved: 1080p stays 1080p, 4K stays 4K. No loss visible to the eye."],
+        ["Which platforms does it work on?", "All of them. DuupFlow prepares the files, you post wherever you want: TikTok, Instagram, YouTube, X, Reddit, Threads…"],
+        ["Can I use it for an agency / multiple accounts?", "Yes, that's actually the main use case. One video becomes dozens of unique variants to spread across all your accounts."],
+        ["How long until I'm up and running?", "A few minutes: import your video, pick the number of variants, export. Allow ~3 min for 20 variants."],
+      ]
+    : [
+        ["Comment DuupFlow évite-t-il les doublons ?", "Chaque copie reçoit des métadonnées uniques (appareil, date, encodeur), une signature visuelle sous le seuil de perception et une empreinte binaire propre. Ton montage, ton audio et ton cadrage restent identiques."],
+        ["Est-ce que la qualité baisse ?", "Non. Résolution et bitrate d'origine conservés : une 1080p reste 1080p, une 4K reste 4K. Aucune perte visible à l'œil."],
+        ["Ça marche sur quelles plateformes ?", "Toutes. DuupFlow prépare les fichiers, tu postes où tu veux : TikTok, Instagram, YouTube, X, Reddit, Threads…"],
+        ["Puis-je l'utiliser pour une agence / plusieurs comptes ?", "Oui, c'est même l'usage principal. Une vidéo devient des dizaines de variantes uniques à répartir sur tous tes comptes."],
+        ["Combien de temps pour être opérationnel ?", "Quelques minutes : tu importes ta vidéo, tu choisis le nombre de variantes, tu exportes. Compte ~3 min pour 20 variantes."],
+      ];
 
 export default function DemoRequestPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const en = locale === "en";
+  const REQUEST_TYPES = requestTypes(en);
+  const FAQS = faqs(en);
   const [plan, setPlan] = useState<string | null>(null);
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
@@ -70,20 +83,33 @@ export default function DemoRequestPage() {
 
   const INFOS = [
     {
-      title: "Écris-nous",
-      desc: "Une réponse sous 24h ouvrées, en général bien avant.",
+      title: en ? "Write to us" : "Écris-nous",
+      desc: en ? "A reply within 24 business hours, usually much sooner." : "Une réponse sous 24h ouvrées, en général bien avant.",
       value: "hello@duupflow.com",
       href: "mailto:hello@duupflow.com",
       external: false,
       icon: <path d="M4 6h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Zm0 1 8 6 8-6" />,
     },
     {
-      title: "Support technique",
-      desc: "Un souci sur tes duplications ? On t'aide vite sur Telegram.",
+      title: en ? "Technical support" : "Support technique",
+      desc: en ? "An issue with your duplications? We'll help you fast on Telegram." : "Un souci sur tes duplications ? On t'aide vite sur Telegram.",
       value: "@DuupFlow_Support",
       href: "https://t.me/DuupFlow_Support",
       external: true,
       icon: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
+    },
+    {
+      title: en ? "See how DuupFlow works" : "Vois comment marche DuupFlow",
+      desc: en ? "Demos, tutorials and real use cases in video on our YouTube channel." : "Démos, tutos et cas concrets en vidéo sur notre chaîne YouTube.",
+      value: "@DuupFlow-France",
+      href: "https://www.youtube.com/@DuupFlow-France",
+      external: true,
+      icon: (
+        <>
+          <rect x="2.5" y="5.5" width="19" height="13" rx="3.5" />
+          <path d="m10 9.5 5 2.5-5 2.5z" />
+        </>
+      ),
     },
   ];
 
@@ -101,10 +127,10 @@ export default function DemoRequestPage() {
             <Label>Contact</Label>
             <h1 className="mx-auto mt-6 max-w-2xl font-semibold tracking-[-0.03em] text-[#1a1a1a]"
               style={{ fontSize: "clamp(32px, 4.6vw, 54px)", lineHeight: 1.06 }}>
-              Une question ? On adore aider.
+              {en ? "A question? We love to help." : "Une question ? On adore aider."}
             </h1>
             <p className="mx-auto mt-5 max-w-lg text-[17px] leading-relaxed text-[#3a3f4b] sm:text-[18px]">
-              Écris-nous à tout moment — on te répond en un jour ouvré maximum.
+              {en ? "Write to us anytime — we reply within one business day at most." : "Écris-nous à tout moment — on te répond en un jour ouvré maximum."}
             </p>
           </div>
 
@@ -143,7 +169,7 @@ export default function DemoRequestPage() {
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="mb-1.5 block text-[13px] font-medium text-[#1a1a1a]">Type de demande</label>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[#1a1a1a]">{en ? "Request type" : "Type de demande"}</label>
                     <div className="flex flex-wrap gap-2">
                       {REQUEST_TYPES.map((ty) => {
                         const active = sujet === ty;
@@ -198,10 +224,10 @@ export default function DemoRequestPage() {
           <div className="lg:pt-4">
             <Label>FAQ</Label>
             <h2 className="mt-6 font-semibold tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(30px, 4vw, 46px)", lineHeight: 1.05 }}>
-              Tes questions,<br className="hidden sm:block" /> nos réponses.
+              {en ? <>Your questions,<br className="hidden sm:block" /> our answers.</> : <>Tes questions,<br className="hidden sm:block" /> nos réponses.</>}
             </h2>
             <p className="mt-5 max-w-sm text-[16px] leading-relaxed text-[#605f5f]">
-              Tu ne trouves pas ta réponse ? Écris-nous via le formulaire ci-dessus.
+              {en ? "Can't find your answer? Write to us via the form above." : "Tu ne trouves pas ta réponse ? Écris-nous via le formulaire ci-dessus."}
             </p>
           </div>
           <div className="rounded-[28px] bg-[#f4f5f8] p-3 sm:p-4">
