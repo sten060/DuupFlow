@@ -1,27 +1,11 @@
 "use client";
 
 import Link from "@/components/LocaleLink";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import { NavPill, Footer, SmoothScroll } from "@/components/landing/shell";
 
 const G = "bg-gradient-to-r from-[#4f7bff] to-[#7c5cff] bg-clip-text text-transparent";
-
-/* ─── Testimonials (static data, text keys resolved in component) ─── */
-const TESTIMONIAL_META = [
-  { key: "tarifs.testimonial1", name: "S.M.", role: "Agence OFM", avatar: "/testimonials/_ (1).jpeg", color: "#6366F1" },
-  { key: "tarifs.testimonial2", name: "J.R.", role: "Agence OFM", avatar: "/testimonials/_ (2).jpeg", color: "#8B5CF6" },
-  { key: "tarifs.testimonial3", name: "A.K.", role: "Agence OFM", avatar: "/testimonials/_ (3).jpeg", color: "#38BDF8" },
-  { key: "tarifs.testimonial4", name: "L.B.", role: "Agence OFM", avatar: "/testimonials/_ (4).jpeg", color: "#EC4899" },
-  { key: "tarifs.testimonial5", name: "P.D.", role: "Agence OFM", avatar: "/testimonials/_ (5).jpeg", color: "#10B981" },
-  { key: "tarifs.testimonial6", name: "T.M.", role: "Agence OFM", avatar: "/testimonials/_ (6).jpeg", color: "#F59E0B" },
-  { key: "tarifs.testimonial7", name: "N.V.", role: "Agence OFM", avatar: "/testimonials/_ (7).jpeg", color: "#6366F1" },
-  { key: "tarifs.testimonial8", name: "R.C.", role: "Mentor", avatar: "/testimonials/_ (8).jpeg", color: "#8B5CF6" },
-  { key: "tarifs.testimonial9", name: "F.L.", role: "Agence OFM", avatar: "/testimonials/_.jpeg", color: "#38BDF8" },
-  { key: "tarifs.testimonial10", name: "C.B.", role: "Agence OFM", avatar: "/testimonials/Ig sascha07__.jpeg", color: "#EC4899" },
-  { key: "tarifs.testimonial11", name: "K.D.", role: "Agence OFM", avatar: "/testimonials/OFM = @melvin_ofm.jpeg", color: "#10B981" },
-  { key: "tarifs.testimonial12", name: "O.M.", role: "Agence OFM", avatar: "/testimonials/hunter davenport _ the play _ briar u.jpeg", color: "#F59E0B" },
-];
 
 /* ─── Pricing FAQ keys ─── */
 const PRICING_FAQ_KEYS = [
@@ -35,53 +19,50 @@ const PRICING_FAQ_KEYS = [
   { qKey: "tarifs.pricingFaq7Q", aKey: "tarifs.pricingFaq7A" },
 ];
 
-function TestimonialCard({ item }: { item: { text: string; name: string; role: string; avatar: string; color: string } }) {
-  return (
-    <div
-      className="shrink-0 w-[200px] sm:w-[240px] rounded-xl sm:rounded-2xl border border-black/[0.14] shadow-[0_4px_16px_rgba(20,40,90,0.06)] px-3 sm:px-4 py-3 sm:py-3.5 flex flex-col justify-between"
-      style={{ background: "#ffffff" }}
-    >
-      <p className="text-[11px] sm:text-[13px] text-[#3f4453] leading-relaxed mb-2.5 line-clamp-2">
-        &ldquo;{item.text}&rdquo;
-      </p>
-      <div className="flex items-center gap-2">
-        <img src={item.avatar} alt={item.name} className="h-6 w-6 sm:h-7 sm:w-7 rounded-full object-cover shrink-0" />
-        <p className="text-[11px] sm:text-[13px] font-semibold text-[#1a1a1a] leading-none">{item.name}</p>
-      </div>
-    </div>
-  );
-}
+/* ─── Avis clients — bande façon Tella : phrase + avatar, marquee infini ─── */
+const TESTIMONIAL_META = [
+  { key: "tarifs.testimonial1", avatar: "/testimonials/_ (1).jpeg" },
+  { key: "tarifs.testimonial2", avatar: "/testimonials/_ (2).jpeg" },
+  { key: "tarifs.testimonial3", avatar: "/testimonials/_ (3).jpeg" },
+  { key: "tarifs.testimonial4", avatar: "/testimonials/_ (4).jpeg" },
+  { key: "tarifs.testimonial5", avatar: "/testimonials/_ (5).jpeg" },
+  { key: "tarifs.testimonial6", avatar: "/testimonials/_ (6).jpeg" },
+  { key: "tarifs.testimonial7", avatar: "/testimonials/_ (7).jpeg" },
+  { key: "tarifs.testimonial8", avatar: "/testimonials/_ (8).jpeg" },
+  { key: "tarifs.testimonial9", avatar: "/testimonials/_.jpeg" },
+  { key: "tarifs.testimonial10", avatar: "/testimonials/Ig sascha07__.jpeg" },
+  { key: "tarifs.testimonial11", avatar: "/testimonials/OFM = @melvin_ofm.jpeg" },
+  { key: "tarifs.testimonial12", avatar: "/testimonials/hunter davenport _ the play _ briar u.jpeg" },
+];
 
-function TestimonialsCarousel() {
+function TestimonialsMarquee() {
   const { t } = useTranslation();
-  const testimonials = TESTIMONIAL_META.map((m) => ({
-    text: t(m.key),
-    name: m.name,
-    role: m.role,
-    avatar: m.avatar,
-    color: m.color,
-  }));
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative mt-16 -mx-6 overflow-hidden">
       <style>{`
-        @keyframes marquee {
+        @keyframes testimonials-marquee {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        .marquee-track { animation: marquee 80s linear infinite; }
-        .marquee-track:hover { animation-play-state: paused; }
+        .testimonials-track { animation: testimonials-marquee 90s linear infinite; }
+        .testimonials-track:hover { animation-play-state: paused; }
       `}</style>
 
-      {/* Fade edges */}
-      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-40 z-10"
-        style={{ background: "linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.9) 60%, transparent 100%)" }} />
-      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-40 z-10"
-        style={{ background: "linear-gradient(270deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.9) 60%, transparent 100%)" }} />
+      {/* Voiles de fondu sur les bords */}
+      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-24 sm:w-40 z-10"
+        style={{ background: "linear-gradient(90deg, #ffffff 0%, rgba(255,255,255,0) 100%)" }} />
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-24 sm:w-40 z-10"
+        style={{ background: "linear-gradient(270deg, #ffffff 0%, rgba(255,255,255,0) 100%)" }} />
 
-      <div className="marquee-track flex gap-4" style={{ width: "max-content" }}>
-        {/* Render twice for seamless loop */}
-        {[...testimonials, ...testimonials].map((item, i) => (
-          <TestimonialCard key={i} item={item} />
+      <div className="testimonials-track flex items-center gap-14 sm:gap-20" style={{ width: "max-content" }}>
+        {/* Rendu deux fois pour une boucle sans couture */}
+        {[...TESTIMONIAL_META, ...TESTIMONIAL_META].map((m, i) => (
+          <div key={i} className="flex items-center gap-3.5 shrink-0">
+            <img src={m.avatar} alt="" className="h-9 w-9 sm:h-10 sm:w-10 rounded-full object-cover shrink-0" />
+            <p className="text-base sm:text-xl text-[#1a1a1a] whitespace-nowrap">
+              {t(m.key)}
+            </p>
+          </div>
         ))}
       </div>
     </div>
@@ -180,8 +161,77 @@ type Plan = {
   features: string[];
 };
 
-function PricingCards() {
+/* ─── Toggle Mensuel / Annuel ───
+   L'"annuel" est purement visuel pour l'instant : Stripe n'a pas encore de
+   prix annuels, le checkout facture toujours au mois. Le paramètre
+   &billing=yearly est déjà posé sur les CTA pour le branchement à venir.
+   Réduction affichée : −29% (Starter 13€ · Solo 28€ · Pro 70€ — prix ronds). */
+const MONTHLY_NUM: Record<string, number> = { starter: 19, solo: 39, pro: 99 };
+const YEARLY_NUM: Record<string, number> = { starter: 13, solo: 28, pro: 70 };
+
+/* Compteur animé : quand la cible change (switch mensuel ↔ annuel), la valeur
+   file vers la nouvelle en ~0,5s avec une décélération douce. */
+function useCountUp(target: number, duration = 500) {
+  const [value, setValue] = useState(target);
+  const prev = useRef(target);
+  useEffect(() => {
+    const from = prev.current;
+    prev.current = target;
+    if (from === target) return;
+    let raf: number;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - t0) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setValue(from + (target - from) * eased);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    // Onglet masqué : rAF est suspendu par le navigateur — on garantit quand
+    // même l'atterrissage sur la valeur finale.
+    const settle = setTimeout(() => setValue(target), duration + 80);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(settle);
+    };
+  }, [target, duration]);
+  return value;
+}
+
+function AnimatedPrice({ amount, locale }: { amount: number; locale: string }) {
+  const v = useCountUp(amount);
+  // Une décimale seulement si le prix cible en a une (13,5€) — sinon entier.
+  const str = Number.isInteger(amount)
+    ? String(Math.round(v))
+    : v.toFixed(1).replace(".", locale === "en" ? "." : ",");
+  return <>{str}€</>;
+}
+
+function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (v: boolean) => void }) {
   const { t } = useTranslation();
+  const base = "rounded-full px-5 py-2 text-sm font-semibold transition";
+  return (
+    <div className="-mt-6 mb-9 flex justify-center">
+      <div className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-[#f6f7f9] p-1">
+        <button type="button" onClick={() => onChange(false)}
+          className={`${base} ${yearly ? "text-[#605f5f] hover:text-[#1a1a1a]" : "bg-white text-[#1a1a1a] shadow-[0_2px_8px_rgba(20,40,90,0.10)]"}`}>
+          {t("tarifs.billingMonthly")}
+        </button>
+        <button type="button" onClick={() => onChange(true)}
+          className={`${base} inline-flex items-center gap-2 ${yearly ? "bg-white text-[#1a1a1a] shadow-[0_2px_8px_rgba(20,40,90,0.10)]" : "text-[#605f5f] hover:text-[#1a1a1a]"}`}>
+          {t("tarifs.billingYearly")}
+          <span className="rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
+            style={{ background: "linear-gradient(90deg,#4f7bff,#7c5cff)" }}>
+            {t("tarifs.yearlyBadge")}
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PricingCards({ yearly }: { yearly: boolean }) {
+  const { t, locale } = useTranslation();
 
   const starterFeatures = [
     t("tarifs.starterFeature1"),
@@ -291,14 +341,22 @@ function PricingCards() {
             <PlanIcon plan={p.id} color={p.color} />
             <h3 className="mt-5 text-lg sm:text-xl font-bold text-[#1a1a1a]">{p.name}</h3>
             <p className="text-[#8a8a8a] text-sm mt-1">{p.desc}</p>
-            <div className="flex items-baseline gap-1.5 mt-4 mb-6">
-              <span className="text-4xl sm:text-5xl font-bold text-[#1a1a1a]">{p.price}</span>
-              <span className="text-[#8a8a8a] text-sm">{t("tarifs.perMonth")}</span>
+            <div className="mt-4 mb-6">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-4xl sm:text-5xl font-bold text-[#1a1a1a]">
+                  <AnimatedPrice amount={yearly ? YEARLY_NUM[p.id] : MONTHLY_NUM[p.id]} locale={locale} />
+                </span>
+                <span className="text-[#8a8a8a] text-sm">{t("tarifs.perMonth")}</span>
+                {yearly && <span className="text-[#b0b0b0] text-lg line-through">{p.price}</span>}
+              </div>
+              {yearly && (
+                <p className="mt-1.5 text-xs text-[#8a8a8a]">{t("tarifs.yearlyFreeMonth")}</p>
+              )}
             </div>
 
             {/* Primary CTA — raised/embossed relief, sits above the feature list */}
             <Link
-              href={p.href}
+              href={yearly ? `${p.href}&billing=yearly` : p.href}
               className="w-full flex items-center justify-center rounded-2xl py-4 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:brightness-105"
               style={{ background: p.btnBg, boxShadow: p.btnShadow }}
             >
@@ -348,8 +406,8 @@ function CmpCheck() {
   );
 }
 
-function PlansComparison() {
-  const { t } = useTranslation();
+function PlansComparison({ yearly }: { yearly: boolean }) {
+  const { t, locale } = useTranslation();
   const U = t("tarifs.cmpUnlimited");
 
   const groups: { label: string; rows: { label: string; values: (string | boolean)[]; logo?: string }[] }[] = [
@@ -397,7 +455,12 @@ function PlansComparison() {
     },
   ];
 
-  const plans = [t("tarifs.cmpColStarter"), t("tarifs.cmpColSolo"), t("tarifs.cmpColPro")];
+  /* Prix et CTA identiques aux cartes pricing du haut de page */
+  const plans = [
+    { id: "starter", name: t("tarifs.cmpColStarter"), href: "/register?plan=starter", btnBg: "linear-gradient(135deg,#9F7AEA,#7C3AED)" },
+    { id: "solo",    name: t("tarifs.cmpColSolo"),    href: "/register?plan=solo",    btnBg: "linear-gradient(135deg,#7C3AED,#6366F1)" },
+    { id: "pro",     name: t("tarifs.cmpColPro"),     href: "/register?plan=pro",     btnBg: "linear-gradient(135deg,#4f7bff,#7c5cff)" },
+  ].map((p) => (yearly ? { ...p, href: `${p.href}&billing=yearly` } : p));
   const cols = "grid grid-cols-[minmax(0,1.7fr)_repeat(3,minmax(0,1fr))]";
 
   const cell = (v: string | boolean) => {
@@ -419,12 +482,28 @@ function PlansComparison() {
           </p>
         </div>
 
-        {/* Sticky column header */}
-        <div className={`${cols} sticky top-16 z-30 items-end backdrop-blur-md`} style={{ background: "#ffffff" }}>
+        {/* Bloc sticky façon Tella : nom + prix + CTA par plan, qui suit le scroll.
+            top-0 + grand padding haut : le fond blanc monte jusqu'en haut du
+            viewport et masque les lignes du tableau qui passent derrière la
+            nav flottante (sinon on les voit défiler autour de la pilule). */}
+        <div className={`${cols} sticky top-0 z-30 items-end pt-24 sm:pt-28 pb-2`} style={{ background: "#ffffff" }}>
           <div className="py-4 text-sm font-semibold text-[#1a1a1a]">{t("tarifs.cmpFeature")}</div>
           {plans.map((p, i) => (
-            <div key={i} className={`py-4 text-center text-sm sm:text-base font-semibold ${i === 1 ? "text-[#1a1a1a]" : "text-[#1a1a1a]"}`}>
-              {p}
+            <div key={i} className="py-4 flex flex-col items-center gap-2 text-center">
+              <span className="text-base sm:text-xl font-bold text-[#1a1a1a]">{p.name}</span>
+              <span className="text-xs sm:text-sm text-[#8a8a8a]">
+                <span className="font-semibold text-[#1a1a1a]">
+                  <AnimatedPrice amount={yearly ? YEARLY_NUM[p.id] : MONTHLY_NUM[p.id]} locale={locale} />
+                </span>{" "}
+                {t("tarifs.perMonth")}
+              </span>
+              <Link
+                href={p.href}
+                className="mt-1 hidden sm:inline-flex items-center justify-center rounded-xl px-5 py-2 text-xs sm:text-sm font-semibold text-white transition hover:brightness-105"
+                style={{ background: p.btnBg }}
+              >
+                {t("tarifs.commencer")}
+              </Link>
             </div>
           ))}
         </div>
@@ -507,6 +586,8 @@ function PricingFAQ() {
 
 export default function TarifsPage() {
   const { t } = useTranslation();
+  // Annuel par défaut : c'est l'offre qu'on veut mettre en avant.
+  const [yearly, setYearly] = useState(true);
   return (
     <div className="lunera min-h-screen bg-white text-[#1a1a1a]">
       <SmoothScroll />
@@ -527,34 +608,46 @@ export default function TarifsPage() {
         </p>
       </section>
 
-      {/* ── TESTIMONIALS ── */}
-      <section className="pb-16 overflow-hidden">
-        <TestimonialsCarousel />
-      </section>
-
       {/* ── PRICING CARDS ── */}
       <section className="px-6 pb-24">
-        <PricingCards />
+        <BillingToggle yearly={yearly} onChange={setYearly} />
+        <PricingCards yearly={yearly} />
 
-        {/* TikTok solution reassurance badge — accent matches the landing announcement bar */}
+        {/* Pastille YouTube — lien vers la vidéo de présentation, flotte doucement */}
         <div className="mt-8 flex justify-center">
-          <div className="inline-flex items-center gap-2.5 rounded-full border border-black/10 bg-[#f6f7f9] px-4 py-2 text-sm">
+          <style>{`
+            @keyframes yt-badge-float {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-6px); }
+            }
+          `}</style>
+          <a
+            href="https://www.youtube.com/watch?v=FX29sadV_2g"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2.5 rounded-full border border-black/10 bg-[#f6f7f9] px-4 py-2 text-sm transition hover:bg-[#eef0f4]"
+            style={{ animation: "yt-badge-float 3.2s ease-in-out infinite" }}
+          >
             <span
               className="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white"
               style={{ background: "linear-gradient(90deg,#4f7bff,#7c5cff)" }}
             >
-              {t("tarifs.tiktokBadgeNew")}
+              {t("tarifs.ytBadgeNew")}
             </span>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" className="shrink-0 text-[#1a1a1a]">
-              <path d="M16.6 3c.27 2.07 1.43 3.3 3.4 3.43v2.32c-1.14.11-2.14-.26-3.3-.96v6.13c0 3.12-2.27 5.55-5.3 5.55-2.93 0-5.0-2.26-5.0-4.92 0-2.94 2.35-4.92 5.49-4.62v2.55c-.46-.1-.95-.16-1.43-.08-1.15.18-1.9.96-1.82 2.2.08 1.15.95 1.94 2.11 1.94.9 0 1.65-.58 1.87-1.45.06-.27.08-.62.08-.94V3h3.43z" />
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" className="shrink-0" fill="#FF0000">
+              <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#FF0000" />
+              <path d="M9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#ffffff" />
             </svg>
-            <span className="font-medium text-[#1a1a1a]">{t("tarifs.tiktokBadge")}</span>
-          </div>
+            <span className="font-medium text-[#1a1a1a]">{t("tarifs.ytBadge")}</span>
+          </a>
         </div>
+
+        {/* ── AVIS CLIENTS ── */}
+        <TestimonialsMarquee />
       </section>
 
       {/* ── PLANS COMPARISON ── */}
-      <PlansComparison />
+      <PlansComparison yearly={yearly} />
 
       {/* ── FAQ ── */}
       <PricingFAQ />
