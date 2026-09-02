@@ -29,122 +29,90 @@ function Chrome({ title, badge }: { title: string; badge?: string }) {
   );
 }
 
-/* ─── ÉDITEUR IA ───
+/* ─── GÉNÉRATEUR DE VARIANTES ───
    Une prise unique en 3 temps, cycle de 12 s :
-   1) le curseur dépose la réf au centre → elle se range à gauche, un peu plus
-      petite, pendant que tes fichiers bruts montent à droite ;
-   2) Claude monte ; 3) la vidéo finie à droite, la conversation à gauche,
-      avec la réponse du user qu'on voit se taper puis partir dans le fil.
-   Fenêtres écrites en dur (duup-cursor, duup-ref, duup-f1…, globals.css). */
+   1) la consigne se tape ("génère 10 variantes") pendant qu'un faisceau parcourt
+      la vidéo de départ ;
+   2) les dix variantes tombent dans la grille, l'une après l'autre ;
+   3) une fois toutes là, chacune continue de dériver sur SON rythme — c'est ce
+      qui montre qu'aucune n'est la copie de sa voisine.
+   Une SEULE vidéo est chargée (la source) : les variantes réutilisent son
+   poster, décliné en CSS (étalonnage, cadrage, coupes, sous-titres).
+   Fenêtres écrites en dur (duup-vscan, duup-v1…, globals.css). */
 const CLAUDE_MARK = "/claude-ai-logo-rounded-hd-free-png-1.webp";
 export const CLAUDE_WORDMARK = "/Claude_AI_logo.svg.webp";
 /* Dérivées optimisées des fichiers de /public (5,4 Mo → 76 Ko ; 55 Mo → 366 Ko). */
-const REF_VIDEO = "/mock-reference.jpg";
-const FILE_RUSH = "/mock-rush.jpg";
-const FILE_LOGO = "/mock-logo.png";
 const OUTPUT_VIDEO = "/mock-output.mp4";
 const OUTPUT_POSTER = "/mock-output-poster.jpg";
 /* Vignette du mockup Duplication (inchangée). */
 const THUMB = "/variant-thumb.jpg";
 
-/* Bulle de conversation. `mine` = message du user, aligné à droite. */
-function Bubble({ mine, children, className }: { mine?: boolean; children: React.ReactNode; className?: string }) {
+/* Les dix variantes. Chacune a SA fenêtre d'apparition (`beat`), SON étalonnage
+   qui dérive (`vary` — défini en CSS, sinon l'animation écraserait un filtre
+   inline), SON cadrage et SES coupes ; deux d'entre elles portent en plus une
+   ligne de sous-titres. `cuts` = largeurs relatives des segments de timeline. */
+const VARIANTS = [
+  { beat: "duup-v1",  vary: "duup-vary-a", crop: "scale(1.04)",                 cuts: [30, 22, 34, 14], cap: false },
+  { beat: "duup-v2",  vary: "duup-vary-b", crop: "scale(1.12) translateX(-4%)", cuts: [18, 38, 20, 24], cap: true },
+  { beat: "duup-v3",  vary: "duup-vary-c", crop: "scale(1.07) translateY(3%)",  cuts: [42, 16, 26, 16], cap: false },
+  { beat: "duup-v4",  vary: "duup-vary-d", crop: "scale(1.16) translateX(5%)",  cuts: [22, 28, 18, 32], cap: true  },
+  { beat: "duup-v5",  vary: "duup-vary-e", crop: "scale(1.02) translateY(-3%)", cuts: [34, 20, 30, 16], cap: false },
+  { beat: "duup-v6",  vary: "duup-vary-f", crop: "scale(1.1) translateX(-6%)",  cuts: [16, 26, 40, 18], cap: false },
+  { beat: "duup-v7",  vary: "duup-vary-g", crop: "scale(1.05) translateX(7%)",  cuts: [26, 34, 16, 24], cap: true  },
+  { beat: "duup-v8",  vary: "duup-vary-h", crop: "scale(1.14) translateY(-5%)", cuts: [38, 18, 22, 22], cap: false },
+  { beat: "duup-v9",  vary: "duup-vary-i", crop: "scale(1.03) translateX(-2%)", cuts: [20, 30, 28, 22], cap: false },
+  { beat: "duup-v10", vary: "duup-vary-j", crop: "scale(1.18) translateY(4%)",  cuts: [28, 16, 36, 20], cap: true  },
+];
+
+/* Une variante : la même vidéo, mais recadrée, réétalonnée et recoupée. */
+function VariantTile({ v, index }: { v: (typeof VARIANTS)[number]; index: number }) {
+  // Sous 640px la fenêtre 16:10 est trop basse pour deux rangées : il n'en reste
+  // qu'une, et les vignettes y sont bridées à 72% de la hauteur pour rester plus
+  // petites que la vidéo de départ (à hauteur pleine, elles feraient sa taille).
   return (
-    <div className={`${className ?? ""} flex ${mine ? "justify-end" : "justify-start"}`}>
-      <span
-        className={`max-w-[86%] rounded-[12px] px-2.5 py-1.5 text-[11px] leading-snug ${mine ? "text-white" : "bg-[#f2f4f8] text-[#1a1a1a]"}`}
-        style={mine ? { background: CTA_GRAD } : undefined}
-      >
-        {children}
+    <div
+      className={`${v.beat} relative h-[72%] shrink-0 self-center overflow-hidden rounded-[8px] bg-[#eef1f7] shadow-[0_6px_16px_rgba(20,40,90,0.16)] sm:h-full sm:self-stretch`}
+      style={{ aspectRatio: "9 / 16" }}
+    >
+      <img src={OUTPUT_POSTER} alt="" className={`${v.vary} h-full w-full object-cover`} style={{ transform: v.crop }} />
+      {/* Le numéro de la variante */}
+      <span className="absolute left-1 top-1 rounded-[5px] bg-black/55 px-1 py-px text-[7.5px] font-semibold leading-[1.4] text-white backdrop-blur-sm">
+        {String(index + 1).padStart(2, "0")}
+      </span>
+      {/* Sous-titres : sur certaines variantes seulement */}
+      {v.cap && <span className="absolute inset-x-2 bottom-[9px] block h-[2.5px] rounded-full bg-white/90 shadow-[0_0_6px_rgba(0,0,0,0.4)]" />}
+      {/* Mini-timeline : des coupes différentes d'une variante à l'autre */}
+      <span className="absolute inset-x-1 bottom-1 flex gap-px">
+        {v.cuts.map((c, i) => (
+          <span key={i} className="h-[2.5px] rounded-full bg-white/70" style={{ flexGrow: c }} />
+        ))}
       </span>
     </div>
   );
 }
 
-export function AiEditorMockup({ locale, reduced }: { locale: "fr" | "en"; reduced: boolean }) {
+export function VariantsMockup({ locale, reduced }: { locale: "fr" | "en"; reduced: boolean }) {
   const fr = locale === "fr";
   const { ref } = useLoopInView(reduced, 0.2);
-  const files = [
-    { src: FILE_RUSH, n: "IMG_0831.MOV", beat: "duup-f1" },
-    { src: FILE_LOGO, n: "logo-marque.png", beat: "duup-f2" },
-    { src: CLAUDE_MARK, n: "claude-logo.webp", beat: "duup-f3" },
-  ];
+  const ask = fr ? "Génère 10 variantes de cette vidéo" : "Generate 10 variants of this video";
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-[16px] bg-white shadow-[0_1px_3px_rgba(20,40,90,0.05),0_10px_24px_rgba(20,40,90,0.08),0_28px_56px_rgba(20,40,90,0.07)]">
       <div className="flex items-center gap-2 border-b border-black/[0.05] px-4 py-2.5">
-        <span className="text-[11.5px] font-semibold text-[#1a1a1a]">{fr ? "Éditeur IA" : "AI Editor"}</span>
+        <span className="text-[11.5px] font-semibold text-[#1a1a1a]">{fr ? "Générateur de variantes" : "Variant generator"}</span>
         <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[#4686FE]/10 px-2 py-0.5 text-[9.5px] font-semibold" style={{ color: BLUE }}>
           <img src={CLAUDE_MARK} alt="" className="h-3 w-3 rounded-[3px] object-contain" />
           Claude
         </span>
       </div>
 
-      <div className="relative min-h-0 flex-1 p-4">
-        {/* ── 1 · La réf déposée, puis rangée à gauche ── */}
-        <div className="duup-ref absolute bottom-4 left-4 top-4 aspect-[9/16] overflow-hidden rounded-[11px] bg-[#eef1f7] shadow-[0_10px_26px_rgba(20,40,90,0.20)]">
-          <img src={REF_VIDEO} alt="" className="h-full w-full object-cover" />
-          <span className="absolute inset-x-1 bottom-1 rounded-[7px] bg-black/55 py-0.5 text-center text-[8.5px] font-semibold text-white backdrop-blur-sm">
-            {fr ? "la réf" : "the ref"}
-          </span>
-        </div>
-
-        {/* Le curseur qui vient déposer le fichier */}
-        <span aria-hidden className="duup-cursor pointer-events-none absolute left-1/2 top-1/2 z-10">
-          <svg className="h-5 w-5 drop-shadow" viewBox="0 0 24 24" fill="#1a1a1a" stroke="#fff" strokeWidth="1.4" strokeLinejoin="round">
-            <path d="M5 3l14 8-6.2 1.6L9.6 19z" />
-          </svg>
-        </span>
-
-        {/* ── Tes fichiers bruts, à droite ── */}
-        <div className="absolute bottom-4 right-4 top-4 flex w-[62%] flex-col justify-center gap-2">
-          {files.map((f) => (
-            <div key={f.n} className={`${f.beat} flex items-center gap-2.5 rounded-[10px] bg-[#f7f8fb] px-3 py-2`}>
-              <img src={f.src} alt="" className="h-7 w-7 shrink-0 rounded-[6px] object-cover" />
-              <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-[#1a1a1a]">{f.n}</span>
-              <svg className="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="4.5"><path d="M20 6 9 17l-5-5" /></svg>
-            </div>
-          ))}
-        </div>
-
-        {/* ── 2 · Claude monte ── */}
-        <div className="duup-work absolute inset-4 flex flex-col items-center justify-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-white shadow-[0_10px_26px_rgba(20,40,90,0.14)]">
-            <img src={CLAUDE_MARK} alt="" className="h-10 w-10 rounded-[13px] object-contain" />
-          </span>
-          <span className="mt-3.5 h-1 w-40 overflow-hidden rounded-full bg-[#eaedf4]">
-            <span className="duup-workbar block h-1 rounded-full" style={{ background: CTA_GRAD }} />
-          </span>
-          <p className="mt-3 text-[12px] font-medium text-[#4a4f5c]">{fr ? "Claude monte ta vidéo" : "Claude edits your video"}</p>
-        </div>
-
-        {/* ── 3 · La vidéo finie + la conversation ── */}
-        <div className="duup-final absolute inset-4 flex gap-3">
-          {/* Conversation à gauche */}
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Bubble className="duup-msg1">
-              {fr ? <>Ta vidéo est prête ✨</> : <>Your video is ready ✨</>}
-            </Bubble>
-            <Bubble mine className="duup-msg2 mt-1.5">
-              {fr ? "Recommence avec 3 styles différents" : "Do it again with 3 different styles"}
-            </Bubble>
-
-            {/* Le champ de saisie : le texte s'y écrit, puis part dans le fil */}
-            <div className="mt-auto flex items-center gap-2 rounded-full bg-[#f2f4f8] px-3 py-2">
-              <span className="min-w-0 flex-1 overflow-hidden">
-                <span className="duup-typing inline-block align-middle text-[10.5px] text-[#1a1a1a]">
-                  {fr ? "Recommence avec 3 styles différents" : "Do it again with 3 different styles"}
-                </span>
-                <span className="duup-caretbeat ml-px inline-block h-3 w-px align-middle" style={{ background: BLUE }} />
-              </span>
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white" style={{ background: CTA_GRAD }}>
-                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-              </span>
-            </div>
-          </div>
-
-          {/* La vidéo montée, à droite */}
-          <div className="relative aspect-[9/16] h-full shrink-0 overflow-hidden rounded-[11px] bg-[#eef1f7] shadow-[0_12px_30px_rgba(20,40,90,0.22)]">
+      <div className="flex min-h-0 flex-1 flex-col p-4">
+        <div className="flex min-h-0 flex-1 gap-3">
+          {/* ── 1 · La vidéo de départ, lue par l'IA ── */}
+          <div
+            className="relative h-full shrink-0 overflow-hidden rounded-[11px] bg-[#eef1f7] shadow-[0_10px_26px_rgba(20,40,90,0.18)]"
+            style={{ aspectRatio: "9 / 16" }}
+          >
             <video
               ref={ref}
               src={OUTPUT_VIDEO}
@@ -154,9 +122,53 @@ export function AiEditorMockup({ locale, reduced }: { locale: "fr" | "en"; reduc
               loop
               playsInline
               disablePictureInPicture
-              aria-label={fr ? "Vidéo montée par l'éditeur IA" : "Video edited by the AI editor"}
+              aria-label={fr ? "La vidéo de départ" : "The source video"}
               className="h-full w-full object-cover"
             />
+            <span
+              aria-hidden
+              className="duup-vscan pointer-events-none absolute inset-x-0 h-[16%]"
+              style={{ background: "linear-gradient(180deg,rgba(70,134,254,0) 0%,rgba(70,134,254,0.5) 50%,rgba(70,134,254,0) 100%)" }}
+            />
+            <span className="absolute inset-x-1 bottom-1 rounded-[7px] bg-black/55 py-0.5 text-center text-[8.5px] font-semibold text-white backdrop-blur-sm">
+              {fr ? "ta vidéo" : "your video"}
+            </span>
+          </div>
+
+          {/* ── 2 · Les variantes, deux rangées de cinq (une seule en mobile) ── */}
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            {[0, 1].map((row) => (
+              <div key={row} className={`flex min-h-0 flex-1 items-stretch justify-center gap-2 ${row === 1 ? "hidden sm:flex" : ""}`}>
+                {VARIANTS.slice(row * 5, row * 5 + 5).map((v, i) => (
+                  <VariantTile key={v.beat} v={v} index={row * 5 + i} />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── 3 · La consigne, puis le compte rendu ── */}
+        <div className="relative mt-3 h-8 shrink-0">
+          <div className="duup-vask absolute inset-0 flex items-center gap-2 rounded-full bg-[#f2f4f8] px-3">
+            <span className="min-w-0 flex-1 overflow-hidden">
+              <span className="duup-vtype inline-block align-middle text-[10.5px] text-[#1a1a1a]">{ask}</span>
+              <span className="duup-vcaret ml-px inline-block h-3 w-px align-middle" style={{ background: BLUE }} />
+            </span>
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white" style={{ background: CTA_GRAD }}>
+              <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </span>
+          </div>
+
+          <div className="duup-vdone absolute inset-0 flex items-center gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white" style={{ background: CTA_GRAD }}>
+              <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+            </span>
+            <span className="text-[11px] font-medium text-[#1a1a1a]">
+              {fr ? "10 variantes prêtes" : "10 variants ready"}
+            </span>
+            <span className="text-[11px] text-[#8a8f9c]">
+              {fr ? "· aucune identique" : "· no two alike"}
+            </span>
           </div>
         </div>
       </div>

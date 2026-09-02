@@ -10,12 +10,8 @@ type Locale = (typeof LOCALES)[number];
 /** Top-level public/auth paths that must be wrapped in a locale prefix. */
 const LOCALIZED_TOP_LEVEL = new Set([
   "",            // homepage "/"
-  "features",
-  "how-it-works",
   "pricing",
-  "benefits",
   "partners",
-  "demo",
   "blog",
   "capcut-alternative",
   "submagic-alternative",
@@ -27,13 +23,17 @@ const LOCALIZED_TOP_LEVEL = new Set([
 
 /** Legacy URLs → forced locale + new slug. Used for SEO-stable 301 redirects. */
 const LEGACY_REDIRECTS: Record<string, { locale: Locale; slug: string }> = {
-  "/fonctionnalites":     { locale: "fr", slug: "/features" },
-  "/product":             { locale: "en", slug: "/features" },
-  "/comment-ca-marche":   { locale: "fr", slug: "/how-it-works" },
+  "/fonctionnalites":     { locale: "fr", slug: "" },
+  "/product":             { locale: "en", slug: "" },
+  "/comment-ca-marche":   { locale: "fr", slug: "" },
   "/tarifs":              { locale: "fr", slug: "/pricing" },
-  "/avantages":           { locale: "fr", slug: "/benefits" },
+  "/avantages":           { locale: "fr", slug: "" },
   "/partenaire":          { locale: "fr", slug: "/partners" },
 };
+
+/** Anciennes pages marketing supprimées (thème sombre) → 301 vers l'accueil,
+ *  avec ou sans préfixe de locale (/features, /fr/demo, /en/benefits…). */
+const RETIRED_PAGES = new Set(["features", "how-it-works", "demo", "benefits"]);
 
 const LANG_COOKIE = "duupflow_lang";
 
@@ -90,11 +90,21 @@ function handleI18nRouting(request: NextRequest): NextResponse | null {
     return NextResponse.redirect(url, 301);
   }
 
-  // 2) Already locale-prefixed → let it through
+  // 2) Anciennes pages marketing supprimées → accueil (couvre /demo et /fr/demo)
+  const retiredSegment = topLevelSegment(stripLocale(pathname));
+  if (RETIRED_PAGES.has(retiredSegment)) {
+    const locale = (localePrefix(pathname).slice(1) as Locale) || pickLocale(request);
+    const url = request.nextUrl.clone();
+    url.pathname = `/${locale}`;
+    url.search = "";
+    return NextResponse.redirect(url, 301);
+  }
+
+  // 3) Already locale-prefixed → let it through
   const first = topLevelSegment(pathname);
   if (first === "fr" || first === "en") return null;
 
-  // 3) Top-level path that should be localized → redirect to picked locale
+  // 4) Top-level path that should be localized → redirect to picked locale
   if (LOCALIZED_TOP_LEVEL.has(first)) {
     const locale = pickLocale(request);
     const url = request.nextUrl.clone();

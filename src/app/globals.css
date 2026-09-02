@@ -602,6 +602,25 @@ body{
 }
 
 /* Motion safety */
+/* ── Aperçu des assets vidéo (module avancé) ──
+   Simulation CSS de ce que FFmpeg incruste réellement : des flocons qui
+   traversent le cadre, et un flash qui monte puis retombe. L'intensité vient du
+   curseur d'opacité (inline pour les flocons, via --duup-flash-peak pour le
+   flash) : ce sont deux repères visuels, pas un rendu exact. */
+@keyframes duup-snowfall {
+  /* `top` et pas `transform` : le pourcentage doit se lire sur la HAUTEUR DU
+     CADRE, alors qu'un translateY se lirait sur les 3 px du flocon. */
+  from { top: -8%; }
+  to   { top: 106%; }
+}
+@keyframes duup-flashpulse {
+  0%, 62%  { opacity: 0; }
+  68%      { opacity: var(--duup-flash-peak, 0.6); }
+  100%     { opacity: 0; }
+}
+.duup-snowfall  { animation: duup-snowfall linear infinite; }
+.duup-flashpulse { animation: duup-flashpulse 2.6s ease-out infinite; opacity: 0; }
+
 @media (prefers-reduced-motion: reduce) {
   .neon, .neon::after { animation: none }
   .neon::after { filter: blur(10px) }
@@ -837,62 +856,87 @@ body{
 @keyframes duup-b4 { 0%, 40% { opacity: 0; transform: scale(0.55); } 47% { opacity: 1; transform: scale(1.14); } 52%, 88% { opacity: 1; transform: scale(1); } 94%, 100% { opacity: 0; } }
 @keyframes duup-b5 { 0%, 53% { opacity: 0; transform: translateX(-52px) scale(0.66) rotate(-8deg); } 62%, 88% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; } }
 @keyframes duup-b6 { 0%, 74% { opacity: 0; transform: scale(0.7); } 80%, 88% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; } }
-/* ── Éditeur IA : une prise unique en 3 temps, cycle de 12 s ──
-   1) le curseur dépose la réf, qui s'installe au centre ; elle glisse à gauche
-      pendant que les fichiers bruts montent à droite ;
-   2) Claude monte ; 3) la vidéo finie + la conversation avec Claude.
+/* ── Générateur de variantes : une prise unique en 3 temps, cycle de 12 s ──
+   1) la consigne se tape pendant qu'un faisceau parcourt la vidéo de départ ;
+   2) les six variantes tombent l'une après l'autre dans la grille ;
+   3) chacune dérive ensuite sur SON rythme — c'est ce qui montre qu'elles ne
+      sont pas la même image répétée — puis le compte rendu remplace le champ.
    Toutes les fenêtres sont écrites en dur (aucun gros animation-delay) : c'est
    la seule façon d'avoir des entrées échelonnées ET une remise à zéro commune. */
-@keyframes duup-cursor {
-  0%, 1%   { opacity: 0; transform: translate(46px, 42px); }
-  3%       { opacity: 1; }
-  6%       { opacity: 1; transform: translate(0, 0); }
-  7.5%     { transform: translate(0, 0) scale(0.82); }
-  9%       { opacity: 1; transform: translate(0, 0) scale(1); }
-  12%, 100% { opacity: 0; }
-}
-/* La réf : posée au centre, puis rangée à gauche, un peu plus petite */
-@keyframes duup-ref {
-  0%, 3%    { opacity: 0; transform: translateX(130%) scale(1.1); }
-  8%, 18%   { opacity: 1; transform: translateX(130%) scale(1.1); }
-  25%, 46%  { opacity: 1; transform: translateX(0) scale(1); }
-  50%, 100% { opacity: 0; transform: translateX(0) scale(0.96); }
-}
-/* Les fichiers bruts, à droite, l'un après l'autre (une fenêtre par ligne) */
-@keyframes duup-f1 { 0%, 23% { opacity: 0; transform: translateY(10px); } 28%, 46% { opacity: 1; transform: none; } 50%, 100% { opacity: 0; } }
-@keyframes duup-f2 { 0%, 27% { opacity: 0; transform: translateY(10px); } 32%, 46% { opacity: 1; transform: none; } 50%, 100% { opacity: 0; } }
-@keyframes duup-f3 { 0%, 31% { opacity: 0; transform: translateY(10px); } 36%, 46% { opacity: 1; transform: none; } 50%, 100% { opacity: 0; } }
-/* Claude monte */
-@keyframes duup-work { 0%, 47% { opacity: 0; transform: scale(0.9); } 52%, 62% { opacity: 1; transform: none; } 66%, 100% { opacity: 0; transform: scale(1.04); } }
-@keyframes duup-workbar { 0%, 50% { width: 0; } 63%, 100% { width: 100%; } }
-/* Le final : vidéo + conversation */
-@keyframes duup-final { 0%, 64% { opacity: 0; transform: scale(0.94); } 69%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
-@keyframes duup-msg1  { 0%, 68% { opacity: 0; transform: translateY(8px); } 72%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
-/* Le user tape sa réponse, puis l'envoie : le texte quitte le champ… */
-@keyframes duup-typing { 0%, 76% { width: 0; opacity: 1; } 86% { width: 100%; opacity: 1; } 88%, 100% { width: 100%; opacity: 0; } }
-@keyframes duup-caretbeat { 0%, 76% { opacity: 0; } 77%, 87% { opacity: 1; } 88%, 100% { opacity: 0; } }
-/* …et réapparaît dans le fil, aligné à droite */
-@keyframes duup-msg2 { 0%, 88% { opacity: 0; transform: translateY(12px) scale(0.94); } 91%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes duup-vscan  { 0%, 6% { top: -16%; opacity: 0; } 9% { opacity: 1; } 20% { top: 100%; opacity: 1; } 23%, 100% { opacity: 0; } }
+@keyframes duup-vask   { 0%, 74% { opacity: 1; } 78%, 100% { opacity: 0; } }
+@keyframes duup-vtype  { 0% { width: 0; } 13%, 100% { width: 100%; } }
+@keyframes duup-vcaret { 0%, 13% { opacity: 1; } 14%, 100% { opacity: 0; } }
+@keyframes duup-vdone  { 0%, 76% { opacity: 0; transform: translateY(6px); } 80%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 
-.duup-cursor, .duup-ref, .duup-f1, .duup-f2, .duup-f3,
-.duup-work, .duup-final, .duup-msg1, .duup-msg2 {
+/* Les six variantes qui tombent — une fenêtre par vignette */
+@keyframes duup-v1 { 0%, 24% { opacity: 0; transform: translateY(10px) scale(0.9); } 28%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes duup-v2 { 0%, 27% { opacity: 0; transform: translateY(10px) scale(0.9); } 31%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes duup-v3 { 0%, 30% { opacity: 0; transform: translateY(10px) scale(0.9); } 34%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes duup-v4 { 0%, 33% { opacity: 0; transform: translateY(10px) scale(0.9); } 37%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes duup-v5 { 0%, 36% { opacity: 0; transform: translateY(10px) scale(0.9); } 40%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes duup-v6 { 0%, 39% { opacity: 0; transform: translateY(10px) scale(0.9); } 43%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes duup-v7 { 0%, 42% { opacity: 0; transform: translateY(10px) scale(0.9); } 46%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes duup-v8 { 0%, 45% { opacity: 0; transform: translateY(10px) scale(0.9); } 49%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes duup-v9 { 0%, 48% { opacity: 0; transform: translateY(10px) scale(0.9); } 52%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes duup-v10 { 0%, 51% { opacity: 0; transform: translateY(10px) scale(0.9); } 55%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+/* L'étalonnage de chaque variante, qui dérive à son propre rythme.
+   La valeur de repos est portée par la CLASSE (pas par un style inline) : une
+   animation écrase toujours l'inline, et sous reduced-motion il ne resterait
+   alors plus aucune différence entre les six vignettes. */
+@keyframes duup-vary-a { 0%, 52% { filter: saturate(1.14) contrast(1.04) hue-rotate(-8deg); } 74% { filter: saturate(1.3) contrast(1.1) hue-rotate(-2deg) brightness(1.05); } 92%, 100% { filter: saturate(1.14) contrast(1.04) hue-rotate(-8deg); } }
+@keyframes duup-vary-b { 0%, 52% { filter: saturate(0.92) contrast(1.12) hue-rotate(9deg); } 78% { filter: saturate(1.08) contrast(1.02) hue-rotate(3deg) brightness(0.96); } 94%, 100% { filter: saturate(0.92) contrast(1.12) hue-rotate(9deg); } }
+@keyframes duup-vary-c { 0%, 56% { filter: saturate(1.22) contrast(0.98) hue-rotate(16deg) brightness(1.04); } 80% { filter: saturate(1.02) contrast(1.08) hue-rotate(8deg); } 96%, 100% { filter: saturate(1.22) contrast(0.98) hue-rotate(16deg) brightness(1.04); } }
+@keyframes duup-vary-d { 0%, 58% { filter: saturate(1.05) contrast(1.16) hue-rotate(-16deg) brightness(0.97); } 82% { filter: saturate(1.24) contrast(1.02) hue-rotate(-6deg) brightness(1.03); } 96%, 100% { filter: saturate(1.05) contrast(1.16) hue-rotate(-16deg) brightness(0.97); } }
+@keyframes duup-vary-e { 0%, 60% { filter: saturate(1.34) contrast(1.02) hue-rotate(4deg); } 84% { filter: saturate(1.1) contrast(1.14) hue-rotate(12deg) brightness(1.05); } 98%, 100% { filter: saturate(1.34) contrast(1.02) hue-rotate(4deg); } }
+@keyframes duup-vary-f { 0%, 62% { filter: saturate(0.88) contrast(1.06) hue-rotate(-3deg) brightness(1.06); } 86% { filter: saturate(1.16) contrast(1.12) hue-rotate(-11deg) brightness(0.98); } 98%, 100% { filter: saturate(0.88) contrast(1.06) hue-rotate(-3deg) brightness(1.06); } }
+
+@keyframes duup-vary-g { 0%, 54% { filter: saturate(1.28) contrast(1.08) hue-rotate(11deg) brightness(0.98); } 76% { filter: saturate(1.06) contrast(1.0) hue-rotate(2deg) brightness(1.04); } 94%, 100% { filter: saturate(1.28) contrast(1.08) hue-rotate(11deg) brightness(0.98); } }
+@keyframes duup-vary-h { 0%, 56% { filter: saturate(0.95) contrast(1.1) hue-rotate(-12deg) brightness(1.03); } 80% { filter: saturate(1.2) contrast(1.04) hue-rotate(-4deg) brightness(0.97); } 96%, 100% { filter: saturate(0.95) contrast(1.1) hue-rotate(-12deg) brightness(1.03); } }
+@keyframes duup-vary-i { 0%, 58% { filter: saturate(1.18) contrast(1.14) hue-rotate(6deg); } 82% { filter: saturate(0.98) contrast(1.02) hue-rotate(14deg) brightness(1.06); } 98%, 100% { filter: saturate(1.18) contrast(1.14) hue-rotate(6deg); } }
+@keyframes duup-vary-j { 0%, 60% { filter: saturate(1.1) contrast(0.96) hue-rotate(-6deg) brightness(1.07); } 84% { filter: saturate(1.32) contrast(1.12) hue-rotate(-14deg) brightness(0.99); } 98%, 100% { filter: saturate(1.1) contrast(0.96) hue-rotate(-6deg) brightness(1.07); } }
+
+.duup-v1, .duup-v2, .duup-v3, .duup-v4, .duup-v5,
+.duup-v6, .duup-v7, .duup-v8, .duup-v9, .duup-v10 {
   animation-duration: 12s;
-  animation-timing-function: cubic-bezier(0.22, 1.15, 0.3, 1);
+  animation-timing-function: cubic-bezier(0.2, 0.9, 0.25, 1.3);
   animation-iteration-count: infinite;
   opacity: 0;
 }
-.duup-cursor { animation-name: duup-cursor; }
-.duup-ref    { animation-name: duup-ref; }
-.duup-f1     { animation-name: duup-f1; }
-.duup-f2     { animation-name: duup-f2; }
-.duup-f3     { animation-name: duup-f3; }
-.duup-work   { animation-name: duup-work; }
-.duup-final  { animation-name: duup-final; }
-.duup-msg1   { animation-name: duup-msg1; }
-.duup-msg2   { animation-name: duup-msg2; }
-.duup-workbar   { animation: duup-workbar 12s ease-out infinite; width: 0; }
-.duup-typing    { animation: duup-typing 12s steps(30) infinite; white-space: nowrap; overflow: hidden; width: 0; }
-.duup-caretbeat { animation: duup-caretbeat 12s steps(1) infinite; opacity: 0; }
+.duup-v1 { animation-name: duup-v1; }
+.duup-v2 { animation-name: duup-v2; }
+.duup-v3 { animation-name: duup-v3; }
+.duup-v4 { animation-name: duup-v4; }
+.duup-v5 { animation-name: duup-v5; }
+.duup-v6 { animation-name: duup-v6; }
+.duup-v7 { animation-name: duup-v7; }
+.duup-v8 { animation-name: duup-v8; }
+.duup-v9 { animation-name: duup-v9; }
+.duup-v10 { animation-name: duup-v10; }
+
+.duup-vary-a, .duup-vary-b, .duup-vary-c, .duup-vary-d, .duup-vary-e,
+.duup-vary-f, .duup-vary-g, .duup-vary-h, .duup-vary-i, .duup-vary-j {
+  animation-duration: 12s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.duup-vary-a { filter: saturate(1.14) contrast(1.04) hue-rotate(-8deg);                    animation-name: duup-vary-a; }
+.duup-vary-b { filter: saturate(0.92) contrast(1.12) hue-rotate(9deg);                     animation-name: duup-vary-b; }
+.duup-vary-c { filter: saturate(1.22) contrast(0.98) hue-rotate(16deg) brightness(1.04);   animation-name: duup-vary-c; }
+.duup-vary-d { filter: saturate(1.05) contrast(1.16) hue-rotate(-16deg) brightness(0.97);  animation-name: duup-vary-d; }
+.duup-vary-e { filter: saturate(1.34) contrast(1.02) hue-rotate(4deg);                     animation-name: duup-vary-e; }
+.duup-vary-f { filter: saturate(0.88) contrast(1.06) hue-rotate(-3deg) brightness(1.06);   animation-name: duup-vary-f; }
+.duup-vary-g { filter: saturate(1.28) contrast(1.08) hue-rotate(11deg) brightness(0.98);   animation-name: duup-vary-g; }
+.duup-vary-h { filter: saturate(0.95) contrast(1.1) hue-rotate(-12deg) brightness(1.03);   animation-name: duup-vary-h; }
+.duup-vary-i { filter: saturate(1.18) contrast(1.14) hue-rotate(6deg);                     animation-name: duup-vary-i; }
+.duup-vary-j { filter: saturate(1.1) contrast(0.96) hue-rotate(-6deg) brightness(1.07);    animation-name: duup-vary-j; }
+
+.duup-vscan  { animation: duup-vscan 12s ease-in-out infinite; opacity: 0; }
+.duup-vask   { animation: duup-vask 12s ease-in-out infinite; }
+.duup-vtype  { animation: duup-vtype 12s steps(34) infinite; white-space: nowrap; overflow: hidden; width: 0; }
+.duup-vcaret { animation: duup-vcaret 12s steps(1) infinite; }
+.duup-vdone  { animation: duup-vdone 12s ease-out infinite; opacity: 0; }
 
 /* Le faisceau qui parcourt la référence pendant que l'IA la lit */
 @keyframes duup-scanline { 0%, 8% { top: -6%; opacity: 0; } 11% { opacity: 1; } 21% { top: 100%; opacity: 1; } 24%, 100% { opacity: 0; } }
@@ -958,13 +1002,21 @@ body{
   .duup-phase, .duup-pop, .duup-fill, .duup-scan,
   .duup-b1, .duup-b2, .duup-b3, .duup-b4, .duup-b5, .duup-b6,
   .duup-scanline, .duup-halo,
-  .duup-cursor, .duup-ref, .duup-f1, .duup-f2, .duup-f3, .duup-work,
-  .duup-final, .duup-msg1, .duup-msg2, .duup-workbar, .duup-typing,
-  .duup-caretbeat { animation: none; }
-  /* Mouvement coupé : on ne garde que le résultat, la vidéo montée. */
-  .duup-cursor, .duup-ref, .duup-f1, .duup-f2, .duup-f3, .duup-work { opacity: 0; }
-  .duup-final, .duup-msg1, .duup-msg2 { opacity: 1; transform: none; }
-  .duup-typing, .duup-caretbeat { opacity: 0; }
+  .duup-v1, .duup-v2, .duup-v3, .duup-v4, .duup-v5,
+  .duup-v6, .duup-v7, .duup-v8, .duup-v9, .duup-v10,
+  .duup-vary-a, .duup-vary-b, .duup-vary-c, .duup-vary-d, .duup-vary-e,
+  .duup-vary-f, .duup-vary-g, .duup-vary-h, .duup-vary-i, .duup-vary-j,
+  .duup-vscan, .duup-vask, .duup-vtype, .duup-vcaret, .duup-vdone { animation: none; }
+  /* Mouvement coupé : on ne garde que le résultat, les six variantes générées.
+     Les .duup-vary-* gardent leur filtre de repos (porté par la classe), donc
+     les vignettes restent visiblement différentes même figées. */
+  .duup-v1, .duup-v2, .duup-v3, .duup-v4, .duup-v5,
+  .duup-v6, .duup-v7, .duup-v8, .duup-v9, .duup-v10 { opacity: 1; transform: none; }
+  .duup-vdone { opacity: 1; transform: none; }
+  .duup-vscan, .duup-vask { opacity: 0; }
+  /* Aperçu des assets : les flocons restent posés, le flash reste éteint. */
+  .duup-snowfall, .duup-flashpulse { animation: none; }
+  .duup-flashpulse { opacity: 0; }
   /* La scène reste lisible d'un bloc, simplement figée. */
   .duup-b1, .duup-b2, .duup-b3, .duup-b4, .duup-b5, .duup-b6 { opacity: 1; transform: none; }
   .duup-scanline { opacity: 0; }

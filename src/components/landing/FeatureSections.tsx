@@ -4,17 +4,17 @@ import Link from "@/components/LocaleLink";
 import { useParams } from "next/navigation";
 import { BLUE, CTA_GRAD, Label, SECTION_LEAD, SECTION_TITLE, SECTION_TITLE_STYLE } from "@/components/landing/shell";
 import { showcaseUrl, useInViewOnce, useLoopInView, useReducedMotion } from "@/components/landing/videoShowcase";
-import { AiEditorMockup, CLAUDE_WORDMARK, DuplicationMockup, ModuleArt } from "@/components/landing/featureMockups";
+import { CLAUDE_WORDMARK, DuplicationMockup, ModuleArt, VariantsMockup } from "@/components/landing/featureMockups";
 
 /* ══════════════════════════════════════════════════════════════
  * FONCTIONNALITÉS — une section par feature principale, puis les modules.
- * Ordre volontaire : l'éditeur IA passe en premier (feature prioritaire).
+ * Ordre volontaire : le générateur de variantes passe en premier (feature prioritaire).
  * Chaque section montre un screen record réel du produit, jamais un mockup.
  * Chargement paresseux + reduced-motion → @/components/landing/videoShowcase
  * ══════════════════════════════════════════════════════════════ */
 
 type Media = {
-  /** MP4 H.264 vertical 9:16, muet, en boucle — ex. showcaseUrl("feature-ai-editor.mp4") */
+  /** MP4 H.264 vertical 9:16, muet, en boucle — ex. showcaseUrl("feature-variants.mp4") */
   src: string;
   /** Poster JPEG/WebP 1080x1920 — OBLIGATOIRE, affiché avant toute lecture */
   poster: string;
@@ -55,21 +55,21 @@ const LEAD_CLASS = SECTION_LEAD;
  * ───────────────────────────────────────────────────────────── */
 export const FEATURE_SECTIONS: FeatureSection[] = [
   {
-    key: "ai-editor",
+    key: "variants",
     icon: <svg className={ICON} viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 1.9 4.8L18 9.5l-4.1 1.7L12 16l-1.9-4.8L6 9.5l4.1-1.7Z" /></svg>,
-    mockup: (l, r) => <AiEditorMockup locale={l} reduced={r} />,
-    eyebrow: { fr: "Éditeur IA", en: "AI Editor" },
-    title: { fr: "Décris ton montage, l'IA s'occupe du reste.", en: "Describe your edit, the AI does the rest." },
+    mockup: (l, r) => <VariantsMockup locale={l} reduced={r} />,
+    eyebrow: { fr: "Générateur de variantes", en: "Variant generator" },
+    title: { fr: "Une vidéo, autant de versions que tu veux.", en: "One video, as many versions as you want." },
     sub: {
-      fr: "Tes rushes bruts deviennent une vidéo montée en quelques minutes.",
-      en: "Your raw footage becomes a finished video, in minutes.",
+      fr: "L'IA remonte ta vidéo en série : chaque version a ses propres coupes, son accroche et son cadrage.",
+      en: "The AI re-edits your video in batches: every version gets its own cuts, hook and framing.",
     },
     media: {
       src: "",
       poster: "",
       alt: {
-        fr: "Capture de l'éditeur IA : des rushes uploadés, une consigne en langage naturel, le montage assemblé automatiquement.",
-        en: "AI Editor screen record: uploaded footage, a plain-language prompt, the edit assembled automatically.",
+        fr: "Capture du générateur de variantes : une vidéo de départ, un nombre de versions demandé, les montages différents qui sortent les uns après les autres.",
+        en: "Variant generator screen record: one source video, a number of versions requested, the different edits coming out one after another.",
       },
     },
     /* Numérotées : ce sont des étapes, pas une liste de caractéristiques. */
@@ -77,16 +77,16 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
     poweredByClaude: true,
     lines: [
       {
-        fr: ["Ajoute ton style de montage", "Une vidéo de référence ou une consigne écrite : l'IA en déduit le rythme, les coupes et les sous-titres."],
-        en: ["Set your editing style", "A reference video or a written prompt: the AI infers the pacing, the cuts and the captions."],
+        fr: ["Dépose ta vidéo", "Un montage déjà fini ou tes rushes bruts : les deux marchent, dans n'importe quel format."],
+        en: ["Drop in your video", "A finished edit or your raw footage: both work, in any format."],
       },
       {
-        fr: ["Rentre tes fichiers", "Glisse tes rushes bruts, dans n'importe quel format."],
-        en: ["Drop in your files", "Add your raw footage, in any format."],
+        fr: ["Dis combien de versions tu veux", "Un nombre, et rien d'autre à régler. Une consigne écrite ou une vidéo de référence si tu as un style précis en tête."],
+        en: ["Say how many versions you want", "Just a number, nothing else to set. Add a written prompt or a reference video if you have a specific style in mind."],
       },
       {
-        fr: ["Laisse Claude faire le montage", "L'agent assemble, cale les coupes sur les beats et sort la vidéo prête à publier."],
-        en: ["Let Claude do the edit", "The agent assembles it, locks the cuts to the beats and returns a video ready to post."],
+        fr: ["Récupère-les toutes d'un coup", "Claude remonte chaque version différemment — coupes, accroche, cadrage, sous-titres — et te les rend prêtes à poster."],
+        en: ["Get them all at once", "Claude edits every version differently — cuts, hook, framing, captions — and hands them back ready to post."],
       },
     ],
   },

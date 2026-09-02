@@ -2179,6 +2179,16 @@
       "pos_bc": "Bas centre",
       "pos_br": "Bas droite"
     },
+    "assets": {
+      "title": "Assets (effets visuels)",
+      "tip": "Ajoute un effet visuel par-dessus la vidéo, sur toute sa durée.\nChaque effet a son propre curseur d'opacité : à faible opacité il se remarque à peine, à forte opacité il devient un parti pris esthétique.\nLes réglages exacts (vitesse de chute, rythme des flashs) varient d'une copie à l'autre.",
+      "enable": "Activer les assets",
+      "snow": "Flocons",
+      "snowDesc": "Des flocons tombent sur l'écran pendant toute la vidéo. La chute est un peu différente sur chaque copie.",
+      "flash": "Flashs",
+      "flashDesc": "Une série de flashs lumineux ponctue la vidéo. Le rythme change d'une copie à l'autre.",
+      "perfNote": "⚠️ Un asset activé impose un ré-encodage complet de la vidéo : la duplication prend un peu plus de temps."
+    },
     "legacy": {
       "duplicating": "Duplication en cours…",
       "duplicateButton": "Dupliquer les vidéos",

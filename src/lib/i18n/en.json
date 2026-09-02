@@ -2170,6 +2170,16 @@
       "pos_bc": "Bottom center",
       "pos_br": "Bottom right"
     },
+    "assets": {
+      "title": "Assets (visual effects)",
+      "tip": "Adds a visual effect over the video, for its whole length.\nEach effect has its own opacity slider: at low opacity it is barely noticeable, at high opacity it becomes a deliberate look.\nThe exact settings (fall speed, flash timing) vary from one copy to the next.",
+      "enable": "Enable assets",
+      "snow": "Snowflakes",
+      "snowDesc": "Snowflakes fall across the screen for the whole video. The fall differs slightly on every copy.",
+      "flash": "Flashes",
+      "flashDesc": "A series of light flashes punctuates the video. The timing changes from one copy to the next.",
+      "perfNote": "⚠️ Any enabled asset forces a full re-encode of the video: duplication takes a little longer."
+    },
     "legacy": {
       "duplicating": "Duplicating…",
       "duplicateButton": "Duplicate videos",

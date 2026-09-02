@@ -8,12 +8,8 @@ const LOCALES = ["fr", "en"] as const;
 // sitemap so crawlers only see the canonical /<locale>/<slug> versions.
 const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly" | "yearly"; priority: number }> = [
   { path: "",               changeFrequency: "weekly",  priority: 1.0 }, // home
-  { path: "/features",      changeFrequency: "monthly", priority: 0.8 },
-  { path: "/how-it-works",  changeFrequency: "monthly", priority: 0.7 },
   { path: "/pricing",       changeFrequency: "monthly", priority: 0.8 },
-  { path: "/benefits",      changeFrequency: "monthly", priority: 0.6 },
   { path: "/partners",      changeFrequency: "monthly", priority: 0.5 },
-  { path: "/demo",          changeFrequency: "monthly", priority: 0.5 },
   { path: "/blog",          changeFrequency: "weekly",  priority: 0.7 },
   { path: "/capcut-alternative", changeFrequency: "monthly", priority: 0.8 },
   { path: "/login",         changeFrequency: "yearly",  priority: 0.4 },

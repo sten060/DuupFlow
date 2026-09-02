@@ -56,9 +56,8 @@ export default function Header() {
 
             {/* Nav — desktop only */}
             <nav className="hidden xl:flex items-center gap-1">
-              <NavLink href={lh("/features")} label={t("nav.fonctionnalites")} light={light} />
+              <NavLink href={lh("/#features")} label={t("nav.fonctionnalites")} light={light} />
               <NavLink href={lh("/pricing")} label={t("nav.tarifs")} light={light} />
-              <NavLink href={lh("/#features")} label={t("nav.avantages")} light={light} />
               <NavLink href="https://www.duupflow.com/#faq" label={t("nav.faq")} light={light} />
             </nav>
           </div>
@@ -109,9 +108,8 @@ export default function Header() {
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
         <nav className="flex flex-col gap-1">
-          <NavLink href={lh("/features")} label={t("nav.fonctionnalites")} onClick={() => setMenuOpen(false)} />
+          <NavLink href={lh("/#features")} label={t("nav.fonctionnalites")} onClick={() => setMenuOpen(false)} />
           <NavLink href={lh("/pricing")} label={t("nav.tarifs")} onClick={() => setMenuOpen(false)} />
-          <NavLink href={lh("/#features")} label={t("nav.avantages")} onClick={() => setMenuOpen(false)} />
           <NavLink href="https://www.duupflow.com/#faq" label={t("nav.faq")} onClick={() => setMenuOpen(false)} />
         </nav>
         <div className="mt-auto pt-6 flex flex-col gap-3">

@@ -33,7 +33,7 @@ export type OutputVideo = {
  *   {
  *     src: showcaseUrl("output-1.mp4"),
  *     poster: showcaseUrl("output-1.jpg"),
- *     label: { fr: "Rushes bruts → montage auto, 2 min", en: "Raw footage → auto edit, 2 min" },
+ *     label: { fr: "1 vidéo → 10 montages différents", en: "1 video → 10 different edits" },
  *   },
  * ───────────────────────────────────────────────────────────── */
 export const OUTPUT_VIDEOS: OutputVideo[] = [];
@@ -43,7 +43,7 @@ const PLACEHOLDER_COUNT = 8;
 
 /* Légendes d'exemple, pour que les emplacements vides restent lisibles. */
 const PLACEHOLDER_LABELS: { fr: string; en: string }[] = [
-  { fr: "Rushes bruts → montage auto, 2 min", en: "Raw footage → auto edit, 2 min" },
+  { fr: "1 vidéo → 10 montages différents", en: "1 video → 10 different edits" },
   { fr: "1 vidéo → 10 variantes uniques", en: "1 video → 10 unique variants" },
 ];
 
@@ -336,8 +336,8 @@ export default function OutputGallery() {
           </h2>
           <p className={`mx-auto mt-4 max-w-lg ${SECTION_LEAD}`}>
             {locale === "en"
-              ? "Not mockups: videos actually produced by the tool. Click one to play it with sound."
-              : "Pas des maquettes : des vidéos réellement sorties de l'outil. Clique pour l'écouter avec le son."}
+              ? "Not mockups: videos actually produced by the tool."
+              : "Pas des maquettes : des vidéos réellement sorties de l'outil."}
           </p>
         </div>
       </div>
