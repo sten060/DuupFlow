@@ -13,8 +13,8 @@ export const BEFORE_AFTER = {
   rows: [
     {
       key: "edit",
-      fr: { label: "Monter une vidéo", before: "45 min", beforeNote: "coupes, sous-titres, export", after: "3 min", afterNote: "une version montée par l'IA", gain: "15× plus rapide" },
-      en: { label: "Edit one video", before: "45 min", beforeNote: "cuts, captions, export", after: "3 min", afterNote: "one version edited by the AI", gain: "15× faster" },
+      fr: { label: "Monter une vidéo", before: "45 min", beforeNote: "coupes, sous-titres, export", after: "3 min", afterNote: "montage piloté par l'IA", gain: "15× plus rapide" },
+      en: { label: "Edit one video", before: "45 min", beforeNote: "cuts, captions, export", after: "3 min", afterNote: "AI-driven edit", gain: "15× faster" },
     },
     {
       key: "variants",

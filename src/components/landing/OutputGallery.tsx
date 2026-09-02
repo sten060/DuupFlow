@@ -33,7 +33,7 @@ export type OutputVideo = {
  *   {
  *     src: showcaseUrl("output-1.mp4"),
  *     poster: showcaseUrl("output-1.jpg"),
- *     label: { fr: "1 vidéo → 10 montages différents", en: "1 video → 10 different edits" },
+ *     label: { fr: "Rushes bruts → montage auto, 2 min", en: "Raw footage → auto edit, 2 min" },
  *   },
  * ───────────────────────────────────────────────────────────── */
 export const OUTPUT_VIDEOS: OutputVideo[] = [];
@@ -43,7 +43,7 @@ const PLACEHOLDER_COUNT = 8;
 
 /* Légendes d'exemple, pour que les emplacements vides restent lisibles. */
 const PLACEHOLDER_LABELS: { fr: string; en: string }[] = [
-  { fr: "1 vidéo → 10 montages différents", en: "1 video → 10 different edits" },
+  { fr: "Rushes bruts → montage auto, 2 min", en: "Raw footage → auto edit, 2 min" },
   { fr: "1 vidéo → 10 variantes uniques", en: "1 video → 10 unique variants" },
 ];
 
