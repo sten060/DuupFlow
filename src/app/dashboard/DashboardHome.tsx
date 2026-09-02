@@ -6,6 +6,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import VariationAnnouncementModal from "./VariationAnnouncementModal";
 import TikTokAnnouncementModal, { TIKTOK_DEST, TIKTOK_SEEN_KEY } from "./TikTokAnnouncementModal";
 import StarterAnnounceModal, { STARTER_SEEN_KEY } from "./StarterAnnounceModal";
+import AffiliateAnnounceModal, { AFFILIATE_SEEN_KEY } from "./AffiliateAnnounceModal";
 import ReplayMenu from "./onboarding/ReplayMenu";
 import GlobalDocsDrawer from "./components/GlobalDocsDrawer";
 import PromoPopup from "./PromoPopup";
@@ -208,6 +209,7 @@ export default function DashboardHome({
   starterAnnounceEligible = false,
   promoEligible = false,
   promoLoginKey = null,
+  affiliateAnnounceEligible = false,
 }: {
   firstName: string | null;
   agencyName: string | null;
@@ -224,6 +226,9 @@ export default function DashboardHome({
   promoEligible?: boolean;
   /** Changes on every sign-in (last_sign_in_at) so the promo re-shows per login. */
   promoLoginKey?: string | null;
+  /** True ONLY for users who existed before the affiliate-program launch →
+   *  gates the one-shot affiliate announcement (new signups never see it). */
+  affiliateAnnounceEligible?: boolean;
 }) {
   const [showReplay, setShowReplay] = useState(false);
   const [showNews, setShowNews] = useState(false);
@@ -255,6 +260,19 @@ export default function DashboardHome({
     if (variationAnnouncementPending || tiktokWillShow) return;
     if (localStorage.getItem(STARTER_SEEN_KEY) !== "1") setShowStarter(true);
   }, [starterAnnounceEligible, variationAnnouncementPending, tiktokAnnouncementPending]);
+
+  // Affiliate-program launch pop-up — EXISTING users only (gated upstream by
+  // account-creation date), shown once (localStorage guard). Deferred if another
+  // one-shot announcement is due, so pop-ups never stack.
+  const [showAffiliate, setShowAffiliate] = useState(false);
+  useEffect(() => {
+    if (!affiliateAnnounceEligible) return;
+    if (localStorage.getItem(AFFILIATE_SEEN_KEY) === "1") return;
+    const tiktokWillShow = tiktokAnnouncementPending && localStorage.getItem(TIKTOK_SEEN_KEY) !== "1";
+    const starterWillShow = starterAnnounceEligible && localStorage.getItem(STARTER_SEEN_KEY) !== "1";
+    if (variationAnnouncementPending || tiktokWillShow || starterWillShow) return;
+    setShowAffiliate(true);
+  }, [affiliateAnnounceEligible, variationAnnouncementPending, tiktokAnnouncementPending, starterAnnounceEligible]);
 
   const { t } = useTranslation();
 
@@ -430,6 +448,7 @@ export default function DashboardHome({
       {/* One-shot TikTok solution launch announcement */}
       {showTikTok && <TikTokAnnouncementModal onDone={closeTikTok} />}
       {showStarter && <StarterAnnounceModal onDone={() => setShowStarter(false)} />}
+      {showAffiliate && <AffiliateAnnounceModal onDone={() => setShowAffiliate(false)} />}
 
 
       {/* -15% launch promo — activated free users only (slides in from the right). */}
