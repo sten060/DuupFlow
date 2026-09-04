@@ -873,7 +873,42 @@
       "apiUsageBody": "L'API DuupFlow te permet d'automatiser DuupFlow depuis tes propres outils (Make, n8n, Claude Code).",
       "apiUsageKey": "🔑 Une seule clé débloque tous les endpoints.",
       "apiUsagePro": "⭐ Réservé au plan Pro.",
-      "apiCta": "Ouvrir la page API"
+      "apiCta": "Ouvrir la page API",
+      "adviceTitle": "Conseils d'utilisation — éviter la détection",
+      "advicePrincipleTitle": "Le principe à comprendre d'abord",
+      "advicePrincipleBody": "Les plateformes ne se contentent pas de lire les métadonnées de tes fichiers : elles COMPARENT LES IMAGES entre elles. Deux copies qui se ressemblent à l'écran sont reconnues comme le même contenu, même avec des métadonnées entièrement différentes.",
+      "advicePrincipleKey": "Conséquence directe : plus la différence visuelle entre tes copies est FORTE, mieux ça passe. Les réglages discrets ne suffisent pas — il faut des variations franches.",
+      "adviceCase1Title": "Cas 1 — Ta vidéo n'a pas de texte à l'écran",
+      "adviceCase1Intro": "C'est la situation la plus favorable, et de loin. Deux réglages à activer :",
+      "adviceCase1Reverse": "Reverse (miroir horizontal) — LE plus efficace, à utiliser en priorité. Ta vidéo reste exactement la même pour un spectateur, mais elle devient totalement différente pour un algorithme, puisque chaque pixel change de place.",
+      "adviceCase1Watermark": "Watermark — fortement conseillé en complément. Il ajoute une couche qui bouge et qui change à chaque copie.",
+      "adviceCase1Warning": "Un seul point d'attention : le miroir inverse aussi le texte incrusté, les logos et l'écriture visible dans le décor. Si ta vidéo en contient, passe au cas 2.",
+      "adviceCase2Title": "Cas 2 — Ta vidéo est déjà montée (le reverse est impossible)",
+      "adviceCase2Intro": "Du texte à l'écran ? Un montage déjà fait ? Alors ne cherche pas à maquiller la même image : fais-en de VRAIES nouvelles versions avec l'Éditeur IA.",
+      "adviceCase2Step1": "Reprends ta vidéo d'origine, celle SANS montage, et donne-la comme matière.",
+      "adviceCase2Step2": "Ajoute ta vidéo déjà montée comme référence, pour que le style soit conservé.",
+      "adviceCase2Step3": "Demande à Claude plusieurs variantes avec un montage différent à chaque fois.",
+      "adviceCase2Why": "Tu n'obtiens plus des copies retouchées mais des montages réellement différents : coupes, rythme et cadrage changent. C'est ce qui ressemble le plus à du contenu original.",
+      "adviceCase2Cta": "Ouvrir l'Éditeur IA",
+      "adviceCase3Title": "Cas 3 — Aucune des deux options n'est possible",
+      "adviceCase3Intro": "Il te reste la manière forte : pousser les filtres de mouvement au maximum dans la duplication.",
+      "adviceCase3Body": "Zoom, rotation, recadrage, tremblement : appliqués franchement, ils déplacent suffisamment l'image pour creuser l'écart entre tes fichiers.",
+      "adviceCase3Warning": "À savoir avant de le faire : tes vidéos seront visuellement dégradées. C'est le prix à payer, et c'est un compromis assumé — plus de différence entre les copies, mais une qualité en baisse. À réserver aux cas où le miroir et l'Éditeur IA sont hors de portée.",
+      "motionPacksTitle": "Les 2 packs de mouvement, en détail",
+      "motionPacksIntro": "Les deux agissent sur le CADRAGE, mais pas de la même façon. Chacun a une pastille « Doux / Fort » sur sa carte : même mécanique, deux échelles. Voici lequel prendre et ce qu'il fait exactement.",
+      "motionClassicTitle": "Mouvement — le cadrage change, mais il ne bouge pas",
+      "motionClassicWhat": "Il recadre dans l'image, puis ré-agrandit ce morceau à la taille d'origine, et décale légèrement la vitesse. Ta vidéo est un peu plus « serrée », et chaque copie l'est à un endroit différent. Le cadrage reste FIGÉ du début à la fin.",
+      "motionClassicExample": "Exemple concret : sur une vidéo où tu es filmé en pied, la copie coupe quelques centimètres en haut et sur un côté. En Doux personne ne le remarque ; en Fort, la copie est nettement plus serrée sur toi, légèrement penchée, et se lit un peu plus vite.",
+      "motionClassicSpecs": "DOUX — recadrage-zoom 1,10× à 1,18×, vitesse ±1 à 3 % (l'audio suit, pas de décalage), pas d'inclinaison. Surface d'image perdue ≈ 17 à 28 %.\nFORT — recadrage-zoom 1,22× à 1,36×, vitesse ±4 à 8 %, plus une inclinaison fixe de ±0,6 à 1,5°. Surface d'image perdue ≈ 33 à 46 %.\nDans les deux cas : position du recadrage tirée au sort, cadrage figé du début à la fin.",
+      "motionClassicWhen": "Quand l'utiliser : Doux par défaut, quand tu veux rester au plus près de l'original. Passe en Fort si tes copies se font encore repérer — en vérifiant que le recadrage ne coupe pas un élément important (un sous-titre en bas, un logo dans un coin).",
+      "motionDynamicTitle": "Mouvement avancé — une chorégraphie qui se rejoue à chaque copie",
+      "motionDynamicWhat": "C'est le seul des trois où le cadrage n'est pas figé. Et il ne s'agit pas d'un mouvement lent du début à la fin : la caméra enchaîne des MOMENTS. Elle zoome doucement vers un point, puis d'un coup revient au cadrage normal, se pose, glisse vers la droite, fait un « pop » de zoom instantané, revient progressivement… L'ordre et la durée changent à chaque copie.",
+      "motionDynamicExample": "Exemple concret : la caméra se rapproche lentement de ton visage pendant 2 secondes, puis d'un coup l'image revient au cadrage normal. Une seconde de calme, puis elle glisse vers la gauche, un « pop » la fait bondir en avant, et elle revient tranquillement à sa place. La copie suivante jouera une suite complètement différente.",
+      "motionDynamicSpecs": "Quatre natures de moment : zoom progressif vers un point • retour au cadrage normal suivi d'une pause de 0,4 à 1,2 s • glissement progressif d'un bord à l'autre • « pop » de zoom suivi d'un retour progressif. Un mouvement lent et une rupture alternent toujours. La vitesse n'est jamais modifiée.\n\nFORT — zoom progressif 1,08× à 1,22×, pop 1,20× à 1,32× (instantané), glissement jusqu'à 30 % de la largeur, mouvements de 1 à 2,4 s. Surface d'image perdue : 0 % au repos, jusqu'à 43 % au sommet d'un pop.\nDOUX — zoom progressif 1,03× à 1,10×, pop 1,07× à 1,15×, glissement deux fois plus court, mouvements de 1,6 à 3 s, et le retour au cadrage normal se fait en 0,2 s au lieu d'une coupe sèche. Surface d'image perdue : 0 % au repos, ~18 % au maximum.\n\nSur les vidéos de plus de ~20 s, la chorégraphie se rejoue en boucle (cycle de 18 à 26 s, tiré au sort lui aussi). Le cycle repart du cadrage neutre, le raccord ne se voit pas.",
+      "motionDynamicWhen": "Quand l'utiliser : c'est le plus efficace des trois contre la reconnaissance de contenu, parce que deux copies ne se ressemblent à AUCUN instant. Prends FORT par défaut ; passe en DOUX si tu tiens à ton cadrage et que tu ne veux pas rogner l'image. Le tremblement, lui, a quitté ce pack : c'est une option indépendante, cochable avec n'importe quel pack.",
+      "motionStackTitle": "Peut-on cumuler les deux packs ?",
+      "motionStackBody": "Oui, mais ce n'est pas conseillé : les zooms se MULTIPLIENT. Mouvement (Fort) plus Mouvement avancé donne environ 1,66× de zoom, soit près des deux tiers de la surface rognée, et les changements de vitesse s'ajoutent. Choisis plutôt UN pack et monte sa pastille en Fort si le résultat ne suffit pas.",
+      "motionSpecsLabel": "Caractéristiques techniques"
     },
     "videosCommon": {
       "errorGeneric": "Une erreur est survenue lors de la duplication. Réessayez avec les fichiers manquants.",
@@ -942,8 +977,15 @@
         },
         "motion": {
           "label": "Mouvement",
-          "hint": "zoom, légère rotation",
-          "help": "Modifications infimes non visuelles :\nZoom 1.01×–1.04× • Micro panoramique 0–10% • Vitesse ±1–3% (audio synchronisé).\nImperceptible à l'œil, suffisant pour diversifier l'empreinte numérique."
+          "hint": "recadrage, vitesse, inclinaison",
+          "help": "Recadre dans l'image, ré-agrandit, et décale légèrement la vitesse. Le cadrage reste FIGÉ du début à la fin.\nDeux intensités, à choisir sur la carte :\n• Doux — zoom 1,10× à 1,18×, vitesse ±1 à 3 %. Discret, ~17 à 28 % de surface rognée.\n• Fort — zoom 1,22× à 1,36×, vitesse ±4 à 8 %, plus une légère inclinaison fixe. Deux copies ne se superposent plus, mais ~33 à 46 % de surface est rognée."
+        },
+        "motion_dynamic": {
+          "label": "Mouvement avancé",
+          "hint": "la caméra joue une chorégraphie",
+          "help": "Le seul pack où l'image bouge PENDANT la lecture — et pas d'un mouvement continu : une suite de moments enchaînés.\nZoom progressif vers un point (centre, gauche, droite, un coin…) • Retour au cadrage normal • Glissement progressif d'un côté à l'autre • « Pop » de zoom, puis retour progressif.\nDeux intensités, à choisir sur la carte :\n• Fort — le réglage le plus marqué, zooms jusqu'à 1,32×.\n• Doux — même chorégraphie en deux fois moins ample (zooms jusqu'à 1,15×), mouvements plus lents et retours adoucis. Pour ne pas trop rogner l'image.\nL'ordre, la durée et les points visés sont tirés au sort à chaque copie.\nLe tremblement n'est plus dans ce pack : c'est une option à cocher, en bas de la page.",
+          "modeDoux": "Doux",
+          "modeFort": "Fort"
         },
         "visual": {
           "label": "Visuels",
@@ -1636,74 +1678,24 @@
   },
   "chatbot": {
     "header": "Assistance DuupFlow",
-    "reduce": "Réduire",
-    "expand": "Agrandir",
-    "restart": "Recommencer",
-    "start": "Salut ! 👋 Comment je peux t'aider ?",
-    "dupProblem": "Quel type de problème rencontres-tu ?",
-    "dupError": "Essaie ces étapes :\n\n1. Vérifie que ta vidéo fait moins de 2 minutes\n2. Vérifie que le format est MP4, MOV, MKV ou AVI\n3. Relance la duplication\n\nSi le problème persiste, contacte le support.",
-    "dupQuality": "Les packs 'Métadonnées', 'Audio', 'Mouvement' et 'Technique' ne modifient pas le visuel. Seul le pack 'Visuels' applique des changements visibles (très légers).\n\nSi tu vois une teinte jaune sur une vidéo iPhone HDR, c'est normal, le système convertit automatiquement le HDR en SDR.",
-    "dupSlow": "La vitesse dépend de la durée de la vidéo et du nombre de copies. Conseils :\n\n• Réduis la durée (max 2 min)\n• Lance moins de copies à la fois\n• Les packs 'Mouvement' et 'Visuels' sont plus lents que 'Métadonnées' seul",
-    "abo": "Que veux-tu savoir sur ton abonnement ?",
-    "aboChange": "Va dans le menu 'Abonnement' dans la sidebar. Tu peux y voir ton plan actuel et le modifier.",
-    "aboLimit": "Chaque plan a un nombre de duplications par mois. Si tu as atteint ta limite, tu peux passer au plan supérieur depuis l'onglet 'Abonnement'.",
-    "howTo": "DuupFlow est simple :\n\n1. Va dans 'Images' ou 'Vidéos'\n2. Upload ton fichier\n3. Choisis tes packs/filtres\n4. Clique sur 'Dupliquer'\n5. Télécharge les copies\n\nChaque copie est unique (métadonnées, pixels, hash différents).",
-    "other": "Je ne peux pas répondre à toutes les questions. Contacte notre support directement !",
-    "contact": "Notre équipe est disponible sur Telegram pour t'aider rapidement.",
-    "aiDetection": "Que veux-tu savoir sur la Détection IA ?",
-    "aiWhat": "Le module Détection IA efface toutes les métadonnées IA de tes fichiers (EXIF, XMP, IPTC, C2PA) et les remplace par une identité humaine réaliste.\n\nRésultat : ton contenu généré par IA passe pour un contenu créé par un humain avec un appareil photo réel.",
-    "aiVisual": "Non, aucune modification visuelle. Seules les métadonnées sont modifiées. Les pixels de ton image/vidéo restent identiques.\n\nPour contourner la détection visuelle des plateformes, combine ce module avec la Duplication Images (filtres visuels).",
-    "aiPlatforms": "Ce module supprime les signatures IA détectées par Meta, Instagram, Threads, et toute plateforme utilisant C2PA/JUMBF.\n\nPour une protection maximale, combine avec la Duplication (métadonnées + visuels).",
-    "newFeatures": "Voici les dernières nouveautés de DuupFlow :",
-    "featIphone": "⚡ Priorité d'algorithme simule une vidéo/photo provenant d'un vrai iPhone.\n\nElle injecte des métadonnées Apple authentiques : appareil, version iOS, caméra, GPS, signature. Le fichier vidéo sort en format .mov (comme un vrai iPhone).\n\nLes plateformes pensent que le contenu vient d'un appareil réel.",
-    "featPixel": "✨ Pixel magique ajoute du bruit imperceptible à chaque pixel de chaque frame.\n\nVisuellement identique, mais le hash du fichier est complètement différent. Les algorithmes de détection de doublons voient un fichier unique.",
-    "featMetaTech": "🔧 Métadonnées technique modifie le bitrate vidéo, le GOP, le FPS et le profil H.264.\n\nCes paramètres techniques rendent chaque copie unique au niveau du codec sans modification visuelle perceptible.",
-    "featComparator": "🔍 Le Comparateur de métadonnées analyse deux fichiers et affiche côte à côte toutes leurs métadonnées.\n\nTu peux vérifier que tes duplications sont bien différentes de l'original. Les différences sont surlignées en vert avec un score de similarité.",
-    "resolved": "Super ! N'hésite pas si tu as d'autres questions.",
-    "opt": {
-      "dupProblem": "Problème avec une duplication",
-      "subscription": "Question sur mon abonnement",
-      "howToUse": "Comment utiliser DuupFlow ?",
-      "aiDetection": "Module Détection IA",
-      "newFeatures": "Nouvelles fonctionnalités",
-      "otherQuestion": "Autre question",
-      "dupFails": "La duplication échoue / erreur",
-      "qualityDifferent": "La qualité visuelle est différente",
-      "tooSlow": "C'est trop lent",
-      "other": "Autre",
-      "resolved": "C'est résolu, merci !",
-      "stillNotWorking": "Ça ne marche toujours pas",
-      "otherIssue": "J'ai un autre souci",
-      "okUnderstood": "OK, compris !",
-      "stillSlow": "C'est toujours trop lent",
-      "changePlan": "Comment changer de plan ?",
-      "reachedLimit": "J'ai atteint ma limite",
-      "paymentIssue": "Problème de paiement",
-      "thanks": "Merci !",
-      "needHelp": "J'ai besoin d'aide",
-      "okCheck": "OK, je vais voir !",
-      "clear": "Merci, c'est clair !",
-      "anotherQuestion": "J'ai une autre question",
-      "contactSupport": "Contacter le support",
-      "backToStart": "Retour au début",
-      "openTelegram": "Ouvrir Telegram",
-      "aiWhat": "À quoi sert ce module ?",
-      "aiVisual": "Est-ce que ça modifie le visuel ?",
-      "aiPlatforms": "Ça fonctionne avec quelles plateformes ?",
-      "aiVisualQ": "Ça modifie le visuel ?",
-      "understood": "Compris, merci !",
-      "perfect": "Parfait, merci !",
-      "algoPriority": "Priorité d'algorithme",
-      "pixelMagic": "Pixel magique",
-      "metaTech": "Métadonnées technique",
-      "comparator": "Comparateur de métadonnées",
-      "back": "Retour",
-      "great": "Super, merci !",
-      "otherFeature": "Autre nouveauté",
-      "gotIt": "Compris !",
-      "ok": "OK !",
-      "cool": "Cool !"
-    }
+    "tabHome": "Accueil",
+    "tabMessage": "Message",
+    "tabArticles": "Articles",
+    "homeTitle": "Comment peut-on t'aider ?",
+    "homeSubtitle": "On répond en quelques minutes.",
+    "getHelp": "Obtenir de l'aide",
+    "sendMessage": "Nous envoyer un message",
+    "readArticles": "Lire nos articles d'aide",
+    "messageTitle": "Écris-nous",
+    "messageSubtitle": "Choisis le canal qui t'arrange.",
+    "telegram": "Support Telegram",
+    "telegramDesc": "Réponse rapide, canal recommandé",
+    "email": "Email",
+    "messageSoon": "💬 Un assistant IA arrivera bientôt à cette place pour répondre directement dans le chat. En attendant, l'équipe te répond sur Telegram ou par email.",
+    "searchPlaceholder": "Rechercher dans l'aide…",
+    "noResult": "Aucun article ne correspond.",
+    "back": "Retour",
+    "close": "Fermer"
   },
   "vid": {
     "drop": {
@@ -1719,7 +1711,8 @@
     },
     "opt": {
       "flip": "Flip (vertical)",
-      "reverse": "Reverse (miroir horizontal)"
+      "reverse": "Reverse (miroir horizontal)",
+      "shake": "Tremblement (caméra à l'épaule)"
     },
     "upload": {
       "start": "Envoi vidéo 1/{total}…",
@@ -2290,6 +2283,62 @@
       "affKicker": "Programme d'affiliation",
       "affText": "Gagne 20 % de commission sur chaque abonnement que tu apportes. Récurrent, tant que le client reste.",
       "affCta": "Devenir affilié"
+    }
+  },
+  "help": {
+    "group": "Dépannage",
+    "detected": {
+      "title": "Mes vidéos sont détectées comme non-originales",
+      "intro": "Dupliquer un fichier ne suffit pas toujours : les algorithmes comparent le RENDU VISUEL, pas seulement le fichier et ses métadonnées. Quand des copies remontent quand même comme non-originales, deux causes reviennent presque à chaque fois.",
+      "light": "Des réglages trop légers — si les filtres appliqués restent discrets, la copie ressemble encore à l'originale à l'œil nu. Pour un algorithme, deux images quasi identiques restent deux images identiques : monte l'intensité, active le miroir (reverse), ajoute un pack de mouvement et un watermark.",
+      "tooMany": "Trop de copies tirées de la même vidéo — c'est plus rare, mais si une copie se fait repérer, les autres, issues de la même source, peuvent tomber avec elle. Espace les publications et limite le nombre de copies par vidéo d'origine.",
+      "reco": "💡 Le réflexe qui marche : plutôt que 10 copies avec des réglages légers, fais-en 3 ou 4 avec des réglages francs (reverse + mouvement + watermark). La copie doit être visiblement différente à l'œil, pas seulement dans le fichier."
+    },
+    "editor": {
+      "group": "Éditeur IA",
+      "how": {
+        "title": "Comment marche l'Éditeur IA",
+        "intro": "L'Éditeur IA ne monte pas tout seul dans son coin : c'est TON Claude qui fait le montage, DuupFlow lui donne les yeux (ta référence) et les mains (ta matière). Trois étapes à faire une seule fois, ensuite tout se passe en conversation.",
+        "s1": "Connecte ton Claude — copie l'adresse du connecteur, colle-la dans Claude (Réglages → Connecteurs → Ajouter un connecteur personnalisé), puis clique Autoriser. Une seule fois, et ça marche sur claude.ai, Claude Desktop et mobile — même en plan gratuit.",
+        "s2": "Ajoute une référence — la vidéo qui a performé. DuupFlow en extrait le hook, le rythme, les coupes et la transcription.",
+        "s3": "Ajoute ta matière — tes rushes, images et sons, avec une courte description pour chacun.",
+        "s4": "Parle à ton Claude — demande-lui de reproduire la référence avec ta matière. Les variantes apparaissent en direct dans ton espace DuupFlow.",
+        "reco": "💡 À retenir : le montage se pilote depuis ta conversation Claude, pas depuis DuupFlow. DuupFlow, c'est l'endroit où tu déposes les fichiers et où tu récupères les vidéos."
+      },
+      "ref": {
+        "title": "Quelle vidéo mettre en référence",
+        "intro": "La référence, c'est le modèle à reproduire. Deux usages possibles, exactement le même geste.",
+        "mine": "Ta propre vidéo — déjà montée. Ajoute ensuite les fichiers qui ont servi à la fabriquer : tu récupères des variantes de ta vidéo.",
+        "competitor": "La vidéo d'un concurrent — l'IA en analyse la STRUCTURE (hook, rythme, coupes, style de texte), jamais son contenu. Avec ta matière, tu obtiens ta version de ce qui marche.",
+        "input": "Fichier ou lien — MP4 et MOV en glisser-déposer, ou colle un lien. TikTok et YouTube publics fonctionnent directement ; Instagram peut demander d'être connecté.",
+        "reco": "💡 Une réf courte et nette vaut mieux qu'une longue : c'est sa structure qui est copiée, pas sa durée."
+      },
+      "prompt": {
+        "title": "Que demander à ton Claude",
+        "intro": "Claude monte à partir de ce que tu lui dis. Le bouton « Copier le prompt » de ton espace de travail donne un point de départ tout prêt — ensuite, c'est une conversation normale.",
+        "look": "Fais-le d'abord regarder — demande-lui d'analyser la réf et de t'expliquer en trois lignes ce qui la fait marcher, AVANT de fabriquer quoi que ce soit.",
+        "several": "Demande plusieurs versions — « fais-m'en 3, avec un rush différent à chaque plan ».",
+        "iterate": "Corrige au fil de l'eau — « le hook est trop long », « mets les sous-titres en jaune », « coupe sur la musique ». Il refait la variante.",
+        "describe": "Décris tes fichiers — la petite description sous chaque fichier (« plan produit de face ») est ce qui lui permet de placer le bon plan au bon moment.",
+        "reco": "💡 Aucun vocabulaire technique à connaître : parle-lui comme tu parlerais à un monteur."
+      },
+      "novariant": {
+        "title": "Mes variantes n'apparaissent pas",
+        "intro": "Les variantes sont créées depuis ta conversation Claude et remontent toutes seules dans ton espace de travail. Quand rien n'arrive, c'est presque toujours l'une de ces quatre causes.",
+        "connector": "Le connecteur n'est plus autorisé — Claude répond qu'il n'a pas accès à DuupFlow : clique « Reconnecter Claude » et refais Autoriser.",
+        "ref": "La référence n'est pas analysée — tant que le badge n'affiche pas « structure analysée », Claude n'a rien à reproduire. Relance l'analyse.",
+        "material": "Aucune matière — sans fichier à monter, il ne peut rien fabriquer : il n'utilise QUE ta matière.",
+        "quota": "Quota atteint — chaque variante rendue compte pour une vidéo, dans le même compteur que la duplication. Le rendu est bloqué net tant qu'il n'y a pas de quota disponible.",
+        "reco": "⏳ Les variantes sont temporaires : télécharge celles que tu veux garder. Ta référence et ta matière, elles, restent en place."
+      },
+      "limits": {
+        "title": "Ce que l'Éditeur IA ne fera pas",
+        "intro": "Trois limites assumées. Les connaître évite de tourner en rond à demander la même chose de dix façons.",
+        "material": "Aucune image qui ne vient pas de toi — pas de banque d'images, pas de b-roll généré, aucun asset extérieur. Pas de fichier adapté dans ta matière = pas ce plan-là.",
+        "editorial": "Aucun choix éditorial à ta place — il coupe les blancs, les hésitations et les redites. Réordonner ton propos, le résumer ou décider du « meilleur passage » : non, ça reste ton rôle.",
+        "motion": "Le motion design lourd est approché — 3D, particules, morphings : il reproduit l'intention (layout, rythme, couleurs, texte), pas l'effet au pixel près.",
+        "reco": "💡 La barre, c'est la structure : mêmes moments, même rythme, même style de texte. Pas une copie image par image."
+      }
     }
   }
 }

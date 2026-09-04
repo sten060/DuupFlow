@@ -11,6 +11,9 @@ import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 import { checkUsage, incrementUsage } from "@/lib/usage";
 import { runImageOp } from "@/lib/imageProcessingLimiter";
 import { getServerT } from "@/lib/i18n/server";
+import { buildHumanMeta } from "@/lib/ai-identity";
+import { prepareCounterWatermark, resolveWatermarkOverlay, type PreparedWatermark } from "@/app/dashboard/videos/watermark";
+import { buildOverlayFilterComplex, type VideoOverlay } from "@/app/dashboard/videos/overlays";
 
 /* ── constants ── */
 const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp"];
@@ -31,19 +34,140 @@ const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
  * On efface enfin le `vendor_id=FFMP` que le muxer MOV réinjecte (empreinte
  * « traité par ffmpeg »).
  */
-async function stripVideoMetadata(input: string, output: string, ext: string): Promise<void> {
+/**
+ * Nom du fichier produit : « DF » suivi du nom d'origine.
+ *
+ * L'ancien schéma écrivait `DuupFlow_20260903_nomask_a3f9.png` : le nom du
+ * produit ET le mot « nomask » DANS le fichier livré — exactement ce qu'on
+ * cherche à ne pas laisser traîner.
+ *
+ * Le nom vient d'un upload : on ne garde donc que le nom de base (jamais un
+ * chemin), on retire ce qui n'a rien à faire dans un nom de fichier, et on
+ * ajoute un suffixe court UNIQUEMENT en cas de collision — sinon deux fichiers
+ * homonymes du même lot s'écraseraient l'un l'autre.
+ */
+async function outputName(dir: string, original: string, outExt: string): Promise<string> {
+  const base = path
+    .basename(original)                       // coupe tout chemin (../ inclus)
+    .replace(/\.[^.]*$/, "")                  // retire l'extension d'origine
+    .replace(/[^\p{L}\p{N} ._-]/gu, "")       // caractères de nom de fichier sains
+    .trim()
+    .slice(0, 80) || "video";
+  let name = `DF${base}${outExt}`;
+  for (let i = 2; i <= 99; i++) {
+    try {
+      await fs.access(path.join(dir, name));
+      name = `DF${base}-${i}${outExt}`;       // déjà pris → on décale
+    } catch {
+      return name;                             // libre
+    }
+  }
+  return `DF${base}-${randHex(2)}${outExt}`;
+}
+
+async function probeVideo(input: string, bin: string): Promise<{ durationSec: number; width: number; height: number }> {
+  const out = await new Promise<string>((resolve) => {
+    const p = spawn(bin, ["-hide_banner", "-i", input], { stdio: ["ignore", "ignore", "pipe"] });
+    let err = "";
+    p.stderr.on("data", (d) => (err += String(d)));
+    p.on("close", () => resolve(err));
+    p.on("error", () => resolve(""));
+  });
+  const dur = out.match(/Duration:\s*(\d+):(\d+):(\d+\.?\d*)/);
+  const dim = out.match(/,\s*(\d{2,5})x(\d{2,5})[\s,]/);
+  let width = dim ? +dim[1] : 0;
+  let height = dim ? +dim[2] : 0;
+  // Rotation du conteneur : un téléphone filme à l'horizontale et note « tourne
+  // de 90° » dans le fichier. Les dimensions annoncées sont donc à l'envers de
+  // celles que ffmpeg décode — sans ça, le scale écrase une vidéo verticale
+  // dans un cadre horizontal.
+  const rot = out.match(/rotation of\s*(-?\d+(?:\.\d+)?)\s*degrees/i);
+  if (rot && Math.abs(Math.round(parseFloat(rot[1]))) % 180 === 90 && width > 0 && height > 0) {
+    [width, height] = [height, width];
+  }
+  return {
+    durationSec: dur ? (+dur[1]) * 3600 + (+dur[2]) * 60 + parseFloat(dur[3]) : 0,
+    width,
+    height,
+  };
+}
+
+/**
+ * Nettoie une vidéo : métadonnées effacées ET pixels ré-encodés avec un
+ * contre-watermark.
+ *
+ * ── Ce qui a changé, et pourquoi ────────────────────────────────────────────
+ * Ce module se contentait d'un REMUX (`-c copy`) : il reconstruisait le
+ * conteneur sans jamais toucher au film. Mesuré : le flux vidéo ET le flux
+ * audio ressortaient identiques au bit près (même MD5 qu'à l'entrée). Tout ce
+ * que le générateur avait laissé DANS l'image ou DANS le son repartait donc
+ * intact — or c'est précisément là que les plateformes regardent pour la vidéo.
+ *
+ * Désormais : ré-encodage complet avec une forme aléatoire, en mouvement, à
+ * 0,2–1 % d'opacité (invisible à l'œil, cf. prepareCounterWatermark). Chaque
+ * sortie est donc unique au niveau pixel.
+ *
+ * ⚠️ À ne pas se raconter : ça ne RETIRE pas un filigrane de provenance type
+ * SynthID, conçu pour survivre au ré-encodage. Ça change les pixels, ça ne
+ * neutralise pas un marquage robuste.
+ *
+ * On garde les acquis du remux : `-map_metadata -1` (donc C2PA/JUMBF, XMP,
+ * dates, atomes propriétaires), pistes de données abandonnées, vendor_id purgé.
+ * Et on plafonne le débit au débit source → jamais plus lourd que l'original.
+ */
+async function cleanVideo(
+  input: string,
+  output: string,
+  ext: string,
+  wmPrep: PreparedWatermark | null,
+): Promise<void> {
   const bin = await getFFmpegBin();
   const isMp4 = ext === ".mp4" || ext === ".mov" || ext === ".m4v";
+
+  const { durationSec, width, height } = await probeVideo(input, bin);
+  const srcBytes = await fs.stat(input).then((st) => st.size).catch(() => 0);
+  const srcKbps = durationSec > 0 && srcBytes > 0 ? Math.round((srcBytes * 8) / durationSec / 1000) : 0;
+
+  // Résolu ICI, une fois la largeur connue : la taille du calque est un % de la
+  // largeur de l'image. Résolu par vidéo → forme, couleur, taille, vitesse et
+  // opacité différentes à chaque fichier.
+  const overlay: VideoOverlay | null = wmPrep ? resolveWatermarkOverlay(wmPrep, width) : null;
+
   const args = [
     "-y", "-hide_banner", "-loglevel", "error",
     "-i", input,
-    "-map", "0:v:0", "-map", "0:a:0?", // vidéo + audio uniquement
+    "-max_muxing_queue_size", "1024",
+  ];
+
+  if (overlay) {
+    // Dimensions paires exigées par yuv420p ; on garde la résolution source.
+    const base = ["format=yuv420p"];
+    if (width > 0 && height > 0) base.push(`scale=${width - (width % 2)}:${height - (height % 2)}`);
+    args.push("-filter_complex", buildOverlayFilterComplex(base, [overlay]), "-map", "[vout]", "-map", "0:a:0?");
+  } else {
+    args.push("-map", "0:v:0", "-map", "0:a:0?", "-vf", "format=yuv420p");
+  }
+
+  args.push(
     "-map_metadata", "-1",
     "-map_chapters", "-1",
-    "-c", "copy", // remux sans perte
-    "-fflags", "+bitexact",
-  ];
+    "-c:v", "libx264",
+    "-preset", "veryfast",
+    "-crf", "18",
+    "-pix_fmt", "yuv420p",
+    "-c:a", "aac",
+    "-b:a", "192k",
+  );
+  // Jamais plus lourd que la source : plafond VBV calé sur son propre débit.
+  if (srcKbps > 0) {
+    const cap = Math.min(60000, Math.max(800, Math.round(srcKbps * 0.9)));
+    args.push("-maxrate", `${cap}k`, "-bufsize", `${cap * 2}k`);
+  }
   if (isMp4) args.push("-movflags", "+faststart");
+  args.push("-fflags", "+bitexact", "-flags:v", "+bitexact", "-flags:a", "+bitexact");
+  // Le muxer réécrit un `encoder` par piste : on y met le nom du codec, comme un
+  // appareil réel — surtout pas « Lavc libx264 ».
+  args.push("-metadata:s:v:0", "encoder=H.264", "-metadata:s:v:0", "vendor_id=");
   args.push(output);
 
   await new Promise<void>((resolve, reject) => {
@@ -61,36 +185,6 @@ const SUPPORTED_EXTS = [...IMAGE_EXTS, ...VIDEO_EXTS];
 // Max concurrent sharp workers — avoids memory spikes with many large images
 const MAX_CONCURRENCY = 5;
 
-const HUMAN_CAMERAS = [
-  { make: "Canon", model: "EOS R6 Mark II" },
-  { make: "Sony", model: "A7 IV" },
-  { make: "Nikon", model: "Z8" },
-  { make: "Fujifilm", model: "X-T5" },
-  { make: "Apple", model: "iPhone 15 Pro" },
-  { make: "Google", model: "Pixel 8 Pro" },
-  { make: "Samsung", model: "Galaxy S24 Ultra" },
-];
-
-const HUMAN_SOFTWARE = [
-  "Adobe Lightroom 7.2",
-  "Adobe Photoshop 25.4",
-  "Capture One 23",
-  "DaVinci Resolve 19",
-  "Final Cut Pro 11.6",
-  "Luminar Neo 1.18",
-  "Snapseed 2.21",
-];
-
-const HUMAN_NAMES = [
-  "Alex Martin", "Sophie Renaud", "Jordan Lee", "Emma Dubois",
-  "Lucas Bernard", "Camille Thomas", "Noah Petit", "Léa Moreau",
-  "Antoine Durand", "Manon Lefebvre", "Hugo Blanc", "Chloé Simon",
-];
-
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
 function randHex(n = 2) {
   return crypto.randomBytes(n).toString("hex");
 }
@@ -98,16 +192,6 @@ function randHex(n = 2) {
 function extOf(name: string) {
   const i = name.lastIndexOf(".");
   return i >= 0 ? name.slice(i).toLowerCase() : "";
-}
-
-function todayStamp() {
-  const d = new Date();
-  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function toExifDate(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}:${pad(d.getMonth() + 1)}:${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 /* ── Simple concurrency limiter ── */
@@ -135,7 +219,7 @@ async function withConcurrency<T>(items: T[], limit: number, fn: (item: T) => Pr
  * DCT coefficients, and metadata — reproducing what happens when you take a
  * phone screenshot of an AI image and post it.
  * ───────────────────────────────────────────────────────────────────────────── */
-async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetadata): Promise<{ data: Buffer; outExt: string }> {
+async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetadata | null): Promise<{ data: Buffer; outExt: string }> {
   // Step 1 — Lens-like Gaussian blur (σ 0.3–0.7, randomised per image)
   const blurSigma = 0.3 + Math.random() * 0.4;
 
@@ -164,11 +248,11 @@ async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetad
     return d;
   };
 
-  const pipeline = (d: Buffer) =>
+  const base = (d: Buffer) =>
     sharp(d, { raw: { width: info.width, height: info.height, channels: info.channels } })
       .sharpen(sharpenParams)
-      .modulate(modParams)
-      .withMetadata(meta);
+      .modulate(modParams);
+  const pipeline = (d: Buffer) => (meta ? base(d).withMetadata(meta) : base(d));
 
   const baseNoise = 2 + Math.random() * 2.5;  // σ ≈ 2–4.5
   const isJpeg = ext === ".jpg" || ext === ".jpeg";
@@ -196,11 +280,19 @@ async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetad
   // the output is no heavier than the source. Anti-detection on PNG then relies on
   // blur + sharpen + colour modulation + fake metadata (noise is minimal by design,
   // and `baseNoise` above intentionally only drives the lossy JPEG/WebP path).
-  const encPng = (d: Buffer) => pipeline(d).png({ compressionLevel: 9 }).toBuffer();
+  const encPng = (d: Buffer) => pipeline(d).png({ compressionLevel: 9, effort: 10 }).toBuffer();
   let out = await encPng(withNoise(1));
   for (const strength of [0.5, 0.25, 0]) {
     if (out.length <= buf.length) break;
     out = await encPng(withNoise(strength));
+  }
+  // Filet : le bruit rend un PNG moins compressible, si bien qu'une capture
+  // d'écran pouvait ressortir PLUS LOURDE que l'original. On repasse alors sans
+  // retouche de pixels — les métadonnées sont quand même effacées.
+  if (out.length > buf.length) {
+    const cleanPipe = sharp(buf, { failOn: "none" });
+    const clean = await (meta ? cleanPipe.withMetadata(meta) : cleanPipe).png({ compressionLevel: 9, effort: 10 }).toBuffer();
+    if (clean.length < out.length) out = clean;
   }
   return { data: out, outExt: ext };
 }
@@ -257,7 +349,6 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
   }
   await fs.mkdir(dir, { recursive: true });
 
-  const stamp = todayStamp();
   let count = 0;
   const outFiles: string[] = [];
 
@@ -269,6 +360,16 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
 
   type Task = { u: { uploadId: string; name: string } };
   const tasks: Task[] = validFiles.map((u) => ({ u }));
+
+  // Contre-watermark : les 8 formes sont rasterisées UNE fois pour tout le lot,
+  // puis chaque vidéo en tire une au sort (forme, couleur, taille, vitesse,
+  // opacité 0,2–1 %). Rien à préparer s'il n'y a pas de vidéo dans le lot.
+  const wmPrep: PreparedWatermark | null = validVideoFiles.length
+    ? await prepareCounterWatermark(dir).catch((e) => {
+        console.warn("[ai-detection] contre-watermark indisponible:", (e as Error)?.message);
+        return null;
+      })
+    : null;
 
   await withConcurrency(tasks, MAX_CONCURRENCY, async ({ u }) => {
     const ext = extOf(u.name);
@@ -293,30 +394,10 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
           return;
         }
 
-        // Build fake human identity (randomised per image)
-        const cam = pick(HUMAN_CAMERAS);
-        const software = pick(HUMAN_SOFTWARE);
-        const artist = pick(HUMAN_NAMES);
-        const randomDaysAgo = Math.floor(Math.random() * 180);
-        const randomHoursAgo = Math.floor(Math.random() * 24);
-        const photoDate = new Date(Date.now() - randomDaysAgo * 86400000 - randomHoursAgo * 3600000);
-        const exifDate = toExifDate(photoDate);
-
-        const meta: sharp.WriteableMetadata = {
-          icc: "sRGB IEC61966-2.1",
-          exif: {
-            IFD0: {
-              Make: cam.make,
-              Model: cam.model,
-              Software: software,
-              Artist: artist,
-              Copyright: `© ${photoDate.getFullYear()} ${artist}`,
-              DateTime: exifDate,
-              DateTimeOriginal: exifDate,
-              DateTimeDigitized: exifDate,
-            },
-          },
-        };
+        // Identité humaine cohérente (cf. src/lib/ai-identity.ts) : boîtier +
+        // objectif + bloc d'exposition complet sur du JPEG, RIEN d'inventé sur
+        // les formats où un appareil photo n'a rien à faire (PNG, WebP).
+        const meta = buildHumanMeta(ext) as sharp.WriteableMetadata | null;
 
         let result: { data: Buffer; outExt: string };
         try {
@@ -331,7 +412,8 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
               ]);
             } catch (inner: any) {
               console.warn(`[ai-detection] processImage failed for ${u.name} (${inner?.message}), fallback to strip-only`);
-              const pipe = sharp(buf, { failOn: "none" }).withMetadata(meta);
+              const raw = sharp(buf, { failOn: "none" });
+    const pipe = meta ? raw.withMetadata(meta) : raw;
               if (ext === ".jpg" || ext === ".jpeg")
                 return { data: await pipe.jpeg({ quality: 92, mozjpeg: true }).toBuffer(), outExt: ext };
               if (ext === ".webp")
@@ -344,7 +426,7 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
           return;
         }
 
-        const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${result.outExt}`;
+        const outName = await outputName(dir, u.name, result.outExt);
         try {
           await fs.writeFile(path.join(dir, outName), result.data);
         } catch (e: any) {
@@ -355,16 +437,16 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
         outFiles.push(outName);
         count++;
       } else {
-        // Vidéos : remux qui SUPPRIME les métadonnées IA (C2PA + tags), sans
-        // ré-encodage → qualité/poids identiques. Repli sur une copie brute si
-        // ffmpeg échoue (mieux vaut livrer le fichier que planter — on le log).
-        const outName = `DuupFlow_${stamp}_nomask_${randHex(3)}${ext}`;
+        // Vidéos : métadonnées effacées (C2PA/JUMBF, XMP, dates, atomes) ET
+        // pixels ré-encodés avec le contre-watermark. Repli sur une copie brute
+        // si ffmpeg échoue (mieux vaut livrer que planter — c'est loggé).
+        const outName = await outputName(dir, u.name, ext);
         const outPath = path.join(dir, outName);
         try {
-          await stripVideoMetadata(tmpPath, outPath, ext);
-          console.log(`[ai-detection] video cleaned OK: ${outName}`);
+          await cleanVideo(tmpPath, outPath, ext, wmPrep);
+          console.log(`[ai-detection] video cleaned OK: ${outName}${wmPrep ? " (contre-watermark)" : ""}`);
         } catch (e: any) {
-          console.error(`[ai-detection] video strip failed for ${u.name}, fallback copy:`, e?.message);
+          console.error(`[ai-detection] video clean failed for ${u.name}, fallback copy:`, e?.message);
           try {
             await fs.copyFile(tmpPath, outPath);
           } catch (e2: any) {
@@ -380,6 +462,9 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
       await fs.unlink(tmpPath).catch(() => {});
     }
   });
+
+  // Les formes rasterisées du contre-watermark ne servent plus.
+  if (wmPrep) for (const f of wmPrep.tempFiles) await fs.unlink(f).catch(() => {});
 
   console.log(`[ai-detection] done — ${count}/${items.length} file(s) processed`);
 

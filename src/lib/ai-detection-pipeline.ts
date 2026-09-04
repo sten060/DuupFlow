@@ -8,63 +8,7 @@
 // shared pipeline the action also consumes.)
 
 import sharp from "sharp";
-import crypto from "crypto";
-
-const HUMAN_CAMERAS = [
-  { make: "Canon", model: "EOS R6 Mark II" },
-  { make: "Sony", model: "A7 IV" },
-  { make: "Nikon", model: "Z8" },
-  { make: "Fujifilm", model: "X-T5" },
-  { make: "Apple", model: "iPhone 15 Pro" },
-  { make: "Google", model: "Pixel 8 Pro" },
-  { make: "Samsung", model: "Galaxy S24 Ultra" },
-];
-const HUMAN_SOFTWARE = [
-  "Adobe Lightroom 7.2",
-  "Adobe Photoshop 25.4",
-  "Capture One 23",
-  "DaVinci Resolve 19",
-  "Final Cut Pro 11.6",
-  "Luminar Neo 1.18",
-  "Snapseed 2.21",
-];
-const HUMAN_NAMES = [
-  "Alex Martin", "Sophie Renaud", "Jordan Lee", "Emma Dubois",
-  "Lucas Bernard", "Camille Thomas", "Noah Petit", "Léa Moreau",
-  "Antoine Durand", "Manon Lefebvre", "Hugo Blanc", "Chloé Simon",
-];
-
-const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-const toExifDate = (d: Date) => {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}:${pad(d.getMonth() + 1)}:${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-};
-
-/** Build a fresh fake-human identity (randomised per image). */
-function buildHumanMeta(): sharp.WriteableMetadata {
-  const cam = pick(HUMAN_CAMERAS);
-  const software = pick(HUMAN_SOFTWARE);
-  const artist = pick(HUMAN_NAMES);
-  const daysAgo = Math.floor(Math.random() * 180);
-  const hoursAgo = Math.floor(Math.random() * 24);
-  const photoDate = new Date(Date.now() - daysAgo * 86400000 - hoursAgo * 3600000);
-  const exifDate = toExifDate(photoDate);
-  return {
-    icc: "sRGB IEC61966-2.1",
-    exif: {
-      IFD0: {
-        Make: cam.make,
-        Model: cam.model,
-        Software: software,
-        Artist: artist,
-        Copyright: `© ${photoDate.getFullYear()} ${artist}`,
-        DateTime: exifDate,
-        DateTimeOriginal: exifDate,
-        DateTimeDigitized: exifDate,
-      },
-    },
-  };
-}
+import { buildHumanMeta } from "@/lib/ai-identity";
 
 /**
  * Anti-fingerprint pixel pipeline: blur → sensor noise → ISP sharpen → colour
@@ -72,7 +16,7 @@ function buildHumanMeta(): sharp.WriteableMetadata {
  * pixels, DCT coefficients and metadata. Output keeps the original format +
  * resolution and is never heavier than the source.
  */
-async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetadata): Promise<{ data: Buffer; outExt: string }> {
+async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetadata | null): Promise<{ data: Buffer; outExt: string }> {
   const blurSigma = 0.3 + Math.random() * 0.4;
   const { data: blurred, info } = await sharp(buf, { failOn: "none" }).blur(blurSigma).raw().toBuffer({ resolveWithObject: true });
   const hasAlpha = info.channels === 4;
@@ -94,11 +38,11 @@ async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetad
     return d;
   };
 
-  const pipeline = (d: Buffer) =>
+  const base = (d: Buffer) =>
     sharp(d, { raw: { width: info.width, height: info.height, channels: info.channels } })
       .sharpen(sharpenParams)
-      .modulate(modParams)
-      .withMetadata(meta);
+      .modulate(modParams);
+  const pipeline = (d: Buffer) => (meta ? base(d).withMetadata(meta) : base(d));
 
   const baseNoise = 2 + Math.random() * 2.5;
   const isJpeg = ext === ".jpg" || ext === ".jpeg";
@@ -116,11 +60,20 @@ async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetad
     return { data: out, outExt: ext };
   }
 
-  const encPng = (d: Buffer) => pipeline(d).png({ compressionLevel: 9 }).toBuffer();
+  const encPng = (d: Buffer) => pipeline(d).png({ compressionLevel: 9, effort: 10 }).toBuffer();
   let out = await encPng(withNoise(1));
   for (const strength of [0.5, 0.25, 0]) {
     if (out.length <= buf.length) break;
     out = await encPng(withNoise(strength));
+  }
+  // Dernier recours : le bruit et le flou rendent un PNG moins compressible, si
+  // bien qu'un écran capturé pouvait ressortir PLUS LOURD que l'original (2,7 →
+  // 3,3 Mo mesuré). On repasse alors sans aucune retouche de pixels : les
+  // métadonnées sont quand même effacées, et le fichier ne grossit pas.
+  if (out.length > buf.length) {
+    const cleanPipe = sharp(buf, { failOn: "none" });
+    const clean = await (meta ? cleanPipe.withMetadata(meta) : cleanPipe).png({ compressionLevel: 9, effort: 10 }).toBuffer();
+    if (clean.length < out.length) out = clean;
   }
   return { data: out, outExt: ext };
 }
@@ -131,14 +84,15 @@ async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetad
  * metadata-strip-only pass if the pixel pipeline fails.
  */
 export async function maskAiImage(buf: Buffer, ext: string): Promise<{ data: Buffer; outExt: string }> {
-  const meta = buildHumanMeta();
+  const meta = buildHumanMeta(ext) as sharp.WriteableMetadata | null;
   try {
     return await Promise.race([
       processImage(buf, ext, meta),
       new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 45_000)),
     ]);
   } catch {
-    const pipe = sharp(buf, { failOn: "none" }).withMetadata(meta);
+    const raw = sharp(buf, { failOn: "none" });
+    const pipe = meta ? raw.withMetadata(meta) : raw;
     if (ext === ".jpg" || ext === ".jpeg") return { data: await pipe.jpeg({ quality: 92, mozjpeg: true }).toBuffer(), outExt: ext };
     if (ext === ".webp") return { data: await pipe.webp({ quality: 92 }).toBuffer(), outExt: ext };
     return { data: await pipe.png({ compressionLevel: 9 }).toBuffer(), outExt: ext };

@@ -68,6 +68,12 @@ export type PreparedWatermark = {
   motion: boolean;
   speed: number;        // 1–100
   simpleRandom: boolean; // mode simple : tout aléatoire par copie (formes blanches teintées)
+  /**
+   * Plage d'opacité en % tirée au sort À CHAQUE copie (min, max). Absente →
+   * `opacity` est utilisée telle quelle. Sert au contre-watermark du module
+   * Détection IA, volontairement plus discret que celui du mode simple.
+   */
+  opacityRange?: [number, number];
   tempFiles: string[];  // à nettoyer en fin de job
 };
 
@@ -163,7 +169,28 @@ export async function prepareSimpleWatermark(
   dir: string,
 ): Promise<PreparedWatermark | null> {
   if (formData.get("simpleWatermark") !== "1") return null;
+  return buildRandomShapeWatermark(dir);
+}
 
+/**
+ * Contre-watermark du module Détection IA : même mécanique aléatoire que le
+ * mode simple, mais BEAUCOUP plus discret (0,2 à 1 % d'opacité contre 2 %).
+ *
+ * ⚠️ Ce que ça fait et ce que ça ne fait pas : poser un calque léger ne RETIRE
+ * pas un filigrane de provenance (SynthID & co), qui est conçu pour survivre au
+ * ré-encodage, au recadrage et à la compression. Son effet réel est ailleurs :
+ * il impose un vrai ré-encodage des pixels là où le module se contentait d'un
+ * remux, et il rend chaque sortie unique.
+ */
+export async function prepareCounterWatermark(dir: string): Promise<PreparedWatermark | null> {
+  return buildRandomShapeWatermark(dir, [0.2, 1]);
+}
+
+/** Rasterise les 8 formes en BLANC (teintées par copie) — socle commun. */
+async function buildRandomShapeWatermark(
+  dir: string,
+  opacityRange?: [number, number],
+): Promise<PreparedWatermark | null> {
   const sharp = (await import("sharp")).default;
   const tempFiles: string[] = [];
   const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -195,6 +222,7 @@ export async function prepareSimpleWatermark(
     motion: true,
     speed: 55,           // indicatif (recalculé aléatoire par copie)
     simpleRandom: true,
+    opacityRange,
     tempFiles,
   };
 }
@@ -212,10 +240,15 @@ export function resolveWatermarkOverlay(prep: PreparedWatermark, width: number):
     const speed = 30 + Math.random() * 50;                     // 30–80
     const sx = (60 + speed * 3).toFixed(1);
     const sy = ((60 + speed * 3) * 0.8).toFixed(1);
+    // Opacité : la plage du prep si elle existe (contre-watermark Détection IA,
+    // 0,2–1 %), sinon la valeur fixe du mode simple (2 %).
+    const opPct = prep.opacityRange
+      ? prep.opacityRange[0] + Math.random() * (prep.opacityRange[1] - prep.opacityRange[0])
+      : prep.opacity;
     return {
       moviePath,
       scaleW,
-      opacity: 0.02,                                           // 2 %
+      opacity: Math.max(0.001, opPct / 100),
       x: `abs(mod(${sx}*t,2*(W-w))-(W-w))`,
       y: `abs(mod(${sy}*t,2*(H-h))-(H-h))`,
       tint: { r: Math.random(), g: Math.random(), b: Math.random() }, // couleur aléatoire

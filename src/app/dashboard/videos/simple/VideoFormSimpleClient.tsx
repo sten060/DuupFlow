@@ -105,13 +105,16 @@ type PackKey =
   | "pixel_magic"
   | "audio"
   | "motion"
+  | "motion_dynamic"
   | "visual";
 
 // Labels, hints and help text live in the i18n dictionaries
 // (dashboard.videosSimple.packs.*) so they follow the user's EN/FR choice
 // instead of being hard-coded in French.
 const NO_VISUAL_PACKS: PackKey[] = ["metadata", "metadata_technical", "pixel_magic", "audio"];
-const VISUAL_PACKS: PackKey[] = ["motion", "visual"];
+// « Mouvement poussé » a fusionné dans « Mouvement » : c'est sa pastille
+// « Fort ». Un pack de moins à comprendre pour le même éventail de réglages.
+const VISUAL_PACKS: PackKey[] = ["motion", "motion_dynamic", "visual"];
 
 function PackCard({
   name,
@@ -120,6 +123,7 @@ function PackCard({
   help,
   selected,
   onToggle,
+  extra,
 }: {
   name: PackKey;
   label: string;
@@ -127,24 +131,54 @@ function PackCard({
   help: string;
   selected: boolean;
   onToggle: (n: PackKey) => void;
+  /** Réglage propre au pack, affiché DANS la carte une fois celle-ci cochée. */
+  extra?: React.ReactNode;
 }) {
+  // La carte est un <div> et non un <button> : un bouton ne peut pas en contenir
+  // un autre, or le réglage d'intensité en est un.
   return (
-    <button
-      type="button"
-      onClick={() => onToggle(name)}
+    <div
       className={[
-        "group rounded-xl border px-4 py-3 text-left transition-all",
+        "group rounded-xl border transition-all",
         selected
           ? "border-indigo-400/30 bg-indigo-500/10"
           : "border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-2)]",
       ].join(" ")}
     >
-      <div className="font-medium text-sm text-[var(--app-text)] inline-flex items-center gap-2">
-        {label}
-        <InfoTooltip><span className="whitespace-pre-line">{help}</span></InfoTooltip>
+      {/* Le réglage se place À CÔTÉ du texte, pas dessous : la carte garde la
+          même hauteur qu'elle soit cochée ou non, donc la grille ne saute pas. */}
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => onToggle(name)} className="min-w-0 flex-1 px-3.5 py-2.5 text-left">
+          <div className="font-medium text-[13px] leading-snug text-[var(--app-text)] inline-flex items-center gap-2">
+            {label}
+            <InfoTooltip><span className="whitespace-pre-line">{help}</span></InfoTooltip>
+          </div>
+          <div className="text-[11px] leading-snug text-[var(--app-text-faint)] mt-1">{hint}</div>
+        </button>
+        {selected && extra ? <div className="shrink-0 pr-3">{extra}</div> : null}
       </div>
-      <div className="text-xs text-[var(--app-text-faint)] mt-0.5">{hint}</div>
-    </button>
+    </div>
+  );
+}
+
+/** Sélecteur « Doux / Fort » de l'intensité du pack Mouvement avancé. */
+function IntensitySwitch({ value, onChange, labels }: { value: "doux" | "fort"; onChange: (v: "doux" | "fort") => void; labels: { doux: string; fort: string } }) {
+  return (
+    <div className="inline-flex rounded-lg border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-0.5">
+      {(["doux", "fort"] as const).map((v) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          className={[
+            "rounded-md px-2.5 py-1 text-[11px] font-medium transition",
+            value === v ? "bg-sky-500 text-white" : "text-[var(--app-text-muted)] hover:text-[var(--app-text)]",
+          ].join(" ")}
+        >
+          {labels[v]}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -210,6 +244,16 @@ export default function VideoFormSimpleClient() {
   const [rotMin, setRotMin] = useState(-5);
   const [rotMax, setRotMax] = useState(5);
 
+  // Tremblement : sorti du pack « Mouvement avancé » pour devenir une option
+  // qu'on peut cocher seule, ou en plus de n'importe quel pack.
+  const [shake, setShake] = useState(false);
+  // Intensité du pack « Mouvement avancé ». « fort » = le comportement d'origine,
+  // donc rien ne change pour qui ne touche pas au réglage.
+  const [motionDynamicMode, setMotionDynamicMode] = useState<"doux" | "fort">("fort");
+  // Mouvement : « doux » = l'ancien pack Mouvement, « fort » = l'ancien pack
+  // Mouvement poussé. Par défaut doux, pour que rien ne change chez qui cochait
+  // simplement « Mouvement ».
+  const [motionMode, setMotionMode] = useState<"doux" | "fort">("doux");
   const [dimEnabled, setDimEnabled] = useState(false);
   const [dimW, setDimW] = useState(1.0);
   const [dimH, setDimH] = useState(1.0);
@@ -217,6 +261,9 @@ export default function VideoFormSimpleClient() {
   const singlesJSON = JSON.stringify({
     flip,
     reverse,
+    shake,
+    motionMode,
+    motionDynamicMode,
     rotation: { enabled: rotEnabled, min_deg: rotMin, max_deg: rotMax },
     dims: { enabled: dimEnabled, w_factor: dimW, h_factor: dimH },
   });
@@ -589,7 +636,7 @@ export default function VideoFormSimpleClient() {
         <h3 className="text-sm font-semibold text-[var(--app-text)] mb-3">{t("dashboard.videosSimple.packsTitle")} <span className="text-[var(--app-text-faint)] font-normal">{t("dashboard.videosSimple.packsCumulative")}</span></h3>
 
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">{t("dashboard.videosSimple.noVisualChange")}</p>
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 mb-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 mb-4">
           {NO_VISUAL_PACKS.map((k) => (
             <PackCard
               key={k}
@@ -604,7 +651,7 @@ export default function VideoFormSimpleClient() {
         </div>
 
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">{t("dashboard.videosSimple.withVisualChange")}</p>
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {VISUAL_PACKS.map((k) => (
             <PackCard
               key={k}
@@ -614,6 +661,18 @@ export default function VideoFormSimpleClient() {
               help={t(`dashboard.videosSimple.packs.${k}.help`)}
               selected={selected[k]}
               onToggle={(n) => setSelected((s) => ({ ...s, [n]: !s[n] }))}
+              extra={
+                k === "motion" || k === "motion_dynamic" ? (
+                  <IntensitySwitch
+                    value={k === "motion" ? motionMode : motionDynamicMode}
+                    onChange={k === "motion" ? setMotionMode : setMotionDynamicMode}
+                    labels={{
+                      doux: t("dashboard.videosSimple.packs.motion_dynamic.modeDoux"),
+                      fort: t("dashboard.videosSimple.packs.motion_dynamic.modeFort"),
+                    }}
+                  />
+                ) : undefined
+              }
             />
           ))}
         </div>
@@ -641,6 +700,7 @@ export default function VideoFormSimpleClient() {
         <div className="flex flex-wrap items-end gap-4">
           <Toggle checked={flip} onChange={setFlip} label={t("vid.opt.flip")} />
           <Toggle checked={reverse} onChange={setReverse} label={t("vid.opt.reverse")} />
+          <Toggle checked={shake} onChange={setShake} label={t("vid.opt.shake")} />
           <div className="flex-1 min-w-[200px] max-w-xs">
             <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-1">{t("dashboard.videosSimple.countryLabel")}</label>
             <CountrySelect
