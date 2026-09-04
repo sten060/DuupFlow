@@ -24,6 +24,11 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const target: "starter" | "solo" | "pro" =
     body?.plan === "starter" ? "starter" : body?.plan === "solo" ? "solo" : "pro";
+  // Intervalle DEMANDÉ. Absent = on garde celui de l'abonnement en cours (le
+  // comportement historique : un abonné annuel qui monte de palier reste
+  // annuel). Fourni, il autorise en plus le passage mensuel → annuel.
+  const askedInterval: "monthly" | "yearly" | null =
+    body?.billing === "yearly" ? "yearly" : body?.billing === "monthly" ? "monthly" : null;
 
   const admin = createAdminClient();
   const { data: profile } = await admin
@@ -35,15 +40,6 @@ export async function POST(request: Request) {
   if (!profile?.stripe_subscription_id) {
     return NextResponse.json(
       { error: t("errors.billing.noActiveSubscription") },
-      { status: 400 }
-    );
-  }
-
-  // This route only moves UP the tiers (prorated + immediately invoiced).
-  // A same-or-lower target must go through /api/stripe/downgrade.
-  if (planRank(target) <= planRank(profile.plan)) {
-    return NextResponse.json(
-      { error: t("errors.billing.alreadyOnPro") },
       { status: 400 }
     );
   }
@@ -62,9 +58,29 @@ export async function POST(request: Request) {
     );
   }
 
-  // Conserver l'intervalle de facturation ACTUEL : un abonné annuel upgradé
-  // doit recevoir le prix annuel du plan cible, jamais être rebasculé au mois.
-  const interval = sub.items.data[0]?.price?.recurring?.interval === "year" ? "yearly" : "monthly";
+  // Par défaut on CONSERVE l'intervalle actuel : un abonné annuel qui monte de
+  // palier doit recevoir le prix annuel du plan cible, jamais être rebasculé au
+  // mois. L'appelant peut en demander un autre — c'est ce qui permet le passage
+  // au paiement annuel depuis le sélecteur de plans.
+  const currentInterval = sub.items.data[0]?.price?.recurring?.interval === "year" ? "yearly" : "monthly";
+  const interval = askedInterval ?? currentInterval;
+
+  // Cette route ne fait que MONTER, et il y a deux façons de monter :
+  //   · changer de palier (Starter → Solo → Pro) ;
+  //   · rester sur son palier mais passer à l'engagement annuel — encaissé tout
+  //     de suite au prorata, exactement comme une montée de palier.
+  // Tout le reste (palier inférieur, retour au mensuel) part en downgrade, où
+  // c'est appliqué à l'échéance et non facturé sur-le-champ.
+  const monteEnPalier = planRank(target) > planRank(profile.plan);
+  const passeALAnnuel =
+    planRank(target) === planRank(profile.plan) && currentInterval === "monthly" && interval === "yearly";
+  if (!monteEnPalier && !passeALAnnuel) {
+    return NextResponse.json(
+      { error: t("errors.billing.alreadyOnPro") },
+      { status: 400 }
+    );
+  }
+
   const targetPriceId = getPlanPriceId(target, interval);
   if (!targetPriceId) {
     return NextResponse.json(

@@ -7,17 +7,6 @@ import { useTranslation } from "@/lib/i18n/context";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import TokensPanel from "./TokensPanel";
 
-function fmtMoney(cents: number, currency: string, locale: string): string {
-  try {
-    return (cents / 100).toLocaleString(locale === "en" ? "en-US" : "fr-FR", {
-      style: "currency",
-      currency: currency || "EUR",
-    });
-  } catch {
-    return `${(cents / 100).toFixed(2)} €`;
-  }
-}
-
 function getRenewalDate(periodStart: string | null): string | null {
   if (!periodStart) return null;
   const renewal = new Date(periodStart);
@@ -106,6 +95,7 @@ export default function AbonnementClient({
   cancelAt,
   currentPeriodEnd,
   isTrialing,
+  billingInterval,
 }: {
   plan: "free" | "starter" | "solo" | "pro" | null;
   usage: { images: number; videos: number; ai_signatures: number } | null;
@@ -115,24 +105,24 @@ export default function AbonnementClient({
   cancelAt: number | null;
   currentPeriodEnd: number | null;
   isTrialing: boolean;
+  /** Intervalle Stripe en cours — le sélecteur de plans s'ouvre dessus. */
+  billingInterval: "monthly" | "yearly";
 }) {
   const { t, locale } = useTranslation();
   const [portalPaymentLoading, setPortalPaymentLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
-  const [upgradeLoading, setUpgradeLoading] = useState(false);
-  const [downgradeLoading, setDowngradeLoading] = useState(false);
   const [isCancelling, setIsCancelling] = useState(cancelAtPeriodEnd);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
   const [showCancelStep1, setShowCancelStep1] = useState(false);
   const [showCancelStep2, setShowCancelStep2] = useState(false);
   const [cancelFeedback, setCancelFeedback] = useState("");
-  const [showFreeUpgradeModal, setShowFreeUpgradeModal] = useState(false);
+  // Le sélecteur de plans (Starter / Solo / Pro + bascule annuelle) : c'est la
+  // SEULE porte de changement de plan, quel que soit le plan en cours. Avant,
+  // « Changer son plan » ouvrait trois modales différentes selon l'abonnement —
+  // un abonné Solo ne pouvait qu'aller vers Pro, un abonné Pro que redescendre
+  // vers Solo, et personne ne pouvait passer au paiement annuel.
+  const [showPlanPicker, setShowPlanPicker] = useState(false);
   const [view, setView] = useState<"plan" | "tokens">("plan");
-  // Preview du prorata réel (Solo → Pro), chargé à l'ouverture de la modale.
-  const [upgradePreview, setUpgradePreview] = useState<{ dueNowCents: number; recurringCents: number; currency: string } | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
 
   const cancelEndDate = cancelAt
     ? new Date(cancelAt * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
@@ -159,10 +149,7 @@ export default function AbonnementClient({
     // ?view=tokens → land directly on the Tokens tab (e.g. from the docs CTA).
     if (params.get("view") === "tokens") setView("tokens");
     // ?upgrade=1 → auto-open the plan picker (e.g. from the API "Passer au Pro" CTA).
-    if (params.get("upgrade") === "1") {
-      if (isFree || plan === "starter") setShowFreeUpgradeModal(true);
-      else if (plan === "solo") setShowUpgradeModal(true);
-    }
+    if (params.get("upgrade") === "1") setShowPlanPicker(true);
     if (params.get("view") || params.get("upgrade")) {
       try { window.history.replaceState({}, "", window.location.pathname); } catch {}
     }
@@ -224,59 +211,6 @@ export default function AbonnementClient({
       setMsg({ type: "err", text: t("dashboard.subscription.networkError") });
     }
     setCancelLoading(false);
-  }
-
-  async function downgradeToSolo() {
-    setShowDowngradeModal(false);
-    setDowngradeLoading(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/stripe/downgrade", { method: "POST" });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        window.location.reload();
-      } else {
-        setMsg({ type: "err", text: data.error ?? t("dashboard.subscription.downgradeError") });
-      }
-    } catch {
-      setMsg({ type: "err", text: t("dashboard.subscription.networkError") });
-    }
-    setDowngradeLoading(false);
-  }
-
-  // Charge le montant réel du prorata dès que la modale Pro s'ouvre.
-  useEffect(() => {
-    if (!showUpgradeModal) return;
-    let cancelled = false;
-    setPreviewLoading(true);
-    setUpgradePreview(null);
-    fetch("/api/stripe/upgrade-preview")
-      .then((r) => r.json())
-      .then((d) => { if (!cancelled && typeof d?.dueNowCents === "number") setUpgradePreview(d); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setPreviewLoading(false); });
-    return () => { cancelled = true; };
-  }, [showUpgradeModal]);
-
-  async function upgradeToProCheckout() {
-    setUpgradeLoading(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/stripe/upgrade", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        // Reload to reflect the new Pro plan immediately
-        window.location.reload();
-      } else {
-        setMsg({ type: "err", text: data.error ?? t("dashboard.subscription.upgradeError") });
-      }
-    } catch {
-      setMsg({ type: "err", text: t("dashboard.subscription.networkError") });
-    }
-    setUpgradeLoading(false);
   }
 
   if (!plan) {
@@ -373,11 +307,7 @@ export default function AbonnementClient({
             </div>
             <button
               type="button"
-              onClick={() => {
-                if (isFree || plan === "starter") setShowFreeUpgradeModal(true);
-                else if (plan === "solo") setShowUpgradeModal(true);
-                else setShowDowngradeModal(true);
-              }}
+              onClick={() => setShowPlanPicker(true)}
               className="shrink-0 w-full sm:w-auto justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 flex items-center gap-2"
               style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
             >
@@ -609,288 +539,11 @@ export default function AbonnementClient({
       {view === "tokens" && <TokensPanel />}
     </main>
 
-    {/* Upgrade confirmation modal — prix réel du prorata + plan Pro complet */}
-    {showUpgradeModal && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
-        onClick={() => setShowUpgradeModal(false)}
-      >
-        <div
-          className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl p-7 sm:p-8"
-          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", boxShadow: "0 30px 90px rgba(20,40,90,0.28)" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white" style={{ background: "linear-gradient(135deg,#4f7bff,#7c5cff)" }}>
-                <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor"><path d="m12 3 2.09 5.26L20 9.27l-4 3.64L17.18 19 12 15.9 6.82 19 8 12.91l-4-3.64 5.91-1.01L12 3Z" /></svg>
-                {locale === "en" ? "Pro plan" : "Plan Pro"}
-              </span>
-              <h2 className="mt-3 text-[22px] font-semibold tracking-tight text-[var(--app-text)]">
-                {locale === "en" ? "Upgrade to Pro" : "Passe au plan Pro"}
-              </h2>
-              <p className="mt-1 text-sm text-[var(--app-text-muted)]">
-                {locale === "en"
-                  ? "Unlimited duplications and the full toolkit — activated instantly."
-                  : "Duplications illimitées et toute la boîte à outils — activé immédiatement."}
-              </p>
-            </div>
-            <button onClick={() => setShowUpgradeModal(false)} aria-label={locale === "en" ? "Close" : "Fermer"}
-              className="shrink-0 rounded-full p-1.5 text-[var(--app-text-faint)] transition hover:text-[var(--app-text)]" style={{ border: "1px solid var(--app-border)" }}>
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
-            </button>
-          </div>
-
-          {/* Bloc prix : montant réel à payer maintenant (prorata) + récurrent */}
-          <div className="mt-6 rounded-2xl p-5" style={{ background: "var(--app-surface-2)", border: "1px solid var(--app-border)" }}>
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--app-text-faint)]">
-                  {locale === "en" ? "Due today" : "À payer maintenant"}
-                </p>
-                <p className="mt-1 text-[34px] font-bold leading-none text-[var(--app-text)]" style={{ letterSpacing: "-0.02em" }}>
-                  {previewLoading
-                    ? <span className="opacity-50">…</span>
-                    : upgradePreview
-                      ? fmtMoney(upgradePreview.dueNowCents, upgradePreview.currency, locale)
-                      : "—"}
-                </p>
-                <p className="mt-1.5 text-xs text-[var(--app-text-muted)]">
-                  {locale === "en" ? "Prorated for the days left this month" : "Prorata des jours restants ce mois-ci"}
-                </p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-sm font-semibold text-[var(--app-text)]">
-                  {fmtMoney(upgradePreview?.recurringCents ?? 9900, upgradePreview?.currency ?? "EUR", locale)}
-                  <span className="font-normal text-[var(--app-text-faint)]">/{locale === "en" ? "mo" : "mois"}</span>
-                </p>
-                <p className="text-xs text-[var(--app-text-faint)]">{locale === "en" ? "then, billed monthly" : "puis, chaque mois"}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Avantages Pro complets */}
-          <div className="mt-6">
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-text-faint)]">
-              {locale === "en" ? "Everything in Pro" : "Tout le plan Pro"}
-            </p>
-            <ul className="grid grid-cols-1 gap-x-5 gap-y-2.5 sm:grid-cols-2">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-                <li key={n} className="flex items-start gap-2 text-sm text-[var(--app-text-muted)]">
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-white" style={{ background: "linear-gradient(135deg,#4f7bff,#7c5cff)" }}>
-                    <svg viewBox="0 0 16 16" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="3"><path d="M2 8l4 4 8-8" /></svg>
-                  </span>
-                  {t(`tarifs.proFeature${n}`)}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Réassurance */}
-          <p className="mt-5 flex items-center gap-1.5 text-xs text-[var(--app-text-faint)]">
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 3l7 3v5c0 4.4-3 8-7 10-4-2-7-5.6-7-10V6z" /></svg>
-            {locale === "en" ? "Secure payment by Stripe · Cancel anytime" : "Paiement sécurisé par Stripe · Résiliable à tout moment"}
-          </p>
-
-          {/* Actions */}
-          <div className="mt-6 flex gap-3">
-            <button
-              onClick={() => setShowUpgradeModal(false)}
-              className="rounded-xl px-5 py-3 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text)]"
-              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
-            >
-              {t("dashboard.subscription.cancelButton")}
-            </button>
-            <button
-              onClick={() => { setShowUpgradeModal(false); upgradeToProCheckout(); }}
-              disabled={upgradeLoading}
-              className="flex-1 rounded-xl py-3 text-sm font-semibold text-white shadow-[0_12px_34px_rgba(90,90,240,0.35)] transition hover:opacity-90 disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg,#4f7bff,#7c5cff)" }}
-            >
-              {upgradeLoading
-                ? (locale === "en" ? "Processing…" : "Traitement…")
-                : upgradePreview
-                  ? (locale === "en"
-                      ? `Confirm — pay ${fmtMoney(upgradePreview.dueNowCents, upgradePreview.currency, locale)}`
-                      : `Confirmer — payer ${fmtMoney(upgradePreview.dueNowCents, upgradePreview.currency, locale)}`)
-                  : (locale === "en" ? "Confirm upgrade" : "Confirmer le passage au Pro")}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Cancel — Step 1 modal: are you sure? */}
-    {showCancelStep1 && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-        onClick={() => setShowCancelStep1(false)}
-      >
-        <div
-          className="w-full max-w-md rounded-2xl p-6 space-y-5"
-          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold text-[var(--app-text)]">{t("dashboard.subscription.cancelModalTitle")}</h2>
-            <p className="text-sm text-[var(--app-text-muted)]">
-              {t("dashboard.subscription.cancelModalDesc")}
-            </p>
-          </div>
-          <ul className="space-y-2 text-sm text-[var(--app-text-muted)]">
-            <li className="flex items-start gap-2">
-              <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
-              </svg>
-              {isTrialing && renewalDate
-                ? t("dashboard.subscription.cancelModalTrialAccess", { date: renewalDate })
-                : t("dashboard.subscription.cancelModalAccessUntilEnd")}
-            </li>
-            <li className="flex items-start gap-2">
-              <svg viewBox="0 0 16 16" className="h-4 w-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M4 4l8 8M12 4l-8 8" />
-              </svg>
-              {t("dashboard.subscription.cancelModalDataLost")}
-            </li>
-          </ul>
-          <div className="flex gap-3 pt-1">
-            <button
-              onClick={() => setShowCancelStep1(false)}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text-muted)]"
-              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
-            >
-              {t("dashboard.subscription.cancelButton")}
-            </button>
-            <button
-              onClick={() => { setShowCancelStep1(false); setShowCancelStep2(true); }}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium transition"
-              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
-            >
-              {t("dashboard.subscription.continueButton")}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Cancel — Step 2 modal: feedback required */}
-    {showCancelStep2 && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-        onClick={() => setShowCancelStep2(false)}
-      >
-        <div
-          className="w-full max-w-md rounded-2xl p-6 space-y-5"
-          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold text-[var(--app-text)]">{t("dashboard.subscription.feedbackTitle")}</h2>
-            <p className="text-sm text-[var(--app-text-muted)]">
-              {t("dashboard.subscription.feedbackDesc")}
-            </p>
-          </div>
-          <div>
-            <label className="block text-xs text-[var(--app-text-faint)] mb-2">{t("dashboard.subscription.feedbackLabel")} <span className="text-red-400">*</span></label>
-            <textarea
-              value={cancelFeedback}
-              onChange={(e) => setCancelFeedback(e.target.value)}
-              placeholder={t("dashboard.subscription.feedbackPlaceholder")}
-              rows={4}
-              className="w-full rounded-xl px-4 py-3 text-sm text-[var(--app-text)] placeholder-[var(--app-text-faint)] outline-none focus:ring-1 focus:ring-indigo-500/40 transition resize-none"
-              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
-            />
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowCancelStep2(false)}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text-muted)]"
-              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
-            >
-              {t("dashboard.subscription.cancelButton")}
-            </button>
-            <button
-              onClick={cancelSubscription}
-              disabled={!cancelFeedback.trim() || cancelLoading}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-40"
-              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
-            >
-              {cancelLoading ? t("dashboard.subscription.cancelling") : t("dashboard.subscription.confirmCancel")}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Downgrade confirmation modal */}
-    {showDowngradeModal && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-        onClick={() => setShowDowngradeModal(false)}
-      >
-        <div
-          className="w-full max-w-md rounded-2xl p-6 space-y-5"
-          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold text-[var(--app-text)]">{t("dashboard.subscription.downgradeModalTitle")}</h2>
-            <p className="text-sm text-[var(--app-text-muted)]">
-              {t("dashboard.subscription.downgradeModalDesc")}
-            </p>
-          </div>
-
-          <ul className="space-y-2 text-sm text-[var(--app-text-muted)]">
-            <li className="flex items-start gap-2">
-              <svg viewBox="0 0 16 16" className="h-4 w-4 text-green-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M2 8l4 4 8-8" />
-              </svg>
-              {t("dashboard.subscription.downgradeModalKeepAccess")}
-            </li>
-            <li className="flex items-start gap-2">
-              <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
-              </svg>
-              {t("dashboard.subscription.downgradeModalNextPayment")}
-            </li>
-            <li className="flex items-start gap-2">
-              <svg viewBox="0 0 16 16" className="h-4 w-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M4 4l8 8M12 4l-8 8" />
-              </svg>
-              {t("dashboard.subscription.downgradeModalLimits")}
-            </li>
-          </ul>
-
-          <div className="flex gap-3 pt-1">
-            <button
-              onClick={() => setShowDowngradeModal(false)}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text-muted)]"
-              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
-            >
-              {t("dashboard.subscription.cancelButton")}
-            </button>
-            <button
-              onClick={downgradeToSolo}
-              disabled={downgradeLoading}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-50"
-              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
-            >
-              {downgradeLoading ? t("dashboard.subscription.changingPlan") : t("dashboard.subscription.confirmDowngrade")}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
     <UpgradePlanModal
-      open={showFreeUpgradeModal}
-      onClose={() => setShowFreeUpgradeModal(false)}
-      currentPlan={plan === "starter" ? "starter" : "free"}
+      open={showPlanPicker}
+      onClose={() => setShowPlanPicker(false)}
+      currentPlan={plan ?? "free"}
+      currentInterval={billingInterval}
     />
     </>
   );

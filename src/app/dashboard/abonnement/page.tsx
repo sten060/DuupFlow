@@ -52,6 +52,9 @@ export default async function AbonnementPage() {
   // (the date of the FIRST charge), not the monthly renewal a month out.
   let currentPeriodEnd: number | null = null;
   let isTrialing = false;
+  // Intervalle de facturation en cours, lu sur le prix Stripe : c'est lui qui
+  // décide sur quelle position s'ouvre la bascule Mensuel / Annuel.
+  let billingInterval: "monthly" | "yearly" = "monthly";
 
   // Sync plan & customer_id from Stripe (fixes wrong plan in DB)
   if (profile?.stripe_subscription_id || stripeCustomerId || profile?.has_paid) {
@@ -126,6 +129,8 @@ export default async function AbonnementPage() {
         const stripePlan = resolvePlanFromPrice(priceId, unitAmount);
         const stripeCustomer = typeof sub.customer === "string" ? sub.customer : (sub.customer as any)?.id ?? null;
 
+        // Mensuel ou annuel, d'après le prix réellement facturé.
+        billingInterval = price?.recurring?.interval === "year" ? "yearly" : "monthly";
         // Read cancellation-at-period-end state
         cancelAtPeriodEnd = sub.cancel_at_period_end;
         cancelAt = sub.cancel_at ?? null;
@@ -189,6 +194,7 @@ export default async function AbonnementPage() {
       cancelAt={cancelAt}
       currentPeriodEnd={currentPeriodEnd}
       isTrialing={isTrialing}
+      billingInterval={billingInterval}
     />
   );
 }

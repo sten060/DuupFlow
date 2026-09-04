@@ -624,7 +624,16 @@
       "promoValid": "Valid code",
       "promoInvalid": "Invalid or expired code",
       "promoContinue": "Continue to payment",
-      "promoBack": "Back"
+      "promoBack": "Back",
+      "switchToYearly": "Switch to yearly",
+      "switchToMonthly": "Back to monthly",
+      "perYear": "/ year",
+      "confirmComputing": "Working out the amount…",
+      "confirmDueNow": "Due today",
+      "confirmThen": "Then {price} {per}, renewed automatically.",
+      "confirmProrata": "The amount accounts for the days already paid on your current plan.",
+      "confirmUnavailable": "Amount unavailable right now — Stripe will work it out at payment.",
+      "confirmCta": "Confirm and pay"
     },
     "home": {
       "dashboard": "Dashboard",

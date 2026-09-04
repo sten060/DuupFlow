@@ -22,7 +22,12 @@ export async function POST(request: Request) {
   // for callers that POST without a body). Downgrade targets are paid tiers
   // below the current one — Starter or Solo.
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
-  const target: "starter" | "solo" = body?.plan === "starter" ? "starter" : "solo";
+  // "pro" est une cible valide UNIQUEMENT pour un changement d'intervalle
+  // (Pro annuel → Pro mensuel) : la garde de palier plus bas s'en assure.
+  const target: "starter" | "solo" | "pro" =
+    body?.plan === "starter" ? "starter" : body?.plan === "pro" ? "pro" : "solo";
+  const askedInterval: "monthly" | "yearly" | null =
+    body?.billing === "yearly" ? "yearly" : body?.billing === "monthly" ? "monthly" : null;
 
   const admin = createAdminClient();
   const { data: profile } = await admin
@@ -30,15 +35,6 @@ export async function POST(request: Request) {
     .select("stripe_subscription_id, stripe_customer_id, plan")
     .eq("id", user.id)
     .single();
-
-  // The downgrade route only moves DOWN the tiers; a same-or-higher target must
-  // go through /api/stripe/upgrade.
-  if (planRank(target) >= planRank(profile?.plan)) {
-    return NextResponse.json(
-      { error: t("errors.billing.alreadyOnSolo") },
-      { status: 400 }
-    );
-  }
 
   // Resolve subscription ID — fallback to looking up via customer ID
   let subscriptionId = profile?.stripe_subscription_id ?? null;
@@ -78,8 +74,26 @@ export async function POST(request: Request) {
     );
   }
 
-  // Conserver l'intervalle de facturation actuel (annuel reste annuel).
-  const interval = sub.items.data[0]?.price?.recurring?.interval === "year" ? "yearly" : "monthly";
+  // Par défaut, l'intervalle ne bouge pas (annuel reste annuel) ; l'appelant
+  // peut demander le retour au mensuel.
+  const currentInterval = sub.items.data[0]?.price?.recurring?.interval === "year" ? "yearly" : "monthly";
+  const interval = askedInterval ?? currentInterval;
+
+  // Cette route ne fait que DESCENDRE, et il y a deux façons de descendre :
+  //   · changer de palier vers le bas ;
+  //   · rester sur son palier mais quitter l'engagement annuel.
+  // Dans les deux cas c'est appliqué à l'échéance, jamais facturé maintenant :
+  // le user garde ce qu'il a payé jusqu'au bout.
+  const descendEnPalier = planRank(target) < planRank(profile?.plan);
+  const revientAuMensuel =
+    planRank(target) === planRank(profile?.plan) && currentInterval === "yearly" && interval === "monthly";
+  if (!descendEnPalier && !revientAuMensuel) {
+    return NextResponse.json(
+      { error: t("errors.billing.alreadyOnSolo") },
+      { status: 400 }
+    );
+  }
+
   const targetPriceId = getPlanPriceId(target, interval);
   if (!targetPriceId) {
     return NextResponse.json(
