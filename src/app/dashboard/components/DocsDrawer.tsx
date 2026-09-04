@@ -53,7 +53,7 @@ export default function DocsDrawer({ docs }: { docs: DocEntry[] }) {
         onClick={() => { setActive(0); setOpen(true); }}
         aria-label={t("dashboard.docs.button")}
         title={t("dashboard.docs.button")}
-        className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-2 sm:px-3.5 sm:py-2 text-sm font-medium text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)] transition"
+        className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-2 sm:px-3.5 sm:py-2 text-sm font-medium text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)] transition"
       >
         <DocIcon className="h-4 w-4 shrink-0" />
         {/* Label hidden on mobile — icon-only to save space. */}

@@ -74,6 +74,138 @@ function advancedUsageBody(t: T) {
   );
 }
 
+/** Liste numérotée — pour les marches à suivre (l'ordre compte). */
+function stepList(lines: string[]) {
+  return (
+    <ol className="space-y-3.5">
+      {lines.map((l, i) => (
+        <li key={i} className="flex gap-3">
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white" style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
+            {i + 1}
+          </span>
+          <span>{l}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Encadré d'avertissement — quand un réglage a une contrepartie à assumer. */
+function warning(text: string) {
+  return (
+    <p className="rounded-xl px-4 py-3.5 text-[var(--app-text-muted)]" style={{ background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.28)" }}>
+      ⚠️ {text}
+    </p>
+  );
+}
+
+/** Titre de sous-section à l'intérieur d'une entrée de doc. */
+function subTitle(text: string) {
+  return <h4 className="text-[13px] font-semibold text-[var(--app-text)]">{text}</h4>;
+}
+
+/**
+ * « Conseils d'utilisation » — la doc que réclamaient les retours utilisateurs
+ * (« mon contenu est détecté comme non original »).
+ *
+ * Organisée PAR CAS CLIENT et pas par réglage : le bon conseil dépend
+ * entièrement d'une seule question — la vidéo contient-elle du texte à l'écran ?
+ * Un utilisateur qui lit cette page doit tomber directement sur SA situation.
+ *
+ * Le fil rouge : les plateformes comparent les IMAGES, pas seulement les
+ * métadonnées. Tant que ce n'est pas compris, l'utilisateur cumule des réglages
+ * discrets et s'étonne du résultat.
+ */
+function adviceBody(t: T) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        {subTitle(t("dashboard.docs.advicePrincipleTitle"))}
+        <p>{t("dashboard.docs.advicePrincipleBody")}</p>
+        {callout(t("dashboard.docs.advicePrincipleKey"))}
+      </div>
+
+      <div className="space-y-3 border-t border-[var(--app-border)] pt-5">
+        {subTitle(t("dashboard.docs.adviceCase1Title"))}
+        <p>{t("dashboard.docs.adviceCase1Intro")}</p>
+        {bulletList([
+          t("dashboard.docs.adviceCase1Reverse"),
+          t("dashboard.docs.adviceCase1Watermark"),
+        ])}
+        {warning(t("dashboard.docs.adviceCase1Warning"))}
+      </div>
+
+      <div className="space-y-3 border-t border-[var(--app-border)] pt-5">
+        {subTitle(t("dashboard.docs.adviceCase2Title"))}
+        <p>{t("dashboard.docs.adviceCase2Intro")}</p>
+        {stepList([
+          t("dashboard.docs.adviceCase2Step1"),
+          t("dashboard.docs.adviceCase2Step2"),
+          t("dashboard.docs.adviceCase2Step3"),
+        ])}
+        {callout(t("dashboard.docs.adviceCase2Why"))}
+        <Link
+          href="/dashboard/ai-editor"
+          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+          style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+        >
+          {t("dashboard.docs.adviceCase2Cta")} →
+        </Link>
+      </div>
+
+      <div className="space-y-3 border-t border-[var(--app-border)] pt-5">
+        {subTitle(t("dashboard.docs.adviceCase3Title"))}
+        <p>{t("dashboard.docs.adviceCase3Intro")}</p>
+        <p>{t("dashboard.docs.adviceCase3Body")}</p>
+        {warning(t("dashboard.docs.adviceCase3Warning"))}
+      </div>
+    </div>
+  );
+}
+
+/** Fiche d'un pack de mouvement : ce qu'il fait, un exemple, les chiffres. */
+function motionPack(t: T, prefix: string) {
+  return (
+    <div className="space-y-3">
+      {subTitle(t(`dashboard.docs.${prefix}Title`))}
+      <p>{t(`dashboard.docs.${prefix}What`)}</p>
+      <p className="rounded-xl px-4 py-3.5 text-[var(--app-text-muted)]" style={{ background: "var(--app-surface-2)" }}>
+        {t(`dashboard.docs.${prefix}Example`)}
+      </p>
+      <div className="space-y-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--app-text-faint)]">
+          {t("dashboard.docs.motionSpecsLabel")}
+        </span>
+        <p className="text-[12.5px] leading-relaxed text-[var(--app-text-muted)]">{t(`dashboard.docs.${prefix}Specs`)}</p>
+      </div>
+      {callout(t(`dashboard.docs.${prefix}When`))}
+    </div>
+  );
+}
+
+/**
+ * « Les 2 packs de mouvement, en détail ».
+ *
+ * Les deux packs agissent tous deux sur le cadrage : sans une fiche par pack, un
+ * utilisateur ne peut pas deviner lequel prendre ni ce qu'il perd en échange.
+ * Chaque fiche suit le même plan — ce que ça fait, un exemple concret sur une
+ * vidéo réelle, les chiffres, et quand s'en servir — pour qu'on puisse comparer
+ * les deux en lisant en diagonale.
+ */
+function motionPacksBody(t: T) {
+  return (
+    <div className="space-y-6">
+      <p>{t("dashboard.docs.motionPacksIntro")}</p>
+      {motionPack(t, "motionClassic")}
+      <div className="border-t border-[var(--app-border)] pt-5">{motionPack(t, "motionDynamic")}</div>
+      <div className="space-y-3 border-t border-[var(--app-border)] pt-5">
+        {subTitle(t("dashboard.docs.motionStackTitle"))}
+        <p>{t("dashboard.docs.motionStackBody")}</p>
+      </div>
+    </div>
+  );
+}
+
 function tiktokDoc(t: T): DocEntry {
   return {
     title: t("dashboard.docs.tiktokTitle"),
@@ -107,16 +239,20 @@ export function buildVideoDocs(t: T, opts?: { advanced?: boolean }): DocEntry[] 
     title: t("dashboard.durationInfo.title"),
     body: <p>{t("dashboard.durationInfo.body")}</p>,
   };
+  const advice: DocEntry = { title: t("dashboard.docs.adviceTitle"), body: adviceBody(t) };
   if (opts?.advanced) {
     return [
+      advice,
       duration,
       { title: t("dashboard.docs.advancedUsageTitle"), body: advancedUsageBody(t) },
       tiktokDoc(t),
     ];
   }
   return [
+    advice,
     duration,
     { title: t("dashboard.docs.filtersTitle"), body: filtersBody(t) },
+    { title: t("dashboard.docs.motionPacksTitle"), body: motionPacksBody(t) },
   ];
 }
 
@@ -299,8 +435,11 @@ export function buildApiDocs(t: T): DocEntry[] {
 
 function buildVideoDocsAll(t: T): DocEntry[] {
   return [
+    // En premier ici aussi : c'est le conseil qui conditionne tous les réglages.
+    { title: t("dashboard.docs.adviceTitle"), body: adviceBody(t) },
     { title: t("dashboard.durationInfo.title"), body: <p>{t("dashboard.durationInfo.body")}</p> },
     { title: t("dashboard.docs.filtersTitle"), body: filtersBody(t) },
+    { title: t("dashboard.docs.motionPacksTitle"), body: motionPacksBody(t) },
     { title: t("dashboard.docs.advancedUsageTitle"), body: advancedUsageBody(t) },
     tiktokDoc(t),
   ];

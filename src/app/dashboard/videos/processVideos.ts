@@ -187,6 +187,31 @@ async function probeColorInfo(input: string, binPath: string): Promise<ColorInfo
         if (dim) { info.width = parseInt(dim[1], 10); info.height = parseInt(dim[2], 10); }
         const f = vline[0].match(/(\d+(?:\.\d+)?)\s*fps/);
         if (f) info.fps = parseFloat(f[1]);
+
+        // ── Rotation du conteneur : les dimensions DÉCODÉES ne sont pas celles
+        // écrites sur la ligne « Video: » ────────────────────────────────────
+        // Un téléphone filme à l'horizontale et note « tourne de 90° » dans un
+        // coin du fichier. La ligne Video: annonce donc 3840x2160 alors que
+        // ffmpeg décode 2160x3840 (portrait) en appliquant la rotation.
+        //
+        // Sans ce correctif, tout ce qui se cale sur ces dimensions les force à
+        // l'envers : `scale=3840:2160` écrase une image portrait dans un cadre
+        // paysage, et le zoompan des mouvements progressifs dessine sur une
+        // toile paysage. Résultat : la copie sortait « en format grand » alors
+        // que l'originale est verticale.
+        //
+        // La rotation apparaît en side data, quelques lignes SOUS la ligne
+        // Video: — d'où la fenêtre de recherche à partir de sa position.
+        const apres = stderr.slice(vline.index ?? 0, (vline.index ?? 0) + 600);
+        const rot = apres.match(/rotation of\s*(-?\d+(?:\.\d+)?)\s*degrees/i);
+        if (rot) {
+          const deg = Math.abs(Math.round(parseFloat(rot[1]))) % 180;
+          if (deg === 90 && info.width > 0 && info.height > 0) {
+            const w = info.width;
+            info.width = info.height;
+            info.height = w;
+          }
+        }
       }
       // Audio sample rate (used by the pitch shift). e.g. "Audio: aac ..., 48000 Hz, ..."
       const aline = stderr.match(/Stream #\d+:\d+.*?: Audio:[^\n]*/);
@@ -934,6 +959,373 @@ async function runFFmpegSafe(
    Core processing — returns channel for redirect URL
    ========================================================= */
 
+/**
+ * Tremblement « caméra à l'épaule » — option indépendante des packs.
+ *
+ * Deux oscillations de fréquences différentes (une par axe), avec une phase
+ * tirée au sort : le mouvement ne se répète donc pas à l'identique et ne tombe
+ * jamais en rythme avec l'image. L'amplitude est volontairement faible (±0,3 à
+ * 0,6 % du cadre) : on veut la sensation de main levée, pas un caméscope pris
+ * dans un tremblement de terre.
+ *
+ * Le zoom de base (~1,015×) sert UNIQUEMENT à dégager la marge nécessaire au
+ * débattement — sans lui, la fenêtre toucherait le bord et ferait apparaître du
+ * noir. Coût en image : ~3 % de surface, contre ~30 % pour un pack de mouvement.
+ */
+function buildShakeFilter(): string[] {
+  const amp = 0.003 + Math.random() * 0.003;          // ±0,3 à 0,6 %
+  const marge = 2 * amp + 0.002;
+  const Z = (1 / (1 - marge)).toFixed(5);
+  const mid = (marge / 2).toFixed(5);
+  const fx = (3.2 + Math.random() * 2.6).toFixed(3);  // fréquences distinctes par
+  const fy = (2.7 + Math.random() * 2.6).toFixed(3);  // axe → trajectoire non répétitive
+  const phx = (Math.random() * 6.283).toFixed(3);
+  const phy = (Math.random() * 6.283).toFixed(3);
+  const a = amp.toFixed(5);
+  return [
+    `crop=iw/${Z}:ih/${Z}:x='in_w*(${mid}+${a}*sin(2*PI*${fx}*t+${phx}))':y='in_h*(${mid}+${a}*sin(2*PI*${fy}*t+${phy}))'`,
+    `scale=iw*${Z}:ih*${Z}:flags=bicubic`,
+  ];
+}
+
+/* ── Chorégraphie de caméra du pack « Mouvement avancé » ────────────────────
+ * Une suite de MOMENTS tirés au sort, au lieu d'un mouvement continu :
+ *   · zoom progressif vers un point (centre, gauche, droite, haut, bas…)
+ *   · retour BRUTAL au cadrage normal
+ *   · déplacement progressif d'un côté à l'autre
+ *   · « pop » : zoom instantané, puis retour progressif au normal
+ *
+ * Tout est compilé en TROIS expressions (zoom, x, y) données à zoompan, qui les
+ * réévalue à chaque image. On ne peut pas s'en passer : `crop` fige sa taille de
+ * sortie à l'initialisation, donc un zoom qui varie dans le temps ne peut pas
+ * s'écrire autrement.
+ *
+ * Le repère : `cx`/`cy` positionnent la fenêtre visible en fraction du cadre
+ * (0 = collé à gauche/en haut, 0,5 = centré, 1 = collé à droite/en bas). En
+ * passant par (iw-iw/zoom), la fenêtre reste dans l'image PAR CONSTRUCTION —
+ * aucun bord noir possible, quel que soit le tirage.
+ */
+
+/** Les quatre natures de moment qui composent la chorégraphie. */
+type Moment = "zoomVers" | "retourBrutal" | "deplacement" | "pop";
+
+/** Un point d'ancrage de l'animation. `step: true` = changement instantané. */
+type Key = { t: number; z: number; cx: number; cy: number; step: boolean };
+
+/**
+ * Les deux intensités du pack. Même chorégraphie, mêmes natures de moment :
+ * seules les AMPLITUDES et les vitesses changent.
+ *
+ * · fort  = le réglage d'origine, celui qui creuse le plus l'écart entre copies ;
+ * · doux  = pour qui ne veut pas abîmer son image. Les zooms montent deux fois
+ *           moins haut, les glissements sont plus courts, les mouvements plus
+ *           lents — et le « retour brutal » devient un retour RAPIDE (0,2 s) au
+ *           lieu d'une coupe sèche, ce qui enlève l'à-coup sans enlever la
+ *           rupture.
+ */
+type Bareme = {
+  zoom: [number, number];      // zoom progressif
+  pop: [number, number];       // bond instantané
+  zoomPan: [number, number];   // zoom nécessaire au glissement
+  panLoin: [number, number];   // cible du glissement, côté opposé
+  panPres: [number, number];
+  duree: [number, number];     // durée d'un mouvement progressif
+  retourSec: number;           // 0 = coupe sèche ; > 0 = retour rapide en N s
+};
+
+const BAREMES: Record<"doux" | "fort", Bareme> = {
+  fort: { zoom: [1.08, 1.22], pop: [1.20, 1.32], zoomPan: [1.10, 1.18], panLoin: [0.62, 0.80], panPres: [0.20, 0.38], duree: [1.1, 2.4], retourSec: 0 },
+  doux: { zoom: [1.03, 1.10], pop: [1.07, 1.15], zoomPan: [1.04, 1.09], panLoin: [0.56, 0.66], panPres: [0.34, 0.44], duree: [1.6, 3.0], retourSec: 0.2 },
+};
+
+/** Points d'intérêt visés par les zooms — jamais collés au bord. */
+const CIBLES: [number, number][] = [
+  [0.5, 0.5], [0.30, 0.5], [0.70, 0.5], [0.5, 0.32], [0.5, 0.68],
+  [0.32, 0.34], [0.68, 0.34], [0.32, 0.66], [0.68, 0.66],
+];
+
+const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+/**
+ * Tire la suite de moments pour UNE copie. Deux copies n'ont donc ni les mêmes
+ * mouvements, ni le même ordre, ni les mêmes points visés.
+ */
+function tirerMoments(duree: number, b: Bareme): Key[] {
+  const keys: Key[] = [{ t: 0, z: 1, cx: 0.5, cy: 0.5, step: true }];
+  let t = 0;
+  let dernier = { z: 1, cx: 0.5, cy: 0.5 };
+  // Budget d'ancrages PROPORTIONNEL à la durée.
+  //
+  // Il était fixe (14) : une vidéo de 60 s recevait donc autant d'ancrages
+  // qu'une de 8 s. Comme un moment consomme 1 à 3 ancrages et dure ~1,5 s, la
+  // chorégraphie couvrait la dizaine de premières secondes puis tenait la
+  // dernière valeur jusqu'au bout — les effets « s'arrêtaient en milieu de
+  // vidéo » (constaté en test sur une vraie vidéo).
+  //
+  // Un moment ≈ 1,2 s en moyenne et coûte au plus 3 ancrages, d'où la formule.
+  // Le plafond dur (240) borne la taille de l'expression ; il n'est jamais
+  // atteint sous la limite de 120 s imposée aux fichiers acceptés.
+  const MAX_MOMENTS = Math.min(240, Math.max(12, Math.round(duree / 1.2) * 3));
+
+  // Le rythme voulu est une ALTERNANCE : un mouvement lent, puis une rupture,
+  // puis un mouvement lent… Tiré totalement au hasard, on obtenait parfois une
+  // copie qui se contente d'un seul zoom lent sur 8 s — trop sage pour l'usage.
+  // On démarre donc toujours par un mouvement progressif (la vidéo ne commence
+  // jamais en plein zoom), et on impose qu'une rupture soit suivie d'un
+  // mouvement lent.
+  let derniereEtaitRupture = true;
+
+  while (t < duree - 0.35 && keys.length < MAX_MOMENTS) {
+    const progressifs: Moment[] = ["zoomVers", "deplacement"];
+    const ruptures: Moment[] = ["retourBrutal", "pop"];
+    const type: Moment = derniereEtaitRupture
+      ? pick(progressifs)
+      : Math.random() < 0.65
+        ? pick(ruptures)
+        : pick(progressifs);
+    derniereEtaitRupture = type === "retourBrutal" || type === "pop";
+
+    if (type === "zoomVers") {
+      // Zoom progressif vers un point précis.
+      const [cx, cy] = pick(CIBLES);
+      const d = Math.min(rnd(b.duree[0], b.duree[1]), duree - t);
+      t += d;
+      dernier = { z: rnd(b.zoom[0], b.zoom[1]), cx, cy };
+      keys.push({ t, ...dernier, step: false });
+
+    } else if (type === "retourBrutal") {
+      // D'un coup, on revient au cadrage normal — et on s'y pose un instant.
+      if (dernier.z <= 1.001) continue; // déjà au normal : rien à couper
+      const pause = Math.min(rnd(0.4, 1.2), duree - t);
+      dernier = { z: 1, cx: 0.5, cy: 0.5 };
+      if (b.retourSec > 0) {
+        // Retour rapide (mode doux) : la rupture reste lisible, l'à-coup part.
+        t = Math.min(duree, t + b.retourSec);
+        keys.push({ t, ...dernier, step: false });
+      } else {
+        keys.push({ t, ...dernier, step: true });
+      }
+      t = Math.min(duree, t + pause);
+      keys.push({ t, ...dernier, step: false });
+
+    } else if (type === "deplacement") {
+      // Glissement progressif d'un côté à l'autre. Il faut du zoom pour avoir
+      // de la marge : sans lui, la fenêtre occupe tout le cadre et ne peut pas
+      // se déplacer.
+      const z = Math.max(dernier.z, rnd(b.zoomPan[0], b.zoomPan[1]));
+      const versLaDroite = dernier.cx < 0.5 ? true : dernier.cx > 0.5 ? false : Math.random() < 0.5;
+      const cx = versLaDroite ? rnd(b.panLoin[0], b.panLoin[1]) : rnd(b.panPres[0], b.panPres[1]);
+      const cy = Math.min(0.78, Math.max(0.22, dernier.cy + rnd(-0.12, 0.12)));
+      const d = Math.min(rnd(b.duree[0] * 0.9, b.duree[1] * 0.92), duree - t);
+      t += d;
+      dernier = { z, cx, cy };
+      keys.push({ t, ...dernier, step: false });
+
+    } else {
+      // « Pop » : zoom instantané, on tient très peu, puis retour progressif.
+      const [cx, cy] = pick(CIBLES);
+      const zPop = rnd(b.pop[0], b.pop[1]);
+      keys.push({ t, z: zPop, cx, cy, step: true });
+      const tenue = Math.min(rnd(0.12, 0.35), Math.max(0, duree - t));
+      t += tenue;
+      keys.push({ t, z: zPop, cx, cy, step: false });
+      const retour = Math.min(rnd(0.7, 1.5), duree - t);
+      t += retour;
+      dernier = { z: 1, cx: 0.5, cy: 0.5 };
+      keys.push({ t, ...dernier, step: false });
+    }
+  }
+
+  // Retour au cadrage neutre avant la fin : c'est ce qui rend le raccord de
+  // boucle invisible (le cycle repart exactement là où il s'est arrêté).
+  if (dernier.z > 1.001 || Math.abs(dernier.cx - 0.5) > 0.001 || Math.abs(dernier.cy - 0.5) > 0.001) {
+    const retour = Math.min(0.9, Math.max(0.25, duree - t));
+    t = Math.min(duree, t + retour);
+    dernier = { z: 1, cx: 0.5, cy: 0.5 };
+    keys.push({ t, ...dernier, step: false });
+  }
+  if (keys[keys.length - 1].t < duree) {
+    keys.push({ t: duree, z: 1, cx: 0.5, cy: 0.5, step: false });
+  }
+  return keys;
+}
+
+/** Compile une suite de valeurs en expression FFmpeg imbriquée (sur `on`). */
+function compiler(keys: Key[], valeur: (k: Key) => number, fps: number, variable: string): string {
+  const f = (t: number) => Math.max(0, Math.round(t * fps));
+  // On part de la dernière valeur, puis on empile les `if` à rebours.
+  let expr = valeur(keys[keys.length - 1]).toFixed(5);
+  for (let i = keys.length - 1; i >= 1; i--) {
+    const k0 = keys[i - 1], k1 = keys[i];
+    const f0 = f(k0.t), f1 = f(k1.t);
+    const v0 = valeur(k0), v1 = valeur(k1);
+    let seg: string;
+    if (k1.step || f1 <= f0) {
+      seg = v0.toFixed(5);                       // palier : on tient la valeur
+    } else if (Math.abs(v1 - v0) < 1e-6) {
+      seg = v0.toFixed(5);                       // rien ne change
+    } else {
+      seg = `${v0.toFixed(5)}+${(v1 - v0).toFixed(5)}*(${variable}-${f0})/${f1 - f0}`;
+    }
+    expr = `if(lt(${variable},${f1}),${seg},${expr})`;
+  }
+  return expr;
+}
+
+/**
+ * Filtres de la chorégraphie, prêts à être ajoutés au -vf.
+ * Renvoie [] si la durée ou les dimensions sont inconnues (rien plutôt qu'un
+ * mouvement calculé sur des valeurs fausses).
+ */
+export function buildChoreography(
+  durationSec: number,
+  width: number,
+  height: number,
+  fps: number,
+  intensite: "doux" | "fort" = "fort",
+): string[] {
+  if (!(durationSec > 0) || !(width > 1) || !(height > 1)) return [];
+  const f = fps > 0 ? fps : 30;
+
+  // ── Pourquoi une BOUCLE et pas une chorégraphie unique ────────────────────
+  // Les expressions sont des `if` imbriqués : leur profondeur suit la durée de
+  // la vidéo. Au-delà d'environ deux minutes, l'évaluateur de FFmpeg refuse la
+  // formule (« Missing ')' or too many args ») — et la limite exacte n'est pas
+  // documentée, donc s'en approcher est un pari.
+  //
+  // On compose donc un CYCLE d'au plus 24 s, rejoué en boucle avec `mod`. La
+  // taille de la formule ne dépend plus de la durée du fichier, et une vidéo de
+  // 8 s se comporte exactement comme avant (elle tient dans un seul cycle).
+  // Le cycle commence et se termine au cadrage neutre : le raccord ne se voit
+  // pas.
+  // Durée du cycle tirée au sort : deux copies n'ont donc même pas la même
+  // période de répétition, en plus de mouvements différents.
+  const cycle = Math.min(durationSec, 18 + Math.random() * 8);
+  const framesCycle = Math.max(1, Math.round(cycle * f));
+  // `mod` n'a aucun effet tant que la vidéo tient dans un cycle.
+  const variable = durationSec > cycle + 0.05 ? `mod(on,${framesCycle})` : "on";
+
+  let keys = tirerMoments(cycle, BAREMES[intensite]);
+  // On ne fusionne QUE les ancrages strictement identiques (même image ET mêmes
+  // valeurs). Fusionner sur la seule image serait faux : une rupture tombe
+  // volontairement sur la même image que la fin du mouvement progressif qui la
+  // précède — l'un dit « on arrive à 1,15 », l'autre « et on retombe à 1 tout
+  // de suite ». Supprimer le premier effaçait le mouvement progressif, et la
+  // copie restait figée.
+  keys = keys.filter((k, i) => {
+    const n = keys[i + 1];
+    if (!n) return true;
+    return !(Math.round(k.t * f) === Math.round(n.t * f) && k.z === n.z && k.cx === n.cx && k.cy === n.cy);
+  });
+  if (keys.length < 2) return [];
+
+  const z = compiler(keys, (k) => k.z, f, variable);
+  const cx = compiler(keys, (k) => k.cx, f, variable);
+  const cy = compiler(keys, (k) => k.cy, f, variable);
+
+  return [
+    `zoompan=z='max(1,${z})':x='(iw-iw/zoom)*(${cx})':y='(ih-ih/zoom)*(${cy})':d=1:s=${width}x${height}:fps=${f}`,
+  ];
+}
+
+/** Forces (0–100) des quatre mouvements de caméra. 0 = mouvement désactivé. */
+export type CameraForces = {
+  prog_rotate: number;   // inclinaison progressive
+  prog_zoom: number;     // zoom progressif (avant ou arrière)
+  dyn_crop: number;      // recadrage qui dérive (pan)
+  shake: number;         // tremblement type caméra à l'épaule
+};
+
+/**
+ * Construit les filtres de MOUVEMENTS DE CAMÉRA qui évoluent dans le temps.
+ *
+ * Extrait du mode avancé (où ces mouvements sont pilotés par quatre curseurs)
+ * pour être réutilisé par le pack « Mouvement avancé » du mode simple, qui tire
+ * les mêmes forces au sort. Un seul moteur pour les deux : une correction ici
+ * profite aux deux modes, et le mode simple hérite de bornes déjà éprouvées.
+ *
+ * Chaque force est bornée pour rester propre au maximum : le sujet ne sort
+ * jamais du cadre et aucun coin noir n'apparaît. Renvoie [] si tout est à 0.
+ */
+export function buildCameraMoves(f: CameraForces, durationSec: number, color: ColorInfo): string[] {
+  const DUR = durationSec > 0 ? durationSec : 0;
+  const geoParts: string[] = [];
+
+  if (DUR > 0) {
+    // 1) Rotation progressive — slow lean 0 → ±θmax. A CONSTANT pre-scale hides
+    //    the black corners; a time-varying angle cannot use rotw/roth (that would
+    //    change the output size per frame and break the encoder).
+    const fRot = f.prog_rotate;
+    if (fRot > 0) {
+      // Sweep -θmax → +θmax across the clip → tilt visible from the FIRST frame
+      // (not a slow ramp from 0). Max |angle| = θmax ≤ 3° → subject never distorted.
+      const theta = ((1.0 + 2.0 * (fRot / 100)) * Math.PI) / 180; // 1.0° → 3.0° each side
+      const dir = Math.random() < 0.5 ? "-" : "";
+      const P = Math.min(1.14, 1 + 2.0 * Math.sin(theta)).toFixed(5); // covers corners @ ≤3°, any aspect
+      geoParts.push(`scale=iw*${P}:ih*${P}:flags=bicubic`);
+      geoParts.push(`rotate=a='${dir}${theta.toFixed(6)}*(2*(t/${DUR.toFixed(3)})-1)':ow=iw:oh=ih:c=black`);
+      geoParts.push(`crop=iw/${P}:ih/${P}:(iw-iw/${P})/2:(ih-ih/${P})/2`);
+    }
+
+    // 2) Zoom progressif — needs source W/H (+ fps) → zoompan. Skipped if the
+    //    probe couldn't read them. z stays ≥ 1 by construction (no clamp needed).
+    const fZoom = f.prog_zoom;
+    if (fZoom > 0 && color.width > 1 && color.height > 1) {
+      const zmax = 1.06 + 0.14 * (fZoom / 100); // 1.06 → 1.20
+      const fps = color.fps > 0 ? color.fps : 30;
+      const totf = Math.max(1, Math.round(DUR * fps) + 2); // +2 → on/totf < 1 always
+      const dz = (zmax - 1).toFixed(5);
+      const z = Math.random() < 0.5
+        ? `1+${dz}*on/${totf}`                    // zoom in
+        : `${zmax.toFixed(5)}-${dz}*on/${totf}`;  // zoom out (opens up)
+      geoParts.push(
+        `zoompan=z='${z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${color.width}x${color.height}:fps=${fps}`
+      );
+    }
+
+    // 3) Recadrage dynamique (pan) + Shake — one crop+scale, x/y animated.
+    //    In-bounds BY CONSTRUCTION: a base zoom gives room, and the shake
+    //    amplitude is capped to whatever room the pan leaves → no clamp and
+    //    no commas in the expressions (avoids filtergraph-escaping bugs).
+    const fPan = f.dyn_crop;
+    const fShake = f.shake;
+    if (fPan > 0 || fShake > 0) {
+      const np = fPan / 100;
+      const ns = fShake / 100;
+      // Motion as fractions of the frame. The pan travel is much larger than
+      // before so the drift is clearly visible; capped so the base zoom never
+      // exceeds ~1.20 (subject stays framed). Shake reserves its swing first,
+      // so both stay visible when combined.
+      const shakeAmp0 = fShake > 0 ? 0.001 + 0.003 * ns : 0;        // ±0.1% → ±0.4% (gentler default)
+      const CAP = 0.166;                                            // ⇒ base zoom ≤ ~1.20
+      const shakeRoom = 2 * shakeAmp0;
+      const panTravel = fPan > 0 ? Math.min(0.05 + 0.13 * np, Math.max(0, CAP - shakeRoom - 0.01)) : 0; // up to ~15%
+      const avail = Math.min(panTravel + shakeRoom + 0.01, CAP);    // movement room (fraction of dim)
+      const Z = 1 / (1 - avail);
+      const Zf = Z.toFixed(5);
+      const trav = panTravel;                                       // pan travel band
+      const mid = avail / 2;
+      const amp = Math.min(shakeAmp0, Math.max(0, (avail - trav) / 2)); // shake that still fits
+      const tnorm = `(t/${DUR.toFixed(3)})`;
+      const half = (trav / 2).toFixed(5);
+      const dirX = Math.random() < 0.5 ? "-" : "+";
+      const dirY = Math.random() < 0.5 ? "-" : "+";
+      const fx = (3 + Math.random() * 3).toFixed(3);
+      const fy = (3 + Math.random() * 3).toFixed(3);
+      const phx = (Math.random() * 6.283).toFixed(3);
+      const phy = (Math.random() * 6.283).toFixed(3);
+      const shX = amp > 0 ? `+${amp.toFixed(5)}*sin(2*PI*${fx}*t+${phx})` : "";
+      const shY = amp > 0 ? `+${amp.toFixed(5)}*sin(2*PI*${fy}*t+${phy})` : "";
+      const xExpr = `in_w*(${mid.toFixed(5)}${dirX}${half}*(2*${tnorm}-1)${shX})`;
+      const yExpr = `in_h*(${mid.toFixed(5)}${dirY}${half}*(2*${tnorm}-1)${shY})`;
+      geoParts.push(`crop=iw/${Zf}:ih/${Zf}:x='${xExpr}':y='${yExpr}'`);
+      geoParts.push(`scale=iw*${Zf}:ih*${Zf}:flags=bicubic`);
+    }
+  }
+  return geoParts;
+}
+
 export type PreDownloadedFile = { name: string; tmpPath: string };
 
 export async function processVideos(
@@ -1154,37 +1546,75 @@ export async function processVideos(
           vfParts.push(`noise=c0s=${ns}:c0f=t`);
         }
 
-        if (packs.includes("motion")) {
-          // ── Digital zoom with correct sub-region crop ──────────────────────────
-          // Previous code had a bug: crop=iw:ih:x=(in_w-out_w)*off evaluated to x=0
-          // because in_w==out_w after scale, so no crop happened and the video was
-          // output at zoom× the original resolution.
-          //
-          // Correct approach: crop a sub-region (iw/zoom × ih/zoom) from the original
-          // at a random position, then scale that region back up to fill original size.
-          // This is true "digital zoom" — different frame content shown in each copy.
-          const zoom = clamp(1.10 + Math.random() * 0.08, LIMITS.zoom.min, LIMITS.zoom.max); // 1.10–1.18×
+        // ── Mouvement — un seul pack, deux intensités ───────────────────────────
+        // « Doux » et « Fort » étaient deux packs séparés (Mouvement / Mouvement
+        // poussé). Même mécanique dans les deux cas : on recadre dans l'image,
+        // on ré-agrandit, et on décale la vitesse. Seule l'échelle change — d'où
+        // la fusion en un pack à pastille.
+        //
+        // `motion_strong` reste reconnu : d'anciens réglages mémorisés ou des
+        // modèles enregistrés peuvent encore le contenir, et ils doivent
+        // continuer à donner le rendu « fort ».
+        if (packs.includes("motion") || packs.includes("motion_strong")) {
+          const fort = singles?.motionMode === "fort" || packs.includes("motion_strong");
+
+          // ── Recadrage-zoom : on prélève une sous-région à un endroit tiré au
+          // sort, puis on la ramène à la taille d'origine. C'est ce déplacement
+          // du cadre qui rend deux copies non superposables.
+          const zoom = fort
+            ? clamp(1.22 + Math.random() * 0.14, LIMITS.zoom.min, LIMITS.zoom.max)  // 1,22–1,36×
+            : clamp(1.10 + Math.random() * 0.08, LIMITS.zoom.min, LIMITS.zoom.max); // 1,10–1,18×
           const zf = zoom.toFixed(6);
-          // Max safe start offset: must ensure crop region stays within frame bounds
-          const maxOff = (1 - 1 / zoom);  // e.g., 0.091 at zoom=1.10, 0.153 at zoom=1.18
+          const maxOff = 1 - 1 / zoom;
           const offx = (Math.random() * maxOff).toFixed(6);
           const offy = (Math.random() * maxOff).toFixed(6);
-          // crop: take (iw/zoom × ih/zoom) from position (iw*offx, ih*offy)
-          // scale: bring the sub-region back to full original dimensions — bicubic: good quality/speed ratio
           vfParts.push(`crop=iw/${zf}:ih/${zf}:x=iw*${offx}:y=ih*${offy}`);
           vfParts.push(`scale=iw*${zf}:ih*${zf}:flags=bicubic`);
 
-          // lenscorrection removed: most expensive filter (~50% of encode time), geometric
-          // remapping recalculates every pixel with bilinear interpolation per frame.
-
-          // Speed ±1–3% — invisible to the viewer, sufficient to shift the file fingerprint
+          // Vitesse : ±1–3 % en doux (inaudible), ±4–8 % en fort. Au-delà, la
+          // voix commence à s'entendre. L'audio suit le même facteur.
           const side = Math.random() > 0.5 ? 1 : -1;
-          const deviation = 0.01 + Math.random() * 0.02;  // 1–3%
+          const deviation = fort ? 0.04 + Math.random() * 0.04 : 0.01 + Math.random() * 0.02;
           const sp = clamp(1.0 + side * deviation, LIMITS.speed.min, LIMITS.speed.max);
           vfParts.push(`setpts=${(1 / sp).toFixed(6)}*PTS`);
           afParts.push(`atempo=${sp.toFixed(4)}`);
 
-          // tblend removed: expensive (sequential frame decode), negligible uniquification value
+          // Inclinaison fixe : réservée au mode fort. Elle déplace chaque pixel
+          // sans donner l'impression d'une vidéo penchée.
+          if (fort) {
+            const deg = (0.6 + Math.random() * 0.9) * (Math.random() < 0.5 ? -1 : 1); // ±0,6–1,5°
+            const rad = (deg * Math.PI) / 180;
+            const P = Math.min(1.10, 1 + 2 * Math.abs(Math.sin(rad))).toFixed(5);
+            vfParts.push(`scale=iw*${P}:ih*${P}:flags=bicubic`);
+            vfParts.push(`rotate=a=${rad.toFixed(6)}:ow=iw:oh=ih:c=black`);
+            vfParts.push(`crop=iw/${P}:ih/${P}:(iw-iw/${P})/2:(ih-ih/${P})/2`);
+          }
+        }
+
+        // ── Mouvement avancé — la caméra BOUGE pendant la lecture ────────────────
+        // Les deux autres packs déplacent l'image une fois pour toutes : le cadrage
+        // est différent, mais il reste figé du début à la fin. Ici les mouvements
+        // évoluent IMAGE PAR IMAGE (inclinaison qui dérive, zoom qui avance,
+        // recadrage qui glisse, tremblement) — donc deux copies ne se ressemblent
+        // à AUCUN instant, et pas seulement sur la première image.
+        //
+        // Même moteur que les 4 curseurs du mode avancé (buildCameraMoves), mais
+        // les forces sont tirées au sort À CHAQUE COPIE. On garantit qu'au moins
+        // deux mouvements sont actifs, sinon un tirage malchanceux donnerait une
+        // copie presque immobile.
+        if (packs.includes("motion_dynamic")) {
+          // Une SUITE DE MOMENTS tirés au sort : zoom progressif vers un point,
+          // retour brutal, glissement d'un côté à l'autre, « pop » de zoom suivi
+          // d'un retour progressif. Rien de continu : c'est l'enchaînement de
+          // ruptures et de mouvements lents qui fait qu'aucun instant de deux
+          // copies ne se ressemble.
+          //
+          // Le tremblement N'EST PLUS ici : il est devenu une option à part
+          // (cochable indépendamment des packs).
+          // Intensité choisie sur la carte du pack (« Doux » / « Fort »).
+          const intensite = singles?.motionDynamicMode === "doux" ? "doux" : "fort";
+          const choreo = buildChoreography(videoDuration, color.width, color.height, color.fps, intensite);
+          if (choreo.length) vfParts.unshift(...choreo);
         }
 
         if (packs.includes("metadata_technical")) {
@@ -1240,6 +1670,10 @@ export async function processVideos(
 
         if (singles?.flip) vfParts.push("vflip");
         if (singles?.reverse) vfParts.push("hflip");
+
+        // Tremblement : option à part entière, indépendante des packs. Elle
+        // s'applique donc aussi bien seule qu'en plus d'un pack de mouvement.
+        if (singles?.shake) vfParts.unshift(...buildShakeFilter());
 
         if (singles?.rotation?.enabled) {
           let a = Number(singles.rotation.min_deg ?? 0);
@@ -1512,12 +1946,9 @@ export async function processVideos(
         if (Boolean(ranges?.flip?.enabled))    vfParts.push("vflip");
         if (Boolean(ranges?.reverse?.enabled)) vfParts.push("hflip");
 
-        // ── Mouvement poussé — time-varying camera moves ────────────────────────
-        // 4 independent "force" sliders (0–100), each mapped to SAFE bounds so even
-        // max force stays clean and keeps the subject in-frame. All stack in THIS
-        // single -vf pass (unshifted to run first, on clean pixels) → they inherit
-        // the global encode semaphore + bitrate cap like every other filter. When
-        // every force is off, geoParts stays empty → zero impact on existing filters.
+        // ── Mouvement poussé — mouvements de caméra pilotés par les 4 curseurs.
+        // Le moteur vit dans buildCameraMoves() (partagé avec le pack
+        // « Mouvement avancé » du mode simple).
         {
           const mpForce = (key: string): number => {
             const r = ranges?.[key];
@@ -1525,83 +1956,17 @@ export async function processVideos(
             const v = Number(r.min);
             return Number.isFinite(v) ? _clamp(v, 0, 100) : 0;
           };
-          const DUR = videoDuration > 0 ? videoDuration : 0;
-          const geoParts: string[] = [];
-
-          if (DUR > 0) {
-            // 1) Rotation progressive — slow lean 0 → ±θmax. A CONSTANT pre-scale hides
-            //    the black corners; a time-varying angle cannot use rotw/roth (that would
-            //    change the output size per frame and break the encoder).
-            const fRot = mpForce("prog_rotate");
-            if (fRot > 0) {
-              // Sweep -θmax → +θmax across the clip → tilt visible from the FIRST frame
-              // (not a slow ramp from 0). Max |angle| = θmax ≤ 3° → subject never distorted.
-              const theta = ((1.0 + 2.0 * (fRot / 100)) * Math.PI) / 180; // 1.0° → 3.0° each side
-              const dir = Math.random() < 0.5 ? "-" : "";
-              const P = Math.min(1.14, 1 + 2.0 * Math.sin(theta)).toFixed(5); // covers corners @ ≤3°, any aspect
-              geoParts.push(`scale=iw*${P}:ih*${P}:flags=bicubic`);
-              geoParts.push(`rotate=a='${dir}${theta.toFixed(6)}*(2*(t/${DUR.toFixed(3)})-1)':ow=iw:oh=ih:c=black`);
-              geoParts.push(`crop=iw/${P}:ih/${P}:(iw-iw/${P})/2:(ih-ih/${P})/2`);
-            }
-
-            // 2) Zoom progressif — needs source W/H (+ fps) → zoompan. Skipped if the
-            //    probe couldn't read them. z stays ≥ 1 by construction (no clamp needed).
-            const fZoom = mpForce("prog_zoom");
-            if (fZoom > 0 && color.width > 1 && color.height > 1) {
-              const zmax = 1.06 + 0.14 * (fZoom / 100); // 1.06 → 1.20
-              const fps = color.fps > 0 ? color.fps : 30;
-              const totf = Math.max(1, Math.round(DUR * fps) + 2); // +2 → on/totf < 1 always
-              const dz = (zmax - 1).toFixed(5);
-              const z = Math.random() < 0.5
-                ? `1+${dz}*on/${totf}`                    // zoom in
-                : `${zmax.toFixed(5)}-${dz}*on/${totf}`;  // zoom out (opens up)
-              geoParts.push(
-                `zoompan=z='${z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${color.width}x${color.height}:fps=${fps}`
-              );
-            }
-
-            // 3) Recadrage dynamique (pan) + Shake — one crop+scale, x/y animated.
-            //    In-bounds BY CONSTRUCTION: a base zoom gives room, and the shake
-            //    amplitude is capped to whatever room the pan leaves → no clamp and
-            //    no commas in the expressions (avoids filtergraph-escaping bugs).
-            const fPan = mpForce("dyn_crop");
-            const fShake = mpForce("shake");
-            if (fPan > 0 || fShake > 0) {
-              const np = fPan / 100;
-              const ns = fShake / 100;
-              // Motion as fractions of the frame. The pan travel is much larger than
-              // before so the drift is clearly visible; capped so the base zoom never
-              // exceeds ~1.20 (subject stays framed). Shake reserves its swing first,
-              // so both stay visible when combined.
-              const shakeAmp0 = fShake > 0 ? 0.001 + 0.003 * ns : 0;        // ±0.1% → ±0.4% (gentler default)
-              const CAP = 0.166;                                            // ⇒ base zoom ≤ ~1.20
-              const shakeRoom = 2 * shakeAmp0;
-              const panTravel = fPan > 0 ? Math.min(0.05 + 0.13 * np, Math.max(0, CAP - shakeRoom - 0.01)) : 0; // up to ~15%
-              const avail = Math.min(panTravel + shakeRoom + 0.01, CAP);    // movement room (fraction of dim)
-              const Z = 1 / (1 - avail);
-              const Zf = Z.toFixed(5);
-              const trav = panTravel;                                       // pan travel band
-              const mid = avail / 2;
-              const amp = Math.min(shakeAmp0, Math.max(0, (avail - trav) / 2)); // shake that still fits
-              const tnorm = `(t/${DUR.toFixed(3)})`;
-              const half = (trav / 2).toFixed(5);
-              const dirX = Math.random() < 0.5 ? "-" : "+";
-              const dirY = Math.random() < 0.5 ? "-" : "+";
-              const fx = (3 + Math.random() * 3).toFixed(3);
-              const fy = (3 + Math.random() * 3).toFixed(3);
-              const phx = (Math.random() * 6.283).toFixed(3);
-              const phy = (Math.random() * 6.283).toFixed(3);
-              const shX = amp > 0 ? `+${amp.toFixed(5)}*sin(2*PI*${fx}*t+${phx})` : "";
-              const shY = amp > 0 ? `+${amp.toFixed(5)}*sin(2*PI*${fy}*t+${phy})` : "";
-              const xExpr = `in_w*(${mid.toFixed(5)}${dirX}${half}*(2*${tnorm}-1)${shX})`;
-              const yExpr = `in_h*(${mid.toFixed(5)}${dirY}${half}*(2*${tnorm}-1)${shY})`;
-              geoParts.push(`crop=iw/${Zf}:ih/${Zf}:x='${xExpr}':y='${yExpr}'`);
-              geoParts.push(`scale=iw*${Zf}:ih*${Zf}:flags=bicubic`);
-            }
-          }
-
-          // Camera moves run FIRST (clean pixels), before colour/grain. Empty when all
-          // forces are off → a true no-op, existing behaviour untouched.
+          const geoParts = buildCameraMoves(
+            {
+              prog_rotate: mpForce("prog_rotate"),
+              prog_zoom: mpForce("prog_zoom"),
+              dyn_crop: mpForce("dyn_crop"),
+              shake: mpForce("shake"),
+            },
+            videoDuration,
+            color,
+          );
+          // Les mouvements passent EN PREMIER (pixels propres), avant couleur/grain.
           if (geoParts.length) vfParts.unshift(...geoParts);
         }
 

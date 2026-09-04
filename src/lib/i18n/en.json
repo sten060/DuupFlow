@@ -873,7 +873,42 @@
       "apiUsageBody": "The DuupFlow API lets you automate DuupFlow from your own tools (Make, n8n, Claude Code).",
       "apiUsageKey": "🔑 One key unlocks every endpoint.",
       "apiUsagePro": "⭐ Pro plan only.",
-      "apiCta": "Open the API page"
+      "apiCta": "Open the API page",
+      "adviceTitle": "Usage tips — avoiding detection",
+      "advicePrincipleTitle": "The principle to understand first",
+      "advicePrincipleBody": "Platforms don't just read your files' metadata: they COMPARE THE IMAGES themselves. Two copies that look alike on screen are recognised as the same content, even with completely different metadata.",
+      "advicePrincipleKey": "The direct consequence: the STRONGER the visual difference between your copies, the better it works. Subtle settings aren't enough — you need bold variations.",
+      "adviceCase1Title": "Case 1 — Your video has no on-screen text",
+      "adviceCase1Intro": "This is by far the best situation to be in. Two settings to turn on:",
+      "adviceCase1Reverse": "Reverse (horizontal mirror) — THE most effective one, use it first. Your video looks exactly the same to a viewer, but becomes completely different to an algorithm, since every pixel moves.",
+      "adviceCase1Watermark": "Watermark — strongly recommended on top. It adds a layer that moves and changes on every copy.",
+      "adviceCase1Warning": "One thing to watch: the mirror also flips burnt-in text, logos and any writing visible in the scene. If your video has any, go to case 2.",
+      "adviceCase2Title": "Case 2 — Your video is already edited (mirroring isn't an option)",
+      "adviceCase2Intro": "On-screen text? An edit already done? Then don't try to disguise the same footage: make REAL new versions of it with the AI Editor.",
+      "adviceCase2Step1": "Take your original video, the one WITHOUT the edit, and give it as source footage.",
+      "adviceCase2Step2": "Add your already-edited video as the reference, so the style is preserved.",
+      "adviceCase2Step3": "Ask Claude for several variants, each with a different edit.",
+      "adviceCase2Why": "You no longer get retouched copies but genuinely different edits: cuts, pacing and framing all change. That's what looks most like original content.",
+      "adviceCase2Cta": "Open the AI Editor",
+      "adviceCase3Title": "Case 3 — Neither option is possible",
+      "adviceCase3Intro": "That leaves the blunt approach: push the motion filters to the maximum in duplication.",
+      "adviceCase3Body": "Zoom, rotation, cropping, shake: applied boldly, they move the image enough to widen the gap between your files.",
+      "adviceCase3Warning": "Know this before you do it: your videos will be visually degraded. That's the price, and it's a deliberate trade-off — more difference between copies, lower quality. Keep it for cases where the mirror and the AI Editor are both out of reach.",
+      "motionPacksTitle": "The 2 motion packs, in detail",
+      "motionPacksIntro": "Both act on the FRAMING, but not in the same way. Each has a « Gentle / Strong » toggle on its card: same mechanism, two scales. Here's which one to pick and what it does exactly.",
+      "motionClassicTitle": "Motion — the framing changes, but it doesn't move",
+      "motionClassicWhat": "It crops into the image, scales that piece back up to the original size, and shifts the speed slightly. Your video is a little tighter, and each copy is tighter in a different spot. The framing stays FIXED from start to finish.",
+      "motionClassicExample": "Concrete example: on a video where you're filmed full-body, the copy cuts a few centimetres off the top and one side. On Gentle nobody notices; on Strong the copy is clearly tighter on you, slightly tilted, and plays a little faster.",
+      "motionClassicSpecs": "GENTLE — crop-zoom 1.10× to 1.18×, speed ±1 to 3% (audio follows, no drift), no tilt. Image area lost ≈ 17 to 28%.\nSTRONG — crop-zoom 1.22× to 1.36×, speed ±4 to 8%, plus a fixed tilt of ±0.6 to 1.5°. Image area lost ≈ 33 to 46%.\nIn both cases: crop position drawn at random, framing fixed from start to finish.",
+      "motionClassicWhen": "When to use it: Gentle by default, when you want to stay as close as possible to the original. Switch to Strong if your copies still get flagged — checking the crop doesn't cut something important (a caption at the bottom, a logo in a corner).",
+      "motionDynamicTitle": "Advanced motion — a choreography replayed differently on every copy",
+      "motionDynamicWhat": "It's the only one of the three where the framing isn't fixed. And it isn't one slow move from start to finish: the camera strings MOMENTS together. It eases in toward a point, then snaps back to normal framing, settles, slides right, does an instant zoom « pop », eases back… The order and the durations change on every copy.",
+      "motionDynamicExample": "Concrete example: the camera creeps toward your face for 2 seconds, then the image snaps back to normal framing. A second of calm, then it slides left, a « pop » jolts it forward, and it eases back into place. The next copy will play a completely different sequence.",
+      "motionDynamicSpecs": "Four kinds of moment: progressive zoom toward a point • snap back to normal framing then a 0.4 to 1.2 s pause • progressive slide from edge to edge • zoom « pop » followed by a progressive return. A slow move and a rupture always alternate. Speed is never modified.\n\nSTRONG — progressive zoom 1.08× to 1.22×, pop 1.20× to 1.32× (instant), slide up to 30% of the width, moves of 1 to 2.4 s. Image area lost: 0% at rest, up to 43% at the peak of a pop.\nGENTLE — progressive zoom 1.03× to 1.10×, pop 1.07× to 1.15×, slides half as long, moves of 1.6 to 3 s, and the return to normal framing takes 0.2 s instead of a hard cut. Image area lost: 0% at rest, ~18% at most.\n\nOn videos longer than ~20 s the choreography loops (an 18 to 26 s cycle, itself drawn at random). The cycle restarts from neutral framing, so the seam doesn't show.",
+      "motionDynamicWhen": "When to use it: it's the most effective of the three against content matching, because two copies never look alike at ANY moment. Take STRONG by default; switch to GENTLE if you care about your framing and don't want to crop the image. Shake has left this pack: it's an independent option you can tick alongside any pack.",
+      "motionStackTitle": "Can both packs be combined?",
+      "motionStackBody": "Yes, but it isn't advised: the zooms MULTIPLY. Motion (Strong) plus Advanced motion gives about 1.66× of zoom — nearly two thirds of the area cropped away — and the speed changes add up. Pick ONE pack instead, and turn its toggle to Strong if the result isn't enough.",
+      "motionSpecsLabel": "Technical characteristics"
     },
     "videosCommon": {
       "errorGeneric": "Something went wrong during duplication. Retry with the missing files.",
@@ -942,8 +977,15 @@
         },
         "motion": {
           "label": "Motion",
-          "hint": "zoom, slight rotation",
-          "help": "Tiny non-visual changes:\nZoom 1.01×–1.04× • Micro pan 0–10% • Speed ±1–3% (audio synced).\nImperceptible to the eye, enough to diversify the digital fingerprint."
+          "hint": "reframe, speed, tilt",
+          "help": "Crops into the image, scales it back up, and shifts the speed slightly. The framing stays FIXED from start to finish.\nTwo intensities, chosen on the card:\n• Gentle — zoom 1.10× to 1.18×, speed ±1 to 3%. Subtle, ~17 to 28% of the area cropped.\n• Strong — zoom 1.22× to 1.36×, speed ±4 to 8%, plus a slight fixed tilt. Two copies no longer overlap, but ~33 to 46% of the area is cropped."
+        },
+        "motion_dynamic": {
+          "label": "Advanced motion",
+          "hint": "the camera plays a choreography",
+          "help": "The only pack where the image moves DURING playback — and not as one continuous move: a sequence of linked moments.\nProgressive zoom toward a point (centre, left, right, a corner…) • Snap back to normal framing • Progressive slide from one side to the other • Zoom « pop », then a progressive return.\nTwo intensities, chosen on the card:\n• Strong — the boldest setting, zooms up to 1.32×.\n• Gentle — same choreography at half the amplitude (zooms up to 1.15×), slower moves and softened returns. To avoid cropping the image too much.\nThe order, the durations and the targets are drawn at random on every copy.\nShake is no longer in this pack: it's a checkbox option, at the bottom of the page.",
+          "modeDoux": "Gentle",
+          "modeFort": "Strong"
         },
         "visual": {
           "label": "Visuals",
@@ -1627,74 +1669,24 @@
   },
   "chatbot": {
     "header": "DuupFlow Support",
-    "reduce": "Reduce",
-    "expand": "Expand",
-    "restart": "Restart",
-    "start": "Hi! 👋 How can I help you?",
-    "dupProblem": "What kind of issue are you experiencing?",
-    "dupError": "Try these steps:\n\n1. Make sure your video is under 2 minutes\n2. Check the format is MP4, MOV, MKV or AVI\n3. Restart the duplication\n\nIf the issue persists, contact support.",
-    "dupQuality": "The 'Metadata', 'Audio', 'Motion' and 'Technical' packs don't modify the visuals. Only the 'Visual' pack applies visible changes (very subtle).\n\nIf you see a yellow tint on an iPhone HDR video, that's normal — the system automatically converts HDR to SDR.",
-    "dupSlow": "Speed depends on video length and number of copies. Tips:\n\n• Reduce duration (max 2 min)\n• Run fewer copies at a time\n• 'Motion' and 'Visual' packs are slower than 'Metadata' alone",
-    "abo": "What would you like to know about your subscription?",
-    "aboChange": "Go to 'Subscription' in the sidebar. You can see your current plan and modify it there.",
-    "aboLimit": "Each plan has a monthly duplication limit. If you've reached yours, you can upgrade from the 'Subscription' tab.",
-    "howTo": "DuupFlow is simple:\n\n1. Go to 'Images' or 'Videos'\n2. Upload your file\n3. Choose your packs/filters\n4. Click 'Duplicate'\n5. Download your copies\n\nEach copy is unique (different metadata, pixels, hash).",
-    "other": "I can't answer all questions. Contact our support team directly!",
-    "contact": "Our team is available on Telegram for quick help.",
-    "aiDetection": "What would you like to know about AI Detection?",
-    "aiWhat": "The AI Detection module erases all AI metadata from your files (EXIF, XMP, IPTC, C2PA) and replaces them with a realistic human identity.\n\nResult: your AI-generated content appears as if created by a human with a real camera.",
-    "aiVisual": "No visual modifications. Only metadata is changed. The pixels of your image/video remain identical.\n\nTo bypass visual detection by platforms, combine this module with Image Duplication (visual filters).",
-    "aiPlatforms": "This module removes AI signatures detected by Meta, Instagram, Threads, and any platform using C2PA/JUMBF.\n\nFor maximum protection, combine with Duplication (metadata + visuals).",
-    "newFeatures": "Here are the latest DuupFlow features:",
-    "featIphone": "⚡ Algorithm Priority simulates a video/photo from a real iPhone.\n\nIt injects authentic Apple metadata: device, iOS version, camera, GPS, signature. Video files are output in .mov format (like a real iPhone).\n\nPlatforms think the content comes from a real device.",
-    "featPixel": "✨ Magic Pixel adds imperceptible noise to every pixel of every frame.\n\nVisually identical, but the file hash is completely different. Duplicate detection algorithms see a unique file.",
-    "featMetaTech": "🔧 Technical Metadata modifies video bitrate, GOP, FPS and H.264 profile.\n\nThese technical parameters make each copy unique at the codec level without any perceptible visual change.",
-    "featComparator": "🔍 The Metadata Comparator analyzes two files and displays all their metadata side by side.\n\nYou can verify that your duplications are truly different from the original. Differences are highlighted in green with a similarity score.",
-    "resolved": "Great! Don't hesitate if you have more questions.",
-    "opt": {
-      "dupProblem": "Issue with a duplication",
-      "subscription": "Question about my subscription",
-      "howToUse": "How to use DuupFlow?",
-      "aiDetection": "AI Detection module",
-      "newFeatures": "New features",
-      "otherQuestion": "Other question",
-      "dupFails": "Duplication fails / error",
-      "qualityDifferent": "Visual quality is different",
-      "tooSlow": "It's too slow",
-      "other": "Other",
-      "resolved": "Resolved, thanks!",
-      "stillNotWorking": "Still not working",
-      "otherIssue": "I have another issue",
-      "okUnderstood": "OK, understood!",
-      "stillSlow": "Still too slow",
-      "changePlan": "How to change plans?",
-      "reachedLimit": "I've reached my limit",
-      "paymentIssue": "Payment issue",
-      "thanks": "Thanks!",
-      "needHelp": "I need help",
-      "okCheck": "OK, I'll check!",
-      "clear": "Thanks, that's clear!",
-      "anotherQuestion": "I have another question",
-      "contactSupport": "Contact support",
-      "backToStart": "Back to start",
-      "openTelegram": "Open Telegram",
-      "aiWhat": "What does this module do?",
-      "aiVisual": "Does it modify the visuals?",
-      "aiPlatforms": "Which platforms does it work with?",
-      "aiVisualQ": "Does it modify visuals?",
-      "understood": "Understood, thanks!",
-      "perfect": "Perfect, thanks!",
-      "algoPriority": "Algorithm Priority",
-      "pixelMagic": "Magic Pixel",
-      "metaTech": "Technical Metadata",
-      "comparator": "Metadata Comparator",
-      "back": "Back",
-      "great": "Great, thanks!",
-      "otherFeature": "Other feature",
-      "gotIt": "Got it!",
-      "ok": "OK!",
-      "cool": "Cool!"
-    }
+    "tabHome": "Home",
+    "tabMessage": "Message",
+    "tabArticles": "Articles",
+    "homeTitle": "How can we help?",
+    "homeSubtitle": "We usually reply within a few minutes.",
+    "getHelp": "Get help",
+    "sendMessage": "Send us a message",
+    "readArticles": "Read our help articles",
+    "messageTitle": "Write to us",
+    "messageSubtitle": "Pick whichever channel suits you.",
+    "telegram": "Telegram support",
+    "telegramDesc": "Fast reply, recommended channel",
+    "email": "Email",
+    "messageSoon": "💬 An AI assistant will take this place soon, answering right here in the chat. In the meantime the team replies on Telegram or by email.",
+    "searchPlaceholder": "Search the help…",
+    "noResult": "No article matches.",
+    "back": "Back",
+    "close": "Close"
   },
   "vid": {
     "drop": {
@@ -1710,7 +1702,8 @@
     },
     "opt": {
       "flip": "Flip (vertical)",
-      "reverse": "Reverse (horizontal mirror)"
+      "reverse": "Reverse (horizontal mirror)",
+      "shake": "Shake (handheld camera)"
     },
     "upload": {
       "start": "Uploading video 1/{total}…",
@@ -2281,6 +2274,62 @@
       "affKicker": "Affiliate program",
       "affText": "Earn 20% commission on every subscription you bring in. Recurring, for as long as the client stays.",
       "affCta": "Become an affiliate"
+    }
+  },
+  "help": {
+    "group": "Troubleshooting",
+    "detected": {
+      "title": "My videos get flagged as non-original",
+      "intro": "Duplicating a file isn't always enough: algorithms compare what the video LOOKS LIKE, not just the file and its metadata. When copies still get flagged as non-original, two causes come up almost every time.",
+      "light": "Settings that were too light — if the filters you applied stay subtle, the copy still looks like the original to the naked eye. To an algorithm, two near-identical images are simply identical: raise the intensity, turn on mirror (reverse), add a motion pack and a watermark.",
+      "tooMany": "Too many copies from the same video — rarer, but if one copy gets caught, the others made from the same source can go down with it. Space out your posts and limit how many copies you make per source video.",
+      "reco": "💡 What actually works: instead of 10 copies with light settings, make 3 or 4 with bold ones (reverse + motion + watermark). The copy has to look visibly different, not just differ inside the file."
+    },
+    "editor": {
+      "group": "AI Editor",
+      "how": {
+        "title": "How the AI Editor works",
+        "intro": "The AI Editor doesn't edit on its own in a corner: YOUR Claude does the editing, and DuupFlow gives it eyes (your reference) and hands (your material). Three one-time steps, then everything happens in conversation.",
+        "s1": "Connect your Claude — copy the connector address, paste it into Claude (Settings → Connectors → Add custom connector), then click Authorise. Once and for all, and it works on claude.ai, Claude Desktop and mobile — even on the free plan.",
+        "s2": "Add a reference — the video that performed. DuupFlow pulls out its hook, pacing, cuts and transcript.",
+        "s3": "Add your material — your footage, images and sounds, with a short description for each.",
+        "s4": "Talk to your Claude — ask it to reproduce the reference using your material. Variants show up live in your DuupFlow workspace.",
+        "reco": "💡 Worth remembering: the editing is driven from your Claude conversation, not from DuupFlow. DuupFlow is where you drop the files and collect the videos."
+      },
+      "ref": {
+        "title": "Which video to use as a reference",
+        "intro": "The reference is the model to reproduce. Two ways to use it, exactly the same move.",
+        "mine": "Your own video — already edited. Then add the files you used to make it: you get variants of your video.",
+        "competitor": "A competitor's video — the AI analyses its STRUCTURE (hook, pacing, cuts, text style), never its content. With your material, you get your version of what works.",
+        "input": "File or link — MP4 and MOV by drag and drop, or paste a link. Public TikTok and YouTube work straight away; Instagram may require you to be signed in.",
+        "reco": "💡 A short, sharp reference beats a long one: it's the structure that gets copied, not the length."
+      },
+      "prompt": {
+        "title": "What to ask your Claude",
+        "intro": "Claude edits from what you tell it. The « Copy the prompt » button in your workspace gives you a ready-made starting point — after that, it's an ordinary conversation.",
+        "look": "Have it look first — ask it to analyse the reference and explain in three lines what makes it work, BEFORE it builds anything.",
+        "several": "Ask for several versions — « make me 3, using a different clip for each shot ».",
+        "iterate": "Correct as you go — « the hook is too long », « make the subtitles yellow », « cut on the music ». It rebuilds the variant.",
+        "describe": "Describe your files — the short description under each file (« product shot, front view ») is what lets it put the right shot in the right place.",
+        "reco": "💡 No technical vocabulary needed: talk to it the way you'd talk to an editor."
+      },
+      "novariant": {
+        "title": "My variants aren't showing up",
+        "intro": "Variants are created from your Claude conversation and appear in your workspace on their own. When nothing arrives, it's almost always one of these four causes.",
+        "connector": "The connector is no longer authorised — Claude says it can't reach DuupFlow: click « Reconnect Claude » and authorise again.",
+        "ref": "The reference isn't analysed — until the badge reads « structure analysed », Claude has nothing to reproduce. Run the analysis again.",
+        "material": "No material — with no files to edit, it can't build anything: it only ever uses YOUR material.",
+        "quota": "Quota reached — every rendered variant counts as one video, in the same counter as duplication. Rendering is blocked outright until quota frees up.",
+        "reco": "⏳ Variants are temporary: download the ones you want to keep. Your reference and your material stay put."
+      },
+      "limits": {
+        "title": "What the AI Editor won't do",
+        "intro": "Three deliberate limits. Knowing them saves you from asking the same thing ten different ways.",
+        "material": "No footage that didn't come from you — no stock library, no generated b-roll, no outside assets. No suitable file in your material means no such shot.",
+        "editorial": "No editorial calls on your behalf — it cuts silences, hesitations and repeats. Reordering your point, summarising it or picking « the best bit »: no, that stays your job.",
+        "motion": "Heavy motion design is approximated — 3D, particles, morphs: it reproduces the intent (layout, pacing, colours, text), not the effect pixel for pixel.",
+        "reco": "💡 The bar is the structure: same moments, same pacing, same text style. Not a frame-by-frame copy."
+      }
     }
   }
 }
