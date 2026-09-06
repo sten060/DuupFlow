@@ -539,6 +539,110 @@ export default function AbonnementClient({
       {view === "tokens" && <TokensPanel />}
     </main>
 
+    {/* Cancel — Step 1 modal: are you sure? */}
+    {showCancelStep1 && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        onClick={() => setShowCancelStep1(false)}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl p-6 space-y-5"
+          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-[var(--app-text)]">{t("dashboard.subscription.cancelModalTitle")}</h2>
+            <p className="text-sm text-[var(--app-text-muted)]">
+              {t("dashboard.subscription.cancelModalDesc")}
+            </p>
+          </div>
+          <ul className="space-y-2 text-sm text-[var(--app-text-muted)]">
+            <li className="flex items-start gap-2">
+              <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
+              </svg>
+              {isTrialing && renewalDate
+                ? t("dashboard.subscription.cancelModalTrialAccess", { date: renewalDate })
+                : t("dashboard.subscription.cancelModalAccessUntilEnd")}
+            </li>
+            <li className="flex items-start gap-2">
+              <svg viewBox="0 0 16 16" className="h-4 w-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M4 4l8 8M12 4l-8 8" />
+              </svg>
+              {t("dashboard.subscription.cancelModalDataLost")}
+            </li>
+          </ul>
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={() => setShowCancelStep1(false)}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text-muted)]"
+              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
+            >
+              {t("dashboard.subscription.cancelButton")}
+            </button>
+            <button
+              onClick={() => { setShowCancelStep1(false); setShowCancelStep2(true); }}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium transition"
+              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
+            >
+              {t("dashboard.subscription.continueButton")}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Cancel — Step 2 modal: feedback required */}
+    {showCancelStep2 && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        onClick={() => setShowCancelStep2(false)}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl p-6 space-y-5"
+          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-[var(--app-text)]">{t("dashboard.subscription.feedbackTitle")}</h2>
+            <p className="text-sm text-[var(--app-text-muted)]">
+              {t("dashboard.subscription.feedbackDesc")}
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs text-[var(--app-text-faint)] mb-2">{t("dashboard.subscription.feedbackLabel")} <span className="text-red-400">*</span></label>
+            <textarea
+              value={cancelFeedback}
+              onChange={(e) => setCancelFeedback(e.target.value)}
+              placeholder={t("dashboard.subscription.feedbackPlaceholder")}
+              rows={4}
+              className="w-full rounded-xl px-4 py-3 text-sm text-[var(--app-text)] placeholder-[var(--app-text-faint)] outline-none focus:ring-1 focus:ring-indigo-500/40 transition resize-none"
+              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowCancelStep2(false)}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text-muted)]"
+              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
+            >
+              {t("dashboard.subscription.cancelButton")}
+            </button>
+            <button
+              onClick={cancelSubscription}
+              disabled={!cancelFeedback.trim() || cancelLoading}
+              className="flex-1 rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-40"
+              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
+            >
+              {cancelLoading ? t("dashboard.subscription.cancelling") : t("dashboard.subscription.confirmCancel")}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <UpgradePlanModal
       open={showPlanPicker}
       onClose={() => setShowPlanPicker(false)}
