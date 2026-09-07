@@ -131,7 +131,7 @@ export type CaptionSize = "s" | "m" | "l";
 // police = une ligne là-bas, rien à toucher ici.
 export type { CaptionFont } from "./font-catalog";
 import type { CaptionFont } from "./font-catalog";
-export type EmojiStyle = "3d" | "flat"; // 3d = Fluent 3D (défaut) ; flat = Twemoji
+export type EmojiStyle = "apple" | "3d" | "flat"; // apple = iPhone (défaut) ; 3d = Fluent 3D ; flat = Twemoji
 
 /** REMPLISSAGE du texte. `solid` = équivalent de `color`. `gradient` = dégradé
  *  CONTINU sur tout le bloc de texte (pas répété par lettre) — le « métallique »
@@ -172,7 +172,7 @@ export type EditCaption = {
   shadowColor?: string;  // ombre portée (distincte du contour)
   shadowBlur?: number;   // px
   shadowOffset?: number; // px (décalage bas-droite)
-  emojiStyle?: EmojiStyle; // "3d" (Fluent, défaut) | "flat" (Twemoji) — override du défaut du plan
+  emojiStyle?: EmojiStyle; // "apple" (iPhone, défaut) | "3d" (Fluent) | "flat" (Twemoji) — override du défaut du plan
   // ── Animation (chantier 3) ──
   animation?: "none" | "fade" | "pop" | "slideUp" | "typewriter" | "wordByWord" | "karaoke";
   animationDuration?: number;                      // s (défaut ~0.35)
@@ -236,7 +236,7 @@ export type EditPlan = {
   audio?: EditAudioTrack;
   segments: EditSegment[];
   captions?: EditCaption[];
-  emojiStyle?: EmojiStyle; // défaut des emojis de TOUTES les captions ("3d" | "flat")
+  emojiStyle?: EmojiStyle; // défaut des emojis de TOUTES les captions ("apple" | "3d" | "flat")
   label?: string;
 };
 

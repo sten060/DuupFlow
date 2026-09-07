@@ -107,6 +107,22 @@ de primitives) + `get_material` (matière, voix, blancs, reprises) → compose u
   elle fait foi.
 - **Captions = SVG → PNG (sharp), pas drawtext** : testable en local
   (`captionPng` est exportée pour ça) — profites-en avant de livrer.
+- **Emojis = images compositées, jamais une police** (les polices couleur ne
+  passent pas la chaîne SVG→sharp→ffmpeg). Trois sets, adressés par code-point
+  et cachés disque+mémoire (CDN jsDelivr) :
+  - `apple` (**défaut**) : emojis iPhone via `emoji-datasource-apple` (le set
+    de Slack), PNG **64 px** — choisi pour coller au positionnement « contenu
+    créé sur iPhone ». ⚠ Nommage : ce set GARDE le `fe0f` dans ses noms de
+    fichiers (`2764-fe0f.png`) là où Twemoji le retire — d'où les candidats
+    multiples de `appleNames()`.
+  - `3d` : Microsoft Fluent 3D (MIT) — l'ancien défaut, conservé en repli.
+  - `flat` : Twemoji (CC-BY 4.0) — repli ultime avant la police mono.
+  📌 **Plan B décidé** : si le 64 px pose problème (gros emojis pixelisés à
+  l'écran), on passe à l'extraction **160 px haute qualité** depuis la police
+  Apple Color Emoji d'un Mac (script one-shot → assets hébergés dans
+  `public/`, comme la map Fluent). Ne pas chercher d'autre piste : le package
+  npm ne propose RIEN au-dessus de 64 px (les dossiers `sheets-128/256`
+  désignent des nombres de COULEURS, pas des tailles).
 - **Rendu complet non testable en local** sans matière réelle : les changements
   de graphe se valident par filtergraphs isolés sur le binaire 4.4 + le test
   produit (Claude + keyframes).

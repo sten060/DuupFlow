@@ -222,11 +222,14 @@ async function ensureFonts(): Promise<void> {
 }
 
 /* ── Emojis en COULEUR compositée dans le SVG (image data-URI, pas de police
-   couleur). Set principal : Microsoft Fluent Emoji 3D (licence MIT) — look premium
-   proche d'Apple, mais 100% libre. On adresse chaque emoji par code-point via une
-   map générée (public/fluent-emoji/map.json → chemin de l'asset), les PNG sont
-   récupérés au CDN jsDelivr puis mis en cache disque + mémoire. Repli : Twemoji
-   (CC-BY 4.0, SVG) puis police mono → jamais de tofu. */
+   couleur). Set principal : Apple/iPhone via emoji-datasource-apple (PNG 64 px,
+   le set qu'utilise Slack) — les contenus doivent ressembler à des créations
+   iPhone, donc les emojis aussi. Replis en cascade : Fluent 3D (MIT, map générée
+   public/fluent-emoji/map.json) puis Twemoji (CC-BY 4.0, SVG) puis police mono
+   → jamais de tofu. Tout est récupéré au CDN jsDelivr puis mis en cache
+   disque + mémoire. Si le 64 px s'avère trop juste (gros emojis pixelisés),
+   le plan B décidé est l'extraction 160 px depuis la police Apple Color Emoji
+   (voir README, section emojis). */
 const _seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const EMOJI_RE = /\p{Extended_Pictographic}/u;
 const isEmojiGrapheme = (g: string) => EMOJI_RE.test(g);
@@ -238,7 +241,22 @@ function twemojiName(g: string): string {
   for (const ch of s) cps.push(ch.codePointAt(0)!.toString(16));
   return cps.join("-");
 }
+/** Noms de fichier candidats du set Apple (emoji-datasource garde le FE0F dans
+ *  ses noms — "2764-fe0f.png" — là où Twemoji le retire ; on tente donc le
+ *  grapheme brut, la variante +fe0f pour un emoji tapé sans sélecteur, et la
+ *  variante sans teinte de peau en dernier recours). */
+function appleNames(g: string): string[] {
+  const cps: string[] = [];
+  for (const ch of g) cps.push(ch.codePointAt(0)!.toString(16));
+  const raw = cps.join("-");
+  const out = [raw];
+  if (cps.length === 1 && !raw.includes("fe0f")) out.push(`${raw}-fe0f`);
+  const noSkin = raw.replace(/-1f3f[b-f]/g, "");
+  if (noSkin !== raw) out.push(noSkin);
+  return out;
+}
 const EMOJI_CACHE_DIR = path.join(os.tmpdir(), "duup_emoji");
+const APPLE_BASE = "https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.1.2/img/apple/64/";
 const TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/";
 const FLUENT_BASE = "https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/";
 const FLUENT_MAP_FILE = path.join(process.cwd(), "public", "fluent-emoji", "map.json");
@@ -267,15 +285,23 @@ async function fetchAssetDataUri(url: string, cacheName: string, mime: string): 
   } catch {}
   return null;
 }
-/** Data URI d'un emoji selon le style choisi. "3d" : Fluent 3D (PNG) puis repli
- *  Twemoji ; "flat" : Twemoji (SVG) directement. Repli ultime mono via null. */
-async function emojiImage(grapheme: string, style: EmojiStyle = "3d"): Promise<string | null> {
+/** Data URI d'un emoji selon le style choisi. "apple" : set iPhone puis replis
+ *  Fluent → Twemoji ; "3d" : Fluent 3D (PNG) puis repli Twemoji ; "flat" :
+ *  Twemoji (SVG) directement. Repli ultime mono via null. */
+async function emojiImage(grapheme: string, style: EmojiStyle = "apple"): Promise<string | null> {
   const key = twemojiName(grapheme);
   const memKey = `${style}:${key}`;
   if (_emojiMem.has(memKey)) return _emojiMem.get(memKey)!;
   let out: string | null = null;
-  // 3d : Fluent d'abord (repli teint non listé → emoji de base sans modificateur).
-  if (style !== "flat") {
+  // apple : set iPhone d'abord (plusieurs noms candidats, voir appleNames).
+  if (style === "apple") {
+    for (const name of appleNames(grapheme)) {
+      out = await fetchAssetDataUri(`${APPLE_BASE}${name}.png`, `a_${name}.png`, "image/png");
+      if (out) break;
+    }
+  }
+  // 3d (ou repli d'apple) : Fluent (repli teint non listé → emoji de base sans modificateur).
+  if (!out && style !== "flat") {
     const map = await fluentMap();
     if (map) {
       const pth = map[key] || map[key.replace(/-1f3f[b-f]/g, "")];
@@ -319,7 +345,7 @@ async function measureInk(sharp: typeof import("sharp"), text: string, attrs: st
 /** Rasterise une caption stylée : police/poids/interlettrage/interligne/casse,
  *  contour OU boîte, ombre portée, position libre. Emojis couleur (Fluent 3D).
  *  Exportée pour les tests visuels (scripts locaux) — pas d'usage externe en prod. */
-export async function captionPng(c: EditCaption, W: number, H: number, outPath: string, emojiStyle: EmojiStyle = "3d", hlWord = -1, hlColor = ""): Promise<void> {
+export async function captionPng(c: EditCaption, W: number, H: number, outPath: string, emojiStyle: EmojiStyle = "apple", hlWord = -1, hlColor = ""): Promise<void> {
   await ensureFonts();
   const sharp = (await import("sharp")).default;
 
@@ -1684,7 +1710,7 @@ export async function renderVariant(
     const caps = (plan.captions ?? []).slice(0, MAX_CAPTIONS).filter(
       (c) => c?.text?.trim() || (Array.isArray(c?.spans) && c!.spans!.some((s) => s && typeof s.text === "string" && s.text.trim())),
     );
-    const planEmoji: EmojiStyle = plan.emojiStyle === "flat" ? "flat" : "3d";
+    const planEmoji: EmojiStyle = plan.emojiStyle === "flat" || plan.emojiStyle === "3d" ? plan.emojiStyle : "apple";
     const vidDur = totalVideoDur();
     // ── B2 : les captions deviennent une liste d'OPS appliquées en PASSES
     // dédiées APRÈS l'assemblage (le graphe principal reste aux segments).
@@ -1729,7 +1755,7 @@ export async function renderVariant(
     try {
       for (let k = 0; k < caps.length; k++) {
         const c = caps[k];
-        const es: EmojiStyle = c.emojiStyle === "flat" || c.emojiStyle === "3d" ? c.emojiStyle : planEmoji;
+        const es: EmojiStyle = c.emojiStyle === "flat" || c.emojiStyle === "3d" || c.emojiStyle === "apple" ? c.emojiStyle : planEmoji;
         let anim = c.animation ?? "none";
         const st = num(c.startSec, 0), en = num(c.endSec, 3);
         const ad = clamp(num(c.animationDuration, 0.35), 0.05, 2);

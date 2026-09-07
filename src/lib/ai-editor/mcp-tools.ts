@@ -108,7 +108,7 @@ export const TOOLS = [
       type: "object",
       properties: {
         aspect: { type: "string", enum: ["9:16", "1:1", "16:9"], description: "Format (défaut 9:16)." },
-        emojiStyle: { type: "string", enum: ["3d", "flat"], description: "Style des emojis de TOUTES les captions : \"3d\" = Fluent 3D brillant (défaut, look premium), \"flat\" = Twemoji plat. Surchargable par caption." },
+        emojiStyle: { type: "string", enum: ["apple", "3d", "flat"], description: "Style des emojis de TOUTES les captions : \"apple\" = emojis iPhone (défaut, look natif iOS), \"3d\" = Fluent 3D brillant, \"flat\" = Twemoji plat. Surchargable par caption." },
         fps: { type: "number", description: "Images/s de sortie (15-60, défaut 30)." },
         background: { type: "string", description: "Couleur de fond des bandes (letterbox) en hex. Défaut noir." },
         grade: {
@@ -273,7 +273,7 @@ export const TOOLS = [
           items: {
             type: "object",
             properties: {
-              text: { type: "string", description: "Le texte. Les emojis 🔥💪🎉 sont rendus EN COULEUR — style 3D premium par défaut, ou plat via emojiStyle. Utilise-les librement. OPTIONNEL si `spans` est fourni (le texte vient alors des spans)." },
+              text: { type: "string", description: "Le texte. Les emojis 🔥💪🎉 sont rendus EN COULEUR — style iPhone/Apple par défaut, ou 3D/plat via emojiStyle. Utilise-les librement. OPTIONNEL si `spans` est fourni (le texte vient alors des spans)." },
               startSec: { type: "number" },
               endSec: { type: "number" },
               position: { type: "string", enum: ["top", "center", "bottom"], description: "Position rapide (défaut bottom). Ignorée si x/y fournis." },
@@ -312,7 +312,7 @@ export const TOOLS = [
               shadowColor: { type: "string", description: "Ombre portée (hex) — distincte du contour ; \"none\" pour aucune." },
               shadowBlur: { type: "number", description: "Flou de l'ombre en px." },
               shadowOffset: { type: "number", description: "Décalage de l'ombre en px (bas-droite)." },
-              emojiStyle: { type: "string", enum: ["3d", "flat"], description: "Style des emojis de CETTE caption : \"3d\" (Fluent 3D, défaut) | \"flat\" (Twemoji). Prioritaire sur le défaut du plan." },
+              emojiStyle: { type: "string", enum: ["apple", "3d", "flat"], description: "Style des emojis de CETTE caption : \"apple\" (iPhone, défaut) | \"3d\" (Fluent 3D) | \"flat\" (Twemoji). Prioritaire sur le défaut du plan." },
               animation: { type: "string", enum: ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"], description: "Animation d'apparition (défaut none). wordByWord = mots l'un après l'autre ; karaoke = tous visibles, mot actif surligné (highlightColor). Réf : get_reference → captions[].animation." },
               animationDuration: { type: "number", description: "Durée de l'animation d'entrée en s (défaut ~0.35)." },
               exitAnimation: { type: "string", enum: ["none", "fade", "pop", "slideUp", "slideDown"], description: "Animation de SORTIE : comment la caption disparaît à endSec — fade (fondu), pop (fondu rapide), slideUp/slideDown (glisse en fondu vers le haut/bas). Défaut none (coupe nette). Compose avec l'animation d'entrée (ex. slideUp d'entrée + slideUp de sortie = passage fluide). Ignorée pour wordByWord/karaoke. NB : fade et pop d'entrée ont déjà un léger fondu de sortie automatique." },
