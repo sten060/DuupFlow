@@ -108,7 +108,7 @@ export const TOOLS = [
       type: "object",
       properties: {
         aspect: { type: "string", enum: ["9:16", "1:1", "16:9"], description: "Format (défaut 9:16)." },
-        emojiStyle: { type: "string", enum: ["apple", "3d", "flat"], description: "Style des emojis de TOUTES les captions : \"apple\" = emojis iPhone (défaut, look natif iOS), \"3d\" = Fluent 3D brillant, \"flat\" = Twemoji plat. Surchargable par caption." },
+        emojiStyle: { type: "string", enum: ["apple", "3d", "flat"], description: "Style des emojis de TOUTES les captions. RÈGLE : toujours \"apple\" (emojis iPhone, look natif iOS) — c'est le défaut, omets simplement ce champ. N'utilise \"3d\" (Fluent 3D) ou \"flat\" (Twemoji) QUE si le user les demande explicitement ; si le choix te revient, c'est toujours \"apple\". Surchargable par caption." },
         fps: { type: "number", description: "Images/s de sortie (15-60, défaut 30)." },
         background: { type: "string", description: "Couleur de fond des bandes (letterbox) en hex. Défaut noir." },
         grade: {
@@ -312,7 +312,7 @@ export const TOOLS = [
               shadowColor: { type: "string", description: "Ombre portée (hex) — distincte du contour ; \"none\" pour aucune." },
               shadowBlur: { type: "number", description: "Flou de l'ombre en px." },
               shadowOffset: { type: "number", description: "Décalage de l'ombre en px (bas-droite)." },
-              emojiStyle: { type: "string", enum: ["apple", "3d", "flat"], description: "Style des emojis de CETTE caption : \"apple\" (iPhone, défaut) | \"3d\" (Fluent 3D) | \"flat\" (Twemoji). Prioritaire sur le défaut du plan." },
+              emojiStyle: { type: "string", enum: ["apple", "3d", "flat"], description: "Style des emojis de CETTE caption : \"apple\" (iPhone) | \"3d\" (Fluent 3D) | \"flat\" (Twemoji). Prioritaire sur le défaut du plan. RÈGLE : ne renseigne ce champ QUE si le user demande explicitement un style non-Apple ; sinon omets-le, le défaut \"apple\" s'applique toujours." },
               animation: { type: "string", enum: ["none", "fade", "pop", "slideUp", "typewriter", "wordByWord", "karaoke"], description: "Animation d'apparition (défaut none). wordByWord = mots l'un après l'autre ; karaoke = tous visibles, mot actif surligné (highlightColor). Réf : get_reference → captions[].animation." },
               animationDuration: { type: "number", description: "Durée de l'animation d'entrée en s (défaut ~0.35)." },
               exitAnimation: { type: "string", enum: ["none", "fade", "pop", "slideUp", "slideDown"], description: "Animation de SORTIE : comment la caption disparaît à endSec — fade (fondu), pop (fondu rapide), slideUp/slideDown (glisse en fondu vers le haut/bas). Défaut none (coupe nette). Compose avec l'animation d'entrée (ex. slideUp d'entrée + slideUp de sortie = passage fluide). Ignorée pour wordByWord/karaoke. NB : fade et pop d'entrée ont déjà un léger fondu de sortie automatique." },
