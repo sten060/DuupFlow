@@ -385,11 +385,6 @@
         "analyzed": "✓ structure analyzed",
         "redo": "⚠ analysis to redo",
         "extracting": "Extracting key frames, pacing and transcript…",
-        "keyframes": "{n} key frames",
-        "cutsOne": "{n} cut",
-        "cutsMany": "{n} cuts",
-        "hook": "🎙 Hook: “{text}…”",
-        "noTranscript": "🎙 No transcript — visual analysis only",
         "change": "Change",
         "retry": "Retry analysis",
         "continue": "Continue → Material",
@@ -412,9 +407,7 @@
         "kindVideo": "Video",
         "remove": "Remove",
         "descPlaceholder": "Describe this file for the AI…",
-        "addFile": "+ Add a file",
         "dropHere": "Drop your files here",
-        "dragOrClick": "drag & drop or click",
         "back": "← Back",
         "open": "Open the editor →",
         "guideHeading": "What Claude will do with your material",
@@ -424,7 +417,9 @@
         "g2d": "Same pace, same cuts, same style as the video that crushed it — but with **your** own material.",
         "g3t": "It hands you several videos",
         "g3d": "You get several ready-to-post versions, right here on DuupFlow.",
-        "guideTip": "💡 The little **description** under each file helps Claude place every element well (e.g. “front shot of the product”)."
+        "guideTip": "💡 The little **description** under each file helps Claude place every element well (e.g. “front shot of the product”).",
+        "dropTitle": "Drag your files here",
+        "dropSub": "or click to browse"
       },
       "ws": {
         "pilotedBy": "Driven by your Claude",
@@ -434,9 +429,6 @@
         "change": "Change",
         "analyzing": "⏳ analyzing…",
         "refFallback": "reference",
-        "refStats": "✓ {n} frames · {c} cuts{transcript}",
-        "transcribed": " · transcribed",
-        "hook": "🎙 Hook: “{text}”",
         "material": "Your material · {n} file{s}",
         "add": "+ Add",
         "addTitle": "Add material",
@@ -451,8 +443,6 @@
         "reconnect": "Reconnect Claude",
         "variants": "Variants",
         "createdLive": "Created by your Claude · show up here live",
-        "refresh": "↻ Refresh",
-        "refreshTitle": "Refresh the page (you stay on this workspace). The list already updates on its own while this tab is open.",
         "emptyTitle": "Hand it over to your Claude",
         "emptyDesc": "In **your Claude**, ask it to reproduce your reference with your material. The variants it creates show up here **automatically**.",
         "notConnected": "Not connected yet? → See the connection",
@@ -477,7 +467,10 @@
         "errAnalyze": "Analysis failed",
         "errUpload": "Upload failed",
         "errRefFirst": "Analyze the reference first",
-        "confirmDelete": "Delete this variant? Download it first if you want to keep it."
+        "confirmDelete": "Delete this variant? Download it first if you want to keep it.",
+        "tileSize": "Thumbnail size",
+        "progUpload": "Uploading…",
+        "progAnalyse": "Analysing…"
       },
       "drawer": {
         "variantFallback": "Variant",

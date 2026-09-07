@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
         "Accept-Ranges": "bytes",
         "Content-Length": String(chunk.length),
         "Content-Disposition": disposition,
-        "Cache-Control": "private, max-age=60",
+        "Cache-Control": "private, max-age=86400, immutable",
       },
     });
   }
@@ -65,7 +65,10 @@ export async function GET(req: NextRequest) {
       "Content-Length": String(total),
       "Accept-Ranges": "bytes",
       "Content-Disposition": disposition,
-      "Cache-Control": "private, max-age=60",
+      // Immuable : un rendu produit un nouvel id, jamais un nouveau contenu sous
+      // le même. Sans ça, l'aperçu au survol re-téléchargeait le fichier entier
+      // dès que 60 s s'étaient écoulées — de la bande passante Railway pure.
+      "Cache-Control": "private, max-age=86400, immutable",
     },
   });
 }

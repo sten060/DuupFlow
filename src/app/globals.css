@@ -110,6 +110,93 @@
   --app-accent-2: #7c5cff;
 }
 
+/* ===== Verre dépoli — zone de dépôt de l'Éditeur IA =====
+   Une bande translucide qui laisse voir le fond à travers un flou. Le rendu
+   dépend du thème : en sombre on ÉCLAIRCIT (voile blanc très faible), en clair
+   on OPACIFIE (voile blanc dense) — un même voile donnerait une plaque grise
+   dans un cas et invisible dans l'autre. */
+.duup-glass {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035));
+  border: 1px solid rgba(255,255,255,0.16);
+  /* Profondeur : deux ombres portées (une large et diffuse, une courte et
+     proche) + un liseré clair en haut et un sombre en bas. C'est ce couple
+     qui fait décoller le panneau du fond ; une ombre seule l'aplatit. */
+  box-shadow:
+    0 26px 52px -28px rgba(0,0,0,0.80),
+    0 6px 16px -8px rgba(0,0,0,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -1px 0 rgba(0,0,0,0.30);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+:root[data-theme="light"] .duup-glass {
+  background: linear-gradient(135deg, rgba(255,255,255,0.88), rgba(244,246,252,0.55));
+  /* Contour gris léger : sur fond clair, une bordure blanche disparaît et la
+     zone de dépôt n'a plus de limite lisible. Le liseré blanc reste, en ombre
+     interne, pour l'effet de tranche du verre. */
+  border: 1px solid rgba(15,23,42,0.10);
+  box-shadow:
+    0 26px 50px -26px rgba(30,41,120,0.45),
+    0 8px 16px -10px rgba(30,41,120,0.22),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
+.duup-glass:hover {
+  transform: translateY(-1px);
+  border-color: rgba(99,102,241,0.45);
+  box-shadow: 0 24px 48px -26px rgba(79,70,229,0.45), inset 0 1px 0 rgba(255,255,255,0.30);
+}
+/* Variante CARTE : même matière que la zone de dépôt, en un ton au-dessus et
+   posée moins haut — les fichiers déjà déposés doivent se distinguer de la
+   zone où l'on dépose, sans changer de langage visuel. */
+.duup-glass--carte {
+  background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.06));
+  box-shadow: 0 12px 26px -20px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.20);
+}
+:root[data-theme="light"] .duup-glass--carte {
+  background: linear-gradient(135deg, rgba(255,255,255,1), rgba(247,249,255,0.88));
+  border-color: rgba(15,23,42,0.09);
+  box-shadow: 0 12px 28px -22px rgba(30,41,120,0.40), inset 0 1px 0 rgba(255,255,255,1);
+}
+/* Une carte ne se soulève pas au survol : ce n'est pas une cible de clic. */
+.duup-glass--carte:hover { transform: none; border-color: rgba(15,23,42,0.14); }
+:root .duup-glass--carte:hover { box-shadow: 0 12px 26px -20px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.20); }
+:root[data-theme="light"] .duup-glass--carte:hover { box-shadow: 0 12px 28px -22px rgba(30,41,120,0.40), inset 0 1px 0 rgba(255,255,255,1); }
+
+/* Boutons secondaires de l'Éditeur IA — même famille que le verre, en petit.
+   Un dégradé vertical court + un liseré clair en haut : c'est ce liseré qui
+   donne le relief, une couleur plate reste une étiquette. */
+.duup-btn {
+  background: linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0.05));
+  border: 1px solid rgba(255,255,255,0.20);
+  box-shadow: 0 2px 6px -3px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.22);
+  transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .12s ease;
+}
+.duup-btn:hover {
+  background: linear-gradient(180deg, rgba(255,255,255,0.20), rgba(255,255,255,0.09));
+  border-color: rgba(255,255,255,0.30);
+  box-shadow: 0 4px 10px -4px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.30);
+}
+.duup-btn:active { transform: translateY(1px); box-shadow: inset 0 1px 3px rgba(0,0,0,0.35); }
+:root[data-theme="light"] .duup-btn {
+  background: linear-gradient(180deg, #ffffff, #f2f4f9);
+  border: 1px solid rgba(15,23,42,0.13);
+  box-shadow: 0 2px 5px -3px rgba(30,41,120,0.30), inset 0 1px 0 rgba(255,255,255,1);
+}
+:root[data-theme="light"] .duup-btn:hover {
+  background: linear-gradient(180deg, #ffffff, #e9edf6);
+  border-color: rgba(15,23,42,0.20);
+  box-shadow: 0 5px 12px -5px rgba(30,41,120,0.35), inset 0 1px 0 rgba(255,255,255,1);
+}
+:root[data-theme="light"] .duup-btn:active { box-shadow: inset 0 1px 3px rgba(30,41,120,0.18); }
+
+/* Survol d'un fichier en cours de glisser-déposer. *//* Survol d'un fichier en cours de glisser-déposer. */
+.duup-glass--actif {
+  border-color: rgba(99,102,241,0.85);
+  box-shadow: 0 24px 48px -22px rgba(79,70,229,0.55), inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
 /* Lisibilité : la police de base de l'app est très fine (font-weight 300).
    On remonte le poids de base de la partie app (.app-shell) dans les 2 thèmes. */
 .app-shell { font-weight: 400; }

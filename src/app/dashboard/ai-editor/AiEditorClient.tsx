@@ -19,12 +19,6 @@ function Rich({ text }: { text: string }) {
   return <>{text.split("**").map((p, i) => (i % 2 === 1 ? <b key={i} className="text-[var(--app-text)]">{p}</b> : p))}</>;
 }
 
-function fmtDur(s: number) {
-  if (!s || s <= 0) return "—";
-  const m = Math.floor(s / 60), sec = Math.round(s % 60);
-  return m > 0 ? `${m}:${String(sec).padStart(2, "0")}` : `${sec}s`;
-}
-
 /* ============ petits helpers UI ============ */
 function StepPill({ n, label, state, onClick }: { n: number; label: string; state: "todo" | "active" | "done"; onClick?: () => void }) {
   return (
@@ -96,6 +90,65 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 
 type VariantItem = { id: string; label?: string; poster: string | null };
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * PROGRESSION D'IMPORT
+ *
+ * Le bug qu'elle corrige : rien ne disait qu'un fichier était encore en train
+ * de monter ou d'être analysé. Le user croyait l'import fini, lançait sa
+ * première demande à Claude — qui répondait « je ne vois pas ta matière ».
+ * Une requête perdue, des tokens brûlés, et l'impression que le produit ne
+ * marche pas.
+ *
+ * Deux phases, une seule barre :
+ *   · ENVOI   — pourcentage RÉEL (XMLHttpRequest sait suivre un upload, pas
+ *               fetch), de 0 à 85 %.
+ *   · ANALYSE — le serveur travaille sans rien émettre : la barre progresse
+ *               d'elle-même vers 99 %, en ralentissant (elle ne se bloque
+ *               jamais contre un mur, elle n'atteint jamais 100 non plus).
+ * 100 % n'est affiché que quand c'est VRAIMENT prêt, puis la barre disparaît.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+type Progression = { pct: number; phase: "envoi" | "analyse" };
+
+function BarreProgression({ pct, phase, label }: { pct: number; phase: Progression["phase"]; label: string }) {
+  const p = Math.min(100, Math.max(0, Math.round(pct)));
+  return (
+    <div className="mt-2.5">
+      <div className="mb-1 flex items-center justify-between text-[11px] font-medium text-[var(--app-text-faint)]">
+        <span>{label}</span>
+        <span className="tabular-nums">{p}%</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--app-surface-2)" }}>
+        <div
+          className="h-full rounded-full transition-[width] duration-300 ease-out"
+          style={{ width: `${p}%`, background: phase === "envoi" ? "linear-gradient(90deg,#6366F1,#38BDF8)" : "linear-gradient(90deg,#D97757,#6366F1)" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** POST multipart avec suivi d'upload. `fetch` n'expose aucun événement de
+ *  progression — d'où XMLHttpRequest, seul moyen d'afficher un vrai %. */
+function envoyerAvecProgression(
+  url: string,
+  data: FormData,
+  onProgress: (pct: number) => void,
+): Promise<{ ok: boolean; json: Record<string, unknown> | null }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress((e.loaded / e.total) * 100); };
+    xhr.onload = () => {
+      let json: Record<string, unknown> | null = null;
+      try { json = JSON.parse(xhr.responseText); } catch { /* réponse non JSON */ }
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, json });
+    };
+    xhr.onerror = () => reject(new Error("réseau"));
+    xhr.send(data);
+  });
+}
+
 /* ============ Page ============ */
 export default function AiEditorClient() {
   const { t } = useTranslation();
@@ -128,6 +181,17 @@ export default function AiEditorClient() {
   // Éditeur — pur « ton Claude » : les variantes créées via le connecteur MCP
   // (par le Claude du user) remontent ici en direct.
   const [variants, setVariants] = useState<VariantItem[]>([]);
+  /* Taille des vignettes (px, largeur mini d'une colonne) pilotée par le
+     curseur de la barre de résultats. Mémorisée par navigateur : c'est un
+     confort d'affichage, il n'a rien à faire côté serveur. */
+  const [tuile, setTuile] = useState(168);
+  /* Variante survolée : sa vidéo n'est montée QUE là. Monter les <video> de
+     toutes les cartes ferait télécharger la galerie entière à l'ouverture. */
+  const [survol, setSurvol] = useState<string | null>(null);
+  /* Progression d'import : la référence, et chaque matière par son id local. */
+  const [refProg, setRefProg] = useState<Progression | null>(null);
+  const [matProg, setMatProg] = useState<Record<string, Progression>>({});
+
   const [drawer, setDrawer] = useState<{ open: boolean; variantId?: string; label?: string }>({ open: false });
   // Sélection multiple des variantes (téléchargement groupé / envoi Drive).
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -143,33 +207,69 @@ export default function AiEditorClient() {
     } catch { /* clipboard indisponible — no-op */ }
   };
 
+  /* Pendant l'analyse, le serveur ne dit rien : la barre avance seule, de moins
+     en moins vite, et plafonne à 99 %. Le 100 n'est écrit que par le succès. */
+  useEffect(() => {
+    const avance = (p: Progression): Progression =>
+      p.phase === "analyse" && p.pct < 99 ? { ...p, pct: p.pct + Math.max(0.25, (99 - p.pct) * 0.05) } : p;
+    const timer = window.setInterval(() => {
+      setRefProg((p) => (p ? avance(p) : p));
+      setMatProg((m) => {
+        let bouge = false;
+        const n: Record<string, Progression> = {};
+        for (const k of Object.keys(m)) { n[k] = avance(m[k]); if (n[k] !== m[k]) bouge = true; }
+        return bouge ? n : m;
+      });
+    }, 450);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  /** Retire une barre après un court palier à 100 % — sinon elle disparaît si
+   *  vite qu'on ne voit jamais l'import se terminer. */
+  const finirRef = useCallback(() => {
+    setRefProg({ pct: 100, phase: "analyse" });
+    window.setTimeout(() => setRefProg(null), 700);
+  }, []);
+  const finirMat = useCallback((id: string) => {
+    setMatProg((m) => (m[id] ? { ...m, [id]: { pct: 100, phase: "analyse" } } : m));
+    window.setTimeout(() => setMatProg((m) => { const n = { ...m }; delete n[id]; return n; }), 700);
+  }, []);
+
   const analyzeRef = useCallback(async (input: { file?: File; url?: string; replacePid?: string }) => {
     setAnalyzing(true); setAnalyzeErr(null); setAnalysis(null);
+    setRefProg({ pct: input.file ? 0 : 5, phase: input.file ? "envoi" : "analyse" });
     try {
-      let res: Response;
+      let ok: boolean;
+      let json: Record<string, unknown> | null;
       if (input.file) {
         const fd = new FormData();
         fd.append("file", input.file);
         if (input.replacePid) fd.append("projectId", input.replacePid); // remplace la réf, garde la matière
-        res = await fetch("/api/ai-editor/analyze", { method: "POST", body: fd });
+        // 0 → 85 % : l'envoi. Le reste du chemin appartient à l'analyse.
+        const r = await envoyerAvecProgression("/api/ai-editor/analyze", fd, (pct) =>
+          setRefProg({ pct: pct * 0.85, phase: pct >= 100 ? "analyse" : "envoi" }));
+        ok = r.ok; json = r.json;
       } else {
-        res = await fetch("/api/ai-editor/analyze", {
+        const res = await fetch("/api/ai-editor/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: input.url, projectId: input.replacePid }),
         });
+        json = await res.json();
+        ok = res.ok;
       }
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || `Erreur ${res.status}`);
-      setAnalysis(json.analysis as ReferenceAnalysis);
-      setProjectId(json.projectId ?? null);
+      if (!ok) throw new Error((json?.error as string) || "Erreur");
+      setAnalysis(json?.analysis as ReferenceAnalysis);
+      setProjectId((json?.projectId as string) ?? null);
       if (!input.replacePid) setMaterials([]); // nouvelle réf = nouveau projet ; remplacement = on garde la matière
+      finirRef();
     } catch (e) {
       setAnalyzeErr((e as Error)?.message || t("dashboard.aiEditor.ws.errAnalyze"));
+      setRefProg(null);
     } finally {
       setAnalyzing(false);
     }
-  }, [t]);
+  }, [t, finirRef]);
   // Changer la référence depuis le workspace (garde la matière + les variantes).
   const onRefChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -226,23 +326,57 @@ export default function AiEditorClient() {
     })();
   }, []);
 
+  /** Attend que le serveur ait FINI d'analyser une matière.
+   *
+   *  Une vidéo ou un audio est enregistré tout de suite (status « analyzing »)
+   *  et analysé ensuite, en tâche de fond : la requête d'upload rend la main
+   *  AVANT que la matière soit exploitable. C'est exactement la fenêtre où le
+   *  user croyait pouvoir lancer Claude. On interroge donc le projet jusqu'à
+   *  ce que le store la déclare prête (ou en échec). */
+  const attendreAnalyse = useCallback(async (pid: string, materialId: string, localId: string) => {
+    const limite = Date.now() + 6 * 60 * 1000; // garde-fou : on n'attend pas indéfiniment
+    while (Date.now() < limite) {
+      await new Promise((r) => setTimeout(r, 2500));
+      try {
+        const res = await fetch(`/api/ai-editor/project?id=${encodeURIComponent(pid)}`);
+        if (!res.ok) continue;
+        const { project } = await res.json();
+        const m = project?.materials?.find((x: { id: string }) => x.id === materialId);
+        if (!m) continue;
+        if (m.status !== "analyzing") {
+          // La vignette n'existe qu'une fois l'analyse passée.
+          if (m.analysis?.thumb) {
+            setMaterials((list) => list.map((x) => (x.id === localId ? { ...x, thumb: m.analysis.thumb } : x)));
+          }
+          return;
+        }
+      } catch { /* réseau instable : on retente au tour suivant */ }
+    }
+  }, []);
+
   const uploadMaterial = useCallback(async (localId: string, file: File, desc: string, pid: string) => {
+    setMatProg((m) => ({ ...m, [localId]: { pct: 0, phase: "envoi" } }));
     try {
       const fd = new FormData();
       fd.append("projectId", pid);
       fd.append("file", file);
       fd.append("desc", desc);
-      const res = await fetch("/api/ai-editor/material", { method: "POST", body: fd });
-      const json = await res.json();
+      const { ok, json } = await envoyerAvecProgression("/api/ai-editor/material", fd, (pct) =>
+        setMatProg((m) => ({ ...m, [localId]: { pct: pct * 0.85, phase: pct >= 100 ? "analyse" : "envoi" } })));
+      const material = (json?.material ?? null) as { id: string; status?: string; analysis?: { thumb?: string | null } } | null;
       setMaterials((m) => m.map((x) => x.id === localId
-        ? (res.ok
-            ? { ...x, serverId: json.material.id, thumb: json.material.analysis?.thumb ?? x.thumb ?? null, uploading: false }
-            : { ...x, uploading: false, err: json?.error || t("dashboard.aiEditor.ws.errUpload") })
+        ? (ok && material
+            ? { ...x, serverId: material.id, thumb: material.analysis?.thumb ?? x.thumb ?? null, uploading: false }
+            : { ...x, uploading: false, err: (json?.error as string) || t("dashboard.aiEditor.ws.errUpload") })
         : x));
+      if (!ok || !material) { setMatProg((m) => { const n = { ...m }; delete n[localId]; return n; }); return; }
+      if (material.status === "analyzing") await attendreAnalyse(pid, material.id, localId);
+      finirMat(localId);
     } catch (e) {
       setMaterials((m) => m.map((x) => x.id === localId ? { ...x, uploading: false, err: (e as Error)?.message || t("dashboard.aiEditor.ws.errUpload") } : x));
+      setMatProg((m) => { const n = { ...m }; delete n[localId]; return n; });
     }
-  }, [t]);
+  }, [t, attendreAnalyse, finirMat]);
 
   const addMaterials = useCallback((files: FileList | File[]) => {
     const pid = projectId;
@@ -284,6 +418,17 @@ export default function AiEditorClient() {
 
   // Sélection groupée. selIds = ids sélectionnés ENCORE présents (le poll peut retirer
   // des variantes). Téléchargement = archive zip serveur ; Drive = via DriveSaveButton.
+  useEffect(() => {
+    try {
+      const v = parseInt(localStorage.getItem("duup_ai_tuile") || "", 10);
+      if (Number.isFinite(v)) setTuile(Math.min(420, Math.max(110, v)));
+    } catch { /* stockage indisponible → on garde la valeur par défaut */ }
+  }, []);
+  const majTuile = (v: number) => {
+    setTuile(v);
+    try { localStorage.setItem("duup_ai_tuile", String(v)); } catch { /* sans effet */ }
+  };
+
   const selIds = variants.filter((v) => selected.has(v.id)).map((v) => v.id);
   const toggleAll = () => setSelected((s) => (selIds.length === variants.length ? new Set() : new Set(variants.map((v) => v.id))));
   const downloadSelectedZip = () => {
@@ -457,15 +602,19 @@ export default function AiEditorClient() {
             <input ref={refInput} type="file" accept="video/*" hidden onChange={onRefPick} />
             {!refSource ? (
               <>
+                {/* Même verre que la zone de dépôt de la matière : les deux
+                    gestes sont le même geste, ils doivent se ressembler. */}
                 <div
                   onClick={() => refInput.current?.click()}
                   onDragOver={(e) => { e.preventDefault(); if (!refDragOver) setRefDragOver(true); }}
                   onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setRefDragOver(false); }}
                   onDrop={(e) => { e.preventDefault(); setRefDragOver(false); addRef(e.dataTransfer.files?.[0]); }}
-                  className={`cursor-pointer rounded-xl border border-dashed p-8 text-center transition ${refDragOver ? "border-indigo-400 bg-indigo-400/10" : "border-[var(--app-border-strong)] bg-[var(--app-surface)] hover:border-indigo-400/50"}`}
+                  className={`duup-glass group relative cursor-pointer overflow-hidden rounded-2xl px-6 py-12 text-center ${refDragOver ? "duup-glass--actif" : ""}`}
                 >
-                  <div className="text-base font-semibold text-[var(--app-text)]">{refDragOver ? t("dashboard.aiEditor.ref.dropActive") : t("dashboard.aiEditor.ref.dropTitle")}</div>
-                  <div className="mt-1 text-[13px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ref.dropHint")}</div>
+                  <span aria-hidden className="pointer-events-none absolute -left-16 -top-24 h-52 w-52 rounded-full opacity-60 blur-3xl transition group-hover:opacity-90" style={{ background: "radial-gradient(circle, rgba(99,102,241,0.35), transparent 70%)" }} />
+                  <span aria-hidden className="pointer-events-none absolute -bottom-28 -right-20 h-56 w-56 rounded-full opacity-50 blur-3xl transition group-hover:opacity-80" style={{ background: "radial-gradient(circle, rgba(56,189,248,0.30), transparent 70%)" }} />
+                  <div className="relative text-[15.5px] font-semibold text-[var(--app-text)]">{refDragOver ? t("dashboard.aiEditor.ref.dropActive") : t("dashboard.aiEditor.ref.dropTitle")}</div>
+                  <div className="relative mt-1.5 text-[12.5px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ref.dropHint")}</div>
                 </div>
                 <div className="my-6 text-center text-[12px] tracking-wider text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ref.or")}</div>
                 <div className="flex gap-2.5">
@@ -489,7 +638,7 @@ export default function AiEditorClient() {
                 <p className="mt-3 text-[12px] leading-relaxed text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ref.publicNote")}</p>
               </>
             ) : (
-              <div className="flex gap-4 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3.5">
+              <div className="duup-glass duup-glass--carte flex gap-4 rounded-2xl p-3.5">
                 <div className="h-[104px] w-[76px] shrink-0 overflow-hidden rounded-xl" style={{ background: "linear-gradient(160deg,#2a2340,#123040)" }}>
                   {analysis?.keyframes?.[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -512,21 +661,10 @@ export default function AiEditorClient() {
                   {analyzing && (
                     <div className="mt-1.5 text-[12.5px] text-[var(--app-text-muted)]">{t("dashboard.aiEditor.ref.extracting")}</div>
                   )}
-                  {analysis && (
-                    <div className="mt-1.5 space-y-1 text-[12.5px] text-[var(--app-text-muted)]">
-                      <div className="flex flex-wrap gap-x-3 gap-y-1">
-                        <span>⏱ {fmtDur(analysis.durationSec)}</span>
-                        <span>🎞 {t("dashboard.aiEditor.ref.keyframes", { n: analysis.keyframes.length })}</span>
-                        <span>✂️ {t(analysis.pacing.cutCount > 1 ? "dashboard.aiEditor.ref.cutsMany" : "dashboard.aiEditor.ref.cutsOne", { n: analysis.pacing.cutCount })}{analysis.pacing.avgCutSec ? ` · ~${analysis.pacing.avgCutSec}s` : ""}</span>
-                        <span>{analysis.width}×{analysis.height}</span>
-                      </div>
-                      {analysis.transcript ? (
-                        <div className="text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ref.hook", { text: (analysis.hookText || analysis.transcript.fullText).slice(0, 60) })}</div>
-                      ) : (
-                        <div className="text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ref.noTranscript")}</div>
-                      )}
-                    </div>
-                  )}
+                  {/* Ni hook, ni durée, ni nombre de coupes : ces mesures sont
+                      le carburant de l'analyse, pas une information utile au
+                      user. La carte se limite à « ta vidéo est là, elle est
+                      analysée ». */}
                   {analyzeErr && !analyzing && (
                     <div className="mt-1.5 text-[12.5px] text-amber-400/90">{analyzeErr}</div>
                   )}
@@ -593,11 +731,31 @@ export default function AiEditorClient() {
           <p className="mt-2 max-w-[46ch] text-[13.5px] leading-relaxed text-[var(--app-text-muted)]">{t("dashboard.aiEditor.material.introSub")}</p>
           <p className="mb-7 mt-1.5 max-w-[46ch] text-[13px] leading-relaxed text-[var(--app-text-faint)]">{t("dashboard.aiEditor.material.introHint")}</p>
 
-          <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}>
+          {/* Bande de dépôt : pleine largeur, en verre dépoli. Elle était une
+              case de la grille — donc un carré perdu au milieu des fichiers,
+              qui reculait à chaque ajout. En bande, le geste reste au même
+              endroit quel que soit le nombre de fichiers. */}
+          <button
+            onClick={() => matInput.current?.click()}
+            className={`duup-glass group relative w-full overflow-hidden rounded-2xl px-6 py-12 text-center ${matDragOver ? "duup-glass--actif" : ""}`}
+          >
+            {/* Halos très diffus : ils donnent au verre quelque chose à filtrer.
+                Sans rien derrière, un panneau translucide ne se voit pas. */}
+            <span aria-hidden className="pointer-events-none absolute -left-16 -top-24 h-52 w-52 rounded-full opacity-60 blur-3xl transition group-hover:opacity-90" style={{ background: "radial-gradient(circle, rgba(99,102,241,0.35), transparent 70%)" }} />
+            <span aria-hidden className="pointer-events-none absolute -bottom-28 -right-20 h-56 w-56 rounded-full opacity-50 blur-3xl transition group-hover:opacity-80" style={{ background: "radial-gradient(circle, rgba(56,189,248,0.30), transparent 70%)" }} />
+            <span className="relative block text-[15.5px] font-semibold text-[var(--app-text)]">
+              {matDragOver ? t("dashboard.aiEditor.material.dropHere") : t("dashboard.aiEditor.material.dropTitle")}
+            </span>
+            <span className="relative mt-1.5 block text-[12.5px] text-[var(--app-text-faint)]">
+              {t("dashboard.aiEditor.material.dropSub")}
+            </span>
+          </button>
+
+          <div className="mt-3.5 grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}>
             {materials.map((m) => (
-              <div key={m.id} className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
+              <div key={m.id} className="duup-glass duup-glass--carte rounded-2xl p-3">
                 <div className="flex gap-3">
-                  <div className="relative h-[70px] w-[52px] shrink-0 overflow-hidden rounded-lg" style={{ background: "linear-gradient(160deg,#2a2340,#123040)" }}>
+                  <div className="relative h-[104px] w-[74px] shrink-0 overflow-hidden rounded-xl" style={{ background: "linear-gradient(160deg,#2a2340,#123040)" }}>
                     {m.thumb ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={m.thumb} alt={m.name} className="h-full w-full object-cover" />
@@ -619,25 +777,18 @@ export default function AiEditorClient() {
                     <button onClick={() => removeMat(m.id)} className="mt-1 text-[11px] text-[var(--app-text-faint)] underline hover:text-red-400/80">{t("dashboard.aiEditor.material.remove")}</button>
                   </div>
                 </div>
+                {/* Champ volontairement bas : la vignette doit rester la partie
+                    la plus visible de la carte. Il s'étend si on écrit plus. */}
                 <textarea
                   value={m.desc}
                   onChange={(e) => setDesc(m.id, e.target.value)}
                   onBlur={() => saveDesc(m)}
                   placeholder={t("dashboard.aiEditor.material.descPlaceholder")}
-                  rows={2}
-                  className="mt-3 min-h-[52px] w-full resize-none rounded-lg border border-[var(--app-border)] bg-[var(--app-bg-2)] px-2.5 py-2 text-[12.5px] text-[var(--app-text)] placeholder:text-[var(--app-text-faint)]"
+                  rows={1}
+                  className="mt-2.5 min-h-[34px] w-full resize-none rounded-lg border border-[var(--app-border)] bg-[var(--app-bg-2)] px-2.5 py-1.5 text-[12.5px] leading-snug text-[var(--app-text)] placeholder:text-[var(--app-text-faint)]"
                 />
               </div>
             ))}
-            <button
-              onClick={() => matInput.current?.click()}
-              className={`grid min-h-[150px] place-items-center rounded-2xl border border-dashed text-[13px] transition ${matDragOver ? "border-indigo-400 bg-indigo-400/10 text-[var(--app-text)]" : "border-[var(--app-border-strong)] bg-[var(--app-surface)] text-[var(--app-text-muted)] hover:border-indigo-400/50"}`}
-            >
-              <div className="text-center">
-                <div className="font-medium">{matDragOver ? t("dashboard.aiEditor.material.dropHere") : t("dashboard.aiEditor.material.addFile")}</div>
-                <div className="mt-1 text-[11px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.material.dragOrClick")}</div>
-              </div>
-            </button>
           </div>
 
           <div className="mt-8 flex items-center justify-between">
@@ -647,8 +798,11 @@ export default function AiEditorClient() {
           </div>
 
           {/* ── Guide (droite) — ce que Claude va faire avec ta matière ── */}
-          <aside className="flex flex-col justify-center gap-10 p-8 sm:p-14">
-            <div className="text-[12px] font-bold uppercase tracking-wider text-indigo-400">{t("dashboard.aiEditor.material.guideHeading")}</div>
+          {/* justify-center centrait le guide verticalement : son titre tombait
+              bien plus bas que « Ajoute tes fichiers ». On aligne les deux
+              colonnes par le haut, avec le même retrait. */}
+          <aside className="flex flex-col justify-start gap-10 p-8 sm:p-10 sm:pr-14">
+            <div className="mt-1 text-[12px] font-bold uppercase tracking-wider text-indigo-400">{t("dashboard.aiEditor.material.guideHeading")}</div>
 
             <div className="flex items-start gap-4">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[15px] font-bold text-white" style={{ background: BRAND }}>1</span>
@@ -687,7 +841,7 @@ export default function AiEditorClient() {
 
       {/* ============ ÉTAPE 3 · WORKSPACE (génération intégrée, 0 connexion) ============ */}
       {step === "editor" && (
-        <section className="m-6 grid min-h-0 flex-1 gap-0 overflow-hidden rounded-2xl border border-[var(--app-border)]" style={{ gridTemplateColumns: "290px 1fr", gridTemplateRows: "minmax(0, 1fr)" }}>
+        <section className="mx-3 mb-3 mt-2 grid min-h-0 flex-1 gap-0 overflow-hidden rounded-2xl border border-[var(--app-border)]" style={{ gridTemplateColumns: "252px 1fr", gridTemplateRows: "minmax(0, 1fr)" }}>
           {/* Rail contexte */}
           <aside className="flex min-h-0 flex-col border-r border-[var(--app-border)] bg-[var(--app-surface)]">
             <div className="shrink-0 border-b border-[var(--app-border)] px-4 py-4">
@@ -708,7 +862,7 @@ export default function AiEditorClient() {
                     onClick={() => refChangeInput.current?.click()}
                     disabled={analyzing}
                     title={t("dashboard.aiEditor.ws.changeTitle")}
-                    className={`rounded-md border border-[var(--app-border-strong)] px-2 py-0.5 text-[11px] font-semibold transition ${analyzing ? "cursor-wait text-[var(--app-text-faint)]" : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)]"}`}
+                    className={`duup-btn rounded-lg px-2.5 py-1 text-[11px] font-semibold ${analyzing ? "cursor-wait text-[var(--app-text-faint)]" : "text-[var(--app-text-muted)] hover:text-[var(--app-text)]"}`}
                   >
                     {analyzing ? t("dashboard.aiEditor.ws.analyzing") : t("dashboard.aiEditor.ws.change")}
                   </button>
@@ -725,17 +879,18 @@ export default function AiEditorClient() {
                 </div>
                 <div className="min-w-0">
                   <div className="truncate text-[13px] font-semibold text-[var(--app-text)]">{refSource?.label ?? t("dashboard.aiEditor.ws.refFallback")}</div>
-                  <div className="mt-0.5 text-[11.5px] text-[var(--app-text-faint)]">
-                    {analysis
-                      ? t("dashboard.aiEditor.ws.refStats", { n: analysis.keyframes.length, c: analysis.pacing.cutCount, transcript: analysis.transcript ? t("dashboard.aiEditor.ws.transcribed") : "" })
-                      : t("dashboard.aiEditor.ref.analyzed")}
-                  </div>
+                  {/* Images clés, coupes, transcription : des mesures internes,
+                      pas une information pour le user. Seul l'état compte. */}
+                  <div className="mt-0.5 text-[11.5px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ref.analyzed")}</div>
                 </div>
               </div>
-              {analysis?.hookText && (
-                <div className="mt-2.5 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg-2)] px-2.5 py-2 text-[11.5px] text-[var(--app-text-muted)]">
-                  {t("dashboard.aiEditor.ws.hook", { text: analysis.hookText.slice(0, 90) })}
-                </div>
+              {/* Tant qu'elle est là, la référence n'est PAS exploitable par Claude. */}
+              {refProg && (
+                <BarreProgression
+                  pct={refProg.pct}
+                  phase={refProg.phase}
+                  label={refProg.phase === "envoi" ? t("dashboard.aiEditor.ws.progUpload") : t("dashboard.aiEditor.ws.progAnalyse")}
+                />
               )}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
@@ -744,11 +899,26 @@ export default function AiEditorClient() {
                 <button
                   onClick={() => matInput.current?.click()}
                   title={t("dashboard.aiEditor.ws.addTitle")}
-                  className="rounded-md border border-[var(--app-border-strong)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-text-muted)] transition hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)]"
+                  className="duup-btn rounded-lg px-2.5 py-1 text-[11px] font-semibold text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
                 >
                   {t("dashboard.aiEditor.ws.add")}
                 </button>
               </div>
+              {/* Une seule barre pour tout ce qui monte : la moyenne des
+                  imports en cours. Trois fichiers déposés d'un coup, c'est une
+                  seule attente pour le user — pas trois barres à surveiller. */}
+              {(() => {
+                const encours = Object.values(matProg);
+                if (!encours.length) return null;
+                const pct = encours.reduce((a, p) => a + p.pct, 0) / encours.length;
+                const phase = encours.some((p) => p.phase === "envoi") ? "envoi" : "analyse";
+                const base = phase === "envoi" ? t("dashboard.aiEditor.ws.progUpload") : t("dashboard.aiEditor.ws.progAnalyse");
+                return (
+                  <div className="mb-3">
+                    <BarreProgression pct={pct} phase={phase} label={encours.length > 1 ? `${base} · ${encours.length}` : base} />
+                  </div>
+                );
+              })()}
               {materials.map((m) => (
                 <div key={m.id} className="group py-1.5">
                   <div className="flex items-center gap-2.5 text-[12.5px] text-[var(--app-text-muted)]">
@@ -779,7 +949,7 @@ export default function AiEditorClient() {
               )}
             </div>
             <div className="mx-3.5 mb-4 mt-auto shrink-0">
-              <button onClick={() => setStep("connect")} className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border-strong)] px-3 py-2 text-[12.5px] font-semibold text-[var(--app-text)] transition hover:bg-[var(--app-surface-2)]">
+              <button onClick={() => setStep("connect")} className="duup-btn inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[12.5px] font-semibold text-[var(--app-text)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/claude-color.svg" alt="" className="h-4 w-4 shrink-0" />
                 {t("dashboard.aiEditor.ws.reconnect")}
@@ -794,14 +964,31 @@ export default function AiEditorClient() {
                 <div className="text-[15px] font-bold text-[var(--app-text)]">{t("dashboard.aiEditor.ws.variants")} {variants.length > 0 && <span className="text-[var(--app-text-faint)]">· {variants.length}</span>}</div>
                 <div className="text-[12.5px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ws.createdLive")}</div>
               </div>
-              <button onClick={() => window.location.reload()} title={t("dashboard.aiEditor.ws.refreshTitle")} className="shrink-0 rounded-lg border border-[var(--app-border-strong)] px-3 py-2.5 text-[13px] font-medium text-[var(--app-text)] transition hover:bg-[var(--app-surface-2)]">{t("dashboard.aiEditor.ws.refresh")}</button>
+              <div className="flex shrink-0 items-center gap-3">
+                {/* Curseur de taille des vignettes — à gauche les petites, à
+                    droite les grandes, comme sur les galeries de génération. */}
+                {variants.length > 0 && (
+                  <input
+                    type="range"
+                    min={110}
+                    max={420}
+                    step={10}
+                    value={tuile}
+                    onChange={(e) => majTuile(Number(e.target.value))}
+                    aria-label={t("dashboard.aiEditor.ws.tileSize")}
+                    title={t("dashboard.aiEditor.ws.tileSize")}
+                    className="hidden h-1.5 w-32 cursor-pointer appearance-none rounded-full accent-indigo-500 sm:block"
+                    style={{ background: "var(--app-border-strong)" }}
+                  />
+                )}
+              </div>
             </div>
 
             {/* Barre de sélection groupée : tout sélectionner + télécharger (zip) / Drive */}
             {variants.length > 0 && (
               <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-[var(--app-border)] px-6 py-2.5">
                 <label className="flex cursor-pointer select-none items-center gap-2 text-[12.5px] font-medium text-[var(--app-text-muted)]">
-                  <input type="checkbox" checked={selIds.length === variants.length && variants.length > 0} onChange={toggleAll} className="h-4 w-4 cursor-pointer rounded accent-indigo-500" />
+                  <input type="checkbox" checked={selIds.length === variants.length && variants.length > 0} onChange={toggleAll} className="h-4 w-4 cursor-pointer rounded-md accent-indigo-500" />
                   {selIds.length > 0 ? t("dashboard.aiEditor.ws.nSelected", { n: selIds.length }) : t("dashboard.aiEditor.ws.selectAll")}
                 </label>
                 {selIds.length > 0 && (
@@ -858,13 +1045,14 @@ export default function AiEditorClient() {
                 </div>
               </div>
             ) : (
-              <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))" }}>
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${tuile}px, 1fr))` }}>
                 {variants.map((v, i) => (
-                  <div key={v.id} className={`group relative overflow-hidden rounded-2xl border bg-[var(--app-surface)] transition hover:shadow-lg ${selected.has(v.id) ? "border-indigo-500 ring-2 ring-indigo-500/60" : "border-[var(--app-border)] hover:border-indigo-400/50"}`}>
-                    {/* Case de sélection (au-dessus de la vignette, ne déclenche pas le drawer) */}
-                    <label onClick={(e) => e.stopPropagation()} className={`absolute left-2 top-2 z-20 cursor-pointer transition ${selected.has(v.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`} title={t("dashboard.aiEditor.ws.select")}>
-                      <input type="checkbox" checked={selected.has(v.id)} onChange={() => toggleSelect(v.id)} className="h-5 w-5 cursor-pointer rounded accent-indigo-500" style={{ boxShadow: "0 0 0 2px rgba(0,0,0,.35)" }} />
-                    </label>
+                  <div
+                    key={v.id}
+                    onMouseEnter={() => setSurvol(v.id)}
+                    onMouseLeave={() => setSurvol((s) => (s === v.id ? null : s))}
+                    className={`group relative overflow-hidden rounded-lg border bg-[var(--app-surface)] transition hover:shadow-lg ${selected.has(v.id) ? "border-indigo-500 ring-2 ring-indigo-500/60" : "border-[var(--app-border)] hover:border-indigo-400/50"}`}
+                  >
                     <button onClick={() => setDrawer({ open: true, variantId: v.id, label: v.label })} className="relative block aspect-[9/16] w-full">
                       {v.poster ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -872,14 +1060,87 @@ export default function AiEditorClient() {
                       ) : (
                         <div className="grid h-full w-full place-items-center text-[12px] text-[var(--app-text-faint)]" style={{ background: "linear-gradient(160deg,#241f3a,#123040)" }}>🎬</div>
                       )}
-                      <span className="absolute inset-0 grid place-items-center bg-black/0 text-3xl text-white/0 transition group-hover:bg-black/30 group-hover:text-white/90">▶</span>
+                      {/* La lecture démarre à l'instant du survol et tourne en
+                          boucle ; en sortant, le <video> est DÉMONTÉ — ce qui
+                          arrête la lecture et le téléchargement d'un coup. */}
+                      {survol === v.id && (
+                        <video
+                          src={variantUrl(v.id)}
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
+                          preload="auto"
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      )}
+                      {/* Voile discret : les commandes blanches doivent rester
+                          lisibles sur une image claire. */}
+                      <span className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/45 opacity-0 transition group-hover:opacity-100" />
                     </button>
-                    <div className="flex items-center justify-between gap-2 px-2.5 py-2.5">
-                      <span className="truncate text-[12.5px] font-semibold text-[var(--app-text)]">{v.label || t("dashboard.aiEditor.ws.variantFallback", { n: i + 1 })}</span>
-                      <div className="flex shrink-0 items-center gap-2.5">
-                        <a href={variantUrl(v.id, true)} className="text-[12px] text-indigo-400 hover:text-indigo-300" title={t("dashboard.aiEditor.ws.downloadTitle")}>⬇</a>
-                        <button onClick={() => removeVariant(v.id)} className="text-[12px] text-[var(--app-text-faint)] transition hover:text-red-400" title={t("dashboard.aiEditor.ws.deleteTitle")}>🗑</button>
-                      </div>
+
+                    {/* ── Commandes en surimpression, toutes au-dessus de la
+                        vignette : plus de barre sous la carte, l'image occupe
+                        toute la tuile. ── */}
+
+                    {/* Sélection : carré arrondi en haut à gauche. Il reste
+                        visible une fois coché, sinon on perdrait de vue ce
+                        qu'on a sélectionné en déplaçant la souris. */}
+                    <button
+                      type="button"
+                      aria-pressed={selected.has(v.id)}
+                      title={t("dashboard.aiEditor.ws.select")}
+                      onClick={(e) => { e.stopPropagation(); toggleSelect(v.id); }}
+                      className={`absolute left-2 top-2 z-20 grid h-7 w-7 place-items-center rounded-lg border-2 transition ${
+                        selected.has(v.id)
+                          ? "border-white bg-indigo-500 text-white opacity-100"
+                          : "border-white/85 bg-black/25 text-transparent opacity-0 group-hover:opacity-100"
+                      }`}
+                      style={{ backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    </button>
+
+                    {/* Télécharger / supprimer : pastilles rondes empilées en
+                        haut à droite, au gabarit des visionneuses de galerie. */}
+                    <div className="absolute right-2 top-2 z-20 flex flex-col gap-2 opacity-0 transition group-hover:opacity-100">
+                      <a
+                        href={variantUrl(v.id, true)}
+                        onClick={(e) => e.stopPropagation()}
+                        title={t("dashboard.aiEditor.ws.downloadTitle")}
+                        aria-label={t("dashboard.aiEditor.ws.downloadTitle")}
+                        className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-black/70"
+                        style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+                      >
+                        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                        </svg>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeVariant(v.id); }}
+                        title={t("dashboard.aiEditor.ws.deleteTitle")}
+                        aria-label={t("dashboard.aiEditor.ws.deleteTitle")}
+                        className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-red-500/80"
+                        style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+                      >
+                        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /><path d="M9 7V4h6v3" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Le nom, au survol seulement, dans la même matière que les
+                        pastilles : noir translucide flouté, texte blanc. */}
+                    <div className="pointer-events-none absolute inset-x-2 bottom-2 z-20 opacity-0 transition group-hover:opacity-100">
+                      <span
+                        className="block truncate rounded-lg px-2.5 py-1.5 text-[12px] font-semibold text-white"
+                        style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+                      >
+                        {v.label || t("dashboard.aiEditor.ws.variantFallback", { n: i + 1 })}
+                      </span>
                     </div>
                   </div>
                 ))}

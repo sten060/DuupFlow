@@ -385,11 +385,6 @@
         "analyzed": "✓ structure analysée",
         "redo": "⚠ analyse à refaire",
         "extracting": "Extraction des images clés, du rythme et de la transcription…",
-        "keyframes": "{n} images clés",
-        "cutsOne": "{n} coupe",
-        "cutsMany": "{n} coupes",
-        "hook": "🎙 Hook : « {text}… »",
-        "noTranscript": "🎙 Pas de transcription — analyse visuelle",
         "change": "Changer",
         "retry": "Relancer l’analyse",
         "continue": "Continuer → Ma matière",
@@ -412,9 +407,7 @@
         "kindVideo": "Vidéo",
         "remove": "Retirer",
         "descPlaceholder": "Décris ce fichier pour l’IA…",
-        "addFile": "+ Ajouter un fichier",
         "dropHere": "Dépose tes fichiers ici",
-        "dragOrClick": "glisser-déposer ou cliquer",
         "back": "← Retour",
         "open": "Ouvrir l’éditeur →",
         "guideHeading": "Ce que Claude va faire avec ta matière",
@@ -424,7 +417,9 @@
         "g2d": "Même rythme, mêmes coupes, même style que la vidéo qui a cartonné — mais avec **ta** matière à toi.",
         "g3t": "Il te rend plusieurs vidéos",
         "g3d": "Tu récupères plusieurs versions prêtes à poster, ici même sur DuupFlow.",
-        "guideTip": "💡 La petite **description** sous chaque fichier aide Claude à bien placer chaque élément (ex. « plan du produit de face »)."
+        "guideTip": "💡 La petite **description** sous chaque fichier aide Claude à bien placer chaque élément (ex. « plan du produit de face »).",
+        "dropTitle": "Glissez vos fichiers ici",
+        "dropSub": "ou cliquez pour parcourir"
       },
       "ws": {
         "pilotedBy": "Piloté par ton Claude",
@@ -434,9 +429,6 @@
         "change": "Changer",
         "analyzing": "⏳ analyse…",
         "refFallback": "référence",
-        "refStats": "✓ {n} images · {c} coupes{transcript}",
-        "transcribed": " · transcrit",
-        "hook": "🎙 Hook : « {text} »",
         "material": "Ta matière · {n} fichier{s}",
         "add": "+ Ajouter",
         "addTitle": "Ajouter de la matière",
@@ -451,8 +443,6 @@
         "reconnect": "Reconnecter Claude",
         "variants": "Variantes",
         "createdLive": "Créées par ton Claude · apparaissent ici en direct",
-        "refresh": "↻ Rafraîchir",
-        "refreshTitle": "Actualise la page (tu restes sur ce workspace). La liste se met déjà à jour toute seule tant que cet onglet est ouvert.",
         "emptyTitle": "Passe la main à ton Claude",
         "emptyDesc": "Dans **ton Claude**, demande-lui de reproduire ta référence avec ta matière. Les variantes qu’il crée s’affichent ici **automatiquement**.",
         "notConnected": "Pas encore connecté ? → Voir la connexion",
@@ -477,7 +467,10 @@
         "errAnalyze": "Analyse échouée",
         "errUpload": "Upload échoué",
         "errRefFirst": "Analyse la référence d’abord",
-        "confirmDelete": "Supprimer cette variante ? Télécharge-la d’abord si tu veux la garder."
+        "confirmDelete": "Supprimer cette variante ? Télécharge-la d’abord si tu veux la garder.",
+        "tileSize": "Taille des vignettes",
+        "progUpload": "Envoi en cours…",
+        "progAnalyse": "Analyse en cours…"
       },
       "drawer": {
         "variantFallback": "Variante",
