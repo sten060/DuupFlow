@@ -94,6 +94,7 @@ function DuplicationNavItem({ collapsed, subitems }: { collapsed: boolean; subit
     <div ref={triggerRef} className="relative" onMouseEnter={show} onMouseLeave={hide}>
       <div
         tabIndex={0}
+        data-tour-id="nav-duplication"
         title={collapsed ? t("dashboard.sidebar.duplication") : undefined}
         onClick={() => (open ? hide() : show())}
         className={[
@@ -314,12 +315,11 @@ export default function Sidebar() {
           },
         ],
       },
-      // Éditeur IA — exposé avec un badge « Bientôt » ; l'accès est réservé au plan
-      // Pro (gate serveur sur la page, comme l'API). Les non-Pro voient l'écran d'upgrade.
+      // Éditeur IA — l'accès est réservé au plan Pro (gate serveur sur la page,
+      // comme l'API). Les non-Pro voient l'écran d'upgrade.
       {
         href: "/dashboard/ai-editor",
         label: t("dashboard.sidebar.aiEditor"),
-        badge: t("dashboard.sidebar.beta"),
         tourId: "nav-ai-editor",
         icon: (
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

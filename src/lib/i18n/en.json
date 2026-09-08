@@ -318,21 +318,8 @@
       "support": "Support",
       "parametres": "Settings",
       "deconnexion": "Log Out",
-      "beta": "BETA",
       "expandMenu": "Expand menu",
       "collapseMenu": "Collapse menu"
-    },
-    "claudeAnnounce": {
-      "lead": "Reproduce what goes viral — automatically.",
-      "sub": "The new AI Editor is coming: your reference + your material, and your own Claude builds ready-to-post variants.",
-      "s1t": "A video that performs",
-      "s1d": "Yours or a competitor’s",
-      "s2t": "+ Your material",
-      "s2d": "Your footage, images, audio",
-      "s3t": "Ready-to-post variants",
-      "s3d": "Your Claude analyzes & edits",
-      "cta": "Discover the AI Editor",
-      "later": "Later"
     },
     "aiEditor": {
       "comingSoon": {
@@ -1027,16 +1014,6 @@
       "toc": "On this page",
       "back": "Back to advanced duplication"
     },
-    "affiliateAnnounce": {
-      "pill": "New",
-      "title": "Refer a friend, earn 20%",
-      "lead": "Our affiliate program is finally live. Recommend DuupFlow around you: your friend gets -10% on their subscription, and you earn 20% commission on theirs — on every payment.",
-      "bullet1": "20% recurring commission on every subscribed friend",
-      "bullet2": "-10% off for your friend on their subscription",
-      "bullet3": "Real-time tracking & automatic payouts",
-      "cta": "Join the program",
-      "later": "Maybe later"
-    },
     "tiktokAnnounce": {
       "pill": "New",
       "title": "Stay eligible on TikTok",
@@ -1325,7 +1302,15 @@
       "proAdvUnlimited": "Unlimited image, video and AI signature duplications",
       "proAdvMembers": "Up to 3 members in your workspace",
       "proAdvPriority": "Priority on new features",
-      "resetDate": "Reset on {date}."
+      "resetDate": "Reset on {date}.",
+      "keepTitle": "Rather than stopping altogether",
+      "keepQuotas": "{images} images · {videos} videos · {signatures} AI signatures a month, and the AI Editor stays included.",
+      "keepCta": "Switch to the {plan} plan",
+      "keepNote": "Applied at the end of your current period — you keep your plan until then.",
+      "trialCredits": "Free duplications / edits",
+      "trialCreditsNote": "Free for your first month: they don't count against your quotas.",
+      "keepLead": "You can step down a tier instead of cutting everything. Your files and history stay put.",
+      "keepDecline": "No thanks, cancel anyway"
     },
     "support": {
       "title": "Support",
@@ -1372,9 +1357,7 @@
     "replayOverviewDesc": "See the DuupFlow overview again.",
     "overview": {
       "title": "Welcome to DuupFlow",
-      "subtitle": "Here are your modules. We explain each one as you discover it.",
-      "cta": "Get started",
-      "foot": "Click a module to discover it."
+      "subtitle": "Where do you want to start?"
     },
     "modules": {
       "images": {
@@ -1449,6 +1432,53 @@
         "s1t": "Hide the AI signature",
         "s1b": "Drop your files and we replace the AI metadata with a realistic human identity."
       }
+    },
+    "start": {
+      "dupTitle": "Duplicate your first content",
+      "dupDesc": "One video or image, and you leave with several unique copies, ready to post.",
+      "aiTitle": "Reproduce a video that worked",
+      "aiDesc": "Give a reference + your footage: your Claude builds your variants.",
+      "credits": "{n} videos on us to try it out — they don't count against your quota.",
+      "more": "See the other modules",
+      "help": "A question? The chat at the bottom right, we answer.",
+      "go": "Start"
+    },
+    "path": {
+      "clickHint": "Click to continue",
+      "planT": "Activate your plan",
+      "planB": "Pick your plan here — it's what unlocks duplication and the AI Editor.",
+      "dup1t": "Open duplication",
+      "dup1b": "Images or videos: pick the format you want to post. The rest follows.",
+      "dup2t": "Simple mode",
+      "dup2b": "Ready-made settings. Advanced mode is there when you want to tune things yourself.",
+      "dup3t": "Drop your video",
+      "dup3b": "Drag a file here, or click to pick one. It's the only thing that's required.",
+      "dup4t": "How many copies",
+      "dup4b": "Every copy is unique. Three is enough to see what it gives.",
+      "dup5t": "The changes",
+      "dup5b": "Each pack alters the video its own way. Mirror is the most effective — leave the defaults for now.",
+      "dup6t": "Launch",
+      "dup6b": "Your copies land at the bottom of the page, ready to download. That's all there is to it.",
+      "ai1t": "Open the AI Editor",
+      "ai1b": "Your Claude does the editing: you give it a model video and your own footage.",
+      "ai2t": "Step 1 — connect your Claude",
+      "ai2b": "One address to paste into Claude, once. Without it, it can't see your files.",
+      "ai3t": "Step 2 — the reference",
+      "ai3b": "The video that worked: yours or a competitor's. That's the model to reproduce.",
+      "ai4t": "Step 3 — your material",
+      "ai4b": "Your footage. Then you ask your Claude, and the variants show up here. Off you go.",
+      "hintPlan": "Click to pick your plan",
+      "hintFormat": "Click to choose: images or videos",
+      "hintSimple": "Click to open simple mode",
+      "hintAiEditor": "Click to open the module",
+      "img1t": "Drop your images",
+      "img1b": "Drag one or more files here, or click to pick them.",
+      "img2t": "How many copies",
+      "img2b": "Every copy is unique. Three is enough to see what it gives.",
+      "img3t": "The options",
+      "img3b": "Metadata, visual micro-variations, country of origin. The defaults already do the job.",
+      "img4t": "Launch",
+      "img4b": "Your copies land at the bottom of the page, ready to download. That's all there is to it."
     }
   },
   "onboarding": {
@@ -2333,5 +2363,9 @@
         "reco": "💡 The bar is the structure: same moments, same pacing, same text style. Not a frame-by-frame copy."
       }
     }
+  },
+  "trialCredits": {
+    "pill": "{n} free tries",
+    "tooltip": "These videos don't count against your monthly quota. Free for your first month."
   }
 }

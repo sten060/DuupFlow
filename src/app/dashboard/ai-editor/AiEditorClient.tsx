@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReferenceAnalysis } from "@/lib/ai-editor/analyze";
 import { useTranslation } from "@/lib/i18n/context";
+import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
 import DriveSaveButton from "../components/DriveSaveButton";
 
 const BRAND = "linear-gradient(135deg,#6366F1,#38BDF8)";
@@ -515,9 +516,9 @@ export default function AiEditorClient() {
           <div className="text-[12px] font-semibold uppercase tracking-[.14em] text-indigo-400">{t("dashboard.aiEditor.eyebrow")}</div>
           <h1 className="mt-1.5 text-3xl font-extrabold tracking-tight text-[var(--app-text)]">{t("dashboard.aiEditor.title")}</h1>
           <div className="mt-5 flex flex-wrap gap-2">
-            <StepPill n={1} label={t("dashboard.aiEditor.stepConnect")} state={stepState("connect")} onClick={() => setStep("connect")} />
-            <StepPill n={2} label={t("dashboard.aiEditor.stepRef")} state={stepState("ref")} onClick={() => setStep("ref")} />
-            <StepPill n={3} label={t("dashboard.aiEditor.stepMaterial")} state={stepState("material")} onClick={() => refReady && setStep("material")} />
+            <span data-tour-id="aie-connect"><StepPill n={1} label={t("dashboard.aiEditor.stepConnect")} state={stepState("connect")} onClick={() => setStep("connect")} /></span>
+            <span data-tour-id="aie-ref"><StepPill n={2} label={t("dashboard.aiEditor.stepRef")} state={stepState("ref")} onClick={() => setStep("ref")} /></span>
+            <span data-tour-id="aie-material"><StepPill n={3} label={t("dashboard.aiEditor.stepMaterial")} state={stepState("material")} onClick={() => refReady && setStep("material")} /></span>
           </div>
         </header>
       )}
@@ -961,7 +962,7 @@ export default function AiEditorClient() {
           <div className="flex min-h-0 flex-col bg-[var(--app-bg-2)]">
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--app-border)] px-6 py-4">
               <div>
-                <div className="text-[15px] font-bold text-[var(--app-text)]">{t("dashboard.aiEditor.ws.variants")} {variants.length > 0 && <span className="text-[var(--app-text-faint)]">· {variants.length}</span>}</div>
+                <div className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-[var(--app-text)]"><span>{t("dashboard.aiEditor.ws.variants")}{variants.length > 0 && <span className="text-[var(--app-text-faint)]"> · {variants.length}</span>}</span><TrialCreditsPill /></div>
                 <div className="text-[12.5px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ws.createdLive")}</div>
               </div>
               <div className="flex shrink-0 items-center gap-3">

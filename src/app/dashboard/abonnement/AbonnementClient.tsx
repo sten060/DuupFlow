@@ -96,6 +96,7 @@ export default function AbonnementClient({
   currentPeriodEnd,
   isTrialing,
   billingInterval,
+  trialCredits,
 }: {
   plan: "free" | "starter" | "solo" | "pro" | null;
   usage: { images: number; videos: number; ai_signatures: number } | null;
@@ -107,6 +108,9 @@ export default function AbonnementClient({
   isTrialing: boolean;
   /** Intervalle Stripe en cours — le sélecteur de plans s'ouvre dessus. */
   billingInterval: "monthly" | "yearly";
+  /** Crédits d'essai (5 vidéos offertes le premier mois). `null` = pas
+   *  concerné : autre plan, hors fenêtre, ou migration pas encore appliquée. */
+  trialCredits: { restants: number; total: number } | null;
 }) {
   const { t, locale } = useTranslation();
   const [portalPaymentLoading, setPortalPaymentLoading] = useState(false);
@@ -114,6 +118,8 @@ export default function AbonnementClient({
   const [isCancelling, setIsCancelling] = useState(cancelAtPeriodEnd);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [showCancelStep1, setShowCancelStep1] = useState(false);
+  /** Écran 2 : l'offre de plan inférieur, entre l'avertissement et l'avis. */
+  const [showRetention, setShowRetention] = useState(false);
   const [showCancelStep2, setShowCancelStep2] = useState(false);
   const [cancelFeedback, setCancelFeedback] = useState("");
   // Le sélecteur de plans (Starter / Solo / Pro + bascule annuelle) : c'est la
@@ -187,6 +193,43 @@ export default function AbonnementClient({
       setMsg({ type: "err", text: t("dashboard.subscription.networkError") });
     }
     setPortalPaymentLoading(false);
+  }
+
+  /* ── Rétention : plutôt que de partir, descendre d'un cran ──────────────
+     Pro → Solo, Solo → Starter. En dessous de Starter il n'y a plus d'offre
+     payante : on ne propose rien plutôt que de proposer le plan gratuit, qui
+     n'est pas une alternative mais la résiliation avec un autre nom. */
+  const planInferieur = plan === "pro" ? "solo" : plan === "solo" ? "starter" : null;
+  const PRIX_MOIS: Record<string, { monthly: number; yearly: number }> = {
+    starter: { monthly: 19, yearly: 13 },
+    solo: { monthly: 39, yearly: 28 },
+  };
+  const [retentionLoading, setRetentionLoading] = useState(false);
+
+  /** Descend d'un palier. Le changement s'applique à l'échéance (proration
+   *  "none" côté route) : le user garde ce qu'il a déjà payé. */
+  async function garderAvecPlanInferieur() {
+    if (!planInferieur) return;
+    setRetentionLoading(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/stripe/downgrade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planInferieur }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        window.location.reload();
+        return;
+      }
+      setMsg({ type: "err", text: data.error ?? t("dashboard.subscription.downgradeError") });
+      setShowRetention(false);
+    } catch {
+      setMsg({ type: "err", text: t("dashboard.subscription.networkError") });
+      setShowRetention(false);
+    }
+    setRetentionLoading(false);
   }
 
   async function cancelSubscription() {
@@ -421,6 +464,30 @@ export default function AbonnementClient({
                 color="#10B981"
               />
             </div>
+            {/* Crédits d'essai : même carte, même barre — mais elle se remplit
+                à l'envers des autres. Ici on montre ce qui RESTE, pas ce qui a
+                été consommé : c'est un cadeau, pas un quota qui se referme. */}
+            {trialCredits && trialCredits.restants > 0 && (
+              <div className="mt-3">
+                <UsageStatCard
+                  label={t("dashboard.subscription.trialCredits")}
+                  icon={
+                    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="8" width="18" height="13" rx="2" />
+                      <path d="M12 8v13M3 12h18" />
+                      <path d="M12 8S9.5 3.5 7.5 4.5 8 8 12 8zM12 8s2.5-4.5 4.5-3.5S16 8 12 8z" />
+                    </svg>
+                  }
+                  current={trialCredits.restants}
+                  limit={trialCredits.total}
+                  color="#F59E0B"
+                />
+                <p className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-faint)]">
+                  {t("dashboard.subscription.trialCreditsNote")}
+                </p>
+              </div>
+            )}
+
             {!isUnlimited && renewalDate && (
               <p className="mt-3 text-[11px] text-[var(--app-text-faint)] leading-relaxed">
                 {t("dashboard.subscription.resetDate", { date: renewalDate })}
@@ -540,6 +607,14 @@ export default function AbonnementClient({
     </main>
 
     {/* Cancel — Step 1 modal: are you sure? */}
+    {/* ── RÉSILIATION EN TROIS TEMPS ────────────────────────────────────
+        1. ce que tu perds  →  2. une alternative moins radicale  →  3. dis-nous
+        pourquoi, puis confirme.
+
+        L'offre de plan inférieur a SA propre fenêtre. Glissée dans l'écran
+        d'avertissement, elle transformait une mise en garde en argumentaire de
+        vente : deux messages contradictoires sur la même carte, et le user ne
+        lisait plus ni l'un ni l'autre. Un écran = un message. ── */}
     {showCancelStep1 && (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -547,46 +622,159 @@ export default function AbonnementClient({
         onClick={() => setShowCancelStep1(false)}
       >
         <div
-          className="w-full max-w-md rounded-2xl p-6 space-y-5"
-          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
+          className="w-full max-w-lg overflow-hidden rounded-2xl"
+          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", boxShadow: "0 30px 80px rgba(0,0,0,0.45)" }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold text-[var(--app-text)]">{t("dashboard.subscription.cancelModalTitle")}</h2>
-            <p className="text-sm text-[var(--app-text-muted)]">
+          {/* En-tête : un halo ambré et une icône, pour que l'écran ait un ton
+              — celui d'un avertissement, pas d'un formulaire. */}
+          <div className="relative px-7 pb-6 pt-7 text-center">
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-28"
+              style={{ background: "radial-gradient(360px at 50% -20%, rgba(245,158,11,0.20), transparent 70%)" }}
+            />
+            <span
+              className="relative mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl"
+              style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.28)" }}
+            >
+              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+                <path d="M12 9v4M12 17h.01" />
+              </svg>
+            </span>
+            <h2 className="relative text-xl font-bold tracking-tight text-[var(--app-text)]">
+              {t("dashboard.subscription.cancelModalTitle")}
+            </h2>
+            <p className="relative mx-auto mt-2 max-w-sm text-[13.5px] leading-relaxed text-[var(--app-text-muted)]">
               {t("dashboard.subscription.cancelModalDesc")}
             </p>
           </div>
-          <ul className="space-y-2 text-sm text-[var(--app-text-muted)]">
-            <li className="flex items-start gap-2">
-              <svg viewBox="0 0 16 16" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" />
-              </svg>
-              {isTrialing && renewalDate
-                ? t("dashboard.subscription.cancelModalTrialAccess", { date: renewalDate })
-                : t("dashboard.subscription.cancelModalAccessUntilEnd")}
-            </li>
-            <li className="flex items-start gap-2">
-              <svg viewBox="0 0 16 16" className="h-4 w-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M4 4l8 8M12 4l-8 8" />
-              </svg>
-              {t("dashboard.subscription.cancelModalDataLost")}
-            </li>
-          </ul>
-          <div className="flex gap-3 pt-1">
+
+          {/* Ce qu'il perd, chaque point sur sa propre ligne encadrée. */}
+          <div className="space-y-2.5 px-7">
+            {[
+              {
+                couleur: "#F59E0B",
+                fond: "rgba(245,158,11,0.10)",
+                bord: "rgba(245,158,11,0.24)",
+                icone: <><path d="M8 2v5l3 3" /><circle cx="8" cy="8" r="6" /></>,
+                texte: isTrialing && renewalDate
+                  ? t("dashboard.subscription.cancelModalTrialAccess", { date: renewalDate })
+                  : t("dashboard.subscription.cancelModalAccessUntilEnd"),
+              },
+              {
+                couleur: "#EF4444",
+                fond: "rgba(239,68,68,0.08)",
+                bord: "rgba(239,68,68,0.22)",
+                icone: <path d="M4 4l8 8M12 4l-8 8" />,
+                texte: t("dashboard.subscription.cancelModalDataLost"),
+              },
+            ].map((l, i) => (
+              <div key={i} className="flex items-start gap-3 rounded-xl px-4 py-3" style={{ background: l.fond, border: `1px solid ${l.bord}` }}>
+                <svg viewBox="0 0 16 16" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke={l.couleur} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  {l.icone}
+                </svg>
+                <span className="text-[13.5px] leading-relaxed text-[var(--app-text-muted)]">{l.texte}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-3 px-7 pb-7 pt-6">
             <button
               onClick={() => setShowCancelStep1(false)}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text-muted)]"
-              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
+              className="duup-btn flex-1 rounded-xl py-3 text-sm font-semibold text-[var(--app-text)]"
             >
               {t("dashboard.subscription.cancelButton")}
             </button>
             <button
-              onClick={() => { setShowCancelStep1(false); setShowCancelStep2(true); }}
-              className="flex-1 rounded-xl py-2.5 text-sm font-medium transition"
+              onClick={() => {
+                setShowCancelStep1(false);
+                // Pas d'offre à faire quand on est déjà au plan le plus bas :
+                // on ne montre pas une fenêtre vide pour la forme.
+                if (planInferieur) setShowRetention(true);
+                else setShowCancelStep2(true);
+              }}
+              className="flex-1 rounded-xl py-3 text-sm font-semibold transition hover:brightness-110"
               style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", color: "#FCA5A5" }}
             >
               {t("dashboard.subscription.continueButton")}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Étape 2 — l'alternative : descendre d'un cran plutôt que tout couper. */}
+    {showRetention && planInferieur && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        onClick={() => !retentionLoading && setShowRetention(false)}
+      >
+        <div
+          className="w-full max-w-lg overflow-hidden rounded-2xl"
+          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", boxShadow: "0 30px 80px rgba(0,0,0,0.45)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="relative px-7 pb-6 pt-7 text-center">
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-28"
+              style={{ background: "radial-gradient(360px at 50% -20%, rgba(99,102,241,0.22), transparent 70%)" }}
+            />
+            <h2 className="relative text-xl font-bold tracking-tight text-[var(--app-text)]">
+              {t("dashboard.subscription.keepTitle")}
+            </h2>
+            <p className="relative mx-auto mt-2 max-w-sm text-[13.5px] leading-relaxed text-[var(--app-text-muted)]">
+              {t("dashboard.subscription.keepLead")}
+            </p>
+          </div>
+
+          <div className="px-7">
+            <div className="duup-glass rounded-2xl px-5 py-5">
+              <div className="flex items-baseline gap-2">
+                <span className="text-[30px] font-bold leading-none text-[var(--app-text)]">
+                  {PRIX_MOIS[planInferieur][billingInterval]} €
+                </span>
+                <span className="text-[13px] text-[var(--app-text-faint)]">{t("dashboard.subscription.perMonth")}</span>
+                {billingInterval === "yearly" && (
+                  <span className="text-[17px] text-[var(--app-text-faint)] line-through">
+                    {PRIX_MOIS[planInferieur].monthly} €
+                  </span>
+                )}
+                <span className="ml-auto text-[12px] font-bold uppercase tracking-wider text-indigo-400">
+                  {planInferieur === "solo" ? "Solo" : "Starter"}
+                </span>
+              </div>
+              <p className="mt-3 text-[13px] leading-relaxed text-[var(--app-text-muted)]">
+                {t("dashboard.subscription.keepQuotas", {
+                  images: getPlanLimits(planInferieur).images,
+                  videos: getPlanLimits(planInferieur).videos,
+                  signatures: getPlanLimits(planInferieur).ai_signatures,
+                })}
+              </p>
+            </div>
+            <p className="mt-3 text-center text-[12px] text-[var(--app-text-faint)]">
+              {t("dashboard.subscription.keepNote")}
+            </p>
+          </div>
+
+          <div className="px-7 pb-7 pt-6">
+            <button
+              onClick={garderAvecPlanInferieur}
+              disabled={retentionLoading}
+              className="w-full rounded-xl py-3 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
+            >
+              {retentionLoading
+                ? t("dashboard.subscription.changingPlan")
+                : t("dashboard.subscription.keepCta", { plan: planInferieur === "solo" ? "Solo" : "Starter" })}
+            </button>
+            <button
+              onClick={() => { setShowRetention(false); setShowCancelStep2(true); }}
+              disabled={retentionLoading}
+              className="mt-3 w-full text-center text-[12.5px] text-[var(--app-text-faint)] transition hover:text-[var(--app-text-muted)] disabled:opacity-40"
+            >
+              {t("dashboard.subscription.keepDecline")}
             </button>
           </div>
         </div>
@@ -601,7 +789,7 @@ export default function AbonnementClient({
         onClick={() => setShowCancelStep2(false)}
       >
         <div
-          className="w-full max-w-md rounded-2xl p-6 space-y-5"
+          className="w-full max-w-lg rounded-2xl p-7 space-y-5"
           style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
           onClick={(e) => e.stopPropagation()}
         >

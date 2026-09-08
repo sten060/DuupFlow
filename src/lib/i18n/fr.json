@@ -318,21 +318,8 @@
       "support": "Support",
       "parametres": "Paramètres",
       "deconnexion": "Déconnexion",
-      "beta": "BETA",
       "expandMenu": "Déplier le menu",
       "collapseMenu": "Réduire le menu"
-    },
-    "claudeAnnounce": {
-      "lead": "Reproduis ce qui cartonne — automatiquement.",
-      "sub": "Le nouvel Éditeur IA arrive : ta référence + ta matière, et ton propre Claude fabrique des variantes prêtes à publier.",
-      "s1t": "Une réf qui performe",
-      "s1d": "La tienne ou celle d’un concurrent",
-      "s2t": "+ Ta matière",
-      "s2d": "Tes rushes, images, sons",
-      "s3t": "Des variantes prêtes",
-      "s3d": "Ton Claude analyse & monte",
-      "cta": "Découvrir l’Éditeur IA",
-      "later": "Plus tard"
     },
     "aiEditor": {
       "comingSoon": {
@@ -1036,16 +1023,6 @@
       "bullet3": "À partir de 19€/mois — annulable à tout moment",
       "cta": "Voir les plans"
     },
-    "affiliateAnnounce": {
-      "pill": "Nouveau",
-      "title": "Parraine un ami, gagne 20%",
-      "lead": "Notre programme d'affiliation est enfin disponible. Recommande DuupFlow autour de toi : ton ami profite de -10% sur son abonnement, et tu touches 20% de commission sur le sien — à chaque paiement.",
-      "bullet1": "20% de commission récurrente sur chaque ami abonné",
-      "bullet2": "-10% offerts à ton ami sur son abonnement",
-      "bullet3": "Suivi en temps réel & paiements automatiques",
-      "cta": "Rejoindre le programme",
-      "later": "Plus tard"
-    },
     "tiktokAnnounce": {
       "pill": "Nouveau",
       "title": "Reste éligible sur TikTok",
@@ -1334,7 +1311,15 @@
       "proAdvUnlimited": "Duplications images, vidéos et signatures IA illimitées",
       "proAdvMembers": "Jusqu'à 3 membres dans ton workspace",
       "proAdvPriority": "Priorité sur les nouvelles fonctionnalités",
-      "resetDate": "Remise à zéro le {date}."
+      "resetDate": "Remise à zéro le {date}.",
+      "keepTitle": "Plutôt que de tout arrêter",
+      "keepQuotas": "{images} images · {videos} vidéos · {signatures} signatures IA par mois, et l'Éditeur IA reste inclus.",
+      "keepCta": "Passer au plan {plan}",
+      "keepNote": "Appliqué à la fin de ta période en cours — tu gardes ton plan actuel d'ici là.",
+      "trialCredits": "Duplications / édits offerts",
+      "trialCreditsNote": "Offertes ton premier mois : elles ne sont pas décomptées de tes quotas.",
+      "keepLead": "Tu peux descendre d'un cran plutôt que de tout couper. Tes fichiers et ton historique restent en place.",
+      "keepDecline": "Non merci, je résilie"
     },
     "support": {
       "title": "Support",
@@ -1381,9 +1366,7 @@
     "replayOverviewDesc": "Revois la vue d'ensemble de DuupFlow.",
     "overview": {
       "title": "Bienvenue sur DuupFlow",
-      "subtitle": "Voici tes modules. On t'explique chacun quand tu le découvres.",
-      "cta": "Commencer",
-      "foot": "Clique sur un module pour le découvrir."
+      "subtitle": "Par quoi tu veux commencer ?"
     },
     "modules": {
       "images": {
@@ -1458,6 +1441,53 @@
         "s1t": "Masque la signature IA",
         "s1b": "Dépose tes fichiers, on remplace les métadonnées IA par une identité humaine réaliste."
       }
+    },
+    "start": {
+      "dupTitle": "Duplique ton premier contenu",
+      "dupDesc": "Une vidéo ou une image, et tu repars avec plusieurs copies uniques, prêtes à publier.",
+      "aiTitle": "Reproduis une vidéo qui a marché",
+      "aiDesc": "Donne une référence + tes rushes : ton Claude fabrique tes variantes.",
+      "credits": "{n} vidéos offertes pour essayer — elles ne comptent pas dans ton quota.",
+      "more": "Voir les autres modules",
+      "help": "Une question ? Le chat en bas à droite, on répond.",
+      "go": "Commencer"
+    },
+    "path": {
+      "clickHint": "Clique pour continuer",
+      "planT": "Active ton plan",
+      "planB": "Choisis ton plan ici — c'est ce qui débloque les duplications et l'Éditeur IA.",
+      "dup1t": "Ouvre la duplication",
+      "dup1b": "Images ou vidéos : prends le format que tu veux publier. La suite s'adapte.",
+      "dup2t": "Le mode simple",
+      "dup2b": "Des réglages tout prêts. Le mode avancé, tu iras le voir quand tu voudras régler toi-même.",
+      "dup3t": "Dépose ta vidéo",
+      "dup3b": "Glisse un fichier ici, ou clique pour le choisir. C'est la seule chose obligatoire.",
+      "dup4t": "Combien de copies",
+      "dup4b": "Chaque copie est unique. Trois suffisent pour voir ce que ça donne.",
+      "dup5t": "Les modifications",
+      "dup5b": "Chaque pack change la vidéo à sa façon. Le miroir est le plus efficace — laisse les réglages par défaut pour l'instant.",
+      "dup6t": "Lance",
+      "dup6b": "Tes copies arrivent en bas de page, prêtes à télécharger. Voilà, tu sais tout.",
+      "ai1t": "Ouvre l'Éditeur IA",
+      "ai1b": "C'est ton Claude qui monte : tu lui donnes une vidéo modèle et ta matière.",
+      "ai2t": "Étape 1 — connecte ton Claude",
+      "ai2b": "Une adresse à coller une seule fois dans Claude. Sans ça, il ne peut pas voir tes fichiers.",
+      "ai3t": "Étape 2 — la référence",
+      "ai3b": "La vidéo qui a marché : la tienne ou celle d'un concurrent. C'est le modèle à reproduire.",
+      "ai4t": "Étape 3 — ta matière",
+      "ai4b": "Tes rushes. Ensuite tu demandes à ton Claude, et les variantes arrivent ici. C'est parti.",
+      "hintPlan": "Clique pour choisir ton plan",
+      "hintFormat": "Clique pour choisir : images ou vidéos",
+      "hintSimple": "Clique pour ouvrir le mode simple",
+      "hintAiEditor": "Clique pour accéder au module",
+      "img1t": "Dépose tes images",
+      "img1b": "Glisse un ou plusieurs fichiers ici, ou clique pour les choisir.",
+      "img2t": "Combien de copies",
+      "img2b": "Chaque copie est unique. Trois suffisent pour voir ce que ça donne.",
+      "img3t": "Les options",
+      "img3b": "Métadonnées, micro-variations visuelles, pays d'origine. Les réglages par défaut font déjà le travail.",
+      "img4t": "Lance",
+      "img4b": "Tes copies arrivent en bas de page, prêtes à télécharger. Voilà, tu sais tout."
     }
   },
   "onboarding": {
@@ -2342,5 +2372,9 @@
         "reco": "💡 La barre, c'est la structure : mêmes moments, même rythme, même style de texte. Pas une copie image par image."
       }
     }
+  },
+  "trialCredits": {
+    "pill": "{n} essais offerts",
+    "tooltip": "Ces vidéos ne sont pas décomptées de ton quota mensuel. Offertes le premier mois."
   }
 }

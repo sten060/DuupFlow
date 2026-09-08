@@ -5,15 +5,16 @@ import ChatBot from "./components/ChatBot";
 import NotificationBell from "./components/NotificationBell";
 import PaymentOverdueModal from "./PaymentOverdueModal";
 import SubscriptionCanceledModal from "./SubscriptionCanceledModal";
-import ClaudeAnnounceModal from "./ClaudeAnnounceModal";
 import ClaritySessionTags, {
   type ClarityPlan,
   type ClaritySegment,
 } from "./ClaritySessionTags";
 import { getServerLocale } from "@/lib/i18n/server";
 import { OnboardingProvider } from "./onboarding/OnboardingProvider";
+import { compteNouveau } from "@/lib/launch";
 import AppOverview from "./onboarding/AppOverview";
 import ModuleCoach from "./onboarding/ModuleCoach";
+import GuidedPath from "./onboarding/GuidedPath";
 import TikTokReminder from "./TikTokReminder";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -98,11 +99,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
       try {
         const { data: onb } = await admin
           .from("profiles")
-          .select("onboarding_progress")
+          .select("onboarding_progress, created_at")
           .eq("id", user.id)
           .single();
         onboarding = {
-          enabled: profile != null && profile.is_guest !== true,
+          // ⚠️ Réservé aux comptes créés APRÈS la mise en service du nouveau
+          // parcours. Les abonnés d'avant ont déjà découvert le produit à leur
+          // façon : leur rejouer une visite guidée serait une régression pour
+          // eux, pas une aide.
+          enabled:
+            profile != null &&
+            profile.is_guest !== true &&
+            compteNouveau((onb as { created_at?: string } | null)?.created_at),
           progress:
             (onb?.onboarding_progress as Record<string, boolean> | null) ?? {
               grandfathered: true,
@@ -232,7 +240,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
       {/* Annonce « Claude × DuupFlow » (Éditeur IA) — une fois par user, à la
           connexion. Jamais par-dessus un modal BLOQUANT (overdue / churn). */}
-      {!overdue && !cancellationPending && <ClaudeAnnounceModal />}
 
       {/* One-shot popup after a subscription cancellation → Free. Takes
           priority over the overdue modal (churn clears overdue, but guard
@@ -261,6 +268,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           coach on first open. Mounted here so both persist across navigations. */}
       <AppOverview />
       <ModuleCoach />
+      <GuidedPath />
     </div>
     </OnboardingProvider>
   );

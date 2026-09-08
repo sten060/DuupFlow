@@ -21,6 +21,7 @@ import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
 import { claimHandoff, fetchHandoffFiles } from "@/lib/account/handoff";
 import QuotaWarningModal from "@/app/dashboard/components/QuotaWarningModal";
 import UpgradePlanModal from "@/app/dashboard/components/UpgradePlanModal";
+import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
 
 function ProgressBar({ percent, label }: { percent: number; label?: string }) {
   const { t } = useTranslation();
@@ -607,8 +608,11 @@ export default function VideoFormSimpleClient() {
 
   return (
     <>
-    <div className="flex items-center justify-between">
-      <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosSimple.title")}</h1>
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosSimple.title")}</h1>
+        <TrialCreditsPill />
+      </div>
       <DocsDrawer docs={buildVideoDocs(t)} />
     </div>
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">

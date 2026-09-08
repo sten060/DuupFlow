@@ -49,13 +49,13 @@ export async function POST(req: NextRequest) {
 
   const res = await directVariants(user.id, projectId, count);
   if ("error" in res) {
-    await releaseUsage(user.id, "videos", count).catch(() => {});
+    await releaseUsage(user.id, "videos", count, usage.trialCredit).catch(() => {});
     return NextResponse.json({ error: res.error }, { status: 422 });
   }
 
   // Ne facture QUE les variantes réellement rendues.
   const unused = count - res.variants.length;
-  if (unused > 0) await releaseUsage(user.id, "videos", unused).catch(() => {});
+  if (unused > 0) await releaseUsage(user.id, "videos", unused, usage.trialCredit).catch(() => {});
   if (res.variants.length) void logUsageEvent(user.id, "videos", res.variants.length);
 
   return NextResponse.json({ variants: res.variants, usedAI: res.usedAI });

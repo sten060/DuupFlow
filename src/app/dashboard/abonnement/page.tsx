@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
+import { etatCredits } from "@/lib/trial-credits";
 import { redirect } from "next/navigation";
 import AbonnementClient from "./AbonnementClient";
 
@@ -184,6 +185,11 @@ export default async function AbonnementPage() {
     };
   }
 
+  // Crédits d'essai — résolus côté serveur : la page connaît déjà le plan
+  // effectif, inutile de faire redescendre un appel au navigateur pour ça.
+  const etat = await etatCredits(user.id, plan);
+  const trialCredits = etat.restants > 0 ? { restants: etat.restants, total: etat.total } : null;
+
   return (
     <AbonnementClient
       plan={plan}
@@ -195,6 +201,7 @@ export default async function AbonnementPage() {
       currentPeriodEnd={currentPeriodEnd}
       isTrialing={isTrialing}
       billingInterval={billingInterval}
+      trialCredits={trialCredits}
     />
   );
 }

@@ -153,7 +153,7 @@ export async function POST(req: Request) {
     const msg = e?.message || String(e) || t("errors.video.authError");
     console.error("[duplicate-video] getOutDir error:", msg);
     // Rien ne sera encodé → on rend le quota réservé à l'instant.
-    await releaseUsage(usageCheck.userId, "videos", requestedCount).catch(() => {});
+    await releaseUsage(usageCheck.userId, "videos", requestedCount, reservation.trialCredit).catch(() => {});
     return NextResponse.json({ error: msg, code: "VID-002" }, { status: 500 });
   }
 
@@ -162,6 +162,9 @@ export async function POST(req: Request) {
   const hasDirectUploads = directUploadIds.length > 0;
 
   const usageUserId = usageCheck.userId;
+  // Payé par un crédit d'essai ? La restitution de fin de job doit rendre un
+  // crédit, pas du quota — qui n'a jamais été débité.
+  const usageSurCredit = reservation.trialCredit === true;
 
   // Register job — reconnects will find it here. jobAbort is fired by the /stop
   // route to actually halt server-side encoding (which otherwise survives a
@@ -366,7 +369,7 @@ export async function POST(req: Request) {
         // arrêt manuel, ou job entièrement raté). Le user ne paie que le livré.
         if (usageUserId) {
           const unused = requestedCount - deliveredCount;
-          if (unused > 0) await releaseUsage(usageUserId, "videos", unused).catch(console.error);
+          if (unused > 0) await releaseUsage(usageUserId, "videos", unused, usageSurCredit).catch(console.error);
           // Journal analytique : la quantité LIVRÉE (la réservation, elle, n'écrit
           // rien — sinon un job à moitié raté serait sur-compté dans les stats).
           if (deliveredCount > 0) void logUsageEvent(usageUserId, "videos", deliveredCount);

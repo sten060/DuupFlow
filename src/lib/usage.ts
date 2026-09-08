@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getServerT } from "@/lib/i18n/server";
 import { getPlanLimits } from "./plans";
+import { consommerCredit, etatCredits, planEligibleAuxCredits, rendreCredit } from "./trial-credits";
 
 export type UsageType = "images" | "videos" | "ai_signatures";
 
@@ -76,10 +77,15 @@ export async function checkUsage(
  * les mêmes règles : deux résolutions divergentes, c'est un quota qui se
  * contourne selon le chemin emprunté.
  */
-async function resolveQuotaContext(
-  userId: string,
-  type: UsageType,
-): Promise<{ plan: string; limit: number; current: number } | null> {
+/**
+ * Plan EFFECTIF d'un user, sans toucher au moindre compteur :
+ * invité → plan de l'hôte, impayé → free, `has_paid` sans plan → pro.
+ *
+ * Extrait de resolveQuotaContext parce que le plan ne sert plus qu'aux quotas :
+ * les crédits d'essai en dépendent aussi. Deux résolutions divergentes, ce
+ * serait un plan qui vaut Starter ici et Free là-bas — donc une seule règle.
+ */
+export async function effectivePlanForUser(userId: string): Promise<string | null> {
   const admin = createAdminClient();
 
   const { data: profile } = await admin
@@ -104,6 +110,17 @@ async function resolveQuotaContext(
   }
   if (!effectivePlan) effectivePlan = profile.has_paid ? "pro" : "free";
   if (overdue) effectivePlan = "free";
+  return effectivePlan;
+}
+
+async function resolveQuotaContext(
+  userId: string,
+  type: UsageType,
+): Promise<{ plan: string; limit: number; current: number } | null> {
+  const admin = createAdminClient();
+
+  const effectivePlan = await effectivePlanForUser(userId);
+  if (!effectivePlan) return null;
 
   if (effectivePlan === "pro") {
     return { plan: "pro", limit: Infinity, current: 0 };
@@ -177,6 +194,15 @@ export async function checkUsageForUser(
   }
 
   if (ctx.current + requestedCount > ctx.limit) {
+    // Quota épuisé, mais il reste peut-être des crédits d'essai. Bloquer ici
+    // reviendrait à offrir 5 vidéos puis à refuser de les laisser dépenser.
+    // Même règle qu'à la réservation : à l'unité, et sur les vidéos.
+    if (type === "videos" && requestedCount === 1 && planEligibleAuxCredits(ctx.plan)) {
+      const credits = await etatCredits(userId, ctx.plan);
+      if (credits.restants > 0) {
+        return { allowed: true, userId, plan: ctx.plan, current: ctx.current, limit: ctx.limit };
+      }
+    }
     return {
       allowed: false,
       userId,
@@ -206,6 +232,10 @@ async function quotaMessage(type: UsageType, plan: string, current: number, limi
 }
 
 export interface UsageReservation extends UsageCheck {
+  /** La réservation a-t-elle été payée par un CRÉDIT D'ESSAI et non par le
+   *  quota ? L'appelant doit le repasser à releaseUsage pour rendre la bonne
+   *  chose en cas d'échec du job. */
+  trialCredit?: boolean;
   /**
    * true  → la réservation est passée par la fonction SQL atomique : deux
    *         appels concurrents ne peuvent PAS dépasser la limite.
@@ -238,6 +268,17 @@ export async function reserveUsage(
   if (!ctx) {
     const t = await getServerT();
     return { allowed: false, atomic: false, userId, plan: null, current: 0, limit: 0, message: t("errors.quota.profileNotFound") };
+  }
+
+  // ── Crédits d'essai : ils passent AVANT le quota ────────────────────────
+  // 5 vidéos offertes le premier mois (Starter / Solo) pour que l'essai ne
+  // coûte rien. Uniquement à l'unité : un lot de N vidéos part sur le quota,
+  // sinon un seul job viderait la réserve d'un coup.
+  if (type === "videos" && count === 1 && planEligibleAuxCredits(ctx.plan)) {
+    const prisSurCredit = await consommerCredit(userId, ctx.plan);
+    if (prisSurCredit) {
+      return { allowed: true, atomic: true, userId, plan: ctx.plan, current: ctx.current, limit: ctx.limit, trialCredit: true };
+    }
   }
 
   const unlimited = !Number.isFinite(ctx.limit);
@@ -292,8 +333,17 @@ export async function reserveUsage(
  * Rend `count` unités réservées mais non produites. Best-effort : un échec de
  * restitution ne doit jamais faire échouer un job qui, lui, a réussi.
  */
-export async function releaseUsage(userId: string, type: UsageType, count: number): Promise<void> {
+export async function releaseUsage(
+  userId: string,
+  type: UsageType,
+  count: number,
+  /** Passer `reservation.trialCredit` : la réservation avait été payée par un
+   *  crédit d'essai, c'est un crédit qu'il faut rendre — pas du quota, qui n'a
+   *  jamais été débité. */
+  trialCredit = false,
+): Promise<void> {
   if (!Number.isFinite(count) || count <= 0) return;
+  if (trialCredit) { await rendreCredit(userId); return; }
   const admin = createAdminClient();
   const rpc = await admin.rpc("release_usage", { p_user_id: userId, p_type: type, p_amount: count });
   if (!rpc.error) return;

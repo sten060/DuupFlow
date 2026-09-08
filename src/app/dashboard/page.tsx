@@ -11,7 +11,6 @@ const PROMO_ALLOWLIST = ["stv863624@gmail.com"];
 // Instant du lancement du programme d'affiliation. Le pop-up d'annonce n'est
 // montré qu'aux utilisateurs déjà inscrits AVANT cette date ; les comptes créés
 // après ne le voient jamais. À ajuster à l'heure réelle du déploiement.
-const AFFILIATE_LAUNCH_CUTOFF = "2026-09-02T10:00:00Z";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -122,14 +121,6 @@ export default async function DashboardPage() {
     }
   }
 
-  // One-shot affiliate-program launch pop-up — EXISTING users ONLY. "Existing" =
-  // account created before the launch cutoff. New signups (created at/after the
-  // cutoff) never see it. A localStorage guard in DashboardHome then ensures it
-  // shows only once per user.
-  const affiliateAnnounceEligible =
-    user?.created_at != null &&
-    new Date(user.created_at).getTime() < new Date(AFFILIATE_LAUNCH_CUTOFF).getTime();
-
   return (
     <DashboardHome
       firstName={firstName}
@@ -140,7 +131,6 @@ export default async function DashboardPage() {
       starterAnnounceEligible={starterAnnounceEligible}
       promoEligible={promoEligible}
       promoLoginKey={user?.last_sign_in_at ?? null}
-      affiliateAnnounceEligible={affiliateAnnounceEligible}
     />
   );
 }

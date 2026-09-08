@@ -24,17 +24,25 @@ import { reserveUsage, releaseUsage, logUsageEvent, logAiEditorRender } from "@/
 // un Claude qui enchaîne dix create_variant les voyait TOUS passer avec le même
 // compteur, et un Starter à 99/100 repartait avec 109 vidéos. Un rendu qui
 // échoue rend son unité (releaseVariantQuota).
+/* Réservation payée par un CRÉDIT D'ESSAI plutôt que par le quota. La garde et
+   la restitution vivent dans deux fonctions séparées (et le rendu est détaché
+   entre les deux) : on note donc ici comment l'unité a été payée, sinon un
+   rendu raté rendrait du quota jamais débité et offrirait une vidéo. */
+const paiementParCredit = new Set<string>();
+
 async function guardVariantQuota(userId: string): Promise<Content | null> {
   const usage = await reserveUsage(userId, "videos", 1).catch(() => null);
   if (usage && !usage.allowed) {
     return { type: "text", text: `⛔ Quota atteint : ${usage.message ?? "limite de vidéos du plan atteinte."} Le rendu est bloqué tant que le user (ou son hôte) n'a pas plus de quota / un plan supérieur.` };
   }
+  if (usage?.trialCredit) paiementParCredit.add(userId);
   return null; // autorisé (ou vérif indisponible → on ne bloque pas un render légitime)
 }
 
 /** Rendu échoué → l'unité réservée par guardVariantQuota() est rendue. */
 function releaseVariantQuota(userId: string): void {
-  void releaseUsage(userId, "videos", 1).catch(() => {});
+  const surCredit = paiementParCredit.delete(userId);
+  void releaseUsage(userId, "videos", 1, surCredit).catch(() => {});
 }
 
 const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
