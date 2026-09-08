@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReferenceAnalysis } from "@/lib/ai-editor/analyze";
 import { useTranslation } from "@/lib/i18n/context";
+import { setEtapeEditeur } from "../onboarding/aiStepStore";
 import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
 import DriveSaveButton from "../components/DriveSaveButton";
 
@@ -479,6 +480,12 @@ export default function AiEditorClient() {
       if (project) { setProjectId(project.id); setVariants(project.variants ?? []); }
     } catch { /* ignore */ }
   }, []);
+
+  // Le parcours guidé suit l'étape du module, pas un bouton « Suivant ».
+  useEffect(() => {
+    setEtapeEditeur(step);
+    return () => setEtapeEditeur(null);
+  }, [step]);
 
   // Poll live pendant qu'on est dans le workspace : les variantes créées par le
   // Claude du user (via le connecteur MCP) apparaissent au fur et à mesure.

@@ -13,6 +13,7 @@ import { saveActiveJob, removeActiveJob } from "../videoJobResume";
 import { pushNotification } from "../../components/notificationStore";
 import InterruptedRecovery from "../InterruptedRecovery";
 import DocsDrawer from "../../components/DocsDrawer";
+import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
 import { buildVideoDocs } from "../../components/docs-content";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
@@ -802,8 +803,11 @@ export default function VideoFormAdvancedClient() {
   return (
     <>
     <style>{`@keyframes duupTiktokFlash{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,0)}30%{box-shadow:0 0 0 3px rgba(56,189,248,.55),0 0 32px rgba(56,189,248,.25)}}.duup-tiktok-flash{animation:duupTiktokFlash 1.3s ease-in-out 2}`}</style>
-    <div className="flex items-center justify-between">
-      <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosAdvanced.title")}</h1>
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosAdvanced.title")}</h1>
+        <TrialCreditsPill />
+      </div>
       <DocsDrawer docs={buildVideoDocs(t, { advanced: true })} />
     </div>
     <form onSubmit={handleSubmit} className="space-y-6">

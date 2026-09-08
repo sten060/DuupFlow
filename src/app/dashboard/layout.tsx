@@ -3,6 +3,7 @@ import Sidebar from "./sidebar";
 import GlobalVideoProgress from "./videos/GlobalVideoProgress";
 import ChatBot from "./components/ChatBot";
 import NotificationBell from "./components/NotificationBell";
+import TrialCreditsWatcher from "./components/TrialCreditsWatcher";
 import PaymentOverdueModal from "./PaymentOverdueModal";
 import SubscriptionCanceledModal from "./SubscriptionCanceledModal";
 import ClaritySessionTags, {
@@ -15,6 +16,7 @@ import { compteNouveau } from "@/lib/launch";
 import AppOverview from "./onboarding/AppOverview";
 import ModuleCoach from "./onboarding/ModuleCoach";
 import GuidedPath from "./onboarding/GuidedPath";
+import ModuleIntro from "./onboarding/ModuleIntro";
 import TikTokReminder from "./TikTokReminder";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -236,6 +238,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <GlobalVideoProgress />
       <ChatBot />
       <NotificationBell />
+      <TrialCreditsWatcher userId={clarityTags?.userId ?? null} />
       {tiktok && <TikTokReminder seenAt={tiktok.seenAt} reminderSent={tiktok.reminderSent} />}
 
       {/* Annonce « Claude × DuupFlow » (Éditeur IA) — une fois par user, à la
@@ -269,6 +272,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <AppOverview />
       <ModuleCoach />
       <GuidedPath />
+            <ModuleIntro />
     </div>
     </OnboardingProvider>
   );

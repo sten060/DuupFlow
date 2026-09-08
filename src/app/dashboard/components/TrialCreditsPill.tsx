@@ -28,12 +28,15 @@ export default function TrialCreditsPill({ className = "" }: { className?: strin
   if (restants <= 0) return null;
 
   return (
+    // Pastille en relief : dégradé vertical, liseré clair sur l'arête haute,
+    // ombre courte teintée. Un aplat vert avec un filet de la même couleur se
+    // confondait avec un badge de statut — là c'est un cadeau, ça doit accrocher.
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${className}`}
-      style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.30)", color: "#34D399" }}
+      className={`duup-pastille inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-bold ${className}`}
       title={t("trialCredits.tooltip")}
     >
-      🎁 {t("trialCredits.pill", { n: restants })}
+      <span className="text-[13px] leading-none">🎁</span>
+      {t("trialCredits.pill", { n: restants })}
     </span>
   );
 }

@@ -27,7 +27,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { markOnboardingSeen } from "../actions/onboarding";
+import { markOnboardingSeen, resetOnboardingAreas } from "../actions/onboarding";
 import { ONBOARDING_MODULES } from "./modules";
 import type { CleParcours } from "./parcours";
 
@@ -55,7 +55,9 @@ type OnboardingValue = {
      rechargement — un clic sur un lien externe ne doit pas tout perdre. */
   parcours: CleParcours | null;
   etape: number;
-  lancerParcours: (p: CleParcours) => void;
+  /** `depuis` : index de départ, pour reprendre un parcours EN COURS DE ROUTE
+   *  (le user est déjà sur le module, inutile de lui montrer comment y aller). */
+  lancerParcours: (p: CleParcours, depuis?: number) => void;
   allerEtape: (i: number) => void;
   quitterParcours: () => void;
 };
@@ -124,14 +126,34 @@ export function OnboardingProvider({
     } catch { /* sans effet */ }
   };
 
-  const lancerParcours = useCallback((p: CleParcours) => { setParcours(p); setEtape(0); memoriser(p, 0); }, []);
+  const lancerParcours = useCallback((p: CleParcours, depuis = 0) => {
+    setParcours(p);
+    setEtape(depuis);
+    memoriser(p, depuis);
+    // Relancer un parcours, c'est vouloir tout revoir : on oublie les panneaux
+    // déjà marqués « J'ai compris ».
+    try { localStorage.removeItem("duup_parcours_lus"); } catch { /* sans effet */ }
+  }, []);
   const allerEtape = useCallback((i: number) => {
     setEtape(i);
     setParcours((p) => { memoriser(p, i); return p; });
   }, []);
   const quitterParcours = useCallback(() => { setParcours(null); setEtape(0); memoriser(null, 0); }, []);
 
-  const replayOverview = useCallback(() => setForcedOverview(true), []);
+  /** Les intros de module font partie de la visite : les rejouer aussi, sinon
+   *  « Revoir la visite » ne rejoue que la première fenêtre. */
+  const INTROS_MODULE = ["intro-videos", "intro-images", "intro-ai-editor"];
+  const replayOverview = useCallback(() => {
+    setProgress((p) => {
+      const suite = { ...p };
+      for (const a of INTROS_MODULE) delete suite[a];
+      return suite;
+    });
+    void resetOnboardingAreas(INTROS_MODULE).catch(() => {});
+    try { localStorage.removeItem("duup_parcours_lus"); } catch { /* sans effet */ }
+    setForcedOverview(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const replayModule = useCallback(
     (key: string) => {

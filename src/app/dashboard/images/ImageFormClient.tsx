@@ -9,6 +9,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import LimitReachedModal from "../components/LimitReachedModal";
 import QuotaWarningModal from "../components/QuotaWarningModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
+import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
 import { saveActiveImageJob, removeActiveImageJob } from "./imageJobResume";
 import { pushNotification } from "../components/notificationStore";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
@@ -421,7 +422,10 @@ export default function ImageFormClient({ initialImages }: Props) {
 
   return (
     <div className="space-y-6">
-      <h1 data-tour-id="img-h1" className="text-3xl font-extrabold tracking-tight">{t("dashboard.images.title")}</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 data-tour-id="img-h1" className="text-3xl font-extrabold tracking-tight">{t("dashboard.images.title")}</h1>
+        <TrialCreditsPill />
+      </div>
       <form ref={formRef} onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6" autoComplete="off">
         {/* Import depuis Google Drive (alternative à la dropzone locale) */}
         <DriveImportButton accept="image" onFiles={ingestFiles} onError={setErrorMsg} disabled={busy} />

@@ -14,6 +14,10 @@ import { centsToTokens } from "@/lib/tokens";
  */
 const ONBOARDING_AREAS = [
   "overview",
+  // Intros de module (ModuleIntro) : la fenêtre d'explication vue une seule fois.
+  "intro-videos",
+  "intro-images",
+  "intro-ai-editor",
   "images",
   "videos",
   "videos-simple",
@@ -52,6 +56,37 @@ export async function markOnboardingSeen(area: string): Promise<void> {
     .from("profiles")
     .update({ onboarding_progress: { ...current, [area]: true } })
     .eq("id", user.id);
+}
+
+/**
+ * Ré-arme des surfaces d'onboarding (les remet à « jamais vues »).
+ *
+ * Les fenêtres d'intro de module ne s'affichent qu'UNE fois dans la vie d'un
+ * compte : sans ça, « Revoir la visite » rejouait la carte d'accueil mais plus
+ * rien derrière — le user relançait un parcours dont toutes les explications
+ * étaient déjà consommées. Même liste blanche que markOnboardingSeen.
+ */
+export async function resetOnboardingAreas(areas: string[]): Promise<void> {
+  const cibles = areas.filter((a) =>
+    ONBOARDING_AREAS.includes(a as (typeof ONBOARDING_AREAS)[number]),
+  );
+  if (cibles.length === 0) return;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const admin = createAdminClient();
+  const { data: row } = await admin
+    .from("profiles")
+    .select("onboarding_progress")
+    .eq("id", user.id)
+    .single();
+
+  const current = { ...((row?.onboarding_progress as Record<string, boolean> | null) ?? {}) };
+  for (const a of cibles) delete current[a];
+
+  await admin.from("profiles").update({ onboarding_progress: current }).eq("id", user.id);
 }
 
 /**

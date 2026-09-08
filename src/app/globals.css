@@ -164,6 +164,23 @@
 :root .duup-glass--carte:hover { box-shadow: 0 12px 26px -20px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.20); }
 :root[data-theme="light"] .duup-glass--carte:hover { box-shadow: 0 12px 28px -22px rgba(30,41,120,0.40), inset 0 1px 0 rgba(255,255,255,1); }
 
+/* Pastille « essais offerts » — relief émeraude.
+   Le dégradé va du clair au foncé, le liseré blanc marque l'arête haute et
+   l'ombre teintée décolle la pastille du fond : c'est ce trio qui la fait
+   lire comme un objet posé, pas comme une étiquette imprimée. */
+.duup-pastille {
+  color: #047857;
+  background: linear-gradient(180deg, rgba(209,250,229,0.95), rgba(167,243,208,0.75));
+  border: 1px solid rgba(16,185,129,0.45);
+  box-shadow: 0 4px 10px -5px rgba(5,150,105,0.55), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+:root:not([data-theme="light"]) .duup-pastille {
+  color: #6EE7B7;
+  background: linear-gradient(180deg, rgba(16,185,129,0.26), rgba(16,185,129,0.12));
+  border: 1px solid rgba(16,185,129,0.42);
+  box-shadow: 0 4px 12px -6px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+
 /* Boutons secondaires de l'Éditeur IA — même famille que le verre, en petit.
    Un dégradé vertical court + un liseré clair en haut : c'est ce liseré qui
    donne le relief, une couleur plate reste une étiquette. */

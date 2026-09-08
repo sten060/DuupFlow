@@ -90,44 +90,67 @@ export async function etatCredits(userId: string, planEffectif: string | null): 
 }
 
 /**
- * Tente de dépenser UN crédit. Renvoie true si le crédit a été pris — l'appelant
- * ne doit alors PAS toucher au quota du plan.
+ * Tente de dépenser `montant` crédits. Renvoie true si le lot entier a été
+ * pris — l'appelant ne doit alors PAS toucher au quota du plan.
  *
- * L'atomicité est côté SQL (UPDATE conditionnel) : deux rendus lancés en même
- * temps ne peuvent pas dépenser deux fois le dernier crédit.
+ * Tout ou rien : un job de 3 copies prend 3 crédits s'il en reste 3, sinon il
+ * part entièrement sur le quota. Répartir une réservation entre crédits et
+ * quota obligerait à la répartir aussi au moment de rendre ce qui n'a pas été
+ * produit — beaucoup de complexité pour un cas rare.
+ *
+ * ⚠️ La fonction SQL (migration 057) ne sait prendre QU'UN crédit par appel.
+ * On la boucle plutôt que d'en écrire une seconde : le lot fait au plus 5
+ * unités, et chaque appel reste atomique — deux jobs lancés en même temps ne
+ * peuvent pas dépenser deux fois le même crédit. Si un tour échoue en cours de
+ * route (course perdue avec un autre job), on rend ce qui a déjà été pris et
+ * le job part sur le quota : jamais de lot à moitié offert.
  */
-export async function consommerCredit(userId: string, planEffectif: string | null): Promise<boolean> {
+export async function consommerCredit(userId: string, planEffectif: string | null, montant = 1): Promise<boolean> {
   if (!planEligibleAuxCredits(planEffectif)) return false;
+  if (!Number.isFinite(montant) || montant <= 0) return false;
 
   // Contrôle d'éligibilité complet AVANT la consommation : la fonction SQL ne
   // vérifie que la fenêtre de 30 jours, elle ignore la date de mise en service.
   // Sans ce garde-fou, un abonné antérieur au lancement dépenserait des crédits
   // que la page ne lui affiche même pas.
   const etat = await etatCredits(userId, planEffectif);
-  if (etat.restants <= 0) return false;
+  if (etat.restants < montant) return false;
 
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc("consume_trial_credit", {
-    p_user_id: userId,
-    p_max: TRIAL_CREDITS,
-    p_max_age_days: TRIAL_WINDOW_DAYS,
-  });
-
-  if (error) {
-    // Migration pas encore appliquée → on retombe simplement sur le quota.
-    if (!migrationAbsente(error.message)) {
-      console.warn("[trial-credits] consommation impossible:", error.message);
+  let pris = 0;
+  for (let i = 0; i < montant; i++) {
+    const { data, error } = await admin.rpc("consume_trial_credit", {
+      p_user_id: userId,
+      p_max: TRIAL_CREDITS,
+      p_max_age_days: TRIAL_WINDOW_DAYS,
+    });
+    if (error) {
+      if (!migrationAbsente(error.message)) {
+        console.warn("[trial-credits] consommation impossible:", error.message);
+      }
+      break;
     }
-    return false;
+    if (data === null || data === undefined) break; // plus de crédit disponible
+    pris++;
   }
-  return data !== null && data !== undefined;
+
+  if (pris === montant) return true;
+  if (pris > 0) await rendreCredit(userId, pris); // lot incomplet → on rend tout
+  return false;
 }
 
-/** Rend un crédit réservé mais non livré. Best-effort, jamais bloquant. */
-export async function rendreCredit(userId: string): Promise<void> {
+/** Rend des crédits réservés mais non livrés. Best-effort, jamais bloquant.
+ *  Même raison que ci-dessus : la fonction SQL rend une unité, on la boucle. */
+export async function rendreCredit(userId: string, montant = 1): Promise<void> {
+  if (!Number.isFinite(montant) || montant <= 0) return;
   const admin = createAdminClient();
-  const { error } = await admin.rpc("release_trial_credit", { p_user_id: userId });
-  if (error && !migrationAbsente(error.message)) {
-    console.warn("[trial-credits] restitution impossible:", error.message);
+  for (let i = 0; i < montant; i++) {
+    const { error } = await admin.rpc("release_trial_credit", { p_user_id: userId });
+    if (error) {
+      if (!migrationAbsente(error.message)) {
+        console.warn("[trial-credits] restitution impossible:", error.message);
+      }
+      return;
+    }
   }
 }

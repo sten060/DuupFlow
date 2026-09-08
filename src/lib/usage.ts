@@ -197,9 +197,9 @@ export async function checkUsageForUser(
     // Quota épuisé, mais il reste peut-être des crédits d'essai. Bloquer ici
     // reviendrait à offrir 5 vidéos puis à refuser de les laisser dépenser.
     // Même règle qu'à la réservation : à l'unité, et sur les vidéos.
-    if (type === "videos" && requestedCount === 1 && planEligibleAuxCredits(ctx.plan)) {
+    if ((type === "videos" || type === "images") && planEligibleAuxCredits(ctx.plan)) {
       const credits = await etatCredits(userId, ctx.plan);
-      if (credits.restants > 0) {
+      if (credits.restants >= requestedCount) {
         return { allowed: true, userId, plan: ctx.plan, current: ctx.current, limit: ctx.limit };
       }
     }
@@ -271,11 +271,16 @@ export async function reserveUsage(
   }
 
   // ── Crédits d'essai : ils passent AVANT le quota ────────────────────────
-  // 5 vidéos offertes le premier mois (Starter / Solo) pour que l'essai ne
-  // coûte rien. Uniquement à l'unité : un lot de N vidéos part sur le quota,
-  // sinon un seul job viderait la réserve d'un coup.
-  if (type === "videos" && count === 1 && planEligibleAuxCredits(ctx.plan)) {
-    const prisSurCredit = await consommerCredit(userId, ctx.plan);
+  // 5 duplications offertes le premier mois (Starter / Solo) pour que l'essai
+  // ne coûte rien. Vidéos ET images : la pastille « essais offerts » s'affiche
+  // sur les deux modules, elle mentirait si les images restaient au quota.
+  // ⚠️ La règle était « à l'unité seulement ». Sur un vrai compte, les deux
+  // premières duplications sont parties sur le quota et les 5 crédits sont
+  // restés intacts : le champ « nombre de copies » vaut 2 par défaut, donc le
+  // cas « une seule copie » ne se produit quasiment jamais. Le lot entier est
+  // désormais pris sur les crédits — ou rien, et tout part sur le quota.
+  if ((type === "videos" || type === "images") && planEligibleAuxCredits(ctx.plan)) {
+    const prisSurCredit = await consommerCredit(userId, ctx.plan, count);
     if (prisSurCredit) {
       return { allowed: true, atomic: true, userId, plan: ctx.plan, current: ctx.current, limit: ctx.limit, trialCredit: true };
     }
@@ -343,7 +348,7 @@ export async function releaseUsage(
   trialCredit = false,
 ): Promise<void> {
   if (!Number.isFinite(count) || count <= 0) return;
-  if (trialCredit) { await rendreCredit(userId); return; }
+  if (trialCredit) { await rendreCredit(userId, count); return; }
   const admin = createAdminClient();
   const rpc = await admin.rpc("release_usage", { p_user_id: userId, p_type: type, p_amount: count });
   if (!rpc.error) return;

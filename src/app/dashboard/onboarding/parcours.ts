@@ -35,6 +35,29 @@ export type EtapeParcours = {
   fin?: boolean;
   /** Étape réservée aux comptes sans plan payant (activation). */
   siPlanFree?: boolean;
+  /**
+   * Mise en scène de l'étape.
+   *   · absent    — bulle posée à côté d'un élément surligné (le cas normal) ;
+   *   · "panneau" — grand panneau collé au bord droit, SANS cible, le reste de
+   *     la page légèrement flouté. Pour les étapes qui expliquent un état plutôt
+   *     que de désigner un bouton : dans l'Éditeur IA, chaque étape est une
+   *     page entière à comprendre, pas un endroit où cliquer.
+   */
+  presentation?: "panneau";
+  /** Panneau uniquement : la phrase « ce que tu fais maintenant ». */
+  actionKey?: string;
+  /**
+   * Panneau uniquement : nombre de puces sous le chapeau (clés `…p1`, `…p2`…).
+   * Un panneau est lu debout, entre deux gestes : un pavé de six lignes n'est
+   * pas lu du tout. Chapeau court, puis des points qu'on balaie.
+   */
+  puces?: number;
+  /**
+   * Panneau uniquement : l'étape du module qui déclenche ce panneau. Il ne
+   * s'ouvre QUE quand le user y arrive vraiment, et se referme sur « J'ai
+   * compris » sans en appeler un autre — le suivant attend l'étape suivante.
+   */
+  moduleStep?: "connect" | "ref" | "material";
 };
 
 export type CleParcours = "dup" | "ai";
@@ -79,8 +102,11 @@ export const PARCOURS: Record<CleParcours, EtapeParcours[]> = {
   ai: [
     ETAPE_PLAN,
     { route: "/dashboard", target: ["nav-ai-editor"], titleKey: "onb.path.ai1t", bodyKey: "onb.path.ai1b", placement: "right", parClic: true, hintKey: "onb.path.hintAiEditor" },
-    { route: "/dashboard/ai-editor", target: ["aie-connect"], titleKey: "onb.path.ai2t", bodyKey: "onb.path.ai2b", placement: "right" },
-    { route: "/dashboard/ai-editor", target: ["aie-ref"], titleKey: "onb.path.ai3t", bodyKey: "onb.path.ai3b", placement: "right" },
-    { route: "/dashboard/ai-editor", target: ["aie-material"], titleKey: "onb.path.ai4t", bodyKey: "onb.path.ai4b", placement: "right", fin: true },
+    // ⚠️ Pas de panneau sur l'étape « connexion » : la fenêtre d'ouverture du
+    // module vient de dire à quoi sert Claude, et la page elle-même détaille
+    // les trois gestes. Un panneau de plus là-dessus, c'est la même chose dite
+    // trois fois avant d'avoir rien fait.
+    { route: "/dashboard/ai-editor", target: [], titleKey: "onb.path.ai3t", bodyKey: "onb.path.ai3b", actionKey: "onb.path.ai3a", puces: 3, presentation: "panneau", moduleStep: "ref" },
+    { route: "/dashboard/ai-editor", target: [], titleKey: "onb.path.ai4t", bodyKey: "onb.path.ai4b", actionKey: "onb.path.ai4a", puces: 3, presentation: "panneau", moduleStep: "material", fin: true },
   ],
 };

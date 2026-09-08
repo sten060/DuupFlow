@@ -12,17 +12,19 @@
  * Mounted in the dashboard layout so it survives navigations.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/context";
 import { moduleForPath, type OnboardingModule } from "./modules";
 import { CARD_W, getRect, placeNear, type Rect } from "./spotlight";
 import { useOnboarding } from "./OnboardingProvider";
+import { introSnapshot, subscribeIntro } from "./introStore";
 
 export default function ModuleCoach() {
   const { t } = useTranslation();
   const pathname = usePathname();
-  const { enabled, isSeen, markSeen, forcedModule, clearForcedModule } = useOnboarding();
+  const { enabled, isSeen, markSeen, forcedModule, clearForcedModule, parcours } = useOnboarding();
+  const intro = useSyncExternalStore(subscribeIntro, introSnapshot, () => false);
 
   // active = the coach currently running (may differ from the page once the
   // user starts stepping; cleared on finish/skip/navigation-away).
@@ -38,6 +40,14 @@ export default function ModuleCoach() {
   // Decide whether to start / switch / stop a coach when the route or a forced
   // replay changes.
   useEffect(() => {
+    // ⚠️ Un parcours guidé en cours PRIME. Les deux systèmes visaient les mêmes
+    // pages : sur /dashboard/videos, le coach du module s'ouvrait par-dessus
+    // l'étape du parcours — deux cartes empilées, deux « Passer », et une
+    // fenêtre fantôme qui restait dessous. Un seul guide à la fois.
+    if (parcours || intro) {
+      setActive(null);
+      return;
+    }
     if (!enabled && forcedModule == null) {
       setActive(null);
       return;
@@ -62,7 +72,7 @@ export default function ModuleCoach() {
     } else {
       setActive(null); // revisiting an already-seen module
     }
-  }, [pathname, forcedModule, enabled, markSeen]);
+  }, [pathname, forcedModule, enabled, markSeen, parcours, intro]);
 
   const current = active?.mod.steps[step] ?? null;
 

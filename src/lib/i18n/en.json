@@ -1308,7 +1308,7 @@
       "keepCta": "Switch to the {plan} plan",
       "keepNote": "Applied at the end of your current period — you keep your plan until then.",
       "trialCredits": "Free duplications / edits",
-      "trialCreditsNote": "Free for your first month: they don't count against your quotas.",
+      "trialCreditsNote": "Free for your first month: they don't count against your quotas. {n} left.",
       "keepLead": "You can step down a tier instead of cutting everything. Your files and history stay put.",
       "keepDecline": "No thanks, cancel anyway"
     },
@@ -1335,7 +1335,9 @@
     "notif": {
       "doneGeneric": "Duplication complete.",
       "errorBody": "The duplication failed. Please try again.",
-      "discover": "Discover"
+      "discover": "Discover",
+      "trialDoneTitle": "Your 5 free tries are used up",
+      "trialDoneBody": "From now on, duplications and variants count against your monthly quota."
     },
     "quotaWarn": {
       "title": "You're approaching your limit 👋",
@@ -1461,12 +1463,10 @@
       "dup6b": "Your copies land at the bottom of the page, ready to download. That's all there is to it.",
       "ai1t": "Open the AI Editor",
       "ai1b": "Your Claude does the editing: you give it a model video and your own footage.",
-      "ai2t": "Step 1 — connect your Claude",
-      "ai2b": "One address to paste into Claude, once. Without it, it can't see your files.",
-      "ai3t": "Step 2 — the reference",
-      "ai3b": "The video that worked: yours or a competitor's. That's the model to reproduce.",
-      "ai4t": "Step 3 — your material",
-      "ai4b": "Your footage. Then you ask your Claude, and the variants show up here. Off you go.",
+      "ai3t": "Why a reference video",
+      "ai3b": "Claude doesn't guess what works. It copies it.",
+      "ai4t": "Why your own material",
+      "ai4b": "The reference gives the shape. Your material gives the substance.",
       "hintPlan": "Click to pick your plan",
       "hintFormat": "Click to choose: images or videos",
       "hintSimple": "Click to open simple mode",
@@ -1478,7 +1478,45 @@
       "img3t": "The options",
       "img3b": "Metadata, visual micro-variations, country of origin. The defaults already do the job.",
       "img4t": "Launch",
-      "img4b": "Your copies land at the bottom of the page, ready to download. That's all there is to it."
+      "img4b": "Your copies land at the bottom of the page, ready to download. That's all there is to it.",
+      "ai3a": "Pick the video whose edit you want, yours or a competitor's.",
+      "ai4a": "Give it something to work with: several clips beat a single one.",
+      "aiPanel": "AI EDITOR",
+      "compris": "Got it",
+      "ai3bp1": "It takes the edit apart: pacing, where the cuts land, on-screen text, the hook in the first two seconds.",
+      "ai3bp2": "That recipe is what it replays — not the footage in the video.",
+      "ai3bp3": "Give it a video that genuinely performed: yours or a competitor's.",
+      "ai4bp1": "Claude fills the edit with YOUR content: the video stays yours.",
+      "ai4bp2": "Several clips beat a single one — that's what makes the variants differ from each other.",
+      "ai4bp3": "Clips, photos, raw shots, offcuts: all of it is usable."
+    },
+    "intro": {
+      "ok": "OK",
+      "go": "Let's go!",
+      "tagVideo": "VIDEO DUPLICATION",
+      "tagImage": "IMAGE DUPLICATION",
+      "vid1t": "One video that works, many unique copies",
+      "vid1b": "You drop in a video. DuupFlow gives you back several versions that look the same to the eye but no longer match as files: reworked pixels, shifted audio, rebuilt metadata, different size and name.",
+      "vid1p1": "Repost the same content across accounts without the \"duplicate\" signal.",
+      "vid1p2": "Each copy gets its own file identity, as if another phone had shot it.",
+      "vid1p3": "You pick how many copies, and get them all at once.",
+      "vid2t": "Two ways to duplicate",
+      "vid2b": "Same engine, two levels of control. Start with simple mode — it already does the full job.",
+      "vid2simpleT": "Simple mode",
+      "vid2simpleB": "Drop it in, say how many copies, hit go. The settings are picked for you and vary from one copy to the next. This is the one to start with.",
+      "vid2advT": "Advanced mode",
+      "vid2advB": "The same copies, but with the hood open: strength of the edits, cropping, speed, watermark. For when you know what you want to push.",
+      "img1t": "Your visuals, in as many unique copies as you need",
+      "img1b": "Same idea as video, faster. Drop your images in and DuupFlow returns versions reworked pixel by pixel, each with a brand-new file identity.",
+      "img1p1": "Made for carousels and posts republished across several accounts.",
+      "img1p2": "The image looks identical: it's the file's data that changes.",
+      "img1p3": "Process several images at once and download them together.",
+      "tagAiEditor": "AI EDITOR",
+      "aie1t": "Your Claude edits your videos, right here",
+      "aie1b": "Show it a video that took off, give it your footage, and it hands back variants ready to post. No timeline, no editing by hand.",
+      "aie1p1": "The edit doesn't come from nowhere: it comes from a video that already proved itself.",
+      "aie1p2": "It's your own Claude doing the work — you talk to it as usual, it delivers here.",
+      "aie1p3": "Three steps to start: connect Claude, give the reference, give your material."
     }
   },
   "onboarding": {
@@ -2366,6 +2404,6 @@
   },
   "trialCredits": {
     "pill": "{n} free tries",
-    "tooltip": "These videos don't count against your monthly quota. Free for your first month."
+    "tooltip": "Video and image duplications and AI Editor variants: they don't count against your quotas. Free for your first month."
   }
 }

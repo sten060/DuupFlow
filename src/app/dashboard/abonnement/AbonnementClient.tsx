@@ -464,9 +464,11 @@ export default function AbonnementClient({
                 color="#10B981"
               />
             </div>
-            {/* Crédits d'essai : même carte, même barre — mais elle se remplit
-                à l'envers des autres. Ici on montre ce qui RESTE, pas ce qui a
-                été consommé : c'est un cadeau, pas un quota qui se referme. */}
+            {/* ⚠️ Cette carte montrait ce qui RESTE (« 5 / 5 »), dans un gabarit
+                dont la barre se remplit à mesure qu'on CONSOMME. Résultat :
+                barre pleine et rouge dès le premier jour — lu, à juste titre,
+                comme « tes 5 essais sont déjà partis ». On affiche donc la même
+                chose que les trois cartes du dessus : le consommé sur le total. */}
             {trialCredits && trialCredits.restants > 0 && (
               <div className="mt-3">
                 <UsageStatCard
@@ -478,12 +480,12 @@ export default function AbonnementClient({
                       <path d="M12 8S9.5 3.5 7.5 4.5 8 8 12 8zM12 8s2.5-4.5 4.5-3.5S16 8 12 8z" />
                     </svg>
                   }
-                  current={trialCredits.restants}
+                  current={trialCredits.total - trialCredits.restants}
                   limit={trialCredits.total}
                   color="#F59E0B"
                 />
                 <p className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-faint)]">
-                  {t("dashboard.subscription.trialCreditsNote")}
+                  {t("dashboard.subscription.trialCreditsNote", { n: trialCredits.restants })}
                 </p>
               </div>
             )}
@@ -622,7 +624,7 @@ export default function AbonnementClient({
         onClick={() => setShowCancelStep1(false)}
       >
         <div
-          className="w-full max-w-lg overflow-hidden rounded-2xl"
+          className="w-full max-w-2xl overflow-hidden rounded-2xl"
           style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", boxShadow: "0 30px 80px rgba(0,0,0,0.45)" }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -712,7 +714,7 @@ export default function AbonnementClient({
         onClick={() => !retentionLoading && setShowRetention(false)}
       >
         <div
-          className="w-full max-w-lg overflow-hidden rounded-2xl"
+          className="w-full max-w-2xl overflow-hidden rounded-2xl"
           style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", boxShadow: "0 30px 80px rgba(0,0,0,0.45)" }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -789,7 +791,7 @@ export default function AbonnementClient({
         onClick={() => setShowCancelStep2(false)}
       >
         <div
-          className="w-full max-w-lg rounded-2xl p-7 space-y-5"
+          className="w-full max-w-2xl rounded-2xl p-9 space-y-5"
           style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
           onClick={(e) => e.stopPropagation()}
         >

@@ -1317,7 +1317,7 @@
       "keepCta": "Passer au plan {plan}",
       "keepNote": "Appliqué à la fin de ta période en cours — tu gardes ton plan actuel d'ici là.",
       "trialCredits": "Duplications / édits offerts",
-      "trialCreditsNote": "Offertes ton premier mois : elles ne sont pas décomptées de tes quotas.",
+      "trialCreditsNote": "Offertes ton premier mois : elles ne sont pas décomptées de tes quotas. Il t'en reste {n}.",
       "keepLead": "Tu peux descendre d'un cran plutôt que de tout couper. Tes fichiers et ton historique restent en place.",
       "keepDecline": "Non merci, je résilie"
     },
@@ -1344,7 +1344,9 @@
     "notif": {
       "doneGeneric": "Duplication terminée.",
       "errorBody": "La duplication a échoué. Réessaie.",
-      "discover": "Découvrir"
+      "discover": "Découvrir",
+      "trialDoneTitle": "Tes 5 essais offerts sont épuisés",
+      "trialDoneBody": "Les prochaines duplications et variantes seront décomptées de ton quota mensuel."
     },
     "quotaWarn": {
       "title": "Tu approches de ta limite 👋",
@@ -1470,12 +1472,10 @@
       "dup6b": "Tes copies arrivent en bas de page, prêtes à télécharger. Voilà, tu sais tout.",
       "ai1t": "Ouvre l'Éditeur IA",
       "ai1b": "C'est ton Claude qui monte : tu lui donnes une vidéo modèle et ta matière.",
-      "ai2t": "Étape 1 — connecte ton Claude",
-      "ai2b": "Une adresse à coller une seule fois dans Claude. Sans ça, il ne peut pas voir tes fichiers.",
-      "ai3t": "Étape 2 — la référence",
-      "ai3b": "La vidéo qui a marché : la tienne ou celle d'un concurrent. C'est le modèle à reproduire.",
-      "ai4t": "Étape 3 — ta matière",
-      "ai4b": "Tes rushes. Ensuite tu demandes à ton Claude, et les variantes arrivent ici. C'est parti.",
+      "ai3t": "Pourquoi une vidéo de référence",
+      "ai3b": "Claude ne devine pas ce qui marche. Il le recopie.",
+      "ai4t": "Pourquoi ta matière",
+      "ai4b": "La référence donne la forme. Ta matière donne le fond.",
       "hintPlan": "Clique pour choisir ton plan",
       "hintFormat": "Clique pour choisir : images ou vidéos",
       "hintSimple": "Clique pour ouvrir le mode simple",
@@ -1487,7 +1487,45 @@
       "img3t": "Les options",
       "img3b": "Métadonnées, micro-variations visuelles, pays d'origine. Les réglages par défaut font déjà le travail.",
       "img4t": "Lance",
-      "img4b": "Tes copies arrivent en bas de page, prêtes à télécharger. Voilà, tu sais tout."
+      "img4b": "Tes copies arrivent en bas de page, prêtes à télécharger. Voilà, tu sais tout.",
+      "ai3a": "Prends la vidéo dont tu veux le montage, la tienne ou celle d'un concurrent.",
+      "ai4a": "Donne-lui de quoi travailler : plusieurs clips valent mieux qu'un seul.",
+      "aiPanel": "ÉDITEUR IA",
+      "compris": "J'ai compris",
+      "ai3bp1": "Il décortique le montage : rythme, place des coupes, textes à l'écran, accroche des deux premières secondes.",
+      "ai3bp2": "C'est cette recette qu'il rejoue — pas les images de la vidéo.",
+      "ai3bp3": "Donne-lui une vidéo qui a vraiment performé : la tienne ou celle d'un concurrent.",
+      "ai4bp1": "Claude remplit le montage avec TON contenu : la vidéo reste la tienne.",
+      "ai4bp2": "Plusieurs clips valent mieux qu'un seul — c'est ce qui rend les variantes différentes entre elles.",
+      "ai4bp3": "Clips, photos, plans bruts, chutes : tout est bon à prendre."
+    },
+    "intro": {
+      "ok": "OK",
+      "go": "C'est parti !",
+      "tagVideo": "DUPLICATION VIDÉO",
+      "tagImage": "DUPLICATION IMAGE",
+      "vid1t": "Une vidéo qui marche, autant de copies uniques",
+      "vid1b": "Tu déposes une vidéo. DuupFlow en ressort plusieurs versions qui se ressemblent à l'œil mais plus du tout au fichier : pixels retouchés, son décalé, métadonnées refaites, poids et nom différents.",
+      "vid1p1": "Reposte le même contenu sur plusieurs comptes sans le signal « doublon ».",
+      "vid1p2": "Chaque copie a sa propre identité de fichier, comme si un autre téléphone l'avait filmée.",
+      "vid1p3": "Tu choisis combien de copies, et tu récupères tout d'un coup.",
+      "vid2t": "Deux façons de dupliquer",
+      "vid2b": "Le même moteur, deux niveaux de contrôle. Commence par le mode simple : il fait déjà le travail complet.",
+      "vid2simpleT": "Mode simple",
+      "vid2simpleB": "Tu déposes, tu dis combien de copies, tu lances. Les réglages sont choisis pour toi et varient d'une copie à l'autre. C'est le mode à prendre au début.",
+      "vid2advT": "Mode avancé",
+      "vid2advB": "Les mêmes copies, mais tu ouvres le capot : intensité des retouches, recadrage, vitesse, watermark. Pour quand tu sauras ce que tu veux pousser.",
+      "img1t": "Tes visuels, en autant d'exemplaires uniques",
+      "img1b": "Même principe que la vidéo, en plus rapide. Tu déposes tes images, DuupFlow en sort des versions retravaillées pixel par pixel, avec une identité de fichier neuve à chaque fois.",
+      "img1p1": "Idéal pour les carrousels et les posts republiés sur plusieurs comptes.",
+      "img1p2": "L'image reste la même à l'œil : ce sont les données du fichier qui changent.",
+      "img1p3": "Tu peux traiter plusieurs images d'un coup et tout télécharger ensemble.",
+      "tagAiEditor": "ÉDITEUR IA",
+      "aie1t": "Ton Claude monte tes vidéos, ici",
+      "aie1b": "Tu lui montres une vidéo qui a cartonné, tu lui donnes ta matière, il te rend des variantes prêtes à publier. Pas de timeline, pas de montage à la main.",
+      "aie1p1": "Le montage ne sort pas de nulle part : il vient d'une vidéo qui a déjà fait ses preuves.",
+      "aie1p2": "C'est ton propre Claude qui travaille — tu lui parles comme d'habitude, il exécute ici.",
+      "aie1p3": "Trois étapes pour démarrer : connecter Claude, donner la référence, donner ta matière."
     }
   },
   "onboarding": {
@@ -2375,6 +2413,6 @@
   },
   "trialCredits": {
     "pill": "{n} essais offerts",
-    "tooltip": "Ces vidéos ne sont pas décomptées de ton quota mensuel. Offertes le premier mois."
+    "tooltip": "Duplications vidéo, images et variantes de l'Éditeur IA : elles ne sont pas décomptées de tes quotas. Offertes ton premier mois."
   }
 }

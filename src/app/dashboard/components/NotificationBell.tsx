@@ -52,13 +52,15 @@ function NotifCard({ n }: { n: AppNotification }) {
 
   const head = (
     <>
-      <p className="text-xs font-semibold text-[var(--app-text)]">
+      {/* Corps en 13 px, comme le reste du dashboard. À 11 px sur une police
+          déjà fine, une notification se devine plus qu'elle ne se lit. */}
+      <p className="text-[13.5px] font-semibold leading-snug text-[var(--app-text)]">
         <span className="mr-1">{icon}</span>
         {n.title}
       </p>
-      {n.body && <p className="mt-0.5 text-[11px] leading-snug text-[var(--app-text-muted)] whitespace-pre-line">{n.body}</p>}
+      {n.body && <p className="mt-1 whitespace-pre-line text-[13px] font-normal leading-relaxed text-[var(--app-text-muted)]">{n.body}</p>}
       {n.href && (
-        <span className="mt-1.5 inline-block text-[11px] font-semibold text-sky-300 group-hover:text-sky-200">
+        <span className="mt-2 inline-block text-[12.5px] font-semibold text-sky-300 group-hover:text-sky-200">
           {t("dashboard.notif.discover")} →
         </span>
       )}
@@ -66,7 +68,7 @@ function NotifCard({ n }: { n: AppNotification }) {
   );
 
   return (
-    <div className={`rounded-xl border px-3 py-2 ${tone}`}>
+    <div className={`rounded-xl border px-3.5 py-3 ${tone}`}>
       <div className="flex items-start justify-between gap-2">
         {n.href ? (
           <a href={n.href} className="group min-w-0 flex-1 block">
@@ -91,7 +93,7 @@ function NotifCard({ n }: { n: AppNotification }) {
             setZipping(true);
             try { await downloadAllAsZip(n.files!, "videos"); } finally { setZipping(false); }
           }}
-          className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold bg-indigo-600/70 hover:bg-indigo-500/80 disabled:opacity-50 disabled:cursor-wait border border-indigo-400/30 text-white transition"
+          className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[12.5px] font-semibold bg-indigo-600/70 hover:bg-indigo-500/80 disabled:opacity-50 disabled:cursor-wait border border-indigo-400/30 text-white transition"
         >
           {zipping ? <><span className="animate-spin">⟳</span>{t("dashboard.videosCommon.preparingZip")}</> : <>↓ {t("dashboard.videosCommon.downloadAll", { count: n.files.length })}</>}
         </button>
@@ -122,8 +124,8 @@ function ToastItem({ n, onOpen }: { n: AppNotification; onOpen: () => void }) {
   const icon = n.kind === "success" ? "✓" : n.kind === "error" ? "✗" : "↪";
   const inner = (
     <>
-      <p className="text-xs font-semibold"><span className="mr-1">{icon}</span>{n.title}</p>
-      {n.body && <p className="mt-0.5 text-[11px] leading-snug text-white/85">{n.body}</p>}
+      <p className="text-[13.5px] font-semibold leading-snug"><span className="mr-1">{icon}</span>{n.title}</p>
+      {n.body && <p className="mt-1 text-[13px] font-normal leading-relaxed text-white/85">{n.body}</p>}
     </>
   );
   const cls = `pointer-events-auto block w-full text-left rounded-xl border px-3 py-2 text-white shadow-xl backdrop-blur-md transition ${tone}`;
@@ -253,7 +255,7 @@ export default function NotificationBell() {
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {notifs.length === 0 && (
-              <p className="px-2 py-8 text-center text-xs text-[var(--app-text-faint)]">{t("dashboard.videosCommon.noNotifs")}</p>
+              <p className="px-2 py-8 text-center text-[13px] text-[var(--app-text-faint)]">{t("dashboard.videosCommon.noNotifs")}</p>
             )}
             {notifs.map((n) => <NotifCard key={n.id} n={n} />)}
           </div>
