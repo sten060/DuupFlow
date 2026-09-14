@@ -800,14 +800,14 @@
       "close": "Close",
       "contactSupport": "Contact support",
       "filtersTitle": "Which filters to choose for your use case",
-      "filtersIntro": "Each pack changes a different layer of the video, and you can stack them. Here's when to use each one:",
+      "filtersIntro": "The packs are already ticked by the strength you picked — this section is here if you want to set them yourself. Each pack changes a different layer of the video, and they stack:",
       "filtersMeta": "Metadata — date, encoder, brand, identifier. Invisible to the eye: keep it always on, it's the base for making every copy unique.",
       "filtersMetaTech": "Technical metadata — bitrate, GOP, FPS, H.264 profile. Varies the file's technical signature without touching the image.",
       "filtersPixel": "Magic pixel — imperceptible luma noise for a 100% unique hash. Ideal to repost with no visible change at all.",
       "filtersAudio": "Audio — volume, light EQ, bitrate. Turn it on if the soundtrack should differ too.",
       "filtersMotion": "Motion — slight zoom and rotation. Subtle visual variation, useful if platforms compare the image.",
       "filtersVisuals": "Visuals — hue, sharpness, EQ. Stronger visual variation, when you really want to move away from the original.",
-      "filtersReco": "To repost discreetly (no visible change): Metadata + Technical metadata + Magic pixel. Add Motion or Visuals if you want a stronger visible difference.",
+      "filtersReco": "To repost discreetly (no visible change): Metadata + Technical metadata + Magic pixel + Audio — exactly what “Light” ticks. Add Visuals for a stronger difference.",
       "tiktokTitle": "TikTok guide",
       "tiktokBody": "A complete guide to repost on TikTok without getting flagged:",
       "tiktokPoint1": "Recommended settings",
@@ -897,7 +897,20 @@
       "motionDynamicWhen": "When to use it: it's the most effective of the three against content matching, because two copies never look alike at ANY moment. Take STRONG by default; switch to GENTLE if you care about your framing and don't want to crop the image. Shake has left this pack: it's an independent option you can tick alongside any pack.",
       "motionStackTitle": "Can both packs be combined?",
       "motionStackBody": "Yes, but it isn't advised: the zooms MULTIPLY. Motion (Strong) plus Advanced motion gives about 1.66× of zoom — nearly two thirds of the area cropped away — and the speed changes add up. Pick ONE pack instead, and turn its toggle to Strong if the result isn't enough.",
-      "motionSpecsLabel": "Technical characteristics"
+      "motionSpecsLabel": "Technical characteristics",
+      "intensityTitle": "Choosing the variation strength",
+      "intensityIntro": "It's the first setting on the page, and the only required one. Three levels, each ticking the packs and the watermark for you. The “i” on every card lists what's turned on, and that list always follows the real setting.",
+      "intensityLightTitle": "Light — repost with nothing showing",
+      "intensityLightBody": "Metadata, Technical metadata, Audio, Magic pixel and Motion on gentle. The file, the audio, the grain and the framing all change, but nobody notices on screen. Use it when the video has to stay exactly as it is: product demos, on-screen text, tightly timed edits.",
+      "intensityBalancedTitle": "Balanced — the recommended setting",
+      "intensityBalancedBody": "Everything in “Light”, plus Visuals (hue, sharpness, EQ) and a different watermark on every copy at 2% opacity, so invisible. Best trade-off between discretion and robustness — start here.",
+      "intensityStrongTitle": "Strong — when copies still get flagged",
+      "intensityStrongBody": "Everything is on: Motion goes to strong, Advanced motion joins in on gentle, the watermark stays. The two motion packs are deliberately not both maxed out — stacked, they make the video unpleasant to watch. Keep this for an account that still reads as non-original despite everything else.",
+      "intensityCustomTitle": "Building your own",
+      "intensityCustomPacks": "Packs — folded under the strength. Open it to tick or untick pack by pack.",
+      "intensityCustomOptions": "Options — folded too: flip, mirror, shake, watermark and country localization. A preset only touches the watermark; the rest is yours.",
+      "intensityCustomDrop": "As soon as you change a pack or the watermark by hand, the strength card unticks itself — it can no longer describe what will actually be applied.",
+      "intensityReco": "💡 Run your first test on “Balanced” with 3 copies. If they go through, you can drop to “Light”; if they get flagged, move up to “Strong” rather than making more copies."
     },
     "videosCommon": {
       "errorGeneric": "Something went wrong during duplication. Retry with the missing files.",
@@ -981,7 +994,32 @@
           "hint": "EQ, hue, unsharp",
           "help": "Imperceptible variations:\nBrightness ±3% • Contrast ±5% • Saturation ±5% • Gamma ±3% • Hue ±3° • Very soft unsharp."
         }
-      }
+      },
+      "show": "Show",
+      "hide": "Hide",
+      "packsHint": "What changes in every copy",
+      "packsFromPreset": "Set to “{preset}” — you can adjust",
+      "optionsHint": "Optional finishing touches",
+      "presetsTitle": "Variation strength",
+      "presetsHint": "Pick a level and the packs set themselves.",
+      "presets": {
+        "recommended": "Recommended",
+        "light": {
+          "label": "Light",
+          "desc": "Gentle reframe, grain, audio and file identity. Nothing you'd notice."
+        },
+        "balanced": {
+          "label": "Balanced",
+          "desc": "Adds a color tweak and a different watermark on every copy."
+        },
+        "strong": {
+          "label": "Strong",
+          "desc": "Everything, with a strong reframe and a moving camera. For when your copies still get flagged."
+        }
+      },
+      "presetPacksTitle": "This level turns on:",
+      "presetOptionsNote": "The other Options (flip, mirror, shake…) are left alone — they stay yours.",
+      "presetWatermarkNote": "a different watermark on every copy"
     },
     "videosAdvanced": {
       "title": "Video Duplication — Advanced",
@@ -1457,10 +1495,10 @@
       "dup3b": "Drag a file here, or click to pick one. It's the only thing that's required.",
       "dup4t": "How many copies",
       "dup4b": "Every copy is unique. Three is enough to see what it gives.",
-      "dup5t": "The changes",
-      "dup5b": "Each pack alters the video its own way. Mirror is the most effective — leave the defaults for now.",
+      "dup5t": "Pick the strength",
+      "dup5b": "Three levels, from subtle to aggressive. Take “Balanced” — the packs tick themselves. You can open them right below to tune things yourself.",
       "dup6t": "Launch",
-      "dup6b": "Your copies land at the bottom of the page, ready to download. That's all there is to it.",
+      "dup6b": "The button stays at the bottom of the screen wherever you are on the page. Your copies land just below, ready to download. That's all there is to it.",
       "ai1t": "Open the AI Editor",
       "ai1b": "Your Claude does the editing: you give it a model video and your own footage.",
       "ai3t": "Why a reference video",
@@ -1503,7 +1541,7 @@
       "vid2t": "Two ways to duplicate",
       "vid2b": "Same engine, two levels of control. Start with simple mode — it already does the full job.",
       "vid2simpleT": "Simple mode",
-      "vid2simpleB": "Drop it in, say how many copies, hit go. The settings are picked for you and vary from one copy to the next. This is the one to start with.",
+      "vid2simpleB": "Drop it in, say how many copies, pick a strength — light, balanced or strong — and hit go. The rest is set for you. This is the one to start with.",
       "vid2advT": "Advanced mode",
       "vid2advB": "The same copies, but with the hood open: strength of the edits, cropping, speed, watermark. For when you know what you want to push.",
       "img1t": "Your visuals, in as many unique copies as you need",
@@ -2351,9 +2389,9 @@
     "detected": {
       "title": "My videos get flagged as non-original",
       "intro": "Duplicating a file isn't always enough: algorithms compare what the video LOOKS LIKE, not just the file and its metadata. When copies still get flagged as non-original, two causes come up almost every time.",
-      "light": "Settings that were too light — if the filters you applied stay subtle, the copy still looks like the original to the naked eye. To an algorithm, two near-identical images are simply identical: raise the intensity, turn on mirror (reverse), add a motion pack and a watermark.",
+      "light": "Settings too light — if the filters stay subtle, the copy still looks like the original to the naked eye. To an algorithm, two near-identical images are two identical images: move the strength to “Strong” and turn on mirror (reverse) in Options.",
       "tooMany": "Too many copies from the same video — rarer, but if one copy gets caught, the others made from the same source can go down with it. Space out your posts and limit how many copies you make per source video.",
-      "reco": "💡 What actually works: instead of 10 copies with light settings, make 3 or 4 with bold ones (reverse + motion + watermark). The copy has to look visibly different, not just differ inside the file."
+      "reco": "💡 What actually works: instead of 10 copies on “Light”, make 3 or 4 on “Strong”, or on “Balanced” with mirror (reverse) turned on in Options. The copy has to look different to the eye, not just inside the file."
     },
     "editor": {
       "group": "AI Editor",
@@ -2400,6 +2438,14 @@
         "motion": "Heavy motion design is approximated — 3D, particles, morphs: it reproduces the intent (layout, pacing, colours, text), not the effect pixel for pixel.",
         "reco": "💡 The bar is the structure: same moments, same pacing, same text style. Not a frame-by-frame copy."
       }
+    },
+    "mode": {
+      "title": "Which strength should I pick: light, balanced or strong?",
+      "intro": "On simple video duplication you pick a strength and the packs tick themselves. The right level doesn't depend on your video but on how much you can afford to change on screen.",
+      "light": "Light — when the image must not move: product demos, burned-in text, frame-accurate edits. Only the file, the audio, the grain and a tiny reframe change. It's the least protective of the three — keep it for videos that demand it.",
+      "balanced": "Balanced — the default, and where to start. It adds the color tweak and a different watermark on every copy, invisible at 2% opacity. In almost every case this is the one you want.",
+      "strong": "Strong — only if your copies still come back as non-original. The camera moves, the reframe shows: the video is no longer identical to the eye, which is exactly the point.",
+      "reco": "💡 Don't jump to “Strong”. Test on “Balanced” with 3 copies: if they go through, you've found your setting. Turning the strength up costs perceived quality — only do it in response to a real problem."
     }
   },
   "trialCredits": {

@@ -208,6 +208,34 @@
 }
 :root[data-theme="light"] .duup-btn:active { box-shadow: inset 0 1px 3px rgba(30,41,120,0.18); }
 
+/* Pack / mode SÉLECTIONNÉ.
+   Le verre seul ne dit rien : une carte cochée et une carte libre se
+   ressemblaient trait pour trait. Il faut un aplat teinté franc, une bordure
+   marquée et une ombre colorée — à ce moment-là, la sélection se lit de loin,
+   sans avoir à comparer deux cartes voisines. */
+.duup-choix--on {
+  background: linear-gradient(135deg, rgba(99,102,241,0.34), rgba(99,102,241,0.16));
+  border-color: rgba(129,140,248,0.80);
+  box-shadow:
+    0 14px 30px -16px rgba(79,70,229,0.95),
+    inset 0 1px 0 rgba(255,255,255,0.30);
+}
+.duup-choix--on:hover {
+  border-color: rgba(165,180,252,0.95);
+  box-shadow: 0 16px 34px -16px rgba(79,70,229,1), inset 0 1px 0 rgba(255,255,255,0.35);
+}
+:root[data-theme="light"] .duup-choix--on {
+  background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(99,102,241,0.07));
+  border-color: rgba(79,70,229,0.55);
+  box-shadow:
+    0 14px 28px -18px rgba(79,70,229,0.60),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
+:root[data-theme="light"] .duup-choix--on:hover {
+  border-color: rgba(79,70,229,0.75);
+  box-shadow: 0 16px 32px -18px rgba(79,70,229,0.70), inset 0 1px 0 rgba(255,255,255,1);
+}
+
 /* Survol d'un fichier en cours de glisser-déposer. *//* Survol d'un fichier en cours de glisser-déposer. */
 .duup-glass--actif {
   border-color: rgba(99,102,241,0.85);

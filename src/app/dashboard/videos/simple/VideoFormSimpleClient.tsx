@@ -80,6 +80,96 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   );
 }
 
+/**
+ * Bloc repliable — packs et options.
+ *
+ * L'en-tête est un vrai bouton pleine largeur : un titre, une phrase qui dit ce
+ * qu'il y a dedans, le nombre de réglages actifs, et surtout le mot
+ * « Afficher » / « Masquer » à côté du chevron. Un chevron seul au bout d'une
+ * ligne ne se voit pas : quelqu'un qui découvre la page ne devine pas qu'il
+ * peut cliquer, et croit la section vide.
+ */
+function Section({
+  title,
+  hint,
+  count,
+  open,
+  onToggle,
+  tourId,
+  children,
+}: {
+  title: string;
+  hint: string;
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+  tourId?: string;
+  children: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div data-tour-id={tourId}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        // Pas d'encadré : deux gros blocs pour deux titres, c'était du bruit.
+        // Un titre, un filet, et le mot qui dit quoi faire.
+        className="group flex w-full items-baseline justify-between gap-3 border-b border-[var(--app-border)] pb-2 text-left"
+      >
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="text-sm font-semibold text-[var(--app-text)]">{title}</span>
+          {count > 0 && (
+            <span className="rounded-full bg-indigo-500/15 px-1.5 py-0.5 text-[11px] font-bold text-indigo-300">{count}</span>
+          )}
+          <span className="hidden truncate text-[12px] text-[var(--app-text-faint)] sm:inline">{hint}</span>
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-semibold text-indigo-400 transition group-hover:text-indigo-300">
+          {open ? t("dashboard.videosSimple.hide") : t("dashboard.videosSimple.show")}
+          <svg
+            viewBox="0 0 24 24"
+            className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+            fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
+      </button>
+      {/* Masqué en CSS et non démonté : un <select> démonté perdrait sa valeur,
+          et le formulaire posterait un réglage vide. */}
+      <div className={open ? "mt-4" : "hidden"}>{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Une option = une ligne au même gabarit, posée dans une grille.
+ *
+ * Avant, les cinq interrupteurs et le menu pays vivaient dans un même
+ * `flex-wrap` : chaque étiquette ayant sa longueur, les colonnes ne tombaient
+ * jamais au même endroit, le menu pays s'intercalait au milieu de la rangée et
+ * le « i » de la dernière option se retrouvait seul à la ligne suivante.
+ */
+function OptionLine({
+  checked,
+  onChange,
+  label,
+  help,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  /** Explication sous le « i ». Absente quand l'étiquette se suffit. */
+  help?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center rounded-lg px-2.5 py-2.5 transition hover:bg-[var(--app-surface-2)]">
+      <Toggle checked={checked} onChange={onChange} label={label} />
+      {help ? <InfoTooltip>{help}</InfoTooltip> : null}
+    </div>
+  );
+}
+
 function SubmitWithProgress({ pending }: { pending: boolean }) {
   const { t } = useTranslation();
   return (
@@ -90,8 +180,14 @@ function SubmitWithProgress({ pending }: { pending: boolean }) {
         disabled={pending}
         className={[
           "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
-          pending ? "bg-[var(--app-surface-2)] text-[var(--app-text-muted)] cursor-not-allowed" : "bg-gradient-to-r from-indigo-500 to-sky-500 text-white hover:shadow-[0_4px_20px_rgba(99,102,241,.35)]",
+          pending ? "duup-btn text-[var(--app-text-muted)] cursor-not-allowed" : "text-white",
         ].join(" ")}
+        style={pending ? undefined : {
+          // Dégradé + liseré clair en haut + ombre teintée : le bouton est posé
+          // sur la page, il n'y est pas imprimé.
+          background: "linear-gradient(180deg,#6366F1,#4F46E5 55%,#4338CA)",
+          boxShadow: "0 10px 24px -12px rgba(79,70,229,0.85), inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.25)",
+        }}
       >
         {pending ? t("dashboard.videosSimple.duplicating") : t("dashboard.videosSimple.duplicateButton")}
       </button>
@@ -117,6 +213,45 @@ const NO_VISUAL_PACKS: PackKey[] = ["metadata", "metadata_technical", "pixel_mag
 // « Fort ». Un pack de moins à comprendre pour le même éventail de réglages.
 const VISUAL_PACKS: PackKey[] = ["motion", "motion_dynamic", "visual"];
 
+/**
+ * INTENSITÉ — trois réglages tout faits.
+ *
+ * Sept packs cumulables, c'est sept décisions à prendre avant la première
+ * duplication, sans savoir ce que chacun fait. La plupart des gens veulent
+ * dire « discret » ou « à fond », pas composer une recette.
+ *
+ * Les trois niveaux s'emboîtent : chacun reprend le précédent et pousse plus
+ * loin. Et même le plus léger touche aux pixels (`pixel_magic`) — se contenter
+ * des métadonnées laisse l'image intacte, donc parfaitement reconnaissable,
+ * ce qui est exactement ce qui faisait repérer les copies.
+ */
+type Intensite = "light" | "balanced" | "strong";
+
+/** `watermark` sort des packs : c'est l'option « Watermark » de la section
+ *  Options. Un préréglage la pilote donc aussi — et l'infobulle le dit. */
+type Preset = { packs: PackKey[]; motion: "doux" | "fort"; motionDynamic: "doux" | "fort"; watermark: boolean };
+
+const PRESETS: Record<Intensite, Preset> = {
+  // Identité du fichier, son, grain, et un recadrage doux : invisible à l'œil.
+  light: {
+    packs: ["metadata", "metadata_technical", "audio", "pixel_magic", "motion"],
+    motion: "doux", motionDynamic: "doux", watermark: false,
+  },
+  // Le conseillé : la retouche colorimétrique et le filigrane en plus.
+  balanced: {
+    packs: ["metadata", "metadata_technical", "audio", "pixel_magic", "motion", "visual"],
+    motion: "doux", motionDynamic: "doux", watermark: true,
+  },
+  // Tout. Le mouvement passe en fort, mais la chorégraphie reste douce :
+  // les deux à fond se cumulent et la vidéo devient inregardable.
+  strong: {
+    packs: ["metadata", "metadata_technical", "audio", "pixel_magic", "motion", "motion_dynamic", "visual"],
+    motion: "fort", motionDynamic: "doux", watermark: true,
+  },
+};
+
+const INTENSITES: Intensite[] = ["light", "balanced", "strong"];
+
 function PackCard({
   name,
   label,
@@ -140,21 +275,34 @@ function PackCard({
   return (
     <div
       className={[
-        "group rounded-xl border transition-all",
-        selected
-          ? "border-indigo-400/30 bg-indigo-500/10"
-          : "border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-2)]",
+        "duup-glass group rounded-xl",
+        selected ? "duup-choix--on" : "",
       ].join(" ")}
     >
       {/* Le réglage se place À CÔTÉ du texte, pas dessous : la carte garde la
           même hauteur qu'elle soit cochée ou non, donc la grille ne saute pas. */}
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => onToggle(name)} className="min-w-0 flex-1 px-3.5 py-2.5 text-left">
-          <div className="font-medium text-[13px] leading-snug text-[var(--app-text)] inline-flex items-center gap-2">
-            {label}
+          <div className="inline-flex items-center gap-2 text-[13px] leading-snug text-[var(--app-text)]">
+            {/* Une vraie case : la couleur de fond dit « coché » de loin, la
+                case le confirme de près. */}
+            <span
+              aria-hidden
+              className={[
+                "grid h-[15px] w-[15px] shrink-0 place-items-center rounded-[5px] border transition",
+                selected
+                  ? "border-transparent bg-indigo-500 text-white"
+                  : "border-[var(--app-border-strong)] bg-transparent text-transparent",
+              ].join(" ")}
+            >
+              <svg viewBox="0 0 24 24" className="h-[11px] w-[11px]" fill="none" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </span>
+            <span className={selected ? "font-semibold" : "font-medium"}>{label}</span>
             <InfoTooltip><span className="whitespace-pre-line">{help}</span></InfoTooltip>
           </div>
-          <div className="text-[11px] leading-snug text-[var(--app-text-faint)] mt-1">{hint}</div>
+          <div className="ml-[23px] text-[11px] leading-snug text-[var(--app-text-faint)] mt-1">{hint}</div>
         </button>
         {selected && extra ? <div className="shrink-0 pr-3">{extra}</div> : null}
       </div>
@@ -231,6 +379,9 @@ export default function VideoFormSimpleClient() {
     pixel_magic: false,
     audio: false,
     motion: false,
+    // ⚠️ Présent dès le départ : sans cette clé, le pack était invisible pour
+    // la restauration des réglages ET pour les préréglages.
+    motion_dynamic: false,
     visual: false,
   });
   const packsSelected = useMemo(() => Object.entries(selected).filter(([, v]) => v).map(([k]) => k), [selected]);
@@ -240,6 +391,8 @@ export default function VideoFormSimpleClient() {
   const [country, setCountry] = useState("");
   const [iphoneMeta, setIphoneMeta] = useState(false);
   const [simpleWm, setSimpleWm] = useState(false); // watermark aléatoire par copie
+  const [optionsOuvertes, setOptionsOuvertes] = useState(false);
+  const [packsOuverts, setPacksOuverts] = useState(false);
 
   const [rotEnabled, setRotEnabled] = useState(false);
   const [rotMin, setRotMin] = useState(-5);
@@ -603,6 +756,37 @@ export default function VideoFormSimpleClient() {
   const storeJobs = useSyncExternalStore(subscribe, snapshot, () => []);
   const resumedJob = storeJobs.find((j) => j.channel === "simple" && j.status === "running");
   const busy = processing || !!resumedJob;
+
+  /* Compteur sur l'en-tête replié : sans lui, un réglage actif serait invisible
+     et le user chercherait pourquoi ses copies ne ressemblent pas à l'original.
+     Le pays ne compte pas — il est renseigné par défaut, pas « activé ». */
+  const nbOptionsActives = [flip, reverse, shake, simpleWm, iphoneMeta].filter(Boolean).length;
+
+  /* Quelle intensité correspond à la sélection en cours ? On compare la liste
+     des packs ET les intensités de mouvement : cocher un pack à la main doit
+     éteindre la pastille, sinon elle mentirait sur ce qui va être appliqué. */
+  const intensiteActive = INTENSITES.find((cle) => {
+    const p = PRESETS[cle];
+    if (p.packs.length !== packsSelected.length) return false;
+    if (!p.packs.every((k) => packsSelected.includes(k))) return false;
+    if (p.packs.includes("motion") && motionMode !== p.motion) return false;
+    if (p.packs.includes("motion_dynamic") && motionDynamicMode !== p.motionDynamic) return false;
+    if (simpleWm !== p.watermark) return false;
+    return true;
+  }) ?? null;
+
+  const appliquerIntensite = (cle: Intensite) => {
+    const p = PRESETS[cle];
+    setSelected((prev) => {
+      const next = { ...prev };
+      for (const k of Object.keys(next)) next[k] = false;
+      for (const k of p.packs) next[k] = true;
+      return next;
+    });
+    setMotionMode(p.motion);
+    setMotionDynamicMode(p.motionDynamic);
+    setSimpleWm(p.watermark);
+  };
   const shownProgress = processing ? progress : resumedJob ? resumedJob.progress : null;
   const shownMsg = processing ? progressMsg : resumedJob ? resumedJob.msg : "";
 
@@ -621,6 +805,9 @@ export default function VideoFormSimpleClient() {
       <input type="hidden" name="singles" value={singlesJSON} />
       {country && <input type="hidden" name="country" value={country} />}
       {iphoneMeta && <input type="hidden" name="iphoneMeta" value="1" />}
+      {/* ⚠️ Les champs cachés restent ICI, jamais dans « Options » : ce bloc se
+          replie, et un réglage choisi puis replié doit quand même partir. */}
+      <input type="hidden" name="simpleWatermark" value={simpleWm ? "1" : "0"} />
 
       {/* Dropzone — seul élément avec bordure */}
       <div data-tour-id="video-dropzone" className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3">
@@ -634,11 +821,115 @@ export default function VideoFormSimpleClient() {
 
       <div className="h-px bg-[var(--app-border)]" />
 
-      {/* Packs */}
-      <div data-tour-id="video-packs">
-        <input type="hidden" name="packs" value={packsSelected.join(",")} />
-        <h3 className="text-sm font-semibold text-[var(--app-text)] mb-3">{t("dashboard.videosSimple.packsTitle")} <span className="text-[var(--app-text-faint)] font-normal">{t("dashboard.videosSimple.packsCumulative")}</span></h3>
+      <input type="hidden" name="packs" value={packsSelected.join(",")} />
 
+      {/* Intensité — l'entrée principale. Les packs restent accessibles juste
+          en dessous pour qui veut composer sa propre recette. */}
+      <div data-tour-id="video-presets">
+        <h3 className="text-sm font-semibold text-[var(--app-text)]">{t("dashboard.videosSimple.presetsTitle")}</h3>
+        <p className="mt-0.5 text-[12px] text-[var(--app-text-faint)]">{t("dashboard.videosSimple.presetsHint")}</p>
+
+        <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
+          {INTENSITES.map((cle) => {
+            const actif = intensiteActive === cle;
+            const p = PRESETS[cle];
+            return (
+              // Un <div> et non un <button> : le « i » est lui-même une zone
+              // réactive, et cliquer pour LIRE ne doit pas appliquer le mode.
+              <div
+                key={cle}
+                className={[
+                  "duup-glass relative rounded-xl px-4 py-3 transition",
+                  actif ? "duup-choix--on" : "",
+                ].join(" ")}
+              >
+                {/* Ce que ce mode coche, écrit depuis PRESETS : l'infobulle ne
+                    peut pas se désynchroniser du réglage réellement appliqué. */}
+                <span className="absolute right-2.5 top-2.5">
+                  <InfoTooltip>
+                    <span className="mb-1.5 block font-semibold text-[var(--app-text)]">
+                      {t("dashboard.videosSimple.presetPacksTitle")}
+                    </span>
+                    <span className="block space-y-1">
+                      {p.packs.map((k) => (
+                        <span key={k} className="flex items-start gap-1.5">
+                          <span className="text-indigo-400">·</span>
+                          <span>
+                            {t(`dashboard.videosSimple.packs.${k}.label`)}
+                            {(k === "motion" || k === "motion_dynamic") && (
+                              <span className="text-[var(--app-text-faint)]">
+                                {" — "}
+                                {t(`dashboard.videosSimple.packs.motion_dynamic.mode${(k === "motion" ? p.motion : p.motionDynamic) === "fort" ? "Fort" : "Doux"}`)}
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                      ))}
+                    </span>
+                    {p.watermark && (
+                      <span className="mt-2 flex items-start gap-1.5 border-t border-[var(--app-border)] pt-2">
+                        <span className="text-indigo-400">·</span>
+                        <span>{t("vid.wm.title")}<span className="text-[var(--app-text-faint)]">{" — "}{t("dashboard.videosSimple.presetWatermarkNote")}</span></span>
+                      </span>
+                    )}
+                    <span className="mt-2 block border-t border-[var(--app-border)] pt-2 text-[var(--app-text-faint)]">
+                      {t("dashboard.videosSimple.presetOptionsNote")}
+                    </span>
+                  </InfoTooltip>
+                </span>
+
+                <button
+                  type="button"
+                  aria-pressed={actif}
+                  onClick={() => appliquerIntensite(cle)}
+                  className="block w-full pr-7 text-left"
+                >
+                <span className="flex items-center gap-2">
+                  {/* Trois barres : le niveau se lit avant même le mot. */}
+                  <span className="flex items-end gap-[3px]" aria-hidden>
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className={[
+                          "w-[3px] rounded-full transition",
+                          i === 0 ? "h-2" : i === 1 ? "h-3" : "h-4",
+                          i <= INTENSITES.indexOf(cle)
+                            ? actif ? "bg-indigo-400" : "bg-[var(--app-text-muted)]"
+                            : "bg-[var(--app-border-strong)]",
+                        ].join(" ")}
+                      />
+                    ))}
+                  </span>
+                  <span className="text-[13.5px] font-semibold text-[var(--app-text)]">
+                    {t(`dashboard.videosSimple.presets.${cle}.label`)}
+                  </span>
+                  {cle === "balanced" && (
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
+                      {t("dashboard.videosSimple.presets.recommended")}
+                    </span>
+                  )}
+                </span>
+                <span className="mt-1.5 block text-[12px] leading-snug text-[var(--app-text-muted)]">
+                  {t(`dashboard.videosSimple.presets.${cle}.desc`)}
+                </span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Packs */}
+      <Section
+        tourId="video-packs"
+        title={t("dashboard.videosSimple.packsTitle")}
+        hint={intensiteActive
+          ? t("dashboard.videosSimple.packsFromPreset", { preset: t(`dashboard.videosSimple.presets.${intensiteActive}.label`) })
+          : t("dashboard.videosSimple.packsHint")}
+        count={packsSelected.length}
+        open={packsOuverts}
+        onToggle={() => setPacksOuverts((v) => !v)}
+      >
         <p className="text-xs font-medium text-indigo-300/60 uppercase tracking-wide mb-2">{t("dashboard.videosSimple.noVisualChange")}</p>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 mb-4">
           {NO_VISUAL_PACKS.map((k) => (
@@ -680,48 +971,67 @@ export default function VideoFormSimpleClient() {
             />
           ))}
         </div>
-      </div>
+      </Section>
 
-      <div className="h-px bg-[var(--app-border)]" />
+      {/* Options — repliées par défaut. Ce sont des réglages de finition : les
+          laisser dépliées poussait le bouton « Dupliquer » hors de l'écran,
+          alors que la plupart des duplications n'y touchent jamais. */}
+      <Section
+        tourId="video-options"
+        title={t("dashboard.videosSimple.optionsTitle")}
+        hint={t("dashboard.videosSimple.optionsHint")}
+        count={nbOptionsActives}
+        open={optionsOuvertes}
+        onToggle={() => setOptionsOuvertes((v) => !v)}
+      >
+        <div>
+          {/* Les interrupteurs d'abord, tous du même gabarit. */}
+          {/* Marge négative : le padding qui donne sa zone de survol à chaque
+              ligne ne doit pas décaler les interrupteurs par rapport au titre
+              de la section et aux packs au-dessus. */}
+          <div className="-mx-2.5 grid gap-x-6 sm:grid-cols-2 xl:grid-cols-3">
+            <OptionLine checked={flip} onChange={setFlip} label={t("vid.opt.flip")} />
+            <OptionLine checked={reverse} onChange={setReverse} label={t("vid.opt.reverse")} />
+            <OptionLine checked={shake} onChange={setShake} label={t("vid.opt.shake")} />
+            {/* Le watermark aléatoire est une option comme les autres : un
+                interrupteur, et son explication sous le « i ». */}
+            <OptionLine
+              checked={simpleWm}
+              onChange={setSimpleWm}
+              label={t("vid.wm.title")}
+              help={<>{t("vid.wm.sDesc1")} <b>{t("vid.wm.sDescBold")}</b> {t("vid.wm.sDesc2")}</>}
+            />
+            <OptionLine
+              checked={iphoneMeta}
+              onChange={setIphoneMeta}
+              label={`⚡ ${t("dashboard.videosSimple.iphoneMetaLabel")}`}
+              help={t("dashboard.videosSimple.iphoneMetaHint")}
+            />
+          </div>
 
-      {/* Watermark aléatoire — un filigrane différent sur chaque copie */}
-      <div>
-        <input type="hidden" name="simpleWatermark" value={simpleWm ? "1" : "0"} />
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-[var(--app-text)]">{t("vid.wm.title")}</h3>
-          <Toggle checked={simpleWm} onChange={setSimpleWm} label={t("vid.wm.enable")} />
-        </div>
-        <p className="mt-2 text-xs text-[var(--app-text-muted)]">
-          {t("vid.wm.sDesc1")} <b>{t("vid.wm.sDescBold")}</b> {t("vid.wm.sDesc2")}
-        </p>
-      </div>
-
-      <div className="h-px bg-[var(--app-border)]" />
-
-      {/* Options */}
-      <div data-tour-id="video-options">
-        <h3 className="text-sm font-semibold text-[var(--app-text)] mb-3">{t("dashboard.videosSimple.optionsTitle")}</h3>
-        <div className="flex flex-wrap items-end gap-4">
-          <Toggle checked={flip} onChange={setFlip} label={t("vid.opt.flip")} />
-          <Toggle checked={reverse} onChange={setReverse} label={t("vid.opt.reverse")} />
-          <Toggle checked={shake} onChange={setShake} label={t("vid.opt.shake")} />
-          <div className="flex-1 min-w-[200px] max-w-xs">
-            <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-1">{t("dashboard.videosSimple.countryLabel")}</label>
+          {/* Le pays n'est pas un interrupteur : il a sa ligne, sous un trait,
+              plutôt que d'être coincé entre deux bascules. */}
+          <div className="mt-3 border-t border-[var(--app-border)] pt-4">
+            <label className="mb-1.5 block text-sm font-medium text-[var(--app-text-muted)]">{t("dashboard.videosSimple.countryLabel")}</label>
             <CountrySelect
               name="country_select"
               value={country}
               onChange={setCountry}
-              className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-1.5 text-sm text-[var(--app-text)]"
+              className="w-full max-w-xs rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-text)]"
             />
           </div>
-          <Toggle checked={iphoneMeta} onChange={setIphoneMeta} label={`⚡ ${t("dashboard.videosSimple.iphoneMetaLabel")}`} />
-          <InfoTooltip>{t("dashboard.videosSimple.iphoneMetaHint")}</InfoTooltip>
         </div>
-      </div>
+      </Section>
 
-      <div className="h-px bg-[var(--app-border)]" />
-
-      <SubmitWithProgress pending={busy} />
+      {/* Barre d'action COLLANTE. Le formulaire fait deux à trois écrans une
+          fois les packs dépliés : le bouton restait en bas, hors de vue, et il
+          fallait remonter/redescendre entre le choix de l'intensité et le
+          lancement. Elle reste au bas de la fenêtre, quoi qu'on fasse. */}
+      <div
+        className="sticky bottom-0 z-30 -mx-6 border-t border-[var(--app-border)] px-6 py-3.5"
+        style={{ background: "color-mix(in srgb, var(--app-bg) 82%, transparent)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}
+      >
+        <SubmitWithProgress pending={busy} />
 
       {busy && shownProgress !== null && (
         <div className="mt-2">
@@ -742,6 +1052,7 @@ export default function VideoFormSimpleClient() {
           {errorMsg}
         </p>
       ) : null}
+      </div>
     </form>
 
       {/* Monthly video limit reached → friendly upgrade modal, then the usual

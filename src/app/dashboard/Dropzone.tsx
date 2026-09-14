@@ -148,51 +148,62 @@ export default function Dropzone({
             {t("vid.drop.selectedCount", { count: items.length })}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* Vignettes au gabarit de l'Éditeur IA : l'image occupe toute la
+              tuile, le nom et la croix n'apparaissent qu'au survol. Affichés en
+              permanence, ils doublaient la hauteur de chaque carte et
+              transformaient une simple liste de fichiers en mur de texte. */}
+          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
             {items.map((it) => (
               <div
                 key={it.id}
-                className="relative overflow-hidden rounded-xl border border-[var(--app-border)] bg-black/30"
+                className="group relative aspect-video overflow-hidden rounded-xl border border-[var(--app-border)] bg-black/40"
               >
-                {/* vignette */}
-                <div className="aspect-video w-full bg-black/40">
-                  {isImage && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={it.url}
-                      alt={it.file.name}
-                      className="h-full w-full object-cover"
-                    />
-                  )}
-                  {isVideo && (
-                    <video
-                      src={it.url}
-                      className="h-full w-full object-cover"
-                      muted
-                    />
-                  )}
-                  {!isImage && !isVideo && (
-                    <div className="h-full w-full flex items-center justify-center text-white/70 text-xs">
-                      {it.file.name}
-                    </div>
-                  )}
-                </div>
+                {isImage && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={it.url}
+                    alt={it.file.name}
+                    className="h-full w-full object-cover"
+                  />
+                )}
+                {isVideo && (
+                  <video
+                    src={it.url}
+                    className="h-full w-full object-cover"
+                    muted
+                  />
+                )}
+                {!isImage && !isVideo && (
+                  <div className="flex h-full w-full items-center justify-center px-2 text-center text-[11px] text-white/70">
+                    {it.file.name}
+                  </div>
+                )}
 
-                {/* nom */}
-                <div className="px-2 py-1 text-xs text-white truncate">
-                  {it.file.name}
-                </div>
+                {/* Voile : les commandes blanches doivent rester lisibles sur
+                    une vignette claire. */}
+                <span className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/50 opacity-0 transition group-hover:opacity-100" />
 
-                {/* bouton supprimer */}
                 <button
                   type="button"
                   onClick={() => removeOne(it.id)}
-                  className="absolute top-1 right-1 rounded-full bg-black/60 px-2 py-1 text-xs
-                             text-white/90 hover:bg-black/80"
+                  className="absolute right-1.5 top-1.5 z-20 grid h-7 w-7 place-items-center rounded-full text-white opacity-0 transition hover:bg-red-500/80 group-hover:opacity-100"
+                  style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
                   aria-label={t("vid.drop.remove", { name: it.file.name })}
+                  title={t("vid.drop.remove", { name: it.file.name })}
                 >
-                  ✕
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
                 </button>
+
+                <div className="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-20 opacity-0 transition group-hover:opacity-100">
+                  <span
+                    className="block truncate rounded-lg px-2 py-1 text-[11px] font-semibold text-white"
+                    style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+                  >
+                    {it.file.name}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

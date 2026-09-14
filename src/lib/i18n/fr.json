@@ -800,14 +800,14 @@
       "close": "Fermer",
       "contactSupport": "Contacter le support",
       "filtersTitle": "Quels filtres choisir selon mon usage",
-      "filtersIntro": "Chaque pack modifie une couche différente de la vidéo, et tu peux les cumuler. Voici quand utiliser chacun :",
+      "filtersIntro": "Les packs sont déjà cochés par l'intensité que tu as choisie — cette rubrique est là si tu veux les régler toi-même. Chaque pack modifie une couche différente de la vidéo, et tu peux les cumuler :",
       "filtersMeta": "Métadonnées — date, encodeur, marque, identifiant. Invisible à l'œil : à garder toujours activé, c'est la base pour rendre chaque copie unique.",
       "filtersMetaTech": "Métadonnées technique — bitrate, GOP, FPS, profil H.264. Varie la signature technique du fichier sans toucher à l'image.",
       "filtersPixel": "Pixel magique — bruit de luminance imperceptible pour un hash 100 % unique. Idéal pour republier sans aucun changement visible.",
       "filtersAudio": "Audio — volume, légère égalisation, bitrate. À activer si la bande-son doit aussi différer.",
       "filtersMotion": "Mouvement — léger zoom et rotation. Variation visuelle discrète, utile si les plateformes comparent l'image.",
       "filtersVisuals": "Visuels — teinte, netteté, égalisation. Variation visuelle plus marquée, quand tu veux vraiment t'éloigner de l'original.",
-      "filtersReco": "Pour republier discrètement (sans changement visible) : Métadonnées + Métadonnées technique + Pixel magique. Ajoute Mouvement ou Visuels si tu veux une différence visible plus forte.",
+      "filtersReco": "Pour republier discrètement (sans changement visible) : Métadonnées + Métadonnées technique + Pixel magique + Audio, soit exactement ce que coche le mode « Léger ». Ajoute Visuels pour une différence plus franche.",
       "tiktokTitle": "Guide TikTok",
       "tiktokBody": "Un guide complet pour republier sur TikTok sans te faire repérer :",
       "tiktokPoint1": "Réglages recommandés",
@@ -897,7 +897,20 @@
       "motionDynamicWhen": "Quand l'utiliser : c'est le plus efficace des trois contre la reconnaissance de contenu, parce que deux copies ne se ressemblent à AUCUN instant. Prends FORT par défaut ; passe en DOUX si tu tiens à ton cadrage et que tu ne veux pas rogner l'image. Le tremblement, lui, a quitté ce pack : c'est une option indépendante, cochable avec n'importe quel pack.",
       "motionStackTitle": "Peut-on cumuler les deux packs ?",
       "motionStackBody": "Oui, mais ce n'est pas conseillé : les zooms se MULTIPLIENT. Mouvement (Fort) plus Mouvement avancé donne environ 1,66× de zoom, soit près des deux tiers de la surface rognée, et les changements de vitesse s'ajoutent. Choisis plutôt UN pack et monte sa pastille en Fort si le résultat ne suffit pas.",
-      "motionSpecsLabel": "Caractéristiques techniques"
+      "motionSpecsLabel": "Caractéristiques techniques",
+      "intensityTitle": "Choisir l'intensité de la variation",
+      "intensityIntro": "C'est le premier réglage de la page, et le seul obligatoire. Trois niveaux : chacun coche les packs et le watermark à ta place. Le « i » sur chaque carte liste ce qui est activé, et la liste suit toujours le réglage réel.",
+      "intensityLightTitle": "Léger — republier sans que rien ne se voie",
+      "intensityLightBody": "Métadonnées, Métadonnées technique, Audio, Pixel magique et Mouvement en doux. Le fichier, le son, le grain et le cadrage changent, mais personne ne le remarque à l'écran. À prendre quand la vidéo doit rester exactement telle quelle : démo produit, texte à l'image, montage millimétré.",
+      "intensityBalancedTitle": "Équilibré — le réglage conseillé",
+      "intensityBalancedBody": "Le contenu de « Léger », plus les Visuels (teinte, netteté, égalisation) et un filigrane différent sur chaque copie, à 2 % d'opacité donc invisible. C'est le meilleur rapport entre discrétion et solidité : commence par là.",
+      "intensityStrongTitle": "Fort — quand les copies se font encore repérer",
+      "intensityStrongBody": "Tout est activé : Mouvement passe en fort, Mouvement avancé s'ajoute en doux, le filigrane reste. Les deux mouvements ne sont volontairement pas poussés à fond en même temps — cumulés, ils rendent la vidéo pénible à regarder. À réserver au compte qui remonte comme non-original malgré le reste.",
+      "intensityCustomTitle": "Composer toi-même",
+      "intensityCustomPacks": "Packs — replié sous l'intensité. Ouvre-le pour cocher ou décocher pack par pack.",
+      "intensityCustomOptions": "Options — replié aussi : flip, miroir, tremblement, watermark et localisation pays. Un préréglage ne touche QUE le watermark, le reste t'appartient.",
+      "intensityCustomDrop": "Dès que tu modifies un pack ou le watermark à la main, la carte d'intensité se décoche : elle ne peut plus décrire ce qui va être appliqué.",
+      "intensityReco": "💡 Fais ton premier test en « Équilibré » sur 3 copies. Si elles passent, tu peux descendre en « Léger » ; si elles se font repérer, monte en « Fort » plutôt que de multiplier les copies."
     },
     "videosCommon": {
       "errorGeneric": "Une erreur est survenue lors de la duplication. Réessayez avec les fichiers manquants.",
@@ -981,7 +994,32 @@
           "hint": "EQ, hue, unsharp",
           "help": "Variations imperceptibles :\nLuminosité ±3% • Contraste ±5% • Saturation ±5% • Gamma ±3% • Hue ±3° • Unsharp très doux."
         }
-      }
+      },
+      "show": "Afficher",
+      "hide": "Masquer",
+      "packsHint": "Ce qui change dans chaque copie",
+      "packsFromPreset": "Réglés sur « {preset} » — modifiable",
+      "optionsHint": "Réglages de finition, facultatifs",
+      "presetsTitle": "Intensité de la variation",
+      "presetsHint": "Choisis un niveau, les packs se règlent tout seuls.",
+      "presets": {
+        "recommended": "Conseillé",
+        "light": {
+          "label": "Léger",
+          "desc": "Recadrage doux, grain, son et identité du fichier. Rien de visible à l'œil."
+        },
+        "balanced": {
+          "label": "Équilibré",
+          "desc": "En plus : la retouche des couleurs et un filigrane différent sur chaque copie."
+        },
+        "strong": {
+          "label": "Fort",
+          "desc": "Tout, avec un recadrage marqué et une caméra qui bouge. Si tes copies se font encore repérer."
+        }
+      },
+      "presetPacksTitle": "Ce mode active :",
+      "presetOptionsNote": "Les autres Options (flip, miroir, tremblement…) ne sont pas touchées : elles restent à toi.",
+      "presetWatermarkNote": "filigrane différent sur chaque copie"
     },
     "videosAdvanced": {
       "title": "Duplication Vidéos, Avancé",
@@ -1466,10 +1504,10 @@
       "dup3b": "Glisse un fichier ici, ou clique pour le choisir. C'est la seule chose obligatoire.",
       "dup4t": "Combien de copies",
       "dup4b": "Chaque copie est unique. Trois suffisent pour voir ce que ça donne.",
-      "dup5t": "Les modifications",
-      "dup5b": "Chaque pack change la vidéo à sa façon. Le miroir est le plus efficace — laisse les réglages par défaut pour l'instant.",
+      "dup5t": "Choisis l'intensité",
+      "dup5b": "Trois niveaux, du plus discret au plus poussé. Prends « Équilibré » : les packs se cochent tout seuls. Tu pourras les ouvrir juste en dessous pour régler toi-même.",
       "dup6t": "Lance",
-      "dup6b": "Tes copies arrivent en bas de page, prêtes à télécharger. Voilà, tu sais tout.",
+      "dup6b": "Le bouton reste au bas de l'écran, où que tu sois dans la page. Tes copies arrivent juste en dessous, prêtes à télécharger. Voilà, tu sais tout.",
       "ai1t": "Ouvre l'Éditeur IA",
       "ai1b": "C'est ton Claude qui monte : tu lui donnes une vidéo modèle et ta matière.",
       "ai3t": "Pourquoi une vidéo de référence",
@@ -1512,7 +1550,7 @@
       "vid2t": "Deux façons de dupliquer",
       "vid2b": "Le même moteur, deux niveaux de contrôle. Commence par le mode simple : il fait déjà le travail complet.",
       "vid2simpleT": "Mode simple",
-      "vid2simpleB": "Tu déposes, tu dis combien de copies, tu lances. Les réglages sont choisis pour toi et varient d'une copie à l'autre. C'est le mode à prendre au début.",
+      "vid2simpleB": "Tu déposes, tu dis combien de copies, tu choisis une intensité — léger, équilibré ou fort — et tu lances. Le reste est réglé pour toi. C'est le mode à prendre au début.",
       "vid2advT": "Mode avancé",
       "vid2advB": "Les mêmes copies, mais tu ouvres le capot : intensité des retouches, recadrage, vitesse, watermark. Pour quand tu sauras ce que tu veux pousser.",
       "img1t": "Tes visuels, en autant d'exemplaires uniques",
@@ -2360,9 +2398,9 @@
     "detected": {
       "title": "Mes vidéos sont détectées comme non-originales",
       "intro": "Dupliquer un fichier ne suffit pas toujours : les algorithmes comparent le RENDU VISUEL, pas seulement le fichier et ses métadonnées. Quand des copies remontent quand même comme non-originales, deux causes reviennent presque à chaque fois.",
-      "light": "Des réglages trop légers — si les filtres appliqués restent discrets, la copie ressemble encore à l'originale à l'œil nu. Pour un algorithme, deux images quasi identiques restent deux images identiques : monte l'intensité, active le miroir (reverse), ajoute un pack de mouvement et un watermark.",
+      "light": "Des réglages trop légers — si les filtres appliqués restent discrets, la copie ressemble encore à l'originale à l'œil nu. Pour un algorithme, deux images quasi identiques restent deux images identiques : passe l'intensité en « Fort » et active le miroir (reverse) dans les Options.",
       "tooMany": "Trop de copies tirées de la même vidéo — c'est plus rare, mais si une copie se fait repérer, les autres, issues de la même source, peuvent tomber avec elle. Espace les publications et limite le nombre de copies par vidéo d'origine.",
-      "reco": "💡 Le réflexe qui marche : plutôt que 10 copies avec des réglages légers, fais-en 3 ou 4 avec des réglages francs (reverse + mouvement + watermark). La copie doit être visiblement différente à l'œil, pas seulement dans le fichier."
+      "reco": "💡 Le réflexe qui marche : plutôt que 10 copies en « Léger », fais-en 3 ou 4 en « Fort », ou en « Équilibré » avec le miroir (reverse) activé dans les Options. La copie doit être visiblement différente à l'œil, pas seulement dans le fichier."
     },
     "editor": {
       "group": "Éditeur IA",
@@ -2409,6 +2447,14 @@
         "motion": "Le motion design lourd est approché — 3D, particules, morphings : il reproduit l'intention (layout, rythme, couleurs, texte), pas l'effet au pixel près.",
         "reco": "💡 La barre, c'est la structure : mêmes moments, même rythme, même style de texte. Pas une copie image par image."
       }
+    },
+    "mode": {
+      "title": "Quel mode choisir : léger, équilibré ou fort ?",
+      "intro": "Sur la duplication vidéo simple, tu choisis une intensité et les packs se cochent tout seuls. Le bon niveau ne dépend pas de ta vidéo mais de ce que tu peux te permettre de changer à l'écran.",
+      "light": "Léger — quand l'image ne doit pas bouger : démo produit, texte incrusté, montage calé à la frame. Seuls le fichier, le son, le grain et un recadrage minuscule changent. C'est le moins protecteur des trois : à réserver aux vidéos qui l'exigent.",
+      "balanced": "Équilibré — le choix par défaut, et celui par lequel commencer. Il ajoute la retouche des couleurs et un filigrane différent sur chaque copie, invisible à 2 % d'opacité. Dans la quasi-totalité des cas, c'est celui-là qu'il te faut.",
+      "strong": "Fort — seulement si tes copies remontent quand même comme non-originales. La caméra bouge, le recadrage se voit : la vidéo n'est plus identique à l'œil, et c'est exactement le but.",
+      "reco": "💡 Ne monte pas en « Fort » d'entrée. Teste en « Équilibré » sur 3 copies : si elles passent, tu as trouvé ton réglage. Monter l'intensité coûte en qualité perçue, ça ne se fait qu'en réponse à un vrai problème."
     }
   },
   "trialCredits": {

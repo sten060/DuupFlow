@@ -81,6 +81,27 @@ function detectedBody(t: T) {
   );
 }
 
+/**
+ * « Quel mode choisir : léger, équilibré ou fort ? »
+ *
+ * La question arrive dès la première duplication depuis que les trois modes
+ * remplacent les sept packs à cocher. La doc du module décrit ce que chacun
+ * ACTIVE ; cet article-ci répond à autre chose : lequel prendre pour MON cas.
+ */
+function modeChoiceBody(t: T) {
+  return (
+    <div className="space-y-5">
+      <p>{t("help.mode.intro")}</p>
+      {bulletList([
+        t("help.mode.light"),
+        t("help.mode.balanced"),
+        t("help.mode.strong"),
+      ])}
+      {callout(t("help.mode.reco"))}
+    </div>
+  );
+}
+
 /* ─────────────────────────── Éditeur IA ─────────────────────────── */
 /* Ce module n'a pas de documentation dans son écran (pas de bouton
    « Documentations » : la page est déjà un pas-à-pas). Ces articles sont donc
@@ -179,6 +200,9 @@ export function buildHelpArticles(t: T): DocModule {
     id: "help",
     label: t("help.group"),
     icon: icon(<><circle cx="12" cy="12" r="9" /><path d="M9.6 9.2a2.5 2.5 0 1 1 3.3 2.9c-.6.2-.9.8-.9 1.4v.4" /><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none" /></>),
-    docs: [{ title: t("help.detected.title"), body: detectedBody(t) }],
+    docs: [
+      { title: t("help.detected.title"), body: detectedBody(t) },
+      { title: t("help.mode.title"), body: modeChoiceBody(t) },
+    ],
   };
 }

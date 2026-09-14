@@ -82,7 +82,7 @@ export default function VideoFilesClient({
           type="button"
           onClick={handleClear}
           disabled={clearing}
-          className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-[var(--app-surface-2)] hover:bg-[var(--app-surface-2)] text-[var(--app-text-muted)] transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="duup-btn rounded-lg px-3 py-1.5 text-xs font-semibold text-[var(--app-text-muted)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {clearing ? t("dashboard.videos.clearing") : t("dashboard.videos.clearVideos", { channel })}
         </button>
@@ -94,20 +94,20 @@ export default function VideoFilesClient({
         {selectionHref && (
           <a
             href={selectionHref}
-            className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-indigo-700 hover:bg-indigo-600 text-white transition"
+            className="duup-btn rounded-lg px-3 py-1.5 text-xs font-semibold text-[var(--app-text)]"
           >
             {t("common.downloadSelection", { count: String(selected.size) })}
           </a>
         )}
         <a
           href={`/api/out/zip?scope=videos&channel=${channel}`}
-          className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition"
+          className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition" style={{ background: "linear-gradient(180deg,#6366F1,#4F46E5 60%,#4338CA)", boxShadow: "0 6px 16px -8px rgba(79,70,229,0.85), inset 0 1px 0 rgba(255,255,255,0.32)" }}
         >
           {t("dashboard.videos.downloadAllZip")}
         </a>
       </div>
 
-      <section className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+      <section className="duup-glass rounded-2xl p-4">
         <h2 className="font-semibold mb-2">{t("dashboard.videos.generatedVideos", { channel })}</h2>
         {files.length === 0 ? (
           <p className="text-[var(--app-text-muted)] text-sm">{t("dashboard.videos.noVideosYet")}</p>

@@ -96,7 +96,9 @@ export const PARCOURS: Record<CleParcours, EtapeParcours[]> = {
     { route: "/dashboard/videos", target: ["video-mode-simple"], titleKey: "onb.path.dup2t", bodyKey: "onb.path.dup2b", placement: "below", parClic: true, hintKey: "onb.path.hintSimple" },
     { route: "/dashboard/videos/simple", target: ["video-dropzone"], titleKey: "onb.path.dup3t", bodyKey: "onb.path.dup3b", placement: "right" },
     { route: "/dashboard/videos/simple", target: ["video-copies"], titleKey: "onb.path.dup4t", bodyKey: "onb.path.dup4b", placement: "right" },
-    { route: "/dashboard/videos/simple", target: ["video-packs"], titleKey: "onb.path.dup5t", bodyKey: "onb.path.dup5b", placement: "right" },
+    // La zone « intensité » remplace les packs comme repère : les packs sont
+    // repliés par défaut, et désigner un bloc fermé n'apprend rien.
+    { route: "/dashboard/videos/simple", target: ["video-presets"], titleKey: "onb.path.dup5t", bodyKey: "onb.path.dup5b", placement: "right" },
     { route: "/dashboard/videos/simple", target: ["video-submit"], titleKey: "onb.path.dup6t", bodyKey: "onb.path.dup6b", placement: "right", fin: true },
   ],
   ai: [

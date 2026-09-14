@@ -40,6 +40,48 @@ function callout(text: string) {
   );
 }
 
+/**
+ * « Choisir l'intensité » — le premier réglage du mode simple.
+ *
+ * C'est l'entrée principale de la page : les trois niveaux cochent les packs et
+ * le watermark à la place du user. La doc doit donc dire ce que chacun active
+ * EXACTEMENT, sinon « Fort » reste un mot sans contenu. La rubrique « Quels
+ * filtres choisir » qui suit reste utile à qui veut composer lui-même.
+ */
+function intensityBody(t: T) {
+  return (
+    <div className="space-y-6">
+      <p>{t("dashboard.docs.intensityIntro")}</p>
+
+      <div className="space-y-3">
+        {subTitle(t("dashboard.docs.intensityLightTitle"))}
+        <p>{t("dashboard.docs.intensityLightBody")}</p>
+      </div>
+
+      <div className="space-y-3 border-t border-[var(--app-border)] pt-5">
+        {subTitle(t("dashboard.docs.intensityBalancedTitle"))}
+        <p>{t("dashboard.docs.intensityBalancedBody")}</p>
+      </div>
+
+      <div className="space-y-3 border-t border-[var(--app-border)] pt-5">
+        {subTitle(t("dashboard.docs.intensityStrongTitle"))}
+        <p>{t("dashboard.docs.intensityStrongBody")}</p>
+      </div>
+
+      <div className="space-y-3 border-t border-[var(--app-border)] pt-5">
+        {subTitle(t("dashboard.docs.intensityCustomTitle"))}
+        {bulletList([
+          t("dashboard.docs.intensityCustomPacks"),
+          t("dashboard.docs.intensityCustomOptions"),
+          t("dashboard.docs.intensityCustomDrop"),
+        ])}
+      </div>
+
+      {callout(t("dashboard.docs.intensityReco"))}
+    </div>
+  );
+}
+
 /** "Which filters" — SIMPLE mode (preset, stackable packs). */
 function filtersBody(t: T) {
   return (
@@ -249,6 +291,9 @@ export function buildVideoDocs(t: T, opts?: { advanced?: boolean }): DocEntry[] 
     ];
   }
   return [
+    // L'intensité passe devant : c'est par là que tout le monde commence
+    // maintenant, les packs ne sont qu'un repli pour qui veut affiner.
+    { title: t("dashboard.docs.intensityTitle"), body: intensityBody(t) },
     advice,
     duration,
     { title: t("dashboard.docs.filtersTitle"), body: filtersBody(t) },
@@ -436,6 +481,7 @@ export function buildApiDocs(t: T): DocEntry[] {
 function buildVideoDocsAll(t: T): DocEntry[] {
   return [
     // En premier ici aussi : c'est le conseil qui conditionne tous les réglages.
+    { title: t("dashboard.docs.intensityTitle"), body: intensityBody(t) },
     { title: t("dashboard.docs.adviceTitle"), body: adviceBody(t) },
     { title: t("dashboard.durationInfo.title"), body: <p>{t("dashboard.durationInfo.body")}</p> },
     { title: t("dashboard.docs.filtersTitle"), body: filtersBody(t) },
