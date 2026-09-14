@@ -144,11 +144,26 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
   const notes: string[] = [];
   const meta = await probe(videoPath);
 
+  /* ⚠️ TOUTE LECTURE D'IMAGE passe par la version SDR, jamais par le fichier brut.
+     Une vidéo iPhone est filmée en HLG (BT.2020) : lue telle quelle, elle est
+     interprétée comme du BT.709 et sort délavée, blancs déviés. C'est le défaut
+     que le duplicateur vidéo a réglé il y a longtemps — mais lui convertit DANS
+     l'encodage, alors qu'ici l'extraction d'images shuntait le proxy.
+     Conséquences (toutes réelles, mesurées sur un vrai export iPhone 4K HLG) :
+       · la vignette affichée après l'upload avait de fausses couleurs ;
+       · les images envoyées à Claude aussi — il analysait une référence qui ne
+         ressemblait pas à ce que le moteur sait rendre ;
+       · le profil colorimétrique (saturation/luminosité) était mesuré sur ces
+         mêmes images, donc faux.
+     Bonus : le proxy fait 1080p, donc les mesures tournent sur 4× moins de
+     pixels qu'en 4K. */
+  const viewPath = await proxyForViewing(videoPath).catch(() => videoPath);
+
   // Rythme (coupes) — best-effort. Calculé AVANT Gemini : ses timecodes servent à
   // extraire des bandes de vignettes autour de chaque coupe (détection des transitions).
   let sceneCuts: number[] = [];
   try {
-    sceneCuts = (await sceneScores(videoPath, SCENE_CUT_THRESHOLD)).map((s) => Math.round(s.t * 100) / 100);
+    sceneCuts = (await sceneScores(viewPath, SCENE_CUT_THRESHOLD)).map((s) => Math.round(s.t * 100) / 100);
   } catch {
     notes.push("Détection de coupes indisponible (rythme approximatif).");
   }
@@ -160,7 +175,7 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
     const sdir = await fs.mkdtemp(path.join(os.tmpdir(), "duup_cut_"));
     try {
       const picks = sceneCuts.filter((t) => t > 0.15 && t < meta.durationSec - 0.15).slice(0, 16);
-      cutStrips = (await Promise.all(picks.map((t, i) => cutStrip(videoPath, t, sdir, i)))).filter((s): s is CutStrip => !!s);
+      cutStrips = (await Promise.all(picks.map((t, i) => cutStrip(viewPath, t, sdir, i)))).filter((s): s is CutStrip => !!s);
     } catch { /* best-effort */ }
     finally { await fs.rm(sdir, { recursive: true, force: true }).catch(() => {}); }
   }
@@ -175,7 +190,7 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
   // en parallèle. Fichier déjà léger → aucun proxy, aucun surcoût.
   const comprehensionP: Promise<GeminiComprehension | null> = isGeminiAvailable()
     ? Promise.race([
-        proxyForViewing(videoPath).then((p) => analyzeReferenceWithGemini(p, cutStrips)).catch(() => null),
+        analyzeReferenceWithGemini(viewPath, cutStrips).catch(() => null),
         new Promise<null>((r) => setTimeout(() => r(null), 200_000)),
       ])
     : Promise.resolve(null);
@@ -210,10 +225,10 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
   let audio: AudioProfile = { bpm: null, beats: [], energy: [], drops: [], durationSec: 0, type: "unknown" };
   try {
     const ts = pickTimestamps(meta.durationSec, sceneCuts);
-    keyframes = (await Promise.all(ts.map((t, i) => keyframeAt(videoPath, t, dir, i)))).filter((k): k is Keyframe => !!k);
+    keyframes = (await Promise.all(ts.map((t, i) => keyframeAt(viewPath, t, dir, i)))).filter((k): k is Keyframe => !!k);
 
     try {
-      const res = await analyzeShots(videoPath, sceneCuts, meta.durationSec, dir);
+      const res = await analyzeShots(viewPath, sceneCuts, meta.durationSec, dir);
       shots = res.shots;
       color = await analyzeColor(res.jpegs);
     } catch { notes.push("Analyse des plans/colorimétrie indisponible."); }
@@ -311,9 +326,12 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
   let audio: AudioProfile | null = null;
   let sceneCuts: number[] = [];
   let shots: Shot[] = [];
+  // Même règle que pour la référence : on ne regarde JAMAIS le fichier brut.
+  // (Le son, lui, reste lu sur l'original — le proxy le recopie tel quel.)
+  const viewPath = await proxyForViewing(videoPath).catch(() => videoPath);
   try {
     const t = meta.durationSec > 0 ? Math.min(0.15 * meta.durationSec, 1.5) : 0.5;
-    const kf = await keyframeAt(videoPath, t, dir, 0);
+    const kf = await keyframeAt(viewPath, t, dir, 0);
     thumb = kf?.dataUri ?? null;
     // Analyse rythme/énergie/drops de la piste son du rush — pour caler coupes/effets.
     if (meta.hasAudio) {
@@ -322,10 +340,10 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
     // MÊME analyseur que la référence, branché sur la matière : coupes + plans
     // + mouvement réel. C'est ce qui manquait pour décider des points de coupe.
     try {
-      sceneCuts = (await sceneScores(videoPath, SCENE_CUT_THRESHOLD)).map((x) => Math.round(x.t * 100) / 100);
+      sceneCuts = (await sceneScores(viewPath, SCENE_CUT_THRESHOLD)).map((x) => Math.round(x.t * 100) / 100);
     } catch { /* best-effort */ }
     try {
-      shots = (await analyzeShots(videoPath, sceneCuts, meta.durationSec, dir)).shots;
+      shots = (await analyzeShots(viewPath, sceneCuts, meta.durationSec, dir)).shots;
     } catch { /* best-effort */ }
   } finally {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});

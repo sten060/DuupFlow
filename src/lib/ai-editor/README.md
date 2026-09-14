@@ -32,6 +32,15 @@
 6. **Sobriété par le moteur, pas par la confiance.** Claude sur-dose (grade,
    effets) → les bornes sont DANS le moteur (clamps gradeChain, budget
    d'entrées, durée max). La guidance prêche, le moteur garantit.
+   Deux applications de ce principe, ajoutées après des variantes à refaire :
+   - **Captions : pas de mot orphelin.** Le découpage en lignes est ÉQUILIBRÉ
+     (même nombre de lignes, largeurs égalisées) et ne coupe plus au milieu d'un
+     nombre (espace fine insécable dans le séparateur de milliers). Le moteur ne
+     peut pas deviner qu'un texte est trop long : la guidance demande en plus à
+     Claude d'écrire court et de VÉRIFIER sur les keyframes du rendu.
+   - **Animations : rien par défaut.** `animation` ne s'utilise que sur demande
+     du user ou sur un effet MESURÉ dans la réf. Une animation ajoutée « pour
+     faire joli » éloigne de la référence et fait tout recommencer.
 7. **Peu d'outils MCP, profonds.** `get_reference` (percevoir) ·
    `list_material`/`get_material` (la matière) · `create_variant`/
    `update_variant` (exécuter + itérer). On creuse ces outils, on n'en ajoute

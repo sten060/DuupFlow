@@ -362,14 +362,16 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   const boxOpacity = clamp(num(c.backgroundOpacity, 1), 0, 1);
 
   const size: CaptionSize = c.size === "s" || c.size === "l" ? c.size : "m";
-  const fsz = c.fontSize && c.fontSize > 6 ? Math.round((c.fontSize * W) / 1080) : Math.round(W * SIZE_RATIO[size]);
+  // `let` et non `const` : la taille DEMANDÉE peut être rabotée plus bas si la
+  // caption ne tient pas en deux lignes (cf. AUTO-AJUSTEMENT).
+  let fsz = c.fontSize && c.fontSize > 6 ? Math.round((c.fontSize * W) / 1080) : Math.round(W * SIZE_RATIO[size]);
   const color = hex(c.color, sticker ? "#111111" : "#ffffff"); // sticker → texte foncé contrasté par défaut
   // D1 : strokeColor "none" OU strokeWidth ≤ 0 = PAS de contour (style ombre
   // douce sans outline — courant dans les réfs). Avant, "none" échouait le parse
   // hex et retombait silencieusement sur un contour noir.
   const noStroke = String(c.strokeColor ?? "").trim().toLowerCase() === "none" || (c.strokeWidth != null && num(c.strokeWidth, 1) <= 0);
   const strokeColor = hex(c.strokeColor, "#000000");
-  const strokeW = Math.max(2, Math.round((c.strokeWidth != null ? c.strokeWidth : fsz * 0.16)));
+  let strokeW = Math.max(2, Math.round((c.strokeWidth != null ? c.strokeWidth : fsz * 0.16)));
   const align = c.align === "left" ? "start" : c.align === "right" ? "end" : "middle";
 
   // Police : famille (repli auto si le .ttf n'est pas encore déposé). Les emojis
@@ -388,7 +390,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   const boldFor = (w: number) => Math.max(0, Math.min(1, (w - 400) / 500)) * fsz * 0.055;
   const fauxBold = boldFor(weight);
   const lineMul = clamp(num(c.lineHeight, 1.24), 0.9, 2.2);
-  const lineH = Math.round(fsz * lineMul);
+  let lineH = Math.round(fsz * lineMul);
   const tf = (s: string) => (c.textTransform === "uppercase" ? s.toUpperCase() : s);
 
   // ── Spans « designés » : style (couleur/police/italique/poids) PAR MOT ──
@@ -436,11 +438,17 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
     for (const { segment } of _seg.segment(s)) v += isEmojiGrapheme(segment) ? 2 : 1;
     return v;
   };
-  const rawWords = rawText.trim().split(/\s+/).filter(Boolean);
+  // On coupe aux espaces ORDINAIRES seulement : les espaces insécables
+  // (U+00A0, U+202F, U+2060) tiennent ensemble ce qui ne doit pas être séparé —
+  // un montant, une unité, un nom propre.
+  const rawWords = rawText.trim().split(/[^\S\u00a0\u202f\u2060]+/).filter(Boolean);
   const words: string[] = [];
   for (const w of rawWords) {
     const allEmoji = EMOJI_RE.test(w) && [..._seg.segment(w)].every((x) => isEmojiGrapheme(x.segment));
-    if (allEmoji && words.length) words[words.length - 1] += " " + w;
+    // Un emoji seul, ou une ponctuation seule, ne part jamais à la ligne : on
+    // la recolle au mot précédent.
+    const ponctSeule = /^[\p{P}\p{S}]+$/u.test(w) && !allEmoji;
+    if ((allEmoji || ponctSeule) && words.length) words[words.length - 1] += (ponctSeule ? "" : " ") + w;
     else words.push(w);
   }
   // Largeur max d'une ligne, dérivée d'une MESURE RÉELLE de la police (poids +
@@ -449,23 +457,75 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   // une marge : le texte ne touche jamais les bords. Repli sur l'ancien estimé.
   const availW = W * 0.90;
   const measAttrs = `font-family="${textFamily}" font-weight="${weight}" font-size="${fsz}"${ls ? ` letter-spacing="${ls}px"` : ""}`;
-  let maxChars = Math.max(8, Math.floor(availW / (fsz * 0.56)));
+  // Largeur d'une « unité visuelle » à la taille demandée. Sert de base au
+  // découpage ET à l'auto-ajustement : à l'échelle k, une unité fait unitW × k.
+  let unitW = fsz * 0.56;
   try {
     const sample = rawText.replace(/\s+/g, " ").trim().slice(0, 120);
     if (sample) {
       const totalW = await measureInk(sharp, sample, measAttrs, fsz);
       const units = Math.max(1, estVis(sample));
-      if (totalW > 0) maxChars = Math.max(8, Math.floor(availW / (totalW / units)));
+      if (totalW > 0) unitW = totalW / units;
     }
   } catch { /* garde le repli */ }
-  const lines: string[] = [];
-  let cur = "";
-  for (const w of words) {
-    const cand = cur ? cur + " " + w : w;
-    if (estVis(cand) > maxChars) { if (cur) lines.push(cur); cur = w; }
-    else cur = cand;
+  /* DÉCOUPAGE ÉQUILIBRÉ.
+     Le remplissage glouton bourre la première ligne puis laisse ce qui reste
+     tomber à la ligne — d'où le mot seul en bas (« …en 30 » / « jours »), qui
+     donne une caption bancale et moins lisible. On garde le MÊME nombre de
+     lignes (donc la même taille de texte, rien ne rétrécit) mais on cherche la
+     largeur de ligne la plus petite qui tient encore en autant de lignes : les
+     lignes s'égalisent d'elles-mêmes et le mot orphelin remonte. */
+  const decouper = (largeur: number): string[] => {
+    const out: string[] = [];
+    let cur = "";
+    for (const w of words) {
+      const cand = cur ? cur + " " + w : w;
+      if (estVis(cand) > largeur) { if (cur) out.push(cur); cur = w; }
+      else cur = cand;
+    }
+    if (cur) out.push(cur);
+    return out;
+  };
+  /** Mise en page complète à une échelle de taille donnée (1 = taille demandée). */
+  const misEnPage = (echelle: number): string[] => {
+    const largeur = Math.max(8, Math.floor(availW / (unitW * echelle)));
+    let l = decouper(largeur);
+    if (l.length > 1) {
+      const total = estVis(words.join(" "));
+      for (let w = Math.ceil(total / l.length); w < largeur; w++) {
+        const essai = decouper(w);
+        if (essai.length === l.length) { l = essai; break; }
+      }
+    }
+    return l;
+  };
+
+  let lines = misEnPage(1);
+
+  /* AUTO-AJUSTEMENT — la borne côté moteur, pas la bonne volonté de Claude.
+     Une caption sur trois lignes ou plus est illisible en short-form ; elle
+     vient d'un texte trop long pour la taille demandée. Plutôt que d'espérer
+     que le modèle s'en aperçoive sur les keyframes, on rabote la taille jusqu'à
+     ce que ça tienne en deux lignes.
+     Deux garde-fous :
+       · −15 % MAXIMUM. Au-delà, on laisse tel quel : le texte est trop long, et
+         c'est à Claude de le raccourcir, pas au moteur de le rendre minuscule.
+       · on ne réduit QUE si ça fait vraiment gagner une ligne. Sinon la taille
+         demandée est respectée à l'identique.
+     Les captions à `spans` sont épargnées : leurs tailles sont posées portion
+     par portion, donc explicitement voulues. */
+  if (!hasSpans && lines.length > 2) {
+    for (const echelle of [0.95, 0.9, 0.85]) {
+      const essai = misEnPage(echelle);
+      if (essai.length <= 2) {
+        fsz = Math.max(8, Math.round(fsz * echelle));
+        if (c.strokeWidth == null) strokeW = Math.max(2, Math.round(fsz * 0.16));
+        lineH = Math.round(fsz * lineMul);
+        lines = essai;
+        break;
+      }
+    }
   }
-  if (cur) lines.push(cur);
   const used = lines.slice(0, 5);
   const n = used.length;
 
@@ -1781,7 +1841,11 @@ export async function renderVariant(
           const suf = typeof c.counter.suffix === "string" ? c.counter.suffix : "";
           const fmt = (v: number) => {
             const [int, fr] = v.toFixed(dec).split(".");
-            const g = int.replace(/^(-?)(\d+)/, (_, sg, ds) => sg + ds.replace(/\B(?=(\d{3})+(?!\d))/g, " "));
+            // Espace fine INSÉCABLE (U+202F) et non une espace ordinaire : le
+            // découpage en lignes coupe aux espaces, et « 10 000 € » se
+            // retrouvait à cheval sur deux lignes — « 10 » en fin de ligne,
+            // « 000 € » au début de la suivante. Un nombre ne se coupe pas.
+            const g = int.replace(/^(-?)(\d+)/, (_, sg, ds) => sg + ds.replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f"));
             return pre + (fr ? `${g},${fr}` : g) + suf;
           };
           const steps = Math.max(1, Math.min(14, MAX_CAPTION_OPS - capOps.length - remainingCaps));
@@ -2240,7 +2304,27 @@ let _fullFf: string | null | undefined; // undefined = pas encore cherché
 async function ffmpegWithTonemap(): Promise<string | null> {
   if (_fullFf !== undefined) return _fullFf;
   const { execFileSync } = await import("child_process");
-  const candidates = [process.env.AI_EDITOR_FFMPEG_FULL, "/tmp/ffmpeg", "/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "ffmpeg"].filter(Boolean) as string[];
+  /* Liste alignée sur celle du DUPLICATEUR vidéo (processVideos.resolveFfmpeg),
+     qui a réglé ce problème depuis longtemps. Manquaient ici :
+       · FFMPEG_BIN / FFMPEG_PATH — l'override explicite d'un déploiement ;
+       · le binaire que le moteur a DÉJÀ retenu par capacité ;
+       · le chemin du profil Nix (nixpacks), seul emplacement sur Railway.
+     Sans eux, la recherche pouvait échouer alors qu'un ffmpeg capable était là,
+     et la conversion HDR→SDR était silencieusement sautée : vidéo iPhone rendue
+     avec les couleurs du fichier brut. */
+  let moteur: string | null = null;
+  try { moteur = ffmpegBinPath(); } catch { /* aucun binaire résolu */ }
+  const candidates = [
+    process.env.AI_EDITOR_FFMPEG_FULL,
+    process.env.FFMPEG_BIN,
+    process.env.FFMPEG_PATH,
+    moteur,
+    "/tmp/ffmpeg",
+    "/usr/bin/ffmpeg",
+    "/usr/local/bin/ffmpeg",
+    "/nix/var/nix/profiles/default/bin/ffmpeg",
+    "ffmpeg",
+  ].filter(Boolean).filter((b, i, l) => l.indexOf(b) === i) as string[];
   for (const bin of candidates) {
     try {
       const out = execFileSync(bin, ["-hide_banner", "-filters"], { encoding: "utf8", timeout: 10_000, stdio: ["ignore", "pipe", "ignore"] });
