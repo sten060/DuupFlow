@@ -62,9 +62,12 @@ export async function resolveEffectivePlan(userId: string): Promise<PlanType> {
   // API access than the account that pays for the seat.
   let overdue = p.payment_overdue === true;
   if (p.is_guest && p.host_user_id) {
-    const { data: host } = await admin.from("profiles").select("plan, payment_overdue").eq("id", p.host_user_id).single();
-    const h = host as { plan: string | null; payment_overdue: boolean | null } | null;
-    plan = h?.plan ?? plan;
+    const { data: host } = await admin.from("profiles").select("plan, has_paid, payment_overdue").eq("id", p.host_user_id).single();
+    const h = host as { plan: string | null; has_paid: boolean | null; payment_overdue: boolean | null } | null;
+    // Même règle que usage.ts : seul un hôte Pro transmet son plan. Un hôte
+    // redescendu en Solo ne peut plus faire profiter ses invités de l'API.
+    const hostPlan = h?.plan ?? (h?.has_paid ? "pro" : "free");
+    plan = hostPlan === "pro" ? "pro" : "free";
     if (h?.payment_overdue === true) overdue = true;
   }
   if (!plan) plan = p.has_paid ? "pro" : "free";

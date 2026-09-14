@@ -38,7 +38,11 @@ export default async function AiDetectionPage() {
       .select("plan, has_paid")
       .eq("id", profile.host_user_id)
       .single();
-    effectivePlan = hostProfile?.plan ?? (hostProfile?.has_paid ? "pro" : "free");
+    // Même règle que lib/usage.ts : SEUL un hôte Pro transmet son plan. Sinon
+    // la page s'ouvrait pour l'invité d'un hôte redescendu en Solo, alors que
+    // l'action refusait derrière — écran visible, bouton mort.
+    const hostPlan = hostProfile?.plan ?? (hostProfile?.has_paid ? "pro" : "free");
+    effectivePlan = hostPlan === "pro" ? "pro" : "free";
   }
   if (!effectivePlan) {
     effectivePlan = profile?.has_paid ? "pro" : "free";

@@ -134,7 +134,11 @@ export async function POST(req: Request) {
     ({ dir, userId } = await getOutDirForCurrentUser());
   } catch (e: any) {
     // Rien ne sera produit → on rend le quota réservé à l'instant.
-    await releaseUsage(usageCheck.userId, "images", totalImages).catch(() => {});
+    // ⚠️ `reservation.trialCredit` est OBLIGATOIRE : quand le lot a été payé par
+    // les crédits d'essai, le compteur de quota n'a PAS été incrémenté. Rendre
+    // sans le drapeau décrémentait ce compteur intact → quota offert en prime,
+    // et les crédits perdus.
+    await releaseUsage(usageCheck.userId, "images", totalImages, reservation.trialCredit).catch(() => {});
     return Response.json({ error: e?.message || t("errors.image.authError") }, { status: 500 });
   }
 
@@ -248,7 +252,7 @@ export async function POST(req: Request) {
         // journal analytique que ce qui a réellement été livré.
         if (usageCheck.userId) {
           const unused = totalImages - processedOk;
-          if (unused > 0) releaseUsage(usageCheck.userId, "images", unused).catch(console.error);
+          if (unused > 0) releaseUsage(usageCheck.userId, "images", unused, reservation.trialCredit).catch(console.error);
           if (processedOk > 0) void logUsageEvent(usageCheck.userId, "images", processedOk);
         }
         try { controller.close(); } catch {}

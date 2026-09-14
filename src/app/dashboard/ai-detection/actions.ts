@@ -8,7 +8,7 @@ import sharp from "sharp";
 import { spawn } from "child_process";
 import { getFFmpegBin, scrubMovVendorId } from "@/app/dashboard/videos/processVideos";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
-import { checkUsage, incrementUsage } from "@/lib/usage";
+import { checkUsage, reserveUsage, releaseUsage } from "@/lib/usage";
 import { runImageOp } from "@/lib/imageProcessingLimiter";
 import { getServerT } from "@/lib/i18n/server";
 import { buildHumanMeta } from "@/lib/ai-identity";
@@ -340,6 +340,34 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
     isPartial = true;
   }
 
+  /* ── RÉSERVATION ATOMIQUE ─────────────────────────────────────────────────
+     Ce module réservait son quota À L'ENVERS des deux autres : il LISAIT le
+     compteur au début (checkUsage) et ne l'écrivait qu'à la FIN du traitement
+     (incrementUsage). Entre les deux, plusieurs dizaines de secondes pendant
+     lesquelles le compteur ne bouge pas : deux lots lancés en même temps (deux
+     onglets suffisent) passaient TOUS LES DEUX le contrôle, et un Starter à
+     80 signatures pouvait en produire bien davantage. C'est exactement la faille
+     que `consume_usage` a fermée pour les vidéos et les images (migration 055) ;
+     les signatures IA étaient restées sur l'ancien schéma.
+     On réserve donc AVANT de travailler, et on rend en fin de course ce qui n'a
+     pas été produit. */
+  let reservedImages = 0;
+  if (effectiveImageFiles.length > 0 && usageCheck.userId && usageCheck.plan !== "pro") {
+    const reservation = await reserveUsage(usageCheck.userId, "ai_signatures", effectiveImageFiles.length);
+    if (!reservation.allowed) {
+      return {
+        ok: false,
+        count: 0,
+        files: [],
+        error: reservation.message ?? t("errors.aiDetection.signatureLimitReached"),
+        limitReached: true,
+        current: reservation.current,
+        limit: reservation.limit,
+      };
+    }
+    reservedImages = effectiveImageFiles.length;
+  }
+
   let dir: string;
   try {
     ({ dir } = await getOutDirForCurrentUser());
@@ -468,11 +496,13 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
 
   console.log(`[ai-detection] done — ${count}/${items.length} file(s) processed`);
 
-  // ── Increment usage after successful processing ────────────────────────────
+  // ── Restitution de ce qui a été réservé mais pas produit ───────────────────
+  // Le quota a été pris AVANT le traitement : ici on ne fait que rendre les
+  // unités des fichiers qui ont échoué. Le user n'est décompté que du livré.
   const imageCount = outFiles.filter((f) => IMAGE_EXTS.some((e) => f.toLowerCase().endsWith(e))).length;
-  // Count usage for any quota'd plan (Solo + Free). Pro is unlimited.
-  if (imageCount > 0 && usageCheck.userId && usageCheck.plan !== "pro") {
-    await incrementUsage(usageCheck.userId, "ai_signatures", imageCount).catch(console.error);
+  if (reservedImages > 0 && usageCheck.userId) {
+    const unused = reservedImages - imageCount;
+    if (unused > 0) await releaseUsage(usageCheck.userId, "ai_signatures", unused).catch(console.error);
   }
 
   if (isPartial) {

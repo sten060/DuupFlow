@@ -100,13 +100,21 @@ export async function effectivePlanForUser(userId: string): Promise<string | nul
   if (profile.is_guest && profile.host_user_id) {
     const { data: hostProfile } = await admin
       .from("profiles")
-      .select("plan, payment_overdue")
+      .select("plan, has_paid, payment_overdue")
       .eq("id", profile.host_user_id)
       .single();
-    effectivePlan = hostProfile?.plan ?? effectivePlan;
-    if ((hostProfile as { payment_overdue?: boolean } | null)?.payment_overdue === true) {
-      overdue = true;
-    }
+    const h = hostProfile as { plan: string | null; has_paid: boolean | null; payment_overdue?: boolean } | null;
+    const hostPlan = h?.plan ?? (h?.has_paid ? "pro" : "free");
+    /* ⚠️ SEUL Pro peut inviter — et seul Pro donne son plan à ses invités.
+       Le quota est compté PAR UTILISATEUR : chaque invité a sa propre ligne
+       dans usage_tracking. Tant que l'hôte est Pro c'est sans conséquence
+       (Pro est illimité), mais un hôte qui redescend en Solo en gardant ses
+       3 invités offrait à son équipe QUATRE fois le quota Solo sur un seul
+       abonnement — rien ne retirait les invités à la rétrogradation.
+       L'invité d'un hôte non-Pro retombe donc sur le plan gratuit, comme il le
+       fait déjà quand l'hôte est en défaut de paiement (juste en dessous). */
+    effectivePlan = hostPlan === "pro" ? "pro" : "free";
+    if (h?.payment_overdue === true) overdue = true;
   }
   if (!effectivePlan) effectivePlan = profile.has_paid ? "pro" : "free";
   if (overdue) effectivePlan = "free";
