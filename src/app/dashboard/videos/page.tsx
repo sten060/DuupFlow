@@ -77,17 +77,24 @@ export default function VideosHub() {
           </div>
         </Link>
 
-        {/* IA automatique — pleine largeur, verrouillé — fuchsia */}
-        <div
-          aria-disabled="true"
-          className="md:col-span-2 relative flex flex-col justify-center overflow-hidden p-8 sm:p-10 cursor-not-allowed
-                     border border-fuchsia-500/20"
+        {/* IA automatique — pleine largeur, fuchsia. FERMÉE tant que le flag
+            NEXT_PUBLIC_AI_AUTO_BETA n'est pas posé (feature en chantier) : la
+            carte s'affiche « Bientôt disponible » et n'est pas cliquable ; la
+            page /dashboard/videos/ai porte le même verrou pour l'URL directe. */}
+        {process.env.NEXT_PUBLIC_AI_AUTO_BETA === "1" ? (
+        <Link
+          href="/dashboard/videos/ai"
+          data-tour-id="video-mode-ai"
+          className="group md:col-span-2 relative flex flex-col justify-center overflow-hidden p-8 sm:p-10 transition-all
+                     border border-fuchsia-500/20 hover:border-fuchsia-400/40"
           style={{ background: "rgba(217,70,239,0.05)" }}
         >
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+               style={{ background: "radial-gradient(700px at 30% 30%, rgba(217,70,239,.10), transparent 70%)" }} />
           <span className="absolute right-5 top-5 inline-flex items-center gap-1 rounded-full border border-fuchsia-500/45 bg-fuchsia-500/[0.14] px-2.5 py-0.5 text-[11px] font-semibold text-fuchsia-200">
-            🔒 {t("dashboard.videos.aiSoon")}
+            ✨ BETA
           </span>
-          <div className="relative max-w-xl opacity-80">
+          <div className="relative max-w-xl">
             <span className="flex h-12 w-12 items-center justify-center rounded-xl text-fuchsia-400"
                   style={{ background: "rgba(217,70,239,0.10)", border: "1px solid rgba(217,70,239,0.22)" }}>
               <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
@@ -98,11 +105,39 @@ export default function VideosHub() {
             <p className="mt-2 text-sm leading-relaxed text-[var(--app-text-muted)]">
               {t("dashboard.videos.aiDesc")}
             </p>
-            <div className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-fuchsia-300/70">
-              <span>{t("dashboard.videos.aiSoon")}</span>
+            <div className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-fuchsia-300 group-hover:gap-3 transition-all">
+              <span>{t("dashboard.videos.aiStart")}</span>
+              <span aria-hidden>→</span>
+            </div>
+          </div>
+        </Link>
+        ) : (
+        <div
+          data-tour-id="video-mode-ai"
+          aria-disabled
+          className="md:col-span-2 relative flex flex-col justify-center overflow-hidden p-8 sm:p-10 border border-fuchsia-500/15 cursor-default select-none"
+          style={{ background: "rgba(217,70,239,0.04)" }}
+        >
+          <span className="absolute right-5 top-5 inline-flex items-center gap-1 rounded-full border border-fuchsia-500/35 bg-fuchsia-500/[0.10] px-2.5 py-0.5 text-[11px] font-semibold text-fuchsia-300/90">
+            ✨ {t("dashboard.videos.aiSoonBadge")}
+          </span>
+          <div className="relative max-w-xl opacity-75">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl text-fuchsia-400"
+                  style={{ background: "rgba(217,70,239,0.10)", border: "1px solid rgba(217,70,239,0.22)" }}>
+              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
+                <path d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8l4.4-1.6L12 2zm6 10l.9 2.5L21.5 15l-2.6.9L18 18.5l-.9-2.6L14.5 15l2.6-.5L18 12zM6 13l.8 2.2L9 16l-2.2.8L6 19l-.8-2.2L3 16l2.2-.8L6 13z" />
+              </svg>
+            </span>
+            <h2 className="mt-5 text-xl font-bold tracking-tight text-[var(--app-text)]">{t("dashboard.videos.aiTitle")}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--app-text-muted)]">
+              {t("dashboard.videos.aiDesc")}
+            </p>
+            <div className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[var(--app-text-faint)]">
+              <span>{t("dashboard.videos.aiSoonCta")}</span>
             </div>
           </div>
         </div>
+        )}
       </section>
     </main>
   );

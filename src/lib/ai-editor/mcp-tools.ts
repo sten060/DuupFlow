@@ -8,7 +8,7 @@
 import { getLatestProject, projectPaths } from "./store";
 import type { Project } from "./store";
 import { renderVariant, variantKeyframes, materialKeyframes, ENGINE_BUILD } from "./render";
-import { startRenderJob, getRenderJob, waitForJob, runningJobsFor, jobElapsed, jobRenderElapsed, isQueued, queuePosition, queueSnapshot, type RenderJob } from "./render-jobs";
+import { startRenderJob, getRenderJob, cancelRenderJob, waitForJob, runningJobsFor, jobElapsed, jobRenderElapsed, isQueued, queuePosition, queueSnapshot, type RenderJob } from "./render-jobs";
 import type { EditPlan } from "./render";
 import { CAPTION_FONTS, fontCatalogLines } from "./font-catalog";
 import { GAP_BLANK_SEC, BLANK_MAX_RATIO, GAP_MICRO_SEC, GAP_EDGE_TRIM_FALLBACK_SEC, RETAKE_NGRAM, RETAKE_CHAIN_GAP_SEC, RETAKE_STRICT_GAP_SEC, RETAKE_MIN_SPAN_SEC, REF_IMAGES_SHOWN, MCP_IMAGE_WIDTH, MCP_IMAGE_QUALITY } from "./analysis-config";
@@ -139,6 +139,7 @@ export const TOOLS = [
           properties: {
             materialId: { type: "string", description: "id (de list_material) d'une matière audio ou vidéo (on prend sa piste son)." },
             startSec: { type: "number", description: "décalage de départ dans la piste (s). Défaut 0." },
+            endSec: { type: "number", description: "la musique S'ARRÊTE à cette seconde DU MONTAGE (silence ensuite). Absent = elle joue jusqu'au bout." },
             volume: { type: "number", description: "0-2 (1 = normal). Défaut 1." },
             mode: { type: "string", enum: ["mix", "replace"], description: "mix = par-dessus le son des plans (défaut) ; replace = remplace le son des plans." },
             duck: { description: "MIX only : DUCKING — baisse auto la musique quand une VOIX parle dans les plans, puis la remonte (sinon dialogue + musique se couvrent). true = valeurs par défaut (réduction ~12 dB, attack 0.1s, release 0.4s), ou objet { enabled, threshold (0-1), reduction (dB), attack (s), release (s) }.", anyOf: [{ type: "boolean" }, { type: "object", properties: { enabled: { type: "boolean" }, threshold: { type: "number" }, reduction: { type: "number" }, attack: { type: "number" }, release: { type: "number" } } }] },
@@ -289,7 +290,7 @@ export const TOOLS = [
               position: { type: "string", enum: ["top", "center", "bottom"], description: "Position rapide (défaut bottom). Ignorée si x/y fournis." },
               x: { type: "number", description: "Centre horizontal en % (0-100)." },
               y: { type: "number", description: "Centre vertical en % (0-100). Ex. réf ≈ 13 (haut)." },
-              align: { type: "string", enum: ["left", "center", "right"], description: "Alignement (défaut center)." },
+              align: { type: "string", enum: ["left", "center", "right"], description: "Alignement des LIGNES à l'intérieur du bloc multi-lignes (défaut center) — ne déplace PAS le bloc à l'écran (ça, c'est x/y)." },
               style: { type: "string", enum: ["outline", "box", "sticker"], description: "outline = gros texte contour (défaut) ; box = fond ; sticker = RACCOURCI style TikTok/IG (fond OPAQUE à coins très arrondis + padding généreux + texte gras sans contour). Avec sticker, donne juste background (couleur du bloc) et color (texte) ; le reste est réglé automatiquement." },
               background: { type: "string", description: "Couleur de fond hex → force le style box ; \"none\" → force outline (sans fond). Le fond est désormais OPAQUE par défaut." },
               backgroundOpacity: { type: "number", description: "Opacité du fond 0-1 (défaut 1 = opaque). Baisse-la pour un fond translucide." },
@@ -316,9 +317,11 @@ export const TOOLS = [
               strokeWidth: { type: "number", description: "Épaisseur du contour en px. 0 = pas de contour." },
                             font: { type: "string", enum: CAPTION_FONTS, description: `Famille de police, parmi le catalogue : ${fontCatalogLines()}.` },
               fontWeight: { type: "number", description: "Graisse 100-900." },
+              italic: { type: "boolean", description: "Texte en italique." },
+              underline: { type: "boolean", description: "Texte souligné." },
               letterSpacing: { type: "number", description: "Interlettrage en px." },
               lineHeight: { type: "number", description: "Interligne (multiplicateur, défaut 1.24)." },
-              textTransform: { type: "string", enum: ["none", "uppercase"], description: "uppercase = TOUT EN MAJUSCULES." },
+              textTransform: { type: "string", enum: ["none", "uppercase", "lowercase", "capitalize"], description: "uppercase = TOUT EN MAJUSCULES · lowercase = tout en minuscules · capitalize = Première Lettre De Chaque Mot." },
               shadowColor: { type: "string", description: "Ombre portée (hex) — distincte du contour ; \"none\" pour aucune." },
               shadowBlur: { type: "number", description: "Flou de l'ombre en px." },
               shadowOffset: { type: "number", description: "Décalage de l'ombre en px (bas-droite)." },
@@ -377,13 +380,28 @@ export const TOOLS = [
       "Appelle get_render avec ce renderId : l'appel PATIENTE jusqu'à ~25 s et te répond dès que la vidéo est prête (avec ses images) ; si c'est encore en cours, rappelle-le. " +
       "NE RELANCE JAMAIS create_variant pour un rendu déjà en cours : tu lancerais un second rendu qui occuperait une place et ralentirait tout. " +
       "FILE D'ATTENTE : le serveur ne rend que 2 variantes à la fois — au-delà, les rendus ATTENDENT LEUR TOUR (statut « ⏸ EN FILE », avec leur position). Un rendu en file ne consomme rien et n'est pas perdu, il n'a simplement pas commencé. " +
-      "Sans renderId, l'outil te donne l'état complet : ce qui rend, ce qui attend, et à quelle place.",
+      "Sans renderId, l'outil te donne l'état complet : ce qui rend, ce qui attend, et à quelle place. " +
+      "Un rendu inutile ou anormalement long peut être STOPPÉ avec cancel_render(renderId) : il libère son créneau en quelques secondes et rien n'est facturé.",
     inputSchema: {
       type: "object",
       properties: {
         renderId: { type: "string", description: "Le ticket renvoyé par create_variant / update_variant (ex. « rj_a1b2c3d4 »). Omis → liste les rendus en cours." },
         ...IMAGES_PROP,
       },
+    },
+  },
+  {
+    name: "cancel_render",
+    description:
+      "ANNULE un rendu en cours ou en file (ticket renvoyé par create_variant / update_variant). Le ffmpeg en cours est tué, le créneau est libéré en quelques secondes et le quota est rendu — rien n'est facturé. " +
+      "Sers-t'en quand un rendu est devenu inutile (le user a changé d'avis, un doublon est parti par erreur) ou qu'il bloque la file. Un rendu annulé est PERDU : pour une version corrigée, relance create_variant ensuite.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        renderId: { type: "string", description: "Le ticket du rendu à annuler (ex. « rj_a1b2c3d4 »). get_render sans argument liste les tickets en cours." },
+      },
+      required: ["renderId"],
+      additionalProperties: false,
     },
   },
   {
@@ -1081,7 +1099,9 @@ export async function callTool(userId: string, name: string, args?: Record<strin
   }
 
   if (name === "create_variant") {
-    if (!project.reference) return { content: [{ type: "text", text: "Ajoute d'abord une référence." }], isError: true };
+    // Pas de garde sur la référence : elle est OPTIONNELLE (le user peut passer
+    // l'étape). Sans réf, Claude compose librement avec la matière ; get_reference
+    // le lui dit proprement s'il la demande.
     if (!project.materials.length) return { content: [{ type: "text", text: "Aucune matière : le user doit ajouter des fichiers dans DuupFlow." }], isError: true };
     const blocked = await guardVariantQuota(userId);
     if (blocked) return { content: [blocked], isError: true };
@@ -1135,6 +1155,42 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     }
     const done = await waitForJob(job, POLL_WAIT_MS);
     return { content: await jobContent(done, wantImages(args, true)), isError: done.status === "failed" };
+  }
+
+  if (name === "cancel_render") {
+    const id = String(args?.renderId || "").trim();
+    const job = id ? getRenderJob(id) : null;
+    if (!job || job.userId !== userId) {
+      const running = runningJobsFor(userId);
+      return {
+        content: [{
+          type: "text",
+          text: `Ticket introuvable : ${id || "(vide)"}.${running.length ? ` Tes rendus en cours : ${running.map((j) => j.id).join(", ")}.` : " Aucun rendu en cours pour toi — rien à annuler."}`,
+        }],
+        isError: true,
+      };
+    }
+    if (cancelRenderJob(job) === "already-finished") {
+      return {
+        content: [{
+          type: "text",
+          text: job.status === "done"
+            ? `Trop tard pour annuler : ${job.id} est DÉJÀ TERMINÉ (variante rendue en ${jobElapsed(job)}). Récupère-la avec get_render, ou ignore-la simplement.`
+            : `Rien à annuler : ${job.id} avait déjà échoué (${job.error ?? "erreur inconnue"}).`,
+        }],
+      };
+    }
+    // On laisse quelques secondes au SIGKILL pour libérer le créneau, afin de
+    // répondre avec un état de file À JOUR (sinon « annulé » + file inchangée).
+    await waitForJob(job, 5_000);
+    const q = queueSnapshot();
+    return {
+      content: [{
+        type: "text",
+        text: `🛑 Rendu ${job.id}${job.label ? ` « ${job.label} »` : ""} annulé (après ${jobElapsed(job)}). Créneau libéré, quota rendu — rien n'est facturé. ` +
+          `État de la file : ${q.active}/${q.max} créneau(x) occupé(s), ${q.waiting} en attente. Un rendu qui attendait son tour démarre automatiquement.`,
+      }],
+    };
   }
 
   if (name === "list_variants") {

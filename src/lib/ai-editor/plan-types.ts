@@ -148,6 +148,7 @@ export type EditCaption = {
   text: string;
   startSec: number;
   endSec: number;
+  lane?: number;         // piste d'AFFICHAGE dans l'éditeur manuel (organisation de la timeline) — ignoré au rendu
   position?: "top" | "center" | "bottom";
   x?: number;            // centre horizontal en % (0-100) — prioritaire sur position
   y?: number;            // centre vertical en % (0-100)
@@ -166,9 +167,11 @@ export type EditCaption = {
   strokeWidth?: number;  // px
   font?: CaptionFont;    // famille de police
   fontWeight?: number;   // 400-900
+  italic?: boolean;      // texte en italique
+  underline?: boolean;   // texte souligné
   letterSpacing?: number;// px (interlettrage)
   lineHeight?: number;   // multiplicateur (défaut 1.24)
-  textTransform?: "none" | "uppercase";
+  textTransform?: "none" | "uppercase" | "lowercase" | "capitalize";
   shadowColor?: string;  // ombre portée (distincte du contour)
   shadowBlur?: number;   // px
   shadowOffset?: number; // px (décalage bas-droite)
@@ -223,6 +226,7 @@ export type AudioDuck = {
 export type EditAudioTrack = {
   materialId: string;      // matière audio OU vidéo (on prend sa piste son)
   startSec?: number;       // décalage dans la piste
+  endSec?: number;         // la musique S'ARRÊTE à cette seconde DU MONTAGE (absent = jusqu'au bout)
   volume?: number;         // 0-2, défaut 1
   mode?: "mix" | "replace";// mix (par-dessus le son des plans, défaut) | replace
   duck?: boolean | AudioDuck; // MIX only : baisse la musique quand une voix parle dans les plans

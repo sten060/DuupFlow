@@ -9,6 +9,7 @@ import { Readable } from "stream";
 import archiver from "archiver";
 import { createClient } from "@/lib/supabase/server";
 import { getProject, projectPaths } from "@/lib/ai-editor/store";
+import { cleanFileName } from "@/lib/ai-editor/file-name";
 
 export const dynamic = "force-dynamic";
 
@@ -37,8 +38,8 @@ export async function GET(req: NextRequest) {
     const fp = path.join(vd, v.storedName);
     if (!fp.startsWith(vd)) continue; // garde path-traversal
     if (!fsSync.existsSync(fp)) continue; // fichier expiré/absent → on saute
-    // Nom lisible + unique dans l'archive.
-    const base = (v.label || `variante-${v.id}`).replace(/[^\w\-. À-ÿ]/g, "").trim() || `variante-${v.id}`;
+    // Nom lisible (le même que la galerie — règle partagée) + unique dans l'archive.
+    const base = cleanFileName(v.label || "") || `variante-${project.variants.findIndex((x) => x.id === v.id) + 1}`;
     let name = `${base}.mp4`;
     let n = 2;
     while (used.has(name.toLowerCase())) name = `${base} (${n++}).mp4`;

@@ -12,6 +12,8 @@ import { useTranslation } from "@/lib/i18n/context";
 import { setEtapeEditeur } from "../onboarding/aiStepStore";
 import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
 import DriveSaveButton from "../components/DriveSaveButton";
+import ManualEditor from "./ManualEditor";
+import { cleanFileName } from "@/lib/ai-editor/file-name";
 
 const BRAND = "linear-gradient(135deg,#6366F1,#38BDF8)";
 
@@ -90,7 +92,9 @@ type Material = {
 };
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-type VariantItem = { id: string; label?: string; poster: string | null };
+// `plan` : le montage (EditPlan) de la variante — présent sur les variantes
+// récentes, absent des toutes premières. C'est lui qui ouvre l'éditeur manuel.
+type VariantItem = { id: string; label?: string; poster: string | null; plan?: Record<string, unknown> };
 
 /* ──────────────────────────────────────────────────────────────────────────
  * PROGRESSION D'IMPORT
@@ -195,6 +199,8 @@ export default function AiEditorClient() {
   const [matProg, setMatProg] = useState<Record<string, Progression>>({});
 
   const [drawer, setDrawer] = useState<{ open: boolean; variantId?: string; label?: string }>({ open: false });
+  // Éditeur manuel (retouche d'une variante) — plein écran par-dessus le workspace.
+  const [manualEdit, setManualEdit] = useState<string | null>(null); // variantId
   // Sélection multiple des variantes (téléchargement groupé / envoi Drive).
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toggleSelect = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -296,6 +302,19 @@ export default function AiEditorClient() {
     void analyzeRef({ url: u, replacePid: projectId ?? undefined });
   };
   const resetRef = () => { setRefFile(null); setRefUrl(""); setRefSource(null); setAnalysis(null); setAnalyzeErr(null); };
+  // La référence est OPTIONNELLE : « Passer » crée (ou réutilise) un projet vide
+  // pour que l'upload de matière ait un endroit où aller, puis avance.
+  const skipRef = useCallback(async () => {
+    try {
+      if (!projectId) {
+        const res = await fetch("/api/ai-editor/project", { method: "POST" });
+        const { project } = await res.json();
+        if (!project?.id) return;
+        setProjectId(project.id);
+      }
+      setStep("material");
+    } catch { /* réseau : on reste sur l'étape */ }
+  }, [projectId]);
   const retryRef = () => {
     const pid = projectId ?? undefined;
     if (refSource?.type === "file" && refFile) void analyzeRef({ file: refFile, replacePid: pid });
@@ -525,7 +544,7 @@ export default function AiEditorClient() {
           <div className="mt-5 flex flex-wrap gap-2">
             <span data-tour-id="aie-connect"><StepPill n={1} label={t("dashboard.aiEditor.stepConnect")} state={stepState("connect")} onClick={() => setStep("connect")} /></span>
             <span data-tour-id="aie-ref"><StepPill n={2} label={t("dashboard.aiEditor.stepRef")} state={stepState("ref")} onClick={() => setStep("ref")} /></span>
-            <span data-tour-id="aie-material"><StepPill n={3} label={t("dashboard.aiEditor.stepMaterial")} state={stepState("material")} onClick={() => refReady && setStep("material")} /></span>
+            <span data-tour-id="aie-material"><StepPill n={3} label={t("dashboard.aiEditor.stepMaterial")} state={stepState("material")} onClick={() => (refReady || projectId) && setStep("material")} /></span>
           </div>
         </header>
       )}
@@ -686,8 +705,13 @@ export default function AiEditorClient() {
               </div>
             )}
 
-            <div className="mt-9">
+            <div className="mt-9 flex items-center gap-4">
               <PrimaryBtn onClick={() => setStep("material")} disabled={!refReady}>{t("dashboard.aiEditor.ref.continue")}</PrimaryBtn>
+              {!refReady && (
+                <button onClick={() => void skipRef()} className="text-[13px] font-medium text-[var(--app-text-faint)] underline underline-offset-2 hover:text-[var(--app-text-muted)]">
+                  {t("dashboard.aiEditor.ref.skip")}
+                </button>
+              )}
             </div>
           </div>
 
@@ -886,10 +910,10 @@ export default function AiEditorClient() {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <div className="truncate text-[13px] font-semibold text-[var(--app-text)]">{refSource?.label ?? t("dashboard.aiEditor.ws.refFallback")}</div>
+                  <div className="truncate text-[13px] font-semibold text-[var(--app-text)]">{refSource?.label ?? t("dashboard.aiEditor.ws.noRefTitle")}</div>
                   {/* Images clés, coupes, transcription : des mesures internes,
                       pas une information pour le user. Seul l'état compte. */}
-                  <div className="mt-0.5 text-[11.5px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ref.analyzed")}</div>
+                  <div className="mt-0.5 text-[11.5px] text-[var(--app-text-faint)]">{refSource ? t("dashboard.aiEditor.ref.analyzed") : t("dashboard.aiEditor.ws.noRefHint")}</div>
                 </div>
               </div>
               {/* Tant qu'elle est là, la référence n'est PAS exploitable par Claude. */}
@@ -1004,7 +1028,7 @@ export default function AiEditorClient() {
                     <button onClick={downloadSelectedZip} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110" style={{ background: BRAND }}>
                       ⬇ {t("dashboard.aiEditor.ws.downloadSelected", { n: selIds.length })}
                     </button>
-                    <DriveSaveButton files={variants.filter((v) => selected.has(v.id)).map((v, i) => ({ url: variantUrl(v.id, true), name: `${(v.label || `variante-${i + 1}`).replace(/[^\w\-. À-ÿ]/g, "").trim() || `variante-${i + 1}`}.mp4` }))} />
+                    <DriveSaveButton files={variants.filter((v) => selected.has(v.id)).map((v, i) => ({ url: variantUrl(v.id, true), name: `${cleanFileName(v.label || "") || `variante-${i + 1}`}.mp4` }))} />
                     <button onClick={removeSelected} className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-400 transition hover:bg-red-500/10">
                       🗑 {t("dashboard.aiEditor.ws.deleteTitle")} ({selIds.length})
                     </button>
@@ -1170,6 +1194,16 @@ export default function AiEditorClient() {
         </section>
       )}
 
+      {/* Éditeur manuel plein écran (retouche d'une variante) */}
+      {manualEdit && projectId && (
+        <ManualEditor
+          projectId={projectId}
+          variantId={manualEdit}
+          onClose={() => { setManualEdit(null); void refreshProject(); }}
+          onExported={() => { void refreshProject(); }}
+        />
+      )}
+
       {/* Drawer édition manuelle */}
       {drawer.open && (
         <>
@@ -1184,17 +1218,34 @@ export default function AiEditorClient() {
                 // eslint-disable-next-line jsx-a11y/media-has-caption
                 <video src={variantUrl(drawer.variantId)} controls playsInline className="mx-auto max-h-[420px] w-auto rounded-xl bg-black" style={{ aspectRatio: "9 / 16" }} />
               )}
-              <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-bg-2)] p-3">
-                <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">{t("dashboard.aiEditor.drawer.manualEdit")} <span className="ml-1 rounded-full border border-[var(--app-border-strong)] px-1.5 py-0.5 text-[9px] normal-case text-[var(--app-text-faint)]">{t("dashboard.aiEditor.drawer.soon")}</span></div>
-                <div className="grid grid-cols-2 gap-2 opacity-55">
-                  {[["✍️", t("dashboard.aiEditor.drawer.toolHook")], ["💬", t("dashboard.aiEditor.drawer.toolCaptions")], ["✂️", t("dashboard.aiEditor.drawer.toolCut")], ["⏩", t("dashboard.aiEditor.drawer.toolSpeed")], ["🔍", t("dashboard.aiEditor.drawer.toolReframe")], ["🎞️", t("dashboard.aiEditor.drawer.toolOrder")]].map(([ic, l]) => (
-                    <div key={l} className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] px-2.5 py-2 text-[12px] text-[var(--app-text)]">
-                      <span>{ic}</span>{l}
+              {/* Édition manuelle : ouvre l'éditeur (timeline + retouche) sur cette
+                  variante. Les toutes premières variantes n'ont pas de plan stocké
+                  → bouton grisé avec explication, pas d'écran d'erreur. */}
+              {(() => {
+                const v = variants.find((x) => x.id === drawer.variantId);
+                const editable = !!v?.plan;
+                return (
+                  <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-bg-2)] p-3">
+                    <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">{t("dashboard.aiEditor.drawer.manualEdit")}</div>
+                    <div className="mb-2.5 grid grid-cols-2 gap-2">
+                      {[["💬", t("dashboard.aiEditor.drawer.toolCaptions")], ["✂️", t("dashboard.aiEditor.drawer.toolCut")], ["⏩", t("dashboard.aiEditor.drawer.toolSpeed")], ["🎞️", t("dashboard.aiEditor.drawer.toolOrder")]].map(([ic, l]) => (
+                        <div key={l} className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] px-2.5 py-2 text-[12px] text-[var(--app-text)]">
+                          <span>{ic}</span>{l}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <p className="mt-2 text-[11px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.drawer.note")}</p>
-              </div>
+                    <button
+                      onClick={() => { if (editable && drawer.variantId) { setManualEdit(drawer.variantId); setDrawer({ open: false }); } }}
+                      disabled={!editable}
+                      className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
+                      style={{ background: BRAND }}
+                    >
+                      ✂️ {t("dashboard.aiEditor.editor.open")}
+                    </button>
+                    {!editable && <p className="mt-2 text-[11px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.editor.noPlan")}</p>}
+                  </div>
+                );
+              })()}
             </div>
             <div className="mt-auto flex gap-2.5 border-t border-[var(--app-border)] px-4 py-3.5">
               {drawer.variantId && (

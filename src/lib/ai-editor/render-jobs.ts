@@ -38,6 +38,11 @@ export type RenderJob = {
   error: string | null;
   /** Résolveurs en attente (long polling) réveillés dès la fin du rendu. */
   waiters: Array<() => void>;
+  /** Annulation (cancel_render) : abort() tue le ffmpeg en cours et libère le
+   *  créneau en quelques secondes. `cancelled` distingue un vrai échec d'un stop
+   *  volontaire dans les messages. */
+  abort: AbortController;
+  cancelled: boolean;
 };
 
 const JOBS = new Map<string, RenderJob>();
@@ -65,6 +70,7 @@ export function startRenderJob(
     label: typeof plan.label === "string" ? plan.label : "",
     startedAt: Date.now(), renderStartedAt: null, finishedAt: null,
     status: "running", result: null, error: null, waiters: [],
+    abort: new AbortController(), cancelled: false,
   };
   JOBS.set(job.id, job);
 
@@ -75,6 +81,7 @@ export function startRenderJob(
       const res = await renderVariant(userId, projectId, plan, {
         derivedFrom: opts?.derivedFrom,
         onStart: () => { job.renderStartedAt = Date.now(); },
+        signal: job.abort.signal,
       });
       if ("error" in res) { job.status = "failed"; job.error = res.error; }
       else { job.status = "done"; job.result = res; }
@@ -97,6 +104,16 @@ export function startRenderJob(
 export function getRenderJob(id: string): RenderJob | null {
   sweep();
   return JOBS.get(id) ?? null;
+}
+
+/** Annule un rendu (en file OU en plein encodage : le ffmpeg est tué). Le
+ *  créneau est libéré en quelques secondes et le quota rendu via onFailed.
+ *  Renvoie l'état constaté, pour un message honnête côté MCP. */
+export function cancelRenderJob(job: RenderJob): "cancelled" | "already-finished" {
+  if (job.status !== "running") return "already-finished";
+  job.cancelled = true;
+  job.abort.abort();
+  return "cancelled";
 }
 
 /** Tickets encore en cours pour ce user (pour guider Claude s'il a perdu l'id). */

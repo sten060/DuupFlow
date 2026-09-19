@@ -7,6 +7,7 @@ import fs from "fs/promises";
 import path from "path";
 import { createClient } from "@/lib/supabase/server";
 import { getProject, projectPaths, removeVariant } from "@/lib/ai-editor/store";
+import { cleanFileName } from "@/lib/ai-editor/file-name";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +35,18 @@ export async function GET(req: NextRequest) {
   let buf: Buffer;
   try { buf = await fs.readFile(filePath); } catch { return NextResponse.json({ error: "Fichier absent." }, { status: 404 }); }
 
-  const safeName = (variant.label ? variant.label.replace(/[^a-z0-9_-]+/gi, "_").slice(0, 40) : `variante_${id}`) + ".mp4";
-  const disposition = `${download ? "attachment" : "inline"}; filename="${safeName}"`;
+  // Le fichier téléchargé porte le nom AFFICHÉ dans la galerie — même règle que
+  // l'archive zip et l'envoi Drive (accents et espaces conservés, seuls les
+  // caractères interdits d'un nom de fichier sont retirés). Sans label (vieilles
+  // variantes) → « variante-N », N étant la position affichée dans la galerie —
+  // jamais l'identifiant technique, illisible pour le user.
+  const idx = project!.variants.findIndex((v) => v.id === id);
+  const base = cleanFileName(variant.label || "") || `variante-${idx + 1}`;
+  const safeName = `${base}.mp4`;
+  // filename* (UTF-8) porte le vrai nom ; filename reste un repli ASCII pour les
+  // vieux clients qui ignorent la forme encodée.
+  const asciiName = safeName.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "");
+  const disposition = `${download ? "attachment" : "inline"}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(safeName)}`;
   const total = buf.length;
 
   // Support des requêtes Range (206) → lecture + seek robustes (Safari inclus).

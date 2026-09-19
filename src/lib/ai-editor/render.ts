@@ -99,7 +99,7 @@ const MAX_CAPTION_OPS = 160;
 /** Version du MOTEUR, renvoyée dans la réponse de create_variant et loguée à
  *  chaque rendu. Sert à répondre en 10 s à « le correctif est-il déployé ? »
  *  sans fouiller les logs. À INCRÉMENTER à chaque changement du filtergraph. */
-export const ENGINE_BUILD = "2026-08-12.5-no-share";
+export const ENGINE_BUILD = "2026-09-18.1-deadline-cancel";
 /** Version du binaire ffmpeg RÉELLEMENT utilisé (prod ≠ local possible : env
  *  FFMPEG_BIN, ffmpeg système…). Lue une fois, pour les diagnostics. */
 let _ffv: string | null = null;
@@ -391,7 +391,11 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   const fauxBold = boldFor(weight);
   const lineMul = clamp(num(c.lineHeight, 1.24), 0.9, 2.2);
   let lineH = Math.round(fsz * lineMul);
-  const tf = (s: string) => (c.textTransform === "uppercase" ? s.toUpperCase() : s);
+  const tf = (s: string) =>
+    c.textTransform === "uppercase" ? s.toUpperCase()
+    : c.textTransform === "lowercase" ? s.toLowerCase()
+    : c.textTransform === "capitalize" ? s.replace(/\p{L}[\p{L}\p{M}'’-]*/gu, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
+    : s;
 
   // ── Spans « designés » : style (couleur/police/italique/poids) PAR MOT ──
   // Quand des spans sont fournis, le texte rendu vient d'eux et chaque mot porte
@@ -539,7 +543,9 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   const firstBaseline = centerY - Math.round(blockH / 2) + fsz;
 
   const lsAttr = ls ? ` letter-spacing="${ls}px"` : "";
-  const textAttrs = `font-family="${textFamily}" font-weight="${weight}" font-size="${fsz}"${lsAttr}`;
+  // Italique/souligné au niveau de la caption (les spans gardent leur propre italique).
+  const deco = `${c.italic ? ` font-style="italic"` : ""}${c.underline ? ` text-decoration="underline"` : ""}`;
+  const textAttrs = `font-family="${textFamily}" font-weight="${weight}" font-size="${fsz}"${lsAttr}${deco}`;
   const emojiTextAttrs = `font-family="${EMOJI_TEXT_FALLBACK}" font-weight="${weight}" font-size="${fsz}"${lsAttr}`;
   // Emoji calé sur l'em-box (≈1.15em pour compenser le padding transparent des assets
   // et matcher la hauteur des majuscules), centré optiquement sur le texte.
@@ -551,6 +557,8 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   // on réserve une case carrée par emoji, pour placer chaque élément au pixel.
   type Placed = { x: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string; attrs?: string; bold?: number; fill?: CaptionFill };
   const placedLines: Array<{ baseline: number; runs: Placed[]; width: number }> = [];
+  type MeasuredRun = { adv: number; kind: "text" | "emoji-img" | "emoji-text"; s?: string; dataUri?: string; color?: string; attrs?: string; bold?: number; fill?: CaptionFill };
+  const measuredLines: Array<{ measured: MeasuredRun[]; lineW: number }> = [];
   let maxLineW = 0;
   let wordIdx = 0;                       // compteur GLOBAL de mots (pour hlWord/karaoké)
   const spaceAdv = Math.round(fsz * 0.26);
@@ -584,9 +592,20 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
     }
     const lineW = measured.reduce((m, r) => m + r.adv, 0);
     maxLineW = Math.max(maxLineW, lineW);
+    measuredLines.push({ measured, lineW });
+  }
+
+  // 2e passage : positions absolues. L'ALIGNEMENT structure les lignes À
+  // L'INTÉRIEUR du bloc (toutes collées à gauche / centrées / à droite) — le
+  // bloc lui-même reste centré sur anchorX : le déplacer, c'est x/y, pas align.
+  // (Sémantique CapCut ; sur une caption d'UNE ligne, rien ne change.)
+  const blockLeft = anchorX - Math.round(maxLineW / 2);
+  for (let i = 0; i < measuredLines.length; i++) {
+    const { measured, lineW } = measuredLines[i];
     const baseline = firstBaseline + i * lineH;
-    const startX = align === "start" ? anchorX : align === "end" ? anchorX - lineW : anchorX - Math.round(lineW / 2);
-    // 2e passage : positions absolues.
+    const startX = align === "start" ? blockLeft
+      : align === "end" ? blockLeft + (maxLineW - lineW)
+      : anchorX - Math.round(lineW / 2);
     const placed: Placed[] = [];
     let x = startX;
     for (const r of measured) {
@@ -698,7 +717,9 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
     const padY = c.paddingY != null ? px1080(c.paddingY) : c.padding != null ? px1080(c.padding) : Math.round(fsz * (sticker ? 0.45 : 0.25));
     const extraX = padX - Math.round(fsz * 0.4), extraY = padY - Math.round(fsz * 0.25);
     const boxW = Math.round(Math.min(W * 0.96, maxLineW + fsz * 0.8 + 2 * extraX));
-    const boxX = clamp(align === "start" ? anchorX - Math.round(fsz * 0.4) - extraX : align === "end" ? anchorX - boxW + Math.round(fsz * 0.4) + extraX : anchorX - Math.round(boxW / 2), 6, W - boxW - 6);
+    // Le bloc est toujours centré sur anchorX (l'alignement ne joue QUE sur les
+    // lignes à l'intérieur) → la boîte de fond aussi.
+    const boxX = clamp(anchorX - Math.round(boxW / 2), 6, W - boxW - 6);
     const boxY = firstBaseline - fsz - extraY;
     const boxH = blockH + Math.round(fsz * 0.5) + 2 * extraY;
     // Rayon des coins (px @1080). Défaut 16 ; sticker ≈ fsz*0.5 (très arrondi). Borné à la demi-boîte.
@@ -1276,7 +1297,7 @@ export async function renderVariant(
   userId: string,
   projectId: string,
   plan: EditPlan,
-  extra?: { derivedFrom?: string; onStart?: () => void },
+  extra?: { derivedFrom?: string; onStart?: () => void; signal?: AbortSignal },
 ): Promise<{ variant: ProjectVariant; keyframes: OutKeyframe[]; durationSec: number } | { error: string }> {
   const project = await getProject(userId, projectId);
   if (!project) return { error: "Projet introuvable." };
@@ -1313,10 +1334,21 @@ export async function renderVariant(
   const overDeadline = () => elapsed() > RENDER_DEADLINE_MS;
   const deadlineFail = (stage: string) =>
     cleanFail(`Rendu trop long (${Math.round(elapsed() / 1000)}s, limite ${Math.round(RENDER_DEADLINE_MS / 1000)}s) — abandonné à l'étape « ${stage} » pour ne pas bloquer le serveur. Allège le plan : moins de plans composités (overlays), moins d'effets de vitesse, ou des rushs moins lourds (4K → 1080p).`);
+  // Annulation demandée (cancel_render) : on s'arrête à la prochaine frontière
+  // d'étape — et le signal tue aussi le ffmpeg EN COURS via runFFmpeg.
+  const aborted = () => extra?.signal?.aborted === true;
+  const abortFail = () => cleanFail("Rendu annulé à ta demande — créneau libéré, rien n'est facturé.");
+  // Chaque appel ffmpeg est borné par le TEMPS RESTANT de la deadline globale
+  // (plancher 15 s pour laisser l'erreur sortir proprement). Sans ça, 3 passes
+  // captions à 10 min chacune pouvaient occuper un créneau ~30 min alors que la
+  // limite affichée est de 8 min (incident du 18/09 : 2 rendus « fantômes »).
+  const ffBudget = (capMs = 10 * 60 * 1000) => Math.max(15_000, Math.min(capMs, RENDER_DEADLINE_MS - elapsed()));
 
   // Tout le corps est enveloppé : AUCUNE exception ne remonte nue au MCP → message
   // exploitable (préparation des plans, composite, ffmpeg…) + nettoyage garanti.
   try {
+  // Annulé pendant l'attente en file → on rend le créneau tout de suite.
+  if (aborted()) return await abortFail();
   // Couleur de la matière : si TOUS les rushs vidéo du plan partagent le même
   // profil HDR, on reporte leurs étiquettes sur le rendu. Profils mélangés
   // (HDR + SDR) → on ne tague pas : taguer tout en HDR abîmerait les plans SDR.
@@ -1964,7 +1996,13 @@ export async function renderVariant(
         const replace = plan.audio.mode === "replace";
         const tIdx = inputs.reduce((n, a) => (a === "-i" ? n + 1 : n), 0);
         inputs.push("-i", tabs);
-        const trk = `[${tIdx}:a]atrim=start=${startSec.toFixed(3)},asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo,volume=${vol.toFixed(3)}`;
+        // endSec (s DU MONTAGE) : la musique s'arrête là. atrim borne la source,
+        // puis apad remplit de SILENCE jusqu'au bout — indispensable en mode mix :
+        // une entrée qui SE TERMINE ferait renormaliser amix (le son des plans
+        // bondirait ×2 après la fin de la musique) ; du silence la garde active.
+        const endSec = num(plan.audio.endSec, 0);
+        const trimEnd = endSec > 0.05 ? `:end=${(startSec + endSec).toFixed(3)}` : "";
+        const trk = `[${tIdx}:a]atrim=start=${startSec.toFixed(3)}${trimEnd},asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo,volume=${vol.toFixed(3)}${trimEnd ? ",apad" : ""}`;
         if (replace) {
           // REMPLACE : le son des plans n'est PAS mixé (pas d'amix, pas de 2e entrée).
           // On mappe UNIQUEMENT la piste externe, calée sur la durée du montage
@@ -2054,18 +2092,19 @@ export async function renderVariant(
     ];
 
     if (overDeadline()) return deadlineFail("préparation des plans");
+    if (aborted()) return abortFail();
     let code = 0, stderr = "";
     if (wantTransitions) {
-      const rv = await runFFmpeg(ffThreaded(videoArgs()), 10 * 60 * 1000);
-      const ra = rv.code === 0 ? await runFFmpeg(ffThreaded(audioArgs()), 10 * 60 * 1000) : rv;
-      const rm = ra.code === 0 ? await runFFmpeg(ffThreaded(muxArgs()), 5 * 60 * 1000) : ra;
+      const rv = await runFFmpeg(ffThreaded(videoArgs()), ffBudget(), 64_000, extra?.signal);
+      const ra = rv.code === 0 ? await runFFmpeg(ffThreaded(audioArgs()), ffBudget(), 64_000, extra?.signal) : rv;
+      const rm = ra.code === 0 ? await runFFmpeg(ffThreaded(muxArgs()), ffBudget(5 * 60 * 1000), 64_000, extra?.signal) : ra;
       code = rm.code; stderr = rm.stderr;
       if (code !== 0) {
         console.warn("[ai-editor/render] two-pass transitions échouée → repli sur cut ·", ffCause(stderr));
-        ({ code, stderr } = await runFFmpeg(ffThreaded(buildArgs(false)), 10 * 60 * 1000));
+        ({ code, stderr } = await runFFmpeg(ffThreaded(buildArgs(false)), ffBudget(), 64_000, extra?.signal));
       }
     } else {
-      ({ code, stderr } = await runFFmpeg(ffThreaded(buildArgs(false)), 10 * 60 * 1000));
+      ({ code, stderr } = await runFFmpeg(ffThreaded(buildArgs(false)), ffBudget(), 64_000, extra?.signal));
     }
     if (code !== 0) {
       // stderr peut être VIDE (kill/OOM/timeout) → un message « Rendu FFmpeg
@@ -2082,10 +2121,14 @@ export async function renderVariant(
     // aucune perte). Chaque passe ré-encode la vidéo (crf 19, perte invisible).
     console.log(`[ai-editor/render] montage assemblé en ${(elapsed() / 1000).toFixed(1)}s · ${segs.length} plan(s) · ${capOps.length} op(s) caption`);
     if (capOps.length) {
-      if (overDeadline()) return deadlineFail("incrustation des sous-titres");
       const CHUNK = 28;
       let curVideo = outPath;
       for (let c0 = 0; c0 < capOps.length; c0 += CHUNK) {
+        // Contrôles À CHAQUE passe : ils n'étaient faits qu'AVANT la boucle, et
+        // 62 ops = 3 passes de ré-encodage complet — la deadline globale n'était
+        // jamais revue une fois la boucle entamée.
+        if (overDeadline()) return deadlineFail("incrustation des sous-titres");
+        if (aborted()) return abortFail();
         const chunk = capOps.slice(c0, c0 + CHUNK);
         const passOut = path.join(dir, `cap_pass_${c0}.mp4`);
         const pargs = ["-y", "-hide_banner", "-loglevel", "error", "-i", curVideo];
@@ -2109,7 +2152,7 @@ export async function renderVariant(
           "-c:a", "copy", "-movflags", "+faststart",
           passOut,
         );
-        const pr = await runFFmpeg(ffThreaded(pargs), 10 * 60 * 1000);
+        const pr = await runFFmpeg(ffThreaded(pargs), ffBudget(), 64_000, extra?.signal);
         if (pr.code !== 0) return { error: `Rendu des sous-titres échoué (passe ${Math.floor(c0 / CHUNK) + 1}) : ${pr.stderr.slice(-200)}` };
         curVideo = passOut;
       }
@@ -2176,6 +2219,9 @@ export async function renderVariant(
     if (!variant) return { error: "Enregistrement de la variante échoué." };
     return { variant, keyframes, durationSec };
   } catch (e) {
+    // Annulation demandée en plein encodage : runFFmpeg rejette « rendu annulé ».
+    // Ce n'est pas un échec — message dédié, sans le préfixe « Rendu échoué ».
+    if (aborted()) return { error: "Rendu annulé à ta demande — créneau libéré, rien n'est facturé." };
     console.error("[ai-editor/render] renderVariant exception:", e);
     return { error: `Rendu échoué : ${(e as Error)?.message?.slice(0, 240) ?? "erreur interne"}` };
   } finally {
@@ -2377,6 +2423,16 @@ export async function proxyForViewing(abs: string): Promise<string> {
     if (used !== abs) console.log(`[ai-editor/analyze] envoi à Gemini de la version allégée : ${path.basename(used)}`);
     return used;
   } catch { return abs; }
+}
+
+/** Version à SERVIR AU NAVIGATEUR (éditeur manuel) : le proxy SDR/allégé s'il a
+ *  déjà été fabriqué (à l'upload), sinon l'original. Ne fabrique JAMAIS rien —
+ *  une requête de lecture ne doit pas déclencher des minutes de conversion ; un
+ *  original HDR se lit moins fidèlement, c'est le repli assumé. */
+export async function existingViewingProxy(abs: string): Promise<string> {
+  const proxy = abs.replace(/\.[^.]+$/, "") + `.sdr-${PROXY_REV}.mp4`;
+  try { const st = await fs.stat(proxy); if (st.size > 1000) return proxy; } catch { /* pas de proxy */ }
+  return abs;
 }
 
 /** Le rush est-il nettement plus grand que ce qu'on rend ? Une 4K pour une

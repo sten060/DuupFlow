@@ -85,11 +85,22 @@ export function runFFmpeg(
   // Taille max de stderr conservée. Les passes d'ANALYSE (ebur128 ≈ 10
   // lignes/s) doivent la monter — tronquer amputerait la timeline d'énergie
   // et fausserait la découpe intelligente.
-  maxStderrBytes = 64_000
+  maxStderrBytes = 64_000,
+  // Annulation coopérative : un abort tue le process SUR-LE-CHAMP (SIGKILL).
+  // Sans ça, annuler un rendu ne libérait le créneau qu'à la fin de la passe
+  // ffmpeg en cours — jusqu'à 10 min d'attente pour un « stop ».
+  signal?: AbortSignal
 ): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new Error("rendu annulé")); return; }
     const p = spawn(getFfmpegBin(), args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
+    const onAbort = () => {
+      clearTimeout(timer);
+      p.kill("SIGKILL");
+      reject(new Error("rendu annulé"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
     const timer = setTimeout(() => {
       p.kill("SIGKILL");
       reject(new Error(`ffmpeg timeout après ${Math.round(timeoutMs / 1000)}s`));
@@ -101,10 +112,12 @@ export function runFFmpeg(
     });
     p.on("error", (err) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       reject(new Error(`ffmpeg introuvable : ${err.message}`));
     });
     p.on("close", (code) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       resolve({ code: code ?? -1, stderr });
     });
   });
