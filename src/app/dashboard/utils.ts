@@ -38,6 +38,11 @@ export async function getOutDirForCurrentUserRSC() {
 /** Expose OUT_BASE so cleanup utilities can scan all user dirs */
 export { OUT_BASE };
 
+// Compressor outputs (CMP_ prefix) are kept at least 2 h, whatever retention the
+// caller asks for — duplication routes clean with 1 h, and big compression
+// batches (videos over 1 GB, slow uploads) need more time to be downloaded.
+const COMPRESS_OUTPUT_MIN_MS = 2 * 60 * 60 * 1000;
+
 /**
  * Delete all output files (images & videos) older than `maxAgeMs` across
  * every user's subfolder under OUT_BASE.
@@ -64,7 +69,8 @@ export async function cleanupOldFiles(maxAgeMs = 1 * 60 * 60 * 1000): Promise<nu
                 const fp = path.join(dir, f.name);
                 try {
                   const stat = await fs.stat(fp);
-                  if (now - stat.mtimeMs > maxAgeMs) { await fs.unlink(fp); deleted++; }
+                  const keepMs = f.name.startsWith("CMP_") ? Math.max(maxAgeMs, COMPRESS_OUTPUT_MIN_MS) : maxAgeMs;
+                  if (now - stat.mtimeMs > keepMs) { await fs.unlink(fp); deleted++; }
                 } catch {}
               })
           );

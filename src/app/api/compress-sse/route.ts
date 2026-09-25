@@ -51,7 +51,7 @@ const TIMEOUT_PER_VIDEO_SECOND = 6;
 const timeoutForVideo = (durationSec: number) =>
   Math.max(MIN_TIMEOUT_MS, Math.round(durationSec * TIMEOUT_PER_VIDEO_SECOND * 1000));
 // Finished outputs of a running batch are re-touched this often so the shared
-// 1-h cleanup (cleanupOldFiles) never deletes them before the batch ends.
+// cleanup (cleanupOldFiles, 2 h for CMP_ files) never deletes them before the batch ends.
 const OUTPUT_TOUCH_EVERY_MS = 10 * 60 * 1000;
 const randHex = (n = 4) => crypto.randomBytes(n).toString("hex");
 const extOf = (n: string) => {
@@ -328,8 +328,9 @@ export async function POST(req: Request) {
         try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch {}
       }, 20_000);
       // Outputs finished so far: kept fresh during the batch, then once more at
-      // the end → they stay downloadable ~1 h AFTER the batch, not after they
-      // were produced (a long batch would otherwise lose its first files).
+      // the end → they stay downloadable ~2 h AFTER the batch (cleanupOldFiles
+      // keeps CMP_ files 2 h), not after they were produced — a long batch would
+      // otherwise lose its first files.
       const doneOutputs: string[] = [];
       const touchOutputs = async () => {
         const now = new Date();
