@@ -68,6 +68,8 @@
       "batchTooHeavy": "{names} non ajouté(s) : le lot dépasserait la limite de {max}. Place restante : {left}.",
       "batchLimitServer": "Lot refusé : {maxFiles} fichiers et {max} maximum par lot. Retire des fichiers puis relance.",
       "serverUnavailable": "L'envoi de « {name} » a été interrompu : le serveur ne répondait plus (mise à jour ou surcharge). Réessaie dans une minute.",
+      "uploadSessionLost": "L'envoi a été interrompu côté serveur (redémarrage). Relance la compression.",
+      "uploadFailed": "L'envoi de « {name} » a échoué. Vérifie ta connexion puis réessaie.",
       "connectionLost": "Connexion avec le serveur perdue. La compression continue en arrière-plan : recharge la page dans quelques minutes pour récupérer tes fichiers.",
       "reason": {
         "timeout": "« {name} » : la compression a dépassé la limite de {minutes} minutes. Essaie le niveau « Fort » ou raccourcis la vidéo.",

@@ -31,6 +31,69 @@ function saveResume(jobId: string) {
 function clearResume() {
   try { localStorage.removeItem(RESUME_KEY); } catch {}
 }
+// Files above this go through /api/upload-chunk: ~50 MB chunks, 4 in parallel,
+// each retried alone. A single-request upload of a multi-GB file on an ordinary
+// connection exceeds Railway's 15-min cap per HTTP request (→ 502), and parallel
+// chunks are also much faster on far / high-latency links.
+const CHUNKED_THRESHOLD = 1024 * 1024 * 1024; // 1 GB
+const CHUNK_PARALLEL = 4;
+const CHUNK_RETRIES = 4;
+
+class UploadError extends Error {}
+
+async function uploadChunked(
+  file: File,
+  onFraction: (frac: number) => void,
+  signal: AbortSignal,
+  msgs: { unavailable: string; failed: string },
+): Promise<{ uploadId: string; name: string }> {
+  const base = "/api/upload-chunk";
+  const init = await fetch(`${base}?action=init&fileName=${encodeURIComponent(file.name)}&size=${file.size}`, { method: "POST", signal });
+  const initJson = await init.json().catch(() => ({}));
+  if (!init.ok) throw new UploadError(initJson?.error || ([502, 503, 504].includes(init.status) ? msgs.unavailable : msgs.failed));
+  const { uploadId, chunkSize } = initJson as { uploadId: string; chunkSize: number };
+
+  const count = Math.ceil(file.size / chunkSize);
+  const loaded = new Array<number>(count).fill(0);
+  const report = () => onFraction(loaded.reduce((a, b) => a + b, 0) / file.size);
+  let next = 0;
+
+  const sendChunk = async (i: number) => {
+    const start = i * chunkSize;
+    const blob = file.slice(start, Math.min(file.size, start + chunkSize));
+    for (let attempt = 0; ; attempt++) {
+      let status = 0;
+      let error = "";
+      try {
+        const res = await uploadWithProgress(`${base}?action=chunk&uploadId=${encodeURIComponent(uploadId)}&index=${i}`, blob, {
+          signal,
+          onProgress: (f) => { loaded[i] = f * blob.size; report(); },
+        });
+        if (res.ok) { loaded[i] = blob.size; report(); return; }
+        status = res.status;
+        error = (await res.json().catch(() => ({})))?.error || "";
+      } catch (e: any) {
+        if (e?.name === "AbortError") throw e;
+        status = 0; // network drop → retry
+      }
+      // Session gone (server restarted) or refused → retrying this chunk won't help.
+      if (status === 404 || status === 413 || status === 401) throw new UploadError(error || msgs.failed);
+      if (attempt >= CHUNK_RETRIES) throw new UploadError([0, 502, 503, 504].includes(status) ? msgs.unavailable : error || msgs.failed);
+      loaded[i] = 0; report();
+      await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt));
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(CHUNK_PARALLEL, count) }, async () => {
+    while (next < count) await sendChunk(next++);
+  }));
+
+  const done = await fetch(`${base}?action=complete&uploadId=${encodeURIComponent(uploadId)}`, { method: "POST", signal });
+  const doneJson = await done.json().catch(() => ({}));
+  if (!done.ok) throw new UploadError(doneJson?.error || msgs.failed);
+  return { uploadId: doneJson.uploadId, name: doneJson.name ?? file.name };
+}
+
 function loadResume(): string | null {
   try {
     const v = JSON.parse(localStorage.getItem(RESUME_KEY) || "null");
@@ -327,27 +390,38 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
       let doneBytes = 0;
       const upStart = Date.now();
       for (const file of files) {
+        const onProgress = (frac: number) => {
+          const sent = doneBytes + frac * file.size;
+          setProgress(Math.round((sent / totalBytes) * 20));
+          const elapsed = (Date.now() - upStart) / 1000;
+          const left = elapsed > 5 && sent > 0 ? Math.round((elapsed / sent) * (totalBytes - sent)) : null;
+          setProgressLabel(t("compress.uploadingLive", {
+            current: String(doneUploads + 1),
+            total: String(files.length),
+            sent: formatBytes(sent, locale),
+            size: formatBytes(totalBytes, locale),
+            percent: String(Math.floor((sent / totalBytes) * 100)),
+          }) + (left !== null
+            ? ` · ${t("compress.timeLeft", { time: left >= 60 ? `${Math.ceil(left / 60)} min` : `${Math.max(1, left)} s` })}`
+            : ""));
+        };
+
+        if (file.size > CHUNKED_THRESHOLD) {
+          const up = await uploadChunked(file, onProgress, ctrl.signal, {
+            unavailable: t("compress.errors.serverUnavailable", { name: file.name }),
+            failed: t("compress.errors.uploadFailed", { name: file.name }),
+          });
+          doneUploads++;
+          doneBytes += file.size;
+          setProgress(Math.round((doneBytes / totalBytes) * 20));
+          uploads.push(up);
+          continue;
+        }
+
         const res = await uploadWithProgress(
           `/api/upload-direct?fileName=${encodeURIComponent(file.name)}`,
           file,
-          {
-            signal: ctrl.signal,
-            onProgress: (frac) => {
-              const sent = doneBytes + frac * file.size;
-              setProgress(Math.round((sent / totalBytes) * 20));
-              const elapsed = (Date.now() - upStart) / 1000;
-              const left = elapsed > 5 && sent > 0 ? Math.round((elapsed / sent) * (totalBytes - sent)) : null;
-              setProgressLabel(t("compress.uploadingLive", {
-                current: String(doneUploads + 1),
-                total: String(files.length),
-                sent: formatBytes(sent, locale),
-                size: formatBytes(totalBytes, locale),
-                percent: String(Math.floor((sent / totalBytes) * 100)),
-              }) + (left !== null
-                ? ` · ${t("compress.timeLeft", { time: left >= 60 ? `${Math.ceil(left / 60)} min` : `${Math.max(1, left)} s` })}`
-                : ""));
-            },
-          },
+          { signal: ctrl.signal, onProgress },
         );
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
