@@ -356,7 +356,8 @@ export default function ManualEditor({ projectId, variantId, onClose, onExported
   /* ── Sélection + export + zoom timeline ── */
   const [sel, setSel] = useState<{ kind: "segment" | "caption" | "audio"; idx: number } | null>(null);
   const [tlZoom, setTlZoom] = useState(1); // 1 = tout le montage visible, jusqu'à ×8
-  const [exportState, setExportState] = useState<{ jobId: string; queued: boolean } | { done: string } | { error: string } | null>(null);
+  const [exportTick, setExportTick] = useState(0); // horloge 1 s de la modale d'export (chrono)
+  const [exportState, setExportState] = useState<{ jobId: string; queued: boolean; startedAt: number } | { done: string } | { error: string } | null>(null);
   const [exportLabel, setExportLabel] = useState("");
 
   const mats = useMemo(() => new Map((project?.materials ?? []).map((m) => [m.id, m])), [project]);
@@ -749,7 +750,7 @@ export default function ManualEditor({ projectId, variantId, onClose, onExported
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Export impossible.");
-      setExportState({ jobId: json.jobId, queued: true });
+      setExportState({ jobId: json.jobId, queued: true, startedAt: Date.now() });
     } catch (e) {
       setExportState({ error: (e as Error).message });
     }
@@ -771,7 +772,7 @@ export default function ManualEditor({ projectId, variantId, onClose, onExported
           window.clearInterval(id);
           setExportState({ error: json.error || "Rendu échoué." });
         } else if (json.queued !== exportState.queued) {
-          setExportState({ jobId: exportState.jobId, queued: json.queued });
+          setExportState({ jobId: exportState.jobId, queued: json.queued, startedAt: exportState.startedAt });
         }
       } catch (e) {
         window.clearInterval(id);
@@ -781,6 +782,12 @@ export default function ManualEditor({ projectId, variantId, onClose, onExported
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exportState && "jobId" in exportState ? exportState.jobId + String(exportState.queued) : ""]);
+
+  useEffect(() => { // tick 1 s pendant l'export (chrono de la modale)
+    if (!exportState || !("jobId" in exportState)) return;
+    const id = window.setInterval(() => setExportTick((n) => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [exportState]);
 
   const reset = useCallback(() => {
     if (!basePlan) return;
@@ -1147,7 +1154,21 @@ export default function ManualEditor({ projectId, variantId, onClose, onExported
               <>
                 <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-[3px] border-indigo-500 border-t-transparent" />
                 <div className="text-[15px] font-bold text-[var(--app-text)]">{exportState.queued ? t("dashboard.aiEditor.editor.queued") : t("dashboard.aiEditor.editor.rendering")}</div>
+                {/* Chrono : le user voit que ça avance (le moteur coupe de
+                    lui-même à 8 min avec un message clair). exportTick = tick 1 s. */}
+                <div className="mt-1.5 font-mono text-[13px] tabular-nums text-[var(--app-text-muted)]" data-tick={exportTick}>
+                  {(() => { const s = Math.max(0, Math.floor((Date.now() - exportState.startedAt) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; })()}
+                </div>
                 <p className="mt-2 text-[12.5px] text-[var(--app-text-muted)]">{t("dashboard.aiEditor.editor.renderNote")}</p>
+                <button
+                  onClick={() => {
+                    void fetch(`/api/ai-editor/edit?jobId=${encodeURIComponent(exportState.jobId)}`, { method: "DELETE" }).catch(() => {});
+                    setExportState(null);
+                  }}
+                  className="mt-5 rounded-lg border border-[var(--app-border-strong)] px-4 py-2 text-sm font-medium text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
+                >
+                  {t("dashboard.aiEditor.editor.cancelRender")}
+                </button>
               </>
             ) : "done" in exportState ? (
               <>

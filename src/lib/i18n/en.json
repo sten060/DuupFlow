@@ -512,6 +512,7 @@
         "queued": "Waiting in queue…",
         "rendering": "Rendering…",
         "renderNote": "The engine is building your video (30 s to a few minutes depending on the edit). You can keep this window open.",
+        "cancelRender": "Cancel render",
         "done": "Export complete ✅",
         "doneNote": "Your new variant is in the gallery. The original is kept — and edits are free, they don't count towards your quota.",
         "keepEditing": "Keep editing",

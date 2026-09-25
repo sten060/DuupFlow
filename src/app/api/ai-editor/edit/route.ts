@@ -15,7 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getProject } from "@/lib/ai-editor/store";
-import { startRenderJob, getRenderJob } from "@/lib/ai-editor/render-jobs";
+import { startRenderJob, getRenderJob, cancelRenderJob } from "@/lib/ai-editor/render-jobs";
 import { logAiEditorRender } from "@/lib/usage";
 import type { EditPlan } from "@/lib/ai-editor/plan-types";
 
@@ -83,4 +83,15 @@ export async function GET(req: NextRequest) {
     variantId: job.result?.variant.id ?? null,
     error: job.error,
   });
+}
+
+// DELETE /api/ai-editor/edit?jobId=… → annule le rendu en cours (tue le ffmpeg,
+// libère le créneau). L'export étant gratuit, il n'y a rien à rembourser.
+export async function DELETE(req: NextRequest) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  const jobId = req.nextUrl.searchParams.get("jobId") || "";
+  const job = getRenderJob(jobId);
+  if (!job || job.userId !== user.id) return NextResponse.json({ error: "Ticket introuvable." }, { status: 404 });
+  return NextResponse.json({ ok: true, result: cancelRenderJob(job) });
 }

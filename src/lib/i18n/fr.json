@@ -512,6 +512,7 @@
         "queued": "En file d’attente…",
         "rendering": "Rendu en cours…",
         "renderNote": "Le moteur fabrique ta vidéo (30 s à quelques minutes selon le montage). Tu peux laisser cette fenêtre ouverte.",
+        "cancelRender": "Annuler le rendu",
         "done": "Export terminé ✅",
         "doneNote": "Ta nouvelle variante est dans la galerie. La version d’origine est conservée — et la retouche est offerte, elle ne compte pas dans ton quota.",
         "keepEditing": "Continuer à retoucher",
