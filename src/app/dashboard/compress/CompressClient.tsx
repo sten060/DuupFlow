@@ -41,6 +41,33 @@ const CHUNK_RETRIES = 4;
 
 class UploadError extends Error {}
 
+// Interrupted chunked uploads, remembered per file so a reload can resume them:
+// the browser forgets the picked file, but the chunks already received stay on
+// the server 1 h after the last activity. Re-selecting the SAME file (name +
+// size + last-modified) sends only the missing chunks.
+const PENDING_UPLOADS_KEY = "duup_compress_pending_uploads";
+const PENDING_MAX_AGE_MS = 60 * 60 * 1000;
+export type PendingUpload = { uploadId: string; name: string; size: number; at: number };
+const fileKey = (f: File) => `${f.name}|${f.size}|${f.lastModified}`;
+
+function readPending(): Record<string, PendingUpload> {
+  try {
+    const all = JSON.parse(localStorage.getItem(PENDING_UPLOADS_KEY) || "{}") as Record<string, PendingUpload>;
+    const now = Date.now();
+    return Object.fromEntries(Object.entries(all).filter(([, v]) => v?.uploadId && now - v.at < PENDING_MAX_AGE_MS));
+  } catch { return {}; }
+}
+function writePending(all: Record<string, PendingUpload>) {
+  try { localStorage.setItem(PENDING_UPLOADS_KEY, JSON.stringify(all)); } catch {}
+}
+function forgetPending(uploadIds: string[]) {
+  const all = readPending();
+  for (const [k, v] of Object.entries(all)) if (uploadIds.includes(v.uploadId)) delete all[k];
+  writePending(all);
+}
+// uploadIds of chunked uploads in flight in this tab (for Stop → abort).
+const activeChunkUploads = new Set<string>();
+
 async function uploadChunked(
   file: File,
   onFraction: (frac: number) => void,
@@ -48,13 +75,40 @@ async function uploadChunked(
   msgs: { unavailable: string; failed: string },
 ): Promise<{ uploadId: string; name: string }> {
   const base = "/api/upload-chunk";
-  const init = await fetch(`${base}?action=init&fileName=${encodeURIComponent(file.name)}&size=${file.size}`, { method: "POST", signal });
-  const initJson = await init.json().catch(() => ({}));
-  if (!init.ok) throw new UploadError(initJson?.error || ([502, 503, 504].includes(init.status) ? msgs.unavailable : msgs.failed));
-  const { uploadId, chunkSize } = initJson as { uploadId: string; chunkSize: number };
+  const key = fileKey(file);
+  let uploadId = "";
+  let chunkSize = 0;
+  let already = new Set<number>();
+
+  // Resume: same file already partly (or fully) sent in the last hour?
+  const prev = readPending()[key];
+  if (prev) {
+    const st = await fetch(`${base}?action=status&uploadId=${encodeURIComponent(prev.uploadId)}`, { method: "POST", signal }).catch(() => null);
+    const sj = st?.ok ? await st.json().catch(() => null) : null;
+    if (sj?.uploadId) {
+      if (sj.complete) return { uploadId: sj.uploadId, name: sj.name ?? file.name };
+      uploadId = sj.uploadId;
+      chunkSize = sj.chunkSize;
+      already = new Set<number>(sj.received);
+    } else {
+      forgetPending([prev.uploadId]); // expired / server restarted → start over
+    }
+  }
+  if (!uploadId) {
+    const init = await fetch(`${base}?action=init&fileName=${encodeURIComponent(file.name)}&size=${file.size}`, { method: "POST", signal });
+    const initJson = await init.json().catch(() => ({}));
+    if (!init.ok) throw new UploadError(initJson?.error || ([502, 503, 504].includes(init.status) ? msgs.unavailable : msgs.failed));
+    ({ uploadId, chunkSize } = initJson as { uploadId: string; chunkSize: number });
+  }
+  const all = readPending();
+  all[key] = { uploadId, name: file.name, size: file.size, at: Date.now() };
+  writePending(all);
+  activeChunkUploads.add(uploadId);
 
   const count = Math.ceil(file.size / chunkSize);
   const loaded = new Array<number>(count).fill(0);
+  for (const i of already) loaded[i] = Math.min(chunkSize, file.size - i * chunkSize);
+  const todo = [...Array(count).keys()].filter((i) => !already.has(i));
   const report = () => onFraction(loaded.reduce((a, b) => a + b, 0) / file.size);
   let next = 0;
 
@@ -69,7 +123,11 @@ async function uploadChunked(
           signal,
           onProgress: (f) => { loaded[i] = f * blob.size; report(); },
         });
-        if (res.ok) { loaded[i] = blob.size; report(); return; }
+        if (res.ok) {
+          loaded[i] = blob.size; report();
+          const p = readPending(); if (p[key]) { p[key].at = Date.now(); writePending(p); }
+          return;
+        }
         status = res.status;
         error = (await res.json().catch(() => ({})))?.error || "";
       } catch (e: any) {
@@ -84,13 +142,15 @@ async function uploadChunked(
     }
   };
 
-  await Promise.all(Array.from({ length: Math.min(CHUNK_PARALLEL, count) }, async () => {
-    while (next < count) await sendChunk(next++);
+  report();
+  await Promise.all(Array.from({ length: Math.min(CHUNK_PARALLEL, todo.length) }, async () => {
+    while (next < todo.length) await sendChunk(todo[next++]);
   }));
 
   const done = await fetch(`${base}?action=complete&uploadId=${encodeURIComponent(uploadId)}`, { method: "POST", signal });
   const doneJson = await done.json().catch(() => ({}));
   if (!done.ok) throw new UploadError(doneJson?.error || msgs.failed);
+  activeChunkUploads.delete(uploadId);
   return { uploadId: doneJson.uploadId, name: doneJson.name ?? file.name };
 }
 
@@ -127,6 +187,38 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
   const [downloadMsg, setDownloadMsg] = useState<string | null>(null);
   // Files refused because the batch would exceed MAX_TOTAL_BYTES.
   const [limitMsg, setLimitMsg] = useState<string | null>(null);
+  // Upload phase in progress: the file still lives on the user's computer, so
+  // leaving the page would lose it → warn before unload.
+  const [uploading, setUploading] = useState(false);
+  // Chunked uploads interrupted by a reload, resumable by re-selecting the file.
+  const [interrupted, setInterrupted] = useState<{ name: string; done: number; total: number }[]>([]);
+
+  useEffect(() => {
+    if (!uploading) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [uploading]);
+
+  // On load: list the interrupted chunked uploads still held by the server.
+  useEffect(() => {
+    const pending = Object.values(readPending());
+    if (!pending.length) return;
+    let cancelled = false;
+    (async () => {
+      const found: { name: string; done: number; total: number }[] = [];
+      const gone: string[] = [];
+      for (const p of pending) {
+        const r = await fetch(`/api/upload-chunk?action=status&uploadId=${encodeURIComponent(p.uploadId)}`, { method: "POST" }).catch(() => null);
+        const j = r?.ok ? await r.json().catch(() => null) : null;
+        if (j?.uploadId) found.push({ name: p.name, done: j.complete ? j.chunks : j.received.length, total: j.chunks });
+        else gone.push(p.uploadId);
+      }
+      if (gone.length) forgetPending(gone);
+      if (!cancelled) setInterrupted(found);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [persistedFiles, setPersistedFiles] = useState<ReadyFile[]>(() => initialFiles);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
@@ -257,7 +349,15 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
       fetch("/api/compress-sse", { method: "POST", body: f }).catch(() => {});
     }
     abortRef.current?.abort("stopped");
+    // Stop = the user gives up: free the half-sent chunked uploads right away.
+    const ids = [...activeChunkUploads];
+    for (const id of ids) {
+      fetch(`/api/upload-chunk?action=abort&uploadId=${encodeURIComponent(id)}`, { method: "POST" }).catch(() => {});
+      activeChunkUploads.delete(id);
+    }
+    forgetPending(ids);
     clearResume();
+    setUploading(false);
     setProcessing(false);
   }
 
@@ -374,6 +474,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
     jobIdRef.current = jobId;
 
     setProcessing(true);
+    setUploading(true);
     setErrorMsg(null);
     setFileErrors([]);
     setProgress(0);
@@ -449,6 +550,10 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
         apiForm.append("fileNames", u.name);
       }
 
+      // Every file is on the server now → the page can be left from here on.
+      setUploading(false);
+      forgetPending(uploads.map((u) => u.uploadId));
+      setInterrupted([]);
       saveResume(jobId);
       const res = await fetch("/api/compress-sse", { method: "POST", body: apiForm, signal: ctrl.signal }).catch((err) => {
         if (ctrl.signal.aborted) throw err;
@@ -472,6 +577,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
         setErrorMsg(err?.message || t("compress.errors.processingFailed"));
       }
     } finally {
+      setUploading(false);
       setProcessing(false);
     }
   }
@@ -496,6 +602,17 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Source: local browse via the dropzone below, or import from Drive. */}
         <DriveImportButton onFiles={ingestFiles} onError={setErrorMsg} disabled={processing} />
+
+        {/* Interrupted chunked uploads → re-select the same file to resume. */}
+        {interrupted.length > 0 && !processing && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 space-y-1">
+            <p className="font-semibold">{t("compress.interruptedTitle")}</p>
+            {interrupted.map((u) => (
+              <p key={u.name}>{t("compress.interruptedItem", { name: u.name, done: String(u.done), total: String(u.total) })}</p>
+            ))}
+            <p className="text-xs opacity-80">{t("compress.interruptedHint")}</p>
+          </div>
+        )}
 
         {/* Drop zone */}
         <div
@@ -642,7 +759,9 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
               <div className="h-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
             <p className="text-xs text-[var(--app-text-muted)]">{progressLabel}</p>
-            {progress >= 20 && progress < 100 && (
+            {uploading ? (
+              <p className="text-xs font-medium text-amber-600">{t("compress.keepOpenHint")}</p>
+            ) : progress >= 20 && progress < 100 && (
               <p className="text-xs text-emerald-300/80">{t("compress.backgroundHint")}</p>
             )}
           </div>
