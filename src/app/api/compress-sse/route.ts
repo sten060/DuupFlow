@@ -11,7 +11,7 @@
 // video duplication (acquireEncodeSlot) with threads sized from the real vCPU, so
 // a big compression never steals the whole box. The job survives the client
 // leaving / losing its connection (only an explicit Stop aborts it), and each
-// video gets at most COMPRESS_TIMEOUT_MS of encoding, with a precise error.
+// video gets a bounded encoding time (see timeoutForVideo), with a precise error.
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
@@ -42,7 +42,17 @@ const OUT_PREFIX = "CMP_DuupFlow_";
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp"];
 const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
 // Max encoding time for ONE video (queue wait excluded).
-const COMPRESS_TIMEOUT_MS = 10 * 60 * 1000;
+// Encoding time limit for ONE video (queue wait excluded): 6× its duration, never
+// under 10 min. Measured on Railway (old ffmpeg build, Xeon): a 4K HDR iPhone clip
+// takes ~5× its duration, so a flat 10 min killed any clip over ~2 min. Short
+// clips keep the 10-min floor (headroom for a busy server).
+const MIN_TIMEOUT_MS = 10 * 60 * 1000;
+const TIMEOUT_PER_VIDEO_SECOND = 6;
+const timeoutForVideo = (durationSec: number) =>
+  Math.max(MIN_TIMEOUT_MS, Math.round(durationSec * TIMEOUT_PER_VIDEO_SECOND * 1000));
+// Finished outputs of a running batch are re-touched this often so the shared
+// 1-h cleanup (cleanupOldFiles) never deletes them before the batch ends.
+const OUTPUT_TOUCH_EVERY_MS = 10 * 60 * 1000;
 const randHex = (n = 4) => crypto.randomBytes(n).toString("hex");
 const extOf = (n: string) => {
   const i = n.lastIndexOf(".");
@@ -52,7 +62,7 @@ const extOf = (n: string) => {
 // Failure reasons we can name precisely to the user (mapped to i18n keys).
 type FailReason = "timeout" | "corrupt" | "engineMissing" | "diskFull" | "encodeFailed" | "imageUnreadable";
 class CompressError extends Error {
-  constructor(public reason: FailReason, detail?: string) { super(detail || reason); }
+  constructor(public reason: FailReason, detail?: string, public limitMin?: number) { super(detail || reason); }
 }
 function reasonOf(e: any, isImage: boolean): FailReason {
   if (e instanceof CompressError) return e.reason;
@@ -154,6 +164,7 @@ async function compressVideo(
   args.push("-movflags", "+faststart");
   args.push(output);
 
+  const timeoutMs = timeoutForVideo(duration);
   await new Promise<void>((resolve, reject) => {
     const p = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
@@ -161,8 +172,8 @@ async function compressVideo(
     const timer = setTimeout(() => {
       timedOut = true;
       try { p.kill("SIGKILL"); } catch {}
-      reject(new CompressError("timeout"));
-    }, COMPRESS_TIMEOUT_MS);
+      reject(new CompressError("timeout", undefined, Math.round(timeoutMs / 60000)));
+    }, timeoutMs);
     const onAbort = () => { try { p.kill("SIGKILL"); } catch {} reject(new Error("stopped")); };
     const cleanup = () => { clearTimeout(timer); if (signal) signal.removeEventListener("abort", onAbort); };
     p.stderr.on("data", (d: Buffer) => {
@@ -316,6 +327,15 @@ export async function POST(req: Request) {
       const keepalive = setInterval(() => {
         try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch {}
       }, 20_000);
+      // Outputs finished so far: kept fresh during the batch, then once more at
+      // the end → they stay downloadable ~1 h AFTER the batch, not after they
+      // were produced (a long batch would otherwise lose its first files).
+      const doneOutputs: string[] = [];
+      const touchOutputs = async () => {
+        const now = new Date();
+        await Promise.all(doneOutputs.map((f) => fs.utimes(f, now, now).catch(() => {})));
+      };
+      const toucher = setInterval(() => { void touchOutputs(); }, OUTPUT_TOUCH_EVERY_MS);
 
       let processedOk = 0;
       try {
@@ -353,6 +373,7 @@ export async function POST(req: Request) {
               const finalExt = data.length < srcBytes || srcBytes === 0 ? outExt : ext;
               const outName = `${OUT_PREFIX}${stamp}_${baseName}_${Date.now()}${randHex(3)}${finalExt}`;
               await fs.writeFile(path.join(dir, outName), finalData);
+              doneOutputs.push(path.join(dir, outName));
               const saved = srcBytes > 0 ? Math.max(0, Math.round((1 - finalData.length / srcBytes) * 100)) : 0;
               processedOk++;
               send({
@@ -414,6 +435,7 @@ export async function POST(req: Request) {
                   await fs.copyFile(tempOut, outPath); await fs.unlink(tempOut).catch(() => {});
                 });
               }
+              doneOutputs.push(path.join(dir, outName));
               const saved = srcBytes > 0 ? Math.max(0, Math.round((1 - outBytes / srcBytes) * 100)) : 0;
               processedOk++;
               send({
@@ -426,11 +448,12 @@ export async function POST(req: Request) {
           } catch (e: any) {
             if (e?.message === "stopped") throw e; // bubble up: whole job stopped
             const reason = reasonOf(e, isImage);
+            const limitMin = e instanceof CompressError && e.limitMin ? e.limitMin : MIN_TIMEOUT_MS / 60000;
             console.error(`[compress] file failed (${fileName}) reason=${reason}:`, e?.message);
             send({
               error: true,
               reason,
-              msg: t(`compress.errors.reason.${reason}`, { name: fileName, minutes: String(COMPRESS_TIMEOUT_MS / 60000) }),
+              msg: t(`compress.errors.reason.${reason}`, { name: fileName, minutes: String(limitMin) }),
             });
           } finally {
             await fs.unlink(tmpPath).catch(() => {});
@@ -451,6 +474,8 @@ export async function POST(req: Request) {
           if (/^duup_direct_[\w.-]+$/.test(id)) await fs.unlink(path.join(os.tmpdir(), id)).catch(() => {});
         }
         clearInterval(keepalive);
+        clearInterval(toucher);
+        await touchOutputs();
         jobEntry.done = true;
         if (jobId) setTimeout(() => compressJobRegistry.delete(jobId), 120_000);
         try { controller.close(); } catch {}

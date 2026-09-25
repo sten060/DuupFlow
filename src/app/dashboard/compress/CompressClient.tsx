@@ -22,7 +22,9 @@ const ZIP_MAX_BYTES = 300 * 1024 * 1024;
 // The compression keeps running server-side when the connection drops; the
 // client re-attaches by jobId (live retries, then on the next page load).
 const RESUME_KEY = "duup_active_compress_job";
-const RESUME_MAX_AGE_MS = 60 * 60 * 1000;
+// A long batch can compress for hours on Railway (~5× the video duration):
+// keep re-attaching for up to 6 h.
+const RESUME_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const MAX_RECONNECTS = 5;
 
 function saveResume(jobId: string) {
@@ -363,12 +365,15 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
 
   /* ---------- SSE stream ---------- */
   // Reads one SSE response to its end. Returns "done" (terminal event received),
-  // "stale" (server no longer knows the job) or "dropped" (connection cut early).
-  async function consumeStream(res: Response): Promise<"done" | "stale" | "dropped"> {
+  // "stale" (server no longer knows the job), "cut" (connection closed after
+  // events flowed — e.g. Railway's 15-min cap on a request) or "dropped"
+  // (nothing received).
+  async function consumeStream(res: Response): Promise<"done" | "stale" | "dropped" | "cut"> {
     const reader = res.body!.getReader();
     const decoder = new TextDecoder();
     let buf = "";
     let outcome: "done" | "stale" | "dropped" = "dropped";
+    let gotEvents = false;
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -380,6 +385,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
           if (!line.startsWith("data: ")) continue;
           try {
             const evt = JSON.parse(line.slice(6));
+            gotEvents = true;
             if (evt.stale) { outcome = "stale"; continue; }
             const pct = evt.percent !== undefined ? 20 + Math.round(evt.percent * 0.8) : undefined;
             if (pct !== undefined) setProgress(pct);
@@ -407,7 +413,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
     } catch {
       // network error mid-stream → treated as a drop
     }
-    return outcome;
+    return outcome === "dropped" && gotEvents ? "cut" : outcome;
   }
 
   // Follows a running job until it ends: on a drop, re-attach by jobId (the
@@ -435,6 +441,10 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
         return;
       }
       if (signal.aborted) return;
+      // The stream was alive and got cut (Railway closes any request after
+      // 15 min): re-attach right away and reset the retry budget — only
+      // consecutive FAILED reconnects count, so an hours-long job never gives up.
+      if (outcome === "cut") { attempt = -1; continue; }
       if (attempt < MAX_RECONNECTS) {
         setProgressLabel(t("compress.reconnecting", { attempt: String(attempt + 1), max: String(MAX_RECONNECTS) }));
         await new Promise((r) => setTimeout(r, Math.min(15_000, 2_000 * (attempt + 1))));
