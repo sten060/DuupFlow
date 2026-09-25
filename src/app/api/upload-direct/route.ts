@@ -156,6 +156,9 @@ export async function POST(req: NextRequest) {
     // write before the next read applies backpressure, so peak RAM per upload is
     // ~one chunk — independent of file size (up to the 5 GB client cap). This is
     // what removes the OOM risk: a 5 GB upload no longer means 5 GB of RAM.
+    // Logged at START too (not only on completion): if an upload dies midway,
+    // Railway logs still show it reached the app, and how far it got (below).
+    console.log(`[upload-direct] start "${rawFileName}" declared=${declared} bytes (active=${_activeUploads})`);
     const reader = body.getReader();
     const handle = await fs.open(tmpPath, "w");
     wrote = true;
@@ -174,6 +177,10 @@ export async function POST(req: NextRequest) {
           }
           await handle.write(value); // backpressure: one chunk at a time
           received += value.length;
+          // Progress trace every ~256 MB: shows in Railway how far a big upload got.
+          if (Math.floor(received / 268435456) !== Math.floor((received - value.length) / 268435456)) {
+            console.log(`[upload-direct] "${rawFileName}" ${Math.round(received / 1048576)} Mo reçus`);
+          }
           if (head.length < 12) {
             const need = 12 - head.length;
             head = Buffer.concat([head, Buffer.from(value.subarray(0, need))]);
@@ -182,6 +189,14 @@ export async function POST(req: NextRequest) {
       }
     } finally {
       await handle.close();
+    }
+
+    // Stream ended before the announced size → connection cut mid-upload. Never
+    // hand a truncated file to the encoder.
+    if (declared > 0 && received < declared && !tooLarge) {
+      console.warn(`[upload-direct] truncated "${rawFileName}": ${received}/${declared} bytes`);
+      await fs.unlink(tmpPath).catch(() => {});
+      return NextResponse.json({ error: t("errors.upload.cancelled") }, { status: 499 });
     }
 
     if (tooLarge) {
@@ -237,6 +252,7 @@ export async function POST(req: NextRequest) {
     // never leave a truncated source for the encoder to choke on.
     if (wrote && tmpPath) await fs.unlink(tmpPath).catch(() => {});
     if (e?.name === "AbortError" || req.signal.aborted) {
+      console.warn(`[upload-direct] aborted mid-upload "${rawFileName}": ${e?.message ?? e}`);
       return NextResponse.json({ error: t("errors.upload.cancelled") }, { status: 499 });
     }
     console.error(`[upload-direct] write failed for "${rawFileName}":`, e?.message);

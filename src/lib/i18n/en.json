@@ -52,6 +52,8 @@
     "clear": "Clear",
     "clearing": "Clearing…",
     "gaugeLabel": "Batch weight",
+    "uploadingLive": "Uploading {current}/{total} — {sent} / {size} ({percent}%)",
+    "timeLeft": "~{time} left",
     "waitingSlot": "{label} — {name}: waiting in queue…",
     "resuming": "Resuming your compression…",
     "reconnecting": "Connection lost — reconnecting ({attempt}/{max})…",
@@ -65,6 +67,7 @@
       "driveFailed": "Import from Google Drive failed.",
       "batchTooHeavy": "{names} not added: the batch would exceed the {max} limit. Space left: {left}.",
       "batchLimitServer": "Batch refused: {maxFiles} files and {max} max per batch. Remove some files and try again.",
+      "serverUnavailable": "Upload of \"{name}\" was interrupted: the server stopped responding (update or overload). Try again in a minute.",
       "connectionLost": "Lost connection to the server. Compression keeps running in the background: reload the page in a few minutes to get your files.",
       "reason": {
         "timeout": "\"{name}\": compression exceeded the {minutes}-minute limit. Try the \"Strong\" level or shorten the video.",

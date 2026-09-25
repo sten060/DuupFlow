@@ -52,6 +52,8 @@
     "clear": "Vider",
     "clearing": "Suppression…",
     "gaugeLabel": "Poids du lot",
+    "uploadingLive": "Envoi {current}/{total} — {sent} / {size} ({percent} %)",
+    "timeLeft": "encore ~{time}",
     "waitingSlot": "{label} — {name} : en file d'attente…",
     "resuming": "Reprise de ta compression en cours…",
     "reconnecting": "Connexion perdue — reconnexion ({attempt}/{max})…",
@@ -65,6 +67,7 @@
       "driveFailed": "L'import depuis Google Drive a échoué.",
       "batchTooHeavy": "{names} non ajouté(s) : le lot dépasserait la limite de {max}. Place restante : {left}.",
       "batchLimitServer": "Lot refusé : {maxFiles} fichiers et {max} maximum par lot. Retire des fichiers puis relance.",
+      "serverUnavailable": "L'envoi de « {name} » a été interrompu : le serveur ne répondait plus (mise à jour ou surcharge). Réessaie dans une minute.",
       "connectionLost": "Connexion avec le serveur perdue. La compression continue en arrière-plan : recharge la page dans quelques minutes pour récupérer tes fichiers.",
       "reason": {
         "timeout": "« {name} » : la compression a dépassé la limite de {minutes} minutes. Essaie le niveau « Fort » ou raccourcis la vidéo.",

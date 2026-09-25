@@ -320,23 +320,47 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
       // ── 1. Upload each file SEQUENTIALLY (bounds peak RAM on the worker). ──
       const uploads: { uploadId: string; name: string }[] = [];
       let doneUploads = 0;
+      // Live upload feedback (bytes sent / total, % and time left): on a
+      // multi-GB batch the upload can take many minutes — without it the page
+      // looked frozen on "Préparation…".
+      const totalBytes = files.reduce((s, f) => s + f.size, 0) || 1;
+      let doneBytes = 0;
+      const upStart = Date.now();
       for (const file of files) {
         const res = await uploadWithProgress(
           `/api/upload-direct?fileName=${encodeURIComponent(file.name)}`,
           file,
           {
             signal: ctrl.signal,
-            onProgress: (frac) => setProgress(Math.round(((doneUploads + frac) / files.length) * 20)),
+            onProgress: (frac) => {
+              const sent = doneBytes + frac * file.size;
+              setProgress(Math.round((sent / totalBytes) * 20));
+              const elapsed = (Date.now() - upStart) / 1000;
+              const left = elapsed > 5 && sent > 0 ? Math.round((elapsed / sent) * (totalBytes - sent)) : null;
+              setProgressLabel(t("compress.uploadingLive", {
+                current: String(doneUploads + 1),
+                total: String(files.length),
+                sent: formatBytes(sent, locale),
+                size: formatBytes(totalBytes, locale),
+                percent: String(Math.floor((sent / totalBytes) * 100)),
+              }) + (left !== null
+                ? ` · ${t("compress.timeLeft", { time: left >= 60 ? `${Math.ceil(left / 60)} min` : `${Math.max(1, left)} s` })}`
+                : ""));
+            },
           },
         );
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
-          throw new Error(j?.error || `HTTP ${res.status}`);
+          // 502/503/504 = Railway's proxy got no answer (server restarting or
+          // overloaded) — show something a user can act on, not "HTTP 502".
+          throw new Error(j?.error || ([502, 503, 504].includes(res.status)
+            ? t("compress.errors.serverUnavailable", { name: file.name })
+            : `HTTP ${res.status}`));
         }
         const { uploadId, name } = await res.json();
         doneUploads++;
-        setProgress(Math.round((doneUploads / files.length) * 20));
-        setProgressLabel(t("compress.uploadProgress", { done: String(doneUploads), total: String(files.length) }));
+        doneBytes += file.size;
+        setProgress(Math.round((doneBytes / totalBytes) * 20));
         uploads.push({ uploadId, name: name ?? file.name });
       }
 
@@ -551,7 +575,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
         )}
 
         {(errorMsg || fileErrors.length > 0) && (
-          <div className="text-sm rounded-lg px-4 py-2 bg-red-900/40 text-red-300 space-y-1">
+          <div className="text-sm rounded-lg px-4 py-2 border border-red-500/30 bg-red-500/10 text-red-500 font-medium space-y-1">
             {fileErrors.map((m) => <p key={m}>{m}</p>)}
             {errorMsg && <p>{errorMsg}</p>}
           </div>
