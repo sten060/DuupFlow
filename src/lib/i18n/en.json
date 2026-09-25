@@ -51,12 +51,29 @@
     "importingDriveProgress": "Importing from Drive {done}/{total}…",
     "clear": "Clear",
     "clearing": "Clearing…",
+    "gaugeLabel": "Batch weight",
+    "waitingSlot": "{label} — {name}: waiting in queue…",
+    "resuming": "Resuming your compression…",
+    "reconnecting": "Connection lost — reconnecting ({attempt}/{max})…",
+    "backgroundHint": "You can leave the page: compression keeps running and your files will be waiting here.",
+    "downloadingOneByOne": "Heavy files: downloading one by one ({done}/{total})…",
     "errors": {
       "unsupported": "\"{name}\": unsupported format.",
       "fileFailed": "Failed to compress \"{name}\".",
       "processingFailed": "Compression failed. Please try again.",
       "noResponse": "No response from server. Please try again.",
-      "driveFailed": "Import from Google Drive failed."
+      "driveFailed": "Import from Google Drive failed.",
+      "batchTooHeavy": "{names} not added: the batch would exceed the {max} limit. Space left: {left}.",
+      "batchLimitServer": "Batch refused: {maxFiles} files and {max} max per batch. Remove some files and try again.",
+      "connectionLost": "Lost connection to the server. Compression keeps running in the background: reload the page in a few minutes to get your files.",
+      "reason": {
+        "timeout": "\"{name}\": compression exceeded the {minutes}-minute limit. Try the \"Strong\" level or shorten the video.",
+        "corrupt": "\"{name}\": unreadable or damaged video file. Check that it plays on your device, then try again.",
+        "engineMissing": "\"{name}\": the video engine is temporarily unavailable. Try again in a few minutes.",
+        "diskFull": "\"{name}\": not enough server space right now. Try again in a few minutes.",
+        "encodeFailed": "\"{name}\": video encoding failed. Try again, or pick another compression level.",
+        "imageUnreadable": "\"{name}\": unreadable or damaged image."
+      }
     }
   },
   "nav": {
@@ -2341,6 +2358,7 @@
       "missingBody": "Missing request body",
       "cancelled": "Upload cancelled",
       "emptyFile": "Received an empty file (0 bytes) — check the file size or your connection.",
+      "tooLarge": "\"{name}\" is too large: {max} GB max per file.",
       "heicDecodeFailed": "Could not decode the HEIC file \"{name}\" — please convert it to JPEG manually.",
       "writeError": "Write error: {message}"
     },

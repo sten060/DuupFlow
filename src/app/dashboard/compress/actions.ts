@@ -15,7 +15,7 @@ const extOf = (name: string) => {
   return p >= 0 ? name.slice(p).toLowerCase() : "";
 };
 
-export type CompressedFile = { url: string; name: string };
+export type CompressedFile = { url: string; name: string; outBytes?: number };
 
 /** List the current user's compressed outputs (RSC). */
 export async function listCompressed(): Promise<CompressedFile[]> {
@@ -29,10 +29,12 @@ export async function listCompressed(): Promise<CompressedFile[]> {
         !n.startsWith("__progress_") &&
         ALL_EXTS.includes(extOf(n)),
     );
-    return finals.map((n) => ({
+    // Size is needed client-side to pick ZIP vs one-by-one download (heavy files).
+    return Promise.all(finals.map(async (n) => ({
       url: `/api/out/${userId}/${encodeURIComponent(path.basename(n))}`,
       name: path.basename(n),
-    }));
+      outBytes: await fs.stat(path.join(dir, n)).then((st) => st.size).catch(() => undefined),
+    })));
   } catch {
     return [];
   }

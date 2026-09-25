@@ -55,6 +55,12 @@ function releaseUploadSlot(): void {
   else _activeUploads--;   // nobody waiting → free the slot
 }
 
+// Hard ceiling for ONE uploaded file, whatever the module (duplication caps at
+// 5 GB client-side, the compressor at 10 GB per batch). Enforced while streaming
+// so a scripted oversized upload is cut off instead of filling the disk.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 * 1024;
+const GB = 1024 * 1024 * 1024;
+
 // Guard: only alphanumeric, dash, underscore, dot, space — prevents path traversal
 function safeName(s: string): string {
   return s.replace(/[^a-zA-Z0-9._\- ]/g, "_").slice(0, 200);
@@ -113,6 +119,15 @@ export async function POST(req: NextRequest) {
 
   const rawFileName = safeName(req.nextUrl.searchParams.get("fileName") || "upload.bin");
 
+  // Declared size already over the ceiling → refuse before writing anything.
+  const declared = Number(req.headers.get("content-length") || 0);
+  if (declared > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: t("errors.upload.tooLarge", { name: rawFileName, max: String(MAX_UPLOAD_BYTES / GB) }) },
+      { status: 413 },
+    );
+  }
+
   // Bounded concurrency: wait for a global upload slot. An abort while waiting is
   // handled inside acquireUploadSlot → we never take (and never leak) a slot.
   try {
@@ -146,11 +161,17 @@ export async function POST(req: NextRequest) {
     wrote = true;
     let received = 0;
     let head = Buffer.alloc(0); // first ≤12 bytes, kept for HEIC magic sniffing
+    let tooLarge = false;
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         if (value && value.length) {
+          if (received + value.length > MAX_UPLOAD_BYTES) {
+            tooLarge = true;
+            await reader.cancel().catch(() => {});
+            break;
+          }
           await handle.write(value); // backpressure: one chunk at a time
           received += value.length;
           if (head.length < 12) {
@@ -161,6 +182,14 @@ export async function POST(req: NextRequest) {
       }
     } finally {
       await handle.close();
+    }
+
+    if (tooLarge) {
+      await fs.unlink(tmpPath).catch(() => {});
+      return NextResponse.json(
+        { error: t("errors.upload.tooLarge", { name: rawFileName, max: String(MAX_UPLOAD_BYTES / GB) }) },
+        { status: 413 },
+      );
     }
 
     if (received === 0) {

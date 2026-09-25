@@ -620,11 +620,34 @@ const LIMITS: Record<string, { min: number; max: number }> = {
 const GLOBAL_MAX_ENCODES = Math.max(1, parseInt(process.env.MAX_CONCURRENT_ENCODES ?? "2", 10));
 let _activeEncodes = 0;
 const _encodeWaiters: Array<() => void> = [];
-async function acquireEncodeSlot(): Promise<void> {
+// `signal` (optional): if it aborts while we're still WAITING, we leave the queue
+// and reject — an aborted caller is never handed a slot it won't release.
+export async function acquireEncodeSlot(signal?: AbortSignal): Promise<void> {
   if (_activeEncodes < GLOBAL_MAX_ENCODES) { _activeEncodes++; return; }
-  await new Promise<void>((resolve) => _encodeWaiters.push(resolve)); // slot handed over on release
+  if (!signal) {
+    await new Promise<void>((resolve) => _encodeWaiters.push(resolve)); // slot handed over on release
+    return;
+  }
+  if (signal.aborted) throw new Error("stopped");
+  await new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      const idx = _encodeWaiters.indexOf(waiter);
+      if (idx !== -1) _encodeWaiters.splice(idx, 1);
+      reject(new Error("stopped"));
+    };
+    const waiter = () => { signal.removeEventListener("abort", onAbort); resolve(); };
+    _encodeWaiters.push(waiter);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
 }
-function releaseEncodeSlot(): void {
+
+/** ffmpeg threads for ONE encode, sized from the real vCPU (FFMPEG_VCPU), never os.cpus(). */
+export function encodeThreadsPerTask(): number {
+  const VCPU = Math.max(1, parseInt(process.env.FFMPEG_VCPU ?? "8", 10));
+  return Math.max(1, Math.min(4, Math.floor(VCPU / GLOBAL_MAX_ENCODES)));
+}
+
+export function releaseEncodeSlot(): void {
   const next = _encodeWaiters.shift();
   if (next) next();        // hand our slot straight to the next waiter (count unchanged)
   else _activeEncodes--;   // nobody waiting → free the slot

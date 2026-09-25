@@ -6,18 +6,25 @@
 // Hard guarantee: a compressed output is NEVER heavier than its source. If the
 // re-encode happens to produce a bigger file (already-optimal input), we keep
 // the original bytes and report 0% saved.
+//
+// Heavy files: video encodes go through the GLOBAL encode queue shared with the
+// video duplication (acquireEncodeSlot) with threads sized from the real vCPU, so
+// a big compression never steals the whole box. The job survives the client
+// leaving / losing its connection (only an explicit Stop aborts it), and each
+// video gets at most COMPRESS_TIMEOUT_MS of encoding, with a precise error.
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
 import { spawn } from "child_process";
 import { createClient } from "@/lib/supabase/server";
-import { getServerT } from "@/lib/i18n/server";
+import { getServerT, getServerLocale } from "@/lib/i18n/server";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 import { runImageOp } from "@/lib/imageProcessingLimiter";
-import { getFFmpegBin } from "@/app/dashboard/videos/processVideos";
+import { getFFmpegBin, acquireEncodeSlot, releaseEncodeSlot, encodeThreadsPerTask } from "@/app/dashboard/videos/processVideos";
 import { compressJobRegistry } from "./jobRegistry";
 import { compressImage, LEVELS, type CompressLevel } from "@/lib/compress-pipeline";
+import { COMPRESS_MAX_FILES, COMPRESS_MAX_TOTAL_BYTES, formatBytes } from "@/lib/compress-limits";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -33,14 +40,26 @@ const SSE_HEADERS = {
 const OUT_PREFIX = "CMP_DuupFlow_";
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp"];
 const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
+// Max encoding time for ONE video (queue wait excluded).
+const COMPRESS_TIMEOUT_MS = 10 * 60 * 1000;
 const randHex = (n = 4) => crypto.randomBytes(n).toString("hex");
 const extOf = (n: string) => {
   const i = n.lastIndexOf(".");
   return i >= 0 ? n.slice(i).toLowerCase() : "";
 };
 
-
-
+// Failure reasons we can name precisely to the user (mapped to i18n keys).
+type FailReason = "timeout" | "corrupt" | "engineMissing" | "diskFull" | "encodeFailed" | "imageUnreadable";
+class CompressError extends Error {
+  constructor(public reason: FailReason, detail?: string) { super(detail || reason); }
+}
+function reasonOf(e: any, isImage: boolean): FailReason {
+  if (e instanceof CompressError) return e.reason;
+  if (e?.code === "ENOSPC") return "diskFull";
+  return isImage ? "imageUnreadable" : "encodeFailed";
+}
+// ffmpeg stderr signatures of an unreadable / truncated / non-video input.
+const CORRUPT_RE = /moov atom not found|Invalid data found|could not find codec parameters|does not contain any stream|Output file #0 does not contain any stream|End of file|Invalid NAL unit|Error while decoding stream/i;
 
 /* ============== video probing (lightweight, ffmpeg -i parse) ============== */
 async function probeVideo(input: string, bin: string): Promise<{ duration: number; is10bitHEVC: boolean }> {
@@ -74,7 +93,7 @@ async function compressVideo(
   signal?: AbortSignal,
 ): Promise<void> {
   const cfg = LEVELS[level];
-  const bin = await getFFmpegBin();
+  const bin = await getFFmpegBin().catch(() => { throw new CompressError("engineMissing"); });
   const { duration, is10bitHEVC } = await probeVideo(input, bin);
 
   // Source bitrate (kbps): file size ÷ duration. We cap the encode below this so
@@ -86,17 +105,22 @@ async function compressVideo(
   args.push("-map", "0:v:0", "-map", "0:a:0?");
 
   const vf: string[] = [];
+  // Downscale FIRST, then tone-map: the HDR chain works in 32-bit float per pixel,
+  // so running it on the already-shrunk frame instead of full 4K cut encode time
+  // by ~20% on real iPhone 4K HDR clips (11–26%, same output size and look).
+  if (cfg.maxDim > 0) {
+    // Downscale longest side to maxDim, keep aspect, only shrink. -2 keeps even dims.
+    vf.push(`scale='if(gt(iw,ih),min(${cfg.maxDim},iw),-2)':'if(gt(iw,ih),-2,min(${cfg.maxDim},ih))'`);
+  }
   // HDR (10-bit HEVC, typically iPhone) → tone-map to SDR so 8-bit H.264 output
-  // doesn't look washed out / over-bright.
+  // doesn't look washed out / over-bright. npl=100 + hable is deliberate here:
+  // judged closer to the iPhone's own display than the AI editor's npl=203 +
+  // mobius on real footage (Sten, 2026-09-25) — don't "align" the two.
   if (is10bitHEVC) {
     vf.push(
       "zscale=t=linear:npl=100", "format=gbrpf32le", "zscale=p=bt709",
       "tonemap=hable:desat=0", "zscale=t=bt709:m=bt709:r=tv", "format=yuv420p",
     );
-  }
-  if (cfg.maxDim > 0) {
-    // Downscale longest side to maxDim, keep aspect, only shrink. -2 keeps even dims.
-    vf.push(`scale='if(gt(iw,ih),min(${cfg.maxDim},iw),-2)':'if(gt(iw,ih),-2,min(${cfg.maxDim},ih))'`);
   }
   if (vf.length) args.push("-vf", vf.join(","));
 
@@ -106,6 +130,9 @@ async function compressVideo(
     "-crf", String(cfg.crf),
     "-pix_fmt", "yuv420p",
     "-c:a", "aac", "-b:a", "128k",
+    // Threads from the real vCPU budget — without this ffmpeg sizes itself from
+    // os.cpus(), i.e. the Railway HOST core count, and oversubscribes the box.
+    "-threads", String(encodeThreadsPerTask()),
   );
   // VBV cap to the source bitrate → guarantees the copy is never heavier.
   if (srcKbps > 0) {
@@ -118,25 +145,33 @@ async function compressVideo(
   await new Promise<void>((resolve, reject) => {
     const p = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
-    const timer = setTimeout(() => { p.kill("SIGKILL"); reject(new Error("FFmpeg timed out after 15 minutes")); }, 15 * 60 * 1000);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try { p.kill("SIGKILL"); } catch {}
+      reject(new CompressError("timeout"));
+    }, COMPRESS_TIMEOUT_MS);
     const onAbort = () => { try { p.kill("SIGKILL"); } catch {} reject(new Error("stopped")); };
     const cleanup = () => { clearTimeout(timer); if (signal) signal.removeEventListener("abort", onAbort); };
     p.stderr.on("data", (d: Buffer) => {
       const chunk = String(d);
-      stderr += chunk;
+      stderr = (stderr + chunk).slice(-8000); // keep the tail only (long encodes)
       const m = chunk.match(/time=(\d+):(\d+):(\d+\.\d+)/);
       if (m && duration > 0) {
         const t = parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseFloat(m[3]);
         onTick(Math.max(0, Math.min(99, Math.round((t / duration) * 100))));
       }
     });
-    p.on("error", (err) => { cleanup(); reject(new Error(`FFmpeg introuvable : ${err.message}`)); });
+    p.on("error", (err) => { cleanup(); reject(new CompressError("engineMissing", err.message)); });
     p.on("close", (code) => {
       cleanup();
+      if (timedOut) return; // already rejected with "timeout"
       if (code === 0) return resolve();
       if (signal?.aborted) return reject(new Error("stopped"));
       console.error("[compress][ffmpeg] stderr:", stderr);
-      reject(new Error(`FFmpeg failed (${code})`));
+      if (/No space left on device/i.test(stderr)) return reject(new CompressError("diskFull"));
+      if (CORRUPT_RE.test(stderr)) return reject(new CompressError("corrupt"));
+      reject(new CompressError("encodeFailed", `FFmpeg failed (${code})`));
     });
     if (signal) {
       if (signal.aborted) onAbort();
@@ -167,10 +202,20 @@ export async function POST(req: Request) {
 
   const jobId = (form.get("jobId") as string | null) || null;
   const encoder = new TextEncoder();
+  const existing = jobId ? compressJobRegistry.get(jobId) : undefined;
+  if (existing && existing.userId !== user.id) {
+    return Response.json({ error: t("errors.auth.notAuthenticated") }, { status: 403 });
+  }
+
+  // ── Stop path: the job no longer dies with the connection, so Stop is explicit. ──
+  if (form.get("stop") === "1") {
+    existing?.abort.abort("stopped");
+    return Response.json({ ok: true, found: !!existing });
+  }
 
   // ── Reconnect path: replay buffered events for a still-running job. ──
-  if (jobId && compressJobRegistry.has(jobId)) {
-    const job = compressJobRegistry.get(jobId)!;
+  if (jobId && existing) {
+    const job = existing;
     return new Response(
       new ReadableStream({
         async start(controller) {
@@ -206,6 +251,25 @@ export async function POST(req: Request) {
     return Response.json({ error: t("errors.upload.missingBody") }, { status: 400 });
   }
 
+  // ── Batch limits, re-checked server-side (the UI enforces them too, but a
+  // scripted call must not bypass them): max files + max total weight. Over the
+  // limit → nothing is processed and the uploads are deleted right away.
+  const validIds = directUploadIds.filter((id) => /^duup_direct_[\w.-]+$/.test(id));
+  let batchBytes = 0;
+  for (const id of validIds) {
+    batchBytes += await fs.stat(path.join(os.tmpdir(), id)).then((st) => st.size).catch(() => 0);
+  }
+  if (directUploadIds.length > COMPRESS_MAX_FILES || batchBytes > COMPRESS_MAX_TOTAL_BYTES) {
+    await Promise.all(validIds.map((id) => fs.unlink(path.join(os.tmpdir(), id)).catch(() => {})));
+    const locale = await getServerLocale();
+    return Response.json({
+      error: t("compress.errors.batchLimitServer", {
+        maxFiles: String(COMPRESS_MAX_FILES),
+        max: formatBytes(COMPRESS_MAX_TOTAL_BYTES, locale),
+      }),
+    }, { status: 413 });
+  }
+
   let dir: string;
   let userId: string;
   try {
@@ -220,11 +284,12 @@ export async function POST(req: Request) {
     return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   })();
 
-  const jobEntry: { events: object[]; done: boolean } = { events: [], done: false };
-  if (jobId) compressJobRegistry.set(jobId, jobEntry);
-
+  // NOT tied to req.signal: a closed tab / dropped connection must not kill the
+  // job (the client re-attaches by jobId). Only an explicit Stop aborts it.
   const abort = new AbortController();
-  req.signal.addEventListener("abort", () => abort.abort("client_gone"), { once: true });
+  const jobEntry: { events: object[]; done: boolean; userId: string; abort: AbortController } =
+    { events: [], done: false, userId, abort };
+  if (jobId) compressJobRegistry.set(jobId, jobEntry);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -283,11 +348,21 @@ export async function POST(req: Request) {
               const tag = `${stamp}_${baseName}_${Date.now()}${randHex(3)}`;
               // Compress into a temp mp4 (hidden from listings via the __progress_ prefix).
               const tempOut = path.join(dir, `__progress_${OUT_PREFIX}${tag}.mp4`);
-              await compressVideo(
-                tmpPath, tempOut, level, srcBytes,
-                (pct) => send({ percent: Math.round(((i + (pct / 100)) / total) * 100), msg: `${fileLabel} — ${fileName} (${pct}%)…` }),
-                abort.signal,
-              );
+              // Shared queue with the video duplication: wait our turn (Stop-aware).
+              send({ percent: Math.round((i / total) * 100), msg: t("compress.waitingSlot", { label: fileLabel, name: fileName }) });
+              await acquireEncodeSlot(abort.signal);
+              try {
+                await compressVideo(
+                  tmpPath, tempOut, level, srcBytes,
+                  (pct) => send({ percent: Math.round(((i + (pct / 100)) / total) * 100), msg: `${fileLabel} — ${fileName} (${pct}%)…` }),
+                  abort.signal,
+                );
+              } catch (e) {
+                await fs.unlink(tempOut).catch(() => {});
+                throw e;
+              } finally {
+                releaseEncodeSlot();
+              }
               let outBytes = 0;
               try { outBytes = (await fs.stat(tempOut)).size; } catch {}
               // Never heavier than source: if the encode bloated, keep the ORIGINAL
@@ -317,8 +392,13 @@ export async function POST(req: Request) {
             }
           } catch (e: any) {
             if (e?.message === "stopped") throw e; // bubble up: whole job stopped
-            console.error(`[compress] file failed (${fileName}):`, e?.message);
-            send({ error: true, msg: t("compress.errors.fileFailed", { name: fileName }) });
+            const reason = reasonOf(e, isImage);
+            console.error(`[compress] file failed (${fileName}) reason=${reason}:`, e?.message);
+            send({
+              error: true,
+              reason,
+              msg: t(`compress.errors.reason.${reason}`, { name: fileName, minutes: String(COMPRESS_TIMEOUT_MS / 60000) }),
+            });
           } finally {
             await fs.unlink(tmpPath).catch(() => {});
           }
@@ -333,6 +413,10 @@ export async function POST(req: Request) {
           send({ error: true, msg: t("compress.errors.processingFailed"), code: "CMP-002" });
         }
       } finally {
+        // Stop / fatal error mid-batch: drop the uploads we never got to.
+        for (const id of directUploadIds) {
+          if (/^duup_direct_[\w.-]+$/.test(id)) await fs.unlink(path.join(os.tmpdir(), id)).catch(() => {});
+        }
         clearInterval(keepalive);
         jobEntry.done = true;
         if (jobId) setTimeout(() => compressJobRegistry.delete(jobId), 120_000);

@@ -4,14 +4,41 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "@/lib/i18n/context";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import { saveSettings, loadSettings } from "@/lib/formMemory";
-import type { CompressedFile } from "./actions";
+import { listCompressed, type CompressedFile } from "./actions";
+import { COMPRESS_MAX_FILES, COMPRESS_MAX_TOTAL_BYTES, formatBytes } from "@/lib/compress-limits";
 import ClearCompressedButton from "./ClearCompressedButton";
 import DriveImportButton from "../components/DriveImportButton";
 import DriveSaveButton from "../components/DriveSaveButton";
 import DocsDrawer from "../components/DocsDrawer";
 import { buildCompressDocs } from "../components/docs-content";
 
-const MAX_FILES = 30;
+// Batch limits (30 files, 10 GB) — re-checked server-side by /api/compress-sse.
+const MAX_FILES = COMPRESS_MAX_FILES;
+const MAX_TOTAL_BYTES = COMPRESS_MAX_TOTAL_BYTES;
+// Above this total, "download all" skips the in-browser ZIP (which holds every
+// file in the tab's memory and crashes it on multi-GB batches) and downloads the
+// files one by one instead.
+const ZIP_MAX_BYTES = 300 * 1024 * 1024;
+// The compression keeps running server-side when the connection drops; the
+// client re-attaches by jobId (live retries, then on the next page load).
+const RESUME_KEY = "duup_active_compress_job";
+const RESUME_MAX_AGE_MS = 60 * 60 * 1000;
+const MAX_RECONNECTS = 5;
+
+function saveResume(jobId: string) {
+  try { localStorage.setItem(RESUME_KEY, JSON.stringify({ jobId, startedAt: Date.now() })); } catch {}
+}
+function clearResume() {
+  try { localStorage.removeItem(RESUME_KEY); } catch {}
+}
+function loadResume(): string | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(RESUME_KEY) || "null");
+    if (v?.jobId && Date.now() - v.startedAt < RESUME_MAX_AGE_MS) return String(v.jobId);
+  } catch {}
+  clearResume();
+  return null;
+}
 const IMAGE_RE = /\.(png|jpe?g|webp|heic|heif)$/i;
 const VIDEO_RE = /\.(mp4|mov|mkv|avi|webm)$/i;
 
@@ -19,14 +46,10 @@ type Level = "light" | "balanced" | "strong";
 
 type ReadyFile = CompressedFile & { savedPercent?: number; srcBytes?: number; outBytes?: number };
 
-function fmtBytes(n?: number): string {
-  if (!n || n <= 0) return "—";
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} Ko`;
-  return `${(n / (1024 * 1024)).toFixed(1)} Mo`;
-}
 
 export default function CompressClient({ initialFiles }: { initialFiles: CompressedFile[] }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const fmtBytes = useCallback((n?: number) => (n && n > 0 ? formatBytes(n, locale) : "—"), [locale]);
   const [files, setFiles] = useState<File[]>([]);
   const [level, setLevel] = useState<Level>(() => {
     const s = loadSettings<{ level?: Level }>("compress");
@@ -36,19 +59,44 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // One line per failed file (several videos can fail for different reasons).
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
+  const [downloadMsg, setDownloadMsg] = useState<string | null>(null);
+  // Files refused because the batch would exceed MAX_TOTAL_BYTES.
+  const [limitMsg, setLimitMsg] = useState<string | null>(null);
 
   const [persistedFiles, setPersistedFiles] = useState<ReadyFile[]>(() => initialFiles);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const jobIdRef = useRef<string | null>(null);
 
   /* ---------- file ingest ---------- */
   const ingestFiles = useCallback((incoming: File[]) => {
     const accepted = incoming.filter((f) => IMAGE_RE.test(f.name) || VIDEO_RE.test(f.name) || f.type.startsWith("image/") || f.type.startsWith("video/"));
     if (!accepted.length) return;
-    setFiles((prev) => [...prev, ...accepted].slice(0, MAX_FILES));
-  }, []);
+    // Add files one by one while the batch stays under MAX_TOTAL_BYTES; a file
+    // that would overflow it is refused (the others are kept, smaller files
+    // after it can still fit).
+    const current = files.reduce((s, f) => s + f.size, 0);
+    let used = current;
+    const kept: File[] = [];
+    const refused: string[] = [];
+    for (const f of accepted) {
+      if (used + f.size > MAX_TOTAL_BYTES) { refused.push(f.name); continue; }
+      kept.push(f);
+      used += f.size;
+    }
+    setLimitMsg(refused.length
+      ? t("compress.errors.batchTooHeavy", {
+          names: refused.map((n) => (locale === "fr" ? `« ${n} »` : `"${n}"`)).join(", "),
+          max: fmtBytes(MAX_TOTAL_BYTES),
+          left: formatBytes(Math.max(0, MAX_TOTAL_BYTES - used), locale),
+        })
+      : null);
+    if (kept.length) setFiles((prev) => [...prev, ...kept].slice(0, MAX_FILES));
+  }, [files, t, locale, fmtBytes]);
 
   const onPick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files || []);
@@ -64,6 +112,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
 
   const removeAt = useCallback((idx: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== idx));
+    setLimitMsg(null);
   }, []);
 
   const totalSize = useMemo(() => files.reduce((s, f) => s + f.size, 0), [files]);
@@ -96,6 +145,30 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
     setSelectedUrls((prev) => (prev.size === persistedFiles.length ? new Set() : new Set(persistedFiles.map((f) => f.url))));
   }, [persistedFiles]);
 
+  // Heavy batches: one native download per file (streamed to disk by the browser,
+  // nothing held in the tab's memory). Spaced out so browsers don't drop some.
+  async function downloadOneByOne(list: ReadyFile[]) {
+    for (let i = 0; i < list.length; i++) {
+      setDownloadMsg(t("compress.downloadingOneByOne", { done: String(i + 1), total: String(list.length) }));
+      const a = document.createElement("a");
+      a.href = list[i].url;
+      a.download = list[i].name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      await new Promise((r) => setTimeout(r, 800));
+    }
+    setDownloadMsg(null);
+  }
+
+  function downloadFiles(list: ReadyFile[], zipName: string) {
+    if (list.length === 1) return downloadOneByOne(list);
+    // Unknown size counts as heavy — better a few separate downloads than a crashed tab.
+    const heavy = list.some((f) => typeof f.outBytes !== "number")
+      || list.reduce((s, f) => s + (f.outBytes ?? 0), 0) > ZIP_MAX_BYTES;
+    return heavy ? downloadOneByOne(list) : downloadFilesAsZip(list, zipName);
+  }
+
   async function downloadFilesAsZip(list: ReadyFile[], zipName: string) {
     const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
@@ -111,10 +184,120 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
     URL.revokeObjectURL(a.href);
   }
 
-  function handleStop() {
+  async function handleStop() {
+    // The server job no longer dies with the connection → ask it to stop explicitly.
+    const jobId = jobIdRef.current;
+    if (jobId) {
+      const f = new FormData();
+      f.append("jobId", jobId);
+      f.append("stop", "1");
+      fetch("/api/compress-sse", { method: "POST", body: f }).catch(() => {});
+    }
     abortRef.current?.abort("stopped");
+    clearResume();
     setProcessing(false);
   }
+
+  /* ---------- SSE stream ---------- */
+  // Reads one SSE response to its end. Returns "done" (terminal event received),
+  // "stale" (server no longer knows the job) or "dropped" (connection cut early).
+  async function consumeStream(res: Response): Promise<"done" | "stale" | "dropped"> {
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let outcome: "done" | "stale" | "dropped" = "dropped";
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.stale) { outcome = "stale"; continue; }
+            const pct = evt.percent !== undefined ? 20 + Math.round(evt.percent * 0.8) : undefined;
+            if (pct !== undefined) setProgress(pct);
+            if (evt.msg && !evt.error) setProgressLabel(evt.msg);
+            if (evt.fileReady) {
+              setPersistedFiles((prev) =>
+                prev.some((f) => f.url === evt.fileReady.url) ? prev : [evt.fileReady, ...prev],
+              );
+            }
+            if (evt.error && !evt.done) {
+              const line = evt.msg || t("compress.errors.processingFailed");
+              // Replays after a reconnect re-send past events → de-duplicate.
+              setFileErrors((prev) => (prev.includes(line) ? prev : [...prev, line]));
+            }
+            if (evt.error && evt.done) setErrorMsg(evt.msg || t("compress.errors.processingFailed"));
+            if (evt.done) {
+              outcome = "done";
+              setProgress(100);
+              setProgressLabel(evt.stopped ? t("compress.stopped") : t("compress.doneMsg"));
+              setFiles([]);
+            }
+          } catch {}
+        }
+      }
+    } catch {
+      // network error mid-stream → treated as a drop
+    }
+    return outcome;
+  }
+
+  // Follows a running job until it ends: on a drop, re-attach by jobId (the
+  // server replays every buffered event) a few times with backoff.
+  async function followJob(jobId: string, first: Response | null, signal: AbortSignal) {
+    let res = first;
+    for (let attempt = 0; attempt <= MAX_RECONNECTS; attempt++) {
+      if (signal.aborted) return;
+      if (!res) {
+        const f = new FormData();
+        f.append("jobId", jobId);
+        f.append("reconnectOnly", "1"); // never start a new (file-less) job
+        res = await fetch("/api/compress-sse", { method: "POST", body: f, signal }).catch(() => null);
+      }
+      const outcome = res && res.ok && res.body ? await consumeStream(res) : "dropped";
+      res = null;
+      if (outcome === "done") { clearResume(); return; }
+      if (outcome === "stale") {
+        // Job finished (or server restarted) while we were away → reload the list.
+        clearResume();
+        const list = await listCompressed().catch(() => null);
+        if (list) setPersistedFiles(list);
+        setProgress(100);
+        setProgressLabel(t("compress.doneMsg"));
+        return;
+      }
+      if (signal.aborted) return;
+      if (attempt < MAX_RECONNECTS) {
+        setProgressLabel(t("compress.reconnecting", { attempt: String(attempt + 1), max: String(MAX_RECONNECTS) }));
+        await new Promise((r) => setTimeout(r, Math.min(15_000, 2_000 * (attempt + 1))));
+      }
+    }
+    // Still unreachable: the job keeps running server-side; the resume marker
+    // stays so the next page load re-attaches.
+    setErrorMsg(t("compress.errors.connectionLost"));
+  }
+
+  // On load: re-attach to a compression started before a reload / page leave.
+  useEffect(() => {
+    const jobId = loadResume();
+    if (!jobId) return;
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    jobIdRef.current = jobId;
+    setProcessing(true);
+    setProgress(20);
+    setProgressLabel(t("compress.resuming"));
+    followJob(jobId, null, ctrl.signal).finally(() => {
+      if (!ctrl.signal.aborted) setProcessing(false);
+    });
+    return () => ctrl.abort("unmount");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ---------- submit ---------- */
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -124,10 +307,12 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    const jobId = Math.random().toString(36).slice(2, 8);
+    const jobId = crypto.randomUUID();
+    jobIdRef.current = jobId;
 
     setProcessing(true);
     setErrorMsg(null);
+    setFileErrors([]);
     setProgress(0);
     setProgressLabel(t("compress.preparing"));
 
@@ -155,7 +340,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
         uploads.push({ uploadId, name: name ?? file.name });
       }
 
-      // ── 2. POST to the SSE route. ──
+      // ── 2. POST to the SSE route. From here the job lives server-side. ──
       setProgress(20);
       setProgressLabel(t("compress.processing"));
       const apiForm = new FormData();
@@ -166,8 +351,13 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
         apiForm.append("fileNames", u.name);
       }
 
-      const res = await fetch("/api/compress-sse", { method: "POST", body: apiForm, signal: ctrl.signal });
-      if (!res.ok || !res.body) {
+      saveResume(jobId);
+      const res = await fetch("/api/compress-sse", { method: "POST", body: apiForm, signal: ctrl.signal }).catch((err) => {
+        if (ctrl.signal.aborted) throw err;
+        return null; // dropped before the first byte → followJob re-attaches
+      });
+      if (res && !res.ok) {
+        clearResume();
         const text = await res.text().catch(() => "");
         let msg = `HTTP ${res.status}`;
         try { msg = JSON.parse(text)?.error || msg; } catch { if (text) msg += `: ${text.slice(0, 120)}`; }
@@ -175,42 +365,8 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
         return;
       }
 
-      // ── 3. Read the SSE stream. ──
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      let receivedDone = false;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const evt = JSON.parse(line.slice(6));
-            const pct = evt.percent !== undefined ? 20 + Math.round(evt.percent * 0.8) : undefined;
-            if (pct !== undefined) setProgress(pct);
-            if (evt.msg) setProgressLabel(evt.msg);
-            if (evt.fileReady) {
-              setPersistedFiles((prev) =>
-                prev.some((f) => f.url === evt.fileReady.url) ? prev : [evt.fileReady, ...prev],
-              );
-            }
-            if (evt.error && !evt.done) {
-              setErrorMsg(`[CMP] ${evt.msg || t("compress.errors.processingFailed")}`);
-            }
-            if (evt.done) {
-              receivedDone = true;
-              setProgress(100);
-              setProgressLabel(evt.stopped ? t("compress.stopped") : t("compress.doneMsg"));
-              setFiles([]);
-            }
-          } catch {}
-        }
-      }
-      if (!receivedDone) setErrorMsg(t("compress.errors.noResponse"));
+      // ── 3. Follow the job (auto-reconnect on drops). ──
+      await followJob(jobId, res, ctrl.signal);
     } catch (err: any) {
       if (err?.name === "AbortError" || ctrl.signal.reason === "stopped") {
         // user stopped — nothing to show
@@ -301,10 +457,28 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--app-text-muted)]">
             <span>{t("compress.filesCount", { count: String(files.length) })}</span>
-            <span>•</span>
-            <span>{fmtBytes(totalSize)}</span>
           </div>
         </div>
+
+        {/* Live weight gauge — fills as files are added, capped at MAX_TOTAL_BYTES. */}
+        {(() => {
+          const pct = Math.min(100, (totalSize / MAX_TOTAL_BYTES) * 100);
+          const bar = pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-gradient-to-r from-emerald-500 to-teal-500";
+          return (
+            <div className="-mt-3 space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[var(--app-text-muted)]">{t("compress.gaugeLabel")}</span>
+                <span className="font-semibold tabular-nums text-[var(--app-text)]">
+                  {formatBytes(totalSize, locale)} / {formatBytes(MAX_TOTAL_BYTES, locale)}
+                </span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-[var(--app-surface-2)] overflow-hidden">
+                <div className={`h-2 rounded-full transition-all duration-300 ${bar}`} style={{ width: `${pct}%` }} />
+              </div>
+              {limitMsg && <p className="text-xs text-red-500">{limitMsg}</p>}
+            </div>
+          );
+        })()}
 
         {/* Level selector */}
         <div>
@@ -370,11 +544,17 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
               <div className="h-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
             <p className="text-xs text-[var(--app-text-muted)]">{progressLabel}</p>
+            {progress >= 20 && progress < 100 && (
+              <p className="text-xs text-emerald-300/80">{t("compress.backgroundHint")}</p>
+            )}
           </div>
         )}
 
-        {errorMsg && (
-          <div className="text-sm rounded-lg px-4 py-2 bg-red-900/40 text-red-300">{errorMsg}</div>
+        {(errorMsg || fileErrors.length > 0) && (
+          <div className="text-sm rounded-lg px-4 py-2 bg-red-900/40 text-red-300 space-y-1">
+            {fileErrors.map((m) => <p key={m}>{m}</p>)}
+            {errorMsg && <p>{errorMsg}</p>}
+          </div>
         )}
       </form>
 
@@ -394,7 +574,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
             {selectedUrls.size > 0 && (
               <button
                 type="button"
-                onClick={() => downloadFilesAsZip(persistedFiles.filter((f) => selectedUrls.has(f.url)), "DuupFlow_compressed_selection.zip")}
+                onClick={() => downloadFiles(persistedFiles.filter((f) => selectedUrls.has(f.url)), "DuupFlow_compressed_selection.zip")}
                 className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white transition"
               >
                 {t("common.downloadSelection", { count: String(selectedUrls.size) })}
@@ -402,12 +582,14 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
             )}
             <button
               type="button"
-              onClick={() => downloadFilesAsZip(persistedFiles, "DuupFlow_compressed.zip")}
+              onClick={() => downloadFiles(persistedFiles, "DuupFlow_compressed.zip")}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition"
             >
               {t("compress.downloadAll")}
             </button>
           </div>
+
+          {downloadMsg && <p className="text-xs text-emerald-300/80">{downloadMsg}</p>}
 
           <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] divide-y divide-[var(--app-border)] max-h-96 overflow-y-auto">
             <label className="flex items-center gap-3 px-4 py-2 text-xs text-[var(--app-text-muted)] hover:bg-[var(--app-surface)] cursor-pointer">

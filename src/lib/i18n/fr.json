@@ -51,12 +51,29 @@
     "importingDriveProgress": "Import depuis Drive {done}/{total}…",
     "clear": "Vider",
     "clearing": "Suppression…",
+    "gaugeLabel": "Poids du lot",
+    "waitingSlot": "{label} — {name} : en file d'attente…",
+    "resuming": "Reprise de ta compression en cours…",
+    "reconnecting": "Connexion perdue — reconnexion ({attempt}/{max})…",
+    "backgroundHint": "Tu peux quitter la page : la compression continue et tu retrouveras tes fichiers ici.",
+    "downloadingOneByOne": "Fichiers lourds : téléchargement un par un ({done}/{total})…",
     "errors": {
       "unsupported": "« {name} » : format non pris en charge.",
       "fileFailed": "Échec de la compression de « {name} ».",
       "processingFailed": "La compression a échoué. Réessaie.",
       "noResponse": "Aucune réponse du serveur. Réessaie.",
-      "driveFailed": "L'import depuis Google Drive a échoué."
+      "driveFailed": "L'import depuis Google Drive a échoué.",
+      "batchTooHeavy": "{names} non ajouté(s) : le lot dépasserait la limite de {max}. Place restante : {left}.",
+      "batchLimitServer": "Lot refusé : {maxFiles} fichiers et {max} maximum par lot. Retire des fichiers puis relance.",
+      "connectionLost": "Connexion avec le serveur perdue. La compression continue en arrière-plan : recharge la page dans quelques minutes pour récupérer tes fichiers.",
+      "reason": {
+        "timeout": "« {name} » : la compression a dépassé la limite de {minutes} minutes. Essaie le niveau « Fort » ou raccourcis la vidéo.",
+        "corrupt": "« {name} » : fichier vidéo illisible ou endommagé. Vérifie qu'il se lit bien sur ton appareil, puis réessaie.",
+        "engineMissing": "« {name} » : le moteur vidéo est momentanément indisponible. Réessaie dans quelques minutes.",
+        "diskFull": "« {name} » : espace serveur insuffisant pour l'instant. Réessaie dans quelques minutes.",
+        "encodeFailed": "« {name} » : l'encodage vidéo a échoué. Réessaie, ou essaie un autre niveau de compression.",
+        "imageUnreadable": "« {name} » : image illisible ou endommagée."
+      }
     }
   },
   "nav": {
@@ -2350,6 +2367,7 @@
       "missingBody": "Corps de la requête manquant",
       "cancelled": "Envoi annulé",
       "emptyFile": "Fichier reçu vide (0 octet), vérifiez la taille du fichier ou la connexion.",
+      "tooLarge": "« {name} » est trop lourd : {max} Go maximum par fichier.",
       "heicDecodeFailed": "Impossible de décoder le HEIC \"{name}\", convertissez-le en JPEG manuellement.",
       "writeError": "Erreur écriture : {message}"
     },
