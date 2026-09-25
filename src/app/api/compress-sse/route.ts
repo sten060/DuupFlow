@@ -24,6 +24,7 @@ import { runImageOp } from "@/lib/imageProcessingLimiter";
 import { getFFmpegBin, acquireEncodeSlot, releaseEncodeSlot, encodeThreadsPerTask } from "@/app/dashboard/videos/processVideos";
 import { compressJobRegistry } from "./jobRegistry";
 import { compressImage, LEVELS, type CompressLevel } from "@/lib/compress-pipeline";
+import { compressVideoFilters } from "@/lib/compress-video-filters";
 import { COMPRESS_MAX_FILES, COMPRESS_MAX_TOTAL_BYTES, formatBytes } from "@/lib/compress-limits";
 
 export const runtime = "nodejs";
@@ -132,24 +133,7 @@ async function compressVideo(
   args.push("-max_muxing_queue_size", "1024");
   args.push("-map", "0:v:0", "-map", "0:a:0?");
 
-  const vf: string[] = [];
-  // Downscale FIRST, then tone-map: the HDR chain works in 32-bit float per pixel,
-  // so running it on the already-shrunk frame instead of full 4K cut encode time
-  // by ~20% on real iPhone 4K HDR clips (11–26%, same output size and look).
-  if (cfg.maxDim > 0) {
-    // Downscale longest side to maxDim, keep aspect, only shrink. -2 keeps even dims.
-    vf.push(`scale='if(gt(iw,ih),min(${cfg.maxDim},iw),-2)':'if(gt(iw,ih),-2,min(${cfg.maxDim},ih))'`);
-  }
-  // HDR (10-bit HEVC, typically iPhone) → tone-map to SDR so 8-bit H.264 output
-  // doesn't look washed out / over-bright. npl=100 + hable is deliberate here:
-  // judged closer to the iPhone's own display than the AI editor's npl=203 +
-  // mobius on real footage (Sten, 2026-09-25) — don't "align" the two.
-  if (is10bitHEVC) {
-    vf.push(
-      "zscale=t=linear:npl=100", "format=gbrpf32le", "zscale=p=bt709",
-      "tonemap=hable:desat=0", "zscale=t=bt709:m=bt709:r=tv", "format=yuv420p",
-    );
-  }
+  const vf = compressVideoFilters(cfg.maxDim, is10bitHEVC);
   if (vf.length) args.push("-vf", vf.join(","));
 
   args.push(

@@ -16,6 +16,13 @@ export async function register() {
     startApiWorker();
 
     liftRequestTimeout();
+
+    // One-off ffmpeg speed self-test (logs `[ffmpeg][selftest] …`), delayed so it
+    // never competes with the boot itself. FFMPEG_SELFTEST=0 disables it.
+    const delay = parseInt(process.env.FFMPEG_SELFTEST_DELAY_MS ?? "60000", 10);
+    setTimeout(() => {
+      import("@/lib/ffmpeg-selftest").then((m) => m.runFFmpegSelfTest()).catch(() => {});
+    }, delay);
   }
 }
 
