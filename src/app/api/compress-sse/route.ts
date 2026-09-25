@@ -62,11 +62,12 @@ function reasonOf(e: any, isImage: boolean): FailReason {
 const CORRUPT_RE = /moov atom not found|Invalid data found|could not find codec parameters|does not contain any stream|Output file #0 does not contain any stream|End of file|Invalid NAL unit|Error while decoding stream/i;
 
 /* ============== video probing (lightweight, ffmpeg -i parse) ============== */
-async function probeVideo(input: string, bin: string): Promise<{ duration: number; is10bitHEVC: boolean }> {
+type Probe = { duration: number; is10bitHEVC: boolean; width?: number; height?: number; fps?: number };
+async function probeVideo(input: string, bin: string): Promise<Probe> {
   return new Promise((resolve) => {
     let stderr = "";
     let settled = false;
-    const done = (v: { duration: number; is10bitHEVC: boolean }) => {
+    const done = (v: Probe) => {
       if (!settled) { settled = true; clearTimeout(timer); resolve(v); }
     };
     const p = spawn(bin, ["-hide_banner", "-i", input], { stdio: ["ignore", "ignore", "pipe"] });
@@ -77,10 +78,34 @@ async function probeVideo(input: string, bin: string): Promise<{ duration: numbe
       const duration = m ? parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseFloat(m[3]) : 0;
       const is10bit = /10le|10be|p010/.test(stderr);
       const isHEVC = /hevc|h\.?265/i.test(stderr);
-      done({ duration, is10bitHEVC: is10bit && isHEVC });
+      const res = stderr.match(/Video:.*?(\d{2,5})x(\d{2,5})/);
+      const fps = stderr.match(/([\d.]+) fps/);
+      done({
+        duration, is10bitHEVC: is10bit && isHEVC,
+        width: res ? +res[1] : undefined, height: res ? +res[2] : undefined,
+        fps: fps ? Math.round(parseFloat(fps[1])) : undefined,
+      });
     });
     const timer = setTimeout(() => { p.kill("SIGKILL"); done({ duration: 0, is10bitHEVC: false }); }, 8_000);
   });
+}
+
+/* ============== performance trace ============== */
+// One `[compress][perf]` line per video (success OR failure) so a slow/failed
+// compression in prod can be diagnosed from Railway logs alone: video specs,
+// threads actually used, queue wait vs encode time, real ffmpeg speed, version.
+type PerfStats = Partial<Probe> & { threads?: number; lastPct?: number; speed?: string };
+let ffmpegVersion: string | null = null;
+async function getFFmpegVersion(bin: string): Promise<string> {
+  if (ffmpegVersion) return ffmpegVersion;
+  ffmpegVersion = await new Promise<string>((resolve) => {
+    let out = "";
+    const p = spawn(bin, ["-version"], { stdio: ["ignore", "pipe", "ignore"] });
+    p.stdout.on("data", (d: Buffer) => { out += d.toString(); });
+    p.on("error", () => resolve("?"));
+    p.on("close", () => resolve(out.match(/ffmpeg version (\S+)/)?.[1] ?? "?"));
+  });
+  return ffmpegVersion;
 }
 
 /* ============== video compression (ffmpeg) ============== */
@@ -91,10 +116,13 @@ async function compressVideo(
   srcBytes: number,
   onTick: (pct: number) => void,
   signal?: AbortSignal,
+  stats: PerfStats = {},
 ): Promise<void> {
   const cfg = LEVELS[level];
   const bin = await getFFmpegBin().catch(() => { throw new CompressError("engineMissing"); });
-  const { duration, is10bitHEVC } = await probeVideo(input, bin);
+  const probe = await probeVideo(input, bin);
+  const { duration, is10bitHEVC } = probe;
+  Object.assign(stats, probe, { threads: encodeThreadsPerTask() });
 
   // Source bitrate (kbps): file size ÷ duration. We cap the encode below this so
   // the copy keeps the source's look but is never heavier (0 = unknown → no cap).
@@ -159,8 +187,12 @@ async function compressVideo(
       const m = chunk.match(/time=(\d+):(\d+):(\d+\.\d+)/);
       if (m && duration > 0) {
         const t = parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseFloat(m[3]);
-        onTick(Math.max(0, Math.min(99, Math.round((t / duration) * 100))));
+        const pct = Math.max(0, Math.min(99, Math.round((t / duration) * 100)));
+        stats.lastPct = pct;
+        onTick(pct);
       }
+      const sp = chunk.match(/speed=\s*([\d.]+x)/);
+      if (sp) stats.speed = sp[1];
     });
     p.on("error", (err) => { cleanup(); reject(new CompressError("engineMissing", err.message)); });
     p.on("close", (code) => {
@@ -350,18 +382,35 @@ export async function POST(req: Request) {
               const tempOut = path.join(dir, `__progress_${OUT_PREFIX}${tag}.mp4`);
               // Shared queue with the video duplication: wait our turn (Stop-aware).
               send({ percent: Math.round((i / total) * 100), msg: t("compress.waitingSlot", { label: fileLabel, name: fileName }) });
+              const tQueue = Date.now();
               await acquireEncodeSlot(abort.signal);
+              const tEncode = Date.now();
+              const perf: PerfStats = {};
+              let outcome = "OK";
               try {
                 await compressVideo(
                   tmpPath, tempOut, level, srcBytes,
                   (pct) => send({ percent: Math.round(((i + (pct / 100)) / total) * 100), msg: `${fileLabel} — ${fileName} (${pct}%)…` }),
                   abort.signal,
+                  perf,
                 );
-              } catch (e) {
+              } catch (e: any) {
+                outcome = e?.message === "stopped" ? "ARRÊTÉ" : `ÉCHEC(${reasonOf(e, false)})`;
                 await fs.unlink(tempOut).catch(() => {});
                 throw e;
               } finally {
                 releaseEncodeSlot();
+                const encSec = Math.round((Date.now() - tEncode) / 1000);
+                const dur = Math.round(perf.duration ?? 0);
+                console.log(
+                  `[compress][perf] "${fileName}" ${outcome} — vidéo=${dur}s ${perf.width ?? "?"}x${perf.height ?? "?"}@${perf.fps ?? "?"}fps` +
+                  `${perf.is10bitHEVC ? " HDR" : ""} niveau=${level} src=${Math.round(srcBytes / 1048576)}Mo` +
+                  ` | attente=${Math.round((tEncode - tQueue) / 1000)}s encodage=${encSec}s` +
+                  ` ratio=${dur ? (encSec / dur).toFixed(2) : "?"}x speed=${perf.speed ?? "?"} avancement=${outcome === "OK" ? 100 : perf.lastPct ?? 0}%` +
+                  ` | threads=${perf.threads ?? "?"} FFMPEG_VCPU=${process.env.FFMPEG_VCPU ?? "absent(8)"}` +
+                  ` MAX_CONCURRENT_ENCODES=${process.env.MAX_CONCURRENT_ENCODES ?? "absent(2)"} cpus=${os.cpus().length}` +
+                  ` ffmpeg=${await getFFmpegVersion(await getFFmpegBin().catch(() => "")).catch(() => "?")}`,
+                );
               }
               let outBytes = 0;
               try { outBytes = (await fs.stat(tempOut)).size; } catch {}
