@@ -14,5 +14,30 @@ export async function register() {
     // Start the API job worker — polls api_jobs for queued async jobs (video).
     const { startApiWorker } = await import("@/lib/api-worker");
     startApiWorker();
+
+    liftRequestTimeout();
   }
+}
+
+// Node's http server gives a request 5 min (requestTimeout = 300 000 ms) to be
+// received IN FULL, and `next start` never changes it. A multi-GB upload on an
+// ordinary connection takes longer → Node drops the socket mid-upload, Railway's
+// proxy answers 502 and the app logs nothing. Raise it above Railway's own
+// 15-min edge cap so the platform limit is the only one left. `next start` gives
+// no hook on its server, so we find it among the process's listening handles
+// (retried: the server may not be listening yet when register() runs).
+const REQUEST_TIMEOUT_MS = 20 * 60 * 1000;
+function liftRequestTimeout(attempt = 0) {
+  const handles: unknown[] = (process as any)._getActiveHandles?.() ?? [];
+  let patched = 0;
+  for (const h of handles) {
+    const s = h as { requestTimeout?: number; listening?: boolean };
+    if (s && typeof s.requestTimeout === "number" && s.listening && s.requestTimeout !== REQUEST_TIMEOUT_MS) {
+      s.requestTimeout = REQUEST_TIMEOUT_MS;
+      patched++;
+    }
+  }
+  if (patched) console.log(`[instrumentation] http requestTimeout → ${REQUEST_TIMEOUT_MS / 60000} min (${patched} server(s))`);
+  else if (attempt < 10) setTimeout(() => liftRequestTimeout(attempt + 1), 1000);
+  else console.warn("[instrumentation] http server not found — uploads stay capped at 5 min by Node");
 }
