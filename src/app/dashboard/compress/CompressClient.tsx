@@ -11,6 +11,7 @@ import DriveImportButton from "../components/DriveImportButton";
 import DriveSaveButton from "../components/DriveSaveButton";
 import DocsDrawer from "../components/DocsDrawer";
 import { buildCompressDocs } from "../components/docs-content";
+import { usePlanGate } from "../components/PlanGate";
 
 // Batch limits (30 files, 10 GB) — re-checked server-side by /api/compress-sse.
 const MAX_FILES = COMPRESS_MAX_FILES;
@@ -473,9 +474,12 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
   }, []);
 
   /* ---------- submit ---------- */
+  const { guard: planGuard } = usePlanGate();
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (files.length === 0 || processing) return;
+    // Plan gratuit : fenêtre « ce module nécessite un plan » (src/lib/free-plan.ts).
+    if (!planGuard("compress")) return;
     saveSettings("compress", { level });
 
     const ctrl = new AbortController();

@@ -262,7 +262,7 @@
     "noAccountDesc": "Cette adresse n'a pas de compte DuupFlow. Crée-en un pour commencer."
   },
   "register": {
-    "title": "Créé ton compte",
+    "title": "Crée ton compte",
     "subtitle": "Commence à scaler ton contenu dès maintenant.",
     "googleButton": "Continuer avec Google",
     "or": "ou",
@@ -901,6 +901,7 @@
       "advancedDesc": "Contrôle total, configure chaque filtre manuellement avec templates.",
       "advancedStart": "Configurer",
       "aiTitle": "IA automatique",
+      "aiSeePlans": "Voir les plans →",
       "aiDesc": "L'IA génère des variantes poussées pour toi — tu fixes l'objectif, elle pilote l'édition de bout en bout.",
       "aiSoon": "Bientôt disponible",
       "aiStart": "Essayer la beta",

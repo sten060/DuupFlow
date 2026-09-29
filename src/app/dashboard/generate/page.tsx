@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import { formatTokens, formatEur, imageCostCents, imagesAffordable } from "@/lib/tokens";
 import DriveImportButton from "../components/DriveImportButton";
+import { usePlanGate } from "../components/PlanGate";
 
 type Mode = "variation" | "prompt";
 
@@ -98,8 +99,11 @@ export default function AiLabPage() {
     setErr("");
   }
 
+  const { guard: planGuard } = usePlanGate();
   async function handleLaunch() {
     setErr("");
+    // Plan gratuit : fenêtre « ce module nécessite un plan » (src/lib/free-plan.ts).
+    if (!planGuard("generate")) return;
     // Keep previous results — new ones are appended (newest first) and they
     // all auto-expire after 24 h. User can prune individually via the × button.
     if (!file) return setErr(t("dashboard.aiLab.errAddImage"));

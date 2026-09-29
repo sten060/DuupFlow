@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
@@ -22,20 +21,23 @@ function GoogleIcon() {
 
 export default function RegisterPage() {
   const supabase = createClient();
-  const router = useRouter();
   const { t, locale } = useTranslation();
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Gate: registration requires a chosen plan. null = deciding, true = show
-  // form, false = redirecting to pricing.
+  // null = deciding (avoids a flash), true = show form.
   const [allowed, setAllowed] = useState<boolean | null>(null);
 
-  // A plan MUST be picked to register — /register without ?plan=solo|pro sends
-  // the user to pricing (no free direct signup). The plan is persisted so the
-  // Stripe paywall applies right after onboarding.
+  // Two signup flavours share this screen:
+  //   • /register?plan=starter|solo|pro → paid signup, the plan is persisted so
+  //     the Stripe paywall applies right after onboarding.
+  //   • /register (no plan, e.g. the landing's "Commencer" button) → FREE
+  //     account: the user explores the whole app, every production action is
+  //     locked behind a plan (see src/lib/free-plan.ts). Any plan left over from
+  //     an earlier pricing visit is cleared so it can't turn this free signup
+  //     into a paid one.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const plan = params.get("plan");
@@ -43,11 +45,11 @@ export default function RegisterPage() {
       localStorage.setItem("duupflow_selected_plan", plan);
       // Intervalle de facturation choisi sur la page pricing (annuel/mensuel).
       localStorage.setItem("duupflow_selected_billing", params.get("billing") === "yearly" ? "yearly" : "monthly");
-      setAllowed(true);
     } else {
-      setAllowed(false);
-      router.replace(`/${locale}/pricing#plans`);
+      localStorage.removeItem("duupflow_selected_plan");
+      localStorage.removeItem("duupflow_selected_billing");
     }
+    setAllowed(true);
   }, []);
 
   // Carry the chosen plan THROUGH the auth round-trip in the callback URL.
@@ -89,8 +91,7 @@ export default function RegisterPage() {
     setLoading(false);
   }
 
-  // While deciding / redirecting a no-plan visitor, render an empty shell so the
-  // form never flashes before the pricing redirect.
+  // Render an empty shell until the plan is resolved (no flash).
   if (allowed !== true) {
     return <div className="min-h-screen bg-white" />;
   }

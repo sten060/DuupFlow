@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requirePaidPlan } from "@/lib/plan-gate";
 import sharp from "sharp";
 import crypto from "crypto";
 import { buildVariationPrompt, ACTION_VARIATIONS } from "@/lib/ai/variation-prompt";
@@ -220,6 +221,10 @@ export async function POST(req: Request) {
       );
     }
     userId = user.id;
+
+    // Plan gratuit : aucune génération (src/lib/free-plan.ts).
+    const locked = await requirePaidPlan(user.id, "generate");
+    if (locked) return locked;
 
     // ── 2. Parse request ──────────────────────────────────────────────────
     const form = await req.formData();

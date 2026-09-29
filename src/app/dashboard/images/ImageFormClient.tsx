@@ -16,6 +16,7 @@ import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import { saveSettings, loadSettings } from "@/lib/formMemory";
 import DriveImportButton from "../components/DriveImportButton";
 import DriveSaveButton from "../components/DriveSaveButton";
+import { usePlanGate } from "../components/PlanGate";
 
 const MAX_FILES = 50;
 
@@ -212,9 +213,12 @@ export default function ImageFormClient({ initialImages }: Props) {
     setVal("country", s.country);
   }, []);
 
+  const { guard: planGuard } = usePlanGate();
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (files.length === 0) return;
+    // Plan gratuit : fenêtre « ce module nécessite un plan » (src/lib/free-plan.ts).
+    if (!planGuard("image_duplication")) return;
 
     const formData = new FormData(e.currentTarget);
     const count = Math.max(1, parseInt(String(formData.get("count") ?? "1"), 10));

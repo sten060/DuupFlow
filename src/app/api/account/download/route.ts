@@ -6,13 +6,22 @@
 // confiance à des URLs venues du client : le serveur reste la source de vérité,
 // et le download suit le scrape de près (piège n°3 : expiration des URLs CDN).
 
+import { requirePaidPlan } from "@/lib/plan-gate";
 import { NextResponse } from "next/server";
 import { getScanSnapshot, startDownloadJob } from "@/lib/account/jobs";
+import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
+  // Auth + plan : chaque vidéo téléchargée = 1 run Apify facturé.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const locked = await requirePaidPlan(user.id, "import");
+  if (locked) return locked;
+
   let body: { scanJobId?: string; ids?: string[] };
   try {
     body = await req.json();

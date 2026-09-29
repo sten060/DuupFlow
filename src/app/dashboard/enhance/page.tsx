@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { enhanceAction } from "./actions";
+import { usePlanGate } from "../components/PlanGate";
 
 export default function EnhancePage() {
   const [file, setFile] = useState<File | null>(null);
@@ -19,9 +20,12 @@ export default function EnhancePage() {
     }
   };
 
+  const { guard: planGuard } = usePlanGate();
   const onSubmit = async (e: any) => {
     e.preventDefault();
     if (!file) return;
+    // Plan gratuit : fenêtre « ce module nécessite un plan » (src/lib/free-plan.ts).
+    if (!planGuard("enhance")) return;
     setLoading(true);
     setError(null);
     const fd = new FormData();

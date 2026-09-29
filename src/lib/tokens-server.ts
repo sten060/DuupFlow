@@ -5,6 +5,7 @@
  * functions are only safe to call from server-side code (API routes,
  * server actions, webhook handlers).
  */
+import { isUserOnFreePlan } from "@/lib/plan-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { IMAGE_COST_CENTS, WELCOME_BONUS_CENTS } from "@/lib/tokens";
 
@@ -38,6 +39,10 @@ export type LedgerEntry = {
  * donc aucun problème de cumul possible.
  */
 export async function grantWelcomeBonusIfDue(userId: string): Promise<void> {
+  // Plan gratuit : pas de bonus — le plan gratuit ne produit rien, pas même une
+  // image IA (src/lib/free-plan.ts). Le bonus tombera au premier appel une fois
+  // un plan choisi (idempotent, 1× par user).
+  if (await isUserOnFreePlan(userId).catch(() => true)) return;
   const reason = "welcome_bonus_200";
   const admin = createAdminClient();
 

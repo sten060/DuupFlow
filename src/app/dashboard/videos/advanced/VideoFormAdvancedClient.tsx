@@ -29,6 +29,7 @@ import {
   migrateTemplatesFromLocal,
 } from "./templateActions";
 import type { Template } from "./templateActions";
+import { usePlanGate } from "../../components/PlanGate";
 
 /* ============= UI helpers (sobre / bleu) ============= */
 function Card({
@@ -456,8 +457,11 @@ export default function VideoFormAdvancedClient() {
   // (also detects un-decodable files so we fail fast with a clear message
   // instead of getting VID-004 on the server).
 
+  const { guard: planGuard } = usePlanGate();
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Plan gratuit : fenêtre « ce module nécessite un plan » (src/lib/free-plan.ts).
+    if (!planGuard("video_duplication")) return;
     setProcessing(true);
     setSubmitError(null);
     setProgress(0);

@@ -1,6 +1,7 @@
 // src/app/dashboard/similarity/actions.ts
 "use server";
 
+import { planLockMessageForCurrentUser } from "@/lib/plan-gate";
 import sharp from "sharp";
 
 type Hash64 = bigint;
@@ -497,6 +498,9 @@ export async function compareVisual(
   framesA: string[],
   framesB: string[],
 ): Promise<{ visual: number; breakdown: PairScore["breakdown"] } | { error: string }> {
+  // Plan gratuit : aucune comparaison (src/lib/free-plan.ts).
+  const planLock = await planLockMessageForCurrentUser();
+  if (planLock) return { error: planLock };
   try {
     if (!framesA.length || !framesB.length) return { error: "Aucune image extraite" };
 

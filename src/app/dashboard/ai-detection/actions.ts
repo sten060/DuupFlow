@@ -1,5 +1,6 @@
 "use server";
 
+import { planLockMessageForCurrentUser } from "@/lib/plan-gate";
 import path from "path";
 import os from "os";
 import fs from "fs/promises";
@@ -302,7 +303,7 @@ async function processImage(buf: Buffer, ext: string, meta: sharp.WriteableMetad
  * applique un pipeline pixel anti-fingerprint,
  * et réinjecte une identité humaine réaliste.
  * ───────────────────────────────────────────── */
-export async function maskAiMetadata(uploads: { uploadId: string; name: string }[]): Promise<{ ok: boolean; count: number; files: string[]; error?: string; limitReached?: boolean; current?: number; limit?: number }> {
+export async function maskAiMetadata(uploads: { uploadId: string; name: string }[]): Promise<{ ok: boolean; count: number; files: string[]; error?: string; planRequired?: boolean; limitReached?: boolean; current?: number; limit?: number }> {
   const t = await getServerT();
   // Files are streamed to disk via /api/upload-direct first (RAM-safe), then
   // processed here by id — no large in-memory multipart payload.
@@ -310,6 +311,10 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
   console.log(`[ai-detection] maskAiMetadata called — ${items.length} file(s)`);
 
   if (!items.length) return { ok: false, count: 0, files: [], error: `[AI-001] ${t("errors.aiDetection.noFile")}` };
+
+  // Plan gratuit : aucun traitement, images ET vidéos (src/lib/free-plan.ts).
+  const planLock = await planLockMessageForCurrentUser();
+  if (planLock) return { ok: false, count: 0, files: [], error: planLock, planRequired: true };
 
   // ── Usage check (Solo plan limits) ────────────────────────────────────────
   const imageFiles = items.filter((u) => IMAGE_EXTS.includes(extOf(u.name)));

@@ -1,6 +1,7 @@
 // SSE-based image duplication — mirrors duplicate-video/route.ts pattern.
 // Processes each image/copy server-side and emits fileReady events so the
 // client can show files as they finish and the stop button works correctly.
+import { requirePaidPlan } from "@/lib/plan-gate";
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
@@ -94,6 +95,11 @@ export async function POST(req: Request) {
   // où les cookies sont encore lisibles.
   const totalImages = directUploadIds.length * count;
   const usageCheck = await checkUsage("images", totalImages);
+  // Plan gratuit : aucune duplication (src/lib/free-plan.ts).
+  if (usageCheck.userId) {
+    const locked = await requirePaidPlan(usageCheck.userId, "image_duplication");
+    if (locked) return locked;
+  }
   if (!usageCheck.allowed || !usageCheck.userId) {
     return Response.json(
       {

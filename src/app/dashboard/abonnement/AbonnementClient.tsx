@@ -42,7 +42,7 @@ function UsageStatCard({
   unlimited?: boolean;
   color: string;
 }) {
-  const pct = unlimited ? 100 : Math.min(100, Math.round((current / limit) * 100));
+  const pct = unlimited ? 100 : limit > 0 ? Math.min(100, Math.round((current / limit) * 100)) : 0;
   const isNearLimit = !unlimited && pct >= 80;
   const isAtLimit = !unlimited && pct >= 100;
   const barColor = isAtLimit ? "#EF4444" : isNearLimit ? "#F59E0B" : color;
@@ -418,7 +418,31 @@ export default function AbonnementClient({
             </div>
           )}
 
-          {/* Usage — screenshot style: 3 stat cards side by side */}
+          {/* Plan gratuit : aucun quota (il ne produit rien — src/lib/free-plan.ts).
+              Des cartes « 0 / 0 » n'auraient aucun sens : on explique plutôt. */}
+          {isFree ? (
+            <div
+              className="rounded-2xl p-5"
+              style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.18)" }}
+            >
+              <p className="text-sm font-semibold text-[var(--app-text)]">
+                {locale === "en" ? "🔒 Free plan — explore only" : "🔒 Plan gratuit — exploration uniquement"}
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-[var(--app-text-muted)]">
+                {locale === "en"
+                  ? "You can open and try every module. To duplicate, generate, compress or create variants, choose a plan."
+                  : "Tu peux ouvrir et essayer tous les modules. Pour dupliquer, générer, compresser ou créer des variantes, choisis un plan."}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowPlanPicker(true)}
+                className="mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                style={{ background: "linear-gradient(135deg,#4f7bff,#7c5cff)", boxShadow: "0 6px 20px rgba(99,102,241,0.30)" }}
+              >
+                {locale === "en" ? "See plans →" : "Voir les plans →"}
+              </button>
+            </div>
+          ) : (
           <div>
             <p className="text-xs font-semibold tracking-[0.12em] uppercase text-[var(--app-text-faint)] mb-4">
               {isUnlimited ? t("dashboard.subscription.usageUnlimited") : t("dashboard.subscription.usageThisMonth")}
@@ -496,6 +520,7 @@ export default function AbonnementClient({
               </p>
             )}
           </div>
+          )}
 
           {/* Billing controls exist only for users with a Stripe customer
               (paid plans). Free users have none — so we skip the divider and

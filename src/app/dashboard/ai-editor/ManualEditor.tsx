@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import type { EditPlan, EditSegment, EditCaption } from "@/lib/ai-editor/plan-types";
 import { CAPTION_FONTS, FONT_CATALOG, type CaptionFont } from "@/lib/ai-editor/font-catalog";
+import { usePlanGate } from "../components/PlanGate";
 
 const BRAND = "linear-gradient(135deg,#6366F1,#38BDF8)";
 const CANVAS: Record<string, [number, number]> = { "9:16": [1080, 1920], "1:1": [1080, 1080], "16:9": [1920, 1080] };
@@ -740,8 +741,11 @@ export default function ManualEditor({ projectId, variantId, onClose, onExported
   }, [W, plan]);
 
   /* ── Export ── */
+  const { guard: planGuard } = usePlanGate();
   const doExport = useCallback(async () => {
     if (!plan) return;
+    // Plan gratuit : fenêtre « ce module nécessite un plan » (src/lib/free-plan.ts).
+    if (!planGuard("manual_editor")) return;
     setExportState(null);
     try {
       const res = await fetch("/api/ai-editor/edit", {
@@ -754,7 +758,7 @@ export default function ManualEditor({ projectId, variantId, onClose, onExported
     } catch (e) {
       setExportState({ error: (e as Error).message });
     }
-  }, [plan, projectId, variantId, exportLabel]);
+  }, [plan, projectId, variantId, exportLabel, planGuard]);
 
   useEffect(() => { // suivi du ticket de rendu
     if (!exportState || !("jobId" in exportState)) return;

@@ -1,5 +1,6 @@
 "use server";
 
+import { planLockMessageForCurrentUser } from "@/lib/plan-gate";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
@@ -11,6 +12,9 @@ function randName() {
 }
 
 export async function enhanceAction(formData: FormData) {
+  // Plan gratuit : aucune amélioration (src/lib/free-plan.ts).
+  const planLock = await planLockMessageForCurrentUser();
+  if (planLock) return { ok: false as const, error: planLock };
   try {
     const file = formData.get("image") as File | null;
     const restore = Number(formData.get("restore") ?? 0.7);

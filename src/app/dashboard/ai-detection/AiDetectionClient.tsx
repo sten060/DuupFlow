@@ -8,6 +8,7 @@ import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import DriveImportButton from "../components/DriveImportButton";
 import DocsDrawer from "../components/DocsDrawer";
 import { buildDetectionDocs } from "../components/docs-content";
+import { usePlanGate } from "../components/PlanGate";
 
 const MAX_FILES = 30;
 
@@ -187,8 +188,11 @@ export default function AiDetectionClient() {
     setLimitError("");
   }
 
+  const { guard: planGuard } = usePlanGate();
   async function handleSubmit() {
     if (!files.length || pending) return;
+    // Plan gratuit : fenêtre « ce module nécessite un plan » (src/lib/free-plan.ts).
+    if (!planGuard("ai_detection")) return;
     const toUpload = files;
 
     setPending(true);

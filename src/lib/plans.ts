@@ -1,15 +1,15 @@
 /**
  * Per-plan monthly quotas.
  *
- * The "free" tier covers users without a paid subscription. They get a small
- * allowance for the regular duplication features (images / videos) but no
- * AI signature credits. AI variation is metered separately via the token
- * system (src/lib/tokens.ts) and not affected by these quotas.
+ * The "free" tier covers users without a paid subscription. It produces
+ * NOTHING: the user can explore the whole app, but every production action is
+ * locked behind a plan (see src/lib/free-plan.ts). Its quotas are therefore 0 —
+ * a second safety net behind the explicit plan gate in every route.
  */
 export const PLAN_LIMITS = {
   free: {
-    images: 20,
-    videos: 10,
+    images: 0,
+    videos: 0,
     ai_signatures: 0,
     members: 0,
   },

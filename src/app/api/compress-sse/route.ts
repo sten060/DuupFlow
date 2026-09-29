@@ -12,6 +12,7 @@
 // a big compression never steals the whole box. The job survives the client
 // leaving / losing its connection (only an explicit Stop aborts it), and each
 // video gets a bounded encoding time (see timeoutForVideo), with a precise error.
+import { requirePaidPlan } from "@/lib/plan-gate";
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
@@ -276,6 +277,18 @@ export async function POST(req: Request) {
 
   if (directUploadIds.length === 0) {
     return Response.json({ error: t("errors.upload.missingBody") }, { status: 400 });
+  }
+
+  // Plan gratuit : aucune compression (src/lib/free-plan.ts). Les fichiers
+  // envoyés sont supprimés tout de suite.
+  const locked = await requirePaidPlan(user.id, "compress");
+  if (locked) {
+    await Promise.all(
+      directUploadIds
+        .filter((id) => /^duup_direct_[\w.-]+$/.test(id))
+        .map((id) => fs.unlink(path.join(os.tmpdir(), id)).catch(() => {})),
+    );
+    return locked;
   }
 
   // ── Batch limits, re-checked server-side (the UI enforces them too, but a

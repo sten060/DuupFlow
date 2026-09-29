@@ -10,7 +10,7 @@
 // stateless. Les outils (mcp-tools.ts) sont EN LECTURE : ils donnent au Claude du
 // user la réf analysée (keyframes EN IMAGES → il les VOIT) + la matière.
 
-import { authenticateApiRequest, resolveEffectivePlan } from "@/lib/api-auth";
+import { authenticateApiRequest } from "@/lib/api-auth";
 import { TOOLS, callTool } from "@/lib/ai-editor/mcp-tools";
 import { bearerFrom, oauthUserId, wwwAuthenticate } from "@/lib/ai-editor/oauth";
 
@@ -25,13 +25,6 @@ function needsAuth(req: Request) {
   return new Response(JSON.stringify({ error: "unauthorized" }), {
     status: 401,
     headers: { "Content-Type": "application/json", "WWW-Authenticate": wwwAuthenticate(req) },
-  });
-}
-
-function needsPaidPlan() {
-  return new Response(JSON.stringify({ error: "L'Éditeur IA (connecteur MCP) est réservé aux plans payants (Starter, Solo, Pro). Passe à un plan payant pour l'utiliser." }), {
-    status: 403,
-    headers: { "Content-Type": "application/json" },
   });
 }
 
@@ -51,12 +44,11 @@ async function resolveUser(req: Request): Promise<{ userId: string } | { deny: R
   }
   const uid = oauthUserId(req);
   if (!uid) return { deny: needsAuth(req) };
-  // Gate PLAN PAYANT (Starter, Solo ou Pro) sur la voie OAuth (« Autoriser » en 1 clic).
-  // Revérifié à CHAQUE requête → coupe aussi l'accès si le plan tombe en Free
-  // (downgrade) même avec un refresh token encore valide. Les rendus restent bornés
-  // par le quota « vidéos » (Starter 100/mois, Solo 300/mois partagés, Pro illimité).
-  const plan = await resolveEffectivePlan(uid);
-  if (plan === "free") return { deny: needsPaidPlan() };
+  // Plan gratuit : le connecteur se branche (le user essaie, Claude lit sa réf
+  // et sa matière), mais AUCUNE variante n'est rendue — create_variant et
+  // update_variant répondent à Claude que le plan ne le permet pas, pour qu'il
+  // l'explique au user (mcp-tools.ts, guardVariantQuota). Revérifié à chaque
+  // appel d'outil → un downgrade coupe les rendus même avec un token valide.
   return { userId: uid };
 }
 

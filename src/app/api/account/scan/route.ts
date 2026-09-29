@@ -8,6 +8,7 @@
 // télécharge ensuite ou non. Si le scan échoue (compte privé/restreint/
 // introuvable), le job rembourse intégralement (cf. lib/account/jobs).
 
+import { requirePaidPlan } from "@/lib/plan-gate";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recordTransaction, grantWelcomeBonusIfDue } from "@/lib/tokens-server";
@@ -51,6 +52,9 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  // Plan gratuit : aucun import (src/lib/free-plan.ts).
+  const locked = await requirePaidPlan(user.id, "import");
+  if (locked) return locked;
 
   // Garantit le bonus de bienvenue avant tout débit (idempotent, 1× par user).
   await grantWelcomeBonusIfDue(user.id);

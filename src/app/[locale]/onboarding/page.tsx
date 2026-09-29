@@ -16,8 +16,10 @@ import { Brand } from "@/components/landing/shell";
 //   Step 0 — Identity   : firstName + agencyName (skipped to firstName-only for guests)
 //   Step 1 — Platforms  : multi-select target social platforms
 //   Step 2 — Source     : single-select acquisition channel
+//   Step 3 — Promo code : paid signups only — the moment Stripe is launched
 //
-// Guests skip steps 1 & 2.
+// Guests skip steps 1 & 2. Free signups (no plan picked — the landing's
+// "Commencer" button) stop after step 2 and land on a free account.
 
 type Platform =
   | "instagram" | "threads" | "reddit" | "tiktok" | "x"
@@ -59,7 +61,14 @@ function OnboardingForm() {
   const cancelled = searchParams.get("paywall") === "cancelled";
   const { t, locale } = useTranslation();
 
-  const TOTAL_STEPS = isGuest ? 1 : 4;
+  // Paid signup = a plan was picked on the pricing page (URL or localStorage).
+  // Otherwise it's a FREE signup: no promo/payment step, straight to the app.
+  const planParam = searchParams.get("plan");
+  const [paidSignup, setPaidSignup] = useState(
+    cancelled || planParam === "starter" || planParam === "solo" || planParam === "pro",
+  );
+
+  const TOTAL_STEPS = isGuest ? 1 : paidSignup ? 4 : 3;
 
   const [step, setStep] = useState(cancelled && !isGuest ? 3 : 0);
   const [firstName, setFirstName] = useState("");
@@ -105,20 +114,10 @@ function OnboardingForm() {
         localStorage.setItem("duupflow_selected_billing", "yearly");
       }
     } else if (!isGuest) {
-      // No paid plan chosen — the free tier is no longer offered to new signups.
-      // Send them to pricing to pick a plan before any account is created.
+      // No plan in the URL: a plan stored by /register?plan= (same browser)
+      // still makes it a paid signup; otherwise it's a free account.
       const stored = localStorage.getItem("duupflow_selected_plan");
-      if (stored !== "starter" && stored !== "solo" && stored !== "pro") {
-        // Comp (offered Pro) accounts skip the pricing gate entirely — they get
-        // provisioned as Pro when they submit onboarding. Check server-side so
-        // the allowlist never reaches the client bundle.
-        (async () => {
-          const comp = await fetch("/api/account/comp-pro")
-            .then((r) => r.json())
-            .catch(() => ({ pro: false }));
-          if (!comp?.pro) router.replace(`/${locale}/pricing#plans`);
-        })();
-      }
+      if (stored === "starter" || stored === "solo" || stored === "pro") setPaidSignup(true);
     }
   }, []);
 
@@ -189,6 +188,9 @@ function OnboardingForm() {
 
     if (isGuest && step === 0) { void submit(); return; }
     if (step < TOTAL_STEPS - 1) { setStep((s) => s + 1); return; }
+
+    // Free signup: the source step is the last one — create the account.
+    if (!paidSignup) { void submit(); return; }
 
     // Dernière étape (code promo / payer).
     if (cancelled && (!firstName.trim() || !agencyName.trim())) {
@@ -264,7 +266,8 @@ function OnboardingForm() {
       // The paid plan picked on the pricing page (?plan=solo|pro). Persisted
       // server-side so the checkout paywall survives logout: a user who quits
       // before paying stays gated and resumes at checkout on next login.
-      const selectedPlan = localStorage.getItem("duupflow_selected_plan") ?? undefined;
+      const stored = localStorage.getItem("duupflow_selected_plan");
+      const selectedPlan = paidSignup && stored ? stored : undefined;
       const res = await fetch("/api/onboarding/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -279,12 +282,6 @@ function OnboardingForm() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        // No paid plan → the server refuses to create a free account. Route the
-        // user to pricing to choose a plan instead of showing an error.
-        if (data.code === "plan_required") {
-          router.replace(`/${locale}/pricing#plans`);
-          return;
-        }
         setError(data.error ?? t("onboarding.profileError"));
         setLoading(false);
         return;
@@ -295,10 +292,10 @@ function OnboardingForm() {
     // inside flushAcquisition so they can never block the redirect.
     void flushAcquisition(supabase, user.id);
 
-    if (isGuest) {
-      // Invités : petite page de bienvenue → dashboard.
+    if (isGuest || !paidSignup) {
+      // Invités et comptes gratuits : petite page de bienvenue → dashboard.
       sessionStorage.setItem("welcome_first_name", firstName.trim());
-      sessionStorage.setItem("welcome_is_guest", "1");
+      if (isGuest) sessionStorage.setItem("welcome_is_guest", "1");
       router.push("/onboarding/welcome");
     } else {
       // Comptes payants : l'étape "code promo" EST le moment du paiement.
@@ -313,7 +310,7 @@ function OnboardingForm() {
     t("onboarding.stepIdentity"),
     t("onboarding.stepPlatforms"),
     t("onboarding.stepSource"),
-    locale === "en" ? "Promo code" : "Code promo",
+    ...(paidSignup ? [locale === "en" ? "Promo code" : "Code promo"] : []),
   ];
 
   const leftTitle =
@@ -538,8 +535,8 @@ function OnboardingForm() {
                 onClick={() => {
                   setError("");
                   // Retour en chaîne : étape précédente ; depuis la 1re étape,
-                  // on remonte jusqu'à la page Tarifs.
-                  if (step === 0) router.push(`/${locale}/pricing#plans`);
+                  // on remonte à la page Tarifs (payant) ou à l'accueil (gratuit).
+                  if (step === 0) router.push(paidSignup ? `/${locale}/pricing#plans` : `/${locale}`);
                   else setStep((s) => s - 1);
                 }}
                 disabled={loading}

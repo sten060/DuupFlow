@@ -15,6 +15,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import DriveImportButton from "../components/DriveImportButton";
 import DocsDrawer from "../components/DocsDrawer";
 import { buildComparatorDocs } from "../components/docs-content";
+import { usePlanGate } from "../components/PlanGate";
 
 type ProbeResult = Record<string, any> | null;
 type VisualBreakdown = Awaited<ReturnType<typeof compareVisual>>;
@@ -71,8 +72,11 @@ export default function SimilarityClient() {
     };
   }
 
+  const { guard: planGuard } = usePlanGate();
   async function handleCompare() {
     if (!file1 || !file2) return;
+    // Plan gratuit : fenêtre « ce module nécessite un plan » (src/lib/free-plan.ts).
+    if (!planGuard("similarity")) return;
     setLoading(true);
     setError(null);
     reset();

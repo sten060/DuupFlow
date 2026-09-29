@@ -5,6 +5,7 @@
 // user la référence analysée (keyframes EN IMAGES qu'il VOIT + transcript) et la
 // matière. La génération viendra avec le moteur de rendu.
 
+import { isUserOnFreePlan } from "@/lib/plan-gate";
 import { getLatestProject, projectPaths } from "./store";
 import type { Project } from "./store";
 import { renderVariant, variantKeyframes, materialKeyframes, ENGINE_BUILD } from "./render";
@@ -31,6 +32,19 @@ import { reserveUsage, releaseUsage, logUsageEvent, logAiEditorRender } from "@/
 const paiementParCredit = new Set<string>();
 
 async function guardVariantQuota(userId: string): Promise<Content | null> {
+  // Plan gratuit (src/lib/free-plan.ts) : aucune variante, jamais. Le texte
+  // s'adresse à Claude, qui doit l'expliquer au user au lieu de réessayer.
+  if (await isUserOnFreePlan(userId).catch(() => false)) {
+    return {
+      type: "text",
+      text:
+        "⛔ PLAN GRATUIT — aucune variante ne peut être créée. Le compte DuupFlow de ce user est sur le plan gratuit : " +
+        "il peut explorer l'Éditeur IA, mais la création de variantes nécessite un plan (Starter, Solo ou Pro). " +
+        "Ne réessaie pas et ne propose aucun contournement. Explique-lui simplement que son plan actuel ne lui permet pas " +
+        "de faire des variantes, que tout ce que vous avez préparé pourra être rendu dès qu'il aura choisi un plan, " +
+        "et qu'il peut le faire ici : https://www.duupflow.com/dashboard/abonnement",
+    };
+  }
   const usage = await reserveUsage(userId, "videos", 1).catch(() => null);
   if (usage && !usage.allowed) {
     return { type: "text", text: `⛔ Quota atteint : ${usage.message ?? "limite de vidéos du plan atteinte."} Le rendu est bloqué tant que le user (ou son hôte) n'a pas plus de quota / un plan supérieur.` };

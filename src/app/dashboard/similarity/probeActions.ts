@@ -1,5 +1,6 @@
 "use server";
 
+import { planLockMessageForCurrentUser } from "@/lib/plan-gate";
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
@@ -295,6 +296,9 @@ async function probeImage(buf: Buffer, realSize: number, fileName: string): Prom
 export async function probeFile(
   formData: FormData,
 ): Promise<{ format: Record<string, any>; streams?: Record<string, any>[]; frames?: string[] } | { error: string }> {
+  // Plan gratuit : aucune analyse (src/lib/free-plan.ts).
+  const planLock = await planLockMessageForCurrentUser();
+  if (planLock) return { error: planLock };
   const { getServerT } = await import("@/lib/i18n/server");
   const t = await getServerT();
   const file = formData.get("file") as File | null;

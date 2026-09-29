@@ -20,6 +20,7 @@ import type {
   AccountScanSnapshot,
   ScoredVideo,
 } from "@/lib/account/types";
+import { usePlanGate } from "../components/PlanGate";
 
 const WINDOWS = [
   { days: 7, label: "7 jours" },
@@ -177,8 +178,11 @@ export default function ImportClient() {
   const busy = action?.phase === "downloading" || action?.phase === "sending";
 
   // ── Lancer un scan ──────────────────────────────────────────────────────────
+  const { guard: planGuard } = usePlanGate();
   const startScan = useCallback(async () => {
     if (!url.trim() || scanning) return;
+    // Plan gratuit : fenêtre « ce module nécessite un plan » (src/lib/free-plan.ts).
+    if (!planGuard("import")) return;
     clearPolls();
     setScanErr(null);
     setDownload(null);
@@ -206,7 +210,7 @@ export default function ImportClient() {
           : msg,
       );
     }
-  }, [url, windowDays, topCount, scanning, clearPolls, priceCents, refreshBalance, startPolling]);
+  }, [url, windowDays, topCount, scanning, clearPolls, priceCents, refreshBalance, startPolling, planGuard]);
 
   // ── Sélection ───────────────────────────────────────────────────────────────
   // L'utilisateur peut ajuster son choix, mais jamais dépasser le nombre demandé

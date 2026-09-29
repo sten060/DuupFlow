@@ -86,6 +86,12 @@ export async function checkUsage(
  * serait un plan qui vaut Starter ici et Free là-bas — donc une seule règle.
  */
 export async function effectivePlanForUser(userId: string): Promise<string | null> {
+  // DEV ONLY — `DEV_FORCE_FREE_PLAN=1` dans .env.local fait voir l'app comme un
+  // compte GRATUIT (tester les verrous du plan gratuit sans toucher à un vrai
+  // profil). Ignoré en production quoi qu'il arrive.
+  if (process.env.NODE_ENV !== "production" && process.env.DEV_FORCE_FREE_PLAN === "1") {
+    return "free";
+  }
   const admin = createAdminClient();
 
   const { data: profile } = await admin

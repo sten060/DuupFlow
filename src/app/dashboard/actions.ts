@@ -1,5 +1,6 @@
 "use server";
 
+import { planLockMessageForCurrentUser } from "@/lib/plan-gate";
 import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
@@ -712,6 +713,10 @@ function medianHamming(sigA: Hash64[], sigB: Hash64[]): number {
 //** Action: compare deux contenus et redirige avec ?score=xx (précis + META) */
 export async function compareSimilarity(formData: FormData) {
   "use server";
+
+  // Plan gratuit : aucune comparaison (src/lib/free-plan.ts).
+  const planLock = await planLockMessageForCurrentUser();
+  if (planLock) return redirect("/dashboard/similarity?err=" + encodeURIComponent(planLock));
 
   const a = formData.get("fileA") as File | null;
   const b = formData.get("fileB") as File | null;

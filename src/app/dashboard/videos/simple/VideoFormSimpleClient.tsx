@@ -22,6 +22,7 @@ import { claimHandoff, fetchHandoffFiles } from "@/lib/account/handoff";
 import QuotaWarningModal from "@/app/dashboard/components/QuotaWarningModal";
 import UpgradePlanModal from "@/app/dashboard/components/UpgradePlanModal";
 import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
+import { usePlanGate } from "../../components/PlanGate";
 
 function ProgressBar({ percent, label }: { percent: number; label?: string }) {
   const { t } = useTranslation();
@@ -443,8 +444,11 @@ export default function VideoFormSimpleClient() {
     }
   }, []);
 
+  const { guard: planGuard } = usePlanGate();
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Plan gratuit : fenêtre « ce module nécessite un plan » (src/lib/free-plan.ts).
+    if (!planGuard("video_duplication")) return;
     setProcessing(true);
     setErrorMsg(null);
     setProgress(0);

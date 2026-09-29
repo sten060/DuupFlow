@@ -12,6 +12,7 @@
 // (usage_events kind "ai_editor_render") ; si un profil abuse un jour
 // (dizaines d'exports par variante), on posera un plafond à ce moment-là.
 
+import { requirePaidPlan } from "@/lib/plan-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getProject } from "@/lib/ai-editor/store";
@@ -30,6 +31,9 @@ async function requireUser() {
 export async function POST(req: NextRequest) {
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  // Plan gratuit : aucun export (src/lib/free-plan.ts).
+  const locked = await requirePaidPlan(user.id, "manual_editor");
+  if (locked) return locked;
 
   const body = await req.json().catch(() => null) as { projectId?: string; variantId?: string; plan?: EditPlan; label?: string } | null;
   const projectId = String(body?.projectId || "");

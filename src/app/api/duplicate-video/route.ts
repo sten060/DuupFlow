@@ -1,4 +1,5 @@
 import os from "os";
+import { requirePaidPlan } from "@/lib/plan-gate";
 import path from "path";
 import fs from "fs/promises";
 import { NextResponse } from "next/server";
@@ -105,6 +106,11 @@ export async function POST(req: Request) {
 
   // Contrôle d'accès + identité du user (le cookie de session vit ici).
   const usageCheck = await checkUsage("videos", requestedCount);
+  // Plan gratuit : aucune duplication (src/lib/free-plan.ts).
+  if (usageCheck.userId) {
+    const locked = await requirePaidPlan(usageCheck.userId, "video_duplication");
+    if (locked) return locked;
+  }
   if (!usageCheck.allowed || !usageCheck.userId) {
     return NextResponse.json(
       {

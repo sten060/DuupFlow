@@ -34,17 +34,10 @@ export async function POST(req: NextRequest) {
   const isComp = isCompProEmail(user.email);
 
   // Paid plan chosen on the pricing page — the account stays gated at checkout
-  // until it's paid (see the dashboard-layout paywall).
+  // until it's paid (see the dashboard-layout paywall). No plan = a FREE
+  // account (landing "Commencer" button): full access to explore the app, but
+  // every production action is locked behind a plan (src/lib/free-plan.ts).
   const pendingPlan = selectedPlan === "starter" || selectedPlan === "solo" || selectedPlan === "pro" ? selectedPlan : null;
-
-  // The free tier is no longer offered to new signups: refuse to create an
-  // account without a chosen paid plan (the client redirects to pricing on this
-  // code). This closes the only path by which a NEW user could land on free
-  // (reaching onboarding with no plan param). Existing free users are untouched
-  // — they never re-run onboarding. Comp accounts are exempt (offered Pro).
-  if (!pendingPlan && !isComp) {
-    return NextResponse.json({ error: t("errors.planRequired"), code: "plan_required" }, { status: 402 });
-  }
 
   // Sanitize platforms[] — must be a non-empty array of known slugs.
   const cleanPlatforms = Array.isArray(platforms)
@@ -98,6 +91,28 @@ export async function POST(req: NextRequest) {
     if (affiliate) profileData.affiliate_code = code;
   }
 
+  // Profil DÉJÀ existant (reprise après paiement annulé, ou un abonné qui
+  // repasse par /onboarding) : on ne met à jour que l'identité et les réponses —
+  // jamais le plan ni la facturation. Sans ça, un abonné Pro qui rouvrait
+  // l'onboarding sans plan dans l'URL était ré-écrit en « free ».
+  const { data: existingProfile } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (existingProfile && !isComp) {
+    for (const k of [
+      "plan",
+      "has_paid",
+      "payment_overdue",
+      "email_sequence",
+      "email_sequence_updated_at",
+      "variation_ia_announced_at",
+    ]) {
+      delete profileData[k];
+    }
+  }
+
   const { error } = await admin.from("profiles").upsert(profileData);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -115,15 +130,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (user.email) {
+  // Liste Brevo « free » : uniquement à la création du compte (un abonné qui
+  // repasse par l'onboarding ne doit pas être rebasculé en séquence free).
+  if (user.email && !existingProfile) {
     const email = user.email;
     const name = firstName.trim();
     moveToFreeUser(email, name).catch(console.error);
   }
 
-  // Welcome tokens: give the Free user enough for 1 AI variation image.
-  // Idempotent — safe to call again on re-onboarding.
-  creditWelcomeTokens(user.id, isComp ? "pro" : "free").catch(console.error);
+  // Welcome tokens — comp Pro only. The free plan produces nothing (not even
+  // one AI image), and paid plans are credited by the Stripe webhook.
+  if (isComp) creditWelcomeTokens(user.id, "pro").catch(console.error);
 
   return NextResponse.json({ ok: true });
 }

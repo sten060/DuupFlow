@@ -22,6 +22,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncStripeStateIfStale } from "@/lib/billing-sync";
+import { effectivePlanForUser } from "@/lib/usage";
+import { PlanGateProvider } from "./components/PlanGate";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -56,6 +58,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // checkout before entering the app. Holds the plan to resume, else null.
   let gateToCheckout: string | null = null;
 
+  // Plan EFFECTIF (invité → hôte, impayé → free) pour le verrou du plan gratuit
+  // côté client (PlanGateProvider). Défaut « pro » sur erreur : le serveur
+  // reste l'autorité (chaque route revérifie), on n'enferme personne à tort.
+  let gatePlan = "pro";
+  let gateIsGuest = false;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -73,6 +81,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         )
         .eq("id", user.id)
         .single();
+      gatePlan = (await effectivePlanForUser(user.id)) ?? "free";
+      gateIsGuest = profile?.is_guest === true;
+
       if (profile?.payment_overdue) {
         overdue = {
           since: (profile.payment_overdue_since as string | null) ?? null,
@@ -217,6 +228,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       enabled={onboarding?.enabled ?? false}
       initialProgress={onboarding?.progress ?? { grandfathered: true }}
     >
+    <PlanGateProvider plan={gatePlan} isGuest={gateIsGuest} overdue={overdue != null}>
     {/* Applique le thème (clair/sombre) avant le paint pour éviter le flash.
         Défaut = clair (nouveaux inscrits). */}
     <script dangerouslySetInnerHTML={{ __html: "try{document.documentElement.setAttribute('data-theme',localStorage.getItem('duupflow_theme')||'light')}catch(e){}" }} />
@@ -274,6 +286,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <GuidedPath />
             <ModuleIntro />
     </div>
+    </PlanGateProvider>
     </OnboardingProvider>
   );
 }

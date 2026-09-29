@@ -20,6 +20,7 @@ import type { Project, ProjectMaterial } from "@/lib/ai-editor/store";
 import { startRenderJob } from "@/lib/ai-editor/render-jobs";
 import { reserveUsage, releaseUsage, logUsageEvent } from "@/lib/usage";
 import { buildVariationPlans } from "@/lib/ai-auto/variation";
+import { isUserOnFreePlan } from "@/lib/plan-gate";
 import type { VariationRequest } from "@/lib/ai-auto/variation";
 
 export const dynamic = "force-dynamic";
@@ -115,6 +116,16 @@ function describeMaterials(project: Project, copies: Map<string, number>): strin
     .join("\n");
 }
 
+// ── Plan gratuit (src/lib/free-plan.ts) ─────────────────────────────────────
+// Le user peut tout essayer — déposer ses fichiers, lire le diagnostic, discuter
+// du plan — mais AUCUNE duplication n'est fabriquée. Claude le sait dès le
+// départ (bloc ci-dessous) et l'outil refuse de toute façon côté serveur.
+const FREE_PLAN_PROMPT = `SITUATION DU COMPTE : le user est sur le PLAN GRATUIT. Ce plan ne permet PAS de fabriquer de duplications ni de variantes.
+- Tu peux faire le diagnostic de ses fichiers et discuter du plan de duplication, exactement comme d'habitude : c'est sa façon de découvrir le module.
+- Ne lui promets jamais de lancer toi-même (« dis-moi go et je lance ») : termine plutôt en indiquant que ce plan sera prêt à être fabriqué dès qu'il aura choisi un plan.
+- S'il donne quand même son accord pour lancer, appelle generate_duplicates comme d'habitude : le système refusera (plan gratuit) et affichera au user un bouton « Voir les plans ». Explique-lui alors simplement, avec chaleur et en 2-3 phrases, que son plan gratuit ne permet pas de créer des variantes, que tout ce que vous venez de préparer pourra être lancé dès qu'il aura choisi un plan, et qu'il peut le faire avec le bouton « Voir les plans » (ne dis pas où il se trouve à l'écran).
+- Ne dis jamais que la fabrication est en cours, ne donne jamais de délai de rendu, n'invente aucun résultat.`;
+
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type ChatFile = { materialId: string; copies: number };
 
@@ -207,9 +218,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Message manquant." }, { status: 400 });
   }
 
+  const onFreePlan = await isUserOnFreePlan(user.id);
+
   const client = new Anthropic();
   const apiMessages: Anthropic.Beta.BetaMessageParam[] = history.map((m) => ({ role: m.role, content: m.content }));
   let launched = 0;
+  // Plan gratuit + demande de lancement → le client ouvre la fenêtre « plan requis ».
+  let planRequired = false;
 
   try {
     // Boucle d'outils : au plus 3 allers-retours (diagnostic → fabrication → confirmation).
@@ -224,13 +239,14 @@ export async function POST(req: NextRequest) {
         system: [
           { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
           { type: "text", text: `FICHIERS DE LA SESSION (analyses DuupFlow) :\n${describeMaterials(project, copies)}` },
+          ...(onFreePlan ? [{ type: "text" as const, text: FREE_PLAN_PROMPT }] : []),
         ],
         tools: [GENERATE_TOOL],
         messages: apiMessages,
       });
 
       if (response.stop_reason === "refusal") {
-        return NextResponse.json({ reply: "Je ne peux pas t'aider sur cette demande précise. Reformule, ou repartons du plan de duplication de tes fichiers.", launched });
+        return NextResponse.json({ reply: "Je ne peux pas t'aider sur cette demande précise. Reformule, ou repartons du plan de duplication de tes fichiers.", launched, planRequired });
       }
 
       if (response.stop_reason === "tool_use") {
@@ -238,6 +254,17 @@ export async function POST(req: NextRequest) {
         const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
         for (const block of response.content) {
           if (block.type !== "tool_use") continue;
+          // Plan gratuit : jamais de fabrication, même si le modèle appelle l'outil.
+          if (onFreePlan) {
+            planRequired = true;
+            results.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content: "REFUSÉ — le user est sur le plan gratuit : aucune variante ne peut être fabriquée. Explique-le-lui en 2-3 phrases et invite-le à choisir un plan avec le bouton « Voir les plans ».",
+              is_error: true,
+            });
+            continue;
+          }
           const r = await execGenerate(user.id, project, block.input);
           launched += r.launched;
           results.push({ type: "tool_result", tool_use_id: block.id, content: r.text, is_error: r.isError });
@@ -249,7 +276,10 @@ export async function POST(req: NextRequest) {
       const reply = response.content
         .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
         .map((b) => b.text).join("\n").trim();
-      return NextResponse.json({ reply: reply || "…", launched });
+      return NextResponse.json({ reply: reply || "…", launched, planRequired });
+    }
+    if (onFreePlan) {
+      return NextResponse.json({ reply: "Ton plan gratuit ne permet pas de créer des variantes. Tout ce qu'on vient de préparer pourra être lancé dès que tu auras choisi un plan — clique sur « Voir les plans ».", launched: 0, planRequired: true });
     }
     return NextResponse.json({ reply: `C'est lancé — ${launched} duplication(s) en fabrication. Elles apparaissent au fur et à mesure dans le panneau de résultats.`, launched });
   } catch (e) {

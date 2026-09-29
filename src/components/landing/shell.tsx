@@ -72,7 +72,7 @@ export function NavPill() {
         </Link>
         <div className={`hidden items-center text-[#1a1a1a] transition-all duration-500 md:flex ${scrolled ? "gap-7 text-[15px]" : "gap-9 text-[17px]"}`}>
           <Link href="/#features" className="hover:opacity-60 transition">{en ? "Features" : "Fonctionnalités"}</Link>
-          <Link href="/blog" className="hover:opacity-60 transition">Blog</Link>
+          <Link href="/pricing" className="hover:opacity-60 transition">{en ? "Pricing" : "Tarifs"}</Link>
           <Link href="/#faq" className="hover:opacity-60 transition">FAQ</Link>
           <Link href="/demo-request" className="hover:opacity-60 transition">Contact</Link>
         </div>
@@ -81,7 +81,7 @@ export function NavPill() {
             className="hidden h-10 w-10 items-center justify-center rounded-full text-[#1a1a1a] ring-1 ring-black/10 transition hover:bg-black/5 sm:flex">
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
           </Link>
-          <Link href="/pricing"
+          <Link href="/register"
             className={`duup-flip inline-flex items-center rounded-full font-medium text-white shadow-[0_10px_26px_rgba(90,90,240,0.35)] transition-all duration-500 hover:opacity-90 ${scrolled ? "px-5 py-2.5 text-sm" : "px-6 py-3 text-[15px]"}`}
             style={{ background: CTA_GRAD }}>
             <FlipInner>{en ? "Get started" : "Commencer"}</FlipInner>

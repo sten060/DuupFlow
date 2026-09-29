@@ -107,7 +107,7 @@ function Hero() {
         {/* Boutons (remplacent le téléphone et les mockups) */}
         <div className="mt-12 flex flex-col items-center gap-7 sm:mt-14">
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link href="/pricing"
+            <Link href="/register"
               className="duup-flip inline-flex items-center gap-2.5 rounded-full px-8 py-3.5 text-[15px] font-medium text-white shadow-[0_12px_34px_rgba(90,90,240,0.4)] transition hover:opacity-90"
               style={{ background: CTA_GRAD }}>
               <FlipInner>
@@ -424,7 +424,7 @@ function CTA() {
           {en ? "Start for free, no credit card. Your first variants in 3 minutes." : "Commence gratuitement, sans carte bancaire. Tes premières variantes en 3 minutes."}
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/pricing" className="rounded-full px-7 py-3 text-sm font-medium text-white shadow-[0_10px_30px_rgba(90,90,240,0.42)] transition hover:opacity-90" style={{ background: CTA_GRAD }}>
+          <Link href="/register" className="rounded-full px-7 py-3 text-sm font-medium text-white shadow-[0_10px_30px_rgba(90,90,240,0.42)] transition hover:opacity-90" style={{ background: CTA_GRAD }}>
             {en ? "Get started" : "Commencer maintenant"}
           </Link>
           <Link href="/demo-request" className="rounded-full bg-white/10 px-7 py-3 text-sm font-medium text-white ring-1 ring-white/20 transition hover:bg-white/15">

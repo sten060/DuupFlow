@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
+import { usePlanGate } from "../../components/PlanGate";
 
 type Mat = {
   id: string;
@@ -22,7 +23,10 @@ type Mat = {
   analysis: { durationSec?: number; width: number; height: number } | null;
 };
 type Variant = { id: string; label?: string; durationSec?: number; createdAt: number };
-type Msg = { role: "user" | "assistant"; content: string };
+// `planCta` : réponse de l'IA à un compte gratuit qui voulait lancer — on garde
+// un bouton « Voir les plans » sous le message (client uniquement, jamais
+// renvoyé au modèle : le serveur ne lit que role/content).
+type Msg = { role: "user" | "assistant"; content: string; planCta?: boolean };
 
 const MAX_FILES = 5;
 const MAX_COPIES = 6;
@@ -66,6 +70,7 @@ function AiAutoComingSoon() {
 }
 
 function AiAutoClient() {
+  const { showPlanRequired, openPlans } = usePlanGate();
   const { t } = useTranslation();
   const [projectId, setProjectId] = useState<string | null>(null);
   const [materials, setMaterials] = useState<Mat[]>([]);
@@ -170,15 +175,18 @@ function AiAutoClient() {
       if (!res.ok) {
         setMessages((ms) => [...ms, { role: "assistant", content: `⚠️ ${data?.error || t("dashboard.videos.aiError")}` }]);
       } else {
-        setMessages((ms) => [...ms, { role: "assistant", content: String(data?.reply ?? "…") }]);
+        setMessages((ms) => [...ms, { role: "assistant", content: String(data?.reply ?? "…"), planCta: data?.planRequired === true }]);
         if (Number(data?.launched) > 0) { setLaunched((n) => n + Number(data.launched)); void refresh(); }
+        // Plan gratuit : Claude vient d'expliquer que rien ne peut être fabriqué —
+        // on laisse lire sa réponse, puis on ouvre la fenêtre « plan requis ».
+        if (data?.planRequired) setTimeout(() => showPlanRequired("ai_auto"), 900);
       }
     } catch {
       setMessages((ms) => [...ms, { role: "assistant", content: `⚠️ ${t("dashboard.videos.aiError")}` }]);
     } finally {
       setSending(false);
     }
-  }, [input, sending, projectId, materials, copies, messages, refresh, t]);
+  }, [input, sending, projectId, materials, copies, messages, refresh, t, showPlanRequired]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, sending]);
 
@@ -365,6 +373,16 @@ function AiAutoClient() {
             ) : (
               <div key={i} className="whitespace-pre-wrap text-[15px] leading-[1.7] text-[var(--app-text)]">
                 {m.content}
+                {m.planCta && (
+                  <button
+                    type="button"
+                    onClick={openPlans}
+                    className="mt-3 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                    style={{ background: "linear-gradient(135deg,#4f7bff,#7c5cff)", boxShadow: "0 6px 20px rgba(99,102,241,0.30)" }}
+                  >
+                    {t("dashboard.videos.aiSeePlans")}
+                  </button>
+                )}
               </div>
             )
           )}
