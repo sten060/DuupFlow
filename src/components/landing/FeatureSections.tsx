@@ -55,6 +55,39 @@ const LEAD_CLASS = SECTION_LEAD;
  * ───────────────────────────────────────────────────────────── */
 export const FEATURE_SECTIONS: FeatureSection[] = [
   {
+    key: "duplication",
+    icon: <svg className={ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>,
+    mockup: (l) => <DuplicationMockup locale={l} />,
+    eyebrow: { fr: "Duplication & variantes", en: "Duplication & variants" },
+    title: { fr: "Reposte la même vidéo, encore et encore.", en: "Repost the same video, again and again." },
+    sub: {
+      fr: "Chaque copie repart comme un fichier neuf, sans que l'œil voie la différence.",
+      en: "Every copy goes back out as a brand-new file, with no visible difference.",
+    },
+    media: {
+      src: "",
+      poster: "",
+      alt: {
+        fr: "Capture de la duplication : un fichier importé, le nombre de copies choisi, les variantes générées une à une.",
+        en: "Duplication screen record: one file imported, a copy count set, variants generated one by one.",
+      },
+    },
+    lines: [
+      {
+        fr: ["Une vidéo, dix publications", "Ton meilleur contenu repart sur tous tes comptes, et revient dans quelques semaines."],
+        en: ["One video, ten posts", "Your best content goes out on every account, then comes back a few weeks later."],
+      },
+      {
+        fr: ["Retouche imperceptible", "Luminosité, teinte, cadrage : les écarts restent sous le seuil de l'œil. Ton montage ne bouge pas."],
+        en: ["Imperceptible retouch", "Brightness, hue, framing: the shifts stay below the eye's threshold. Your edit doesn't move."],
+      },
+      {
+        fr: ["Qualité d'origine", "Une 1080p reste une 1080p, une 4K reste une 4K — et jamais plus lourd que le fichier de départ."],
+        en: ["Original quality", "1080p stays 1080p, 4K stays 4K — and never heavier than the file you started from."],
+      },
+    ],
+  },
+  {
     key: "ai-editor",
     icon: <svg className={ICON} viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 1.9 4.8L18 9.5l-4.1 1.7L12 16l-1.9-4.8L6 9.5l4.1-1.7Z" /></svg>,
     mockup: (l, r) => <AiEditorMockup locale={l} reduced={r} />,
@@ -87,39 +120,6 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
       {
         fr: ["Laisse Claude faire le montage", "L'agent assemble, cale les coupes sur les beats et sort la vidéo prête à publier."],
         en: ["Let Claude do the edit", "The agent assembles it, locks the cuts to the beats and returns a video ready to post."],
-      },
-    ],
-  },
-  {
-    key: "duplication",
-    icon: <svg className={ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>,
-    mockup: (l) => <DuplicationMockup locale={l} />,
-    eyebrow: { fr: "Duplication & variantes", en: "Duplication & variants" },
-    title: { fr: "Reposte la même vidéo, encore et encore.", en: "Repost the same video, again and again." },
-    sub: {
-      fr: "Chaque copie repart comme un fichier neuf, sans que l'œil voie la différence.",
-      en: "Every copy goes back out as a brand-new file, with no visible difference.",
-    },
-    media: {
-      src: "",
-      poster: "",
-      alt: {
-        fr: "Capture de la duplication : un fichier importé, le nombre de copies choisi, les variantes générées une à une.",
-        en: "Duplication screen record: one file imported, a copy count set, variants generated one by one.",
-      },
-    },
-    lines: [
-      {
-        fr: ["Une vidéo, dix publications", "Ton meilleur contenu repart sur tous tes comptes, et revient dans quelques semaines."],
-        en: ["One video, ten posts", "Your best content goes out on every account, then comes back a few weeks later."],
-      },
-      {
-        fr: ["Retouche imperceptible", "Luminosité, teinte, cadrage : les écarts restent sous le seuil de l'œil. Ton montage ne bouge pas."],
-        en: ["Imperceptible retouch", "Brightness, hue, framing: the shifts stay below the eye's threshold. Your edit doesn't move."],
-      },
-      {
-        fr: ["Qualité d'origine", "Une 1080p reste une 1080p, une 4K reste une 4K — et jamais plus lourd que le fichier de départ."],
-        en: ["Original quality", "1080p stays 1080p, 4K stays 4K — and never heavier than the file you started from."],
       },
     ],
   },

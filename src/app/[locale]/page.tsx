@@ -141,17 +141,23 @@ function DemoBlock() {
           </Link>
         </div>
         <div className="relative flex aspect-[16/8] items-center justify-center overflow-hidden rounded-[32px] bg-white ring-1 ring-black/5 shadow-[0_30px_80px_rgba(20,40,90,0.16)]">
+          {/* Versions web allégées (faststart = lecture dès les 1ers octets) :
+              720p ~2,7 Mo sur mobile, 1080p ~6 Mo ailleurs. Le poster = 1re image
+              de la vidéo, donc aucune saute visuelle au démarrage. */}
           <video
             key={isFr ? "fr" : "en"}
-            src={isFr ? "/demo-duupflow-fr.mp4" : "/demo-us.mp4"}
+            poster={isFr ? "/demo-duupflow-fr-poster.jpg" : "/demo-us-poster.jpg"}
             className="absolute inset-0 h-full w-full object-cover"
             controls
             playsInline
-            preload="metadata"
+            preload="auto"
             autoPlay
             muted
             loop
-          />
+          >
+            <source media="(max-width: 767px)" src={isFr ? "/demo-duupflow-fr-720.mp4" : "/demo-us-720.mp4"} type="video/mp4" />
+            <source src={isFr ? "/demo-duupflow-fr-1080.mp4" : "/demo-us-1080.mp4"} type="video/mp4" />
+          </video>
         </div>
       </div>
     </section>
