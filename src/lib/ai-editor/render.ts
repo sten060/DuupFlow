@@ -11,7 +11,8 @@
 //    (contain / cover / blurFill).
 //  · COLORIMÉTRIE globale : saturation / contraste / luminosité / grain / vignette.
 //  · GLOBAL : fps, couleur de fond.
-//  · AUDIO conservé (son des plans vidéo ; silence pour images).
+//  · AUDIO conservé (son des plans vidéo ; silence pour images) + pistes
+//    MULTIPLES posées sur la timeline (audioTracks : musique, voix off, sfx).
 //
 // Captions rasterisées en PNG (sharp) + overlay — portable (pas de drawtext).
 
@@ -32,7 +33,8 @@ import {
   type BlurRegion, type ShakeKick, type SegLayout, type SegOverlay, type ZoomPunch,
   type EditSegment, type CaptionStyle, type CaptionSize, type CaptionFont, type EmojiStyle, type CaptionFill,
   type EditCaption, type ColorGrade, type EditPlan, type OutKeyframe,
-  type SegMotion, type SegFit, type AudioDuck,
+  type SegMotion, type SegFit, type AudioDuck, type EditAudioTrack,
+  planAudioTracks,
 } from "./plan-types";
 export * from "./plan-types";
 
@@ -99,7 +101,7 @@ const MAX_CAPTION_OPS = 160;
 /** Version du MOTEUR, renvoyée dans la réponse de create_variant et loguée à
  *  chaque rendu. Sert à répondre en 10 s à « le correctif est-il déployé ? »
  *  sans fouiller les logs. À INCRÉMENTER à chaque changement du filtergraph. */
-export const ENGINE_BUILD = "2026-09-18.1-deadline-cancel";
+export const ENGINE_BUILD = "2026-10-03.1-audio-multitrack";
 /** Version du binaire ffmpeg RÉELLEMENT utilisé (prod ≠ local possible : env
  *  FFMPEG_BIN, ffmpeg système…). Lue une fois, pour les diagnostics. */
 let _ffv: string | null = null;
@@ -1293,13 +1295,147 @@ async function compositeClip(
   return { path: out, durationSec: dur, hasAudio: base.hasAudio };
 }
 
+/* ── MIXAGE MULTIPISTE ──────────────────────────────────────────────────────
+   Le son des plans (le « lit ») + N pistes posées sur la timeline. Chaque
+   piste est coupée dans sa source (startSec), calée à son instant du montage
+   (atSec → adelay), puis COMPLÉTÉE DE SILENCE jusqu'à la fin du montage.
+   ⚠ Ce bourrage n'est pas cosmétique : amix (sans l'option `normalize`,
+   absente des vieux ffmpeg) renormalise quand une entrée SE TERMINE — le son
+   des plans bondirait d'un coup à la fin de la musique. Toutes les entrées
+   durent donc exactement la durée du montage, et on rétablit le niveau plein
+   après amix (volume=N, amix divisant par N).
+   · replace : coupe le son des plans PENDANT la fenêtre de la piste (rampes de
+     30 ms pour éviter le clic), plus sur toute la vidéo — une voix off posée à
+     5 s ne doit pas faire taire le hook parlé de 0 à 5 s.
+   · duck : la piste baisse quand une VOIX parle — le son des plans, et les
+     pistes de rôle "voice". Les bruitages ne déclenchent rien. */
+const MAX_AUDIO_TRACKS = 16;
+type ResolvedAudioTrack = { track: EditAudioTrack; inIdx: number; srcDur: number; label: string };
+
+export function audioMixFilters(
+  bedLabel: string, tracks: ResolvedAudioTrack[], total: number,
+): { filters: string[]; map: string; notes: string[] } {
+  const filters: string[] = [];
+  const notes: string[] = [];
+  const T = Math.max(0.1, total);
+  const tot = T.toFixed(3);
+
+  type Built = { label: string; duck: AudioDuck | null; voice: boolean; replace: [number, number] | null };
+  const built: Built[] = [];
+  // Usages par entrée → asplit (une même source peut nourrir plusieurs pistes).
+  const uses = new Map<number, number>();
+  const plans: Array<{ r: ResolvedAudioTrack; at: number; start: number; len: number }> = [];
+  for (const r of tracks) {
+    const t = r.track;
+    const at = clamp(num(t.atSec, 0), 0, T);
+    const start = Math.max(0, num(t.startSec, 0));
+    const endMontage = t.endSec != null && num(t.endSec, 0) > 0.05 ? Math.min(num(t.endSec, T), T) : T;
+    const len = Math.min(r.srcDur > 0 ? r.srcDur - start : Infinity, endMontage - at);
+    if (!(len > 0.03)) {
+      notes.push(`${r.label} ignorée : fenêtre vide (atSec ${at.toFixed(2)}s, startSec ${start.toFixed(2)}s, endSec ${t.endSec ?? "—"} — vérifie qu'elle démarre avant la fin du montage (${T.toFixed(1)}s) et avant la fin du fichier).`);
+      continue;
+    }
+    plans.push({ r, at, start, len });
+    uses.set(r.inIdx, (uses.get(r.inIdx) ?? 0) + 1);
+  }
+  if (!plans.length) return { filters, map: bedLabel, notes };
+
+  const srcLabel = new Map<number, string[]>();
+  for (const [inIdx, n] of uses) {
+    if (n === 1) { srcLabel.set(inIdx, [`[${inIdx}:a]`]); continue; }
+    const outs = Array.from({ length: n }, (_, j) => `[asrc${inIdx}_${j}]`);
+    filters.push(`[${inIdx}:a]asplit=${n}${outs.join("")}`);
+    srcLabel.set(inIdx, outs);
+  }
+
+  plans.forEach(({ r, at, start, len }, k) => {
+    const t = r.track;
+    const src = srcLabel.get(r.inIdx)!.shift()!;
+    const vol = clamp(num(t.volume, 1), 0, 2);
+    const fIn = clamp(num(t.fadeIn, 0), 0, Math.min(5, len / 2));
+    const fOut = clamp(num(t.fadeOut, 0), 0, Math.min(5, len / 2));
+    const fades = (fIn > 0.01 ? `,afade=t=in:st=0:d=${fIn.toFixed(3)}` : "")
+      + (fOut > 0.01 ? `,afade=t=out:st=${(len - fOut).toFixed(3)}:d=${fOut.toFixed(3)}` : "");
+    const ms = Math.round(at * 1000);
+    const delay = ms > 0 ? `,adelay=${ms}|${ms}` : "";
+    filters.push(
+      `${src}atrim=start=${start.toFixed(3)}:duration=${len.toFixed(3)},asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo,` +
+      `volume=${vol.toFixed(3)}${fades}${delay},apad,atrim=0:${tot},asetpts=N/SR/TB[atk${k}]`,
+    );
+    const duckRaw = t.duck;
+    const duckObj = duckRaw === true ? {} : (duckRaw && typeof duckRaw === "object" ? duckRaw : null);
+    const duck = duckObj && (duckObj as AudioDuck).enabled !== false ? (duckObj as AudioDuck) : null;
+    const role = t.role === "voice" || t.role === "music" || t.role === "sfx" ? t.role : (duck ? "music" : "voice");
+    built.push({ label: `[atk${k}]`, duck, voice: role === "voice" && !duck, replace: t.mode === "replace" ? [at, at + len] : null });
+  });
+
+  // ── Le lit (son des plans), muet sur les fenêtres « replace ».
+  // Gain = Π (1 − g_i), g_i = 1 dans la fenêtre i, 0 dehors, rampes de 30 ms
+  // (pas de rampe sur un bord collé au début/à la fin de la vidéo : sinon le
+  // son des plans « fuiterait » 30 ms à l'ouverture d'un replace intégral).
+  const R = 0.03;
+  const gates = built.filter((b) => b.replace).map((b) => {
+    const [a, e] = b.replace!;
+    const up = a > 0.001 ? `(t-${a.toFixed(3)})/${R}` : "1e9";
+    const down = e < T - 0.001 ? `(${e.toFixed(3)}-t)/${R}` : "1e9";
+    return `(1-clip(min(${up},${down}),0,1))`;
+  });
+  const bedGain = gates.length ? `,volume='${gates.join("*")}':eval=frame` : "";
+  const ducked = built.filter((b) => b.duck);
+  const voices = built.filter((b) => b.voice);
+  filters.push(`${bedLabel}aresample=44100,aformat=channel_layouts=stereo${bedGain}${ducked.length ? ",asplit=2[abed][abedk]" : "[abed]"}`);
+
+  if (ducked.length) {
+    // Clé sidechain = ce qui PARLE : le lit (déjà muet là où un replace le coupe)
+    // + les pistes voix. Chaque voix est dédoublée : une copie part au mix,
+    // l'autre à la clé.
+    const keyIns = ["[abedk]"];
+    voices.forEach((v, j) => {
+      filters.push(`${v.label}asplit=2[avm${j}][avk${j}]`);
+      v.label = `[avm${j}]`;
+      keyIns.push(`[avk${j}]`);
+    });
+    const keyOuts = ducked.map((_, j) => `[akey${j}]`);
+    const keySrc = keyIns.length > 1
+      ? `${keyIns.join("")}amix=inputs=${keyIns.length}:duration=first,volume=${keyIns.length}`
+      : `${keyIns[0]}anull`;
+    filters.push(keyOuts.length > 1 ? `${keySrc},asplit=${keyOuts.length}${keyOuts.join("")}` : `${keySrc}${keyOuts[0]}`);
+    ducked.forEach((b, j) => {
+      const d = b.duck!;
+      // ⛔ `reduction` (en dB) était passé TEL QUEL comme RATIO du compresseur,
+      // seuil fixe à 0,05 : sur une voix normale (~−20 dBFS), la musique ne
+      // baissait que de ~4 dB au lieu des 12 promis — mesuré par le harnais.
+      // Un compresseur réduit de (niveau − seuil) × (1 − 1/ratio) : on fixe un
+      // ratio fort et on place le SEUIL sous le niveau d'une voix parlée
+      // typique (VOICE_REF_DB) d'autant que la baisse demandée. Un `threshold`
+      // explicite reste prioritaire.
+      const VOICE_REF_DB = -20;
+      const reductionDb = clamp(num(d.reduction, 12), 3, 30);
+      const autoTh = Math.pow(10, (VOICE_REF_DB - reductionDb) / 20);
+      const th = clamp(d.threshold != null ? num(d.threshold, autoTh) : autoTh, 0.002, 0.9).toFixed(4);
+      const atk = clamp(num(d.attack, 0.1) * 1000, 1, 2000).toFixed(0);    // ms
+      const rel = clamp(num(d.release, 0.4) * 1000, 1, 9000).toFixed(0);   // ms
+      const out = `[adk${j}]`;
+      filters.push(`${b.label}${keyOuts[j]}sidechaincompress=threshold=${th}:ratio=20:attack=${atk}:release=${rel}${out}`);
+      b.label = out;
+    });
+  }
+
+  const ins = ["[abed]", ...built.map((b) => b.label)];
+  filters.push(`${ins.join("")}amix=inputs=${ins.length}:duration=first,volume=${ins.length}[amixed]`);
+  return { filters, map: "[amixed]", notes };
+}
+
 export async function renderVariant(
   userId: string,
   projectId: string,
   plan: EditPlan,
   extra?: { derivedFrom?: string; onStart?: () => void; signal?: AbortSignal },
-): Promise<{ variant: ProjectVariant; keyframes: OutKeyframe[]; durationSec: number } | { error: string }> {
+): Promise<{ variant: ProjectVariant; keyframes: OutKeyframe[]; durationSec: number; notes: string[] } | { error: string }> {
   const project = await getProject(userId, projectId);
+  // Ce que le moteur a IGNORÉ ou ajusté, dit au monteur dans la réponse (règle
+  // « échecs bruyants » : une piste sautée en silence = un user qui cherche son son).
+  const renderNotes: string[] = [];
   if (!project) return { error: "Projet introuvable." };
 
   const segs = Array.isArray(plan.segments) ? plan.segments.slice(0, MAX_SEGMENTS) : [];
@@ -1981,73 +2117,41 @@ export async function renderVariant(
     }
     const voutFilter = `[${last}]null[vout]`;
 
-    // Piste audio optionnelle (musique/voix depuis une matière audio OU le son
-    // d'un rush vidéo) mixée par-dessus le son des plans, ou en remplacement.
+    // ── PISTES SONORES (multipiste) : musique, voix off, bruitages — chacune
+    // posée à son instant du montage (atSec), mixée par-dessus le son des
+    // plans ou en remplacement sur SA fenêtre. `audio` (historique) = 1 piste.
     const audioFilters: string[] = [];
     let audioMap = "[aasm]";
-    if (plan.audio && typeof plan.audio.materialId === "string") {
-      const tmat = project.materials.find((m) => m.id === plan.audio!.materialId);
-      const tabs = tmat && tmat.kind !== "image" ? materialAbsPath(userId, projectId, tmat.storedName) : null;
-      let hasA = false;
-      if (tabs) { try { await fs.access(tabs); hasA = (await probeAV(tabs)).hasAudio; } catch { hasA = false; } }
-      if (tabs && hasA) {
-        const startSec = Math.max(0, num(plan.audio.startSec, 0));
-        const vol = clamp(num(plan.audio.volume, 1), 0, 2);
-        const replace = plan.audio.mode === "replace";
-        const tIdx = inputs.reduce((n, a) => (a === "-i" ? n + 1 : n), 0);
-        inputs.push("-i", tabs);
-        // endSec (s DU MONTAGE) : la musique s'arrête là. atrim borne la source,
-        // puis apad remplit de SILENCE jusqu'au bout — indispensable en mode mix :
-        // une entrée qui SE TERMINE ferait renormaliser amix (le son des plans
-        // bondirait ×2 après la fin de la musique) ; du silence la garde active.
-        const endSec = num(plan.audio.endSec, 0);
-        const trimEnd = endSec > 0.05 ? `:end=${(startSec + endSec).toFixed(3)}` : "";
-        const trk = `[${tIdx}:a]atrim=start=${startSec.toFixed(3)}${trimEnd},asetpts=N/SR/TB,aresample=44100,aformat=channel_layouts=stereo,volume=${vol.toFixed(3)}${trimEnd ? ",apad" : ""}`;
-        if (replace) {
-          // REMPLACE : le son des plans n'est PAS mixé (pas d'amix, pas de 2e entrée).
-          // On mappe UNIQUEMENT la piste externe, calée sur la durée du montage
-          // (apad puis atrim → silence si trop courte, coupe si trop longue). [aasm]
-          // (son des plans) est consommé par anullsink pour ne pas rester pendant.
-          const total = totalVideoDur().toFixed(3);
-          audioFilters.push(
-            `[aasm]anullsink`,
-            `${trk},apad,atrim=0:${total},asetpts=N/SR/TB[arep]`,
-          );
-          audioMap = "[arep]";
-        } else {
-          // MIX : musique par-dessus le son des plans. Sans l'option 'normalize'
-          // (absente des vieilles versions ffmpeg → cassait le rendu) : amix normalise
-          // en divisant par le nb d'entrées (2) → on rétablit le niveau plein (volume=2).
-          const duckRaw = plan.audio.duck;
-          const duck = duckRaw === true ? {} : (duckRaw && typeof duckRaw === "object" ? duckRaw : null);
-          const duckOn = !!duck && (duck as AudioDuck).enabled !== false;
-          if (duckOn) {
-            // DUCKING : la musique baisse automatiquement quand une voix parle dans les
-            // plans (sidechaincompress piloté par le son des plans = clé sidechain), puis
-            // remonte. Pas de détection temps réel : le compresseur suit l'enveloppe voix.
-            const d = duck as AudioDuck;
-            const th = clamp(num(d.threshold, 0.05), 0.01, 0.9).toFixed(3);
-            const ratio = clamp(num(d.reduction, 12), 2, 20).toFixed(1);         // dB cible → ratio
-            const atk = clamp(num(d.attack, 0.1) * 1000, 1, 2000).toFixed(0);    // ms
-            const rel = clamp(num(d.release, 0.4) * 1000, 1, 9000).toFixed(0);   // ms
-            audioFilters.push(
-              `[aasm]aresample=44100,aformat=channel_layouts=stereo,asplit=2[abed][askey]`,
-              `${trk}[atrk]`,
-              `[atrk][askey]sidechaincompress=threshold=${th}:ratio=${ratio}:attack=${atk}:release=${rel}[aduck]`,
-              `[abed][aduck]amix=inputs=2:duration=first[amx]`,
-              `[amx]volume=2[amixed]`,
-            );
-          } else {
-            audioFilters.push(
-              `[aasm]aresample=44100,aformat=channel_layouts=stereo[abed]`,
-              `${trk}[atrk]`,
-              `[abed][atrk]amix=inputs=2:duration=first[amx]`,
-              `[amx]volume=2[amixed]`,
-            );
-          }
-          audioMap = "[amixed]";
+    const reqTracks = planAudioTracks(plan);
+    if (reqTracks.length) {
+      if (reqTracks.length > MAX_AUDIO_TRACKS) renderNotes.push(`${reqTracks.length} pistes audio demandées : seules les ${MAX_AUDIO_TRACKS} premières sont mixées.`);
+      // UN décodeur par FICHIER, pas par piste : 10 clics du même bruitage =
+      // 1 entrée ffmpeg splittée, pas 10 (budget d'entrées, cf. MAX_FFMPEG_INPUTS).
+      const fileInput = new Map<string, { inIdx: number; dur: number }>();
+      const resolved: ResolvedAudioTrack[] = [];
+      for (const [k, t] of reqTracks.slice(0, MAX_AUDIO_TRACKS).entries()) {
+        const tmat = project.materials.find((m) => m.id === t.materialId);
+        const label = `piste audio ${k + 1}${tmat ? ` (${tmat.name})` : ""}`;
+        if (!tmat) { renderNotes.push(`${label} ignorée : matière introuvable « ${t.materialId} » (utilise un id de list_material).`); continue; }
+        if (tmat.kind === "image") { renderNotes.push(`${label} ignorée : c'est une image, pas un son.`); continue; }
+        const tabs = materialAbsPath(userId, projectId, tmat.storedName);
+        let fi = fileInput.get(tabs);
+        if (!fi) {
+          let probe: { dur: number; hasAudio: boolean } | null = null;
+          try { await fs.access(tabs); probe = await probeAV(tabs); } catch { probe = null; }
+          if (!probe) { renderNotes.push(`${label} ignorée : fichier manquant sur le serveur.`); continue; }
+          if (!probe.hasAudio) { renderNotes.push(`${label} ignorée : ce fichier n'a pas de piste son.`); continue; }
+          const inIdx = inputs.reduce((n, a) => (a === "-i" ? n + 1 : n), 0);
+          inputs.push("-i", tabs);
+          fi = { inIdx, dur: probe.dur };
+          fileInput.set(tabs, fi);
         }
+        resolved.push({ track: t, inIdx: fi.inIdx, srcDur: fi.dur, label });
       }
+      const mix = audioMixFilters("[aasm]", resolved, totalVideoDur());
+      audioFilters.push(...mix.filters);
+      audioMap = mix.map;
+      renderNotes.push(...mix.notes);
     }
 
     const buildArgs = (useTrans: boolean): string[] => [
@@ -2217,7 +2321,8 @@ export async function renderVariant(
     const durationSec = Math.round(outDur * 100) / 100;
     const variant = await addVariant(userId, projectId, { srcPath: outPath, poster, label: plan.label, plan: plan as unknown as Record<string, unknown>, durationSec, derivedFrom: extra?.derivedFrom });
     if (!variant) return { error: "Enregistrement de la variante échoué." };
-    return { variant, keyframes, durationSec };
+    if (renderNotes.length) console.warn(`[ai-editor/render] ${renderNotes.length} ajustement(s) : ${renderNotes.join(" | ")}`);
+    return { variant, keyframes, durationSec, notes: renderNotes };
   } catch (e) {
     // Annulation demandée en plein encodage : runFFmpeg rejette « rendu annulé ».
     // Ce n'est pas un échec — message dédié, sans le préfixe « Rendu échoué ».

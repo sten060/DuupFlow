@@ -18,7 +18,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getProject } from "@/lib/ai-editor/store";
 import { startRenderJob, getRenderJob, cancelRenderJob } from "@/lib/ai-editor/render-jobs";
 import { logAiEditorRender } from "@/lib/usage";
-import type { EditPlan } from "@/lib/ai-editor/plan-types";
+import { planAudioTracks, type EditPlan } from "@/lib/ai-editor/plan-types";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   const cited = [
     ...plan.segments.map((s) => s?.materialId),
     ...plan.segments.flatMap((s) => (s?.overlays ?? []).map((o) => o?.materialId)),
-    plan.audio?.materialId,
+    ...planAudioTracks(plan).map((t) => t.materialId),
   ].filter((id): id is string => typeof id === "string" && id.length > 0);
   const orphan = cited.find((id) => !known.has(id));
   if (orphan) return NextResponse.json({ error: `Matière inconnue dans le montage (${orphan}).` }, { status: 422 });

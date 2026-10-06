@@ -88,8 +88,14 @@ de primitives) + `get_material` (matière, voix, blancs, reprises) → compose u
 - **Captions** : 6 polices, spans (couleur/police PAR MOT), styles outline/box/
   sticker, ombre, néon, anims entrée + **sortie**, wordByWord/karaoké calés sur
   les mots ASR, `words[].color`, **compteur animé**.
-- **Audio** : piste musicale mix/replace, ducking, micro-fondus de couture
-  (12 ms) à chaque jointure.
+- **Audio** : pistes MULTIPLES (`audioTracks[]`, `audio` = raccourci 1 piste),
+  chacune posée à son instant du montage (`atSec`) avec son point d'entrée
+  dans le fichier (`startSec`) ; mix/replace (replace = coupe le son des
+  plans sur la fenêtre de la piste seulement), fondus, rôles voice/music/sfx ;
+  ducking déclenché par le son des plans + les pistes `voice` (jamais par un
+  sfx), baisse en dB réellement appliquée ; micro-fondus de couture (12 ms) à
+  chaque jointure. Une piste inexploitable est ignorée ET signalée dans la
+  réponse du rendu (`notes`).
 
 ## ⚙️ Contraintes techniques (à connaître avant de coder)
 

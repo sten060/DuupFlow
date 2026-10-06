@@ -223,13 +223,30 @@ export type AudioDuck = {
   release?: number;        // s (défaut 0.4) — vitesse de remontée quand la voix s'arrête
 };
 
+/** Rôle d'une piste dans le mixage — décide qui fait baisser qui (ducking).
+ *  voice = une voix : elle DÉCLENCHE le ducking des pistes `duck` ;
+ *  music = un fond : il ne déclenche rien ; sfx = un bruitage ponctuel
+ *  (clic, whoosh) : il ne déclenche rien non plus — sinon chaque clic
+ *  creuserait la musique. */
+export type AudioRole = "voice" | "music" | "sfx";
+
+/** UNE piste sonore posée sur la timeline du montage.
+ *  Deux horloges, à ne pas confondre :
+ *    · atSec            → instant DU MONTAGE où la piste démarre ;
+ *    · startSec         → point d'entrée DANS le fichier source.
+ *  endSec reste en temps DU MONTAGE (sens historique conservé) : la piste
+ *  s'arrête à cette seconde de la vidéo finale. */
 export type EditAudioTrack = {
   materialId: string;      // matière audio OU vidéo (on prend sa piste son)
-  startSec?: number;       // décalage dans la piste
-  endSec?: number;         // la musique S'ARRÊTE à cette seconde DU MONTAGE (absent = jusqu'au bout)
+  atSec?: number;          // instant DU MONTAGE où la piste démarre (défaut 0)
+  startSec?: number;       // décalage DANS le fichier source (défaut 0)
+  endSec?: number;         // la piste S'ARRÊTE à cette seconde DU MONTAGE (absent = fin du fichier ou du montage)
   volume?: number;         // 0-2, défaut 1
-  mode?: "mix" | "replace";// mix (par-dessus le son des plans, défaut) | replace
-  duck?: boolean | AudioDuck; // MIX only : baisse la musique quand une voix parle dans les plans
+  mode?: "mix" | "replace";// mix (par-dessus le son des plans, défaut) | replace (coupe le son des plans PENDANT la piste)
+  duck?: boolean | AudioDuck; // la piste BAISSE quand une voix parle (son des plans ou piste role "voice")
+  role?: AudioRole;        // défaut : "music" si duck, sinon "voice"
+  fadeIn?: number;         // s (0-5) : montée progressive au démarrage de la piste
+  fadeOut?: number;        // s (0-5) : descente progressive à la fin de la piste
 };
 
 export type EditPlan = {
@@ -237,7 +254,12 @@ export type EditPlan = {
   fps?: number;
   background?: string;   // couleur de fond (letterbox), défaut noir
   grade?: ColorGrade;
+  /** Raccourci historique = UNE piste (équivaut à audioTracks: [audio]).
+   *  Conservé pour les plans existants et l'éditeur manuel. */
   audio?: EditAudioTrack;
+  /** Pistes sonores MULTIPLES : voix off qui démarre après le hook, musique dès
+   *  0 s, bruitages ponctuels… Se cumule avec `audio` s'il est aussi fourni. */
+  audioTracks?: EditAudioTrack[];
   segments: EditSegment[];
   captions?: EditCaption[];
   emojiStyle?: EmojiStyle; // défaut des emojis de TOUTES les captions ("apple" | "3d" | "flat")
@@ -245,3 +267,14 @@ export type EditPlan = {
 };
 
 export type OutKeyframe = { t: number; dataUri: string };
+
+/** Toutes les pistes d'un plan, dans l'ordre : `audio` (raccourci) puis
+ *  `audioTracks`. Point d'entrée UNIQUE pour le moteur et les validations. */
+export function planAudioTracks(plan: Pick<EditPlan, "audio" | "audioTracks">): EditAudioTrack[] {
+  const out: EditAudioTrack[] = [];
+  if (plan.audio && typeof plan.audio.materialId === "string") out.push(plan.audio);
+  for (const t of Array.isArray(plan.audioTracks) ? plan.audioTracks : []) {
+    if (t && typeof t.materialId === "string") out.push(t);
+  }
+  return out;
+}

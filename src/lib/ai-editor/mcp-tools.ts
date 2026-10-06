@@ -96,6 +96,20 @@ function stripDisplayOpts<T extends Record<string, unknown>>(o: T): Omit<T, "ima
   return plan;
 }
 
+/** Champs d'UNE piste sonore — partagés par `audio` (raccourci) et `audioTracks[]`. */
+const AUDIO_TRACK_PROPS = {
+  materialId: { type: "string", description: "id (de list_material) d'une matière audio ou vidéo (on prend sa piste son)." },
+  atSec: { type: "number", description: "Instant DU MONTAGE (s) où la piste DÉMARRE. Défaut 0. Ex. voix off après un hook de 2,5 s → atSec: 2.5 ; un clic sur l'action à 4,2 s → atSec: 4.2." },
+  startSec: { type: "number", description: "Point d'entrée DANS le fichier source (s). Défaut 0. Ex. sauter l'intro d'une musique → startSec: 12." },
+  endSec: { type: "number", description: "Seconde DU MONTAGE où la piste S'ARRÊTE. Absent = jusqu'à la fin du fichier (ou du montage)." },
+  volume: { type: "number", description: "0-2 (1 = normal). Musique sous une voix : 0.4-0.7." },
+  mode: { type: "string", enum: ["mix", "replace"], description: "mix (défaut) = par-dessus le son des plans ; replace = coupe le son des plans PENDANT la fenêtre de cette piste seulement (le reste de la vidéo garde son son)." },
+  duck: { description: "La piste BAISSE automatiquement quand une voix parle (son des plans + pistes role \"voice\"), puis remonte. Pour une musique sous de la parole. true = défauts (~12 dB, attack 0.1 s, release 0.4 s), ou { enabled, threshold (0-1), reduction (dB), attack (s), release (s) }.", anyOf: [{ type: "boolean" }, { type: "object", properties: { enabled: { type: "boolean" }, threshold: { type: "number" }, reduction: { type: "number" }, attack: { type: "number" }, release: { type: "number" } } }] },
+  role: { type: "string", enum: ["voice", "music", "sfx"], description: "Qui fait baisser qui : \"voice\" déclenche le ducking des pistes duck ; \"music\" et \"sfx\" ne déclenchent rien (un clic ne doit pas creuser la musique). Défaut : music si duck, sinon voice — METS \"sfx\" sur les bruitages." },
+  fadeIn: { type: "number", description: "Montée progressive au démarrage de la piste (s, 0-5)." },
+  fadeOut: { type: "number", description: "Descente progressive à la fin de la piste (s, 0-5)." },
+} as const;
+
 export type Content =
   | { type: "text"; text: string }
   | { type: "image"; data: string; mimeType: string };
@@ -122,7 +136,8 @@ export const TOOLS = [
       "⚠ UNE VARIANTE À LA FOIS — le serveur n'en rend que 2 en parallèle. Si le user en demande plusieurs (« fais-m'en 10 »), NE LES LANCE PAS D'UN COUP : tu obtiendrais une file de 8 rendus en attente, chacun repoussé de plusieurs minutes, sans rien accélérer. Lance-en une, récupère-la avec get_render, PUIS lance la suivante. Tu peux au maximum en avoir 2 en vol. Si tu reçois un ticket « ⏸ EN FILE », c'est que tu en as déjà trop lancé : attends, n'en ajoute pas. " +
       "MISE EN PAGE DES CAPTIONS — un texte à deux lignes bien pleines, JAMAIS un mot tout seul en bas. Une caption dont la dernière ligne ne porte qu'un mot, un emoji ou une ponctuation est ratée : elle se lit mal et fait amateur. Le moteur équilibre les lignes et ne coupe plus au milieu d'un nombre, mais il ne peut pas deviner que ton texte est trop long. À toi de : ① écrire COURT (une caption = une idée, 3-6 mots tiennent sur une ligne, 8-12 sur deux) ; ② si le rendu montre 3 lignes ou une ligne famélique, BAISSE fontSize de 10-15 % ou raccourcis le texte, puis rappelle l'outil. Le cadre utile fait 90 % de la largeur. Tu as les keyframes du rendu : REGARDE la caption avant de passer à la suite. Exception : si la réf empile volontairement des lignes courtes, ou si le user le demande. " +
       "ANIMATIONS — PAR DÉFAUT, RIEN. `animation` reste \"none\" et les effets de plan (zoomPunch, shake, transitions autres que le cut) ne s'utilisent PAS de ta propre initiative. Tu n'animes QUE dans deux cas : ① le user le demande ; ② get_reference a MESURÉ l'effet dans la vidéo de référence (captions[].animation, transition d'une coupe, mouvement d'un plan) — une impression ou un « ça ferait joli » ne suffit pas. Ajouter du mouvement non demandé, c'est s'éloigner de la réf, et le user doit tout refaire. Dans le doute : brut. " +
-      "SYNCHRO MUSIQUE : les timecodes mesurés sur la matière sonore (get_material → beats, drops, énergie) s'utilisent DIRECTEMENT — cale captions[].startSec et les transitions segments[].transition sur les beats/drops (ex. une transition PILE sur un drop, un caption qui apparaît sur un temps fort). " +
+      "SYNCHRO MUSIQUE : les timecodes mesurés sur la matière sonore (get_material → beats, drops, énergie) s'utilisent DIRECTEMENT — cale captions[].startSec et les transitions segments[].transition sur les beats/drops (ex. une transition PILE sur un drop, un caption qui apparaît sur un temps fort). ⚠ Ces timecodes sont en temps DU FICHIER : si la piste est posée avec atSec/startSec, l'instant dans le montage = atSec + (t − startSec). " +
+      "SON MULTIPISTE : audioTracks[] pose plusieurs sons sur la timeline — musique dès 0 s (duck), voix off qui démarre après le hook (atSec), bruitages ponctuels (role \"sfx\"). N'ajoute de bruitage QUE si le user en fournit et en veut (ou si la réf en a de MESURÉS) — jamais de son de ta propre initiative. " +
       "FIDÉLITÉ MOTION & RYTHME : reproduis le MONTAGE de la réf, pas seulement son texte. get_reference te donne le rythme (nb de coupes · durée moyenne d'un plan) + par plan le mouvement (type+intensité → motion/motionIntensity/scale), la vitesse (speed), les freeze (freezeAt/freezeDuration) et la transition de chaque coupe (→ transition). Colle à la CADENCE : si la réf coupe ~toutes les 1,2 s, garde des plans courts et punchy ; ne laisse pas de plan mou de 6 s là où la réf en enchaîne cinq. Cale les zoomPunch/shakeAt/transitions percutantes sur les beats/drops de la musique. " +
       "NETTOYAGE DU RUSH (le user envoie ses RUSHS BRUTS, pas une vidéo déjà montée — c'est à TOI de la rendre publiable) : get_material te donne la VOIX horodatée, les MOTS, les ✂️ BLANCS, les ⏱ MICRO-PAUSES et les 🔁 REPRISES. Découpe le rush en PLUSIEURS segments[] du MÊME fichier (même materialId, [startSec,endSec] différents) qui GARDENT la parole et SAUTENT : les ✂️ BLANCS, les plages 🔁 REPRISES (le locuteur se rate puis répète — tu gardes la DERNIÈRE prise, qui commence à la fin de la plage) et toute redite restante visible dans le transcript. Les ⏱ MICRO-PAUSES (0,15-0,5 s, INTRA-phrase) ne se sautent pas : SUBDIVISE le segment en 2 segments contigus (fin du 1er = début de la pause, début du 2e = fin de la pause, cut sec) → débit resserré, raccord invisible. Coupe TOUJOURS aux frontières de silence, jamais en plein mot. " +
       "LIGNE À NE PAS FRANCHIR : tu enlèves seulement le DÉCHET (blancs, hésitations, ratés, redites). Tu ne choisis JAMAIS « le propos », tu ne réordonnes pas, tu ne réécris pas, tu ne sélectionnes pas « le meilleur passage » : le contenu et l'ordre restent ceux du user. C'est SA prise, juste nettoyée. " +
@@ -149,16 +164,17 @@ export const TOOLS = [
         },
         audio: {
           type: "object",
-          description: "Piste sonore optionnelle prise d'une MATIÈRE (fichier audio uploadé, OU le son d'un rush vidéo). Sert à poser une musique/voix sur toute la variante.",
-          properties: {
-            materialId: { type: "string", description: "id (de list_material) d'une matière audio ou vidéo (on prend sa piste son)." },
-            startSec: { type: "number", description: "décalage de départ dans la piste (s). Défaut 0." },
-            endSec: { type: "number", description: "la musique S'ARRÊTE à cette seconde DU MONTAGE (silence ensuite). Absent = elle joue jusqu'au bout." },
-            volume: { type: "number", description: "0-2 (1 = normal). Défaut 1." },
-            mode: { type: "string", enum: ["mix", "replace"], description: "mix = par-dessus le son des plans (défaut) ; replace = remplace le son des plans." },
-            duck: { description: "MIX only : DUCKING — baisse auto la musique quand une VOIX parle dans les plans, puis la remonte (sinon dialogue + musique se couvrent). true = valeurs par défaut (réduction ~12 dB, attack 0.1s, release 0.4s), ou objet { enabled, threshold (0-1), reduction (dB), attack (s), release (s) }.", anyOf: [{ type: "boolean" }, { type: "object", properties: { enabled: { type: "boolean" }, threshold: { type: "number" }, reduction: { type: "number" }, attack: { type: "number" }, release: { type: "number" } } }] },
-          },
+          description: "RACCOURCI pour UNE seule piste (musique sur toute la variante) — équivaut à audioTracks: [audio]. Dès qu'il y a plus d'un son (voix off + musique, bruitages), utilise audioTracks.",
+          properties: AUDIO_TRACK_PROPS,
           required: ["materialId"],
+        },
+        audioTracks: {
+          type: "array",
+          description:
+            "PISTES SONORES MULTIPLES, chacune posée à SON instant du montage. Cas typique : musique dès 0 s (duck: true, volume 0.6) + voix off qui démarre APRÈS le hook (atSec: 2.5, mode \"replace\" si les plans parlent dessous) + bruitages ponctuels (clic, whoosh : role \"sfx\", atSec calé sur l'action). " +
+            "Deux horloges à ne pas confondre : atSec = instant DU MONTAGE où la piste démarre ; startSec = point d'entrée DANS le fichier. endSec = seconde DU MONTAGE où la piste s'arrête. " +
+            "Même fichier réutilisable plusieurs fois (10 clics = 10 entrées avec le même materialId). Max 16 pistes. Une piste ignorée (id faux, fichier sans son, fenêtre vide) est SIGNALÉE dans la réponse du rendu — lis-la.",
+          items: { type: "object", properties: AUDIO_TRACK_PROPS, required: ["materialId"] },
         },
         segments: {
           type: "array",
@@ -822,7 +838,10 @@ async function jobContent(job: RenderJob, images = true): Promise<Content[]> {
     return [{ type: "text", text: `Rendu impossible : ${job.error ?? "erreur inconnue"} [moteur ${ENGINE_BUILD}]` }];
   }
   const res = job.result, v = res.variant;
-  const head = `✅ Variante créée${v.label ? ` « ${v.label} »` : ""} (id ${v.id}) · durée ${res.durationSec}s · rendue en ${jobRenderElapsed(job) ?? jobElapsed(job)}${jobRenderElapsed(job) ? ` (${jobElapsed(job)} au total, file d'attente comprise)` : ""} · moteur ${ENGINE_BUILD}.`;
+  // Ce que le moteur a ignoré/ajusté (piste audio sans son, id faux…) : en TÊTE
+  // de réponse, sinon le monteur croit son plan appliqué tel quel.
+  const notesTxt = res.notes?.length ? `\n⚠️ AJUSTEMENTS DU MOTEUR (à lire, corrige le plan si besoin) :\n${res.notes.map((n) => `  · ${n}`).join("\n")}` : "";
+  const head = `✅ Variante créée${v.label ? ` « ${v.label} »` : ""} (id ${v.id}) · durée ${res.durationSec}s · rendue en ${jobRenderElapsed(job) ?? jobElapsed(job)}${jobRenderElapsed(job) ? ` (${jobElapsed(job)} au total, file d'attente comprise)` : ""} · moteur ${ENGINE_BUILD}.${notesTxt}`;
   if (!images) {
     return [{
       type: "text",
@@ -1258,12 +1277,13 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const content: Content[] = [{ type: "text", text: `VARIANTE « ${v.label || v.id} » (id ${v.id})${dur}${dt}${from}` }];
 
     if (v.plan) {
-      const plan = v.plan as { segments?: unknown[]; captions?: unknown[]; overlays?: unknown[]; audio?: unknown; aspect?: unknown; fps?: unknown };
+      const plan = v.plan as { segments?: unknown[]; captions?: unknown[]; overlays?: unknown[]; audio?: unknown; audioTracks?: unknown[]; aspect?: unknown; fps?: unknown };
+      const nAud = (plan.audio ? 1 : 0) + (Array.isArray(plan.audioTracks) ? plan.audioTracks.length : 0);
       const nSeg = Array.isArray(plan.segments) ? plan.segments.length : 0;
       const nCap = Array.isArray(plan.captions) ? plan.captions.length : 0;
       content.push({
         type: "text",
-        text: `PLAN DE MONTAGE COMPLET — ${nSeg} plan(s), ${nCap} caption(s)${plan.audio ? ", musique" : ", sans musique"}${plan.aspect ? `, format ${String(plan.aspect)}` : ""}${plan.fps ? `, ${String(plan.fps)} fps` : ""}. ` +
+        text: `PLAN DE MONTAGE COMPLET — ${nSeg} plan(s), ${nCap} caption(s)${nAud ? `, ${nAud} piste(s) son` : ", sans piste son"}${plan.aspect ? `, format ${String(plan.aspect)}` : ""}${plan.fps ? `, ${String(plan.fps)} fps` : ""}. ` +
           `C'est EXACTEMENT le payload qui a produit cette vidéo : timecodes de coupe, textes, position/taille/police des captions, calage de la musique, colorimétrie. ` +
           `Tu peux le relire, le modifier et le repasser tel quel à create_variant, ou n'en changer qu'un morceau avec update_variant("${v.id}", { … }). ` +
           `Ne demande PAS au user des réglages qui sont écrits ci-dessous.`,
@@ -1329,7 +1349,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     }
     if (m.kind === "audio") {
       const a = m.analysis?.audio;
-      const content: Content[] = [{ type: "text", text: `AUDIO « ${m.name} » (id ${m.id}) — mets-le dans create_variant.audio.materialId ; les timecodes ci-dessous se passent DIRECTEMENT dans captions[].startSec et segments[].transition.` }];
+      const content: Content[] = [{ type: "text", text: `AUDIO « ${m.name} » (id ${m.id}) — pose-le dans create_variant.audioTracks[] (materialId + atSec = où il démarre dans le montage) ; les timecodes ci-dessous se passent DIRECTEMENT dans captions[].startSec et segments[].transition.` }];
       if (a) for (const l of formatAudioLines(a)) content.push({ type: "text", text: l });
       else content.push({ type: "text", text: "(analyse audio indisponible)" });
       for (const l of formatVoiceLines(m.analysis?.transcript)) content.push({ type: "text", text: l });

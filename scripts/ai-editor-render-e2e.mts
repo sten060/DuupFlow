@@ -15,7 +15,7 @@
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { execFileSync } from "child_process";
+import { execFileSync, spawnSync } from "child_process";
 
 // OUT_BASE doit être posé AVANT l'import du store (lu au chargement du module).
 const ROOT = await fs.mkdtemp(path.join(os.tmpdir(), "duup_rtest_"));
@@ -49,7 +49,35 @@ const mat = await addMaterial(USER, project.id, { srcPath: rush, ext: ".mp4", na
 if (!mat) throw new Error("addMaterial a échoué");
 const MID = mat.id;
 
-type Case = { name: string; plan: Record<string, unknown>; expect?: number; tol?: number; expectError?: RegExp; env?: Record<string, string> };
+// Matière SONORE synthétique, une fréquence par rôle → mesurable séparément
+// (le rush porte 440 Hz) : musique 220 Hz, voix 1500 Hz, clic = bruit bref.
+const mkAudio = async (name: string, lavfi: string, dur: number) => {
+  const f = path.join(tmp, name);
+  execFileSync(FF, ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-t", String(dur), "-i", lavfi, "-c:a", "aac", "-y", f]);
+  const m = await addMaterial(USER, project.id, { srcPath: f, ext: ".m4a", name, kind: "audio", desc: "", analysis: null, status: "ready" });
+  if (!m) throw new Error(`addMaterial ${name} a échoué`);
+  return m.id;
+};
+const MUSIC = await mkAudio("music.m4a", "sine=frequency=220", 20);
+const VOICE = await mkAudio("voice.m4a", "sine=frequency=1500", 10);
+const CLICK = await mkAudio("click.m4a", "anoisesrc=d=0.15:a=0.8", 0.15);
+
+/** Niveau moyen (dB) d'une BANDE de fréquence sur une fenêtre du rendu. */
+const bandDbSync = (file: string, from: number, to: number, freq: number): number => {
+  const r = spawnSync(FF, ["-hide_banner", "-ss", from.toFixed(2), "-t", (to - from).toFixed(2), "-i", file,
+    // Filtre passe-bande ×4 : un seul étage laisse fuir les pistes voisines
+    // (220 Hz mesuré à −40 dB dans la bande 440 Hz) et fausse le « silence ».
+    "-af", `${Array(4).fill(`bandpass=f=${freq}:width_type=q:w=6`).join(",")},volumedetect`, "-f", "null", "-"], { encoding: "utf8" });
+  const m = (r.stderr || "").match(/mean_volume:\s*(-?[\d.]+|-inf) dB/);
+  return m ? (m[1] === "-inf" ? -120 : parseFloat(m[1])) : NaN;
+};
+
+type Case = {
+  name: string; plan: Record<string, unknown>; expect?: number; tol?: number; expectError?: RegExp; env?: Record<string, string>;
+  /** Vérifie le CONTENU du rendu (pas seulement sa durée) ; renvoie un message d'échec ou null. */
+  check?: (file: string, notes: string[]) => string | null;
+};
+const LOUD = -45, SILENT = -60; // dB moyens dans la bande : présent / absent
 const CASES: Case[] = [
   {
     // ⛔ RÉGRESSION 2026-08-12 : avec 2+ segments du MÊME fichier (décodeur
@@ -140,6 +168,85 @@ const CASES: Case[] = [
     expect: 14.2, tol: 0.5, // 15 s − 2 × 0,4 s de recouvrement
   },
   {
+    // AUDIO MULTIPISTE : musique dès 0 s (duckée), voix off qui démarre APRÈS le
+    // hook (atSec 2), clic ponctuel. Plans muets → le lit est silencieux, chaque
+    // bande mesure UNE piste. On vérifie la PLACE de chaque son, pas sa présence.
+    name: "audio multipiste : voix décalée + musique duckée + sfx",
+    plan: {
+      segments: [{ materialId: MID, startSec: 0, endSec: 7, mute: true }],
+      audioTracks: [
+        { materialId: MUSIC, volume: 0.6, duck: { reduction: 20, attack: 0.02, release: 0.2 } },
+        { materialId: VOICE, atSec: 2, endSec: 4, role: "voice" },
+        { materialId: CLICK, atSec: 5.5, role: "sfx" },
+      ],
+    },
+    expect: 7, tol: 0.4,
+    check: (f) => {
+      const v0 = bandDbSync(f, 0.3, 1.7, 1500), v1 = bandDbSync(f, 2.3, 3.7, 1500), v2 = bandDbSync(f, 4.5, 5.3, 1500);
+      const m0 = bandDbSync(f, 0.3, 1.7, 220), m1 = bandDbSync(f, 2.5, 3.7, 220);
+      if (!(v0 < SILENT && v1 > LOUD && v2 < SILENT)) return `voix mal placée (bande 1500 Hz : avant ${v0} / pendant ${v1} / après ${v2} dB — attendu silence/son/silence)`;
+      if (!(m0 > LOUD)) return `musique absente au début (${m0} dB)`;
+      if (!(m0 - m1 > 8)) return `ducking trop faible (20 dB demandés) : musique ${m0} dB seule vs ${m1} dB sous la voix`;
+      return null;
+    },
+  },
+  {
+    // Ducking piloté par le SON DES PLANS (cas historique) : plan 1 muet, plan 2
+    // parlant → la musique doit baisser sur le plan 2 seulement. Avec une
+    // transition → passe par le rendu en DEUX PASSES (vidéo / audio séparés).
+    name: "ducking par le son des plans + transition (rendu 2 passes)",
+    plan: {
+      segments: [
+        { materialId: MID, startSec: 0, endSec: 3, mute: true },
+        { materialId: MID, startSec: 5, endSec: 8, transition: "fade", transitionDuration: 0.3 },
+      ],
+      audioTracks: [{ materialId: MUSIC, volume: 0.6, duck: true, fadeIn: 0.2 }],
+    },
+    expect: 5.7, tol: 0.4,
+    check: (f) => {
+      const a = bandDbSync(f, 0.5, 2.3, 220), b = bandDbSync(f, 3.6, 5.4, 220);
+      return a - b > 6 ? null : `musique ${a} dB sur le plan muet vs ${b} dB sur le plan parlant — attendu une baisse ≥ 6 dB`;
+    },
+  },
+  {
+    // replace = coupe le son des plans SUR LA FENÊTRE de la piste seulement : le
+    // hook parlé (avant) et la suite (après) gardent leur son.
+    name: "audio replace sur fenêtre (le son des plans revient après)",
+    plan: {
+      segments: [{ materialId: MID, startSec: 0, endSec: 6 }],
+      audioTracks: [{ materialId: VOICE, atSec: 2, endSec: 4, mode: "replace" }],
+    },
+    expect: 6, tol: 0.4,
+    check: (f) => {
+      const a = bandDbSync(f, 0.3, 1.7, 440), b = bandDbSync(f, 2.3, 3.7, 440), c = bandDbSync(f, 4.3, 5.7, 440);
+      return a > LOUD && b < SILENT && c > LOUD ? null : `son des plans (440 Hz) : avant ${a} / pendant ${b} / après ${c} dB — attendu son/silence/son`;
+    },
+  },
+  {
+    // Rétro-compat : l'ancien champ `audio` (1 piste, replace intégral) doit
+    // continuer de remplacer TOUT le son des plans.
+    name: "audio historique (champ `audio`, replace intégral)",
+    plan: {
+      segments: [{ materialId: MID, startSec: 0, endSec: 5 }],
+      audio: { materialId: MUSIC, mode: "replace" },
+    },
+    expect: 5, tol: 0.4,
+    check: (f) => {
+      const bed = bandDbSync(f, 0.05, 4.9, 440), mus = bandDbSync(f, 0.3, 4.5, 220);
+      return bed < SILENT && mus > LOUD ? null : `replace intégral : plans ${bed} dB (attendu muet), musique ${mus} dB`;
+    },
+  },
+  {
+    // Une piste inexploitable ne casse pas le rendu, elle est SIGNALÉE.
+    name: "piste audio invalide → signalée, rendu conservé",
+    plan: {
+      segments: [{ materialId: MID, startSec: 0, endSec: 3 }],
+      audioTracks: [{ materialId: "nexistepas", atSec: 1 }, { materialId: MUSIC, atSec: 50 }],
+    },
+    expect: 3, tol: 0.4,
+    check: (_f, notes) => notes.length === 2 ? null : `2 avertissements attendus, obtenu ${notes.length} : ${notes.join(" | ")}`,
+  },
+  {
     // ⛔ RÉGRESSION PROD 2026-08-12 : au-delà du plafond d'entrées, on doit
     // REFUSER proprement (message actionnable) et jamais produire un montage
     // faux — le chemin mutualisé rendait ×9 à ×20 la durée prévue.
@@ -175,8 +282,14 @@ for (const c of CASES) {
     failed++;
     continue;
   }
-  const ok = Math.abs(res.durationSec - (c.expect ?? 0)) <= (c.tol ?? 0.5);
-  console.log(`${ok ? "✔" : "✖"} ${c.name} — attendu ~${c.expect}s, obtenu ${res.durationSec}s`);
+  let ok = Math.abs(res.durationSec - (c.expect ?? 0)) <= (c.tol ?? 0.5);
+  let why = "";
+  if (ok && c.check) {
+    const file = path.join(projectPaths(USER, project.id).variantsDir, res.variant.storedName);
+    const err = c.check(file, res.notes ?? []);
+    if (err) { ok = false; why = `\n    CONTENU : ${err}`; }
+  }
+  console.log(`${ok ? "✔" : "✖"} ${c.name} — attendu ~${c.expect}s, obtenu ${res.durationSec}s${why}`);
   if (!ok) failed++;
 }
 

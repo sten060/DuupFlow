@@ -34,7 +34,7 @@ export type RenderJob = {
   renderStartedAt: number | null;
   finishedAt: number | null;
   status: "running" | "done" | "failed";
-  result: { variant: ProjectVariant; keyframes: OutKeyframe[]; durationSec: number } | null;
+  result: { variant: ProjectVariant; keyframes: OutKeyframe[]; durationSec: number; notes?: string[] } | null;
   error: string | null;
   /** Résolveurs en attente (long polling) réveillés dès la fin du rendu. */
   waiters: Array<() => void>;
