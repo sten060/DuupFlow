@@ -16,10 +16,35 @@ export type UploadResult = {
  * `await fetch(url, { method:"POST", body, signal })`. Rejects with an AbortError
  * (DOMException) on abort — matching fetch — so existing stop/timeout handling works.
  */
-export function uploadWithProgress(
+export async function uploadWithProgress(
   url: string,
   body: Blob,
-  opts: { signal?: AbortSignal; onProgress?: (fraction: number) => void } = {},
+  opts: { signal?: AbortSignal; onProgress?: (fraction: number) => void; retries?: number } = {},
+): Promise<UploadResult> {
+  /* Coupure réseau en cours d'envoi (wifi qui décroche, téléphone mis en veille,
+     4G instable) : on RETENTE au lieu d'échouer. Vu en prod le 04/10 : une vidéo
+     iPhone de 400 Mo coupée à 256 Mo, et le user ne voyait qu'« Une erreur est
+     survenue » — la tentative suivante, identique, est passée. Seules les erreurs
+     RÉSEAU sont retentées ; un arrêt volontaire (AbortError) ou une réponse du
+     serveur (même en erreur) sont rendus tels quels. */
+  const retries = Math.max(0, opts.retries ?? 0);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await uploadOnce(url, body, opts);
+    } catch (e) {
+      const network = e instanceof TypeError;
+      if (!network || attempt >= retries || opts.signal?.aborted) throw e;
+      opts.onProgress?.(0);
+      await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+      if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    }
+  }
+}
+
+function uploadOnce(
+  url: string,
+  body: Blob,
+  opts: { signal?: AbortSignal; onProgress?: (fraction: number) => void },
 ): Promise<UploadResult> {
   return new Promise<UploadResult>((resolve, reject) => {
     const xhr = new XMLHttpRequest();

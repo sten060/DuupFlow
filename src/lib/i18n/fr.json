@@ -1979,6 +1979,8 @@
     },
     "err": {
       "tooLarge": "Fichier(s) trop volumineux (max 5 Go) : {names}",
+      "noFiles": "Aucune vidéo à envoyer. Si la page a été rechargée ou si l'envoi précédent a été interrompu, resélectionne tes vidéos puis relance.",
+      "uploadCut": "L'envoi de « {name} » a été coupé (connexion instable, téléphone mis en veille ou page quittée). Garde la page ouverte et relance : tes réglages sont conservés.",
       "generic": "Une erreur est survenue. Réessayez ou contactez le support.",
       "ffmpeg": "Erreur FFmpeg",
       "timeout": "Délai dépassé, la vidéo est trop longue ou le serveur est surchargé."

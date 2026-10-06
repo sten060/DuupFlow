@@ -1970,6 +1970,8 @@
     },
     "err": {
       "tooLarge": "File(s) too large (max 5 GB): {names}",
+      "noFiles": "No video to send. If the page was reloaded or the previous upload was interrupted, select your videos again and retry.",
+      "uploadCut": "The upload of \"{name}\" was cut off (unstable connection, phone went to sleep or page closed). Keep the page open and retry — your settings are kept.",
       "generic": "Something went wrong. Please try again or contact support.",
       "ffmpeg": "FFmpeg error",
       "timeout": "Timed out — the video is too long or the server is overloaded."

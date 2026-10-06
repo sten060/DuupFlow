@@ -94,6 +94,15 @@ export async function POST(req: Request) {
   // ── New job path ──────────────────────────────────────────────────────────
   const storagePaths    = formData.getAll("storagePaths") as string[];
   const directUploadIds = formData.getAll("directUploadIds") as string[];
+  // Demande SANS vidéo (formulaire envoyé avec une sélection vide — page
+  // rechargée pendant un envoi, par exemple) : refus explicite, AVANT de
+  // réserver le moindre quota. Sans ce garde, l'entrée vide partait à l'encodeur
+  // et revenait en « fichier corrompu / illisible » (VID-004) : faux diagnostic.
+  const inlineFiles = (formData.getAll("files") as unknown[]).filter((f): f is File => f instanceof File && f.size > 0);
+  if (!directUploadIds.length && !storagePaths.length && !inlineFiles.length) {
+    console.warn("[duplicate-video] demande sans aucune vidéo — refusée (sélection vide côté client)");
+    return NextResponse.json({ error: t("errors.upload.emptyFile"), code: "VID-NOFILE" }, { status: 400 });
+  }
   // Total videos that will be generated:
   //   sourceCount      = number of source files uploaded
   //   copiesPerSource  = "Nombre de copies" slider chosen by the user

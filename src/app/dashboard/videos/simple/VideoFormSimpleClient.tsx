@@ -485,6 +485,17 @@ export default function VideoFormSimpleClient() {
         return;
       }
 
+      // AUCUNE vidéo réellement sélectionnée (page rechargée pendant un envoi,
+      // fichier iPhone dont la copie temporaire a disparu…) : on s'arrête ICI.
+      // Avant, le formulaire partait quand même avec une entrée vide, et le
+      // serveur répondait « fichier corrompu / illisible » — un faux diagnostic
+      // qui a fait chercher un problème de fichier là où il n'y en avait pas.
+      if (!uploadedFiles.length || uploadedFiles.some((f) => f.size === 0)) {
+        const e = new Error(t("vid.err.noFiles"));
+        (e as Error & { validation?: boolean }).validation = true;
+        throw e;
+      }
+
       // All files go directly to Railway — reliable, no Supabase size limits
       let apiForm: FormData;
       if (uploadedFiles.length > 0 && uploadedFiles[0].size > 0) {
@@ -524,13 +535,23 @@ export default function VideoFormSimpleClient() {
               file,
               {
                 signal: ctrl.signal,
+                retries: 2,
                 onProgress: (frac) => {
                   perFile[i] = frac;
                   const overall = perFile.reduce((a, b) => a + b, 0) / uploadedFiles.length;
                   setProgress(Math.round(overall * 30)); // upload phase = 0–30%
                 },
               },
-            );
+            ).catch((err: unknown) => {
+              // Coupure réseau qui persiste après les nouvelles tentatives :
+              // message ACTIONNABLE au lieu du générique « Une erreur est survenue ».
+              if (err instanceof TypeError) {
+                const e = new Error(t("vid.err.uploadCut", { name: file.name }));
+                (e as Error & { validation?: boolean }).validation = true;
+                throw e;
+              }
+              throw err;
+            });
             if (!uploadRes.ok) {
               const j = await uploadRes.json().catch(() => ({}));
               throw new Error(j?.error || `[CLT-006] Erreur upload direct HTTP ${uploadRes.status}`);
