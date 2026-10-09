@@ -257,6 +257,17 @@ function hdrToSdrFilters(): string[] {
   ];
 }
 
+/**
+ * Délai max d'un encode : 20 s de calcul par seconde de vidéo, entre 15 et
+ * 45 min. Une vidéo de 2 min (la limite) a donc 40 min ; une courte garde les
+ * 15 min d'avant. La durée inconnue (0) retombe sur 15 min.
+ */
+function encodeTimeoutMs(durationSec: number): number {
+  const MIN = 15 * 60 * 1000;
+  const MAX = 45 * 60 * 1000;
+  return Math.min(MAX, Math.max(MIN, Math.round((durationSec || 0) * 20_000)));
+}
+
 /** Probe video duration (seconds) using ffmpeg -i.  Returns 0 if parsing fails. */
 async function probeVideoDuration(input: string, binPath: string): Promise<number> {
   return new Promise((resolve) => {
@@ -818,6 +829,9 @@ async function runFFmpegSafe(
   srcCodec = "unknown",
   // Force un ré-encodage complet même sans filtre (cf. incohérence codec ↔ iPhone).
   forceEncodeFlag = false,
+  // Délai max de l'encode. Fixe à 15 min avant : une source longue en 4K HDR
+  // dépassait TOUJOURS ce délai, copie après copie (cf. encodeTimeoutMs).
+  timeoutMs = 15 * 60 * 1000,
 ) {
   const ffmpegBin = binPath ?? await getFFmpegBin();
 
@@ -939,8 +953,8 @@ async function runFFmpegSafe(
     let stderr = "";
     const timer = setTimeout(() => {
       p.kill("SIGKILL");
-      reject(new Error("FFmpeg timed out after 15 minutes"));
-    }, 15 * 60 * 1000);
+      reject(new Error(`FFmpeg timed out after ${Math.round(timeoutMs / 60000)} minutes`));
+    }, timeoutMs);
     // Stop button → kill the running encode and reject so the job halts.
     const onAbort = () => {
       try { p.kill("SIGKILL"); } catch {}
@@ -1525,12 +1539,34 @@ export async function processVideos(
       // WHOLE job finishes (filterFinals excludes the __progress_ prefix).
       const tempOutPath = path.join(dir, `__progress_${outName}`);
 
+      // ── Plafond de résolution du plan (Starter → 1080p), mode simple ────────
+      // On réduit l'image DÈS LE DÉBUT de la chaîne, pas à la fin. Avant, tout
+      // (conversion HDR en 32 bits flottants, zoom, bruit, chorégraphie…) était
+      // calculé en 4K puis réduit en 1080p au dernier filtre : sur une vidéo
+      // iPhone 4K HDR 60 i/s, ~2 images/s → les 3 copies dépassaient le délai de
+      // 15 min et le user n'obtenait RIEN (prod 04/10 et 06/10). En travaillant
+      // directement à la taille de sortie, la chaîne fait ~4× moins de pixels.
+      // `work` = dimensions de travail : tout filtre qui dépend d'une taille en
+      // pixels (watermark, chorégraphie) doit les lire ici, pas dans `color`.
+      const capDims = (() => {
+        if (mode !== "simple" || !(maxShortEdge > 0) || !(color.width > 0) || !(color.height > 0)) return null;
+        const shortEdge = Math.min(color.width, color.height);
+        if (shortEdge <= maxShortEdge) return null;
+        const ratio = maxShortEdge / shortEdge;
+        let w = Math.max(2, Math.round(color.width * ratio));
+        let h = Math.max(2, Math.round(color.height * ratio));
+        w -= w % 2;
+        h -= h % 2;
+        return { w, h };
+      })();
+      const work = capDims ? { ...color, width: capDims.w, height: capDims.h } : color;
+
       const vfParts: string[] = [];
       const afParts: string[] = [];
       const extraArgs: string[] = [];
       // Overlay watermark de cette copie (simple OU avancé) — résolu ici pour que
       // les deux branches de mode + runFFmpegSafe le voient. null si désactivé.
-      const wmOverlay = wmPrep ? resolveWatermarkOverlay(wmPrep, color.width) : undefined;
+      const wmOverlay = wmPrep ? resolveWatermarkOverlay(wmPrep, work.width) : undefined;
       // Assets visuels de cette copie. Vitesse de chute, oscillation, rythme des
       // flashs : tout est retiré au sort à chaque copie, donc deux copies n'ont
       // jamais exactement le même rendu.
@@ -1636,7 +1672,7 @@ export async function processVideos(
           // (cochable indépendamment des packs).
           // Intensité choisie sur la carte du pack (« Doux » / « Fort »).
           const intensite = singles?.motionDynamicMode === "doux" ? "doux" : "fort";
-          const choreo = buildChoreography(videoDuration, color.width, color.height, color.fps, intensite);
+          const choreo = buildChoreography(videoDuration, work.width, work.height, color.fps, intensite);
           if (choreo.length) vfParts.unshift(...choreo);
         }
 
@@ -1744,11 +1780,7 @@ export async function processVideos(
         // Per-plan resolution cap (Starter → 1080p short edge). Bites only when
         // the source short edge exceeds the cap; forces a re-encode so the
         // downscale can be applied. ≤ cap sources are left untouched.
-        const capBites =
-          maxShortEdge > 0 &&
-          color.width > 0 &&
-          color.height > 0 &&
-          Math.min(color.width, color.height) > maxShortEdge;
+        const capBites = capDims !== null;
 
         // When video will be re-encoded, ensure even dimensions (no resolution cap).
         // Le watermark force aussi un ré-encodage → préparer format/scale de base.
@@ -1762,6 +1794,8 @@ export async function processVideos(
           } else {
             vfParts.unshift("format=yuv420p");
           }
+          // Plafond du plan : réduction en TÊTE de chaîne (cf. capDims plus haut).
+          if (capDims) vfParts.unshift(`scale=${capDims.w}:${capDims.h}:flags=lanczos`);
           // ── Résolution de sortie = résolution EXACTE de la source ────────────
           // `trunc(iw/2)*2` garantissait seulement des dimensions PAIRES : après
           // un zoom/crop, une source 2160×3840 ressortait en 2158×3838 — aucune
@@ -1769,17 +1803,11 @@ export async function processVideos(
           // fichier retouché. On repasse donc explicitement aux dimensions
           // d'origine : l'image reste modifiée (l'empreinte change bien), mais le
           // format final reste un format standard.
-          if (capBites) {
-            // Plan cap (Starter → 1080p short edge): downscale keeping aspect
-            // ratio, forcing even dimensions. Only reached when the source short
-            // edge exceeds the cap — other plans never enter this branch.
-            const shortEdge = Math.min(color.width, color.height);
-            const ratio = maxShortEdge / shortEdge;
-            let outW = Math.max(2, Math.round(color.width * ratio));
-            let outH = Math.max(2, Math.round(color.height * ratio));
-            outW -= outW % 2;
-            outH -= outH % 2;
-            vfParts.push(`scale=${outW}:${outH}:flags=lanczos`);
+          if (capDims) {
+            // Plan cap (Starter → 1080p short edge): l'image est déjà réduite en
+            // tête de chaîne ; ce scale final ne fait que ramener aux dimensions
+            // exactes après un zoom/recadrage.
+            vfParts.push(`scale=${capDims.w}:${capDims.h}:flags=lanczos`);
           } else if (color.width > 0 && color.height > 0) {
             // Output = source resolution (unchanged behaviour for all plans).
             vfParts.push(`scale=${color.width}:${color.height}:flags=lanczos`);
@@ -2080,6 +2108,7 @@ export async function processVideos(
           overlays,
           color.codecName,
           forceEncodeForCodec,
+          encodeTimeoutMs(videoDuration),
         );
         // Dernière trace FFmpeg (vendor 'FFMP' du muxer MOV) — non supprimable
         // en ligne de commande, effacée ici sur le fichier produit.
