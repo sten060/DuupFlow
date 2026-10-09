@@ -295,6 +295,7 @@ export async function workspacesPayload(userId: string, defaultName?: string, pr
     workspaces: await Promise.all(ctx.workspaces.map(async (w) => ({
       ...w,
       briefImageCount: (await import("@/lib/brief-images").then((m) => m.listBriefImages(w.id))).length,
+      briefVideoCount: (await import("@/lib/brief-videos").then((m) => m.listBriefVideos(w.id))).length,
     }))),
     // Le créateur affiché dans CE navigateur (cookie) s'il est permis. Sinon :
     // la vue admin pour le propriétaire (son écran par défaut), le créateur

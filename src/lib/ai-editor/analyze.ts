@@ -21,6 +21,7 @@ import { transcribeVideo } from "@/lib/studio/transcribe";
 import { sceneScores } from "@/lib/studio/analysis";
 import { transcribeViaGroq, isGroqAvailable } from "./transcribe-groq";
 import { transcribeViaDeepgram, isDeepgramAvailable } from "./transcribe-deepgram";
+import { stripGhostPhrases } from "./asr-filter";
 import { REF_KEYFRAMES_MAX, REF_KEYFRAME_WIDTH, REF_KEYFRAME_QV, REF_HOOK_RATIO, REF_HOOK_MAX_SEC, SCENE_CUT_THRESHOLD } from "./analysis-config";
 import { analyzeShots, analyzeColor, analyzeAudioBeats } from "./ref-profile";
 import type { Shot, ColorProfile, AudioProfile } from "./ref-profile";
@@ -202,6 +203,7 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
     let tr = isDeepgramAvailable() ? await transcribeViaDeepgram(videoPath) : null;
     if (!tr && isGroqAvailable()) tr = await transcribeViaGroq(videoPath);
     if (!tr) tr = await transcribeVideo(videoPath); // repli local
+    tr = stripGhostPhrases(tr); // phrases fantômes (« Sous-titrage Radio-Canada »…)
     if (tr && tr.phrases.length) {
       transcript = {
         phrases: tr.phrases.map((p) => ({ startSec: p.startSec, endSec: p.endSec, text: p.text })),
@@ -245,6 +247,13 @@ export async function analyzeReferenceVideo(videoPath: string): Promise<Referenc
   const avgCutSec = sceneCuts.length > 0 && meta.durationSec > 0
     ? Math.round((meta.durationSec / (sceneCuts.length + 1)) * 100) / 100
     : null;
+
+  // Piste classée MUSIQUE (sans voix) : le texte transcrit, s'il y en a, ce
+  // sont des paroles de chanson — pas un hook parlé à reprendre.
+  if (hookText && audio.type === "music") {
+    hookText = null;
+    notes.push("Son classé MUSIQUE : pas de hook parlé ; la transcription, si présente, correspond probablement à des paroles de chanson.");
+  }
 
   // On récupère la compréhension (déjà en cours en parallèle).
   const comprehension = await comprehensionP;
@@ -311,6 +320,7 @@ async function analyzeMaterialVideo(videoPath: string): Promise<MaterialAnalysis
       let tr = isDeepgramAvailable() ? await transcribeViaDeepgram(videoPath) : null;
       if (!tr && isGroqAvailable()) tr = await transcribeViaGroq(videoPath);
       if (!tr) tr = await transcribeVideo(videoPath);
+      tr = stripGhostPhrases(tr); // phrases fantômes (« Sous-titrage Radio-Canada »…)
       if (tr && tr.phrases.length) {
         transcript = {
           phrases: tr.phrases.map((p) => ({ startSec: p.startSec, endSec: p.endSec, text: p.text })),
@@ -421,6 +431,7 @@ async function analyzeMaterialAudio(audioPath: string): Promise<MaterialAnalysis
     let tr = isDeepgramAvailable() ? await transcribeViaDeepgram(audioPath) : null;
     if (!tr && isGroqAvailable()) tr = await transcribeViaGroq(audioPath);
     if (!tr) tr = await transcribeVideo(audioPath);
+    tr = stripGhostPhrases(tr); // phrases fantômes (« Sous-titrage Radio-Canada »…)
     if (tr && tr.phrases.length) {
       transcript = {
         phrases: tr.phrases.map((p) => ({ startSec: p.startSec, endSec: p.endSec, text: p.text })),

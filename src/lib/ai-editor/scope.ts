@@ -52,6 +52,8 @@ export type EditorScope = {
   brief: string;
   /** Nombre d'images jointes au brief (0 à 10). */
   briefImages?: number;
+  /** Nombre de vidéos « qui marchent » analysées pour le brief (0 à 5). */
+  briefVideos?: number;
   ctx: WorkspaceContext;
 };
 
@@ -110,6 +112,7 @@ export async function editorScopeForUser(userId: string, req?: Request | null): 
       workspace: pick,
       brief: pick.brief.trim(), // déjà chargé avec le workspace : pas de requête en plus
       briefImages: await countBriefImages(pick.id),
+      briefVideos: await countBriefVideos(pick.id),
       ctx,
     };
   }
@@ -123,6 +126,7 @@ export async function editorScopeForUser(userId: string, req?: Request | null): 
     workspace: ctx.active,
     brief: ctx.active.brief.trim(),
     briefImages: await countBriefImages(ctx.active.id),
+    briefVideos: await countBriefVideos(ctx.active.id),
     ctx,
   };
 }
@@ -175,6 +179,7 @@ export async function editorScopeForMcp(
       workspace: ws,
       brief: ws.brief.trim(),
       briefImages: await countBriefImages(ws.id),
+      briefVideos: await countBriefVideos(ws.id),
       ctx,
     },
   };
@@ -186,11 +191,19 @@ export async function countBriefImages(workspaceId: string): Promise<number> {
   return (await listBriefImages(workspaceId)).length;
 }
 
+/** Vidéos du brief prêtes à être lues par Claude (analysées). */
+export async function countBriefVideos(workspaceId: string): Promise<number> {
+  const { listBriefVideos } = await import("@/lib/brief-videos");
+  return (await listBriefVideos(workspaceId)).filter((v) => v.status === "ready").length;
+}
+
 export function briefBlock(scope: EditorScope): string | null {
   if (!scope.workspace) return null;
-  const imgs = scope.briefImages
+  const imgs = (scope.briefImages
     ? `\nIMAGES DE RÉFÉRENCE : ${scope.briefImages} image(s) jointe(s) au brief (style, captions, ambiance…). Appelle get_creator_brief pour les VOIR avant de monter.`
-    : "";
+    : "") + (scope.briefVideos
+    ? `\nVIDÉOS QUI MARCHENT : ${scope.briefVideos} vidéo(s) de ce créateur analysée(s) (plans, captions, rythme, transitions, son). Appelle get_creator_brief pour lire leur descriptif avant de monter.`
+    : "");
   const head = `CRÉATEUR : « ${scope.workspace.name} »${imgs}`;
   if (!scope.brief) {
     return `${head}\nBRIEF : aucun brief enregistré pour ce créateur (le propriétaire peut en écrire un dans DuupFlow → Créateurs).`;

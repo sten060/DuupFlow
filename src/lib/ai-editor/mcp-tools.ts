@@ -1625,7 +1625,7 @@ const LIST_CREATORS_TOOL = {
 const GET_BRIEF_TOOL = {
   name: "get_creator_brief",
   description:
-    "Relit le BRIEF enregistré d'un créateur (style de captions, ton, langue, hooks qui marchent, choses à éviter). Le brief est la mémoire permanente du créateur, partagée par toute l'équipe.",
+    "Relit le BRIEF enregistré d'un créateur (style de captions, ton, langue, hooks qui marchent, choses à éviter), avec ses images de référence et le descriptif analysé de ses vidéos qui marchent (plans, captions, rythme, transitions, son). Le brief est la mémoire permanente du créateur, partagée par toute l'équipe.",
   inputSchema: { type: "object", properties: { creator: CREATOR_PROP }, additionalProperties: false },
 };
 
@@ -1660,7 +1660,7 @@ export async function toolsForUser(userId: string): Promise<unknown[]> {
 }
 
 export async function callTool(userId: string, name: string, args?: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }> {
-  const { editorScopeForMcp, briefBlock, workspaceBrief } = await import("./scope");
+  const { editorScopeForMcp, briefBlock, workspaceBrief, countBriefVideos } = await import("./scope");
   const { creator, ...rest } = args ?? {};
 
   if (name === "list_creators") {
@@ -1672,7 +1672,9 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     const parts = await Promise.all(ctx.workspaces.map(async (w) => {
       const b = await workspaceBrief(w.id);
       const n = (await listBriefImages(w.id)).length;
-      return `• « ${w.name} »${n ? ` (${n} image(s) de référence — get_creator_brief pour les voir)` : ""}\n  Brief : ${b ? b.replace(/\n/g, "\n  ") : "(aucun)"}`;
+      const nv = await countBriefVideos(w.id);
+      const extras = [n ? `${n} image(s) de référence` : "", nv ? `${nv} vidéo(s) qui marchent analysée(s)` : ""].filter(Boolean).join(", ");
+      return `• « ${w.name} »${extras ? ` (${extras} — get_creator_brief pour les voir)` : ""}\n  Brief : ${b ? b.replace(/\n/g, "\n  ") : "(aucun)"}`;
     }));
     return { content: [{ type: "text", text: `CRÉATEURS ACCESSIBLES (${ctx.workspaces.length}) — passe le nom exact en argument creator :\n${parts.join("\n")}` }] };
   }
@@ -1709,6 +1711,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
         content.push({ type: "text", text: `Image de référence du brief : « ${im.name} »` } as Content);
         content.push({ type: "image", data: im.data, mimeType: im.mimeType } as Content);
       }
+      content.push(...(await briefVideosContent(scope.workspace.id)));
       return { content };
     }
     const { saveWorkspaceBrief } = await import("@/lib/workspaces");
@@ -1770,18 +1773,37 @@ export async function getPromptForUser(userId: string, promptName: string): Prom
       ? `Voici son BRIEF permanent — applique-le à chaque variante sans que j'aie à le répéter :\n---\n${brief}\n---\n\n`
       : `Ce créateur n'a pas encore de brief. Si je te donne des consignes durables (style, ton, hooks…), propose de les enregistrer avec save_creator_brief.\n\n`) +
     `Commence par regarder la référence (get_reference) et ma matière (list_material), puis dis-moi ce que tu proposes.`;
-  // Les images du brief suivent le texte : Claude les VOIT dès le chargement du prompt.
+  // Les images du brief suivent le texte : Claude les VOIT dès le chargement du
+  // prompt. Puis le descriptif (et les images clés) de ses vidéos qui marchent.
   const { briefImagesForClaude } = await import("@/lib/brief-images");
   const imgs = await briefImagesForClaude(ws.id);
+  const vids = await briefVideosContent(ws.id);
   return {
     description: `Travailler pour ${ws.name}`,
     messages: [
       { role: "user", content: { type: "text", text: imgs.length ? `${text}\n\nCi-dessous, ses ${imgs.length} image(s) de référence (style, captions, ambiance) : inspire-t'en pour chaque variante.` : text } },
       ...imgs.map((im) => ({ role: "user" as const, content: { type: "image" as const, data: im.data, mimeType: im.mimeType } })),
+      ...vids.map((c) => ({ role: "user" as const, content: c as PromptContent })),
     ],
   };
 }
 
+
+/** Vidéos « qui marchent » du créateur : leur descriptif d'analyse + images clés. */
+async function briefVideosContent(workspaceId: string): Promise<({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string })[]> {
+  const { briefVideosForClaude } = await import("@/lib/brief-videos");
+  const { videos, pending } = await briefVideosForClaude(workspaceId);
+  const out: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string })[] = [];
+  if (videos.length) {
+    out.push({ type: "text", text: `VIDÉOS QUI MARCHENT chez ce créateur (${videos.length}) — analysées comme une référence. Elles montrent SON style : reprends-en les codes (captions, rythme, transitions, ton) dans chaque variante, sans les copier plan pour plan.` });
+    for (const v of videos) {
+      out.push({ type: "text", text: v.text });
+      for (const im of v.images) out.push({ type: "image", data: im.data, mimeType: im.mimeType });
+    }
+  }
+  if (pending.length) out.push({ type: "text", text: `Vidéo(s) encore en analyse : ${pending.map((n) => `« ${n} »`).join(", ")} — rappelle get_creator_brief dans une minute pour les lire.` });
+  return out;
+}
 
 /* ── add_material : Claude dépose lui-même la matière ─────────────────────── */
 

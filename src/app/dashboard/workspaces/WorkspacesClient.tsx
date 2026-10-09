@@ -131,6 +131,11 @@ export default function WorkspacesClient({ initial }: { initial?: Payload }) {
   const [briefImages, setBriefImages] = useState<{ id: string; name: string }[] | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
   const [imgError, setImgError] = useState<string | null>(null);
+  // Vidéos qui marchent (analysées en tâche de fond côté serveur).
+  type BriefVideoItem = { id: string; name: string; durationSec: number; status: "analyzing" | "ready" | "failed"; error?: string };
+  const [briefVideos, setBriefVideos] = useState<BriefVideoItem[] | null>(null);
+  const [vidBusy, setVidBusy] = useState<string | null>(null); // nom du fichier en cours d'envoi
+  const [vidError, setVidError] = useState<string | null>(null);
 
   // Retour de la fenêtre Google (?drive=connected|denied|…) → petit message.
   const [driveNotice, setDriveNotice] = useState<{ ok: boolean; text: string } | null>(null);
@@ -267,6 +272,63 @@ export default function WorkspacesClient({ initial }: { initial?: Payload }) {
       .then((r) => r.json())
       .then((d) => setBriefImages(Array.isArray(d.images) ? d.images : []))
       .catch(() => setBriefImages([]));
+    setBriefVideos(null);
+    setVidError(null);
+    void fetch(`/api/workspaces/${w.id}/brief-videos`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setBriefVideos(Array.isArray(d.videos) ? d.videos : []))
+      .catch(() => setBriefVideos([]));
+  }
+
+  /** Met à jour le compteur de vidéos affiché sur la carte du créateur. */
+  function setVideoCount(wsId: string, n: number) {
+    setData((d) => (d ? { ...d, workspaces: d.workspaces.map((w) => (w.id === wsId ? { ...w, briefVideoCount: n } : w)) } : d));
+  }
+
+  // Tant qu'une vidéo s'analyse et que la fenêtre est ouverte : on relit son état.
+  const briefWsId = briefFor?.ws.id ?? null;
+  const analyzing = !!briefVideos?.some((v) => v.status === "analyzing");
+  useEffect(() => {
+    if (!briefWsId || !analyzing) return;
+    const timer = setInterval(() => {
+      void fetch(`/api/workspaces/${briefWsId}/brief-videos`, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => { if (Array.isArray(d.videos)) setBriefVideos(d.videos); })
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [briefWsId, analyzing]);
+
+  async function uploadBriefVideos(wsId: string, files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const room = 5 - (briefVideos?.length ?? 0);
+    const list = Array.from(files).slice(0, Math.max(0, room));
+    setVidError(null);
+    if (list.length === 0) { setVidError(t("dashboard.workspaces.videosFull")); return; }
+    // Une par une : chaque vidéo peut peser jusqu'à 300 Mo.
+    for (const f of list) {
+      setVidBusy(f.name);
+      const fd = new FormData();
+      fd.append("file", f);
+      const r = await fetch(`/api/workspaces/${wsId}/brief-videos`, { method: "POST", body: fd }).then(async (res) => ({ ok: res.ok, d: await res.json().catch(() => ({})) })).catch(() => ({ ok: false, d: {} as Record<string, unknown> }));
+      if (Array.isArray(r.d.videos)) { setBriefVideos(r.d.videos as BriefVideoItem[]); setVideoCount(wsId, (r.d.videos as unknown[]).length); }
+      if (!r.ok) { setVidError(String(r.d.error ?? t("dashboard.workspaces.errGeneric"))); break; }
+    }
+    setVidBusy(null);
+    if (files.length > list.length) setVidError(t("dashboard.workspaces.videosFull"));
+  }
+
+  async function deleteBriefVideo(wsId: string, videoId: string) {
+    const before = briefVideos;
+    const next = (briefVideos ?? []).filter((v) => v.id !== videoId);
+    setBriefVideos(next); // optimiste
+    setVideoCount(wsId, next.length);
+    const r = await api(`/api/workspaces/${wsId}/brief-videos/${videoId}`, "DELETE");
+    if (!r.ok) {
+      setBriefVideos(before);
+      setVideoCount(wsId, before?.length ?? 0);
+      setVidError(String(r.data.error ?? t("dashboard.workspaces.errGeneric")));
+    }
   }
 
   /** Met à jour le compteur d'images affiché sur la carte du créateur. */
@@ -459,19 +521,20 @@ export default function WorkspacesClient({ initial }: { initial?: Payload }) {
                     <span className="flex items-center gap-2 text-sm font-bold text-[var(--app-text)]"><span aria-hidden>📝</span>{t("dashboard.workspaces.briefLabel")}</span>
                     <span
                       className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-                      style={w.brief || w.briefImageCount
+                      style={w.brief || w.briefImageCount || w.briefVideoCount
                         ? { background: "rgba(16,185,129,0.14)", color: "#059669" }
                         : { background: "rgba(245,158,11,0.16)", color: "#B45309" }}
                     >
-                      {w.brief || w.briefImageCount ? t("dashboard.workspaces.briefWritten") : t("dashboard.workspaces.briefEmpty")}
+                      {w.brief || w.briefImageCount || w.briefVideoCount ? t("dashboard.workspaces.briefWritten") : t("dashboard.workspaces.briefEmpty")}
                     </span>
                   </span>
                   <span className="mt-1.5 block text-[13px] leading-relaxed text-[var(--app-text-muted)] line-clamp-2 whitespace-pre-line">
                     {w.brief || t("dashboard.workspaces.briefCta")}
                   </span>
-                  {!!w.briefImageCount && (
-                    <span className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[var(--app-text)]">
-                      <span aria-hidden>🖼️</span>{t("dashboard.workspaces.imagesCount", { count: w.briefImageCount })}
+                  {(!!w.briefImageCount || !!w.briefVideoCount) && (
+                    <span className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-[var(--app-text)]">
+                      {!!w.briefImageCount && <span className="inline-flex items-center gap-1.5"><span aria-hidden>🖼️</span>{t("dashboard.workspaces.imagesCount", { count: w.briefImageCount })}</span>}
+                      {!!w.briefVideoCount && <span className="inline-flex items-center gap-1.5"><span aria-hidden>🎬</span>{t("dashboard.workspaces.videosCount", { count: w.briefVideoCount })}</span>}
                     </span>
                   )}
                 </button>
@@ -723,6 +786,80 @@ export default function WorkspacesClient({ initial }: { initial?: Payload }) {
               </div>
             )}
             {imgError && <p className="mt-2 text-sm font-semibold text-red-600">{imgError}</p>}
+          </div>
+
+          {/* Vidéos qui marchent : analysées comme une référence, descriptif lu par Claude. */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <p className="text-sm font-bold text-[var(--app-text)]">
+                🎬 {t("dashboard.workspaces.videosTitle")}{" "}
+                <span className="font-semibold text-[var(--app-text-muted)] tabular-nums">({briefVideos?.length ?? 0}/5)</span>
+              </p>
+              {canManage && (
+                <label className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold text-[var(--app-text)] transition hover:bg-[var(--app-surface-2)] ${vidBusy || (briefVideos?.length ?? 0) >= 5 ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
+                  style={{ border: "1px solid var(--app-border-strong)" }}>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => { void uploadBriefVideos(briefFor.ws.id, e.target.files); e.target.value = ""; }}
+                  />
+                  {vidBusy ? t("dashboard.workspaces.videosUploading") : `+ ${t("dashboard.workspaces.videosAdd")}`}
+                </label>
+              )}
+            </div>
+            <p className="text-[13px] font-medium text-[var(--app-text-muted)] mb-3">{t("dashboard.workspaces.videosLead")}</p>
+            {briefVideos === null ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{[0, 1].map((i) => <div key={i} className="h-24 rounded-xl bg-[var(--app-surface-2)] animate-pulse" />)}</div>
+            ) : briefVideos.length === 0 && !vidBusy ? (
+              <p className="rounded-xl px-4 py-4 text-[13px] font-medium text-[var(--app-text-muted)] text-center" style={SUBTLE}>{t("dashboard.workspaces.videosEmpty")}</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {briefVideos.map((v) => (
+                  <div key={v.id} className="group relative flex items-center gap-3 rounded-xl p-2 pr-10" style={SUBTLE}>
+                    <div className="h-16 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--app-surface-2)] flex items-center justify-center">
+                      {v.status === "ready" ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={`/api/workspaces/${briefFor.ws.id}/brief-videos/${v.id}`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      ) : v.status === "analyzing" ? (
+                        <span className="h-5 w-5 rounded-full border-2 border-[var(--app-text-faint)] border-t-transparent animate-spin" />
+                      ) : (
+                        <span aria-hidden>⚠️</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-bold text-[var(--app-text)]" title={v.name}>{v.name}</p>
+                      <p className={`text-xs font-semibold ${v.status === "ready" ? "text-emerald-600" : v.status === "failed" ? "text-red-600" : "text-[var(--app-text-muted)]"}`}>
+                        {v.status === "ready" ? t("dashboard.workspaces.videoReady") : v.status === "failed" ? (v.error ?? t("dashboard.workspaces.videoFailed")) : t("dashboard.workspaces.videoAnalyzing")}
+                        <span className="text-[var(--app-text-faint)] font-medium"> · {Math.round(v.durationSec)} s</span>
+                      </p>
+                    </div>
+                    {canManage && (
+                      <button
+                        type="button"
+                        onClick={() => void deleteBriefVideo(briefFor.ws.id, v.id)}
+                        aria-label={t("dashboard.workspaces.videosRemove")}
+                        title={t("dashboard.workspaces.videosRemove")}
+                        className="absolute top-1/2 -translate-y-1/2 right-2 h-7 w-7 rounded-lg flex items-center justify-center bg-black/65 text-white opacity-90 sm:opacity-0 group-hover:opacity-100 transition hover:bg-red-600"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {vidBusy && (
+                  <div className="flex items-center gap-3 rounded-xl p-2" style={SUBTLE}>
+                    <div className="h-16 w-12 shrink-0 rounded-lg bg-[var(--app-surface-2)] animate-pulse" />
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-bold text-[var(--app-text)]">{vidBusy}</p>
+                      <p className="text-xs font-semibold text-[var(--app-text-muted)]">{t("dashboard.workspaces.videosUploading")}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {vidError && <p className="mt-2 text-sm font-semibold text-red-600">{vidError}</p>}
           </div>
           {canManage && (
             <Btn variant="primary" color={briefFor.ws.color} onClick={saveBrief} className="mt-6 w-full py-3">

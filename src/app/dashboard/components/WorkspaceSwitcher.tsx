@@ -89,7 +89,7 @@ if (typeof window !== "undefined" && !(window as unknown as { __duupWsFetch?: bo
   };
 }
 
-export type WorkspaceItem = { id: string; name: string; color: string; isDefault: boolean; brief?: string; briefImageCount?: number };
+export type WorkspaceItem = { id: string; name: string; color: string; isDefault: boolean; brief?: string; briefImageCount?: number; briefVideoCount?: number };
 export type WorkspacesPayload = {
   enabled: boolean;
   role: "owner" | "manager" | "va";
