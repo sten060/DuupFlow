@@ -340,6 +340,9 @@ export default function AiEditorClient() {
           // Le projet est prêt (réf analysée) → on RESTE dans le workspace après un
           // rechargement de page (sinon on retombait sur l'étape « Référence »).
           setStep("editor");
+        } else if (Array.isArray(project.materials) && project.materials.length && new URLSearchParams(window.location.search).get("from") === "duplicates") {
+          // Arrivée depuis « Envoyer vers l'éditeur » (Duplication) : droit sur la matière.
+          setStep("material");
         }
         if (Array.isArray(project.materials) && project.materials.length) {
           setMaterials(project.materials.map((m: { id: string; name: string; kind: "video" | "image" | "audio"; desc?: string; analysis?: { thumb?: string | null } }) => ({

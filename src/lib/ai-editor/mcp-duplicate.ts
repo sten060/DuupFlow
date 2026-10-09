@@ -273,6 +273,45 @@ export async function duplicateImages(userId: string, storeKey: string, args: Re
 
 /* ══ Copies → matière de l'Éditeur IA ══════════════════════════════════════ */
 
+/** Nombre max de copies envoyées en matière en une fois (MCP et bouton du dashboard). */
+export const SEND_TO_EDITOR_MAX = 20;
+
+export type SentResult = { name: string; ok: true; materialId: string; analyzing: boolean } | { name: string; ok: false; error: string };
+
+/**
+ * Ajoute des copies dupliquées (déjà sur disque) en matière du dernier projet
+ * de l'Éditeur IA de `storeKey` — porte commune au MCP (send_duplicates_to_editor)
+ * et au bouton « Envoyer vers l'éditeur » des pages Duplication.
+ */
+export async function ingestDuplicates(
+  storeKey: string,
+  files: { absPath: string; name: string }[],
+  desc: string,
+  logTag: string,
+): Promise<{ projectId: string; results: SentResult[] }> {
+  const project = (await getLatestProject(storeKey)) ?? (await createProject(storeKey));
+  const one = async (f: { absPath: string; name: string }): Promise<SentResult> => {
+    try { await fs.access(f.absPath); } catch { return { name: f.name, ok: false, error: "introuvable (copie expirée ? Les copies sont gardées environ 1 h)." }; }
+    const ext = extOf(f.name);
+    const mime = IMAGE_EXTS.includes(ext) ? `image/${ext === ".jpg" ? "jpeg" : ext.slice(1)}` : "video/mp4";
+    const r = await ingestMaterialFile({ storeKey, projectId: project.id, tmpPath: f.absPath, fileName: f.name, mimeType: mime, desc, logTag });
+    return r.ok ? { name: f.name, ok: true, materialId: r.material.id, analyzing: r.material.status === "analyzing" } : { name: f.name, ok: false, error: r.error };
+  };
+  // 4 à la fois : l'envoi reste rapide sans saturer le serveur (le store
+  // sérialise déjà l'écriture du projet sous verrou). Ordre d'origine conservé.
+  const results: SentResult[] = new Array(files.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(4, files.length) }, async () => {
+    while (next < files.length) { const i = next++; results[i] = await one(files[i]); }
+  }));
+  return { projectId: project.id, results };
+}
+
+/** Nom de fichier simple (pas de chemin) d'un dossier de copies. */
+export function isPlainOutName(name: string): boolean {
+  return /^[\w.() -]{1,200}$/.test(name) && !name.includes("..");
+}
+
 export async function sendDuplicatesToEditor(storeKey: string, args: Record<string, unknown>): Promise<{ text: string; isError: boolean }> {
   let names = Array.isArray(args.files) ? args.files.filter((x): x is string => typeof x === "string") : [];
   if (typeof args.ticket === "string" && args.ticket) {
@@ -282,27 +321,22 @@ export async function sendDuplicatesToEditor(storeKey: string, args: Record<stri
     names = [...new Set([...names, ...job.outputs])];
   }
   if (!names.length) return { text: "Donne un ticket de duplication (dup_…) ou une liste de noms de fichiers (files).", isError: true };
-  if (names.length > 20) return { text: "Maximum 20 fichiers par envoi.", isError: true };
+  if (names.length > SEND_TO_EDITOR_MAX) return { text: `Maximum ${SEND_TO_EDITOR_MAX} fichiers par envoi.`, isError: true };
 
   const outDir = creatorOutDir(storeKey);
-  const project = (await getLatestProject(storeKey)) ?? (await createProject(storeKey));
   const desc = typeof args.description === "string" ? args.description.slice(0, 500) : "Copie dupliquée par DuupFlow";
   const lines: string[] = [];
-  let added = 0;
+  const valid: { absPath: string; name: string }[] = [];
   for (const name of names) {
     // Uniquement un nom de fichier du dossier du créateur (pas de chemin).
-    if (!/^[\w.() -]{1,200}$/.test(name) || name.includes("..")) { lines.push(`❌ ${name} — nom invalide.`); continue; }
-    const p = path.join(outDir, name);
-    try { await fs.access(p); } catch { lines.push(`❌ ${name} — introuvable (copie expirée ? Les copies sont gardées environ 1 h).`); continue; }
-    const ext = extOf(name);
-    const mime = IMAGE_EXTS.includes(ext) ? `image/${ext === ".jpg" ? "jpeg" : ext.slice(1)}` : "video/mp4";
-    const r = await ingestMaterialFile({ storeKey, projectId: project.id, tmpPath: p, fileName: name, mimeType: mime, desc, logTag: "mcp/send_duplicates" });
-    if (!r.ok) { lines.push(`❌ ${name} — ${r.error}`); continue; }
-    added++;
-    lines.push(`✅ ${name} → matière ${r.material.id}${r.material.status === "analyzing" ? " (analyse en cours)" : ""}`);
+    if (!isPlainOutName(name)) { lines.push(`❌ ${name} — nom invalide.`); continue; }
+    valid.push({ absPath: path.join(outDir, name), name });
   }
+  const { projectId, results } = await ingestDuplicates(storeKey, valid, desc, "mcp/send_duplicates");
+  for (const r of results) lines.push(r.ok ? `✅ ${r.name} → matière ${r.materialId}${r.analyzing ? " (analyse en cours)" : ""}` : `❌ ${r.name} — ${r.error}`);
+  const added = results.filter((r) => r.ok).length;
   return {
-    text: `${added}/${names.length} copie(s) ajoutée(s) en matière au projet (id ${project.id}) :\n${lines.join("\n")}` +
+    text: `${added}/${names.length} copie(s) ajoutée(s) en matière au projet (id ${projectId}) :\n${lines.join("\n")}` +
       (added ? "\n\nLes vidéos s'analysent en tâche de fond : appelle list_material avant de monter, puis create_variant." : ""),
     isError: added === 0,
   };

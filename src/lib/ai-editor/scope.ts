@@ -29,10 +29,24 @@ export function workspaceStoreKey(ws: Pick<Workspace, "id" | "isDefault">, owner
   return ws.isDefault ? ownerId : `ws_${ws.id}`;
 }
 
+/**
+ * Espace de la VUE ADMIN (propriétaire) : son dashboard par défaut, où il
+ * duplique et édite comme partout ailleurs, sans être rangé chez un créateur.
+ */
+export function adminStoreKey(ownerId: string): string {
+  return `${ownerId}_admin`;
+}
+
+/** Le propriétaire est-il en vue admin ? Choix explicite, ou rien de choisi
+ *  (la vue admin est son écran par défaut). Jamais pour un invité. */
+export function isAdminChoice(ctx: Pick<WorkspaceContext, "enabled" | "role">, wanted: string | null): boolean {
+  return ctx.enabled && ctx.role === "owner" && (wanted === ADMIN_VIEW || !wanted);
+}
+
 export type EditorScope = {
   /** Clé de rangement à passer au store / au moteur de rendu. */
   storeKey: string;
-  /** Le créateur concerné, ou null pour un compte sans workspaces. */
+  /** Le créateur concerné, ou null (compte sans workspaces, ou vue admin). */
   workspace: Workspace | null;
   /** Son brief pour l'éditeur ('' si vide ou sans workspace). */
   brief: string;
@@ -87,11 +101,9 @@ export async function editorScopeForUser(userId: string, req?: Request | null): 
   const ctx = await getWorkspaceContext(userId);
   if (!ctx.enabled) return { storeKey: userId, workspace: null, brief: "", ctx };
   const wanted = requestedWorkspace(req);
-  // Vue admin (propriétaire) : l'Éditeur IA affiche un choix de créateur ; si une
-  // requête arrive quand même, elle travaille dans le créateur principal.
-  const pick = wanted === ADMIN_VIEW
-    ? (ctx.role === "owner" ? ctx.workspaces.find((w) => w.isDefault) ?? ctx.workspaces[0] ?? null : null)
-    : wanted ? ctx.workspaces.find((w) => w.id === wanted) : null;
+  // Vue admin (propriétaire, par défaut) : son propre espace, aucun brief.
+  if (isAdminChoice(ctx, wanted)) return { storeKey: adminStoreKey(ctx.ownerId), workspace: null, brief: "", ctx };
+  const pick = wanted && wanted !== ADMIN_VIEW ? ctx.workspaces.find((w) => w.id === wanted) : null;
   if (pick) {
     return {
       storeKey: workspaceStoreKey(pick, ctx.ownerId),

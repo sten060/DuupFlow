@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getServerT } from "@/lib/i18n/server";
 import { getWorkspaceContext, canManageWorkspaces, type WorkspaceContext } from "@/lib/workspaces";
-import { requestedWorkspace, ADMIN_VIEW } from "@/lib/ai-editor/scope";
+import { requestedWorkspace, ADMIN_VIEW, isAdminChoice } from "@/lib/ai-editor/scope";
 
 /** Le créateur visé : celui que l'écran affiche (x-duup-ws, ou workspaceId du
  *  corps) s'il y a accès, sinon le créateur actif. */
@@ -30,9 +30,9 @@ export async function GET(req: NextRequest) {
 
   const ctx = await getWorkspaceContext(user.id);
   const wanted = requestedWorkspace(req);
-  // Vue admin (propriétaire uniquement) : aucun créateur sélectionné → pas de
-  // réglages de créateur. Pour quelqu'un d'autre, la valeur est ignorée.
-  if (wanted === ADMIN_VIEW && ctx.role === "owner") return NextResponse.json({ enabled: false });
+  // Vue admin (propriétaire, par défaut) : aucun créateur sélectionné → pas de
+  // réglages de créateur, le formulaire garde son comportement habituel.
+  if (isAdminChoice(ctx, wanted)) return NextResponse.json({ enabled: false });
   const ws = ctx.enabled ? targetWorkspace(ctx, wanted) : null;
   if (!ws) return NextResponse.json({ enabled: false });
 

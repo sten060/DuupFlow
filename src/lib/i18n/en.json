@@ -20,6 +20,17 @@
     "savedPartial": "{ok} saved, {failed} failed to \"{folder}\"",
     "saveFailed": "Save to Google Drive failed."
   },
+  "sendToEditor": {
+    "send": "Send to editor",
+    "sendSelection": "Send {count} to editor",
+    "sending": "Sending {count} file(s)…",
+    "sent": "{count} copy(ies) added as material ✔",
+    "partial": "{ok} added, {failed} rejected",
+    "open": "Open the editor →",
+    "failed": "Sending to the editor failed.",
+    "tooManySelected": "Maximum {max} files per send: you selected {count}, keep {max} at most.",
+    "tooManyAll": "Maximum {max} files per send: you have {count} results, select {max} at most."
+  },
   "compress": {
     "title": "Compressor",
     "subtitle": "Reduce the weight of your images and videos with no visible quality loss.",
@@ -450,9 +461,7 @@
       "adminView": "Admin view",
       "adminLabel": "Admin view",
       "adminAll": "All creators",
-      "adminHint": "See every creator's work",
-      "adminPickTitle": "Pick the creator to open",
-      "adminPickLead": "The admin view gathers duplication results from all your creators. The AI Editor always works for one specific creator: pick which one to open."
+      "adminHint": "See every creator's work"
     },
     "sidebar": {
       "navigation": "Navigation",

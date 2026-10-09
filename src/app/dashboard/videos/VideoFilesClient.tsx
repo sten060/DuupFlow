@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { clearVideosSimpleAction, clearVideosAdvancedAction } from "./actions";
 import { useTranslation } from "@/lib/i18n/context";
 import DriveSaveButton from "../components/DriveSaveButton";
+import SendToEditorButton from "../components/SendToEditorButton";
 import { useCreatorSwitch } from "../components/WorkspaceSwitcher";
 import { listOutVideosSimple, listOutVideosAdvanced } from "./actions";
 
@@ -98,6 +99,13 @@ export default function VideoFilesClient({
         {files.length > 0 && (
           <DriveSaveButton
             files={(selected.size > 0 ? files.filter((u) => selected.has(u)) : files).map((u) => ({ url: u, name: fileNameFromUrl(u) }))}
+          />
+        )}
+        {files.length > 0 && (
+          <SendToEditorButton
+            files={(selected.size > 0 ? files.filter((u) => selected.has(u)) : files).map((u) => ({ url: u, name: fileNameFromUrl(u) }))}
+            isSelection={selected.size > 0}
+            disabled={clearing}
           />
         )}
         {selectionHref && (

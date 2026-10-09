@@ -19,6 +19,7 @@ import WorkspacePresetBar from "../components/WorkspacePresetBar";
 type ImageSettings = { count?: number; fundamentals?: boolean; visuals?: boolean; semi?: boolean; reverse?: boolean; iphoneMeta?: boolean; country?: string };
 import DriveImportButton from "../components/DriveImportButton";
 import DriveSaveButton from "../components/DriveSaveButton";
+import SendToEditorButton from "../components/SendToEditorButton";
 import { usePlanGate } from "../components/PlanGate";
 import { useCreatorSwitch } from "../components/WorkspaceSwitcher";
 import { listOutImages } from "./actions";
@@ -649,6 +650,11 @@ export default function ImageFormClient({ initialImages }: Props) {
             <ClearImagesButton onCleared={() => { setPersistedFiles([]); setSelectedUrls(new Set()); }} />
             <DriveSaveButton
               files={selectedUrls.size > 0 ? persistedFiles.filter((f) => selectedUrls.has(f.url)) : persistedFiles}
+              disabled={busy}
+            />
+            <SendToEditorButton
+              files={selectedUrls.size > 0 ? persistedFiles.filter((f) => selectedUrls.has(f.url)) : persistedFiles}
+              isSelection={selectedUrls.size > 0}
               disabled={busy}
             />
             {selectedUrls.size > 0 && (

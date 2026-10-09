@@ -26,8 +26,8 @@ async function resolveUserId(): Promise<string> {
    Le dossier de sortie suit le créateur AFFICHÉ (cookie duup_ws posé par le
    sélecteur, ou en-tête x-duup-ws), avec la même clé que l'Éditeur IA :
    « ws_<id> », ou le dossier historique du propriétaire pour le créateur
-   principal. Vue admin (propriétaire) : on LIT tous les créateurs, on ÉCRIT
-   dans le créateur principal. Sans workspaces : dossier de l'utilisateur,
+   principal. Vue admin (propriétaire, son écran par défaut) : on LIT tous les
+   créateurs, on ÉCRIT dans l'espace admin. Sans workspaces : dossier de l'utilisateur,
    exactement comme avant. Les quotas, eux, restent toujours sur la personne. */
 
 type OutKeys = { realUserId: string; write: string; read: string[] };
@@ -48,12 +48,12 @@ async function resolveOutKeys(): Promise<OutKeys> {
       wanted = scope.normalizeWsChoice(nh.headers().get("x-duup-ws") || nh.cookies().get(scope.WS_COOKIE)?.value);
     } catch { /* hors requête */ }
     const keyOf = (w: { id: string; isDefault: boolean }) => scope.workspaceStoreKey(w, ctx.ownerId);
-    if (wanted === scope.ADMIN_VIEW && ctx.role === "owner") {
-      const main = ctx.workspaces.find((w) => w.isDefault) ?? ctx.workspaces[0];
-      const all = Array.from(new Set([...ctx.workspaces.map(keyOf), ctx.ownerId]));
-      return { realUserId: userId, write: main ? keyOf(main) : ctx.ownerId, read: all };
+    if (scope.isAdminChoice(ctx, wanted)) {
+      const admin = scope.adminStoreKey(ctx.ownerId);
+      const all = Array.from(new Set([admin, ...ctx.workspaces.map(keyOf), ctx.ownerId]));
+      return { realUserId: userId, write: admin, read: all };
     }
-    const ws = (wanted ? ctx.workspaces.find((w) => w.id === wanted) : null) ?? ctx.active;
+    const ws = (wanted && wanted !== scope.ADMIN_VIEW ? ctx.workspaces.find((w) => w.id === wanted) : null) ?? ctx.active;
     const key = ws ? keyOf(ws) : `${userId}_noworkspace`;
     return { realUserId: userId, write: key, read: [key] };
   } catch {
@@ -96,17 +96,24 @@ export async function canDeleteOutputs(): Promise<boolean> {
   }
 }
 
-/** Cette personne peut-elle lire le dossier de sortie <key> ? (route /api/out) */
-export async function canReadOutKey(userId: string, key: string): Promise<boolean> {
-  if (key === userId || key === `${userId}_noworkspace`) return true;
+/** Tous les dossiers de sortie que cette personne peut lire (un seul calcul
+ *  pour vérifier plusieurs fichiers d'un coup). */
+export async function readableOutKeys(userId: string): Promise<Set<string>> {
+  const keys = new Set([userId, `${userId}_noworkspace`]);
   try {
     const [{ getWorkspaceContext }, scope] = await Promise.all([import("@/lib/workspaces"), import("@/lib/ai-editor/scope")]);
     const ctx = await getWorkspaceContext(userId);
-    if (!ctx.enabled) return false;
-    return ctx.workspaces.some((w) => scope.workspaceStoreKey(w, ctx.ownerId) === key);
-  } catch {
-    return false;
-  }
+    if (!ctx.enabled) return keys;
+    if (ctx.role === "owner") keys.add(scope.adminStoreKey(ctx.ownerId));
+    for (const w of ctx.workspaces) keys.add(scope.workspaceStoreKey(w, ctx.ownerId));
+  } catch { /* droits minimum */ }
+  return keys;
+}
+
+/** Cette personne peut-elle lire le dossier de sortie <key> ? (route /api/out) */
+export async function canReadOutKey(userId: string, key: string): Promise<boolean> {
+  if (key === userId || key === `${userId}_noworkspace`) return true;
+  return (await readableOutKeys(userId)).has(key);
 }
 
 /** Expose OUT_BASE so cleanup utilities can scan all user dirs */

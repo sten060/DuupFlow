@@ -20,6 +20,17 @@
     "savedPartial": "{ok} envoyé(s), {failed} échec(s) dans « {folder} »",
     "saveFailed": "L'envoi vers Google Drive a échoué."
   },
+  "sendToEditor": {
+    "send": "Envoyer vers l'éditeur",
+    "sendSelection": "Envoyer {count} vers l'éditeur",
+    "sending": "Envoi de {count} fichier(s)…",
+    "sent": "{count} copie(s) ajoutée(s) en matière ✔",
+    "partial": "{ok} ajoutée(s), {failed} refusée(s)",
+    "open": "Ouvrir l'éditeur →",
+    "failed": "L'envoi vers l'éditeur a échoué.",
+    "tooManySelected": "Maximum {max} fichiers par envoi : tu en as sélectionné {count}, garde-en {max} au plus.",
+    "tooManyAll": "Maximum {max} fichiers par envoi : tu as {count} résultats, sélectionne-en {max} au plus."
+  },
   "compress": {
     "title": "Compresseur",
     "subtitle": "Réduis le poids de tes images et vidéos sans perte de qualité visible.",
@@ -450,9 +461,7 @@
       "adminView": "Vue admin",
       "adminLabel": "Vue admin",
       "adminAll": "Tous les créateurs",
-      "adminHint": "Voir le travail de tous les créateurs",
-      "adminPickTitle": "Choisis le créateur à ouvrir",
-      "adminPickLead": "La vue admin regroupe les résultats de duplication de tous tes créateurs. L'Éditeur IA, lui, travaille toujours pour un créateur précis : choisis lequel ouvrir."
+      "adminHint": "Voir le travail de tous les créateurs"
     },
     "sidebar": {
       "navigation": "Navigation",

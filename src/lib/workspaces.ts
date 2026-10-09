@@ -296,11 +296,12 @@ export async function workspacesPayload(userId: string, defaultName?: string, pr
       ...w,
       briefImageCount: (await import("@/lib/brief-images").then((m) => m.listBriefImages(w.id))).length,
     }))),
-    // Le créateur affiché dans CE navigateur (cookie) s'il est permis, sinon
-    // le créateur actif enregistré. « admin » = vue admin (propriétaire).
+    // Le créateur affiché dans CE navigateur (cookie) s'il est permis. Sinon :
+    // la vue admin pour le propriétaire (son écran par défaut), le créateur
+    // actif enregistré pour un invité.
     activeId:
-      preferred === "admin" && ctx.role === "owner" ? "admin"
-      : preferred && ctx.workspaces.some((w) => w.id === preferred) ? preferred
+      preferred && ctx.workspaces.some((w) => w.id === preferred) ? preferred
+      : ctx.role === "owner" ? "admin"
       : ctx.active?.id ?? null,
     team,
   };

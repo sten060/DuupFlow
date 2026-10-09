@@ -149,6 +149,7 @@ export default function WorkspaceSwitcher({ collapsed = false }: { collapsed?: b
       if (!d.enabled) { setCurrentWorkspace(null); setShown(null); return; }
       // Ce que le navigateur affichait déjà (cookie), s'il est toujours permis ;
       // sinon le créateur actif enregistré.
+      // sinon d.activeId (vue admin par défaut pour le propriétaire).
       const fromCookie = readWsCookie();
       const ok = (fromCookie === ADMIN_VIEW && d.role === "owner") || (!!fromCookie && d.workspaces.some((w) => w.id === fromCookie));
       const pick = ok ? fromCookie : d.activeId;
@@ -316,49 +317,13 @@ export default function WorkspaceSwitcher({ collapsed = false }: { collapsed?: b
   );
 }
 
-/** Remonte son contenu (état neuf) à chaque changement de créateur : l'écran
- *  repart instantanément sur les données du nouveau créateur, sans rechargement
- *  de page. En vue admin, affiche un choix de créateur à la place (l'Éditeur IA
- *  travaille toujours pour UN créateur). */
+/** Remonte son contenu (état neuf) à chaque changement de créateur — vue
+ *  admin comprise : l'écran repart instantanément sur les données du nouvel
+ *  espace, sans rechargement de page. */
 export function WorkspaceKeyed({ children }: { children: React.ReactNode }) {
   // « init » au premier rendu (identique serveur/navigateur → pas d'erreur
-  // d'hydratation) ; le contenu charge déjà le bon créateur grâce au cookie.
-  // Seule la vue admin demande de basculer sur le choix de créateur.
+  // d'hydratation) ; le contenu charge déjà le bon espace grâce au cookie.
   const [key, setKey] = useState<string>("init");
-  useEffect(() => { if (currentWs === ADMIN_VIEW) setKey(ADMIN_VIEW); }, []);
   useCreatorSwitch((id) => setKey(id));
-  if (key === ADMIN_VIEW) return <AdminCreatorPicker />;
   return <div key={key} className="contents">{children}</div>;
-}
-
-function AdminCreatorPicker() {
-  const { t } = useTranslation();
-  const [list, setList] = useState<WorkspaceItem[] | null>(null);
-  useEffect(() => {
-    fetch("/api/workspaces", { cache: "no-store" }).then((r) => r.json()).then((d) => setList(d.workspaces ?? [])).catch(() => setList([]));
-  }, []);
-  return (
-    <main className="px-4 py-6 sm:px-8 sm:py-8 2xl:px-12">
-      <div className="max-w-3xl rounded-2xl p-8" style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}>
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--app-text-faint)] mb-2">👑 {t("dashboard.workspaces.adminView")}</p>
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--app-text)]">{t("dashboard.workspaces.adminPickTitle")}</h1>
-        <p className="mt-2 text-[15px] font-medium text-[var(--app-text-muted)] leading-relaxed">{t("dashboard.workspaces.adminPickLead")}</p>
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {(list ?? []).map((w) => (
-            <button
-              key={w.id}
-              type="button"
-              onClick={() => switchCreator(w.id)}
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-left transition hover:bg-[var(--app-surface-2)]"
-              style={{ border: "1px solid var(--app-border-strong)" }}
-            >
-              <WorkspaceAvatar name={w.name} color={w.color} size={36} />
-              <span className="truncate text-[15px] font-bold text-[var(--app-text)]">{w.name}</span>
-            </button>
-          ))}
-          {list === null && [0, 1].map((i) => <div key={i} className="h-14 rounded-xl bg-[var(--app-surface-2)] animate-pulse" />)}
-        </div>
-      </div>
-    </main>
-  );
 }
