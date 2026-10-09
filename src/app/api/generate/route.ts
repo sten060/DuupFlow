@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { recordTransaction } from "@/lib/tokens-server";
 import { imageCostCents } from "@/lib/tokens";
 import { getServerT } from "@/lib/i18n/server";
+import { hasProFeatures } from "@/lib/plans";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -252,7 +253,7 @@ export async function POST(req: Request) {
     const plan = (profile?.plan as string | null) ?? "solo";
     costPerImage = imageCostCents(plan);
     const totalCost = costPerImage * variants;
-    const reason = plan === "pro" ? "image_pro" : "image_solo";
+    const reason = hasProFeatures(plan) ? "image_pro" : "image_solo";
 
     // ── 4. Pre-debit upfront. recordTransaction returns insufficient_balance
     //      if not enough — we surface a 402 with the current balance so the

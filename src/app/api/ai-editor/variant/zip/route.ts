@@ -10,6 +10,7 @@ import archiver from "archiver";
 import { createClient } from "@/lib/supabase/server";
 import { getProject, projectPaths } from "@/lib/ai-editor/store";
 import { cleanFileName } from "@/lib/ai-editor/file-name";
+import { editorScopeForUser } from "@/lib/ai-editor/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -17,15 +18,17 @@ export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  // Rangement des projets : le créateur actif (workspaces) ou le user — voir scope.ts.
+  const { storeKey: sk } = await editorScopeForUser(user.id, req);
 
   const projectId = req.nextUrl.searchParams.get("projectId") || "";
   const ids = (req.nextUrl.searchParams.get("ids") || "").split(",").map((s) => s.trim()).filter(Boolean);
   if (!projectId || !ids.length) return NextResponse.json({ error: "Paramètres manquants." }, { status: 400 });
 
-  const project = await getProject(user.id, projectId);
+  const project = await getProject(sk, projectId);
   if (!project) return NextResponse.json({ error: "Projet introuvable." }, { status: 404 });
 
-  const vd = projectPaths(user.id, projectId).variantsDir;
+  const vd = projectPaths(sk, projectId).variantsDir;
   const wanted = new Set(ids);
   // On garde l'ordre des variantes du projet, on filtre sur les ids demandés.
   const picked = project.variants.filter((v) => wanted.has(v.id));

@@ -61,7 +61,7 @@ export default function PaymentOverdueModal({
       })
     : null;
 
-  const planLabel = pausedPlan === "pro" ? "Pro" : pausedPlan === "solo" ? "Solo" : null;
+  const planLabel = pausedPlan === "agency" ? t("dashboard.plans.agencyLabel") : pausedPlan === "pro" ? "Pro" : pausedPlan === "solo" ? "Solo" : pausedPlan === "starter" ? "Starter" : null;
 
   return (
     <div

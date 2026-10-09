@@ -30,6 +30,7 @@ import {
 } from "./templateActions";
 import type { Template } from "./templateActions";
 import { usePlanGate } from "../../components/PlanGate";
+import WorkspacePresetBar from "../../components/WorkspacePresetBar";
 
 /* ============= UI helpers (sobre / bleu) ============= */
 function Card({
@@ -409,6 +410,22 @@ export default function VideoFormAdvancedClient() {
         duration: 9000,
       });
     }
+  };
+
+  // Réglages du créateur actif (workspaces) : même format qu'un modèle sauvegardé.
+  const snapshotAdvancedSettings = (): { ranges: RangeState } => ({
+    ranges: {
+      ...ranges,
+      dim_w: { enabled: dimsEnabled, min: dimW, max: dimW },
+      dim_h: { enabled: dimsEnabled, min: dimH, max: dimH },
+    },
+  });
+  const applyAdvancedSettings = (s: { ranges?: RangeState }) => {
+    if (!s?.ranges || typeof s.ranges !== "object") return;
+    setRanges({ ...makeDefaultRanges(), ...s.ranges });
+    setDimsEnabled(Boolean(s.ranges.dim_w?.enabled || s.ranges.dim_h?.enabled));
+    setDimW(Number(s.ranges.dim_w?.min ?? 0));
+    setDimH(Number(s.ranges.dim_h?.min ?? 0));
   };
 
   const onDeleteTpl = async (name: string) => {
@@ -836,6 +853,8 @@ export default function VideoFormAdvancedClient() {
       <DocsDrawer docs={buildVideoDocs(t, { advanced: true })} />
     </div>
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Réglages du créateur actif (workspaces Pro & Agence) */}
+      <WorkspacePresetBar<{ ranges?: RangeState }> module="videoAdvanced" apply={applyAdvancedSettings} snapshot={snapshotAdvancedSettings} />
       <input type="hidden" name="channel" value="advanced" />
       <input type="hidden" name="mode" value="advanced" />
       <input type="hidden" name="advancedRanges" value={JSON.stringify(serialRanges)} />

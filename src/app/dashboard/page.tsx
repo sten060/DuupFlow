@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveEffectivePlan } from "@/lib/api-auth";
 import { isCompProEmail } from "@/lib/comp-pro";
 import DashboardHome from "./DashboardHome";
+import type { PlanType } from "@/lib/plans";
 
 // Emails that always see the launch promo pop-up (testing / demo), regardless of
 // the "used at least once" requirement.
@@ -78,7 +79,8 @@ export default async function DashboardPage() {
     }
   }
   // Effective plan for the announcement modal (drives bonus token wording).
-  const effectivePlan = ((): "free" | "starter" | "solo" | "pro" => {
+  const effectivePlan = ((): PlanType => {
+    if (profile?.plan === "agency") return "agency";
     if (profile?.plan === "starter") return "starter";
     if (profile?.plan === "solo") return "solo";
     if (profile?.plan === "pro") return "pro";
@@ -92,8 +94,12 @@ export default async function DashboardPage() {
   // guests (whose real plan lives on the host) — so a paying user could see the
   // pop-up. We gate on the authoritative resolver AND exclude comp-Pro, guests,
   // and any has_paid signal so a paying user NEVER sees it.
+  // ⚠️ Désactivé : Starter n'est plus vendu (seuls ses abonnés actuels le
+  // gardent) — l'annoncer aux comptes gratuits pousserait vers un plan
+  // introuvable. Repasser STARTER_ANNOUNCE_ENABLED à true pour le rallumer.
+  const STARTER_ANNOUNCE_ENABLED = false;
   let starterAnnounceEligible = false;
-  if (user && !profile?.is_guest && !profile?.has_paid) {
+  if (STARTER_ANNOUNCE_ENABLED && user && !profile?.is_guest && !profile?.has_paid) {
     const isCompPro = user.email ? isCompProEmail(user.email) : false;
     if (!isCompPro) {
       const realPlan = await resolveEffectivePlan(user.id);

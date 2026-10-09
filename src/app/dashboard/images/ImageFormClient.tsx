@@ -14,9 +14,14 @@ import { saveActiveImageJob, removeActiveImageJob } from "./imageJobResume";
 import { pushNotification } from "../components/notificationStore";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import { saveSettings, loadSettings } from "@/lib/formMemory";
+import WorkspacePresetBar from "../components/WorkspacePresetBar";
+
+type ImageSettings = { count?: number; fundamentals?: boolean; visuals?: boolean; semi?: boolean; reverse?: boolean; iphoneMeta?: boolean; country?: string };
 import DriveImportButton from "../components/DriveImportButton";
 import DriveSaveButton from "../components/DriveSaveButton";
 import { usePlanGate } from "../components/PlanGate";
+import { useCreatorSwitch } from "../components/WorkspaceSwitcher";
+import { listOutImages } from "./actions";
 
 const MAX_FILES = 50;
 
@@ -99,6 +104,14 @@ export default function ImageFormClient({ initialImages }: Props) {
   );
 
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
+
+  // Changement de créateur : ses résultats à lui (tous en vue admin), sans recharger la page.
+  useCreatorSwitch(() => {
+    void listOutImages().then((urls) => {
+      setPersistedFiles(urls.map((url) => ({ url, name: decodeURIComponent(url.split("/").pop() ?? url) })));
+      setSelectedUrls(new Set());
+    }).catch(() => {});
+  });
 
   const toggleSelected = useCallback((url: string) => {
     setSelectedUrls((prev) => {
@@ -190,10 +203,10 @@ export default function ImageFormClient({ initialImages }: Props) {
     setProcessing(false);
   }
 
-  // Restore the user's last-used settings (remembered per module). The form is
-  // uncontrolled, so we set the field values directly via the form ref.
-  useEffect(() => {
-    const s = loadSettings<{ count?: number; fundamentals?: boolean; visuals?: boolean; semi?: boolean; reverse?: boolean; iphoneMeta?: boolean; country?: string }>("images");
+  // Applique des réglages au formulaire (non contrôlé : on écrit directement
+  // dans les champs). Sert aux « derniers réglages » du navigateur ET aux
+  // réglages enregistrés pour le créateur actif (WorkspacePresetBar).
+  function applyImageSettings(s: ImageSettings | null) {
     const form = formRef.current;
     if (!s || !form) return;
     const setCheck = (name: string, v?: boolean) => {
@@ -211,6 +224,28 @@ export default function ImageFormClient({ initialImages }: Props) {
     setCheck("reverse", s.reverse);
     setCheck("iphoneMeta", s.iphoneMeta);
     setVal("country", s.country);
+  }
+
+  /** Les réglages actuels du formulaire (même forme que saveSettings). */
+  function snapshotImageSettings(): ImageSettings {
+    const form = formRef.current;
+    if (!form) return {};
+    const fd = new FormData(form);
+    return {
+      count: Math.max(1, parseInt(String(fd.get("count") ?? "1"), 10) || 1),
+      fundamentals: fd.has("fundamentals"),
+      visuals: fd.has("visuals"),
+      semi: fd.has("semi"),
+      reverse: fd.has("reverse"),
+      iphoneMeta: fd.get("iphoneMeta") === "1",
+      country: (fd.get("country") as string) || "",
+    };
+  }
+
+  // Restore the user's last-used settings (remembered per module).
+  useEffect(() => {
+    applyImageSettings(loadSettings<ImageSettings>("images"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { guard: planGuard } = usePlanGate();
@@ -431,6 +466,8 @@ export default function ImageFormClient({ initialImages }: Props) {
         <TrialCreditsPill />
       </div>
       <form ref={formRef} onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6" autoComplete="off">
+        {/* Réglages du créateur actif (workspaces Pro & Agence) */}
+        <WorkspacePresetBar<ImageSettings> module="images" apply={applyImageSettings} snapshot={snapshotImageSettings} />
         {/* Import depuis Google Drive (alternative à la dropzone locale) */}
         <DriveImportButton accept="image" onFiles={ingestFiles} onError={setErrorMsg} disabled={busy} />
 

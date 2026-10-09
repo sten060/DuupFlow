@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import os from "os";
 import { createClient } from "@/lib/supabase/server";
 import { getServerT } from "@/lib/i18n/server";
+import { canReadOutKey } from "@/app/dashboard/utils";
 
 // Must match the OUT_BASE logic in src/app/dashboard/utils.ts
 const IS_VERCEL = !!process.env.VERCEL;
@@ -26,8 +27,9 @@ export async function GET(
     return NextResponse.json({ error: t("errors.auth.notAuthenticated") }, { status: 401 });
   }
 
-  // Only allow users to access their own files
-  if (user.id !== params.userId) {
+  // Accès : son propre dossier, ou celui d'un créateur auquel on a accès
+  // (workspaces — les résultats de duplication sont rangés par créateur).
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(params.userId) || !(await canReadOutKey(user.id, params.userId))) {
     return NextResponse.json({ error: t("errors.auth.accessDenied") }, { status: 403 });
   }
 

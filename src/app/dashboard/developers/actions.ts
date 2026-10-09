@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getServerT, type ServerT } from "@/lib/i18n/server";
 import { resolveEffectivePlan } from "@/lib/api-auth";
 import { createApiKey, deleteApiKey, MAX_KEYS_PER_USER } from "@/lib/api-keys";
+import { hasProFeatures } from "@/lib/plans";
 
 // Every action re-verifies the session user AND that they're on Pro — never
 // trust the client. Key creation/usage is a Pro-only feature. Error messages
@@ -14,7 +15,7 @@ async function currentProUserId(t: ServerT): Promise<string> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error(t("dashboard.developers.errNotAuth"));
   const plan = await resolveEffectivePlan(user.id);
-  if (plan !== "pro") throw new Error(t("dashboard.developers.errProRequired"));
+  if (!hasProFeatures(plan)) throw new Error(t("dashboard.developers.errProRequired"));
   return user.id;
 }
 

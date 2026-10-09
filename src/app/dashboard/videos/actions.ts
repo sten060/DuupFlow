@@ -3,7 +3,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { redirect } from "next/navigation";
-import { getOutDirForCurrentUserRSC } from "@/app/dashboard/utils";
+import { getOutDirsForListing, canDeleteOutputs } from "@/app/dashboard/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { videoPrefix, filterFinals } from "./processVideos";
 
@@ -71,29 +71,30 @@ async function clearFromStorage(userId: string, channelPrefix: string): Promise<
 }
 
 /* ------------------ Nettoyage par canal ------------------ */
+/* Workspaces : un dossier par créateur ; en vue admin, TOUS les créateurs
+   (getOutDirsForListing). Sans workspaces : un seul dossier, comme avant. */
+
+async function clearChannel(channel: "simple" | "advanced", awaitStorage: boolean) {
+  if (!(await canDeleteOutputs())) return; // rôle VA : ne supprime rien
+  for (const { dir, userId } of await getOutDirsForListing()) {
+    const names = await fs.readdir(dir).catch(() => []);
+    const finalNames = filterFinals(names).filter((n) => n.startsWith(videoPrefix(channel)));
+    await Promise.all(finalNames.map((n) => fs.unlink(path.join(dir, n)).catch(() => {})));
+    // Supabase Storage (sans volume persistant)
+    const p = clearFromStorage(userId, videoPrefix(channel));
+    if (awaitStorage) await p; else void p; // fire-and-forget côté client
+  }
+}
 
 export async function clearVideosSimple() {
-  const { dir, userId } = await getOutDirForCurrentUserRSC();
-
-  // Clear filesystem (local/VPS)
-  const names = await fs.readdir(dir).catch(() => []);
-  const finalNames = filterFinals(names).filter((n) => n.startsWith(videoPrefix("simple")));
-  await Promise.all(finalNames.map((n) => fs.unlink(path.join(dir, n)).catch(() => {})));
-
-  // Clear Supabase Storage (Vercel)
-  await clearFromStorage(userId, videoPrefix("simple"));
-
+  await clearChannel("simple", true);
   redirect("/dashboard/videos/simple?ok=1");
 }
 
 /** Same as clearVideosSimple but returns instead of redirecting — for client components */
 export async function clearVideosSimpleAction(): Promise<{ ok: boolean }> {
   try {
-    const { dir, userId } = await getOutDirForCurrentUserRSC();
-    const names = await fs.readdir(dir).catch(() => []);
-    const finalNames = filterFinals(names).filter((n) => n.startsWith(videoPrefix("simple")));
-    await Promise.all(finalNames.map((n) => fs.unlink(path.join(dir, n)).catch(() => {})));
-    clearFromStorage(userId, videoPrefix("simple")); // fire-and-forget — don't block UI
+    await clearChannel("simple", false);
     return { ok: true };
   } catch {
     return { ok: false };
@@ -101,25 +102,14 @@ export async function clearVideosSimpleAction(): Promise<{ ok: boolean }> {
 }
 
 export async function clearVideosAdvanced() {
-  const { dir, userId } = await getOutDirForCurrentUserRSC();
-
-  const names = await fs.readdir(dir).catch(() => []);
-  const finalNames = filterFinals(names).filter((n) => n.startsWith(videoPrefix("advanced")));
-  await Promise.all(finalNames.map((n) => fs.unlink(path.join(dir, n)).catch(() => {})));
-
-  await clearFromStorage(userId, videoPrefix("advanced"));
-
+  await clearChannel("advanced", true);
   redirect("/dashboard/videos/advanced?ok=1");
 }
 
 /** Same as clearVideosAdvanced but returns instead of redirecting — for client components */
 export async function clearVideosAdvancedAction(): Promise<{ ok: boolean }> {
   try {
-    const { dir, userId } = await getOutDirForCurrentUserRSC();
-    const names = await fs.readdir(dir).catch(() => []);
-    const finalNames = filterFinals(names).filter((n) => n.startsWith(videoPrefix("advanced")));
-    await Promise.all(finalNames.map((n) => fs.unlink(path.join(dir, n)).catch(() => {})));
-    clearFromStorage(userId, videoPrefix("advanced")); // fire-and-forget
+    await clearChannel("advanced", false);
     return { ok: true };
   } catch {
     return { ok: false };
@@ -128,42 +118,27 @@ export async function clearVideosAdvancedAction(): Promise<{ ok: boolean }> {
 
 /* ------------------ Listing par canal ------------------ */
 
+async function listChannel(channel: "simple" | "advanced"): Promise<string[]> {
+  const lists = await Promise.all((await getOutDirsForListing()).map(async ({ dir, userId }) => {
+    const fsNames = filterFinals(await fs.readdir(dir).catch(() => [])).filter((n) =>
+      n.startsWith(videoPrefix(channel))
+    );
+    // When a persistent volume is mounted, serve files via authenticated API route
+    if (process.env.OUT_BASE && fsNames.length > 0) {
+      return fsNames.map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
+    }
+    const fsUrls = fsNames.map((n) => `/api/out/${userId}/${encodeURIComponent(path.basename(n))}`);
+    // Fallback: Supabase Storage (no persistent volume)
+    const storageUrls = await listFromStorage(userId, videoPrefix(channel));
+    return storageUrls.length > 0 ? storageUrls : fsUrls;
+  }));
+  return lists.flat();
+}
+
 export async function listOutVideosSimple(): Promise<string[]> {
-  const { dir, userId } = await getOutDirForCurrentUserRSC();
-
-  const fsNames = filterFinals(await fs.readdir(dir).catch(() => [])).filter((n) =>
-    n.startsWith(videoPrefix("simple"))
-  );
-
-  // When a persistent volume is mounted, serve files via authenticated API route
-  if (process.env.OUT_BASE && fsNames.length > 0) {
-    return fsNames.map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
-  }
-
-  const fsUrls = fsNames.map(
-    (n) => `/api/out/${userId}/${encodeURIComponent(path.basename(n))}`
-  );
-
-  // Fallback: Supabase Storage (no persistent volume)
-  const storageUrls = await listFromStorage(userId, videoPrefix("simple"));
-  return storageUrls.length > 0 ? storageUrls : fsUrls;
+  return listChannel("simple");
 }
 
 export async function listOutVideosAdvanced(): Promise<string[]> {
-  const { dir, userId } = await getOutDirForCurrentUserRSC();
-
-  const fsNames = filterFinals(await fs.readdir(dir).catch(() => [])).filter((n) =>
-    n.startsWith(videoPrefix("advanced"))
-  );
-
-  if (process.env.OUT_BASE && fsNames.length > 0) {
-    return fsNames.map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
-  }
-
-  const fsUrls = fsNames.map(
-    (n) => `/api/out/${userId}/${encodeURIComponent(path.basename(n))}`
-  );
-
-  const storageUrls = await listFromStorage(userId, videoPrefix("advanced"));
-  return storageUrls.length > 0 ? storageUrls : fsUrls;
+  return listChannel("advanced");
 }

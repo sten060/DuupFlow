@@ -8,6 +8,7 @@ import path from "path";
 import { createClient } from "@/lib/supabase/server";
 import { getProject, projectPaths, removeVariant } from "@/lib/ai-editor/store";
 import { cleanFileName } from "@/lib/ai-editor/file-name";
+import { editorScopeForUser } from "@/lib/ai-editor/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -15,20 +16,22 @@ export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  // Rangement des projets : le créateur actif (workspaces) ou le user — voir scope.ts.
+  const { storeKey: sk } = await editorScopeForUser(user.id, req);
 
   const projectId = req.nextUrl.searchParams.get("projectId") || "";
   const id = req.nextUrl.searchParams.get("id") || "";
   const download = req.nextUrl.searchParams.get("dl") === "1";
   if (!projectId || !id) return NextResponse.json({ error: "Paramètres manquants." }, { status: 400 });
 
-  const project = await getProject(user.id, projectId);
+  const project = await getProject(sk, projectId);
   const variant = project?.variants.find((v) => v.id === id);
   if (!variant) return NextResponse.json({ error: "Variante introuvable." }, { status: 404 });
 
-  const filePath = path.join(projectPaths(user.id, projectId).variantsDir, variant.storedName);
+  const filePath = path.join(projectPaths(sk, projectId).variantsDir, variant.storedName);
   // Garde-fou path-traversal : storedName vient du store (rid()+".mp4"), mais on
   // vérifie que le chemin résolu reste bien dans le dossier variants.
-  if (!filePath.startsWith(projectPaths(user.id, projectId).variantsDir)) {
+  if (!filePath.startsWith(projectPaths(sk, projectId).variantsDir)) {
     return NextResponse.json({ error: "Chemin invalide." }, { status: 400 });
   }
 
@@ -89,12 +92,16 @@ export async function DELETE(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  // Rangement des projets : le créateur actif (workspaces) ou le user — voir scope.ts.
+  const { storeKey: sk, ctx: wsCtx } = await editorScopeForUser(user.id, req);
+  // Rôle VA : il produit et télécharge, mais ne supprime rien.
+  if (wsCtx.enabled && wsCtx.role === "va") return NextResponse.json({ error: "Ton rôle (VA) ne permet pas de supprimer." }, { status: 403 });
 
   const body = await req.json().catch(() => null);
   const projectId = String(body?.projectId || "");
   const id = String(body?.id || "");
   if (!projectId || !id) return NextResponse.json({ error: "Paramètres manquants." }, { status: 400 });
 
-  const ok = await removeVariant(user.id, projectId, id);
+  const ok = await removeVariant(sk, projectId, id);
   return ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "Variante introuvable." }, { status: 404 });
 }

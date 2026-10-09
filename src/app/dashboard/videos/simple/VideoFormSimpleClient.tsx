@@ -11,6 +11,14 @@ import { setJob, addCompletedFile, removeJob, subscribe, snapshot } from "../job
 import { saveActiveJob, removeActiveJob } from "../videoJobResume";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import { saveSettings, loadSettings } from "@/lib/formMemory";
+import WorkspacePresetBar from "../../components/WorkspacePresetBar";
+
+type VideoSimpleSettings = {
+  count?: number; packs?: string[]; flip?: boolean; reverse?: boolean; country?: string; iphoneMeta?: boolean;
+  watermark?: boolean; shake?: boolean; motionMode?: "doux" | "fort"; motionDynamicMode?: "doux" | "fort";
+  rotation?: { enabled?: boolean; min?: number; max?: number };
+  dims?: { enabled?: boolean; w?: number; h?: number };
+};
 import { pushNotification } from "../../components/notificationStore";
 import InterruptedRecovery from "../InterruptedRecovery";
 import DocsDrawer from "../../components/DocsDrawer";
@@ -423,9 +431,10 @@ export default function VideoFormSimpleClient() {
     dims: { enabled: dimEnabled, w_factor: dimW, h_factor: dimH },
   });
 
-  // Restore the user's last-used settings (remembered per module).
-  useEffect(() => {
-    const s = loadSettings<{ count?: number; packs?: string[]; flip?: boolean; reverse?: boolean; country?: string; iphoneMeta?: boolean }>("videoSimple");
+  // Applique des réglages au formulaire : « derniers réglages » du navigateur,
+  // ou réglages enregistrés pour le créateur actif (WorkspacePresetBar) — ces
+  // derniers portent aussi l'intensité (mouvement, rotation, dimensions…).
+  function applyVideoSimpleSettings(s: VideoSimpleSettings | null) {
     if (!s) return;
     if (Array.isArray(s.packs)) {
       setSelected((prev) => {
@@ -442,6 +451,42 @@ export default function VideoFormSimpleClient() {
       const el = formRef.current.elements.namedItem("count");
       if (el instanceof HTMLInputElement) el.value = String(s.count);
     }
+    if (typeof s.watermark === "boolean") setSimpleWm(s.watermark);
+    if (typeof s.shake === "boolean") setShake(s.shake);
+    if (s.motionMode === "doux" || s.motionMode === "fort") setMotionMode(s.motionMode);
+    if (s.motionDynamicMode === "doux" || s.motionDynamicMode === "fort") setMotionDynamicMode(s.motionDynamicMode);
+    if (s.rotation && typeof s.rotation === "object") {
+      if (typeof s.rotation.enabled === "boolean") setRotEnabled(s.rotation.enabled);
+      if (typeof s.rotation.min === "number") setRotMin(s.rotation.min);
+      if (typeof s.rotation.max === "number") setRotMax(s.rotation.max);
+    }
+    if (s.dims && typeof s.dims === "object") {
+      if (typeof s.dims.enabled === "boolean") setDimEnabled(s.dims.enabled);
+      if (typeof s.dims.w === "number") setDimW(s.dims.w);
+      if (typeof s.dims.h === "number") setDimH(s.dims.h);
+    }
+  }
+
+  /** Les réglages actuels, intensité comprise — ce qu'on enregistre pour un créateur. */
+  function snapshotVideoSimpleSettings(): VideoSimpleSettings {
+    let count = 1;
+    const el = formRef.current?.elements.namedItem("count");
+    if (el instanceof HTMLInputElement) count = Math.max(1, Number(el.value) || 1);
+    return {
+      count,
+      packs: packsSelected,
+      flip, reverse, country, iphoneMeta,
+      watermark: simpleWm,
+      shake, motionMode, motionDynamicMode,
+      rotation: { enabled: rotEnabled, min: rotMin, max: rotMax },
+      dims: { enabled: dimEnabled, w: dimW, h: dimH },
+    };
+  }
+
+  // Restore the user's last-used settings (remembered per module).
+  useEffect(() => {
+    applyVideoSimpleSettings(loadSettings<VideoSimpleSettings>("videoSimple"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { guard: planGuard } = usePlanGate();
@@ -825,6 +870,8 @@ export default function VideoFormSimpleClient() {
       <DocsDrawer docs={buildVideoDocs(t)} />
     </div>
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+      {/* Réglages du créateur actif (workspaces Pro & Agence) */}
+      <WorkspacePresetBar<VideoSimpleSettings> module="videoSimple" apply={applyVideoSimpleSettings} snapshot={snapshotVideoSimpleSettings} />
       <input type="hidden" name="channel" value="simple" />
       <input type="hidden" name="mode" value="simple" />
       <input type="hidden" name="singles" value={singlesJSON} />

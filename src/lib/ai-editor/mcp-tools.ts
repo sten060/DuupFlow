@@ -480,6 +480,49 @@ export const TOOLS = [
       required: ["variantId", "patch"],
     },
   },
+  {
+    name: "add_material",
+    description:
+      "AJOUTE de la matière (vidéo, image ou audio) au projet DuupFlow, toi-même, sans que le user ait à l'uploader. Trois sources possibles (UNE par appel) : " +
+      "drive_file_id (un fichier Google Drive partagé avec le compte de service DuupFlow), drive_folder_id (tous les médias d'un dossier Drive partagé, 10 max), " +
+      "ou url (lien https de téléchargement DIRECT vers le fichier, pas une page web). Mêmes limites que l'upload manuel : 300 Mo, vidéo 2 min, audio 4 min. " +
+      "Les vidéos/audios sont analysés en tâche de fond : rappelle list_material avant de monter pour voir leur analyse. Crée le projet s'il n'en existe pas encore.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        drive_file_id: { type: "string", description: "Id d'un fichier Google Drive (partagé avec le compte de service DuupFlow)." },
+        drive_folder_id: { type: "string", description: "Id d'un dossier Google Drive : ajoute ses médias (10 max par appel)." },
+        url: { type: "string", description: "Lien https de téléchargement direct du fichier." },
+        description: { type: "string", description: "Description du contenu (ce qu'on voit / entend) — aide le montage." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "export_to_drive",
+    description:
+      "ENVOIE des variantes rendues dans le Google Drive du user, dans le dossier du créateur « <Créateur> — DuupFlow » (créé automatiquement ; « DuupFlow variantes » pour un compte sans créateurs). Tourne en tâche de fond : renvoie un TICKET (« dx_… ») à suivre avec get_drive_export. " +
+      "Nécessite que le propriétaire du compte ait cliqué une fois « Connecter Google Drive » dans DuupFlow (sinon l'outil le dit). " +
+      "Une fois terminé, le ticket donne l'id Drive (driveFileId) de chaque fichier créé : c'est à TOI de les déplacer ensuite vers les bons dossiers avec ton connecteur Google Drive. " +
+      "Sans variant_ids, exporte toutes les variantes du projet.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        variant_ids: { type: "array", items: { type: "string" }, description: "Ids des variantes à envoyer (list_variants). Vide = toutes." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_drive_export",
+    description:
+      "Suit un export Drive (ticket « dx_… » renvoyé par export_to_drive) : état de chaque fichier et son driveFileId une fois envoyé. L'appel patiente jusqu'à ~20 s si l'export est en cours. Sans ticket : liste les exports récents.",
+    inputSchema: {
+      type: "object",
+      properties: { ticket: { type: "string", description: "Le ticket de l'export (ex. « dx_a1b2c3d4 »)." } },
+      additionalProperties: false,
+    },
+  },
 ] as const;
 
 /** dataURI "data:image/jpeg;base64,XXX" → bloc image MCP. */
@@ -882,8 +925,8 @@ async function firstWait(job: RenderJob): Promise<RenderJob> {
   return waitForJob(early, Math.max(0, FIRST_WAIT_MS - PEEK_MS));
 }
 
-export async function callTool(userId: string, name: string, args?: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }> {
-  const project: Project | null = await getLatestProject(userId);
+async function callToolScoped(userId: string, storeKey: string, name: string, args?: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }> {
+  const project: Project | null = await getLatestProject(storeKey);
 
   if (!project) {
     return { content: [{ type: "text", text: "Aucun projet : le user doit d'abord uploader une référence dans l'Éditeur IA de DuupFlow." }], isError: true };
@@ -1090,7 +1133,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     // stockés → un écart révèle une ligne perdue (écriture concurrente) ; on le loggue.
     try {
       const fs = await import("fs/promises");
-      const files = await fs.readdir(projectPaths(userId, project.id).materialDir).catch(() => [] as string[]);
+      const files = await fs.readdir(projectPaths(storeKey, project.id).materialDir).catch(() => [] as string[]);
       const real = files.filter((f) => !f.startsWith(".")).length;
       if (real !== mats.length) console.warn(`[ai-editor/list_material] ÉCART fichiers/base : ${real} fichier(s) stocké(s) vs ${mats.length} ligne(s) — perte possible.`);
     } catch { /* diagnostic best-effort */ }
@@ -1138,7 +1181,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     if (!project.materials.length) return { content: [{ type: "text", text: "Aucune matière : le user doit ajouter des fichiers dans DuupFlow." }], isError: true };
     const blocked = await guardVariantQuota(userId);
     if (blocked) return { content: [blocked], isError: true };
-    const job = startRenderJob(userId, project.id, stripDisplayOpts(args ?? {}) as unknown as EditPlan, {
+    const job = startRenderJob(storeKey, project.id, stripDisplayOpts(args ?? {}) as unknown as EditPlan, {
       onDone: () => { void logUsageEvent(userId, "videos", 1); void logAiEditorRender(userId); }, // quota déjà réservé
       onFailed: () => releaseVariantQuota(userId),          // rien produit → on rend l'unité
     });
@@ -1153,7 +1196,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     // façon de voir la file. La réponse partait en isError : le client la traitait
     // comme un échec d'outil au lieu d'un état — bonne info, mauvais canal.
     if (!id) {
-      const running = runningJobsFor(userId);
+      const running = runningJobsFor(storeKey);
       const q = queueSnapshot();
       if (!running.length) {
         return { content: [{ type: "text", text: `Aucun rendu en cours pour toi. Le serveur rend ${q.max} variante(s) à la fois (${q.active} créneau(x) occupé(s) au total, ${q.waiting} en attente).` }] };
@@ -1176,8 +1219,8 @@ export async function callTool(userId: string, name: string, args?: Record<strin
         }],
       };
     }
-    if (!job || job.userId !== userId) {
-      const running = runningJobsFor(userId);
+    if (!job || job.userId !== storeKey) {
+      const running = runningJobsFor(storeKey);
       return {
         content: [{
           type: "text",
@@ -1193,8 +1236,8 @@ export async function callTool(userId: string, name: string, args?: Record<strin
   if (name === "cancel_render") {
     const id = String(args?.renderId || "").trim();
     const job = id ? getRenderJob(id) : null;
-    if (!job || job.userId !== userId) {
-      const running = runningJobsFor(userId);
+    if (!job || job.userId !== storeKey) {
+      const running = runningJobsFor(storeKey);
       return {
         content: [{
           type: "text",
@@ -1304,7 +1347,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
 
     // Images demandées explicitement : extraction ffmpeg (coûteuse) faite ici
     // seulement — par défaut get_variant est instantané et gratuit.
-    const kfs = await variantKeyframes(userId, project.id, v.storedName, 5);
+    const kfs = await variantKeyframes(storeKey, project.id, v.storedName, 5);
     if (!kfs.length) {
       // Échec explicite (plus de « 0 images » muet) : fichier ancien/absent.
       content.push({
@@ -1371,7 +1414,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     ];
     // Extraction ffmpeg SEULEMENT si les images sont voulues : avec images:false
     // l'appel devient instantané et gratuit (on ne garde que les mesures).
-    const kfs = matImages ? await materialKeyframes(userId, project.id, m.storedName, 12, kfBounds) : [];
+    const kfs = matImages ? await materialKeyframes(storeKey, project.id, m.storedName, 12, kfBounds) : [];
     if (matImages && !kfs.length) return { content: [{ type: "text", text: `⚠ Aucune image extractible du rush « ${m.name} » (id ${m.id}).` }], isError: true };
     const content: Content[] = [{ type: "text", text: `RUSH « ${m.name} » (id ${m.id})${m.analysis?.durationSec ? ` · ${m.analysis.durationSec.toFixed(1)}s` : ""} — ${kfs.length ? `${kfs.length} images (timecodes pour tes coupes)` : "mesures seules (images: false)"} :` }];
     // Échec BRUYANT : sans description, le monteur doit le SAVOIR (sinon il pose
@@ -1467,7 +1510,7 @@ export async function callTool(userId: string, name: string, args?: Record<strin
     if (blocked) return { content: [blocked], isError: true };
     // Même traitement que create_variant : tâche de fond + ticket (un patch de
     // sous-titres sur un montage lourd est le cas qui dépassait la patience du client).
-    const job = startRenderJob(userId, project.id, merged, {
+    const job = startRenderJob(storeKey, project.id, merged, {
       derivedFrom: v.id,
       onDone: () => { void logUsageEvent(userId, "videos", 1); void logAiEditorRender(userId); },
       onFailed: () => releaseVariantQuota(userId),
@@ -1476,4 +1519,284 @@ export async function callTool(userId: string, name: string, args?: Record<strin
   }
 
   return { content: [{ type: "text", text: `Outil inconnu : ${name}` }], isError: true };
+}
+
+
+/* ── Créateurs (workspaces Pro & Agence) ──────────────────────────────────────
+   Le Claude d'un VA ne voit QUE les créateurs qui lui sont assignés : le scope
+   est relu en base à CHAQUE appel (editorScopeForMcp), donc un créateur ajouté
+   ou retiré par le propriétaire est pris en compte immédiatement, sans
+   reconnexion. Plusieurs créateurs → argument `creator` explicite, jamais
+   d'état « actif » caché qui se mélangerait entre deux onglets. */
+
+const CREATOR_PROP = {
+  type: "string",
+  description:
+    "Nom exact du créateur / de la créatrice sur lequel travailler. Obligatoire si le compte en gère plusieurs (voir list_creators) ; garde le même pour toute la conversation.",
+} as const;
+
+const LIST_CREATORS_TOOL = {
+  name: "list_creators",
+  description:
+    "Liste les créateurs (workspaces DuupFlow) auxquels tu as accès, avec leur brief. À appeler en premier si le user gère plusieurs créateurs, pour savoir lequel passer en argument creator.",
+  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+};
+
+const GET_BRIEF_TOOL = {
+  name: "get_creator_brief",
+  description:
+    "Relit le BRIEF enregistré d'un créateur (style de captions, ton, langue, hooks qui marchent, choses à éviter). Le brief est la mémoire permanente du créateur, partagée par toute l'équipe.",
+  inputSchema: { type: "object", properties: { creator: CREATOR_PROP }, additionalProperties: false },
+};
+
+const SAVE_BRIEF_TOOL = {
+  name: "save_creator_brief",
+  description:
+    "ENREGISTRE dans le brief permanent du créateur une consigne que le user veut voir appliquée à toutes les prochaines variantes (ex. « retiens que ses captions sont jaunes »). " +
+    "mode « append » (défaut) ajoute une ligne au brief existant ; « replace » remplace tout le brief — à n'utiliser que si le user le demande explicitement. " +
+    "Confirme au user ce qui a été enregistré. Réservé au propriétaire et aux managers (un VA reçoit un refus).",
+  inputSchema: {
+    type: "object",
+    properties: {
+      creator: CREATOR_PROP,
+      text: { type: "string", description: "La consigne à enregistrer, rédigée clairement (une ou quelques lignes)." },
+      mode: { type: "string", enum: ["append", "replace"], description: "append (défaut) ou replace." },
+    },
+    required: ["text"],
+    additionalProperties: false,
+  },
+};
+
+/** Les outils exposés à CE user : ajoute `creator` + les outils créateurs quand il a des workspaces. */
+export async function toolsForUser(userId: string): Promise<unknown[]> {
+  const { getWorkspaceContext } = await import("@/lib/workspaces");
+  const ctx = await getWorkspaceContext(userId);
+  if (!ctx.enabled) return [...TOOLS];
+  const withCreator = (TOOLS as unknown as { inputSchema: { properties?: Record<string, unknown> } }[]).map((tool) => ({
+    ...tool,
+    inputSchema: { ...tool.inputSchema, properties: { ...(tool.inputSchema.properties ?? {}), creator: CREATOR_PROP } },
+  }));
+  return [LIST_CREATORS_TOOL, GET_BRIEF_TOOL, SAVE_BRIEF_TOOL, ...withCreator];
+}
+
+export async function callTool(userId: string, name: string, args?: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }> {
+  const { editorScopeForMcp, briefBlock, workspaceBrief } = await import("./scope");
+  const { creator, ...rest } = args ?? {};
+
+  if (name === "list_creators") {
+    const { getWorkspaceContext } = await import("@/lib/workspaces");
+    const ctx = await getWorkspaceContext(userId);
+    if (!ctx.enabled) return { content: [{ type: "text", text: "Ce compte n'utilise pas de créateurs : appelle les outils sans argument creator." }] };
+    if (ctx.workspaces.length === 0) return { content: [{ type: "text", text: "Aucun créateur ne t'est assigné. Demande au propriétaire du compte de t'en assigner un." }], isError: true };
+    const { listBriefImages } = await import("@/lib/brief-images");
+    const parts = await Promise.all(ctx.workspaces.map(async (w) => {
+      const b = await workspaceBrief(w.id);
+      const n = (await listBriefImages(w.id)).length;
+      return `• « ${w.name} »${n ? ` (${n} image(s) de référence — get_creator_brief pour les voir)` : ""}\n  Brief : ${b ? b.replace(/\n/g, "\n  ") : "(aucun)"}`;
+    }));
+    return { content: [{ type: "text", text: `CRÉATEURS ACCESSIBLES (${ctx.workspaces.length}) — passe le nom exact en argument creator :\n${parts.join("\n")}` }] };
+  }
+
+  const resolved = await editorScopeForMcp(userId, creator);
+  if (!resolved.ok) return { content: [{ type: "text", text: resolved.text }], isError: true };
+  const { scope } = resolved;
+
+  if (name === "add_material") return addMaterialTool(scope.storeKey, scope.workspace?.name ?? null, rest);
+  if (name === "export_to_drive" || name === "get_drive_export") return driveExportTool(name, userId, scope.storeKey, scope.workspace ? { id: scope.workspace.id, name: scope.workspace.name } : null, rest);
+
+  if (name === "get_creator_brief" || name === "save_creator_brief") {
+    if (!scope.workspace) return { content: [{ type: "text", text: "Ce compte n'utilise pas de créateurs : il n'y a pas de brief à lire ou enregistrer." }], isError: true };
+    if (name === "get_creator_brief") {
+      const { briefImagesForClaude } = await import("@/lib/brief-images");
+      const imgs = await briefImagesForClaude(scope.workspace.id);
+      const content: Content[] = [{ type: "text", text: briefBlock(scope) ?? "" }];
+      for (const im of imgs) {
+        content.push({ type: "text", text: `Image de référence du brief : « ${im.name} »` } as Content);
+        content.push({ type: "image", data: im.data, mimeType: im.mimeType } as Content);
+      }
+      return { content };
+    }
+    const { saveWorkspaceBrief } = await import("@/lib/workspaces");
+    const r = await saveWorkspaceBrief(userId, scope.workspace.id, String(rest.text ?? ""), rest.mode === "replace" ? "replace" : "append");
+    if (!r.ok) return { content: [{ type: "text", text: r.error }], isError: true };
+    return { content: [{ type: "text", text: `Brief de « ${scope.workspace.name} » enregistré (${r.length}/4000 caractères). Il s'appliquera automatiquement à toutes les prochaines variantes, pour toute l'équipe.\n---\n${r.brief}\n---` }] };
+  }
+
+  const out = await callToolScoped(userId, scope.storeKey, name, rest);
+
+  // Le brief en tête des outils que Claude appelle en début de travail : il
+  // connaît le créateur sans que le VA ait à le réexpliquer. Les autres
+  // réponses rappellent seulement le créateur en cours (pas de répétition du brief).
+  const block = briefBlock(scope);
+  if (block) {
+    const head = name === "get_reference" || name === "list_material"
+      ? block
+      : `CRÉATEUR : « ${scope.workspace!.name} »`;
+    out.content = [{ type: "text", text: head } as Content, ...out.content];
+  }
+  return out;
+}
+
+
+/* ── Prompts MCP : un prompt par créateur ─────────────────────────────────────
+   Dans Claude, le menu « + » / « / » propose « Travailler pour Léa » : un clic
+   charge le créateur et son brief dans la conversation. Même filtre d'accès
+   que les outils (un VA ne voit que ses créateurs), relu à chaque appel. */
+
+function promptSlug(name: string, id: string): string {
+  const base = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+  return `createur-${base || "sans-nom"}-${id.slice(0, 6)}`;
+}
+
+export async function promptsForUser(userId: string): Promise<{ name: string; title: string; description: string }[]> {
+  const { getWorkspaceContext } = await import("@/lib/workspaces");
+  const ctx = await getWorkspaceContext(userId);
+  if (!ctx.enabled) return [];
+  return ctx.workspaces.map((w) => ({
+    name: promptSlug(w.name, w.id),
+    title: `Travailler pour ${w.name}`,
+    description: `Charge le créateur « ${w.name} » et son brief : toutes les variantes de la conversation seront faites pour lui / elle.`,
+  }));
+}
+
+type PromptContent = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
+export async function getPromptForUser(userId: string, promptName: string): Promise<{ description: string; messages: { role: "user"; content: PromptContent }[] } | null> {
+  const { getWorkspaceContext } = await import("@/lib/workspaces");
+  const { workspaceBrief } = await import("./scope");
+  const ctx = await getWorkspaceContext(userId);
+  if (!ctx.enabled) return null;
+  const ws = ctx.workspaces.find((w) => promptSlug(w.name, w.id) === promptName);
+  if (!ws) return null;
+  const brief = await workspaceBrief(ws.id);
+  const text =
+    `Pour toute cette conversation, je travaille pour le créateur « ${ws.name} » sur DuupFlow.\n` +
+    `Passe creator: "${ws.name}" à CHAQUE outil DuupFlow.\n\n` +
+    (brief
+      ? `Voici son BRIEF permanent — applique-le à chaque variante sans que j'aie à le répéter :\n---\n${brief}\n---\n\n`
+      : `Ce créateur n'a pas encore de brief. Si je te donne des consignes durables (style, ton, hooks…), propose de les enregistrer avec save_creator_brief.\n\n`) +
+    `Commence par regarder la référence (get_reference) et ma matière (list_material), puis dis-moi ce que tu proposes.`;
+  // Les images du brief suivent le texte : Claude les VOIT dès le chargement du prompt.
+  const { briefImagesForClaude } = await import("@/lib/brief-images");
+  const imgs = await briefImagesForClaude(ws.id);
+  return {
+    description: `Travailler pour ${ws.name}`,
+    messages: [
+      { role: "user", content: { type: "text", text: imgs.length ? `${text}\n\nCi-dessous, ses ${imgs.length} image(s) de référence (style, captions, ambiance) : inspire-t'en pour chaque variante.` : text } },
+      ...imgs.map((im) => ({ role: "user" as const, content: { type: "image" as const, data: im.data, mimeType: im.mimeType } })),
+    ],
+  };
+}
+
+
+/* ── add_material : Claude dépose lui-même la matière ─────────────────────── */
+
+async function addMaterialTool(storeKey: string, creator: string | null, a: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }> {
+  const fileId = typeof a.drive_file_id === "string" ? a.drive_file_id.trim() : "";
+  const folderId = typeof a.drive_folder_id === "string" ? a.drive_folder_id.trim() : "";
+  const url = typeof a.url === "string" ? a.url.trim() : "";
+  const desc = typeof a.description === "string" ? a.description.slice(0, 500) : "";
+  const sources = [fileId, folderId, url].filter(Boolean).length;
+  if (sources !== 1) {
+    return { content: [{ type: "text", text: "Donne UNE source : drive_file_id, drive_folder_id OU url." }], isError: true };
+  }
+  const { serviceAccountEmail } = await import("@/lib/google-service-account");
+  if ((fileId || folderId) && !serviceAccountEmail()) {
+    return { content: [{ type: "text", text: "La lecture Google Drive n'est pas configurée sur le serveur DuupFlow (compte de service absent). Utilise un lien https direct (url), ou demande au user d'uploader le fichier." }], isError: true };
+  }
+  const { getLatestProject, createProject } = await import("./store");
+  const ing = await import("./material-ingest");
+  const fsp = await import("fs/promises");
+  const project = (await getLatestProject(storeKey)) ?? (await createProject(storeKey));
+
+  // Liste des fichiers à ajouter (un seul, sauf dossier).
+  let targets: { kind: "drive"; id: string; name?: string }[] | { kind: "url"; url: string }[];
+  try {
+    targets = fileId
+      ? [{ kind: "drive", id: fileId }]
+      : folderId
+        ? (await ing.listDriveFolder(folderId, 10)).map((f) => ({ kind: "drive" as const, id: f.id, name: f.name }))
+        : [{ kind: "url", url }];
+  } catch (e) {
+    return { content: [{ type: "text", text: `Impossible de lire le dossier Drive : ${(e as Error).message}` }], isError: true };
+  }
+  if (targets.length === 0) return { content: [{ type: "text", text: "Aucun média (vidéo / image / audio) trouvé dans ce dossier Drive." }], isError: true };
+
+  const started = Date.now();
+  const lines: string[] = [];
+  let added = 0;
+  for (let i = 0; i < targets.length; i++) {
+    // Budget temps : la requête MCP est plafonnée à 300 s.
+    if (Date.now() - started > 200_000) {
+      lines.push(`⏸ ${targets.length - i} fichier(s) non traité(s) faute de temps : rappelle add_material sur le même dossier, les fichiers déjà présents seront à retirer de la liste.`);
+      break;
+    }
+    const t = targets[i];
+    let dl: Awaited<ReturnType<typeof ing.downloadPublicUrl>> | null = null;
+    try {
+      dl = t.kind === "drive" ? await ing.downloadDriveFile(t.id) : await ing.downloadPublicUrl(t.url);
+      const r = await ing.ingestMaterialFile({
+        storeKey, projectId: project.id, tmpPath: dl.tmpPath, fileName: dl.fileName, mimeType: dl.mimeType, desc, logTag: "mcp/add_material",
+      });
+      if (!r.ok) { lines.push(`❌ ${dl.fileName} — ${r.error}`); continue; }
+      added++;
+      lines.push(`✅ ${dl.fileName} — id ${r.material.id} · ${r.material.kind}${r.material.status === "analyzing" ? " · analyse en cours" : ""}`);
+    } catch (e) {
+      lines.push(`❌ ${t.kind === "drive" ? (t.name ?? t.id) : t.url} — ${(e as Error).message}`);
+    } finally {
+      if (dl) await fsp.rm(dl.tmpDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+  return {
+    content: [{
+      type: "text",
+      text: `${added}/${targets.length} fichier(s) ajouté(s) au projet${creator ? ` de « ${creator} »` : ""} (id ${project.id}) :\n${lines.join("\n")}` +
+        (added ? "\n\nLes vidéos et audios s'analysent en tâche de fond : appelle list_material dans un moment pour voir leur analyse avant de monter." : ""),
+    }],
+    isError: added === 0,
+  };
+}
+
+/* ── export_to_drive / get_drive_export ───────────────────────────────────── */
+
+async function driveExportTool(
+  name: "export_to_drive" | "get_drive_export",
+  userId: string,
+  storeKey: string,
+  workspace: { id: string; name: string } | null,
+  a: Record<string, unknown>,
+): Promise<{ content: Content[]; isError?: boolean }> {
+  const creator = workspace?.name ?? null;
+  const dx = await import("./drive-export");
+  const waitFor = async (job: import("./drive-export").DriveExportJob, ms: number) => {
+    const end = Date.now() + ms;
+    while (job.status === "running" && Date.now() < end) await new Promise((r) => setTimeout(r, 1000));
+    return job;
+  };
+
+  if (name === "export_to_drive") {
+    const { getLatestProject } = await import("./store");
+    const project = await getLatestProject(storeKey);
+    if (!project) return { content: [{ type: "text", text: "Aucun projet : rien à exporter." }], isError: true };
+    const ids = Array.isArray(a.variant_ids) ? a.variant_ids.filter((x): x is string => typeof x === "string") : [];
+    const { getWorkspaceContext } = await import("@/lib/workspaces");
+    const ownerId = (await getWorkspaceContext(userId)).ownerId; // Drive du propriétaire du compte
+    const job = await dx.startDriveExport({ storeKey, ownerId, userId, projectId: project.id, variantIds: ids, creator, workspace });
+    if (!("folderId" in job)) return { content: [{ type: "text", text: job.error }], isError: true };
+    await waitFor(job, 20_000);
+    return { content: [{ type: "text", text: dx.describeDriveExport(job) }], isError: job.status === "failed" };
+  }
+
+  const ticket = typeof a.ticket === "string" ? a.ticket.trim() : "";
+  if (!ticket) {
+    const list = dx.driveExportsFor(storeKey).slice(0, 10);
+    if (!list.length) return { content: [{ type: "text", text: "Aucun export Drive récent." }] };
+    return { content: [{ type: "text", text: list.map((j) => dx.describeDriveExport(j)).join("\n\n") }] };
+  }
+  const job = dx.getDriveExport(ticket);
+  // Même périmètre que les rendus : le ticket appartient au créateur en cours.
+  if (!job || job.storeKey !== storeKey) {
+    return { content: [{ type: "text", text: `Ticket ${ticket} introuvable (expiré après 2 h, ou appartenant à un autre créateur).` }], isError: true };
+  }
+  await waitFor(job, 20_000);
+  return { content: [{ type: "text", text: dx.describeDriveExport(job) }], isError: job.status === "failed" };
 }

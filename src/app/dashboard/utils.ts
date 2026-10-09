@@ -22,17 +22,91 @@ async function resolveUserId(): Promise<string> {
   return "local";
 }
 
-/** Dossier utilisateur (garanti) + création si besoin */
-export async function getOutDirForCurrentUser() {
+/* ── Résultats de duplication PAR CRÉATEUR (workspaces Pro & Agence) ──────────
+   Le dossier de sortie suit le créateur AFFICHÉ (cookie duup_ws posé par le
+   sélecteur, ou en-tête x-duup-ws), avec la même clé que l'Éditeur IA :
+   « ws_<id> », ou le dossier historique du propriétaire pour le créateur
+   principal. Vue admin (propriétaire) : on LIT tous les créateurs, on ÉCRIT
+   dans le créateur principal. Sans workspaces : dossier de l'utilisateur,
+   exactement comme avant. Les quotas, eux, restent toujours sur la personne. */
+
+type OutKeys = { realUserId: string; write: string; read: string[] };
+
+async function resolveOutKeys(): Promise<OutKeys> {
   const userId = await resolveUserId();
-  const userDir = path.join(OUT_BASE, userId);
+  if (userId === "local") return { realUserId: userId, write: userId, read: [userId] };
+  try {
+    const [{ getWorkspaceContext }, scope, nh] = await Promise.all([
+      import("@/lib/workspaces"),
+      import("@/lib/ai-editor/scope"),
+      import("next/headers"),
+    ]);
+    const ctx = await getWorkspaceContext(userId);
+    if (!ctx.enabled) return { realUserId: userId, write: userId, read: [userId] };
+    let wanted: string | null = null;
+    try {
+      wanted = scope.normalizeWsChoice(nh.headers().get("x-duup-ws") || nh.cookies().get(scope.WS_COOKIE)?.value);
+    } catch { /* hors requête */ }
+    const keyOf = (w: { id: string; isDefault: boolean }) => scope.workspaceStoreKey(w, ctx.ownerId);
+    if (wanted === scope.ADMIN_VIEW && ctx.role === "owner") {
+      const main = ctx.workspaces.find((w) => w.isDefault) ?? ctx.workspaces[0];
+      const all = Array.from(new Set([...ctx.workspaces.map(keyOf), ctx.ownerId]));
+      return { realUserId: userId, write: main ? keyOf(main) : ctx.ownerId, read: all };
+    }
+    const ws = (wanted ? ctx.workspaces.find((w) => w.id === wanted) : null) ?? ctx.active;
+    const key = ws ? keyOf(ws) : `${userId}_noworkspace`;
+    return { realUserId: userId, write: key, read: [key] };
+  } catch {
+    return { realUserId: userId, write: userId, read: [userId] };
+  }
+}
+
+/** Dossier de sortie (garanti) du créateur affiché.
+ *  ⚠️ `userId` = la CLÉ DU DOSSIER (sert aux URL /api/out/<clé>/…), pas
+ *  forcément l'id de la personne — utiliser `realUserId` pour tout le reste. */
+export async function getOutDirForCurrentUser() {
+  const k = await resolveOutKeys();
+  const userDir = path.join(OUT_BASE, k.write);
   await fs.mkdir(userDir, { recursive: true });
-  return { dir: userDir, userId };
+  return { dir: userDir, userId: k.write, realUserId: k.realUserId };
 }
 
 /** Alias RSC (pages/listings) */
 export async function getOutDirForCurrentUserRSC() {
   return getOutDirForCurrentUser();
+}
+
+/** Tous les dossiers à LISTER : un seul, sauf en vue admin (tous les créateurs). */
+export async function getOutDirsForListing(): Promise<{ dir: string; userId: string }[]> {
+  const k = await resolveOutKeys();
+  return k.read.map((key) => ({ dir: path.join(OUT_BASE, key), userId: key }));
+}
+
+/** Un VA produit et télécharge, mais ne supprime rien (règle des rôles) :
+ *  false pour un VA, true pour tous les autres comptes. */
+export async function canDeleteOutputs(): Promise<boolean> {
+  try {
+    const userId = await resolveUserId();
+    if (userId === "local") return true;
+    const { getWorkspaceContext } = await import("@/lib/workspaces");
+    const ctx = await getWorkspaceContext(userId);
+    return !(ctx.enabled && ctx.role === "va");
+  } catch {
+    return true;
+  }
+}
+
+/** Cette personne peut-elle lire le dossier de sortie <key> ? (route /api/out) */
+export async function canReadOutKey(userId: string, key: string): Promise<boolean> {
+  if (key === userId || key === `${userId}_noworkspace`) return true;
+  try {
+    const [{ getWorkspaceContext }, scope] = await Promise.all([import("@/lib/workspaces"), import("@/lib/ai-editor/scope")]);
+    const ctx = await getWorkspaceContext(userId);
+    if (!ctx.enabled) return false;
+    return ctx.workspaces.some((w) => scope.workspaceStoreKey(w, ctx.ownerId) === key);
+  } catch {
+    return false;
+  }
 }
 
 /** Expose OUT_BASE so cleanup utilities can scan all user dirs */

@@ -113,7 +113,7 @@ export default function PaymentsDetailModal({ payments, commissionPct }: Props) 
                   </thead>
                   <tbody>
                     {payments.map((p, i) => {
-                      const planColor = p.plan === "pro" ? "#38BDF8" : "#A78BFA";
+                      const planColor = p.plan === "agency" ? "#F59E0B" : p.plan === "pro" ? "#38BDF8" : "#A78BFA";
                       const date = new Date(p.paid_at).toLocaleDateString("fr-FR", {
                         day: "numeric",
                         month: "short",
@@ -138,7 +138,7 @@ export default function PaymentsDetailModal({ payments, commissionPct }: Props) 
                                 color: planColor,
                               }}
                             >
-                              {p.plan === "pro" ? "Pro" : "Solo"}
+                              {p.plan === "agency" ? "Agence" : p.plan === "pro" ? "Pro" : p.plan === "starter" ? "Starter" : "Solo"}
                             </span>
                           </td>
                           <td className="px-5 py-3 font-semibold tabular-nums" style={{ color: "#38BDF8" }}>

@@ -24,6 +24,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { syncStripeStateIfStale } from "@/lib/billing-sync";
 import { effectivePlanForUser } from "@/lib/usage";
 import { PlanGateProvider } from "./components/PlanGate";
+import { isPaidPlan } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -169,7 +170,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           profile.is_guest !== true &&
           profile.has_paid !== true &&
           !profile.stripe_customer_id &&
-          (pending === "starter" || pending === "solo" || pending === "pro")
+          isPaidPlan(pending)
         ) {
           gateToCheckout = pending;
         }
@@ -184,12 +185,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
       //   fantome = none of the above
       const rawPlan = (profile?.plan as string | null) ?? "free";
       const plan: ClarityPlan =
-        rawPlan === "starter" || rawPlan === "solo" || rawPlan === "pro" ? rawPlan : "free";
+        isPaidPlan(rawPlan) ? rawPlan : "free";
 
       const isPaid =
         profile?.has_paid === true &&
         profile?.payment_overdue !== true &&
-        (rawPlan === "starter" || rawPlan === "solo" || rawPlan === "pro");
+        isPaidPlan(rawPlan);
 
       let segment: ClaritySegment = "fantome";
       if (isPaid) {

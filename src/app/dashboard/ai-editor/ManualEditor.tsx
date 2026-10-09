@@ -21,6 +21,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import type { EditPlan, EditSegment, EditCaption } from "@/lib/ai-editor/plan-types";
 import { CAPTION_FONTS, FONT_CATALOG, type CaptionFont } from "@/lib/ai-editor/font-catalog";
 import { usePlanGate } from "../components/PlanGate";
+import { wsParam } from "../components/WorkspaceSwitcher";
 
 const BRAND = "linear-gradient(135deg,#6366F1,#38BDF8)";
 const CANVAS: Record<string, [number, number]> = { "9:16": [1080, 1920], "1:1": [1080, 1080], "16:9": [1920, 1080] };
@@ -391,7 +392,7 @@ export default function ManualEditor({ projectId, variantId, onClose, onExported
   const activeIdxRef = useRef(-1);
 
   const mediaUrl = useCallback((materialId: string) =>
-    `/api/ai-editor/edit/media?projectId=${encodeURIComponent(projectId)}&materialId=${encodeURIComponent(materialId)}`, [projectId]);
+    `/api/ai-editor/edit/media?projectId=${encodeURIComponent(projectId)}&materialId=${encodeURIComponent(materialId)}${wsParam()}`, [projectId]);
 
   const videoMatIds = useMemo(() => {
     const ids = new Set<string>();

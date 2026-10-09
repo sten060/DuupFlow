@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
 import archiver from "archiver";
-import { getOutDirForCurrentUserRSC } from "@/app/dashboard/utils";
+import { getOutDirForCurrentUserRSC, getOutDirsForListing } from "@/app/dashboard/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
@@ -49,12 +49,14 @@ export async function GET(req: Request) {
     return true;
   }
 
-  // Try filesystem first (local dev / Railway with volume)
-  const fsEntries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
-  const fsFiles = fsEntries
-    .filter((d) => d.isFile())
-    .map((d) => d.name)
-    .filter(matchesFilters);
+  // Try filesystem first (local dev / Railway with volume). Vue admin : les
+  // fichiers de TOUS les créateurs (un seul dossier sinon).
+  const fsPaths: { dir: string; name: string }[] = [];
+  for (const d of await getOutDirsForListing()) {
+    const entries = await fs.readdir(d.dir, { withFileTypes: true }).catch(() => []);
+    for (const e of entries) if (e.isFile() && matchesFilters(e.name)) fsPaths.push({ dir: d.dir, name: e.name });
+  }
+  const fsFiles = fsPaths.map((f) => f.name);
 
   // ── ZIP stream wiring ──────────────────────────────────────────────────
   const { readable, writable } = new TransformStream();
@@ -108,9 +110,14 @@ export async function GET(req: Request) {
   if (fsFiles.length > 0) {
     // Local filesystem — archiver streams each file from disk (no buffering)
     console.log(`[zip] FS path: ${fsFiles.length} file(s) for ${userId}`);
-    for (const name of fsFiles) {
+    const used = new Set<string>();
+    for (const f of fsPaths) {
       if (aborted) break;
-      archive.file(path.join(dir, name), { name });
+      // Deux créateurs peuvent avoir un fichier du même nom : on dédoublonne dans le zip.
+      let name = f.name;
+      for (let i = 2; used.has(name); i++) name = f.name.replace(/(\.[^.]+)?$/, ` (${i})$1`);
+      used.add(name);
+      archive.file(path.join(f.dir, f.name), { name });
     }
     archive.finalize();
   } else {

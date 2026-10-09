@@ -5,10 +5,13 @@ import { createClient as createAnonClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { getServerT } from "@/lib/i18n/server";
 import { teamInviteLimitFor } from "@/lib/team-invite-limit";
+import { hasProFeatures } from "@/lib/plans";
 
 export async function POST(req: NextRequest) {
   const t = await getServerT();
-  const { guestEmail } = await req.json();
+  const { guestEmail, role: askedRole } = await req.json();
+  // Rôle de l'invité (workspaces) : VA par défaut — le plus restreint.
+  const role: "manager" | "va" = askedRole === "manager" ? "manager" : "va";
 
   if (!guestEmail || typeof guestEmail !== "string") {
     return NextResponse.json({ error: t("errors.team.emailRequired") }, { status: 400 });
@@ -23,19 +26,20 @@ export async function POST(req: NextRequest) {
 
   const adminClient = createAdminClient();
 
-  // Only the Pro plan can invite team members. Checking `=== "solo"` was a bug:
-  // it let FREE users (and any non-solo plan) invite. Allow ONLY "pro" so free +
-  // solo are blocked, and fail-closed if the profile can't be read.
+  // Only Pro (3 seats) and Agence (10 seats) can invite team members. Checking
+  // `=== "solo"` was a bug: it let FREE users (and any non-solo plan) invite.
+  // Allow ONLY plans with seats, and fail-closed if the profile can't be read.
   const { data: hostProfile } = await adminClient
     .from("profiles")
     .select("plan")
     .eq("id", user.id)
     .single();
 
-  // Per-host limit: 3 by default, +1 for emails in TEAM_INVITE_BONUS_EMAILS
-  const inviteLimit = teamInviteLimitFor(user.email);
+  // Per-host limit: seats of the plan (Pro 3, Agence 10), +1 for emails in
+  // TEAM_INVITE_BONUS_EMAILS
+  const inviteLimit = teamInviteLimitFor(user.email, hostProfile?.plan);
 
-  if (hostProfile?.plan !== "pro") {
+  if (!hasProFeatures(hostProfile?.plan)) {
     return NextResponse.json(
       { error: t("errors.team.planCannotInvite", { max: inviteLimit }) },
       { status: 403 }
@@ -71,12 +75,18 @@ export async function POST(req: NextRequest) {
 
   // Create invitation record
   const token = randomUUID();
-  const { error: insertErr } = await adminClient.from("team_invitations").insert({
+  const invitation = {
     host_user_id: user.id,
     guest_email: guestEmail.toLowerCase(),
     token,
     status: "pending",
-  });
+  };
+  let { error: insertErr } = await adminClient.from("team_invitations").insert({ ...invitation, role });
+  // Migration 059 pas encore appliquée (colonne `role` absente) : on invite
+  // quand même, sans rôle — l'invité sera manager, comme avant les workspaces.
+  if (insertErr && /role/i.test(insertErr.message ?? "")) {
+    ({ error: insertErr } = await adminClient.from("team_invitations").insert(invitation));
+  }
 
   if (insertErr) {
     return NextResponse.json({ error: t("errors.team.createInviteFailed") }, { status: 500 });

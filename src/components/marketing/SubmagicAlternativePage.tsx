@@ -10,7 +10,7 @@
 // the HTML even when the <details> accordion is collapsed, and
 // SoftwareApplication + FAQPage + BreadcrumbList JSON-LD.
 //
-// DuupFlow prices are the source of truth (Starter 19€ / Solo 39€ / Pro 99€,
+// DuupFlow prices are the source of truth (Solo 39€ / Pro 99€ / Agency 249€,
 // see src/lib/plans.ts + pricing/page.tsx). Competitor pricing is quoted in the
 // currency they bill in and dated (UPDATED_AT) — re-check quarterly.
 
@@ -30,9 +30,9 @@ export const META = {
 const UPDATED_AT = "2026-08-10";
 
 // Pricing source of truth: src/lib/plans.ts (quotas) + pricing/page.tsx (display).
-const PRICE_STARTER = "19€";
 const PRICE_SOLO = "39€";
 const PRICE_PRO = "99€";
+const PRICE_AGENCY = "249€";
 
 /* ─────────────────────────── Content ─────────────────────────── */
 
@@ -41,7 +41,7 @@ const HERO = {
   h1: "The Submagic alternative for creators who need volume, not just captions",
   sub: "Submagic makes one video look better. DuupFlow builds the edit from your raw footage and turns it into ten publish-ready versions. Same effort, ten times the output.",
   cta: "Edit my first video",
-  subCta: `From ${PRICE_STARTER}/month`,
+  subCta: `From ${PRICE_SOLO}/month`,
 };
 
 const WHY = {
@@ -124,7 +124,7 @@ const COMPARE = {
       duupflow: "Automatic",
     },
     { label: "Free tier", submagic: "3 videos, watermark", duupflow: "No" },
-    { label: "Price", submagic: "$19 – $69/month", duupflow: "19 – 99 €/month" },
+    { label: "Price", submagic: "$19 – $69/month", duupflow: "39 – 249 €/month" },
   ],
 };
 
@@ -139,9 +139,9 @@ const WHO = {
 const PRICING = {
   h2: "Pricing",
   plans: [
-    { name: "Starter", price: `${PRICE_STARTER}/month`, for: "Testing it out, a few videos a month" },
     { name: "Solo", price: `${PRICE_SOLO}/month`, for: "Posting consistently", highlight: true },
     { name: "Pro", price: `${PRICE_PRO}/month`, for: "Volume and multiple accounts" },
+    { name: "Agency", price: `${PRICE_AGENCY}/month`, for: "Agencies managing several creators" },
   ],
   note: "No watermark on any plan. No add-on to unlock the core features.",
   cta: "See full pricing",
@@ -258,9 +258,9 @@ export default function SubmagicAlternativePage() {
       "Multiple variants of the same video",
     ],
     offers: [
-      { "@type": "Offer", name: "Starter", price: "19", priceCurrency: "EUR" },
       { "@type": "Offer", name: "Solo", price: "39", priceCurrency: "EUR" },
       { "@type": "Offer", name: "Pro", price: "99", priceCurrency: "EUR" },
+      { "@type": "Offer", name: "Agency", price: "249", priceCurrency: "EUR" },
     ],
     publisher: {
       "@type": "Organization",
@@ -492,7 +492,7 @@ export default function SubmagicAlternativePage() {
               <PrimaryCta href="/register" big>
                 {FINAL.cta}
               </PrimaryCta>
-              <span className="text-sm text-[#8a8a8a]">{`From ${PRICE_STARTER}/month`}</span>
+              <span className="text-sm text-[#8a8a8a]">{`From ${PRICE_SOLO}/month`}</span>
             </div>
 
             {/* Internal links */}

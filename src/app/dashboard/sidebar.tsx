@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
 import { bindNotificationsUser } from "./components/notificationStore";
 import ThemeToggle from "./components/ThemeToggle";
+import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
 
 const COLLAPSE_KEY = "duupflow_sidebar_collapsed";
 
@@ -497,6 +498,9 @@ export default function Sidebar() {
         style={{ height: "1px", background: "var(--app-border)" }}
       />
 
+      {/* Créateur actif (workspaces, Pro & Agence) — rien pour les autres plans. */}
+      <WorkspaceSwitcher collapsed={collapsed} />
+
       <div className="flex flex-col flex-1 min-h-0">
         <nav className="flex-1 px-3 pb-4 space-y-0.5 overflow-y-auto pt-1">
           {NAV_GROUPS.map((group, gi) => (
@@ -693,6 +697,8 @@ export default function Sidebar() {
         </button>
       </div>
       <div className="mx-4 mb-3 h-px" style={{ background: "var(--app-border)" }} />
+
+      <WorkspaceSwitcher />
 
       <nav className="flex-1 px-3 pb-4 space-y-0.5">
         {NAV_GROUPS.map((group, gi) => (

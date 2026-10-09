@@ -4,6 +4,8 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/context";
+import { hasProFeatures, type PaidPlan } from "@/lib/plans";
+import GoogleDriveCard from "./GoogleDriveCard";
 
 type Invitation = {
   id: string;
@@ -101,7 +103,7 @@ export default function SettingsClient({
   initialFirstName: string;
   initialAgencyName: string;
   isGuest: boolean;
-  plan: "starter" | "solo" | "pro" | null;
+  plan: PaidPlan | null;
   invitations: Invitation[];
   userEmail?: string;
   inviteLimit?: number;
@@ -117,6 +119,8 @@ export default function SettingsClient({
   const [profileMsg, setProfileMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const [guestEmail, setGuestEmail] = useState("");
+  // Rôle de l'invité : VA (accès limité aux créateurs assignés) par défaut.
+  const [inviteRole, setInviteRole] = useState<"va" | "manager">("va");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [localInvitations, setLocalInvitations] = useState<Invitation[]>(invitations);
@@ -189,7 +193,7 @@ export default function SettingsClient({
     const res = await fetch("/api/team/invite", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guestEmail: guestEmail.trim() }),
+      body: JSON.stringify({ guestEmail: guestEmail.trim(), role: inviteRole }),
     });
     const data = await res.json();
     if (res.ok) {
@@ -212,12 +216,12 @@ export default function SettingsClient({
   }
 
   const activeInvitations = localInvitations.filter((i) => i.status !== "removed");
-  const canInvite = !isGuest && plan === "pro" && activeInvitations.length < inviteLimit;
+  const canInvite = !isGuest && hasProFeatures(plan) && activeInvitations.length < inviteLimit;
   // Identité visuelle par plan — alignée sur /dashboard/abonnement (AbonnementClient).
-  const planLabel = plan === "starter" ? "Starter" : plan === "solo" ? "Solo" : plan === "pro" ? "Pro" : null;
-  const planColor = plan === "starter" ? "#C4B5FD" : plan === "solo" ? "#A78BFA" : "#818CF8";
-  const planBg = plan === "starter" ? "rgba(196,181,253,0.12)" : plan === "solo" ? "rgba(167,139,250,0.12)" : "rgba(99,102,241,0.12)";
-  const planBorder = plan === "starter" ? "rgba(196,181,253,0.28)" : plan === "solo" ? "rgba(167,139,250,0.25)" : "rgba(99,102,241,0.25)";
+  const planLabel = plan === "agency" ? t("plans.agency") : plan === "starter" ? "Starter" : plan === "solo" ? "Solo" : plan === "pro" ? "Pro" : null;
+  const planColor = plan === "agency" ? "#F59E0B" : plan === "starter" ? "#C4B5FD" : plan === "solo" ? "#A78BFA" : "#818CF8";
+  const planBg = plan === "agency" ? "rgba(245,158,11,0.12)" : plan === "starter" ? "rgba(196,181,253,0.12)" : plan === "solo" ? "rgba(167,139,250,0.12)" : "rgba(99,102,241,0.12)";
+  const planBorder = plan === "agency" ? "rgba(245,158,11,0.28)" : plan === "starter" ? "rgba(196,181,253,0.28)" : plan === "solo" ? "rgba(167,139,250,0.25)" : "rgba(99,102,241,0.25)";
 
   return (
     <div className="p-8 max-w-5xl">
@@ -335,8 +339,8 @@ export default function SettingsClient({
           <FAQSection />
         </div>
 
-        {/* Team (Pro hosts only) */}
-        {!isGuest && plan === "pro" && (
+        {/* Team (Pro / Agence hosts only) */}
+        {!isGuest && hasProFeatures(plan) && (
           <div>
             <SectionTitle>
               {t("dashboard.settings.teamSection")}{" "}
@@ -403,6 +407,16 @@ export default function SettingsClient({
                     className="flex-1 rounded-xl px-4 py-2.5 text-sm text-[var(--app-text)] placeholder-[var(--app-text-faint)] outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
                     style={INPUT_STYLE}
                   />
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value === "manager" ? "manager" : "va")}
+                    aria-label={t("dashboard.workspaces.roleLabel")}
+                    className="rounded-xl px-3 py-2.5 text-sm text-[var(--app-text)] outline-none focus:ring-1 focus:ring-indigo-500/40 transition shrink-0"
+                    style={INPUT_STYLE}
+                  >
+                    <option value="va">{t("dashboard.workspaces.roleVa")}</option>
+                    <option value="manager">{t("dashboard.workspaces.roleManager")}</option>
+                  </select>
                   <button
                     type="submit"
                     disabled={inviteLoading || !guestEmail.trim()}
@@ -423,6 +437,12 @@ export default function SettingsClient({
               <p className="mt-4 text-[11px] text-[var(--app-text-faint)] leading-relaxed">
                 {t("dashboard.settings.teamInviteInfo")}
               </p>
+              <a
+                href="/dashboard/workspaces"
+                className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition"
+              >
+                {t("dashboard.workspaces.manageRolesLink")} →
+              </a>
             </Card>
           </div>
         )}
@@ -453,6 +473,9 @@ export default function SettingsClient({
             </Card>
           </div>
         )}
+
+        {/* Google Drive : export des variantes depuis Claude (MCP) */}
+        <GoogleDriveCard />
 
         {/* Guest notice */}
         {isGuest && (

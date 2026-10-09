@@ -216,7 +216,7 @@ export default function DashboardHome({
   /** True while tiktok_announce_seen_at IS NULL (one-shot TikTok launch pop-up). */
   tiktokAnnouncementPending?: boolean;
   /** User's effective plan, used by the announcement modal. */
-  effectivePlan?: "free" | "starter" | "solo" | "pro";
+  effectivePlan?: "free" | "starter" | "solo" | "pro" | "agency";
   /** True ONLY for genuinely free users (comp-Pro / guests / paying excluded) →
    *  gates the one-shot Starter launch pop-up. */
   starterAnnounceEligible?: boolean;

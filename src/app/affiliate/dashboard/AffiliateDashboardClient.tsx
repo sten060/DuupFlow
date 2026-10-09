@@ -203,7 +203,7 @@ export default function AffiliateDashboardClient({
                 <div>
                   {payments.map((p, i) => {
                     const date = new Date(p.paid_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
-                    const planColor = p.plan === "pro" ? "#0284c7" : "#7c3aed";
+                    const planColor = p.plan === "agency" ? "#F59E0B" : p.plan === "pro" ? "#0284c7" : "#7c3aed";
                     const commission = (p.commission_cents / 100).toFixed(2);
                     const amount = (p.amount_cents / 100).toFixed(2);
                     const now15dAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
@@ -222,7 +222,7 @@ export default function AffiliateDashboardClient({
                       <div key={i} className="flex items-center justify-between px-6 py-3.5" style={{ borderBottom: i < payments.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
                         <div className="flex items-center gap-3">
                           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: `${planColor}14`, color: planColor }}>
-                            {p.plan === "pro" ? "Pro" : "Solo"}
+                            {p.plan === "agency" ? "Agence" : p.plan === "pro" ? "Pro" : p.plan === "starter" ? "Starter" : "Solo"}
                           </span>
                           <span className="text-xs text-[#605f5f]">{date}</span>
                           {p.billing_reason === "subscription_cycle" && (

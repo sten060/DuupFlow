@@ -22,6 +22,7 @@ import { reserveUsage, releaseUsage, logUsageEvent } from "@/lib/usage";
 import { buildVariationPlans } from "@/lib/ai-auto/variation";
 import { isUserOnFreePlan } from "@/lib/plan-gate";
 import type { VariationRequest } from "@/lib/ai-auto/variation";
+import { editorScopeForUser, briefBlock } from "@/lib/ai-editor/scope";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -132,6 +133,9 @@ type ChatFile = { materialId: string; copies: number };
 /** Exécute generate_duplicates : quota réservé, plans construits, rendus lancés. */
 async function execGenerate(
   userId: string,
+  /** Clé de rangement des projets (créateur actif ou user) — voir ai-editor/scope.ts.
+   *  Les quotas restent sur `userId`, la personne qui agit. */
+  storeKey: string,
   project: Project,
   rawInput: unknown,
 ): Promise<{ text: string; isError: boolean; launched: number }> {
@@ -167,7 +171,7 @@ async function execGenerate(
     try {
       const plans = buildVariationPlans(mat, it);
       for (const plan of plans) {
-        startRenderJob(userId, project.id, plan, {
+        startRenderJob(storeKey, project.id, plan, {
           onDone: async () => { await logUsageEvent(userId, "videos", 1); },
           onFailed: async () => { await releaseUsage(userId, "videos", 1, reservation.trialCredit); },
         });
@@ -205,7 +209,9 @@ export async function POST(req: NextRequest) {
   // le double-montage React peut créer deux sessions et désynchroniser l'id du
   // client de celui qui porte réellement la matière. Le repli garantit qu'on
   // travaille toujours sur le projet vivant du user.
-  const project = (await getProject(user.id, projectId)) ?? (await getLatestProject(user.id));
+  const scope = await editorScopeForUser(user.id, req);
+  const project = (await getProject(scope.storeKey, projectId)) ?? (await getLatestProject(scope.storeKey));
+  const brief = briefBlock(scope);
   if (!project) return NextResponse.json({ error: "Session introuvable." }, { status: 404 });
 
   const copies = new Map<string, number>((body?.files ?? []).map((f) => [String(f.materialId), Math.max(1, Math.min(MAX_COPIES_PER_FILE, Number(f.copies) || 3))]));
@@ -222,6 +228,23 @@ export async function POST(req: NextRequest) {
 
   const client = new Anthropic();
   const apiMessages: Anthropic.Beta.BetaMessageParam[] = history.map((m) => ({ role: m.role, content: m.content }));
+  // Images du brief du créateur : jointes au PREMIER message du user (le prompt
+  // système n'accepte pas d'images). Claude les voit à chaque tour.
+  if (scope.workspace && scope.briefImages && apiMessages[0]?.role === "user") {
+    const { briefImagesForClaude } = await import("@/lib/brief-images");
+    const imgs = await briefImagesForClaude(scope.workspace.id);
+    if (imgs.length) {
+      const first = apiMessages[0];
+      apiMessages[0] = {
+        role: "user",
+        content: [
+          { type: "text", text: `[Images de référence du créateur « ${scope.workspace.name} » — style à respecter]` },
+          ...imgs.map((im) => ({ type: "image" as const, source: { type: "base64" as const, media_type: im.mimeType, data: im.data } })),
+          ...(typeof first.content === "string" ? [{ type: "text" as const, text: first.content }] : first.content),
+        ],
+      };
+    }
+  }
   let launched = 0;
   // Plan gratuit + demande de lancement → le client ouvre la fenêtre « plan requis ».
   let planRequired = false;
@@ -240,6 +263,9 @@ export async function POST(req: NextRequest) {
           { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
           { type: "text", text: `FICHIERS DE LA SESSION (analyses DuupFlow) :\n${describeMaterials(project, copies)}` },
           ...(onFreePlan ? [{ type: "text" as const, text: FREE_PLAN_PROMPT }] : []),
+          // Brief du créateur actif (workspaces) : lu automatiquement, le VA
+          // n'a rien à réexpliquer.
+          ...(brief ? [{ type: "text" as const, text: brief }] : []),
         ],
         tools: [GENERATE_TOOL],
         messages: apiMessages,
@@ -265,7 +291,7 @@ export async function POST(req: NextRequest) {
             });
             continue;
           }
-          const r = await execGenerate(user.id, project, block.input);
+          const r = await execGenerate(user.id, scope.storeKey, project, block.input);
           launched += r.launched;
           results.push({ type: "tool_result", tool_use_id: block.id, content: r.text, is_error: r.isError });
         }

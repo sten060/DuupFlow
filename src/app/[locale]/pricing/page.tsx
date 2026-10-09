@@ -115,16 +115,21 @@ function UniversalFeatures({ color }: { color: string }) {
 }
 
 /* Plan icons — sit in a rounded-square badge at the top of each card (screen-2 layout) */
-function PlanIcon({ plan, color }: { plan: "starter" | "solo" | "pro"; color: string }) {
+function PlanIcon({ plan, color }: { plan: "solo" | "pro" | "agency"; color: string }) {
   return (
     <div
       className="h-11 w-11 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shrink-0"
       style={{ background: `${color}1F`, border: `1px solid ${color}3D` }}
     >
       <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        {plan === "starter" ? (
-          /* Single ring — a single account, getting started */
-          <circle cx="12" cy="12" r="6" />
+        {plan === "agency" ? (
+          /* Four rings — a whole roster of creators, run by one team */
+          <>
+            <circle cx="8.5" cy="8.5" r="4" />
+            <circle cx="15.5" cy="8.5" r="4" />
+            <circle cx="8.5" cy="15.5" r="4" />
+            <circle cx="15.5" cy="15.5" r="4" />
+          </>
         ) : plan === "solo" ? (
           /* Two interlocking rings — an original and its copy (DuupFlow duplication motif) */
           <>
@@ -145,7 +150,7 @@ function PlanIcon({ plan, color }: { plan: "starter" | "solo" | "pro"; color: st
 }
 
 type Plan = {
-  id: "starter" | "solo" | "pro";
+  id: "solo" | "pro" | "agency";
   name: string;
   desc: string;
   price: string;
@@ -162,12 +167,12 @@ type Plan = {
 };
 
 /* ─── Toggle Mensuel / Annuel ───
-   L'"annuel" est purement visuel pour l'instant : Stripe n'a pas encore de
-   prix annuels, le checkout facture toujours au mois. Le paramètre
-   &billing=yearly est déjà posé sur les CTA pour le branchement à venir.
-   Réduction affichée : −29% (Starter 13€ · Solo 28€ · Pro 70€ — prix ronds). */
-const MONTHLY_NUM: Record<string, number> = { starter: 19, solo: 39, pro: 99 };
-const YEARLY_NUM: Record<string, number> = { starter: 13, solo: 28, pro: 70 };
+   Réduction affichée : −29% (Solo 28€ · Pro 70€ · Agence 176€ — prix ronds),
+   facturée à l'année par Stripe (336 / 840 / 2 112 €).
+   Starter (19€) n'est plus vendu : ses abonnés actuels le gardent, mais il
+   n'apparaît plus ici. */
+const MONTHLY_NUM: Record<string, number> = { solo: 39, pro: 99, agency: 249 };
+const YEARLY_NUM: Record<string, number> = { solo: 28, pro: 70, agency: 176 };
 
 /* Compteur animé : quand la cible change (switch mensuel ↔ annuel), la valeur
    file vers la nouvelle en ~0,5s avec une décélération douce. */
@@ -233,20 +238,13 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (v: bo
 function PricingCards({ yearly }: { yearly: boolean }) {
   const { t, locale } = useTranslation();
 
-  const starterFeatures = [
-    t("tarifs.starterFeature1"),
-    t("tarifs.starterFeature2"),
-    t("tarifs.starterFeature3"),
-    t("tarifs.soloFeature8"),
-    t("tarifs.featExport1080"),
-  ];
-
   const soloFeatures = [
     t("tarifs.soloFeature1"),
     t("tarifs.soloFeature2"),
     t("tarifs.soloFeature3"),
     t("tarifs.soloFeature4"),
     t("tarifs.soloFeature8"),
+    t("tarifs.featDriveExport"),
     t("tarifs.featExport4k"),
   ];
 
@@ -256,27 +254,29 @@ function PricingCards({ yearly }: { yearly: boolean }) {
     t("tarifs.proFeature3"),
     t("tarifs.proFeature4"),
     t("tarifs.proFeature6"),
+    t("tarifs.featWorkspacesPro"),
+    t("tarifs.featRoles"),
+    t("tarifs.featAdminView"),
     t("tarifs.proFeature8"),
     t("tarifs.proFeature9"),
+    t("tarifs.featDriveExport"),
+    t("tarifs.featExport4k"),
+  ];
+
+  const agencyFeatures = [
+    t("tarifs.agencyFeature1"),
+    t("tarifs.agencyFeature2"),
+    t("tarifs.featWorkspacesAgency"),
+    t("tarifs.featRoles"),
+    t("tarifs.featAdminView"),
+    t("tarifs.proFeature4"),
+    t("tarifs.proFeature8"),
+    t("tarifs.proFeature9"),
+    t("tarifs.featDriveExport"),
     t("tarifs.featExport4k"),
   ];
 
   const plans: Plan[] = [
-    {
-      id: "starter",
-      name: t("tarifs.planStarter"),
-      desc: t("tarifs.starterDesc"),
-      price: "19€",
-      color: "#C4B5FD",
-      btnShadow: "0 16px 30px -8px rgba(139,92,246,0.45), 0 6px 12px -4px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.28)",
-      cardBorder: "1px solid rgba(0,0,0,0.08)",
-      btnBg: "linear-gradient(135deg,#9F7AEA,#7C3AED)",
-      cta: t("tarifs.commencer"),
-      href: "/register?plan=starter",
-      demoHref: "/demo-request?plan=starter",
-      popular: false,
-      features: starterFeatures,
-    },
     {
       id: "solo",
       name: t("tarifs.planSolo"),
@@ -306,6 +306,21 @@ function PricingCards({ yearly }: { yearly: boolean }) {
       demoHref: "/demo-request?plan=pro",
       popular: false,
       features: proFeatures,
+    },
+    {
+      id: "agency",
+      name: t("tarifs.planAgency"),
+      desc: t("tarifs.agencyDesc"),
+      price: "249€",
+      color: "#F59E0B",
+      btnShadow: "0 16px 30px -8px rgba(245,158,11,0.45), 0 6px 12px -4px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.28)",
+      cardBorder: "1px solid rgba(0,0,0,0.08)",
+      btnBg: "linear-gradient(135deg,#F59E0B,#EA580C)",
+      cta: t("tarifs.commencer"),
+      href: "/register?plan=agency",
+      demoHref: "/demo-request?plan=agency",
+      popular: false,
+      features: agencyFeatures,
     },
   ];
 
@@ -414,8 +429,8 @@ function PlansComparison({ yearly }: { yearly: boolean }) {
     {
       label: t("tarifs.cmpGroupDuplication"),
       rows: [
-        { label: t("tarifs.cmpRowDupImages"), values: ["150", "400", U] },
-        { label: t("tarifs.cmpRowDupVideos"), values: ["100", "300", U] },
+        { label: t("tarifs.cmpRowDupImages"), values: ["400", U, U] },
+        { label: t("tarifs.cmpRowDupVideos"), values: ["300", U, U] },
         { label: t("tarifs.cmpRowExportZip"), values: [true, true, true] },
       ],
     },
@@ -423,7 +438,7 @@ function PlansComparison({ yearly }: { yearly: boolean }) {
       label: t("tarifs.cmpGroupUnicite"),
       rows: [
         { label: t("tarifs.cmpRowMetadata"), values: [true, true, true] },
-        { label: t("tarifs.cmpRowSignatureIA"), values: ["80", "200", U] },
+        { label: t("tarifs.cmpRowSignatureIA"), values: ["200", U, U] },
         { label: t("tarifs.cmpRowVariationIA"), values: [true, true, true] },
       ],
     },
@@ -431,35 +446,42 @@ function PlansComparison({ yearly }: { yearly: boolean }) {
       label: t("tarifs.cmpGroupFormats"),
       rows: [
         { label: t("tarifs.featAiEditor"), logo: "/claude-color.svg", values: [true, true, true] },
-        { label: t("tarifs.cmpRowExportRes"), values: ["1080p", "4K", "4K"] },
+        { label: t("tarifs.cmpRowExportRes"), values: ["4K", "4K", "4K"] },
         { label: t("tarifs.cmpRowFormats"), values: [true, true, true] },
         { label: t("tarifs.cmpRowBatch"), values: [true, true, true] },
-        { label: t("tarifs.cmpRowPresets"), values: [false, false, true] },
+        { label: t("tarifs.cmpRowPresets"), values: [false, true, true] },
         { label: t("tarifs.featGoogleDrive"), logo: "/app/icons8-google-drive-96.png", values: [true, true, true] },
         { label: t("tarifs.featCompressor"), values: [true, true, true] },
         { label: t("tarifs.cmpRowScraper"), values: [t("tarifs.cmpScraperUsage"), t("tarifs.cmpScraperUsage"), t("tarifs.cmpScraperUsage")] },
-        { label: t("tarifs.featApi"), values: [false, false, true] },
+        { label: t("tarifs.featApi"), values: [false, true, true] },
+        { label: t("tarifs.cmpRowDriveExport"), values: [true, true, true] },
       ],
     },
     {
       label: t("tarifs.cmpGroupTeam"),
-      rows: [{ label: t("tarifs.cmpRowMembers"), values: [false, false, t("tarifs.cmpMembers3")] }],
+      rows: [
+        { label: t("tarifs.cmpRowMembers"), values: [false, t("tarifs.cmpMembers3"), t("tarifs.cmpMembers10")] },
+        { label: t("tarifs.cmpRowWorkspaces"), values: [false, "2", "15"] },
+        { label: t("tarifs.cmpRowRoles"), values: [false, true, true] },
+        { label: t("tarifs.cmpRowAdminView"), values: [false, true, true] },
+        { label: t("tarifs.cmpRowDriveFolders"), values: [false, true, true] },
+      ],
     },
     {
       label: t("tarifs.cmpGroupSupport"),
       rows: [
         { label: t("tarifs.cmpRowSupportEmail"), values: [true, true, true] },
         { label: t("tarifs.cmpRowSupportTelegram"), values: [true, true, true] },
-        { label: t("tarifs.cmpRowSupportPriority"), values: [false, false, true] },
+        { label: t("tarifs.cmpRowSupportPriority"), values: [false, true, true] },
       ],
     },
   ];
 
   /* Prix et CTA identiques aux cartes pricing du haut de page */
   const plans = [
-    { id: "starter", name: t("tarifs.cmpColStarter"), href: "/register?plan=starter", btnBg: "linear-gradient(135deg,#9F7AEA,#7C3AED)" },
     { id: "solo",    name: t("tarifs.cmpColSolo"),    href: "/register?plan=solo",    btnBg: "linear-gradient(135deg,#7C3AED,#6366F1)" },
     { id: "pro",     name: t("tarifs.cmpColPro"),     href: "/register?plan=pro",     btnBg: "linear-gradient(135deg,#4f7bff,#7c5cff)" },
+    { id: "agency",  name: t("tarifs.cmpColAgency"),  href: "/register?plan=agency",  btnBg: "linear-gradient(135deg,#F59E0B,#EA580C)" },
   ].map((p) => (yearly ? { ...p, href: `${p.href}&billing=yearly` } : p));
   const cols = "grid grid-cols-[minmax(0,1.7fr)_repeat(3,minmax(0,1fr))]";
 

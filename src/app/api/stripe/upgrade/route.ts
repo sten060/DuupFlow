@@ -4,7 +4,7 @@ import { getStripe, getPlanPriceId, planPriceEnvName } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getServerT } from "@/lib/i18n/server";
-import { planRank } from "@/lib/plans";
+import { planRank, isPaidPlan, type PaidPlan } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +22,7 @@ export async function POST(request: Request) {
   // Target plan (defaults to "pro" to preserve the original Solo→Pro behaviour
   // for callers that POST without a body).
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
-  const target: "starter" | "solo" | "pro" =
-    body?.plan === "starter" ? "starter" : body?.plan === "solo" ? "solo" : "pro";
+  const target: PaidPlan = isPaidPlan(body?.plan) ? body.plan : "pro";
   // Intervalle DEMANDÉ. Absent = on garde celui de l'abonnement en cours (le
   // comportement historique : un abonné annuel qui monte de palier reste
   // annuel). Fourni, il autorise en plus le passage mensuel → annuel.
@@ -71,6 +70,11 @@ export async function POST(request: Request) {
   //     de suite au prorata, exactement comme une montée de palier.
   // Tout le reste (palier inférieur, retour au mensuel) part en downgrade, où
   // c'est appliqué à l'échéance et non facturé sur-le-champ.
+  // Starter n'est plus vendu : seul un abonné Starter peut encore le viser
+  // (passage à l'annuel sur son palier actuel).
+  if (target === "starter" && profile.plan !== "starter") {
+    return NextResponse.json({ error: t("errors.billing.alreadyOnPro") }, { status: 400 });
+  }
   const monteEnPalier = planRank(target) > planRank(profile.plan);
   const passeALAnnuel =
     planRank(target) === planRank(profile.plan) && currentInterval === "monthly" && interval === "yearly";

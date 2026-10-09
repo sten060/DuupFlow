@@ -3,19 +3,19 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "@/lib/i18n/context";
-import { planRank } from "@/lib/plans";
+import { planRank, type PaidPlan } from "@/lib/plans";
 import { getFpTid } from "@/lib/firstpromoter";
 
-type PaidPlan = "starter" | "solo" | "pro";
 type Interval = "monthly" | "yearly";
 
 /** Prix affichés, en euros PAR MOIS — l'annuel montre son équivalent mensuel
- *  (13/28/70 €), comme la page tarifs publique. Les montants réellement
+ *  (13/28/70/176 €), comme la page tarifs publique. Les montants réellement
  *  facturés viennent de Stripe, jamais d'ici. */
 const PRIX: Record<PaidPlan, { monthly: number; yearly: number }> = {
   starter: { monthly: 19, yearly: 13 },
   solo: { monthly: 39, yearly: 28 },
   pro: { monthly: 99, yearly: 70 },
+  agency: { monthly: 249, yearly: 176 },
 };
 
 /* Les trois briques ci-dessous sont le PENDANT des cartes de la page tarifs
@@ -47,7 +47,9 @@ function PlanIcon({ plan, color }: { plan: PaidPlan; color: string }) {
       style={{ background: `${color}1F`, border: `1px solid ${color}3D` }}
     >
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        {plan === "starter" ? (
+        {plan === "agency" ? (
+          <><circle cx="8.5" cy="8.5" r="4" /><circle cx="15.5" cy="8.5" r="4" /><circle cx="8.5" cy="15.5" r="4" /><circle cx="15.5" cy="15.5" r="4" /></>
+        ) : plan === "starter" ? (
           <circle cx="12" cy="12" r="6" />
         ) : plan === "solo" ? (
           <><circle cx="9" cy="12" r="5" /><circle cx="15" cy="12" r="5" /></>
@@ -60,10 +62,11 @@ function PlanIcon({ plan, color }: { plan: PaidPlan; color: string }) {
 }
 
 /**
- * Sélecteur de plans Starter / Solo / Pro — le SEUL endroit où l'on change de
+ * Sélecteur de plans Solo / Pro / Agence — le SEUL endroit où l'on change de
  * plan dans l'app.
  *
- * Trois cartes + une bascule Mensuel / Annuel. Le plan (et l'intervalle) en
+ * Trois cartes + une bascule Mensuel / Annuel. Starter n'est plus vendu : sa
+ * carte n'apparaît que pour un abonné Starter actuel (sa carte « Plan actuel »). Le plan (et l'intervalle) en
  * cours porte la mention « Plan actuel » ; tout le reste est cliquable, dans
  * les deux sens.
  *
@@ -90,7 +93,7 @@ export default function UpgradePlanModal({
   open: boolean;
   onClose: () => void;
   /** The user's current plan — drives "Plan actuel" + safe routing for paid users. */
-  currentPlan?: "free" | "starter" | "solo" | "pro";
+  currentPlan?: "free" | PaidPlan;
   /**
    * Intervalle de facturation en cours. `null` = INCONNU, et c'est le défaut :
    * seule la page Plan & facturation lit l'abonnement Stripe. Les autres
@@ -129,7 +132,7 @@ export default function UpgradePlanModal({
 
   const isFree = currentPlan === "free";
 
-  const PLANS: {
+  const ALL_PLANS: {
     id: PaidPlan;
     name: string;
     desc: string;
@@ -170,6 +173,7 @@ export default function UpgradePlanModal({
         t("tarifs.soloFeature3"),
         t("tarifs.soloFeature4"),
         t("tarifs.soloFeature8"),
+        t("tarifs.featDriveExport"),
         t("tarifs.featExport4k"),
       ],
       cardBorder: "1px solid var(--app-border)",
@@ -189,15 +193,43 @@ export default function UpgradePlanModal({
         t("tarifs.proFeature3"),
         t("tarifs.proFeature4"),
         t("tarifs.proFeature6"),
+        t("tarifs.featWorkspacesPro"),
+        t("tarifs.featRoles"),
+        t("tarifs.featAdminView"),
         t("tarifs.proFeature8"),
         t("tarifs.proFeature9"),
+        t("tarifs.featDriveExport"),
         t("tarifs.featExport4k"),
       ],
       cardBorder: "1.5px solid rgba(99,102,241,0.35)",
       btnBg: "linear-gradient(135deg,#4f7bff,#7c5cff)",
       btnShadow: "0 16px 30px -12px rgba(56,189,248,0.45), inset 0 1px 0 rgba(255,255,255,0.28)",
     },
+    {
+      id: "agency",
+      name: t("tarifs.planAgency"),
+      desc: t("tarifs.agencyDesc"),
+      price: `${PRIX.agency[intervalle]} €`,
+      color: "#F59E0B",
+      features: [
+        t("tarifs.agencyFeature1"),
+        t("tarifs.agencyFeature2"),
+        t("tarifs.featWorkspacesAgency"),
+        t("tarifs.featRoles"),
+        t("tarifs.featAdminView"),
+        t("tarifs.proFeature4"),
+        t("tarifs.proFeature8"),
+        t("tarifs.proFeature9"),
+        t("tarifs.featDriveExport"),
+        t("tarifs.featExport4k"),
+      ],
+      cardBorder: "1px solid var(--app-border)",
+      btnBg: "linear-gradient(135deg,#F59E0B,#EA580C)",
+      btnShadow: "0 16px 30px -12px rgba(245,158,11,0.45), inset 0 1px 0 rgba(255,255,255,0.28)",
+    },
   ];
+  // Starter n'est plus vendu : seul un abonné Starter voit encore sa carte.
+  const PLANS = ALL_PLANS.filter((p) => p.id !== "starter" || currentPlan === "starter");
 
   function openPromo(plan: PaidPlan) {
     setPromoFor(plan);
@@ -309,6 +341,8 @@ export default function UpgradePlanModal({
       ? t("dashboard.plans.chooseStarter")
       : id === "solo"
       ? t("dashboard.plans.chooseSolo")
+      : id === "agency"
+      ? t("dashboard.plans.chooseAgency")
       : t("dashboard.plans.choosePro");
   }
 
@@ -477,7 +511,7 @@ export default function UpgradePlanModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className={`grid grid-cols-1 gap-6 ${PLANS.length > 3 ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-3"}`}>
           {PLANS.map((p) => (
             <div
               key={p.id}

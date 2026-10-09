@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getServerT } from "@/lib/i18n/server";
-import { getPlanLimits } from "./plans";
+import { getPlanLimits, hasProFeatures } from "./plans";
 import { consommerCredit, etatCredits, planEligibleAuxCredits, rendreCredit } from "./trial-credits";
 
 export type UsageType = "images" | "videos" | "ai_signatures";
@@ -118,8 +118,9 @@ export async function effectivePlanForUser(userId: string): Promise<string | nul
        3 invités offrait à son équipe QUATRE fois le quota Solo sur un seul
        abonnement — rien ne retirait les invités à la rétrogradation.
        L'invité d'un hôte non-Pro retombe donc sur le plan gratuit, comme il le
-       fait déjà quand l'hôte est en défaut de paiement (juste en dessous). */
-    effectivePlan = hostPlan === "pro" ? "pro" : "free";
+       fait déjà quand l'hôte est en défaut de paiement (juste en dessous).
+       Agence = Pro + sièges : l'invité d'une agence hérite du plan Agence. */
+    effectivePlan = hasProFeatures(hostPlan) ? hostPlan : "free";
     if (h?.payment_overdue === true) overdue = true;
   }
   if (!effectivePlan) effectivePlan = profile.has_paid ? "pro" : "free";
@@ -136,8 +137,8 @@ async function resolveQuotaContext(
   const effectivePlan = await effectivePlanForUser(userId);
   if (!effectivePlan) return null;
 
-  if (effectivePlan === "pro") {
-    return { plan: "pro", limit: Infinity, current: 0 };
+  if (hasProFeatures(effectivePlan)) {
+    return { plan: effectivePlan, limit: Infinity, current: 0 };
   }
 
   const planLimits = getPlanLimits(effectivePlan);

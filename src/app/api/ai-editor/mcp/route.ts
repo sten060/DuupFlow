@@ -11,7 +11,7 @@
 // user la réf analysée (keyframes EN IMAGES → il les VOIT) + la matière.
 
 import { authenticateApiRequest } from "@/lib/api-auth";
-import { TOOLS, callTool } from "@/lib/ai-editor/mcp-tools";
+import { toolsForUser, callTool, promptsForUser, getPromptForUser } from "@/lib/ai-editor/mcp-tools";
 import { bearerFrom, oauthUserId, wwwAuthenticate } from "@/lib/ai-editor/oauth";
 
 export const dynamic = "force-dynamic";
@@ -84,8 +84,14 @@ export async function POST(req: Request) {
       const clientProto = typeof msg.params?.protocolVersion === "string" ? (msg.params.protocolVersion as string) : DEFAULT_PROTOCOL;
       return rpcResult(msg.id, {
         protocolVersion: clientProto,
-        capabilities: { tools: { listChanged: false } },
+        // prompts : un prompt « Travailler pour <créateur> » par créateur accessible.
+        capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } },
         serverInfo: SERVER_INFO,
+        instructions:
+          "DuupFlow Éditeur IA. Si le compte gère plusieurs créateurs (workspaces), appelle d'abord list_creators, demande au user pour lequel il travaille, puis passe ce nom en argument creator à chaque outil (garde-le pour toute la conversation). " +
+          "Le BRIEF du créateur (style de captions, ton, langue, hooks, choses à éviter) arrive en tête de get_reference et list_material : applique-le à chaque variante sans que le user ait à le répéter. " +
+          "Quand le user donne une consigne DURABLE pour un créateur (« retiens que… », « à partir de maintenant… »), enregistre-la avec save_creator_brief pour qu'elle serve à toute l'équipe. " +
+          "Tu peux AJOUTER toi-même de la matière avec add_material (fichier ou dossier Google Drive partagé avec DuupFlow, ou lien https direct), et ENVOYER les variantes finies dans le dossier Drive d'export avec export_to_drive (ticket à suivre avec get_drive_export) — puis les ranger avec ton propre connecteur Drive grâce aux driveFileId renvoyés.",
       });
     }
     case "notifications/initialized":
@@ -94,7 +100,16 @@ export async function POST(req: Request) {
     case "ping":
       return rpcResult(msg.id, {});
     case "tools/list":
-      return rpcResult(msg.id, { tools: TOOLS });
+      // Par user : un compte à workspaces reçoit l'argument `creator` + list_creators.
+      return rpcResult(msg.id, { tools: await toolsForUser(userId) });
+    case "prompts/list":
+      return rpcResult(msg.id, { prompts: await promptsForUser(userId) });
+    case "prompts/get": {
+      const pname = String(msg.params?.name || "");
+      const prompt = await getPromptForUser(userId, pname);
+      if (!prompt) return rpcError(msg.id, -32602, `Prompt inconnu ou non accessible : ${pname}`);
+      return rpcResult(msg.id, prompt);
+    }
     case "tools/call": {
       const name = String(msg.params?.name || "");
       const args = (msg.params?.arguments ?? {}) as Record<string, unknown>;

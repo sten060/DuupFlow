@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getPlanLimits } from "@/lib/plans";
+import { getPlanLimits, hasProFeatures, PLAN_LABELS, type PlanType } from "@/lib/plans";
 import { useTranslation } from "@/lib/i18n/context";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import TokensPanel from "./TokensPanel";
@@ -98,7 +98,7 @@ export default function AbonnementClient({
   billingInterval,
   trialCredits,
 }: {
-  plan: "free" | "starter" | "solo" | "pro" | null;
+  plan: PlanType | null;
   usage: { images: number; videos: number; ai_signatures: number } | null;
   hasStripePortal: boolean;
   subscriptionPeriodStart: string | null;
@@ -142,7 +142,7 @@ export default function AbonnementClient({
   const daysLeft = currentPeriodEnd != null
     ? getDaysUntilUnix(currentPeriodEnd)
     : getDaysUntilRenewal(subscriptionPeriodStart);
-  const isUnlimited = plan === "pro";
+  const isUnlimited = hasProFeatures(plan);
   const isFree = plan === "free" || plan === null;
 
   // Auto-open the plan picker when arriving with ?upgrade=1 (e.g. from the API
@@ -167,8 +167,9 @@ export default function AbonnementClient({
     starter: { color: "#C4B5FD", bg: "rgba(196,181,253,0.12)", border: "rgba(196,181,253,0.28)", label: "Starter", price: "19 € / mois" },
     solo:    { color: "#A78BFA", bg: "rgba(167,139,250,0.10)", border: "rgba(167,139,250,0.22)", label: "Solo",    price: "39 € / mois" },
     pro:     { color: "#818CF8", bg: "rgba(99,102,241,0.10)",  border: "rgba(99,102,241,0.22)",  label: "Pro",     price: "99 € / mois" },
+    agency:  { color: "#F59E0B", bg: "rgba(245,158,11,0.10)",  border: "rgba(245,158,11,0.24)",  label: t("dashboard.plans.agencyLabel"), price: "249 € / mois" },
   } as const;
-  const meta = planMeta[(plan ?? "free") as "free" | "starter" | "solo" | "pro"];
+  const meta = planMeta[plan ?? "free"];
   const { color: planColor, bg: planBg, border: planBorder } = meta;
 
   // Quotas to display (Pro shows ∞; Starter/Solo/Free from PLAN_LIMITS)
@@ -196,13 +197,14 @@ export default function AbonnementClient({
   }
 
   /* ── Rétention : plutôt que de partir, descendre d'un cran ──────────────
-     Pro → Solo, Solo → Starter. En dessous de Starter il n'y a plus d'offre
-     payante : on ne propose rien plutôt que de proposer le plan gratuit, qui
-     n'est pas une alternative mais la résiliation avec un autre nom. */
-  const planInferieur = plan === "pro" ? "solo" : plan === "solo" ? "starter" : null;
+     Agence → Pro, Pro → Solo. Starter n'étant plus vendu, Solo n'a plus de
+     palier payant en dessous : on ne propose rien plutôt que de proposer le
+     plan gratuit, qui n'est pas une alternative mais la résiliation avec un
+     autre nom. */
+  const planInferieur = plan === "agency" ? "pro" : plan === "pro" ? "solo" : null;
   const PRIX_MOIS: Record<string, { monthly: number; yearly: number }> = {
-    starter: { monthly: 19, yearly: 13 },
     solo: { monthly: 39, yearly: 28 },
+    pro: { monthly: 99, yearly: 70 },
   };
   const [retentionLoading, setRetentionLoading] = useState(false);
 
@@ -769,15 +771,17 @@ export default function AbonnementClient({
                   </span>
                 )}
                 <span className="ml-auto text-[12px] font-bold uppercase tracking-wider text-indigo-400">
-                  {planInferieur === "solo" ? "Solo" : "Starter"}
+                  {PLAN_LABELS[planInferieur]}
                 </span>
               </div>
               <p className="mt-3 text-[13px] leading-relaxed text-[var(--app-text-muted)]">
-                {t("dashboard.subscription.keepQuotas", {
-                  images: getPlanLimits(planInferieur).images,
-                  videos: getPlanLimits(planInferieur).videos,
-                  signatures: getPlanLimits(planInferieur).ai_signatures,
-                })}
+                {hasProFeatures(planInferieur)
+                  ? t("dashboard.subscription.keepUnlimited")
+                  : t("dashboard.subscription.keepQuotas", {
+                      images: getPlanLimits(planInferieur).images,
+                      videos: getPlanLimits(planInferieur).videos,
+                      signatures: getPlanLimits(planInferieur).ai_signatures,
+                    })}
               </p>
             </div>
             <p className="mt-3 text-center text-[12px] text-[var(--app-text-faint)]">
@@ -794,7 +798,7 @@ export default function AbonnementClient({
             >
               {retentionLoading
                 ? t("dashboard.subscription.changingPlan")
-                : t("dashboard.subscription.keepCta", { plan: planInferieur === "solo" ? "Solo" : "Starter" })}
+                : t("dashboard.subscription.keepCta", { plan: PLAN_LABELS[planInferieur] })}
             </button>
             <button
               onClick={() => { setShowRetention(false); setShowCancelStep2(true); }}

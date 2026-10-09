@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { reserveUsage, releaseUsage, logUsageEvent } from "@/lib/usage";
 import { directVariants } from "@/lib/ai-editor/director";
 import { getLatestProject } from "@/lib/ai-editor/store";
+import { editorScopeForUser } from "@/lib/ai-editor/scope";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -21,6 +22,8 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  // Rangement des projets : le créateur actif (workspaces) ou le user — voir scope.ts.
+  const { storeKey: sk } = await editorScopeForUser(user.id, req);
   // Plan gratuit : aucune variante (src/lib/free-plan.ts).
   const locked = await requirePaidPlan(user.id, "ai_editor");
   if (locked) return locked;
@@ -35,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   // À défaut de projectId explicite, on prend le dernier projet du user.
   if (!projectId) {
-    const latest = await getLatestProject(user.id);
+    const latest = await getLatestProject(sk);
     if (!latest) return NextResponse.json({ error: "Aucun projet — analyse d'abord une référence." }, { status: 400 });
     projectId = latest.id;
   }
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: usage.message || "Quota atteint.", quota: true }, { status: 402 });
   }
 
-  const res = await directVariants(user.id, projectId, count);
+  const res = await directVariants(sk, projectId, count);
   if ("error" in res) {
     await releaseUsage(user.id, "videos", count, usage.trialCredit).catch(() => {});
     return NextResponse.json({ error: res.error }, { status: 422 });

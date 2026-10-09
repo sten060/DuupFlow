@@ -8,7 +8,9 @@ import { Suspense } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import { getFpTid } from "@/lib/firstpromoter";
 
-type Plan = "starter" | "solo" | "pro";
+// Plans en vente. Starter (19 €) n'est plus proposé : un vieux lien
+// ?plan=starter retombe sur Solo (même règle que /api/stripe/checkout).
+type Plan = "solo" | "pro" | "agency";
 
 // SOLO_FEATURES and PRO_FEATURES moved inside component to use t()
 
@@ -116,20 +118,13 @@ function CheckoutContent() {
   const planParam = searchParams.get("plan");
   // Intervalle choisi sur la page pricing, transmis de bout en bout.
   const yearlyBilling = searchParams.get("billing") === "yearly";
-  const defaultPlan: Plan = planParam === "solo" ? "solo" : planParam === "starter" ? "starter" : "pro";
+  const defaultPlan: Plan =
+    planParam === "solo" || planParam === "starter" ? "solo" : planParam === "agency" ? "agency" : "pro";
   // When the user reaches /checkout with an explicit ?plan= (i.e. straight
   // out of onboarding, plan already chosen on the pricing page) we skip the
   // re-selection screen and fire the Stripe redirect immediately.
-  const skipSelection = planParam === "starter" || planParam === "solo" || planParam === "pro";
+  const skipSelection = planParam === "starter" || planParam === "solo" || planParam === "pro" || planParam === "agency";
   const { t, locale } = useTranslation();
-
-  const STARTER_FEATURES = [
-    t("tarifs.starterFeature1"),
-    t("tarifs.starterFeature2"),
-    t("tarifs.starterFeature3"),
-    t("tarifs.soloFeature8"),
-    t("tarifs.featExport1080"),
-  ];
 
   const SOLO_FEATURES = [
     t("tarifs.soloFeature1"),
@@ -147,6 +142,18 @@ function CheckoutContent() {
     t("tarifs.proFeature4"),
     t("tarifs.proFeature6"),
     t("tarifs.proFeature7"),
+    t("tarifs.featWorkspacesPro"),
+    t("tarifs.featRoles"),
+    t("tarifs.proFeature9"),
+  ];
+
+  const AGENCY_FEATURES = [
+    t("tarifs.agencyFeature1"),
+    t("tarifs.agencyFeature2"),
+    t("tarifs.featWorkspacesAgency"),
+    t("tarifs.featRoles"),
+    t("tarifs.featAdminView"),
+    t("tarifs.proFeature4"),
     t("tarifs.proFeature9"),
   ];
 
@@ -254,9 +261,10 @@ function CheckoutContent() {
   }
 
   const basePrice = yearlyBilling
-    ? selectedPlan === "starter" ? "13€" : selectedPlan === "solo" ? "28€" : "70€"
-    : selectedPlan === "starter" ? "19€" : selectedPlan === "solo" ? "39€" : "99€";
-  const discountedPrice = selectedPlan === "starter" ? "14€" : selectedPlan === "solo" ? "29€" : "89€";
+    ? selectedPlan === "agency" ? "176€" : selectedPlan === "solo" ? "28€" : "70€"
+    : selectedPlan === "agency" ? "249€" : selectedPlan === "solo" ? "39€" : "99€";
+  // Agence : pas de montant promo affiché — Stripe applique la remise réelle.
+  const discountedPrice = selectedPlan === "agency" ? basePrice : selectedPlan === "solo" ? "29€" : "89€";
   // Les montants promo affichés (14/29/89€) sont calés sur le MENSUEL — en
   // annuel on affiche le prix annuel plein, Stripe applique la remise réelle.
   const price = promoState === "valid" && !yearlyBilling ? discountedPrice : basePrice;
@@ -281,7 +289,7 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="w-full max-w-2xl relative">
+    <div className="w-full max-w-3xl relative">
       {/* Logo */}
       <div className="text-center mb-10">
         <Link href="/">
@@ -322,17 +330,6 @@ function CheckoutContent() {
         {/* Plan cards */}
         <div className="flex flex-col sm:flex-row gap-4 mb-7">
           <PlanCard
-            name="Starter"
-            price="19€"
-            features={STARTER_FEATURES}
-            selected={selectedPlan === "starter"}
-            onSelect={() => setSelectedPlan("starter")}
-            accentColor="#C4B5FD"
-            accentBg="rgba(196,181,253,0.14)"
-            gradientFrom="#9F7AEA"
-            gradientTo="#7C3AED"
-          />
-          <PlanCard
             name="Solo"
             price="39€"
             features={SOLO_FEATURES}
@@ -354,6 +351,17 @@ function CheckoutContent() {
             accentBg="rgba(56,189,248,0.12)"
             gradientFrom="#6366F1"
             gradientTo="#38BDF8"
+          />
+          <PlanCard
+            name={t("checkout.planAgency")}
+            price="249€"
+            features={AGENCY_FEATURES}
+            selected={selectedPlan === "agency"}
+            onSelect={() => setSelectedPlan("agency")}
+            accentColor="#F59E0B"
+            accentBg="rgba(245,158,11,0.12)"
+            gradientFrom="#F59E0B"
+            gradientTo="#EA580C"
           />
         </div>
 
@@ -414,8 +422,8 @@ function CheckoutContent() {
           className="w-full rounded-xl py-3.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
           style={{
             background:
-              selectedPlan === "starter"
-                ? "linear-gradient(135deg,#9F7AEA,#7C3AED)"
+              selectedPlan === "agency"
+                ? "linear-gradient(135deg,#F59E0B,#EA580C)"
                 : selectedPlan === "solo"
                 ? "linear-gradient(135deg,#7C3AED,#6366F1)"
                 : "linear-gradient(135deg,#6366F1,#38BDF8)",
@@ -425,7 +433,7 @@ function CheckoutContent() {
             ? t("checkout.redirecting")
             : promoState === "valid"
             ? t("checkout.subscribePromo", { basePrice, discountedPrice })
-            : t("checkout.subscribe", { plan: selectedPlan === "starter" ? t("checkout.planStarter") : selectedPlan === "solo" ? t("checkout.planSolo") : t("checkout.planPro"), price })}
+            : t("checkout.subscribe", { plan: selectedPlan === "agency" ? t("checkout.planAgency") : selectedPlan === "solo" ? t("checkout.planSolo") : t("checkout.planPro"), price })}
         </button>
 
         <p className="text-center text-xs text-white/25 mt-4">

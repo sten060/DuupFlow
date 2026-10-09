@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { clearVideosSimpleAction, clearVideosAdvancedAction } from "./actions";
 import { useTranslation } from "@/lib/i18n/context";
 import DriveSaveButton from "../components/DriveSaveButton";
+import { useCreatorSwitch } from "../components/WorkspaceSwitcher";
+import { listOutVideosSimple, listOutVideosAdvanced } from "./actions";
 
 type Channel = "simple" | "advanced";
 
@@ -24,6 +26,13 @@ export default function VideoFilesClient({
   const [files, setFiles] = useState<string[]>(initialFiles);
   const [clearing, setClearing] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Changement de créateur : ses vidéos à lui (toutes en vue admin), sans recharger la page.
+  useCreatorSwitch(() => {
+    void (channel === "simple" ? listOutVideosSimple() : listOutVideosAdvanced())
+      .then((list) => { setFiles(list); setSelected(new Set()); })
+      .catch(() => {});
+  });
 
   // Sync displayed list when server component re-fetches (after duplication or clear)
   useEffect(() => {

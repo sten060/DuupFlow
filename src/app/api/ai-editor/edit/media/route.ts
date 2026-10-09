@@ -13,6 +13,7 @@ import path from "path";
 import { createClient } from "@/lib/supabase/server";
 import { getProject, materialAbsPath } from "@/lib/ai-editor/store";
 import { existingViewingProxy } from "@/lib/ai-editor/render";
+import { editorScopeForUser } from "@/lib/ai-editor/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -30,16 +31,18 @@ export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  // Rangement des projets : le créateur actif (workspaces) ou le user — voir scope.ts.
+  const { storeKey: sk } = await editorScopeForUser(user.id, req);
 
   const projectId = req.nextUrl.searchParams.get("projectId") || "";
   const materialId = req.nextUrl.searchParams.get("materialId") || "";
   if (!projectId || !materialId) return NextResponse.json({ error: "Paramètres manquants." }, { status: 400 });
 
-  const project = await getProject(user.id, projectId);
+  const project = await getProject(sk, projectId);
   const material = project?.materials.find((m) => m.id === materialId);
   if (!material) return NextResponse.json({ error: "Matière introuvable." }, { status: 404 });
 
-  const original = materialAbsPath(user.id, projectId, material.storedName);
+  const original = materialAbsPath(sk, projectId, material.storedName);
   // Garde path-traversal (storedName vient du store, mais on verrouille quand même).
   const materialDir = path.dirname(original);
   if (!path.resolve(original).startsWith(path.resolve(materialDir))) {

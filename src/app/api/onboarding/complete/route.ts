@@ -5,6 +5,7 @@ import { moveToFreeUser } from "@/lib/brevo";
 import { creditWelcomeTokens } from "@/lib/tokens-server";
 import { getServerT } from "@/lib/i18n/server";
 import { isCompProEmail } from "@/lib/comp-pro";
+import { isSellablePlan } from "@/lib/plans";
 
 // Whitelists — keep DB writes constrained to known values even if a future
 // front-end change ships a new option without updating the API.
@@ -37,7 +38,8 @@ export async function POST(req: NextRequest) {
   // until it's paid (see the dashboard-layout paywall). No plan = a FREE
   // account (landing "Commencer" button): full access to explore the app, but
   // every production action is locked behind a plan (src/lib/free-plan.ts).
-  const pendingPlan = selectedPlan === "starter" || selectedPlan === "solo" || selectedPlan === "pro" ? selectedPlan : null;
+  // Starter n'est plus vendu : un vieux choix "starter" devient Solo.
+  const pendingPlan = isSellablePlan(selectedPlan) ? selectedPlan : selectedPlan === "starter" ? "solo" : null;
 
   // Sanitize platforms[] — must be a non-empty array of known slugs.
   const cleanPlatforms = Array.isArray(platforms)

@@ -9,6 +9,7 @@ import { flushAcquisition } from "@/lib/acquisition";
 import { getFpTid } from "@/lib/firstpromoter";
 import AuthBrandPanel from "@/components/AuthBrandPanel";
 import { Brand } from "@/components/landing/shell";
+import { isPaidPlan } from "@/lib/plans";
 
 // Multi-step wizard for first-time signup — mirrors the register screen layout
 // (form on the left, brand panel on the right).
@@ -65,7 +66,7 @@ function OnboardingForm() {
   // Otherwise it's a FREE signup: no promo/payment step, straight to the app.
   const planParam = searchParams.get("plan");
   const [paidSignup, setPaidSignup] = useState(
-    cancelled || planParam === "starter" || planParam === "solo" || planParam === "pro",
+    cancelled || isPaidPlan(planParam),
   );
 
   const TOTAL_STEPS = isGuest ? 1 : paidSignup ? 4 : 3;
@@ -107,7 +108,7 @@ function OnboardingForm() {
     // Critical when a magic link is opened in another browser: localStorage was
     // empty there, so without this the paywall was silently skipped.
     const p = searchParams.get("plan");
-    if (p === "starter" || p === "solo" || p === "pro") {
+    if (isPaidPlan(p)) {
       localStorage.setItem("duupflow_selected_plan", p);
       // L'intervalle (annuel/mensuel) voyage avec le plan dans l'URL d'auth.
       if (searchParams.get("billing") === "yearly") {
@@ -117,7 +118,7 @@ function OnboardingForm() {
       // No plan in the URL: a plan stored by /register?plan= (same browser)
       // still makes it a paid signup; otherwise it's a free account.
       const stored = localStorage.getItem("duupflow_selected_plan");
-      if (stored === "starter" || stored === "solo" || stored === "pro") setPaidSignup(true);
+      if (isPaidPlan(stored)) setPaidSignup(true);
     }
   }, []);
 

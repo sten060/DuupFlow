@@ -4,7 +4,7 @@
 import path from "path";
 import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
-import { getOutDirForCurrentUser, getOutDirForCurrentUserRSC } from "@/app/dashboard/utils";
+import { getOutDirsForListing, canDeleteOutputs } from "@/app/dashboard/utils";
 
 // Compressed outputs all carry this prefix so they never leak into the
 // Images / Videos libraries (and vice-versa).
@@ -20,21 +20,24 @@ export type CompressedFile = { url: string; name: string; outBytes?: number };
 /** List the current user's compressed outputs (RSC). */
 export async function listCompressed(): Promise<CompressedFile[]> {
   try {
-    const { dir, userId } = await getOutDirForCurrentUserRSC();
-    const names = await fs.readdir(dir);
-    const finals = names.filter(
-      (n) =>
-        n.startsWith(OUT_PREFIX) &&
-        !n.endsWith(".part") &&
-        !n.startsWith("__progress_") &&
-        ALL_EXTS.includes(extOf(n)),
-    );
-    // Size is needed client-side to pick ZIP vs one-by-one download (heavy files).
-    return Promise.all(finals.map(async (n) => ({
-      url: `/api/out/${userId}/${encodeURIComponent(path.basename(n))}`,
-      name: path.basename(n),
-      outBytes: await fs.stat(path.join(dir, n)).then((st) => st.size).catch(() => undefined),
-    })));
+    const dirs = await getOutDirsForListing();
+    const lists = await Promise.all(dirs.map(async ({ dir, userId }) => {
+      const names = await fs.readdir(dir).catch(() => [] as string[]);
+      const finals = names.filter(
+        (n) =>
+          n.startsWith(OUT_PREFIX) &&
+          !n.endsWith(".part") &&
+          !n.startsWith("__progress_") &&
+          ALL_EXTS.includes(extOf(n)),
+      );
+      // Size is needed client-side to pick ZIP vs one-by-one download (heavy files).
+      return Promise.all(finals.map(async (n) => ({
+        url: `/api/out/${userId}/${encodeURIComponent(path.basename(n))}`,
+        name: path.basename(n),
+        outBytes: await fs.stat(path.join(dir, n)).then((st) => st.size).catch(() => undefined),
+      })));
+    }));
+    return lists.flat();
   } catch {
     return [];
   }
@@ -43,14 +46,16 @@ export async function listCompressed(): Promise<CompressedFile[]> {
 /** Delete every compressed output for the current user. */
 export async function clearCompressed() {
   "use server";
+  if (!(await canDeleteOutputs())) return { ok: false }; // rôle VA : ne supprime rien
   try {
-    const { dir } = await getOutDirForCurrentUser();
-    const names = await fs.readdir(dir, { withFileTypes: true });
-    const toDelete = names
-      .filter((d) => d.isFile())
-      .map((d) => d.name)
-      .filter((n) => n.startsWith(OUT_PREFIX));
-    await Promise.all(toDelete.map((n) => fs.unlink(path.join(dir, n)).catch(() => {})));
+    for (const { dir } of await getOutDirsForListing()) {
+      const names = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+      const toDelete = names
+        .filter((d) => d.isFile())
+        .map((d) => d.name)
+        .filter((n) => n.startsWith(OUT_PREFIX));
+      await Promise.all(toDelete.map((n) => fs.unlink(path.join(dir, n)).catch(() => {})));
+    }
   } catch {}
   revalidatePath("/dashboard/compress");
   return { ok: true };

@@ -12,6 +12,7 @@ import DriveSaveButton from "../components/DriveSaveButton";
 import DocsDrawer from "../components/DocsDrawer";
 import { buildCompressDocs } from "../components/docs-content";
 import { usePlanGate } from "../components/PlanGate";
+import { useCreatorSwitch } from "../components/WorkspaceSwitcher";
 
 // Batch limits (30 files, 10 GB) — re-checked server-side by /api/compress-sse.
 const MAX_FILES = COMPRESS_MAX_FILES;
@@ -224,6 +225,8 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
   }, []);
 
   const [persistedFiles, setPersistedFiles] = useState<ReadyFile[]>(() => initialFiles);
+  // Changement de créateur : ses fichiers à lui (tous en vue admin), sans recharger la page.
+  useCreatorSwitch(() => { void listCompressed().then((f) => setPersistedFiles(f)).catch(() => {}); });
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
 
   const inputRef = useRef<HTMLInputElement | null>(null);

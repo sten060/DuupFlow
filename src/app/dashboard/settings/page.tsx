@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import SettingsClient from "./SettingsClient";
 import { redirect } from "next/navigation";
 import { teamInviteLimitFor } from "@/lib/team-invite-limit";
+import { hasProFeatures, type PaidPlan } from "@/lib/plans";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -21,9 +22,9 @@ export default async function SettingsPage() {
     .single();
 
   const isGuest = profile?.is_guest ?? false;
-  const plan = (profile?.plan as "starter" | "solo" | "pro" | null) ?? null;
+  const plan = (profile?.plan as PaidPlan | null) ?? null;
 
-  // Load invitations (only for Pro hosts)
+  // Load invitations (only for Pro / Agence hosts)
   let invitations: {
     id: string;
     guest_email: string;
@@ -31,7 +32,7 @@ export default async function SettingsPage() {
     guest_name?: string;
   }[] = [];
 
-  if (!isGuest && plan === "pro" && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!isGuest && hasProFeatures(plan) && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const { data: invs } = await admin
       .from("team_invitations")
       .select("id, guest_email, status, guest_user_id")
@@ -64,7 +65,7 @@ export default async function SettingsPage() {
       plan={plan}
       invitations={invitations}
       userEmail={user.email}
-      inviteLimit={teamInviteLimitFor(user.email)}
+      inviteLimit={teamInviteLimitFor(user.email, plan)}
     />
   );
 }

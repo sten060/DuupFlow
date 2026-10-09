@@ -9,6 +9,7 @@ import { validateApiKey } from "@/lib/api-keys";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/api-rate-limit";
 import type { PlanType } from "@/lib/plans";
+import { hasProFeatures, isPaidPlan } from "@/lib/plans";
 
 // Per-key request cap. Deliberately generous (users run batch automations that
 // burst). The real resource protection is the serial video worker (one ffmpeg at
@@ -67,7 +68,7 @@ export async function resolveEffectivePlan(userId: string): Promise<PlanType> {
     // Même règle que usage.ts : seul un hôte Pro transmet son plan. Un hôte
     // redescendu en Solo ne peut plus faire profiter ses invités de l'API.
     const hostPlan = h?.plan ?? (h?.has_paid ? "pro" : "free");
-    plan = hostPlan === "pro" ? "pro" : "free";
+    plan = hasProFeatures(hostPlan) ? hostPlan : "free";
     if (h?.payment_overdue === true) overdue = true;
   }
   if (!plan) plan = p.has_paid ? "pro" : "free";
@@ -75,7 +76,7 @@ export async function resolveEffectivePlan(userId: string): Promise<PlanType> {
   // since the API is Pro-only, revokes API access — even if the plan flip to
   // Free hasn't propagated yet (missed webhook, ordering race).
   if (overdue) return "free";
-  return plan === "pro" || plan === "solo" || plan === "starter" ? plan : "free";
+  return isPaidPlan(plan) ? plan : "free";
 }
 
 /**
@@ -107,7 +108,7 @@ export async function authenticateApiRequest(req: Request): Promise<ApiAuthResul
   }
 
   const plan = await resolveEffectivePlan(valid.userId);
-  if (plan !== "pro") {
+  if (!hasProFeatures(plan)) {
     return { ok: false, response: apiError(403, "plan_required", "The DuupFlow API requires a Pro plan.") };
   }
 

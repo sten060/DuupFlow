@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect";
 import os from "os";
-import { getOutDirForCurrentUser, getOutDirForCurrentUserRSC } from "./utils";
+import { getOutDirForCurrentUser, getOutDirForCurrentUserRSC, getOutDirsForListing, canDeleteOutputs } from "./utils";
 import type { OverlayOptions } from "sharp";
 
 // --- exposer userId à la page vidéos (RSC) ---
@@ -521,6 +521,8 @@ pipeline = pipeline.composite([overlay]).removeAlpha();
 export async function clearOut(formData?: FormData) {
   "use server";
 
+  if (!(await canDeleteOutputs())) return; // rôle VA : ne supprime rien
+
   const raw = formData?.get("scope");
   const scope =
     raw === "images" || raw === "videos" ? (raw as "images" | "videos") : undefined;
@@ -543,17 +545,15 @@ export async function clearOut(formData?: FormData) {
 
 export async function listOut(): Promise<string[]> {
   try {
-    const { dir, userId } = await getOutDirForCurrentUserRSC();
-    const names = await fs.readdir(dir);
-    const finals = names.filter(
-      (n) =>
-        !n.startsWith(".") &&
-        !n.startsWith("__in__") &&
-        !n.endsWith(".part") &&
-        !n.startsWith("__progress_")
-    );
-
-    return finals.map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
+    // Vue admin : tous les créateurs ; sinon un seul dossier (celui du créateur affiché).
+    const dirs = await getOutDirsForListing();
+    const lists = await Promise.all(dirs.map(async ({ dir, userId }) => {
+      const names = await fs.readdir(dir).catch(() => [] as string[]);
+      return names
+        .filter((n) => !n.startsWith(".") && !n.startsWith("__in__") && !n.endsWith(".part") && !n.startsWith("__progress_"))
+        .map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
+    }));
+    return lists.flat();
   } catch {
     return [];
   }
@@ -569,19 +569,21 @@ function extOf(name: string) {
 }
 
 export async function listOutImages(): Promise<string[]> {
-  const { dir, userId } = await getOutDirForCurrentUserRSC();
-  const names = await fs.readdir(dir).catch(() => [] as string[]);
-  return names
-    .filter((n) => IMAGE_EXTS.includes(extOf(n)))
-    .map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
+  const dirs = await getOutDirsForListing();
+  const lists = await Promise.all(dirs.map(async ({ dir, userId }) =>
+    (await fs.readdir(dir).catch(() => [] as string[]))
+      .filter((n) => IMAGE_EXTS.includes(extOf(n)))
+      .map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`)));
+  return lists.flat();
 }
 
 export async function listOutVideos(): Promise<string[]> {
-  const { dir, userId } = await getOutDirForCurrentUserRSC();
-  const names = await fs.readdir(dir).catch(() => [] as string[]);
-  return names
-    .filter((n) => VIDEO_EXTS.includes(extOf(n)))
-    .map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
+  const dirs = await getOutDirsForListing();
+  const lists = await Promise.all(dirs.map(async ({ dir, userId }) =>
+    (await fs.readdir(dir).catch(() => [] as string[]))
+      .filter((n) => VIDEO_EXTS.includes(extOf(n)))
+      .map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`)));
+  return lists.flat();
 }
 
 /* ---------- Duplication (vidéo + image) : supprimée d'ici ----------

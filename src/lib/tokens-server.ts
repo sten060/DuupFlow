@@ -233,8 +233,10 @@ export async function recordTransaction(opts: {
  */
 export async function creditWelcomeTokens(
   userId: string,
-  plan: "free" | "starter" | "solo" | "pro",
+  planIn: "free" | "starter" | "solo" | "pro" | "agency",
 ): Promise<{ credited: boolean; balanceCents: number }> {
+  // Agence = mêmes avantages que Pro (tarif image, bonus) → même ligne de ledger.
+  const plan = planIn === "agency" ? "pro" : planIn;
   const reason = `welcome_${plan}` as const;
   const admin = createAdminClient();
 

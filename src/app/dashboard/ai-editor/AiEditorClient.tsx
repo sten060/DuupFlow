@@ -14,6 +14,7 @@ import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
 import DriveSaveButton from "../components/DriveSaveButton";
 import ManualEditor from "./ManualEditor";
 import { cleanFileName } from "@/lib/ai-editor/file-name";
+import { getCurrentWorkspaceId, wsParam } from "../components/WorkspaceSwitcher";
 
 const BRAND = "linear-gradient(135deg,#6366F1,#38BDF8)";
 
@@ -144,6 +145,9 @@ function envoyerAvecProgression(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
+    // Créateur affiché (workspaces) : même règle que les requêtes fetch.
+    const ws = getCurrentWorkspaceId();
+    if (ws) xhr.setRequestHeader("x-duup-ws", ws);
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress((e.loaded / e.total) * 100); };
     xhr.onload = () => {
       let json: Record<string, unknown> | null = null;
@@ -455,7 +459,7 @@ export default function AiEditorClient() {
   const downloadSelectedZip = () => {
     if (!projectId || !selIds.length) return;
     const a = document.createElement("a");
-    a.href = `/api/ai-editor/variant/zip?projectId=${encodeURIComponent(projectId)}&ids=${selIds.join(",")}`;
+    a.href = `/api/ai-editor/variant/zip?projectId=${encodeURIComponent(projectId)}&ids=${selIds.join(",")}${wsParam()}`;
     document.body.appendChild(a); a.click(); a.remove();
   };
 
@@ -514,7 +518,7 @@ export default function AiEditorClient() {
     return () => clearInterval(t);
   }, [step, refreshProject]);
 
-  const variantUrl = (id: string, dl = false) => `/api/ai-editor/variant?projectId=${projectId}&id=${id}${dl ? "&dl=1" : ""}`;
+  const variantUrl = (id: string, dl = false) => `/api/ai-editor/variant?projectId=${projectId}&id=${id}${dl ? "&dl=1" : ""}${wsParam()}`;
   // URL du connecteur MCP — résolue côté client seulement (évite le mismatch
   // d'hydratation : le serveur ne connaît pas window.location.origin).
   const [mcpUrl, setMcpUrl] = useState("/api/ai-editor/mcp");

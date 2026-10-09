@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AiEditorClient from "./AiEditorClient";
+import { WorkspaceKeyed } from "../components/WorkspaceSwitcher";
 import AiEditorComingSoon from "./AiEditorComingSoon";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export default async function AiEditorPage() {
   const allowlist = (process.env.AI_EDITOR_ALLOWLIST || "")
     .split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
   const previewer = !!email && allowlist.includes(email);
-  if (previewer) return <AiEditorClient />; // accès privé (toi + testeurs), hors gates
+  if (previewer) return <WorkspaceKeyed><AiEditorClient /></WorkspaceKeyed>; // accès privé (toi + testeurs), hors gates
 
   if (process.env.AI_EDITOR_LIVE !== "1") return <AiEditorComingSoon />;
 
@@ -30,5 +31,5 @@ export default async function AiEditorPage() {
   // « vidéos » : Starter 100/mois, Solo 300/mois, Pro illimité) ; le plan gratuit
   // explore le module, et chaque création de variante lui répond qu'il faut un
   // plan (routes generate/edit, outils MCP create_variant/update_variant).
-  return <AiEditorClient />;
+  return <WorkspaceKeyed><AiEditorClient /></WorkspaceKeyed>;
 }

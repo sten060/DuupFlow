@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveEffectivePlan } from "@/lib/api-auth";
 import { listApiKeys } from "@/lib/api-keys";
 import DevelopersClient from "./DevelopersClient";
+import { hasProFeatures } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -17,7 +18,7 @@ export default async function DevelopersPage() {
   if (!user) redirect("/login");
 
   const plan = await resolveEffectivePlan(user.id);
-  const isPro = plan === "pro";
+  const isPro = hasProFeatures(plan);
   // Only Pro users have keys — never fetch/expose them to non-Pro accounts.
   const initialKeys = isPro ? await listApiKeys(user.id) : [];
 

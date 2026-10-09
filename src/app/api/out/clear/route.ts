@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
-import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
+import { getOutDirsForListing, canDeleteOutputs } from "@/app/dashboard/utils";
 
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
 const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
@@ -20,10 +20,14 @@ export async function POST(req: Request) {
       | "videos";
 
     // This is the SAME directory your listOut*/duplicate* functions use
-    const { dir } = await getOutDirForCurrentUser();
-    await fs.mkdir(dir, { recursive: true });
-
-    const entries = await fs.readdir(dir, { withFileTypes: true });
+    // Rôle VA : il produit et télécharge, mais ne supprime rien.
+    if (!(await canDeleteOutputs())) {
+      return NextResponse.json({ ok: false, error: "Ton rôle (VA) ne permet pas de supprimer." }, { status: 403 });
+    }
+    // Créateur affiché ; vue admin → tous les créateurs.
+    let deleted = 0;
+    for (const { dir } of await getOutDirsForListing()) {
+    const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
 
     const toDelete = entries
       .filter((e) => e.isFile())
@@ -47,8 +51,10 @@ export async function POST(req: Request) {
         fs.unlink(path.join(dir, n)).catch(() => {})
       )
     );
+    deleted += toDelete.length;
+    }
 
-    return NextResponse.json({ ok: true, deleted: toDelete.length });
+    return NextResponse.json({ ok: true, deleted });
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: e?.message || "error" },

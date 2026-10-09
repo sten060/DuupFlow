@@ -12,7 +12,7 @@
 // in the HTML even when the <details> accordion is collapsed, and
 // SoftwareApplication + FAQPage + BreadcrumbList JSON-LD.
 //
-// Prices are the pricing source of truth (Starter 19€ / Solo 39€ / Pro 99€,
+// Prices are the pricing source of truth (Solo 39€ / Pro 99€ / Agency 249€,
 // see src/lib/plans.ts + pricing/page.tsx) and shown in € across all locales.
 
 import Link from "@/components/LocaleLink";
@@ -40,9 +40,9 @@ export const META: Record<Lang, { title: string; description: string }> = {
 };
 
 // Pricing source of truth: src/lib/plans.ts (quotas) + pricing/page.tsx (display).
-const PRICE_STARTER = "19€";
 const PRICE_SOLO = "39€";
 const PRICE_PRO = "99€";
+const PRICE_AGENCY = "249€";
 
 /* ─────────────────────────── Content ─────────────────────────── */
 
@@ -118,7 +118,7 @@ const C: Record<Lang, Content> = {
       h1: "The CapCut alternative for people who don't have time to edit",
       sub: "CapCut doesn't cost you money. It costs you your evenings. DuupFlow takes your raw footage — face cam, screen recordings, screenshots — and returns the finished video. You describe the edit, the AI builds it.",
       cta: "Edit my first video",
-      subCta: `From ${PRICE_STARTER}/month`,
+      subCta: `From ${PRICE_SOLO}/month`,
     },
     why: {
       h2: "Why you're looking for a CapCut alternative",
@@ -224,7 +224,7 @@ const C: Record<Lang, Content> = {
         {
           label: "Price",
           capcut: "Free / 11,99 € / Pro varies",
-          duupflow: "19–99 €/month",
+          duupflow: "39–249 €/month",
         },
       ],
     },
@@ -238,11 +238,11 @@ const C: Record<Lang, Content> = {
     pricing: {
       h2: "Pricing",
       plans: [
-        { name: "Starter", price: `${PRICE_STARTER}/month`, for: "Testing it out, a few videos a month" },
         { name: "Solo", price: `${PRICE_SOLO}/month`, for: "Posting consistently", highlight: true },
         { name: "Pro", price: `${PRICE_PRO}/month`, for: "Volume and multiple accounts" },
+        { name: "Agency", price: `${PRICE_AGENCY}/month`, for: "Agencies managing several creators" },
       ],
-      note: "A freelance editor charges between 40 € and 150 € per short-form video. Starter costs less than a single one.",
+      note: "A freelance editor charges between 40 € and 150 € per short-form video. Solo costs less than a single one.",
       cta: "See full pricing",
     },
     faq: {
@@ -262,7 +262,7 @@ const C: Record<Lang, Content> = {
         },
         {
           q: "How do I remove the CapCut watermark?",
-          a: "You need a paid plan, or you avoid the templates and effects marked Pro. DuupFlow adds no watermark, including on the 19 € plan.",
+          a: "You need a paid plan, or you avoid the templates and effects marked Pro. DuupFlow adds no watermark, including on the cheapest plan.",
         },
         {
           q: "Can I keep my own editing style?",
@@ -304,7 +304,7 @@ const C: Record<Lang, Content> = {
       h1: "L'alternative à CapCut pour ceux qui n'ont pas le temps de monter",
       sub: "CapCut ne te coûte pas d'argent. Il te coûte tes soirées. DuupFlow prend tes rushes — face cam, captures d'écran, screenshots — et te rend la vidéo finie. Tu décris le montage, l'IA le construit.",
       cta: "Monter ma première vidéo",
-      subCta: `À partir de ${PRICE_STARTER}/mois`,
+      subCta: `À partir de ${PRICE_SOLO}/mois`,
     },
     why: {
       h2: "Pourquoi tu cherches une alternative à CapCut",
@@ -410,7 +410,7 @@ const C: Record<Lang, Content> = {
         {
           label: "Prix",
           capcut: "Gratuit / 11,99 € / Pro variable",
-          duupflow: "19–99 €/mois",
+          duupflow: "39–249 €/mois",
         },
       ],
     },
@@ -424,11 +424,11 @@ const C: Record<Lang, Content> = {
     pricing: {
       h2: "Tarifs",
       plans: [
-        { name: "Starter", price: `${PRICE_STARTER}/mois`, for: "Pour tester, quelques vidéos par mois" },
         { name: "Solo", price: `${PRICE_SOLO}/mois`, for: "Pour publier régulièrement", highlight: true },
         { name: "Pro", price: `${PRICE_PRO}/mois`, for: "Volume et comptes multiples" },
+        { name: "Agence", price: `${PRICE_AGENCY}/mois`, for: "Agences qui gèrent plusieurs créateurs" },
       ],
-      note: "Un monteur freelance facture entre 40 € et 150 € la vidéo short-form. Le Starter coûte moins qu'une seule.",
+      note: "Un monteur freelance facture entre 40 € et 150 € la vidéo short-form. Le Solo coûte moins qu'une seule.",
       cta: "Voir tous les tarifs",
     },
     faq: {
@@ -448,7 +448,7 @@ const C: Record<Lang, Content> = {
         },
         {
           q: "Comment enlever le watermark de CapCut ?",
-          a: "Il te faut un plan payant, ou tu évites les templates et effets marqués Pro. DuupFlow n'ajoute aucun watermark, y compris sur le plan à 19 €.",
+          a: "Il te faut un plan payant, ou tu évites les templates et effets marqués Pro. DuupFlow n'ajoute aucun watermark, y compris sur le plan le moins cher.",
         },
         {
           q: "Puis-je garder mon propre style de montage ?",
@@ -560,9 +560,9 @@ export default function CapcutAlternativePage({ lang }: { lang: Lang }) {
           "Multiple variants of the same video",
         ],
     offers: [
-      { "@type": "Offer", name: "Starter", price: "19", priceCurrency: "EUR" },
       { "@type": "Offer", name: "Solo", price: "39", priceCurrency: "EUR" },
       { "@type": "Offer", name: "Pro", price: "99", priceCurrency: "EUR" },
+      { "@type": "Offer", name: "Agency", price: "249", priceCurrency: "EUR" },
     ],
     publisher: {
       "@type": "Organization",
@@ -833,7 +833,7 @@ export default function CapcutAlternativePage({ lang }: { lang: Lang }) {
               <PrimaryCta href="/register" big>
                 {c.final.cta}
               </PrimaryCta>
-              <span className="text-sm text-[#8a8a8a]">{isFr ? `À partir de ${PRICE_STARTER}/mois` : `From ${PRICE_STARTER}/month`}</span>
+              <span className="text-sm text-[#8a8a8a]">{isFr ? `À partir de ${PRICE_SOLO}/mois` : `From ${PRICE_SOLO}/month`}</span>
             </div>
 
             {/* Internal links */}

@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isPaidPlan } from "@/lib/plans";
 
 export async function GET(request: Request) {
   const { searchParams, origin: rawOrigin } = new URL(request.url);
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
   // onboarding so pending_plan gets set and the paywall applies.
   const planParam = searchParams.get("plan");
   const billingQuery = searchParams.get("billing") === "yearly" ? "&billing=yearly" : "";
-  const planQuery = planParam === "starter" || planParam === "solo" || planParam === "pro" ? `?plan=${planParam}${billingQuery}` : "";
+  const planQuery = isPaidPlan(planParam) ? `?plan=${planParam}${billingQuery}` : "";
 
   if (code) {
     const cookieStore = await cookies();

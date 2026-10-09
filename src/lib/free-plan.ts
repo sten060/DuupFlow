@@ -18,6 +18,8 @@
  * Fichier isomorphe (aucun import serveur) : utilisable partout.
  */
 
+import { isPaidPlan } from "@/lib/plans";
+
 export const PLAN_REQUIRED_CODE = "plan_required";
 
 /** Modules verrouillés — la clé choisit le texte de la fenêtre. */
@@ -60,7 +62,7 @@ export function isLockedModule(v: unknown): v is LockedModule {
 
 /** Plan EFFECTIF (invité / impayé déjà résolus) → est-ce le plan gratuit ? */
 export function isFreePlan(plan: string | null | undefined): boolean {
-  return plan !== "starter" && plan !== "solo" && plan !== "pro";
+  return !isPaidPlan(plan);
 }
 
 /** Corps JSON standard d'un refus « plan requis ». */

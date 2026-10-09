@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, planFromPriceId } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToActiveClient, moveToChurned } from "@/lib/brevo";
 import { resetUsage } from "@/lib/usage";
 import { recordTransaction, creditWelcomeTokens } from "@/lib/tokens-server";
-import { planRank } from "@/lib/plans";
+import { planRank, isPaidPlan, type PaidPlan } from "@/lib/plans";
 import Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ async function getUserInfo(
 
 async function markUserPaid(
   userId: string,
-  plan: "starter" | "solo" | "pro",
+  plan: PaidPlan,
   customerId?: string,
   subscriptionId?: string
 ) {
@@ -225,16 +225,8 @@ function getSubscriptionId(invoice: Stripe.Invoice): string | null {
  * Utilisé quand se tromper de plan serait pire que ne rien faire (revert
  * d'un upgrade échoué).
  */
-function strictPlanFromPriceId(priceId: string): "starter" | "solo" | "pro" | null {
-  if (process.env.STRIPE_PRICE_ID_STARTER && priceId === process.env.STRIPE_PRICE_ID_STARTER) return "starter";
-  if (process.env.STRIPE_PRICE_ID_SOLO && priceId === process.env.STRIPE_PRICE_ID_SOLO) return "solo";
-  const proPrice = process.env.STRIPE_PRICE_ID_PRO ?? process.env.STRIPE_PRICE_ID;
-  if (proPrice && priceId === proPrice) return "pro";
-  // Prix annuels — même plan, intervalle différent.
-  if (process.env.STRIPE_PRICE_ID_STARTER_YEARLY && priceId === process.env.STRIPE_PRICE_ID_STARTER_YEARLY) return "starter";
-  if (process.env.STRIPE_PRICE_ID_SOLO_YEARLY && priceId === process.env.STRIPE_PRICE_ID_SOLO_YEARLY) return "solo";
-  if (process.env.STRIPE_PRICE_ID_PRO_YEARLY && priceId === process.env.STRIPE_PRICE_ID_PRO_YEARLY) return "pro";
-  return null;
+function strictPlanFromPriceId(priceId: string): PaidPlan | null {
+  return planFromPriceId(priceId);
 }
 
 /**
@@ -348,18 +340,11 @@ async function revertFailedUpgrade(
   return true;
 }
 
-function resolvePlanFromPriceId(priceId: string, metadataPlan?: string): "starter" | "solo" | "pro" {
-  if (priceId && process.env.STRIPE_PRICE_ID_STARTER && priceId === process.env.STRIPE_PRICE_ID_STARTER) return "starter";
-  if (priceId && priceId === process.env.STRIPE_PRICE_ID_SOLO) return "solo";
-  if (priceId && process.env.STRIPE_PRICE_ID_PRO && priceId === process.env.STRIPE_PRICE_ID_PRO) return "pro";
-  // Prix annuels — même plan, intervalle différent.
-  if (priceId && process.env.STRIPE_PRICE_ID_STARTER_YEARLY && priceId === process.env.STRIPE_PRICE_ID_STARTER_YEARLY) return "starter";
-  if (priceId && priceId === process.env.STRIPE_PRICE_ID_SOLO_YEARLY) return "solo";
-  if (priceId && process.env.STRIPE_PRICE_ID_PRO_YEARLY && priceId === process.env.STRIPE_PRICE_ID_PRO_YEARLY) return "pro";
+function resolvePlanFromPriceId(priceId: string, metadataPlan?: string): PaidPlan {
+  const fromPrice = planFromPriceId(priceId);
+  if (fromPrice) return fromPrice;
   // Fallback: use subscription metadata plan field (set at checkout time)
-  if (metadataPlan === "starter") return "starter";
-  if (metadataPlan === "solo") return "solo";
-  if (metadataPlan === "pro") return "pro";
+  if (isPaidPlan(metadataPlan)) return metadataPlan;
   return "pro";
 }
 

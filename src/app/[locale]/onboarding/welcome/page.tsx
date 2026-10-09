@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/context";
 import { createClient } from "@/lib/supabase/client";
+import { isPaidPlan } from "@/lib/plans";
 
 function WelcomeInner() {
   const router = useRouter();
@@ -45,7 +46,7 @@ function WelcomeInner() {
     const plan = localStorage.getItem("duupflow_selected_plan") ?? params.get("plan");
     const billing = localStorage.getItem("duupflow_selected_billing") ?? params.get("billing");
     const dest =
-      !isGuest && (plan === "starter" || plan === "solo" || plan === "pro")
+      !isGuest && isPaidPlan(plan)
         ? `/checkout?plan=${plan}${billing === "yearly" ? "&billing=yearly" : ""}`
         : "/dashboard";
     localStorage.removeItem("duupflow_selected_plan");

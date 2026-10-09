@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToActiveClient } from "@/lib/brevo";
 import { getServerT } from "@/lib/i18n/server";
+import { isPaidPlan, type PaidPlan } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Paiement confirmé — extraire les IDs Stripe depuis la session expandée
-  const plan = session.metadata?.plan === "solo" ? "solo" : session.metadata?.plan === "starter" ? "starter" : "pro";
+  const plan: PaidPlan = isPaidPlan(session.metadata?.plan) ? session.metadata.plan : "pro";
   const affiliateCode = session.metadata?.affiliate_code ?? null;
   const subscriptionId =
     typeof session.subscription === "string"

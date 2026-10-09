@@ -7,6 +7,7 @@ import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
 import AuthBrandPanel from "@/components/AuthBrandPanel";
 import { Brand } from "@/components/landing/shell";
+import { isPaidPlan } from "@/lib/plans";
 
 function GoogleIcon() {
   return (
@@ -41,7 +42,7 @@ export default function RegisterPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const plan = params.get("plan");
-    if (plan === "starter" || plan === "solo" || plan === "pro") {
+    if (isPaidPlan(plan)) {
       localStorage.setItem("duupflow_selected_plan", plan);
       // Intervalle de facturation choisi sur la page pricing (annuel/mensuel).
       localStorage.setItem("duupflow_selected_billing", params.get("billing") === "yearly" ? "yearly" : "monthly");
@@ -60,7 +61,7 @@ export default function RegisterPage() {
     const p = params.get("plan") ?? localStorage.getItem("duupflow_selected_plan");
     const b = params.get("billing") ?? localStorage.getItem("duupflow_selected_billing");
     const yearly = b === "yearly" ? "&billing=yearly" : "";
-    const q = p === "starter" || p === "solo" || p === "pro" ? `?plan=${p}${yearly}` : "";
+    const q = isPaidPlan(p) ? `?plan=${p}${yearly}` : "";
     return `${window.location.origin}/auth/callback${q}`;
   }
 

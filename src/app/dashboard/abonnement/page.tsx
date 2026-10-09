@@ -1,27 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, planFromPriceId, planFromAmount } from "@/lib/stripe";
+import { planRank as tierRank, type PaidPlan, type PlanType } from "@/lib/plans";
 import { etatCredits } from "@/lib/trial-credits";
 import { redirect } from "next/navigation";
 import AbonnementClient from "./AbonnementClient";
 
 export const dynamic = "force-dynamic";
 
-function resolvePlanFromPrice(priceId: string, unitAmount: number | null): "starter" | "solo" | "pro" | null {
-  // 1. Match by env var (most precise)
-  if (priceId && process.env.STRIPE_PRICE_ID_STARTER && priceId === process.env.STRIPE_PRICE_ID_STARTER) return "starter";
-  if (priceId && process.env.STRIPE_PRICE_ID_SOLO && priceId === process.env.STRIPE_PRICE_ID_SOLO) return "solo";
-  if (priceId && process.env.STRIPE_PRICE_ID_PRO && priceId === process.env.STRIPE_PRICE_ID_PRO) return "pro";
-  if (priceId && process.env.STRIPE_PRICE_ID && priceId === process.env.STRIPE_PRICE_ID) return "pro";
-  // 1bis. Prix annuels — même plan, intervalle différent.
-  if (priceId && process.env.STRIPE_PRICE_ID_STARTER_YEARLY && priceId === process.env.STRIPE_PRICE_ID_STARTER_YEARLY) return "starter";
-  if (priceId && process.env.STRIPE_PRICE_ID_SOLO_YEARLY && priceId === process.env.STRIPE_PRICE_ID_SOLO_YEARLY) return "solo";
-  if (priceId && process.env.STRIPE_PRICE_ID_PRO_YEARLY && priceId === process.env.STRIPE_PRICE_ID_PRO_YEARLY) return "pro";
-  // 2. Fallback by price amount — mensuel (19/39/99€) et annuel (156/336/840€)
-  if (unitAmount === 1900 || unitAmount === 15600) return "starter";
-  if (unitAmount === 3900 || unitAmount === 33600) return "solo";
-  if (unitAmount === 9900 || unitAmount === 84000) return "pro";
-  return null;
+function resolvePlanFromPrice(priceId: string, unitAmount: number | null): PaidPlan | null {
+  // 1. Match by env var (most precise) — mensuels ET annuels.
+  // 2. Fallback by price amount — 19/39/99/249 € et 156/336/840/2 112 €.
+  return planFromPriceId(priceId) ?? planFromAmount(unitAmount);
 }
 
 export default async function AbonnementPage() {
@@ -44,7 +34,7 @@ export default async function AbonnementPage() {
   // Default to "free" when profile has no plan set (new tier rollout).
   // Legacy users with has_paid + null plan are treated as "pro" elsewhere
   // (src/lib/usage.ts). Stripe sync below will overwrite if needed.
-  let plan = (profile?.plan as "free" | "starter" | "solo" | "pro" | null) ?? "free";
+  let plan = (profile?.plan as PlanType | null) ?? "free";
   let stripeCustomerId = profile?.stripe_customer_id ?? null;
   const subscriptionPeriodStart = profile?.subscription_period_start ?? null;
   let cancelAtPeriodEnd = false;
@@ -105,8 +95,8 @@ export default async function AbonnementPage() {
           const priceId = s.items.data[0]?.price?.id ?? "";
           const amount = s.items.data[0]?.price?.unit_amount ?? 0;
           const r = resolvePlanFromPrice(priceId, amount);
-          // Keep the highest tier: pro > solo > starter
-          return r === "pro" ? 3 : r === "solo" ? 2 : r === "starter" ? 1 : 0;
+          // Keep the highest tier: agency > pro > solo > starter
+          return r ? tierRank(r) : 0;
         };
         // Sort: best plan first, then most recently created
         allActiveSubs.sort((a, b) => {

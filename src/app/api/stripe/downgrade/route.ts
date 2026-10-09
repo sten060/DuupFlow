@@ -3,7 +3,7 @@ import { getStripe, getPlanPriceId, planPriceEnvName } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getServerT } from "@/lib/i18n/server";
-import { planRank } from "@/lib/plans";
+import { planRank, isPaidPlan, teamSeatsForPlan, workspacesForPlan, PLAN_LABELS, type PaidPlan } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +24,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   // "pro" est une cible valide UNIQUEMENT pour un changement d'intervalle
   // (Pro annuel → Pro mensuel) : la garde de palier plus bas s'en assure.
-  const target: "starter" | "solo" | "pro" =
-    body?.plan === "starter" ? "starter" : body?.plan === "pro" ? "pro" : "solo";
+  const target: PaidPlan = isPaidPlan(body?.plan) ? body.plan : "solo";
   const askedInterval: "monthly" | "yearly" | null =
     body?.billing === "yearly" ? "yearly" : body?.billing === "monthly" ? "monthly" : null;
 
@@ -92,6 +91,58 @@ export async function POST(request: Request) {
       { error: t("errors.billing.alreadyOnSolo") },
       { status: 400 }
     );
+  }
+
+  // Starter n'est plus vendu : on n'y redescend pas, sauf l'abonné Starter
+  // qui quitte juste l'annuel.
+  if (target === "starter" && profile?.plan !== "starter") {
+    return NextResponse.json({ error: t("errors.billing.planNotAvailable") }, { status: 400 });
+  }
+
+  // Agence → Pro : Pro n'a que 3 sièges. Sans ce garde-fou l'hôte garderait
+  // ses 10 invités sur un abonnement Pro. (Vers Solo/Starter, les invités
+  // retombent déjà en gratuit — voir usage.ts.)
+  const targetSeats = teamSeatsForPlan(target);
+  if (descendEnPalier && targetSeats > 0) {
+    const { count } = await admin
+      .from("team_invitations")
+      .select("id", { count: "exact", head: true })
+      .eq("host_user_id", user.id)
+      .in("status", ["pending", "accepted"]);
+    if ((count ?? 0) > targetSeats) {
+      return NextResponse.json(
+        {
+          error: t("errors.billing.tooManyGuestsForDowngrade", {
+            count: count ?? 0,
+            plan: PLAN_LABELS[target],
+            max: targetSeats,
+          }),
+        },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Même logique pour les workspaces (Agence 15 → Pro 2). Vers Solo/Starter,
+  // les workspaces disparaissent de l'interface sans être supprimés.
+  const targetWorkspaces = workspacesForPlan(target);
+  if (descendEnPalier && targetWorkspaces > 0) {
+    const { count, error: wsErr } = await admin
+      .from("workspaces")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_user_id", user.id);
+    if (!wsErr && (count ?? 0) > targetWorkspaces) {
+      return NextResponse.json(
+        {
+          error: t("errors.billing.tooManyWorkspacesForDowngrade", {
+            count: count ?? 0,
+            plan: PLAN_LABELS[target],
+            max: targetWorkspaces,
+          }),
+        },
+        { status: 400 }
+      );
+    }
   }
 
   const targetPriceId = getPlanPriceId(target, interval);

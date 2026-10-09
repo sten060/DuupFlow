@@ -176,7 +176,7 @@ export function formatEur(cents: number): string {
 
 /** Cost (in cents) of one image for the given plan. Falls back to Free. */
 export function imageCostCents(plan: string | null | undefined): number {
-  if (plan === "pro")  return IMAGE_COST_CENTS.pro;
+  if (plan === "pro" || plan === "agency") return IMAGE_COST_CENTS.pro;
   if (plan === "solo") return IMAGE_COST_CENTS.solo;
   if (plan === "starter") return IMAGE_COST_CENTS.starter;
   return IMAGE_COST_CENTS.free;

@@ -3,6 +3,7 @@ import { getStripe, getPlanPriceId, planPriceEnvName } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getServerT } from "@/lib/i18n/server";
+import { isPaidPlan, type PaidPlan } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +31,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: t("errors.billing.noActiveSubscription") }, { status: 400 });
   }
   const params = new URL(request.url).searchParams;
-  const target: "starter" | "solo" | "pro" =
-    params.get("plan") === "starter" ? "starter" : params.get("plan") === "solo" ? "solo" : "pro";
+  const rawTarget = params.get("plan");
+  const target: PaidPlan = isPaidPlan(rawTarget) ? rawTarget : "pro";
   const askedInterval: "monthly" | "yearly" | null =
     params.get("billing") === "yearly" ? "yearly" : params.get("billing") === "monthly" ? "monthly" : null;
 

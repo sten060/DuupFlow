@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
 import { NavPill, Footer, SmoothScroll, Label, BLUE, CTA_GRAD } from "@/components/landing/shell";
+import { isPaidPlan } from "@/lib/plans";
 
 const INPUT =
   "w-full rounded-xl border border-black/10 bg-[#f6f7f9] px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#9aa2b2] outline-none transition focus:border-[#4f7bff]/50 focus:ring-2 focus:ring-[#4f7bff]/15";
@@ -49,7 +50,7 @@ export default function DemoRequestPage() {
   useEffect(() => {
     try {
       const p = new URLSearchParams(window.location.search).get("plan");
-      if (p === "starter" || p === "solo" || p === "pro") setPlan(p);
+      if (isPaidPlan(p)) setPlan(p);
     } catch {}
   }, []);
 

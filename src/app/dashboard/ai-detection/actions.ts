@@ -8,13 +8,14 @@ import crypto from "crypto";
 import sharp from "sharp";
 import { spawn } from "child_process";
 import { getFFmpegBin, scrubMovVendorId } from "@/app/dashboard/videos/processVideos";
-import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
+import { getOutDirForCurrentUser, canDeleteOutputs } from "@/app/dashboard/utils";
 import { checkUsage, reserveUsage, releaseUsage } from "@/lib/usage";
 import { runImageOp } from "@/lib/imageProcessingLimiter";
 import { getServerT } from "@/lib/i18n/server";
 import { buildHumanMeta } from "@/lib/ai-identity";
 import { prepareCounterWatermark, resolveWatermarkOverlay, type PreparedWatermark } from "@/app/dashboard/videos/watermark";
 import { buildOverlayFilterComplex, type VideoOverlay } from "@/app/dashboard/videos/overlays";
+import { hasProFeatures } from "@/lib/plans";
 
 /* ── constants ── */
 const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp"];
@@ -327,7 +328,7 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
   // Pro is unlimited and never lands here. Free has a 0 ai_signatures quota
   // so this branch effectively hard-blocks Free users (which is correct —
   // the page is also gated by /dashboard/ai-detection/page.tsx server view).
-  if (!usageCheck.allowed && usageCheck.plan && usageCheck.plan !== "pro") {
+  if (!usageCheck.allowed && usageCheck.plan && !hasProFeatures(usageCheck.plan)) {
     const remaining = usageCheck.limit - usageCheck.current;
     if (remaining <= 0) {
       return {
@@ -357,7 +358,7 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
      On réserve donc AVANT de travailler, et on rend en fin de course ce qui n'a
      pas été produit. */
   let reservedImages = 0;
-  if (effectiveImageFiles.length > 0 && usageCheck.userId && usageCheck.plan !== "pro") {
+  if (effectiveImageFiles.length > 0 && usageCheck.userId && !hasProFeatures(usageCheck.plan)) {
     const reservation = await reserveUsage(usageCheck.userId, "ai_signatures", effectiveImageFiles.length);
     if (!reservation.allowed) {
       return {
@@ -537,6 +538,7 @@ export async function maskAiMetadata(uploads: { uploadId: string; name: string }
  * DELETE — Supprime les fichiers d'une session
  * ───────────────────────────────────────────── */
 export async function deleteAiFiles(fileNames: string[]): Promise<{ ok: boolean; deleted: number }> {
+  if (!(await canDeleteOutputs())) return { ok: false, deleted: 0 }; // rôle VA : ne supprime rien
   const { dir } = await getOutDirForCurrentUser();
   let deleted = 0;
 

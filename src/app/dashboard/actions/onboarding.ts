@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { recordTransaction } from "@/lib/tokens-server";
 import { centsToTokens } from "@/lib/tokens";
+import { hasProFeatures } from "@/lib/plans";
 
 /**
  * Areas of the self-paced onboarding. Each one is shown exactly once:
@@ -126,7 +127,7 @@ export async function acknowledgeVariationAnnouncement(): Promise<{
   // L'ancien calcul dépendait de la valeur du token : le jour où 1 token est
   // passé de 40 c à 1 c, le bonus aurait été divisé par 40 sans que personne
   // ne le voie. La valeur réelle offerte est ici figée (1,20 € / 2 €).
-  const bonusCents = effectivePlan === "free" ? 0 : effectivePlan === "pro" ? 200 : 120;
+  const bonusCents = effectivePlan === "free" ? 0 : hasProFeatures(effectivePlan) ? 200 : 120;
   const bonusTokens = centsToTokens(bonusCents);
 
   if (bonusCents > 0) {

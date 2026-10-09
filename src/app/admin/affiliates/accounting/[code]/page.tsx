@@ -314,7 +314,7 @@ export default async function AffiliateAccountingPage({
                         const status = getStatus(p);
                         const clientName = p.user_id ? (profileMap.get(p.user_id) ?? "Client inconnu") : "Client inconnu";
                         const isFirst = p.billing_reason === "subscription_create";
-                        const planColor = p.plan === "pro" ? "#38BDF8" : "#A78BFA";
+                        const planColor = p.plan === "agency" ? "#F59E0B" : p.plan === "pro" ? "#38BDF8" : "#A78BFA";
 
                         let statusLabel: string, statusColor: string, statusBg: string;
                         if (status === "paid") {
@@ -356,7 +356,7 @@ export default async function AffiliateAccountingPage({
                                 className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
                                 style={{ background: `${planColor}15`, border: `1px solid ${planColor}25`, color: planColor }}
                               >
-                                {p.plan === "pro" ? "Pro" : "Solo"}
+                                {p.plan === "agency" ? "Agence" : p.plan === "pro" ? "Pro" : p.plan === "starter" ? "Starter" : "Solo"}
                               </span>
                             </div>
 

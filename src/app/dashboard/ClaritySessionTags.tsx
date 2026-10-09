@@ -39,7 +39,7 @@ declare global {
 }
 
 export type ClaritySegment = "fantome" | "active" | "payant";
-export type ClarityPlan = "free" | "starter" | "solo" | "pro";
+export type ClarityPlan = "free" | "starter" | "solo" | "pro" | "agency";
 
 export default function ClaritySessionTags({
   userId,

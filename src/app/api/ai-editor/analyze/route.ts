@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { analyzeReferenceVideo, probeDurationSec } from "@/lib/ai-editor/analyze";
 import { downloadReference } from "@/lib/ai-editor/download";
 import { createProject, saveReference, getProject, updateReferenceAnalysis, referenceAbsPath } from "@/lib/ai-editor/store";
+import { editorScopeForUser } from "@/lib/ai-editor/scope";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -22,6 +23,8 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  // Rangement des projets : le créateur actif (workspaces) ou le user — voir scope.ts.
+  const { storeKey: sk } = await editorScopeForUser(user.id, req);
 
   const contentType = req.headers.get("content-type") || "";
 
@@ -32,12 +35,12 @@ export async function POST(req: NextRequest) {
     const peek = await req.clone().json().catch(() => null);
     if (peek?.reanalyze === true) {
       const projectId = typeof peek?.projectId === "string" ? peek.projectId.trim() : "";
-      const project = projectId ? await getProject(user.id, projectId) : null;
+      const project = projectId ? await getProject(sk, projectId) : null;
       if (!project?.reference) return NextResponse.json({ error: "Aucune référence à ré-analyser." }, { status: 404 });
-      const refPath = referenceAbsPath(user.id, projectId, project.reference.storedName);
+      const refPath = referenceAbsPath(sk, projectId, project.reference.storedName);
       try {
         const analysis = await analyzeReferenceVideo(refPath);
-        await updateReferenceAnalysis(user.id, projectId, analysis);
+        await updateReferenceAnalysis(sk, projectId, analysis);
         return NextResponse.json({ projectId, analysis });
       } catch (e) {
         console.error("[ai-editor/analyze] ré-analyse échouée:", e);
@@ -93,12 +96,12 @@ export async function POST(req: NextRequest) {
     // soit on crée un nouveau projet. (Pas de recette serveur : le Claude du user
     // lit les keyframes lui-même via le MCP.)
     let pid = "";
-    if (replaceProjectId && (await getProject(user.id, replaceProjectId))) {
+    if (replaceProjectId && (await getProject(sk, replaceProjectId))) {
       pid = replaceProjectId;
     } else {
-      pid = (await createProject(user.id)).id;
+      pid = (await createProject(sk)).id;
     }
-    await saveReference(user.id, pid, { srcPath, ext, source, label, analysis });
+    await saveReference(sk, pid, { srcPath, ext, source, label, analysis });
 
     return NextResponse.json({ projectId: pid, analysis });
   } catch (e) {

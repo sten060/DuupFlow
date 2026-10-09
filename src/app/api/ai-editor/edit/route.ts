@@ -19,6 +19,7 @@ import { getProject } from "@/lib/ai-editor/store";
 import { startRenderJob, getRenderJob, cancelRenderJob } from "@/lib/ai-editor/render-jobs";
 import { logAiEditorRender } from "@/lib/usage";
 import { planAudioTracks, type EditPlan } from "@/lib/ai-editor/plan-types";
+import { editorScopeForUser } from "@/lib/ai-editor/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,8 @@ async function requireUser() {
 export async function POST(req: NextRequest) {
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  // Rangement des projets : le créateur actif (workspaces) ou le user — voir scope.ts.
+  const { storeKey: sk } = await editorScopeForUser(user.id, req);
   // Plan gratuit : aucun export (src/lib/free-plan.ts).
   const locked = await requirePaidPlan(user.id, "manual_editor");
   if (locked) return locked;
@@ -46,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Le montage doit contenir au moins un plan." }, { status: 422 });
   }
 
-  const project = await getProject(user.id, projectId);
+  const project = await getProject(sk, projectId);
   const variant = project?.variants.find((v) => v.id === variantId);
   if (!project || !variant) return NextResponse.json({ error: "Variante introuvable." }, { status: 404 });
 
@@ -65,7 +68,7 @@ export async function POST(req: NextRequest) {
     ? body.label.trim().slice(0, 80)
     : `${variant.label || "Variante"} · retouche`;
 
-  const job = startRenderJob(user.id, projectId, { ...plan, label }, {
+  const job = startRenderJob(sk, projectId, { ...plan, label }, {
     derivedFrom: variantId,
     onDone: () => logAiEditorRender(user.id), // trace (gratuit — voir en-tête)
   });
@@ -76,10 +79,12 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  // Rangement des projets : le créateur actif (workspaces) ou le user — voir scope.ts.
+  const { storeKey: sk } = await editorScopeForUser(user.id, req);
 
   const jobId = req.nextUrl.searchParams.get("jobId") || "";
   const job = getRenderJob(jobId);
-  if (!job || job.userId !== user.id) return NextResponse.json({ error: "Ticket introuvable." }, { status: 404 });
+  if (!job || job.userId !== sk) return NextResponse.json({ error: "Ticket introuvable." }, { status: 404 });
 
   return NextResponse.json({
     status: job.status,                              // running | done | failed
@@ -94,8 +99,10 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  // Rangement des projets : le créateur actif (workspaces) ou le user — voir scope.ts.
+  const { storeKey: sk } = await editorScopeForUser(user.id, req);
   const jobId = req.nextUrl.searchParams.get("jobId") || "";
   const job = getRenderJob(jobId);
-  if (!job || job.userId !== user.id) return NextResponse.json({ error: "Ticket introuvable." }, { status: 404 });
+  if (!job || job.userId !== sk) return NextResponse.json({ error: "Ticket introuvable." }, { status: 404 });
   return NextResponse.json({ ok: true, result: cancelRenderJob(job) });
 }

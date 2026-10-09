@@ -3,6 +3,7 @@ import { getStripe, getPlanPriceId, planPriceEnvName, type BillingInterval } fro
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getServerT } from "@/lib/i18n/server";
+import { isSellablePlan, type PaidPlan } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,9 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const plan = body?.plan === "solo" ? "solo" : body?.plan === "starter" ? "starter" : "pro";
+  // Nouvel abonnement : uniquement les plans en vente. Starter (19 €) n'est
+  // plus vendu — un vieux lien ?plan=starter retombe sur Solo, le plan d'entrée.
+  const plan: PaidPlan = isSellablePlan(body?.plan) ? body.plan : body?.plan === "starter" ? "solo" : "pro";
   // Intervalle de facturation : "yearly" uniquement si demandé explicitement —
   // tout le reste (absent, valeur inconnue) retombe sur le mensuel historique.
   const billing: BillingInterval = body?.billing === "yearly" ? "yearly" : "monthly";

@@ -328,7 +328,9 @@ export async function POST(req: Request) {
   // job (the client re-attaches by jobId). Only an explicit Stop aborts it.
   const abort = new AbortController();
   const jobEntry: { events: object[]; done: boolean; userId: string; abort: AbortController } =
-    { events: [], done: false, userId, abort };
+    // Propriété de la tâche = la PERSONNE (comparée à user.id à la reprise),
+    // pas la clé du dossier, qui suit le créateur affiché.
+    { events: [], done: false, userId: user.id, abort };
   if (jobId) compressJobRegistry.set(jobId, jobEntry);
 
   const stream = new ReadableStream({
