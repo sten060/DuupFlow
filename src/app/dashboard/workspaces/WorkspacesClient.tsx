@@ -528,8 +528,12 @@ export default function WorkspacesClient({ initial }: { initial?: Payload }) {
                       {w.brief || w.briefImageCount || w.briefVideoCount ? t("dashboard.workspaces.briefWritten") : t("dashboard.workspaces.briefEmpty")}
                     </span>
                   </span>
-                  <span className="mt-1.5 block text-[13px] leading-relaxed text-[var(--app-text-muted)] line-clamp-2 whitespace-pre-line">
-                    {w.brief || t("dashboard.workspaces.briefCta")}
+                  {/* Aperçu court : le brief complet s'ouvre au clic (fenêtre du brief). */}
+                  <span
+                    className="mt-1.5 text-[13px] leading-relaxed text-[var(--app-text-muted)] overflow-hidden"
+                    style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}
+                  >
+                    {w.brief ? w.brief.replace(/\s+/g, " ").slice(0, 280) : t("dashboard.workspaces.briefCta")}
                   </span>
                   {(!!w.briefImageCount || !!w.briefVideoCount) && (
                     <span className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-[var(--app-text)]">
