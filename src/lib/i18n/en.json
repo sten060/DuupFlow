@@ -2688,6 +2688,15 @@
     }
   },
   "help": {
+    "drive": {
+      "title": "How do I connect Google Drive?",
+      "intro": "Once your Google Drive is connected, Claude can drop your variants straight into your Drive: one \"<Creator> — DuupFlow\" folder per creator. You only do it once, as the account owner.",
+      "s1": "Open Settings — click your profile at the bottom of the left sidebar.",
+      "s2": "Scroll down to the Google Drive card — at the very bottom of the page, then click \"Connect Google Drive\".",
+      "s3": "Allow access — pick your Google account then \"Allow\" (keep the Drive box checked). You come back to DuupFlow with \"Google Drive is connected\".",
+      "alt": "Other way: in the creator switcher at the top left, \"Manage creators\", then on a creator's card, Google Drive row → \"Connect Drive\".",
+      "reco": "A guest (manager or VA) can't connect Drive: the account owner does it, and the whole team's exports land in their Drive. Each creator card then has an \"Open\" button to its folder."
+    },
     "group": "Troubleshooting",
     "detected": {
       "title": "My videos get flagged as non-original",

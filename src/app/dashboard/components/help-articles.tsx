@@ -102,6 +102,22 @@ function modeChoiceBody(t: T) {
   );
 }
 
+/** « Comment connecter Google Drive ? » — le chemin exact, pas à pas. */
+function driveBody(t: T) {
+  return (
+    <div className="space-y-5">
+      <p>{t("help.drive.intro")}</p>
+      {stepList([
+        t("help.drive.s1"),
+        t("help.drive.s2"),
+        t("help.drive.s3"),
+      ])}
+      <p>{t("help.drive.alt")}</p>
+      {callout(t("help.drive.reco"))}
+    </div>
+  );
+}
+
 /* ─────────────────────────── Éditeur IA ─────────────────────────── */
 /* Ce module n'a pas de documentation dans son écran (pas de bouton
    « Documentations » : la page est déjà un pas-à-pas). Ces articles sont donc
@@ -203,6 +219,7 @@ export function buildHelpArticles(t: T): DocModule {
     docs: [
       { title: t("help.detected.title"), body: detectedBody(t) },
       { title: t("help.mode.title"), body: modeChoiceBody(t) },
+      { title: t("help.drive.title"), body: driveBody(t) },
     ],
   };
 }

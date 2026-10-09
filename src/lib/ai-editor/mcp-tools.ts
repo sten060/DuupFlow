@@ -514,6 +514,86 @@ export const TOOLS = [
     },
   },
   {
+    name: "duplicate_videos",
+    description:
+      "DUPLIQUE des vidéos (le duplicateur de DuupFlow : copies uniques, indétectables comme doublons) avec TOUS les réglages de la page Duplication. " +
+      "Sources : material_ids (vidéos du projet, voir list_material) et/ou urls (liens https directs), 10 max. count = copies PAR source (1-10). " +
+      "mode « simple » (défaut) : packs à cocher + options ; mode « advanced » : plages précises par réglage (advanced_ranges). " +
+      "Tourne en tâche de fond : renvoie un TICKET (« dup_… ») à suivre avec get_duplication. Consomme le quota vidéos du user (1 copie = 1 vidéo). " +
+      "Ensuite, send_duplicates_to_editor envoie les copies en matière de l'Éditeur IA pour faire des variantes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        material_ids: { type: "array", items: { type: "string" }, description: "Ids de vidéos du projet (list_material)." },
+        urls: { type: "array", items: { type: "string" }, description: "Liens https de téléchargement direct de vidéos." },
+        count: { type: "integer", description: "Copies par vidéo source, 1 à 10 (défaut 1)." },
+        mode: { type: "string", enum: ["simple", "advanced"], description: "simple (défaut) ou advanced." },
+        packs: {
+          type: "array",
+          items: { type: "string", enum: ["metadata", "metadata_technical", "pixel_magic", "audio", "motion", "motion_dynamic", "visual"] },
+          description: "Mode simple — packs : visual (couleurs), motion (mouvement), motion_dynamic (mouvement poussé), metadata, metadata_technical, pixel_magic, audio. Défaut : visual + motion + metadata_technical.",
+        },
+        watermark: { type: "boolean", description: "Mode simple — watermark visible aléatoire par copie." },
+        options: {
+          type: "object",
+          description: "Mode simple — options : flip (bool, retournement vertical), mirror (bool, miroir horizontal — à éviter s'il y a du texte à l'écran), shake (bool, tremblement), motion_intensity (« doux » | « fort »), advanced_motion_intensity (« doux » | « fort »), rotation_deg (nombre, rotation aléatoire ± ce nombre de degrés), resize_factor (nombre, ex. 0.98).",
+        },
+        advanced_ranges: {
+          type: "object",
+          description: "Mode advanced — { réglage: { enabled, min, max } } pour : flip, reverse, saturation, contrast, brightness, gamma, hue_rad, vignette, noise, lens_k, unsharp, speed, zoom, pixelshift, rotation_deg, fps, dyn_crop, prog_rotate, prog_zoom, shake, border_px, vbitrate, gop, cut_start, cut_end, volume_db, afreq_hz, abitrate_k, pitch, dim_w, dim_h. Le moteur borne lui-même les valeurs.",
+        },
+        country: { type: "string", description: "Code pays ISO à 2 lettres pour les métadonnées de localisation (ex. FR, US)." },
+        iphone_meta: { type: "boolean", description: "Métadonnées réalistes d'iPhone." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "duplicate_images",
+    description:
+      "DUPLIQUE des images avec les réglages de la page Duplication (réponse directe, pas de ticket). Sources : material_ids (images du projet) et/ou urls (liens https directs), 10 max. " +
+      "count = copies PAR image (1-20). Consomme le quota images du user. Ensuite, send_duplicates_to_editor peut les envoyer en matière de l'Éditeur IA.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        material_ids: { type: "array", items: { type: "string" }, description: "Ids d'images du projet (list_material)." },
+        urls: { type: "array", items: { type: "string" }, description: "Liens https de téléchargement direct d'images." },
+        count: { type: "integer", description: "Copies par image, 1 à 20 (défaut 1)." },
+        options: { type: "object", description: "fundamentals (bool, défaut true), semi (bool, défaut true), visuals (bool, défaut false), mirror (bool, miroir horizontal)." },
+        country: { type: "string", description: "Code pays ISO à 2 lettres (métadonnées de localisation)." },
+        iphone_meta: { type: "boolean", description: "Métadonnées réalistes d'iPhone." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_duplication",
+    description: "Suit une duplication vidéo (ticket « dup_… ») : progression, puis la liste des copies produites. Patiente jusqu'à ~25 s si c'est en cours. Sans ticket : duplications récentes + copies récentes du créateur.",
+    inputSchema: { type: "object", properties: { ticket: { type: "string", description: "Ticket de la duplication." } }, additionalProperties: false },
+  },
+  {
+    name: "send_duplicates_to_editor",
+    description:
+      "ENVOIE des copies dupliquées en MATIÈRE de l'Éditeur IA (projet du créateur en cours), pour ensuite faire des variantes avec create_variant. " +
+      "Donne le ticket d'une duplication vidéo (toutes ses copies) et/ou files (noms de fichiers renvoyés par duplicate_videos / duplicate_images). 20 max. Mêmes limites que la matière (vidéo ≤ 2 min).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticket: { type: "string", description: "Ticket « dup_… » : envoie toutes ses copies." },
+        files: { type: "array", items: { type: "string" }, description: "Noms de fichiers de copies." },
+        description: { type: "string", description: "Description de la matière (aide le montage)." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "drive_status",
+    description:
+      "Dit si Google Drive est connecté à DuupFlow, avec quel compte, et le dossier Drive du créateur en cours. Si ce n'est pas connecté, renvoie le CHEMIN EXACT à indiquer au user pour le connecter. " +
+      "Appelle-le quand le user demande où vont ses exports, ou avant export_to_drive si tu n'es pas sûr.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
     name: "get_drive_export",
     description:
       "Suit un export Drive (ticket « dx_… » renvoyé par export_to_drive) : état de chaque fichier et son driveFileId une fois envoyé. L'appel patiente jusqu'à ~20 s si l'export est en cours. Sans ticket : liste les exports récents.",
@@ -1602,6 +1682,21 @@ export async function callTool(userId: string, name: string, args?: Record<strin
   const { scope } = resolved;
 
   if (name === "add_material") return addMaterialTool(scope.storeKey, scope.workspace?.name ?? null, rest);
+  if (name === "duplicate_videos" || name === "duplicate_images" || name === "get_duplication" || name === "send_duplicates_to_editor") {
+    const out = await duplicatorTool(name, userId, scope.storeKey, rest);
+    // Le créateur en cours, rappelé en tête (comme les autres outils).
+    if (scope.workspace) out.content = [{ type: "text", text: `CRÉATEUR : « ${scope.workspace.name} »` } as Content, ...out.content];
+    return out;
+  }
+  if (name === "drive_status") {
+    const g = await import("@/lib/google-drive-oauth");
+    const { getWorkspaceContext } = await import("@/lib/workspaces");
+    const ctx = await getWorkspaceContext(userId);
+    const link = g.driveOAuthConfigured() ? await g.getDriveLink(ctx.ownerId) : null;
+    if (!link) return { content: [{ type: "text", text: `Google Drive : NON CONNECTÉ.\n${g.DRIVE_CONNECT_HOWTO}` }] };
+    const folder = scope.workspace ? g.creatorFolderName(scope.workspace.name) : g.DRIVE_FOLDER_NAME;
+    return { content: [{ type: "text", text: `Google Drive : CONNECTÉ (compte ${link.google_email ?? "Google"}). Les exports de ${scope.workspace ? `« ${scope.workspace.name} »` : "ce compte"} vont dans le dossier « ${folder} » (créé automatiquement). Le user peut l'ouvrir depuis sa fiche créateur (« Ouvrir »).` }] };
+  }
   if (name === "export_to_drive" || name === "get_drive_export") return driveExportTool(name, userId, scope.storeKey, scope.workspace ? { id: scope.workspace.id, name: scope.workspace.name } : null, rest);
 
   if (name === "get_creator_brief" || name === "save_creator_brief") {
@@ -1799,4 +1894,45 @@ async function driveExportTool(
   }
   await waitFor(job, 20_000);
   return { content: [{ type: "text", text: dx.describeDriveExport(job) }], isError: job.status === "failed" };
+}
+
+
+/* ── Duplicateur (vidéos / images) + envoi des copies dans l'Éditeur IA ────── */
+
+async function duplicatorTool(
+  name: "duplicate_videos" | "duplicate_images" | "get_duplication" | "send_duplicates_to_editor",
+  userId: string,
+  storeKey: string,
+  a: Record<string, unknown>,
+): Promise<{ content: Content[]; isError?: boolean }> {
+  const d = await import("./mcp-duplicate");
+  const wait = async (job: import("./mcp-duplicate").DupJob, ms: number) => {
+    const end = Date.now() + ms;
+    while (job.status === "running" && Date.now() < end) await new Promise((r) => setTimeout(r, 1000));
+    return job;
+  };
+  if (name === "duplicate_images") {
+    const r = await d.duplicateImages(userId, storeKey, a);
+    return { content: [{ type: "text", text: r.text }], isError: r.isError };
+  }
+  if (name === "send_duplicates_to_editor") {
+    const r = await d.sendDuplicatesToEditor(storeKey, a);
+    return { content: [{ type: "text", text: r.text }], isError: r.isError };
+  }
+  if (name === "duplicate_videos") {
+    const r = await d.startVideoDuplication(userId, storeKey, a);
+    if (!r.job) return { content: [{ type: "text", text: r.error ?? "Duplication impossible." }], isError: true };
+    await wait(r.job, 20_000);
+    return { content: [{ type: "text", text: d.describeDupJob(r.job) }], isError: r.job.status === "failed" };
+  }
+  const ticket = typeof a.ticket === "string" ? a.ticket.trim() : "";
+  if (!ticket) {
+    const jobs = d.dupJobsFor(storeKey).slice(0, 5);
+    const head = jobs.length ? jobs.map((j) => d.describeDupJob(j)).join("\n\n") : "Aucune duplication récente via Claude.";
+    return { content: [{ type: "text", text: `${head}\n\n${await d.listDuplicates(storeKey)}` }] };
+  }
+  const job = d.getDupJob(ticket);
+  if (!job || job.storeKey !== storeKey) return { content: [{ type: "text", text: `Ticket ${ticket} introuvable (expiré après 3 h, ou autre créateur).` }], isError: true };
+  await wait(job, 25_000);
+  return { content: [{ type: "text", text: d.describeDupJob(job) }], isError: job.status === "failed" };
 }

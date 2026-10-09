@@ -2697,6 +2697,15 @@
     }
   },
   "help": {
+    "drive": {
+      "title": "Comment connecter Google Drive ?",
+      "intro": "En connectant ton Google Drive, Claude peut déposer tes variantes directement dans ton Drive : un dossier « <Créateur> — DuupFlow » par créateur. C'est à faire une seule fois, par le propriétaire du compte.",
+      "s1": "Ouvre les Paramètres — clique sur ton profil, en bas de la barre de gauche.",
+      "s2": "Descends jusqu'à la carte Google Drive — tout en bas de la page, puis clique « Connecter Google Drive ».",
+      "s3": "Autorise l'accès — choisis ton compte Google puis « Autoriser » (garde la case Drive cochée). Tu reviens sur DuupFlow avec « Google Drive est connecté ».",
+      "alt": "Autre chemin : dans le sélecteur de créateur en haut à gauche, « Gérer les créateurs », puis sur la fiche d'un créateur, ligne Google Drive → « Connecter Drive ».",
+      "reco": "Un invité (manager ou VA) ne peut pas connecter le Drive : c'est le propriétaire du compte qui le fait, et les exports de toute l'équipe arrivent dans son Drive. Chaque fiche créateur a ensuite un bouton « Ouvrir » vers son dossier."
+    },
     "group": "Dépannage",
     "detected": {
       "title": "Mes vidéos sont détectées comme non-originales",

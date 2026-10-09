@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { driveAuthUrl, driveOAuthConfigured } from "@/lib/google-drive-oauth";
+import { driveAuthUrl, driveOAuthConfigured, publicOrigin } from "@/lib/google-drive-oauth";
 
 export const dynamic = "force-dynamic";
 
 /** « Connecter Google Drive » → fenêtre d'autorisation Google. Propriétaire du
  *  compte uniquement : un invité exporte dans le Drive de son propriétaire. */
 export async function GET(req: NextRequest) {
-  const origin = req.nextUrl.origin;
+  // Adresse publique (pas l'adresse interne du serveur derrière le proxy Railway).
+  const origin = publicOrigin(req);
   const back = (q: string) => NextResponse.redirect(new URL(`/dashboard/settings?drive=${q}#google-drive`, origin));
 
   const supabase = await createClient();

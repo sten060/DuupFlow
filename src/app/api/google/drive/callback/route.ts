@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { exchangeDriveCode, saveDriveLink, ownerDriveAccess, ownerDriveToken, ensureCreatorFolder } from "@/lib/google-drive-oauth";
+import { exchangeDriveCode, saveDriveLink, ownerDriveAccess, ownerDriveToken, ensureCreatorFolder, publicOrigin } from "@/lib/google-drive-oauth";
 
 export const dynamic = "force-dynamic";
 
 /** Retour de Google après « Autoriser » : on garde l'accès (chiffré) et on crée
  *  tout de suite les dossiers Drive (un par créateur). */
 export async function GET(req: NextRequest) {
-  const origin = req.nextUrl.origin;
+  // Adresse publique (pas l'adresse interne du serveur derrière le proxy Railway).
+  const origin = publicOrigin(req);
   const back = (q: string) => {
     const ret = req.cookies.get("duup_drive_return")?.value;
     const to = ret && /^\/dashboard\/[a-z-]+$/.test(ret) ? `${ret}?drive=${q}` : `/dashboard/settings?drive=${q}#google-drive`;

@@ -18,6 +18,16 @@ import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const DRIVE_FOLDER_NAME = "DuupFlow variantes";
+
+/** Le chemin EXACT pour connecter Google Drive, à répéter tel quel au user
+ *  (Claude s'en sert pour guider quelqu'un de perdu). */
+export const DRIVE_CONNECT_HOWTO =
+  "Pour connecter Google Drive (une seule fois, par le PROPRIÉTAIRE du compte — un invité ne peut pas) :\n" +
+  "1. Sur www.duupflow.com, clique sur ton profil en bas de la barre de gauche → page Paramètres.\n" +
+  "2. Descends tout en bas jusqu'à la carte « Google Drive » → « Connecter Google Drive ».\n" +
+  "3. Choisis ton compte Google, puis « Autoriser » (garde la case Drive cochée).\n" +
+  "Autre chemin : sélecteur de créateur en haut à gauche → « Gérer les créateurs » → sur la fiche d'un créateur, ligne Google Drive → « Connecter Drive ».\n" +
+  "Ensuite, chaque créateur a son dossier « <Créateur> — DuupFlow » dans le Drive (bouton « Ouvrir » sur sa fiche).";
 const SCOPES = ["https://www.googleapis.com/auth/drive.file", "openid", "email"];
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 
@@ -28,6 +38,21 @@ function clientSecret(): string { return (process.env.GOOGLE_CLIENT_SECRET ?? ""
 
 export function driveOAuthConfigured(): boolean {
   return !!(clientId() && clientSecret());
+}
+
+/**
+ * Adresse PUBLIQUE du site. Sur Railway, l'app tourne derrière un proxy :
+ * `req.nextUrl.origin` vaut l'adresse INTERNE (http://localhost:8080) — d'où le
+ * retour vers localhost après la connexion Drive. On prend NEXT_PUBLIC_APP_URL,
+ * sinon les en-têtes transmis par le proxy (x-forwarded-host / -proto).
+ */
+export function publicOrigin(req: Request): string {
+  const fixed = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
+  if (fixed) return fixed;
+  const h = (n: string) => (req.headers.get(n) || "").split(",")[0].trim();
+  const host = h("x-forwarded-host") || h("host");
+  const proto = h("x-forwarded-proto") || (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
+  return host ? `${proto}://${host}` : new URL(req.url).origin;
 }
 
 export function driveRedirectUri(origin: string): string {
@@ -112,7 +137,7 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
   });
   const d = (await res.json().catch(() => ({}))) as { access_token?: string; error?: string };
   if (!res.ok || !d.access_token) {
-    if (d.error === "invalid_grant") throw new DriveNotConnectedError("L'accès Google Drive a expiré ou a été retiré : reconnecte Google Drive dans DuupFlow → Paramètres.");
+    if (d.error === "invalid_grant") throw new DriveNotConnectedError(`L'accès Google Drive a expiré ou a été retiré : il faut le reconnecter.\n${DRIVE_CONNECT_HOWTO}`);
     throw new Error("Google Drive refuse l'accès pour l'instant, réessaie.");
   }
   return d.access_token;
@@ -161,7 +186,7 @@ export async function deleteDriveLink(ownerId: string): Promise<void> {
 export async function ownerDriveToken(ownerId: string): Promise<{ token: string; email: string | null; link: LinkRow }> {
   if (!driveOAuthConfigured()) throw new DriveNotConnectedError("L'export Google Drive n'est pas encore configuré sur le serveur DuupFlow (GOOGLE_CLIENT_SECRET).");
   const link = await getDriveLink(ownerId);
-  if (!link) throw new DriveNotConnectedError("Google Drive n'est pas connecté : le propriétaire du compte doit cliquer « Connecter Google Drive » dans DuupFlow → Paramètres (une seule fois).");
+  if (!link) throw new DriveNotConnectedError(`Google Drive n'est pas connecté à DuupFlow.\n${DRIVE_CONNECT_HOWTO}`);
   return { token: await refreshAccessToken(decrypt(link.refresh_token_enc)), email: link.google_email, link };
 }
 
