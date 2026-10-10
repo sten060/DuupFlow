@@ -151,10 +151,7 @@ function CheckoutContent() {
     t("tarifs.agencyFeature1"),
     t("tarifs.agencyFeature2"),
     t("tarifs.featWorkspacesAgency"),
-    t("tarifs.featRoles"),
-    t("tarifs.featAdminView"),
-    t("tarifs.proFeature4"),
-    t("tarifs.proFeature9"),
+    t("tarifs.agencyOnboarding"),
   ];
 
   const [selectedPlan, setSelectedPlan] = useState<Plan>(defaultPlan);

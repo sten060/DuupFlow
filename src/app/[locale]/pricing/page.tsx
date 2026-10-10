@@ -263,17 +263,12 @@ function PricingCards({ yearly }: { yearly: boolean }) {
     t("tarifs.featExport4k"),
   ];
 
+  // Agence = « Tout le plan Pro » + ce qui s'ajoute : pas de redite des points du Pro.
   const agencyFeatures = [
     t("tarifs.agencyFeature1"),
     t("tarifs.agencyFeature2"),
     t("tarifs.featWorkspacesAgency"),
-    t("tarifs.featRoles"),
-    t("tarifs.featAdminView"),
-    t("tarifs.proFeature4"),
-    t("tarifs.proFeature8"),
-    t("tarifs.proFeature9"),
-    t("tarifs.featDriveExport"),
-    t("tarifs.featExport4k"),
+    t("tarifs.agencyOnboarding"),
   ];
 
   const plans: Plan[] = [
@@ -383,14 +378,15 @@ function PricingCards({ yearly }: { yearly: boolean }) {
 
             {/* Features */}
             <ul className="space-y-3.5 flex-1 mt-7">
-              <AiEditorFeature />
+              {p.id !== "agency" && <AiEditorFeature />}
               {p.features.map((f, i) => (
                 <li key={i} className="flex items-start gap-3 text-sm text-[#1a1a1a]">
                   <CheckIcon color={p.color} />
                   {f}
                 </li>
               ))}
-              <UniversalFeatures color={p.color} />
+              {/* Déjà inclus dans « Tout le plan Pro » : pas répété sur la carte Agence. */}
+              {p.id !== "agency" && <UniversalFeatures color={p.color} />}
             </ul>
 
             {/* Secondary — personalized demo */}
@@ -473,6 +469,7 @@ function PlansComparison({ yearly }: { yearly: boolean }) {
         { label: t("tarifs.cmpRowSupportEmail"), values: [true, true, true] },
         { label: t("tarifs.cmpRowSupportTelegram"), values: [true, true, true] },
         { label: t("tarifs.cmpRowSupportPriority"), values: [false, true, true] },
+        { label: t("tarifs.cmpRowOnboarding"), values: [false, false, true] },
       ],
     },
   ];

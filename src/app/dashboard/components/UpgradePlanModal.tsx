@@ -211,17 +211,12 @@ export default function UpgradePlanModal({
       desc: t("tarifs.agencyDesc"),
       price: `${PRIX.agency[intervalle]} €`,
       color: "#F59E0B",
+      // « Tout le plan Pro » + ce qui s'ajoute : pas de redite des points du Pro.
       features: [
         t("tarifs.agencyFeature1"),
         t("tarifs.agencyFeature2"),
         t("tarifs.featWorkspacesAgency"),
-        t("tarifs.featRoles"),
-        t("tarifs.featAdminView"),
-        t("tarifs.proFeature4"),
-        t("tarifs.proFeature8"),
-        t("tarifs.proFeature9"),
-        t("tarifs.featDriveExport"),
-        t("tarifs.featExport4k"),
+        t("tarifs.agencyOnboarding"),
       ],
       cardBorder: "1px solid var(--app-border)",
       btnBg: "linear-gradient(135deg,#F59E0B,#EA580C)",
@@ -571,17 +566,22 @@ export default function UpgradePlanModal({
                 </button>
 
                 <ul className="mt-6 flex-1 space-y-3">
+                  {p.id !== "agency" && (
                   <li className="flex items-start gap-3 text-sm font-medium text-[var(--app-text)]">
                     <img src="/claude-color.svg" alt="Claude" className="mt-0.5 h-5 w-5 shrink-0 object-contain" />
                     {t("tarifs.featAiEditor")}
                   </li>
+                  )}
                   {p.features.map((f, i) => (
                     <li key={i} className="flex items-start gap-3 text-sm text-[var(--app-text)]">
                       <CheckIcon color={p.color} />
                       {f}
                     </li>
                   ))}
-                  {/* Points communs à tous les plans — Drive, compresseur, scraper. */}
+                  {/* Points communs à tous les plans — Drive, compresseur, scraper.
+                      Pas répétés sur la carte Agence (« Tout le plan Pro »). */}
+                  {p.id !== "agency" && (
+                  <>
                   <li className="flex items-start gap-3 text-sm text-[var(--app-text)]">
                     <img src="/app/icons8-google-drive-96.png" alt="Google Drive" className="mt-0.5 h-5 w-5 shrink-0 object-contain" />
                     {t("tarifs.featGoogleDrive")}
@@ -594,6 +594,8 @@ export default function UpgradePlanModal({
                     <CheckIcon color={p.color} />
                     {t("tarifs.featScraper")}
                   </li>
+                  </>
+                  )}
                 </ul>
               </div>
             </div>
