@@ -5,7 +5,7 @@
 // job id. Poll GET /api/v1/jobs/:id for status + download URLs.
 //
 // Input (multipart/form-data):
-//   file         the source video (required) — mp4, mov, mkv, avi, webm; ≤ 59 s
+//   file         the source video (required) — mp4, mov, mkv, avi, webm; ≤ 120 s
 //   count        number of copies, 1–10 (default 1)
 //   packs        comma list: visual,motion,metadata_technical,pixel_magic (default "visual,motion,metadata_technical")
 //   country      ISO code for GPS/location metadata (optional)
@@ -18,12 +18,12 @@
 //     -H "Authorization: Bearer dflw_live_…" \
 //     -F "file=@clip.mp4" -F "count=3"
 
-import os from "os";
 import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
 import { authenticateApiRequest, apiError, contentLengthGuard } from "@/lib/api-auth";
 import { createJob, countActiveJobs } from "@/lib/api-jobs";
+import { API_SOURCES_DIR } from "@/lib/api-storage";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -73,11 +73,13 @@ export async function POST(req: Request) {
   const country = (form.get("country") as string) || undefined;
   const iphoneMeta = ["1", "true", "yes", "on"].includes(String(form.get("iphone_meta") ?? "").toLowerCase());
 
-  // Persist the source to /tmp so the background worker can read it after we respond.
+  // Persist the source on the persistent volume (not /tmp, wiped by a redeploy)
+  // so the background worker can still read it however long the job waits.
   let srcTmpPath: string;
   try {
     const buf = Buffer.from(await file.arrayBuffer());
-    srcTmpPath = path.join(os.tmpdir(), `duup_apisrc_${Date.now()}_${crypto.randomBytes(6).toString("hex")}${ext}`);
+    await fs.mkdir(API_SOURCES_DIR, { recursive: true });
+    srcTmpPath = path.join(API_SOURCES_DIR, `duup_apisrc_${Date.now()}_${crypto.randomBytes(6).toString("hex")}${ext}`);
     await fs.writeFile(srcTmpPath, buf);
   } catch (e: any) {
     return apiError(500, "store_failed", "Could not stage the uploaded file.");

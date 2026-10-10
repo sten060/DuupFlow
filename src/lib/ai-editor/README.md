@@ -141,7 +141,10 @@ de primitives) + `get_material` (matière, voix, blancs, reprises) → compose u
 - **Rendu complet non testable en local** sans matière réelle : les changements
   de graphe se valident par filtergraphs isolés sur le binaire 4.4 + le test
   produit (Claude + keyframes).
-- **Concurrence** : MAX_CONCURRENT_RENDERS (env AI_EDITOR_MAX_RENDERS).
+- **Concurrence** : voie « render » du budget CPU commun (`src/lib/cpu-budget.ts`) —
+  plafond propre AI_EDITOR_MAX_RENDERS + plafond global MAX_HEAVY_JOBS partagé avec
+  la duplication. Les ffmpeg lourds (`runFFmpeg` avec filtres/encodage) tournent en
+  priorité basse (FFMPEG_NICE, défaut 10) pour ne jamais affamer les tâches courtes.
 
 ## 🧰 Exigences de qualité de code (analyse & moteur)
 

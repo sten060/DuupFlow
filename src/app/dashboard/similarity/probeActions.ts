@@ -8,6 +8,8 @@ import { spawn } from "child_process";
 import sharp from "sharp";
 import exifReader from "exif-reader";
 import { getFFmpegBin } from "@/app/dashboard/videos/processVideos";
+import { probeInfo } from "@/lib/ffmpeg-probe";
+import { deprioritize } from "@/lib/cpu-budget";
 
 /** Map short format names to long names (matches ffprobe output) */
 const FORMAT_LONG_NAMES: Record<string, string> = {
@@ -191,6 +193,7 @@ function grabFrame(ffmpegBin: string, file: string, atSec: number): Promise<stri
       "-frames:v", "1", "-vf", `scale=${FRAME_WIDTH}:-2`,
       "-f", "image2", "-c:v", "mjpeg", "-",
     ], { stdio: ["ignore", "pipe", "ignore"] });
+    deprioritize(p);
     const chunks: Buffer[] = [];
     p.stdout.on("data", (d: Buffer) => chunks.push(d));
     p.on("error", () => done(null));
@@ -336,14 +339,11 @@ export async function probeFile(
   try {
     const ffmpegBin = await getFFmpegBin();
 
-    const stderr = await new Promise<string>((resolve, reject) => {
-      const p = spawn(ffmpegBin, ["-i", tmpPath, "-hide_banner"], { stdio: ["ignore", "pipe", "pipe"] });
-      let out = "";
-      p.stderr.on("data", (d: Buffer) => { out += d.toString(); });
-      p.on("error", () => reject(new Error(`ffmpeg introuvable (tried: ${ffmpegBin})`)));
-      p.on("close", () => resolve(out));
-      setTimeout(() => { p.kill("SIGKILL"); reject(new Error("ffmpeg timeout")); }, 10_000);
-    });
+    // Sonde robuste à la charge (avant : 10 s fixes puis « ffmpeg timeout »).
+    const probe = await probeInfo(tmpPath, ffmpegBin, "similarity");
+    if (probe.code === -1) throw new Error(`ffmpeg introuvable (tried: ${ffmpegBin})`);
+    if (probe.timedOut) throw new Error("Serveur momentanément saturé : analyse impossible pour l'instant. Ton fichier n'est pas en cause — réessaie dans quelques minutes.");
+    const stderr = probe.stderr;
 
     const info = parseFfmpegInfo(stderr, realSize);
     // Vignettes pour le volet visuel du score. Un échec ici ne doit jamais faire

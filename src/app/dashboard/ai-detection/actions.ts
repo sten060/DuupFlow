@@ -7,7 +7,9 @@ import fs from "fs/promises";
 import crypto from "crypto";
 import sharp from "sharp";
 import { spawn } from "child_process";
-import { getFFmpegBin, scrubMovVendorId } from "@/app/dashboard/videos/processVideos";
+import { getFFmpegBin, scrubMovVendorId, acquireEncodeSlot, releaseEncodeSlot } from "@/app/dashboard/videos/processVideos";
+import { probeInfo } from "@/lib/ffmpeg-probe";
+import { deprioritize } from "@/lib/cpu-budget";
 import { getOutDirForCurrentUser, canDeleteOutputs } from "@/app/dashboard/utils";
 import { checkUsage, reserveUsage, releaseUsage } from "@/lib/usage";
 import { runImageOp } from "@/lib/imageProcessingLimiter";
@@ -68,13 +70,8 @@ async function outputName(dir: string, original: string, outExt: string): Promis
 }
 
 async function probeVideo(input: string, bin: string): Promise<{ durationSec: number; width: number; height: number }> {
-  const out = await new Promise<string>((resolve) => {
-    const p = spawn(bin, ["-hide_banner", "-i", input], { stdio: ["ignore", "ignore", "pipe"] });
-    let err = "";
-    p.stderr.on("data", (d) => (err += String(d)));
-    p.on("close", () => resolve(err));
-    p.on("error", () => resolve(""));
-  });
+  // Sonde robuste à la charge (avant : aucun délai max — pouvait pendre à vie).
+  const out = (await probeInfo(input, bin, "ai-detection")).stderr;
   const dur = out.match(/Duration:\s*(\d+):(\d+):(\d+\.?\d*)/);
   const dim = out.match(/,\s*(\d{2,5})x(\d{2,5})[\s,]/);
   let width = dim ? +dim[1] : 0;
@@ -172,13 +169,25 @@ async function cleanVideo(
   args.push("-metadata:s:v:0", "encoder=H.264", "-metadata:s:v:0", "vendor_id=");
   args.push(output);
 
-  await new Promise<void>((resolve, reject) => {
-    const p = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] });
-    let err = "";
-    p.stderr.on("data", (d) => (err += String(d)));
-    p.on("error", reject);
-    p.on("close", (code) => (code === 0 ? resolve() : reject(new Error(err || `ffmpeg exit ${code}`))));
-  });
+  // Ré-encodage complet → il passe par le budget CPU commun (créneau d'encodage
+  // partagé avec la duplication et l'Éditeur IA) et en priorité basse. Avant, il
+  // tournait hors de toute file, sans délai max, en concurrence aveugle.
+  await acquireEncodeSlot();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const p = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] });
+      deprioritize(p);
+      let err = "";
+      // Garde-fou : 20 s de calcul par seconde de vidéo, entre 15 et 45 min.
+      const timeoutMs = Math.min(45 * 60_000, Math.max(15 * 60_000, Math.round((durationSec || 0) * 20_000)));
+      const timer = setTimeout(() => { p.kill("SIGKILL"); reject(new Error(`ffmpeg timeout après ${Math.round(timeoutMs / 60_000)} min`)); }, timeoutMs);
+      p.stderr.on("data", (d) => { if (err.length < 64_000) err += String(d); });
+      p.on("error", (e) => { clearTimeout(timer); reject(e); });
+      p.on("close", (code) => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(err || `ffmpeg exit ${code}`)); });
+    });
+  } finally {
+    releaseEncodeSlot();
+  }
 
   if (isMp4) await scrubMovVendorId(output);
 }

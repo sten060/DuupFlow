@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import { getServerT } from "@/lib/i18n/server";
-import { processVideos } from "@/app/dashboard/videos/processVideos";
+import { processVideos, VideoInputError } from "@/app/dashboard/videos/processVideos";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkUsage, reserveUsage, releaseUsage, logUsageEvent } from "@/lib/usage";
@@ -354,9 +354,16 @@ export async function POST(req: Request) {
         // (which now includes the rejected filename(s)) over the generic
         // "Contactez le support" — the user can act on it directly.
         const rawMsg: string = e?.message ?? "";
+        const inputReason = e instanceof VideoInputError ? e.reason : null;
         const specificVid004 =
           errorCode === "VID-004" && rawMsg.startsWith("Aucune vidéo valide");
-        const userMsg = specificVid004
+        // Serveur saturé / source perdue : le fichier n'est PAS en cause, on ne
+        // doit surtout pas lui dire « corrompu ».
+        const userMsg = inputReason === "busy"
+          ? t("errors.video.serverBusy")
+          : inputReason === "missing"
+          ? t("errors.video.sourceMissing")
+          : specificVid004
           ? t("errors.video.noValidVideo")
           : errorCode === "VID-004"
           ? t("errors.video.vid004")

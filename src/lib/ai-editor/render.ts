@@ -21,6 +21,7 @@ import { createHash } from "crypto";
 import os from "os";
 import path from "path";
 import { runFFmpeg, ffmpegBinPath } from "@/lib/studio/pipeline";
+import { acquireHeavySlot, releaseHeavySlot, heavyStats, deprioritize } from "@/lib/cpu-budget";
 import { FONT_FAMILY, resolveFontKey } from "./font-catalog";
 import { getProject, materialAbsPath, addVariant, projectPaths } from "./store";
 import type { ProjectVariant } from "./store";
@@ -131,7 +132,6 @@ const MAX_SEGMENT_INPUTS = Math.max(4, parseInt(process.env.AI_EDITOR_MAX_SEGMEN
    limite, deux/trois rendus simultanés (ou un rendu qui explose en entrées)
    saturaient CPU/RAM/FD et rendaient le connecteur muet pour tous. On borne le
    nombre de rendus concurrents ; les suivants attendent leur tour. */
-const MAX_CONCURRENT_RENDERS = Math.max(1, parseInt(process.env.AI_EDITOR_MAX_RENDERS ?? "2", 10));
 /* ── Cœurs alloués à ffmpeg (éditeur IA UNIQUEMENT) ──────────────────────────
    Sans limite, ffmpeg s'attribue TOUS les cœurs de la machine (48 vus par le
    conteneur) POUR CHAQUE FICHIER OUVERT : 20 plans × 48 = ~960 fils demandés →
@@ -165,28 +165,21 @@ function ffThreaded(args: string[]): string[] {
    2 créneaux — plus AUCUN outil ne répondait. On échoue proprement avec un
    message exploitable plutôt que de bloquer tout le monde. */
 const RENDER_DEADLINE_MS = Math.max(60_000, parseInt(process.env.AI_EDITOR_RENDER_DEADLINE_MS ?? "480000", 10));
-let _activeRenders = 0;
-const _renderQueue: Array<() => void> = [];
+/* Le créneau vit dans le budget CPU COMMUN à la machine (src/lib/cpu-budget.ts),
+   partagé avec la duplication : avant, chaque module avait sa file et ignorait
+   l'autre → aux heures de pointe les deux saturaient les mêmes cœurs. */
 function acquireRenderSlot(): Promise<void> {
-  return new Promise((resolve) => {
-    const tryAcquire = () => {
-      if (_activeRenders < MAX_CONCURRENT_RENDERS) { _activeRenders++; resolve(); }
-      else _renderQueue.push(tryAcquire);
-    };
-    tryAcquire();
-  });
+  return acquireHeavySlot("render");
 }
 function releaseRenderSlot() {
-  _activeRenders = Math.max(0, _activeRenders - 1);
-  const next = _renderQueue.shift();
-  if (next) next();
+  releaseHeavySlot("render");
 }
 /** État de la file, pour que le MCP puisse DIRE qu'un rendu attend son tour.
  *  Sans ça, un rendu en file était annoncé « en cours » : le user croyait le
  *  serveur bloqué (vu le 20/08 : 3 rendus en attente derrière 2 actifs, un 6e
  *  lancé « seul » a paru mettre 10 min alors qu'il faisait simplement la queue). */
 export function renderSlotStats(): { active: number; max: number; waiting: number } {
-  return { active: _activeRenders, max: MAX_CONCURRENT_RENDERS, waiting: _renderQueue.length };
+  return heavyStats().render;
 }
 const SIZE_RATIO: Record<CaptionSize, number> = { s: 0.048, m: 0.058, l: 0.072 };
 const num = (v: unknown, d: number) => (Number.isFinite(Number(v)) ? Number(v) : d);
@@ -2586,6 +2579,7 @@ async function sdrProxyInner(abs: string, hdrTrc: string | null): Promise<string
   const { execFile } = await import("child_process");
   const ok = await new Promise<boolean>((resolve) => {
     const child = execFile(bin, args, { timeout: 10 * 60 * 1000, maxBuffer: 1 << 20 }, (err) => resolve(!err));
+    deprioritize(child); // transcodage complet → priorité basse
     child.on("error", () => resolve(false));
   });
   if (!ok) { console.warn("[ai-editor/render] préparation du proxy échouée → rush d'origine conservé"); await fs.rm(proxy, { force: true }).catch(() => {}); return abs; }

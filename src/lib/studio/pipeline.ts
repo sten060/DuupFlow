@@ -11,6 +11,7 @@ import path from "path";
 import { buildAssForClip, buildRevealAss, type CaptionStyle } from "./captions";
 import type { TranscriptWord } from "./transcribe";
 import type { ReelFormat } from "./types";
+import { deprioritize, isHeavyFfmpegArgs } from "@/lib/cpu-budget";
 
 // ── Résolution du binaire ffmpeg (au RUNTIME, jamais via import) ─────────────
 // Importer @ffmpeg-installer ici casserait le bundling webpack des routes
@@ -94,6 +95,9 @@ export function runFFmpeg(
   return new Promise((resolve, reject) => {
     if (signal?.aborted) { reject(new Error("rendu annulé")); return; }
     const p = spawn(getFfmpegBin(), args, { stdio: ["ignore", "ignore", "pipe"] });
+    // Encodage / décodage complet → priorité basse, pour que les sondes et les
+    // requêtes HTTP passent devant. Une simple lecture d'en-têtes reste normale.
+    if (isHeavyFfmpegArgs(args)) deprioritize(p);
     let stderr = "";
     const onAbort = () => {
       clearTimeout(timer);

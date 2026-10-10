@@ -3,18 +3,19 @@
 //
 // Runs in-process (not awaited by the request) — fine on Railway, which keeps a
 // long-lived Node process alive after the HTTP response is sent. If the process
-// restarts mid-job, reapStaleJobs() (in api-jobs.ts) marks it failed so it never
-// hangs forever.
+// restarts mid-job, reapStaleJobs() (in api-jobs.ts) requeues it — and fails it
+// only after MAX_JOB_ATTEMPTS — so it never hangs forever.
 
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { processVideos, type PreDownloadedFile } from "@/app/dashboard/videos/processVideos";
-import { updateJob } from "@/lib/api-jobs";
+import { processVideos, VideoInputError, type PreDownloadedFile } from "@/app/dashboard/videos/processVideos";
+import { updateJob, requeueJob, MAX_JOB_ATTEMPTS } from "@/lib/api-jobs";
 import { saveJobOutput } from "@/lib/api-storage";
 
 export type VideoJobOpts = {
   jobId: string;
+  jobParams: Record<string, unknown>;
   userId: string;
   srcName: string;
   srcTmpPath: string;
@@ -25,8 +26,14 @@ export type VideoJobOpts = {
 };
 
 export async function runVideoDuplicateJob(opts: VideoJobOpts): Promise<void> {
-  const { jobId, userId, srcName, srcTmpPath, count, packs, country, iphoneMeta } = opts;
+  const { jobId, jobParams, userId, srcName, srcTmpPath, count, packs, country, iphoneMeta } = opts;
   const workDir = path.join(os.tmpdir(), `api_job_${jobId}`);
+  // Garde la source tant que le job peut encore être réessayé.
+  let keepSource = false;
+  // Battement de cœur : un job qui ATTEND son créneau d'encodage n'écrit aucune
+  // progression. Sans ce signe de vie, reapStaleJobs (20 min sans nouvelles) le
+  // prendrait pour un job mort et le relancerait en double.
+  const heartbeat = setInterval(() => { updateJob(jobId, {}).catch(() => {}); }, 60_000);
 
   try {
     await updateJob(jobId, { status: "processing", progress: 1, message: "Starting…" });
@@ -70,10 +77,24 @@ export async function runVideoDuplicateJob(opts: VideoJobOpts): Promise<void> {
     // always carry the correct request origin).
     await updateJob(jobId, { status: "completed", progress: 100, message: "Done", result: { files } });
   } catch (e: any) {
+    // Serveur saturé : le fichier est valide, seul le moment est mauvais. On
+    // remet le job en file avec un délai croissant (1, 3, 6 min) au lieu de
+    // renvoyer une erreur au client.
+    const attempts = Number(jobParams.attempts ?? 0) + 1;
+    if (e instanceof VideoInputError && e.reason === "busy" && attempts < MAX_JOB_ATTEMPTS) {
+      const delayMs = [60_000, 180_000, 360_000][attempts - 1] ?? 360_000;
+      console.warn(`[api-video-runner] job ${jobId}: server busy, requeued (attempt ${attempts}/${MAX_JOB_ATTEMPTS - 1}) in ${delayMs / 1000}s`);
+      keepSource = true;
+      await requeueJob({ id: jobId, params: jobParams }, delayMs, "Server busy — retrying automatically shortly.").catch(() => {
+        keepSource = false;
+      });
+      if (keepSource) return;
+    }
     console.error(`[api-video-runner] job ${jobId} failed:`, e?.message);
     await updateJob(jobId, { status: "failed", error: (e?.message || "Processing failed.").slice(0, 500) }).catch(() => {});
   } finally {
-    await fs.unlink(srcTmpPath).catch(() => {});
+    clearInterval(heartbeat);
+    if (!keepSource) await fs.unlink(srcTmpPath).catch(() => {});
     await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
 }

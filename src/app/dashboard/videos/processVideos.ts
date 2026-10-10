@@ -3,6 +3,8 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { spawn } from "child_process";
+import { probeInfo, parseDuration, runProbeOnce } from "@/lib/ffmpeg-probe";
+import { acquireHeavySlot, releaseHeavySlot, deprioritize } from "@/lib/cpu-budget";
 import zlib from "zlib";
 import { getOutDirForCurrentUser } from "@/app/dashboard/utils";
 import { pickLocation } from "@/lib/locations";
@@ -148,93 +150,94 @@ type ColorInfo = {
   // `encoder=HEVC` sur une piste avc1 recopiée telle quelle.
   codecName: string;
 };
-async function probeColorInfo(input: string, binPath: string): Promise<ColorInfo> {
+// ── Sondes ffmpeg robustes à la charge : voir src/lib/ffmpeg-probe.ts ─────────
+// Un délai dépassé n'est JAMAIS confondu avec un fichier cassé.
+const READ_TEST_TIMEOUTS_MS = [15_000, 60_000];
+
+/** Pourquoi aucune vidéo n'a passé le contrôle d'entrée. `busy` et `missing`
+ *  sont TEMPORAIRES (le fichier n'est pas en cause) → à réessayer. */
+export type VideoInputReason = "busy" | "missing" | "corrupted" | "too_long";
+export class VideoInputError extends Error {
+  constructor(public reason: VideoInputReason, message: string) {
+    super(message);
+    this.name = "VideoInputError";
+  }
+}
+
+function parseColorInfo(stderr: string, input: string): ColorInfo {
   const defaults: ColorInfo = { isHDR: false, colorSpace: "unknown", colorTransfer: "unknown", colorPrimaries: "unknown", pixFmt: "unknown", width: 0, height: 0, fps: 0, audioRate: 0, codecName: "unknown" };
-  return new Promise((resolve) => {
-    let stderr = "";
-    let settled = false;
-    const done = (v: ColorInfo) => { if (!settled) { settled = true; clearTimeout(timer); resolve(v); } };
+  // Parse color info from ffmpeg -i output, e.g.:
+  // Stream #0:0: Video: hevc ... yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67) ...
+  const info = { ...defaults };
 
-    const p = spawn(binPath, ["-hide_banner", "-i", input], { stdio: ["ignore", "ignore", "pipe"] });
-    p.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
-    p.on("error", () => done(defaults));
-    p.on("close", () => {
-      // Parse color info from ffmpeg -i output, e.g.:
-      // Stream #0:0: Video: hevc ... yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67) ...
-      const info = { ...defaults };
+  // Extract pixel format — e.g. "yuv420p10le" or "yuv420p"
+  const pfm = stderr.match(/Video:.*?\s(yuv\w+)/);
+  if (pfm) info.pixFmt = pfm[1];
 
-      // Extract pixel format — e.g. "yuv420p10le" or "yuv420p"
-      const pfm = stderr.match(/Video:.*?\s(yuv\w+)/);
-      if (pfm) info.pixFmt = pfm[1];
+  // Extract color properties from parenthetical — e.g. "(tv, bt2020nc/bt2020/arib-std-b67)"
+  // Use [^\/)]+  instead of \w+ because transfer names like "arib-std-b67" contain hyphens.
+  const cm = stderr.match(/\((?:tv|pc|unknown),\s*([^\/)]+)\/([^\/)]+)\/([^)]+)\)/);
+  if (cm) {
+    info.colorSpace = cm[1].trim();     // bt2020nc, bt709, smpte170m, etc.
+    info.colorPrimaries = cm[2].trim(); // bt2020, bt709, etc.
+    info.colorTransfer = cm[3].trim();  // arib-std-b67 (HLG), smpte2084 (PQ), bt709, etc.
+  }
 
-      // Extract color properties from parenthetical — e.g. "(tv, bt2020nc/bt2020/arib-std-b67)"
-      // Use [^\/)]+  instead of \w+ because transfer names like "arib-std-b67" contain hyphens.
-      const cm = stderr.match(/\((?:tv|pc|unknown),\s*([^\/)]+)\/([^\/)]+)\/([^)]+)\)/);
-      if (cm) {
-        info.colorSpace = cm[1].trim();     // bt2020nc, bt709, smpte170m, etc.
-        info.colorPrimaries = cm[2].trim(); // bt2020, bt709, etc.
-        info.colorTransfer = cm[3].trim();  // arib-std-b67 (HLG), smpte2084 (PQ), bt709, etc.
+  // Resolution + fps (used by "Mouvement poussé"). Parsed from the same
+  // Video: line — the resolution is the first NxN token; the codec tag
+  // (e.g. "0x31637661") can't match because it has <2 digits before the "x".
+  const vline = stderr.match(/Stream #\d+:\d+.*?: Video:[^\n]*/);
+  if (vline) {
+    const cn = vline[0].match(/Video:\s*([\w.]+)/);
+    if (cn) info.codecName = cn[1].toLowerCase();
+    const dim = vline[0].match(/(\d{2,5})x(\d{2,5})/);
+    if (dim) { info.width = parseInt(dim[1], 10); info.height = parseInt(dim[2], 10); }
+    const f = vline[0].match(/(\d+(?:\.\d+)?)\s*fps/);
+    if (f) info.fps = parseFloat(f[1]);
+
+    // ── Rotation du conteneur : les dimensions DÉCODÉES ne sont pas celles
+    // écrites sur la ligne « Video: » ────────────────────────────────────
+    // Un téléphone filme à l'horizontale et note « tourne de 90° » dans un
+    // coin du fichier. La ligne Video: annonce donc 3840x2160 alors que
+    // ffmpeg décode 2160x3840 (portrait) en appliquant la rotation.
+    //
+    // Sans ce correctif, tout ce qui se cale sur ces dimensions les force à
+    // l'envers : `scale=3840:2160` écrase une image portrait dans un cadre
+    // paysage, et le zoompan des mouvements progressifs dessine sur une
+    // toile paysage. Résultat : la copie sortait « en format grand » alors
+    // que l'originale est verticale.
+    //
+    // La rotation apparaît en side data, quelques lignes SOUS la ligne
+    // Video: — d'où la fenêtre de recherche à partir de sa position.
+    const apres = stderr.slice(vline.index ?? 0, (vline.index ?? 0) + 600);
+    const rot = apres.match(/rotation of\s*(-?\d+(?:\.\d+)?)\s*degrees/i);
+    if (rot) {
+      const deg = Math.abs(Math.round(parseFloat(rot[1]))) % 180;
+      if (deg === 90 && info.width > 0 && info.height > 0) {
+        const w = info.width;
+        info.width = info.height;
+        info.height = w;
       }
+    }
+  }
+  // Audio sample rate (used by the pitch shift). e.g. "Audio: aac ..., 48000 Hz, ..."
+  const aline = stderr.match(/Stream #\d+:\d+.*?: Audio:[^\n]*/);
+  if (aline) {
+    const ar = aline[0].match(/(\d{4,6})\s*Hz/);
+    if (ar) info.audioRate = parseInt(ar[1], 10);
+  }
 
-      // Resolution + fps (used by "Mouvement poussé"). Parsed from the same
-      // Video: line — the resolution is the first NxN token; the codec tag
-      // (e.g. "0x31637661") can't match because it has <2 digits before the "x".
-      const vline = stderr.match(/Stream #\d+:\d+.*?: Video:[^\n]*/);
-      if (vline) {
-        const cn = vline[0].match(/Video:\s*([\w.]+)/);
-        if (cn) info.codecName = cn[1].toLowerCase();
-        const dim = vline[0].match(/(\d{2,5})x(\d{2,5})/);
-        if (dim) { info.width = parseInt(dim[1], 10); info.height = parseInt(dim[2], 10); }
-        const f = vline[0].match(/(\d+(?:\.\d+)?)\s*fps/);
-        if (f) info.fps = parseFloat(f[1]);
+  // Detect HDR: BT.2020 color space OR HLG/PQ transfer function OR 10-bit HEVC
+  // (iPhone HEVC 10-bit without explicit color tags is almost always BT.2020 HLG)
+  const is10bit = /10le|10be|p010/.test(info.pixFmt);
+  const isHEVC = /hevc|h\.?265/i.test(stderr);
+  info.isHDR = /bt2020/i.test(info.colorSpace) ||
+               /bt2020/i.test(info.colorPrimaries) ||
+               /arib-std-b67|smpte2084/i.test(info.colorTransfer) ||
+               (is10bit && isHEVC);  // 10-bit HEVC = HDR on iPhone
 
-        // ── Rotation du conteneur : les dimensions DÉCODÉES ne sont pas celles
-        // écrites sur la ligne « Video: » ────────────────────────────────────
-        // Un téléphone filme à l'horizontale et note « tourne de 90° » dans un
-        // coin du fichier. La ligne Video: annonce donc 3840x2160 alors que
-        // ffmpeg décode 2160x3840 (portrait) en appliquant la rotation.
-        //
-        // Sans ce correctif, tout ce qui se cale sur ces dimensions les force à
-        // l'envers : `scale=3840:2160` écrase une image portrait dans un cadre
-        // paysage, et le zoompan des mouvements progressifs dessine sur une
-        // toile paysage. Résultat : la copie sortait « en format grand » alors
-        // que l'originale est verticale.
-        //
-        // La rotation apparaît en side data, quelques lignes SOUS la ligne
-        // Video: — d'où la fenêtre de recherche à partir de sa position.
-        const apres = stderr.slice(vline.index ?? 0, (vline.index ?? 0) + 600);
-        const rot = apres.match(/rotation of\s*(-?\d+(?:\.\d+)?)\s*degrees/i);
-        if (rot) {
-          const deg = Math.abs(Math.round(parseFloat(rot[1]))) % 180;
-          if (deg === 90 && info.width > 0 && info.height > 0) {
-            const w = info.width;
-            info.width = info.height;
-            info.height = w;
-          }
-        }
-      }
-      // Audio sample rate (used by the pitch shift). e.g. "Audio: aac ..., 48000 Hz, ..."
-      const aline = stderr.match(/Stream #\d+:\d+.*?: Audio:[^\n]*/);
-      if (aline) {
-        const ar = aline[0].match(/(\d{4,6})\s*Hz/);
-        if (ar) info.audioRate = parseInt(ar[1], 10);
-      }
-
-      // Detect HDR: BT.2020 color space OR HLG/PQ transfer function OR 10-bit HEVC
-      // (iPhone HEVC 10-bit without explicit color tags is almost always BT.2020 HLG)
-      const is10bit = /10le|10be|p010/.test(info.pixFmt);
-      const isHEVC = /hevc|h\.?265/i.test(stderr);
-      info.isHDR = /bt2020/i.test(info.colorSpace) ||
-                   /bt2020/i.test(info.colorPrimaries) ||
-                   /arib-std-b67|smpte2084/i.test(info.colorTransfer) ||
-                   (is10bit && isHEVC);  // 10-bit HEVC = HDR on iPhone
-
-      console.log("[probeColorInfo]", input.split("/").pop(), JSON.stringify(info));
-      done(info);
-    });
-
-    const timer = setTimeout(() => { p.kill("SIGKILL"); done(defaults); }, 8_000);
-  });
+  console.log("[probeColorInfo]", input.split("/").pop(), JSON.stringify(info));
+  return info;
 }
 
 /**
@@ -268,53 +271,21 @@ function encodeTimeoutMs(durationSec: number): number {
   return Math.min(MAX, Math.max(MIN, Math.round((durationSec || 0) * 20_000)));
 }
 
-/** Probe video duration (seconds) using ffmpeg -i.  Returns 0 if parsing fails. */
-async function probeVideoDuration(input: string, binPath: string): Promise<number> {
-  return new Promise((resolve) => {
-    let stderr = "";
-    let settled = false;
-    const done = (val: number) => { if (!settled) { settled = true; clearTimeout(timer); resolve(val); } };
-
-    // -probesize 100M lets FFmpeg read further into the file to find the moov atom
-    // when it sits near the end (common for unfaststarted recordings, HEVC from TapRecord, etc.)
-    const p = spawn(binPath, ["-probesize", "100M", "-i", input], { stdio: ["ignore", "ignore", "pipe"] });
-    p.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
-    p.on("error", () => done(0));
-    p.on("close", () => {
-      const m = stderr.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
-      done(!m ? 0 : parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseFloat(m[3]));
-    });
-
-    // Safety: kill the probe if it hangs for more than 8 seconds
-    const timer = setTimeout(() => { p.kill("SIGKILL"); done(0); }, 8_000);
-  });
-}
-
 /**
  * Quick sanity-check: try to decode 1 frame from the file.
- * Returns true if FFmpeg can read it (valid file, possibly HEVC or unusual profile
- * that probeVideoDuration couldn't parse), false if it's genuinely unreadable.
+ * "ok" si FFmpeg le lit (HEVC ou profil inhabituel que la sonde n'a pas su
+ * parser), "unreadable" si le fichier est réellement illisible, "timeout" si le
+ * serveur est trop chargé pour répondre — ce qui ne dit RIEN du fichier.
  */
-async function canFFmpegReadFile(input: string, binPath: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    let settled = false;
-    const done = (ok: boolean) => { if (!settled) { settled = true; clearTimeout(timer); resolve(ok); } };
-
-    // Decode up to 1 frame, output to null — fast and codec-agnostic
-    const p = spawn(binPath, ["-v", "error", "-i", input, "-vframes", "1", "-f", "null", "-"], {
-      stdio: ["ignore", "ignore", "pipe"],
-    });
-    let stderr = "";
-    p.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
-    p.on("error", () => done(false));
-    p.on("close", (code) => {
-      // Accept if exit 0, or if stderr has no fatal error (some valid files exit 1 with warnings)
-      const fatal = /Invalid data|moov atom not found|No such file|Permission denied/i.test(stderr);
-      done(code === 0 || !fatal);
-    });
-
-    const timer = setTimeout(() => { p.kill("SIGKILL"); done(false); }, 12_000);
-  });
+async function canFFmpegReadFile(input: string, binPath: string): Promise<"ok" | "unreadable" | "timeout"> {
+  for (const ms of READ_TEST_TIMEOUTS_MS) {
+    const r = await runProbeOnce(binPath, ["-v", "error", "-i", input, "-vframes", "1", "-f", "null", "-"], ms);
+    if (r.timedOut) continue;
+    // Accept if exit 0, or if stderr has no fatal error (some valid files exit 1 with warnings)
+    const fatal = r.code === -1 || /Invalid data|moov atom not found|No such file|Permission denied/i.test(r.stderr);
+    return r.code === 0 || !fatal ? "ok" : "unreadable";
+  }
+  return "timeout";
 }
 
 const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
@@ -625,31 +596,13 @@ const LIMITS: Record<string, { min: number; max: number }> = {
 // ── Global encode-slot limiter ──────────────────────────────────────────────
 // MAX_CONCURRENT_ENCODES caps ffmpeg PER request. Without a cross-request cap, N
 // simultaneous duplications each spawn up to that many → N× the load → the box
-// thrashes (uploads + encodes crawl). This module-level semaphore caps the TOTAL
-// concurrent ffmpeg across ALL jobs on this server process; extra encodes wait
-// their turn instead of piling on.
+// thrashes. The slot now lives in the machine-wide CPU budget (src/lib/cpu-budget.ts),
+// shared with the Éditeur IA renders, so the two can no longer pile up blindly.
 const GLOBAL_MAX_ENCODES = Math.max(1, parseInt(process.env.MAX_CONCURRENT_ENCODES ?? "2", 10));
-let _activeEncodes = 0;
-const _encodeWaiters: Array<() => void> = [];
 // `signal` (optional): if it aborts while we're still WAITING, we leave the queue
 // and reject — an aborted caller is never handed a slot it won't release.
-export async function acquireEncodeSlot(signal?: AbortSignal): Promise<void> {
-  if (_activeEncodes < GLOBAL_MAX_ENCODES) { _activeEncodes++; return; }
-  if (!signal) {
-    await new Promise<void>((resolve) => _encodeWaiters.push(resolve)); // slot handed over on release
-    return;
-  }
-  if (signal.aborted) throw new Error("stopped");
-  await new Promise<void>((resolve, reject) => {
-    const onAbort = () => {
-      const idx = _encodeWaiters.indexOf(waiter);
-      if (idx !== -1) _encodeWaiters.splice(idx, 1);
-      reject(new Error("stopped"));
-    };
-    const waiter = () => { signal.removeEventListener("abort", onAbort); resolve(); };
-    _encodeWaiters.push(waiter);
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
+export function acquireEncodeSlot(signal?: AbortSignal): Promise<void> {
+  return acquireHeavySlot("encode", signal);
 }
 
 /** ffmpeg threads for ONE encode, sized from the real vCPU (FFMPEG_VCPU), never os.cpus(). */
@@ -659,9 +612,7 @@ export function encodeThreadsPerTask(): number {
 }
 
 export function releaseEncodeSlot(): void {
-  const next = _encodeWaiters.shift();
-  if (next) next();        // hand our slot straight to the next waiter (count unchanged)
-  else _activeEncodes--;   // nobody waiting → free the slot
+  releaseHeavySlot("encode");
 }
 
 // Run up to `concurrency` async tasks simultaneously.
@@ -950,6 +901,7 @@ async function runFFmpegSafe(
 
   await new Promise<void>((resolve, reject) => {
     const p = spawn(ffmpegBin, args, { stdio: ["ignore", "ignore", "pipe"] });
+    deprioritize(p); // gros encodage → priorité basse : les tâches courtes passent devant
     let stderr = "";
     const timer = setTimeout(() => {
       p.kill("SIGKILL");
@@ -1439,53 +1391,84 @@ export async function processVideos(
   );
 
   // ── Server-side duration guard (120 s / 2 min max) + color probe — run in parallel ──
+  // Une seule lecture `ffmpeg -i` par fichier sert à la fois à la durée et aux
+  // couleurs (avant : deux sondes de 8 s chacune, qui expiraient sous charge).
   const MAX_DURATION_S = 120;
   const durResults = await Promise.all(
-    fileEntries.map(async (entry) => ({
-      entry,
-      dur: await probeVideoDuration(entry.tmpIn, ffmpegBin),
-      color: await probeColorInfo(entry.tmpIn, ffmpegBin),
-      sizeBytes: await fs.stat(entry.tmpIn).then((s) => s.size).catch(() => 0),
-    }))
+    fileEntries.map(async (entry) => {
+      const exists = await fs.access(entry.tmpIn).then(() => true).catch(() => false);
+      if (!exists) return { entry, exists, probe: { stderr: "", timedOut: false }, sizeBytes: 0 };
+      const probe = await probeInfo(entry.tmpIn, ffmpegBin, "processVideos");
+      const sizeBytes = await fs.stat(entry.tmpIn).then((s) => s.size).catch(() => 0);
+      return { entry, exists, probe, sizeBytes };
+    })
   );
   type ValidEntry = typeof fileEntries[number] & { color: ColorInfo; duration: number; bitrateKbps: number };
   const validEntries: ValidEntry[] = [];
   // Track filenames that get dropped at this stage so we can show the user
   // exactly WHICH videos failed (and let the remaining ones go through).
-  // Without this the error message was a generic "Aucune vidéo valide"
-  // even when only one file out of many was actually broken.
   const rejectedFiles: string[] = [];
-  const reasonFor = (fileName: string, reason: "corrupted" | "too_long", info?: string) =>
-    `"${fileName || "fichier sans nom"}"${reason === "corrupted" ? " (illisible)" : ` (${info})`}`;
+  const rejectReasons = new Set<VideoInputReason>();
+  const reject = (entry: FileEntry, displayName: string, reason: VideoInputReason, info: string) => {
+    rejectReasons.add(reason);
+    rejectedFiles.push(`"${displayName || "fichier sans nom"}" (${info})`);
+    if (entry.ownsTmpIn) fs.unlink(entry.tmpIn).catch(() => {});
+  };
 
-  for (const { entry, dur, color, sizeBytes } of durResults) {
+  for (const { entry, exists, probe, sizeBytes } of durResults) {
     const displayName = entry.fileName || path.basename(entry.tmpIn);
+    if (!exists) {
+      console.warn(`[processVideos] rejected "${displayName}": source file missing on disk`);
+      reject(entry, displayName, "missing", "fichier source introuvable sur le serveur");
+      continue;
+    }
+    if (probe.timedOut) {
+      // Serveur saturé : on ne sait RIEN du fichier → surtout pas « corrompu ».
+      console.warn(`[processVideos] "${displayName}": probe timed out on every attempt (server overloaded)`);
+      reject(entry, displayName, "busy", "analyse impossible, serveur saturé — le fichier n'est pas en cause");
+      continue;
+    }
+    const dur = parseDuration(probe.stderr);
+    const color = parseColorInfo(probe.stderr, entry.tmpIn);
     // Source bitrate (kbps) = real file size ÷ duration. This is what we cap the
     // encode to, so a copy is never heavier than the original (0 = unknown → no cap).
     const srcKbps = dur > 0 && sizeBytes > 0 ? Math.round((sizeBytes * 8) / dur / 1000) : 0;
     if (dur <= 0) {
       const readable = await canFFmpegReadFile(entry.tmpIn, ffmpegBin);
-      if (!readable) {
-        console.warn(`[processVideos] rejected "${displayName}": probe=0 and 1-frame test failed`);
-        await onProgress?.(2, `⚠ "${displayName}" est invalide ou corrompu — ignorée.`);
-        rejectedFiles.push(reasonFor(displayName, "corrupted"));
-        if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
-      } else {
+      if (readable === "ok") {
         console.log(`[processVideos] accepted "${displayName}": probe=0 but 1-frame test passed (likely HEVC)`);
         validEntries.push({ ...entry, color, duration: dur, bitrateKbps: srcKbps });
+      } else if (readable === "timeout") {
+        console.warn(`[processVideos] "${displayName}": 1-frame test timed out (server overloaded)`);
+        reject(entry, displayName, "busy", "analyse impossible, serveur saturé — le fichier n'est pas en cause");
+      } else {
+        console.warn(`[processVideos] rejected "${displayName}": probe=0 and 1-frame test failed`);
+        await onProgress?.(2, `⚠ "${displayName}" est invalide ou corrompu — ignorée.`);
+        reject(entry, displayName, "corrupted", "illisible ou corrompu");
       }
     } else if (dur > MAX_DURATION_S) {
       await onProgress?.(2, `⚠ "${displayName}" dépasse ${MAX_DURATION_S}s (${Math.round(dur)}s) — ignorée.`);
-      rejectedFiles.push(reasonFor(displayName, "too_long", `${Math.round(dur)}s > ${MAX_DURATION_S}s`));
-      if (entry.ownsTmpIn) await fs.unlink(entry.tmpIn).catch(() => {});
+      reject(entry, displayName, "too_long", `${Math.round(dur)}s > ${MAX_DURATION_S}s`);
     } else {
       validEntries.push({ ...entry, color, duration: dur, bitrateKbps: srcKbps });
     }
   }
   if (validEntries.length === 0) {
-    // Surface the filename(s) so the user knows exactly which video(s) to fix.
+    // Raison principale, du plus « temporaire » au plus « définitif » : un job
+    // rejeté parce que le serveur était saturé doit être RÉESSAYÉ, pas déclaré
+    // corrompu.
+    const reason: VideoInputReason =
+      rejectReasons.has("busy") ? "busy"
+      : rejectReasons.has("missing") ? "missing"
+      : rejectReasons.has("corrupted") ? "corrupted"
+      : "too_long";
     const list = rejectedFiles.length > 0 ? ` Fichier(s) rejeté(s) : ${rejectedFiles.join(", ")}.` : "";
-    throw new Error(`Aucune vidéo valide à traiter — les fichiers sont corrompus ou dépassent ${MAX_DURATION_S}s.${list}`);
+    const head =
+      reason === "busy" ? "Serveur momentanément saturé : la vidéo n'a pas pu être analysée à temps. Le fichier n'est pas en cause, réessaie dans quelques minutes."
+      : reason === "missing" ? "Fichier source introuvable sur le serveur (redémarrage pendant l'attente ?). Renvoie la vidéo."
+      : reason === "corrupted" ? "Aucune vidéo valide à traiter — fichier illisible ou corrompu."
+      : `Aucune vidéo valide à traiter — durée supérieure à ${MAX_DURATION_S}s.`;
+    throw new VideoInputError(reason, `${head}${list}`);
   }
   totalCopies = validEntries.length * count; // recount after filtering
 

@@ -2556,6 +2556,8 @@
       "authError": "Authentication error",
       "limitReached": "Video duplication limit reached.",
       "noValidVideo": "No valid video to process.",
+      "serverBusy": "The server is temporarily overloaded and couldn't analyse the video in time. Your file is fine — please retry in a few minutes.",
+      "sourceMissing": "The uploaded file could not be found on the server (restart in progress?). Please upload the video again.",
       "vid004": "An error occurred during processing. Please contact support.",
       "vid005": "Error while saving the file.",
       "vid003": "Error while loading the source file.",

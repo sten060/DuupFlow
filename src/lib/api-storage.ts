@@ -13,6 +13,12 @@ import path from "path";
 import { OUT_BASE } from "@/app/dashboard/utils";
 
 const API_DIR = path.join(OUT_BASE, "api-outputs");
+// Sources reçues par l'API, en attente de traitement. Sur le VOLUME et pas dans
+// /tmp : un redéploiement Railway vide /tmp, et les jobs encore en file
+// échouaient alors avec « fichier corrompu » (la source avait disparu).
+export const API_SOURCES_DIR = path.join(OUT_BASE, "api-sources");
+// Une source jamais traitée (job expiré, abandonné…) est supprimée après 24 h.
+const SOURCE_RETENTION_MS = 24 * 60 * 60 * 1000;
 // How long API results stay available for download after a job completes.
 // Storage isn't the constraint (large volume, billed per data stored) — this is
 // just the download window. Keep the job-row expiry (api-jobs.ts) in sync.
@@ -54,6 +60,16 @@ export async function readJobOutput(userId: string, jobId: string, filename: str
 export async function cleanupApiOutputs(maxAgeMs = RETENTION_MS): Promise<number> {
   const now = Date.now();
   let deleted = 0;
+  // Sources orphelines (le runner les supprime normalement en fin de job).
+  try {
+    for (const f of await fs.readdir(API_SOURCES_DIR)) {
+      const fp = path.join(API_SOURCES_DIR, f);
+      try {
+        const st = await fs.stat(fp);
+        if (now - st.mtimeMs > SOURCE_RETENTION_MS) { await fs.unlink(fp); deleted++; }
+      } catch {}
+    }
+  } catch { /* pas encore créé */ }
   let userDirs: string[];
   try {
     userDirs = await fs.readdir(API_DIR);

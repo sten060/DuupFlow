@@ -18,13 +18,18 @@ type ClaimedJob = { id: string; user_id: string; type: string; params: Record<st
 /** Atomically claim the oldest queued job (queued → processing). */
 async function claimNextJob(): Promise<ClaimedJob | null> {
   const admin = createAdminClient();
-  const { data: next } = await admin
+  // Oldest queued job whose retry delay (params.not_before, set by requeueJob)
+  // has elapsed — a job waiting to retry never blocks the ones behind it.
+  const { data: queued } = await admin
     .from("api_jobs")
-    .select("id")
+    .select("id, params")
     .eq("status", "queued")
     .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .limit(25);
+  const now = Date.now();
+  const next = ((queued ?? []) as { id: string; params: Record<string, any> | null }[]).find(
+    (j) => !j.params?.not_before || Date.parse(j.params.not_before) <= now,
+  );
   if (!next) return null;
 
   // Claim only if still queued — guards against a double-pick.
@@ -43,6 +48,7 @@ async function processJob(job: ClaimedJob): Promise<void> {
   if (job.type === "videos.duplicate") {
     await runVideoDuplicateJob({
       jobId: job.id,
+      jobParams: p,
       userId: job.user_id,
       srcName: p.srcName,
       srcTmpPath: p.srcTmpPath,

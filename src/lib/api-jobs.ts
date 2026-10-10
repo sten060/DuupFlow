@@ -70,17 +70,58 @@ export async function cleanupExpiredJobs(): Promise<void> {
   await admin.from("api_jobs").delete().lt("expires_at", new Date().toISOString());
 }
 
+/** Nombre max de passages d'un job avant échec définitif (1er essai + reprises). */
+export const MAX_JOB_ATTEMPTS = 4;
+
 /**
- * Fail any job stuck in `processing` with no update for `staleMs` — covers a
- * server restart that killed an in-flight in-process worker. Best-effort;
- * called opportunistically (e.g. when a client polls).
+ * Remet un job en file pour un nouvel essai, pas avant `delayMs`. Les essais
+ * déjà faits et l'heure de reprise vivent dans `params` (aucune migration).
  */
-export async function reapStaleJobs(staleMs = 20 * 60 * 1000): Promise<void> {
+export async function requeueJob(job: { id: string; params: Record<string, unknown> }, delayMs: number, message: string): Promise<void> {
+  const admin = createAdminClient();
+  const attempts = Number(job.params?.attempts ?? 0) + 1;
+  const { error } = await admin
+    .from("api_jobs")
+    .update({
+      status: "queued",
+      progress: 0,
+      message,
+      params: { ...job.params, attempts, not_before: new Date(Date.now() + delayMs).toISOString() },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", job.id)
+    // Seul un job en cours se remet en file : jamais un job déjà terminé entre-temps.
+    .eq("status", "processing");
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Jobs bloqués en `processing` sans nouvelles depuis `staleMs` — un redémarrage
+ * du serveur a tué le worker en plein travail. Avant : échec direct. Désormais
+ * on les REMET EN FILE (la source est sur le volume, elle a survécu), et on
+ * n'échoue qu'après MAX_JOB_ATTEMPTS passages. Best-effort.
+ */
+// 5 min : le runner donne signe de vie toutes les 60 s (heartbeat), même quand
+// il attend son créneau. 5 min de silence = process réellement mort.
+export async function reapStaleJobs(staleMs = 5 * 60 * 1000): Promise<void> {
   const admin = createAdminClient();
   const cutoff = new Date(Date.now() - staleMs).toISOString();
-  await admin
+  const { data } = await admin
     .from("api_jobs")
-    .update({ status: "failed", error: "Job timed out or the server restarted mid-processing.", updated_at: new Date().toISOString() })
+    .select("id, params")
     .eq("status", "processing")
-    .lt("updated_at", cutoff);
+    .lt("updated_at", cutoff)
+    .limit(50);
+  for (const j of (data ?? []) as { id: string; params: Record<string, unknown> }[]) {
+    const attempts = Number(j.params?.attempts ?? 0) + 1;
+    if (attempts < MAX_JOB_ATTEMPTS) {
+      await requeueJob(j, 0, "Server restarted — job requeued automatically.").catch(() => {});
+    } else {
+      await admin
+        .from("api_jobs")
+        .update({ status: "failed", error: "Job timed out or the server restarted mid-processing.", updated_at: new Date().toISOString() })
+        .eq("id", j.id)
+        .eq("status", "processing");
+    }
+  }
 }

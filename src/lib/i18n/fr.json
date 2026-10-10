@@ -2565,6 +2565,8 @@
       "authError": "Erreur authentification",
       "limitReached": "Limite de duplications vidéos atteinte.",
       "noValidVideo": "Aucune vidéo valide à traiter.",
+      "serverBusy": "Serveur momentanément saturé : la vidéo n'a pas pu être analysée à temps. Ton fichier n'est pas en cause — relance dans quelques minutes.",
+      "sourceMissing": "Le fichier envoyé n'a pas été retrouvé sur le serveur (redémarrage en cours ?). Renvoie la vidéo.",
       "vid004": "Une erreur est survenue pendant le traitement. Contactez le support.",
       "vid005": "Erreur lors de la sauvegarde du fichier.",
       "vid003": "Erreur lors du chargement du fichier source.",

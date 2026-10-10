@@ -23,6 +23,8 @@ import { getServerT, getServerLocale } from "@/lib/i18n/server";
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 import { runImageOp } from "@/lib/imageProcessingLimiter";
 import { getFFmpegBin, acquireEncodeSlot, releaseEncodeSlot, encodeThreadsPerTask } from "@/app/dashboard/videos/processVideos";
+import { probeInfo, parseDuration } from "@/lib/ffmpeg-probe";
+import { deprioritize } from "@/lib/cpu-budget";
 import { compressJobRegistry } from "./jobRegistry";
 import { compressImage, LEVELS, type CompressLevel } from "@/lib/compress-pipeline";
 import { compressVideoFilters } from "@/lib/compress-video-filters";
@@ -76,30 +78,21 @@ const CORRUPT_RE = /moov atom not found|Invalid data found|could not find codec 
 /* ============== video probing (lightweight, ffmpeg -i parse) ============== */
 type Probe = { duration: number; is10bitHEVC: boolean; width?: number; height?: number; fps?: number };
 async function probeVideo(input: string, bin: string): Promise<Probe> {
-  return new Promise((resolve) => {
-    let stderr = "";
-    let settled = false;
-    const done = (v: Probe) => {
-      if (!settled) { settled = true; clearTimeout(timer); resolve(v); }
-    };
-    const p = spawn(bin, ["-hide_banner", "-i", input], { stdio: ["ignore", "ignore", "pipe"] });
-    p.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
-    p.on("error", () => done({ duration: 0, is10bitHEVC: false }));
-    p.on("close", () => {
-      const m = stderr.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
-      const duration = m ? parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseFloat(m[3]) : 0;
-      const is10bit = /10le|10be|p010/.test(stderr);
-      const isHEVC = /hevc|h\.?265/i.test(stderr);
-      const res = stderr.match(/Video:.*?(\d{2,5})x(\d{2,5})/);
-      const fps = stderr.match(/([\d.]+) fps/);
-      done({
-        duration, is10bitHEVC: is10bit && isHEVC,
-        width: res ? +res[1] : undefined, height: res ? +res[2] : undefined,
-        fps: fps ? Math.round(parseFloat(fps[1])) : undefined,
-      });
-    });
-    const timer = setTimeout(() => { p.kill("SIGKILL"); done({ duration: 0, is10bitHEVC: false }); }, 8_000);
-  });
+  // Sonde robuste à la charge (délais croissants) : avant, 8 s fixes → sous
+  // charge la durée tombait à 0 (plus de plafond de débit) et le HDR n'était
+  // plus détecté (couleurs délavées).
+  const { stderr, timedOut } = await probeInfo(input, bin, "compress");
+  if (timedOut) return { duration: 0, is10bitHEVC: false };
+  const duration = parseDuration(stderr);
+  const is10bit = /10le|10be|p010/.test(stderr);
+  const isHEVC = /hevc|h\.?265/i.test(stderr);
+  const res = stderr.match(/Video:.*?(\d{2,5})x(\d{2,5})/);
+  const fps = stderr.match(/([\d.]+) fps/);
+  return {
+    duration, is10bitHEVC: is10bit && isHEVC,
+    width: res ? +res[1] : undefined, height: res ? +res[2] : undefined,
+    fps: fps ? Math.round(parseFloat(fps[1])) : undefined,
+  };
 }
 
 /* ============== performance trace ============== */
@@ -168,6 +161,7 @@ async function compressVideo(
   const timeoutMs = timeoutForVideo(duration);
   await new Promise<void>((resolve, reject) => {
     const p = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] });
+    deprioritize(p); // gros encodage → priorité basse
     let stderr = "";
     let timedOut = false;
     const timer = setTimeout(() => {
