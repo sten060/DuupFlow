@@ -508,3 +508,29 @@ export async function resetUsage(userId: string): Promise<void> {
   }
   // If no row exists yet, nothing to reset
 }
+
+/**
+ * Un NOUVEL abonnement payant (checkout) ouvre un nouveau cycle de facturation :
+ * les compteurs repartent de zéro. Avant, seul le renouvellement mensuel
+ * (invoice.paid / subscription_cycle) les remettait à zéro → un client passé de
+ * Pro (illimité, mais compté) à un nouvel abonnement Solo gardait ses 513 images
+ * de la période Pro et ne pouvait rien utiliser du plan qu'il venait de payer.
+ *
+ * Idempotent : on ne remet à zéro que si `subscriptionId` n'est pas DÉJÀ
+ * l'abonnement enregistré sur le profil. Le webhook et verify-session passent
+ * tous les deux ici, et recharger la page de retour du paiement ne doit pas
+ * offrir un quota neuf. À appeler AVANT d'écrire le nouvel id sur le profil.
+ */
+export async function resetUsageForNewSubscription(userId: string, subscriptionId: string | null): Promise<void> {
+  if (!subscriptionId) return;
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("stripe_subscription_id")
+    .eq("id", userId)
+    .single();
+  const current = (profile as { stripe_subscription_id: string | null } | null)?.stripe_subscription_id ?? null;
+  if (current === subscriptionId) return;
+  await resetUsage(userId);
+  console.log(`[usage] compteurs remis à zéro — nouvel abonnement ${subscriptionId} (précédent : ${current ?? "aucun"}) user=${userId}`);
+}

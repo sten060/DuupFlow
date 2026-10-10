@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe, planFromPriceId } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToActiveClient, moveToChurned } from "@/lib/brevo";
-import { resetUsage } from "@/lib/usage";
+import { resetUsage, resetUsageForNewSubscription } from "@/lib/usage";
 import { recordTransaction, creditWelcomeTokens } from "@/lib/tokens-server";
 import { planRank, isPaidPlan, type PaidPlan } from "@/lib/plans";
 import Stripe from "stripe";
@@ -446,6 +446,11 @@ export async function POST(request: NextRequest) {
             }
           }
 
+          // Nouvel abonnement = nouveau cycle → compteurs à zéro (avant d'écrire
+          // le nouvel id sur le profil : c'est ce qui rend l'opération idempotente).
+          await resetUsageForNewSubscription(uid, sub.id).catch((err) =>
+            console.error("[webhook] resetUsageForNewSubscription failed:", err),
+          );
           await markUserPaid(uid, plan, customerId, sub.id);
 
           // Welcome tokens for new Solo/Pro subscribers (3 images worth).

@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { moveToActiveClient } from "@/lib/brevo";
 import { getServerT } from "@/lib/i18n/server";
 import { isPaidPlan, type PaidPlan } from "@/lib/plans";
+import { resetUsageForNewSubscription } from "@/lib/usage";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,17 @@ export async function POST(request: NextRequest) {
   console.log(`[verify-session] plan=${plan} subscriptionId=${subscriptionId} customerId=${customerId}`);
 
   const admin = createAdminClient();
+
+  // Nouvel abonnement = nouveau cycle → compteurs à zéro. Idempotent (comparé à
+  // l'abonnement déjà enregistré) : recharger cette page ne réinitialise rien.
+  // Uniquement pour un paiement RÉCENT : rejouer l'id d'une vieille session
+  // (ancien abonnement ≠ abonnement actuel) offrirait sinon un quota neuf.
+  const sessionAgeSec = Date.now() / 1000 - (session.created ?? 0);
+  if (sessionAgeSec < 60 * 60) {
+    await resetUsageForNewSubscription(user.id, subscriptionId).catch((err) =>
+      console.error("[verify-session] resetUsageForNewSubscription failed:", err),
+    );
+  }
 
   // .select() renvoie les lignes modifiées → si le tableau est vide,
   // le profil n'existe pas encore et l'update n'a touché aucune ligne.
