@@ -6,17 +6,17 @@ import ClientLayout from "./ClientLayout";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.duupflow.com"),
-  title: "DuupFlow — Republie tes meilleurs contenus, partout",
+  title: "DuupFlow — Transforme 1 vidéo en plusieurs variantes à reposter",
   description:
-    "Rends chaque copie unique aux yeux des algos et reposte ce qui a déjà cartonné, sans détection de doublon. Pour créateurs et agences.",
+    "Génère des dizaines de variantes uniques d'une seule vidéo, prêtes à reposter sur tous tes comptes.",
   // Favicon, icon and apple-touch-icon are emitted automatically from the App
   // Router metadata files (src/app/favicon.ico, src/app/icon.png,
   // src/app/apple-icon.png). An explicit `icons` config here only duplicates
   // those generated <link> tags, so we intentionally omit it.
   openGraph: {
-    title: "DuupFlow — Republie tes meilleurs contenus, partout",
+    title: "DuupFlow — Transforme 1 vidéo en plusieurs variantes à reposter",
     description:
-      "Rends chaque copie unique aux yeux des algos et reposte ce qui a déjà cartonné, sans détection de doublon. Pour créateurs et agences.",
+      "Génère des dizaines de variantes uniques d'une seule vidéo, prêtes à reposter sur tous tes comptes.",
     url: "https://www.duupflow.com",
     siteName: "DuupFlow",
     images: [
@@ -32,9 +32,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "DuupFlow — Republie tes meilleurs contenus, partout",
+    title: "DuupFlow — Transforme 1 vidéo en plusieurs variantes à reposter",
     description:
-      "Rends chaque copie unique aux yeux des algos et reposte ce qui a déjà cartonné, sans détection de doublon. Pour créateurs et agences.",
+      "Génère des dizaines de variantes uniques d'une seule vidéo, prêtes à reposter sur tous tes comptes.",
     images: ["/og-image.png?v=2"],
   },
 };
