@@ -12,8 +12,16 @@ export async function register() {
     });
 
     // Start the API job worker — polls api_jobs for queued async jobs (video).
-    const { startApiWorker } = await import("@/lib/api-worker");
-    startApiWorker();
+    // ⚠️ PRODUCTION UNIQUEMENT. Un `next dev` local pointe sur la MÊME base : son
+    // worker volait les jobs vidéo des vrais clients et les faisait échouer (le
+    // fichier source est sur le serveur de prod, pas sur le Mac). Pour tester le
+    // worker en local, contre une base de test : API_WORKER=1.
+    if (process.env.NODE_ENV === "production" || process.env.API_WORKER === "1") {
+      const { startApiWorker } = await import("@/lib/api-worker");
+      startApiWorker();
+    } else {
+      console.log("[api-worker] désactivé hors production (API_WORKER=1 pour forcer)");
+    }
 
     liftRequestTimeout();
 
