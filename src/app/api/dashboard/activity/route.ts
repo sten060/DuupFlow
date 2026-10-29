@@ -9,7 +9,7 @@
 // Source : usage_events (une ligne par action livrée, cf. usage.ts). Périmètre :
 // le propriétaire + ses invités (un VA ne voit que sa propre activité).
 //
-// Duplications = image_duplication + video_duplication SAUF les rendus de l'Éditeur IA, qui
+// Courbe Duplications = video_duplication SAUF les rendus de l'Éditeur IA, qui
 // consomment aussi le quota vidéo :
 //   · lignes récentes : meta.origin === "ai_editor" (migration 061) ;
 //   · lignes anciennes (sans meta) : un ai_editor_render du même user écrit dans
@@ -157,9 +157,9 @@ export async function GET(req: NextRequest) {
   const pick = (e: Ev) =>
     metric === "edits"
       ? e.kind === "ai_editor_render"
-      // Duplications = copies vidéo ET image (le journal montre les deux ; une
-      // courbe « vidéo seule » restait à 0 pour qui duplique surtout des images).
-      : e.kind === "image_duplication" || (e.kind === "video_duplication" && !isEditorRender(e));
+      // Courbe = duplications VIDÉO uniquement (décision Sten) ; le journal,
+      // lui, montre aussi les images.
+      : e.kind === "video_duplication" && !isEditorRender(e);
   const inWs = (e: Ev) => ws === "all" || e.workspace_id === ws;
 
   const today = localDayStart(now, tz);

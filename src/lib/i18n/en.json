@@ -944,7 +944,7 @@
       "moduleDetectionIA": "AI Detection",
       "moduleDetectionIADesc": "Mask the AI signature in metadata. No visual modification to the file.",
       "homeSubtitle": "Your activity at a glance",
-      "statsDupTitle": "Duplications",
+      "statsDupTitle": "Video duplications",
       "statsEditTitle": "Edited videos · AI Editor",
       "rangeToday": "Today",
       "range7d": "7d",
