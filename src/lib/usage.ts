@@ -442,43 +442,84 @@ async function bumpUsageCounter(userId: string, type: UsageType, count: number):
   }
 }
 
-/**
- * Trace UNE ligne dans `usage_events` (journal analytique, cf. Sten Insights).
- * À appeler avec la quantité RÉELLEMENT produite, une fois le job terminé —
- * pas au moment de la réservation, sinon un job à moitié raté est sur-compté.
- * Best-effort : un échec ici ne doit jamais casser un job qui a réussi.
- */
-export async function logUsageEvent(userId: string, type: UsageType, qty: number): Promise<void> {
-  if (!Number.isFinite(qty) || qty <= 0) return;
+export type UsageEventOrigin = "dashboard" | "api" | "mcp" | "ai_editor" | "ai_auto";
+export type UsageEventOpts = {
+  /** Clé de rangement du créateur (dossier de sortie / store de l'Éditeur IA) :
+   *  « ws_<id> », l'id du propriétaire (créateur par défaut), « <id>_admin »
+   *  (vue admin) ou l'id du user (compte sans workspaces). */
+  storeKey?: string | null;
+  origin?: UsageEventOrigin;
+  /** Nom du fichier source, pour le journal du dashboard. */
+  label?: string | null;
+};
+
+/** storeKey → id du workspace (créateur), ou null (vue admin / sans workspace). */
+async function workspaceIdFromStoreKey(storeKey: string | null | undefined): Promise<string | null> {
+  if (!storeKey) return null;
+  if (storeKey.startsWith("ws_")) return storeKey.slice(3) || null;
+  if (storeKey.endsWith("_admin") || storeKey.endsWith("_noworkspace")) return null;
+  // Le créateur PAR DÉFAUT est rangé sous l'id de son propriétaire.
   try {
     const admin = createAdminClient();
-    await admin.from("usage_events").insert({
-      user_id: userId,
-      kind: USAGE_EVENT_KIND[type],
-      qty,
-      source: "live",
-    });
+    const { data } = await admin
+      .from("workspaces")
+      .select("id")
+      .eq("owner_user_id", storeKey)
+      .eq("is_default", true)
+      .maybeSingle();
+    return (data as { id: string } | null)?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Insère une ligne usage_events avec créateur + provenance (migration 061). Si
+ * ces colonnes n'existent pas encore, on retombe sur l'ancien format : une
+ * migration pas encore appliquée ne doit JAMAIS faire perdre un événement.
+ */
+async function insertUsageEvent(row: Record<string, unknown>, opts?: UsageEventOpts): Promise<void> {
+  const admin = createAdminClient();
+  if (opts && (opts.storeKey || opts.origin || opts.label)) {
+    const workspace_id = await workspaceIdFromStoreKey(opts.storeKey);
+    const meta: Record<string, string> = {};
+    if (opts.origin) meta.origin = opts.origin;
+    if (opts.label) meta.label = String(opts.label).slice(0, 120);
+    const { error } = await admin.from("usage_events").insert({ ...row, workspace_id, meta });
+    if (!error) return;
+    if (!/workspace_id|meta|column/i.test(error.message ?? "")) throw new Error(error.message);
+  }
+  const { error } = await admin.from("usage_events").insert(row);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Trace UNE ligne dans `usage_events` (journal analytique, cf. Sten Insights,
+ * et le dashboard). À appeler avec la quantité RÉELLEMENT produite, une fois le
+ * job terminé — pas au moment de la réservation, sinon un job à moitié raté est
+ * sur-compté. Best-effort : un échec ici ne doit jamais casser un job réussi.
+ */
+export async function logUsageEvent(userId: string, type: UsageType, qty: number, opts?: UsageEventOpts): Promise<void> {
+  if (!Number.isFinite(qty) || qty <= 0) return;
+  try {
+    await insertUsageEvent({ user_id: userId, kind: USAGE_EVENT_KIND[type], qty, source: "live" }, opts);
   } catch (err) {
     console.error("[usage] usage_events insert failed:", err);
   }
 }
 
 /**
- * Trace UN rendu de l'Éditeur IA (create_variant / update_variant) dans
- * usage_events avec le kind dédié 'ai_editor_render' → permet de compter, par
- * user, combien de vidéos ont été générées AVEC L'ÉDITEUR IA (distinct des
- * duplications vidéo classiques). Best-effort : n'échoue jamais l'appelant.
+ * Trace un ou plusieurs rendus de l'Éditeur IA (create_variant / update_variant,
+ * génération directe, retouche manuelle) avec le kind dédié 'ai_editor_render'
+ * → compte, par user et par créateur, les vidéos produites AVEC L'ÉDITEUR IA.
+ * Best-effort : n'échoue jamais l'appelant.
  * ⚠ Nécessite la migration 053 (kind 'ai_editor_render' ajouté à la contrainte).
  */
-export async function logAiEditorRender(userId: string): Promise<void> {
+export async function logAiEditorRender(userId: string, opts?: UsageEventOpts & { qty?: number }): Promise<void> {
+  const qty = opts?.qty ?? 1;
+  if (!Number.isFinite(qty) || qty <= 0) return;
   try {
-    const admin = createAdminClient();
-    await admin.from("usage_events").insert({
-      user_id: userId,
-      kind: "ai_editor_render",
-      qty: 1,
-      source: "live",
-    });
+    await insertUsageEvent({ user_id: userId, kind: "ai_editor_render", qty, source: "live" }, { ...opts, origin: "ai_editor" });
   } catch (err) {
     console.error("[usage] ai_editor_render event insert failed:", err);
   }

@@ -12,6 +12,7 @@ import path from "path";
 import { processVideos, VideoInputError, type PreDownloadedFile } from "@/app/dashboard/videos/processVideos";
 import { updateJob, requeueJob, MAX_JOB_ATTEMPTS } from "@/lib/api-jobs";
 import { saveJobOutput } from "@/lib/api-storage";
+import { logUsageEvent } from "@/lib/usage";
 
 export type VideoJobOpts = {
   jobId: string;
@@ -23,10 +24,11 @@ export type VideoJobOpts = {
   packs: string;
   country?: string;
   iphoneMeta?: boolean;
+  removeAiDetection?: boolean;
 };
 
 export async function runVideoDuplicateJob(opts: VideoJobOpts): Promise<void> {
-  const { jobId, jobParams, userId, srcName, srcTmpPath, count, packs, country, iphoneMeta } = opts;
+  const { jobId, jobParams, userId, srcName, srcTmpPath, count, packs, country, iphoneMeta, removeAiDetection } = opts;
   const workDir = path.join(os.tmpdir(), `api_job_${jobId}`);
   // Garde la source tant que le job peut encore être réessayé.
   let keepSource = false;
@@ -49,6 +51,7 @@ export async function runVideoDuplicateJob(opts: VideoJobOpts): Promise<void> {
     fd.append("singles", "{}");
     if (country) fd.append("country", country);
     if (iphoneMeta) fd.append("iphoneMeta", "1");
+    if (removeAiDetection) fd.append("removeAiDetection", "1");
 
     let lastPct = 0;
     const onProgress = async (pct: number, msg: string) => {
@@ -76,6 +79,9 @@ export async function runVideoDuplicateJob(opts: VideoJobOpts): Promise<void> {
     // Store filenames only — the poll endpoint builds the download URLs (so they
     // always carry the correct request origin).
     await updateJob(jobId, { status: "completed", progress: 100, message: "Done", result: { files } });
+    // Journal d'usage (dashboard, analytics) : les duplications API n'y
+    // apparaissaient pas du tout.
+    void logUsageEvent(userId, "videos", files.length, { origin: "api", label: srcName });
   } catch (e: any) {
     // Serveur saturé : le fichier est valide, seul le moment est mauvais. On
     // remet le job en file avec un délai croissant (1, 3, 6 min) au lieu de

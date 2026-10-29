@@ -10,7 +10,7 @@
 import { requirePaidPlan } from "@/lib/plan-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { reserveUsage, releaseUsage, logUsageEvent } from "@/lib/usage";
+import { reserveUsage, releaseUsage, logUsageEvent, logAiEditorRender } from "@/lib/usage";
 import { directVariants } from "@/lib/ai-editor/director";
 import { getLatestProject } from "@/lib/ai-editor/store";
 import { editorScopeForUser } from "@/lib/ai-editor/scope";
@@ -63,7 +63,10 @@ export async function POST(req: NextRequest) {
   // Ne facture QUE les variantes réellement rendues.
   const unused = count - res.variants.length;
   if (unused > 0) await releaseUsage(user.id, "videos", unused, usage.trialCredit).catch(() => {});
-  if (res.variants.length) void logUsageEvent(user.id, "videos", res.variants.length);
+  if (res.variants.length) {
+    void logUsageEvent(user.id, "videos", res.variants.length, { storeKey: sk, origin: "ai_editor" });
+    void logAiEditorRender(user.id, { storeKey: sk, qty: res.variants.length });
+  }
 
   return NextResponse.json({ variants: res.variants, usedAI: res.usedAI });
 }

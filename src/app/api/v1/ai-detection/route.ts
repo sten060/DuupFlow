@@ -84,7 +84,7 @@ export async function POST(req: Request) {
   return new Response(out.data, {
     headers: {
       "Content-Type": ct,
-      "Content-Disposition": `attachment; filename="duupflow_masked${out.outExt}"`,
+      "Content-Disposition": `attachment; filename="IMG_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}_${Math.random().toString(36).slice(2, 8).toUpperCase()}${out.outExt}"` /* jamais le nom du produit */,
       "Content-Length": String(out.data.length),
     },
   });

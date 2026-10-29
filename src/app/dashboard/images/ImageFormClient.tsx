@@ -16,7 +16,7 @@ import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import { saveSettings, loadSettings } from "@/lib/formMemory";
 import WorkspacePresetBar from "../components/WorkspacePresetBar";
 
-type ImageSettings = { count?: number; fundamentals?: boolean; visuals?: boolean; semi?: boolean; reverse?: boolean; iphoneMeta?: boolean; country?: string };
+type ImageSettings = { count?: number; fundamentals?: boolean; visuals?: boolean; semi?: boolean; reverse?: boolean; iphoneMeta?: boolean; removeAi?: boolean; country?: string };
 import DriveImportButton from "../components/DriveImportButton";
 import DriveSaveButton from "../components/DriveSaveButton";
 import SendToEditorButton from "../components/SendToEditorButton";
@@ -224,6 +224,7 @@ export default function ImageFormClient({ initialImages }: Props) {
     setCheck("semi", s.semi);
     setCheck("reverse", s.reverse);
     setCheck("iphoneMeta", s.iphoneMeta);
+    setCheck("removeAiDetection", s.removeAi);
     setVal("country", s.country);
   }
 
@@ -239,6 +240,7 @@ export default function ImageFormClient({ initialImages }: Props) {
       semi: fd.has("semi"),
       reverse: fd.has("reverse"),
       iphoneMeta: fd.get("iphoneMeta") === "1",
+      removeAi: fd.get("removeAiDetection") === "1",
       country: (fd.get("country") as string) || "",
     };
   }
@@ -263,9 +265,10 @@ export default function ImageFormClient({ initialImages }: Props) {
     const semi = formData.has("semi");
     const reverse = formData.has("reverse");
     const iphoneMeta = formData.get("iphoneMeta") === "1";
+    const removeAi = formData.get("removeAiDetection") === "1";
     const country = (formData.get("country") as string) || "";
     // Remember these settings for next time.
-    saveSettings("images", { count, fundamentals, visuals, semi, reverse, iphoneMeta, country });
+    saveSettings("images", { count, fundamentals, visuals, semi, reverse, iphoneMeta, removeAi, country });
 
     // Accept image/* MIME or HEIC/HEIF extension (some browsers don't set
     // image/heic correctly — Safari/Firefox-Windows may return empty type).
@@ -332,6 +335,7 @@ export default function ImageFormClient({ initialImages }: Props) {
       if (semi)         apiForm.append("semi", "1");
       if (reverse)      apiForm.append("reverse", "1");
       if (iphoneMeta)   apiForm.append("iphoneMeta", "1");
+      if (removeAi)     apiForm.append("removeAiDetection", "1");
       if (country)      apiForm.append("country", country);
       apiForm.append("jobId", jobId);
       for (const id of directUploadIds) apiForm.append("directUploadIds", id);
@@ -568,6 +572,8 @@ export default function ImageFormClient({ initialImages }: Props) {
 
         {/* Priorité d'algorithme */}
         <ToggleChip name="iphoneMeta" value="1" label={`⚡ ${t("dashboard.images.iphoneMetaLabel")}`} hint={t("dashboard.images.iphoneMetaHint")} accent="pink" />
+        {/* Ex-module « Détection IA », désormais une option de la duplication. */}
+        <ToggleChip name="removeAiDetection" value="1" label={`🛡️ ${t("dashboard.images.removeAiLabel")}`} hint={t("dashboard.images.removeAiHint")} accent="pink" />
 
         <div className="h-px bg-[var(--app-border)]" />
 

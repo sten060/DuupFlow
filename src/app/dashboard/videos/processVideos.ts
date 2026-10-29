@@ -12,6 +12,7 @@ import { pickAppleShotProfile } from "@/lib/metadata/apple-devices";
 import {
   prepareWatermark,
   prepareSimpleWatermark,
+  prepareCounterWatermark,
   resolveWatermarkOverlay,
   type PreparedWatermark,
 } from "@/app/dashboard/videos/watermark";
@@ -1360,6 +1361,13 @@ export async function processVideos(
     mode === "advanced" ? await prepareWatermark(formData, dir)
     : mode === "simple" ? await prepareSimpleWatermark(formData, dir)
     : null;
+  // « Retirer la détection IA » (ex-module Détection IA, désormais une option de
+  // la duplication) : contre-watermark quasi invisible (0,2–1 %) en mouvement,
+  // aléatoire PAR COPIE. Il force un vrai ré-encodage des pixels ; les
+  // métadonnées de provenance (C2PA…) sont déjà effacées par la duplication
+  // (`-map_metadata -1`). Ne RETIRE pas un filigrane robuste type SynthID.
+  const aiPrep: PreparedWatermark | null =
+    formData.get("removeAiDetection") === "1" ? await prepareCounterWatermark(dir) : null;
 
   let totalCopies = files.length * count; // may be reduced after duration check
   let doneCopies = 0;
@@ -1557,7 +1565,11 @@ export async function processVideos(
       const flashFilter = assetsPrep ? resolveFlashFilter(assetsPrep) : null;
       // Ordre d'empilement : les flocons d'abord, le watermark par-dessus (il
       // doit rester lisible, c'est une signature).
+      const aiOverlay = aiPrep ? resolveWatermarkOverlay(aiPrep, work.width) : undefined;
       const overlays: VideoOverlay[] = [];
+      // Le contre-watermark tout en dessous : il est invisible, rien ne doit le
+      // recouvrir ni être recouvert par lui.
+      if (aiOverlay) overlays.push(aiOverlay);
       if (snowOverlay) overlays.push(snowOverlay);
       if (wmOverlay) overlays.push(wmOverlay);
       const packs = String(formData.get("packs") || "")
@@ -2125,6 +2137,9 @@ export async function processVideos(
   // des textures d'assets (flocons).
   if (wmPrep) {
     for (const f of wmPrep.tempFiles) await fs.unlink(f).catch(() => {});
+  }
+  if (aiPrep) {
+    for (const f of aiPrep.tempFiles) await fs.unlink(f).catch(() => {});
   }
   if (assetsPrep) {
     for (const f of assetsPrep.tempFiles) await fs.unlink(f).catch(() => {});

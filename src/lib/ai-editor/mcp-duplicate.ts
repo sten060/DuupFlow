@@ -186,7 +186,7 @@ export async function startVideoDuplication(userId: string, storeKey: string, ar
     } finally {
       const produced = job.outputs.length;
       if (produced < requested) await releaseUsage(userId, "videos", requested - produced, res.trialCredit).catch(() => {});
-      if (produced) void logUsageEvent(userId, "videos", produced);
+      if (produced) void logUsageEvent(userId, "videos", produced, { storeKey, origin: "mcp", label: sources[0]?.name ?? null });
       job.progress = 100;
       job.finishedAt = Date.now();
       await cleanup(sources);
@@ -260,7 +260,7 @@ export async function duplicateImages(userId: string, storeKey: string, args: Re
     }
   } finally {
     if (outputs.length < requested) await releaseUsage(userId, "images", requested - outputs.length, res.trialCredit).catch(() => {});
-    if (outputs.length) void logUsageEvent(userId, "images", outputs.length);
+    if (outputs.length) void logUsageEvent(userId, "images", outputs.length, { storeKey, origin: "mcp", label: sources[0]?.name ?? null });
     await cleanup(sources);
   }
   const text = outputs.length

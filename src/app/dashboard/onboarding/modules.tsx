@@ -63,12 +63,6 @@ const IconGenerate = (
   </svg>
 );
 
-const IconDetection = (
-  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-  </svg>
-);
-
 export const ONBOARDING_MODULES: OnboardingModule[] = [
   {
     key: "images",
@@ -122,18 +116,6 @@ export const ONBOARDING_MODULES: OnboardingModule[] = [
       { target: ["gen-dropzone"],    titleKey: "onb.coach.generate.s1t", bodyKey: "onb.coach.generate.s1b", placement: "below" },
       { target: ["gen-mode-toggle"], titleKey: "onb.coach.generate.s2t", bodyKey: "onb.coach.generate.s2b", placement: "below" },
       { target: ["gen-submit"],      titleKey: "onb.coach.generate.s3t", bodyKey: "onb.coach.generate.s3b", placement: "below" },
-    ],
-  },
-  {
-    key: "ai-detection",
-    route: "/dashboard/ai-detection",
-    i18n: "aidetection",
-    accent: "#F59E0B",
-    accentBg: "rgba(245,158,11,0.10)",
-    accentBorder: "rgba(245,158,11,0.30)",
-    icon: IconDetection,
-    steps: [
-      { target: ["aidetect-dropzone"], titleKey: "onb.coach.aidetection.s1t", bodyKey: "onb.coach.aidetection.s1b", placement: "below" },
     ],
   },
 ];

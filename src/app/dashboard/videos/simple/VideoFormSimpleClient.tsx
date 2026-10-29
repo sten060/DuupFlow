@@ -15,7 +15,7 @@ import WorkspacePresetBar from "../../components/WorkspacePresetBar";
 
 type VideoSimpleSettings = {
   count?: number; packs?: string[]; flip?: boolean; reverse?: boolean; country?: string; iphoneMeta?: boolean;
-  watermark?: boolean; shake?: boolean; motionMode?: "doux" | "fort"; motionDynamicMode?: "doux" | "fort";
+  watermark?: boolean; removeAi?: boolean; shake?: boolean; motionMode?: "doux" | "fort"; motionDynamicMode?: "doux" | "fort";
   rotation?: { enabled?: boolean; min?: number; max?: number };
   dims?: { enabled?: boolean; w?: number; h?: number };
 };
@@ -400,6 +400,7 @@ export default function VideoFormSimpleClient() {
   const [country, setCountry] = useState("");
   const [iphoneMeta, setIphoneMeta] = useState(false);
   const [simpleWm, setSimpleWm] = useState(false); // watermark aléatoire par copie
+  const [removeAi, setRemoveAi] = useState(false); // ex-module « Détection IA »
   const [optionsOuvertes, setOptionsOuvertes] = useState(false);
   const [packsOuverts, setPacksOuverts] = useState(false);
 
@@ -452,6 +453,7 @@ export default function VideoFormSimpleClient() {
       if (el instanceof HTMLInputElement) el.value = String(s.count);
     }
     if (typeof s.watermark === "boolean") setSimpleWm(s.watermark);
+    if (typeof s.removeAi === "boolean") setRemoveAi(s.removeAi);
     if (typeof s.shake === "boolean") setShake(s.shake);
     if (s.motionMode === "doux" || s.motionMode === "fort") setMotionMode(s.motionMode);
     if (s.motionDynamicMode === "doux" || s.motionDynamicMode === "fort") setMotionDynamicMode(s.motionDynamicMode);
@@ -477,6 +479,7 @@ export default function VideoFormSimpleClient() {
       packs: packsSelected,
       flip, reverse, country, iphoneMeta,
       watermark: simpleWm,
+      removeAi,
       shake, motionMode, motionDynamicMode,
       rotation: { enabled: rotEnabled, min: rotMin, max: rotMax },
       dims: { enabled: dimEnabled, w: dimW, h: dimH },
@@ -617,7 +620,7 @@ export default function VideoFormSimpleClient() {
         setProgressMsg(t("dashboard.videosSimple.sendingToServer"));
 
         apiForm = new FormData();
-        for (const key of ["channel", "mode", "singles", "count", "packs", "country", "iphoneMeta", "simpleWatermark"]) {
+        for (const key of ["channel", "mode", "singles", "count", "packs", "country", "iphoneMeta", "simpleWatermark", "removeAiDetection"]) {
           const v = rawForm.get(key);
           if (v !== null) apiForm.append(key, v);
         }
@@ -830,7 +833,7 @@ export default function VideoFormSimpleClient() {
   /* Compteur sur l'en-tête replié : sans lui, un réglage actif serait invisible
      et le user chercherait pourquoi ses copies ne ressemblent pas à l'original.
      Le pays ne compte pas — il est renseigné par défaut, pas « activé ». */
-  const nbOptionsActives = [flip, reverse, shake, simpleWm, iphoneMeta].filter(Boolean).length;
+  const nbOptionsActives = [flip, reverse, shake, simpleWm, iphoneMeta, removeAi].filter(Boolean).length;
 
   /* Quelle intensité correspond à la sélection en cours ? On compare la liste
      des packs ET les intensités de mouvement : cocher un pack à la main doit
@@ -880,6 +883,7 @@ export default function VideoFormSimpleClient() {
       {/* ⚠️ Les champs cachés restent ICI, jamais dans « Options » : ce bloc se
           replie, et un réglage choisi puis replié doit quand même partir. */}
       <input type="hidden" name="simpleWatermark" value={simpleWm ? "1" : "0"} />
+      <input type="hidden" name="removeAiDetection" value={removeAi ? "1" : "0"} />
 
       {/* Dropzone — seul élément avec bordure */}
       <div data-tour-id="video-dropzone" className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3">
@@ -1078,6 +1082,12 @@ export default function VideoFormSimpleClient() {
               onChange={setIphoneMeta}
               label={`⚡ ${t("dashboard.videosSimple.iphoneMetaLabel")}`}
               help={t("dashboard.videosSimple.iphoneMetaHint")}
+            />
+            <OptionLine
+              checked={removeAi}
+              onChange={setRemoveAi}
+              label={`🛡️ ${t("vid.opt.removeAi")}`}
+              help={t("vid.opt.removeAiHint")}
             />
           </div>
 

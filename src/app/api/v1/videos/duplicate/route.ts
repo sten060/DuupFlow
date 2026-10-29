@@ -5,11 +5,12 @@
 // job id. Poll GET /api/v1/jobs/:id for status + download URLs.
 //
 // Input (multipart/form-data):
-//   file         the source video (required) — mp4, mov, mkv, avi, webm; ≤ 120 s
+//   file         the source video (required) — mp4, mov, mkv, avi, webm; ≤ 120 s, ≤ 150 MB
 //   count        number of copies, 1–10 (default 1)
 //   packs        comma list: visual,motion,metadata_technical,pixel_magic (default "visual,motion,metadata_technical")
 //   country      ISO code for GPS/location metadata (optional)
 //   iphone_meta  "1"/"0" — iPhone-realistic metadata  (optional)
+//   remove_ai_detection "1"/"0" — invisible per-copy counter-watermark (optional)
 //
 // Response: 202 { job_id, status, poll_url }
 //
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
   const packs = packsRaw.split(",").map((s) => s.trim()).filter((p) => VALID_PACKS.includes(p)).join(",") || "visual,motion,metadata_technical";
   const country = (form.get("country") as string) || undefined;
   const iphoneMeta = ["1", "true", "yes", "on"].includes(String(form.get("iphone_meta") ?? "").toLowerCase());
+  const removeAiDetection = ["1", "true", "yes", "on"].includes(String(form.get("remove_ai_detection") ?? "").toLowerCase());
 
   // Persist the source on the persistent volume (not /tmp, wiped by a redeploy)
   // so the background worker can still read it however long the job waits.
@@ -93,6 +95,7 @@ export async function POST(req: Request) {
     packs,
     country,
     iphoneMeta,
+    removeAiDetection,
     srcName: file.name,
     srcTmpPath,
   });

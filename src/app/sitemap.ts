@@ -12,6 +12,7 @@ const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthl
   { path: "/partners",      changeFrequency: "monthly", priority: 0.5 },
   { path: "/blog",          changeFrequency: "weekly",  priority: 0.7 },
   { path: "/capcut-alternative", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/docs/api",      changeFrequency: "monthly", priority: 0.6 },
   { path: "/login",         changeFrequency: "yearly",  priority: 0.4 },
   { path: "/register",      changeFrequency: "yearly",  priority: 0.5 },
   { path: "/legal/terms",   changeFrequency: "yearly",  priority: 0.3 },

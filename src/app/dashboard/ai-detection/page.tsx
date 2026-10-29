@@ -1,20 +1,16 @@
 /**
- * Server entry — AI Detection module.
+ * Ancien module « Détection IA ».
  *
- * Ouvert à tous les plans : le plan gratuit explore le module (dépôt des
- * fichiers, options), mais le traitement lui répond qu'il faut un plan
- * (maskAiMetadata + bouton gardé côté client — src/lib/free-plan.ts).
+ * Ce n'est plus un module à part : c'est désormais l'option « Retirer la
+ * détection IA » de la duplication (vidéo simple / avancé, images). Le code du
+ * module (AiDetectionClient, actions) est volontairement CONSERVÉ — l'API
+ * /api/v1/ai-detection et le pipeline le réutilisent. Cette page ne fait que
+ * renvoyer les anciens liens/favoris vers la duplication vidéo.
  */
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import AiDetectionClient from "./AiDetectionClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function AiDetectionPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  return <AiDetectionClient />;
+export default function AiDetectionPage() {
+  redirect("/dashboard/videos");
 }

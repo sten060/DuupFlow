@@ -8,6 +8,7 @@
 import Link from "next/link";
 import type { DocEntry } from "./DocsDrawer";
 import { ImagesMockup, CompressMockup, ComparatorMockup, VariationMockup, ApiMockup } from "./docs-mockups";
+import ApiParamsReference from "@/app/dashboard/developers/ApiParamsReference";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -438,6 +439,7 @@ export function buildApiDocs(t: T): DocEntry[] {
     ["POST /ai-detection", t("dashboard.developers.descAiDetection")],
     ["POST /videos/duplicate", t("dashboard.developers.descVideos")],
     ["GET /jobs/:id", t("dashboard.developers.descJobs")],
+    ["GET /jobs/:id/files/:name", t("dashboard.developers.descFiles")],
   ];
   return [
     { title: t("dashboard.docs.usageTitle"), body: (
@@ -472,6 +474,7 @@ export function buildApiDocs(t: T): DocEntry[] {
               </li>
             ))}
           </ul>
+          <ApiParamsReference />
         </div>
       ),
     },
@@ -506,7 +509,7 @@ export function buildAllDocs(t: T): DocModule[] {
     { id: "compress", label: t("dashboard.sidebar.compresseur"), icon: mIcon(<><polyline points="4 14 10 14 10 20" /><polyline points="20 10 14 10 14 4" /><line x1="14" y1="10" x2="21" y2="3" /><line x1="3" y1="21" x2="10" y2="14" /></>), docs: buildCompressDocs(t) },
     { id: "comparator", label: t("dashboard.sidebar.comparateur"), icon: mIcon(<><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></>), docs: buildComparatorDocs(t) },
     { id: "variation", label: t("dashboard.sidebar.variationIA"), icon: mIcon(<path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />), docs: buildVariationDocs(t) },
-    { id: "detection", label: t("dashboard.sidebar.detectionIA"), icon: mIcon(<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />), docs: buildDetectionDocs(t) },
+    { id: "detection", label: t("vid.opt.removeAi"), icon: mIcon(<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />), docs: buildDetectionDocs(t) },
     { id: "api", label: "API", icon: mIcon(<><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></>), docs: buildApiDocs(t) },
   ];
 }

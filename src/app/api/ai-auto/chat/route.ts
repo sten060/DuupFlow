@@ -172,7 +172,7 @@ async function execGenerate(
       const plans = buildVariationPlans(mat, it);
       for (const plan of plans) {
         startRenderJob(storeKey, project.id, plan, {
-          onDone: async () => { await logUsageEvent(userId, "videos", 1); },
+          onDone: async () => { await logUsageEvent(userId, "videos", 1, { storeKey, origin: "ai_auto" }); },
           onFailed: async () => { await releaseUsage(userId, "videos", 1, reservation.trialCredit); },
         });
         launched++;

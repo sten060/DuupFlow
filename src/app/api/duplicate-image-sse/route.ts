@@ -11,6 +11,7 @@ import { checkUsage, reserveUsage, releaseUsage, logUsageEvent } from "@/lib/usa
 import { runImageOp } from "@/lib/imageProcessingLimiter";
 import { imageJobRegistry } from "./jobRegistry";
 import { processImage, randHex, type Flags } from "@/lib/image-pipeline";
+import { maskAiImage } from "@/lib/ai-detection-pipeline";
 
 export const maxDuration = 300;
 
@@ -86,6 +87,11 @@ export async function POST(req: Request) {
   };
   const userCountry  = (form.get("country") as string) || "";
   const useIphoneMeta = toBool(form.get("iphoneMeta"));
+  // « Retirer la détection IA » (ex-module Détection IA) : chaque copie passe
+  // d'abord par le pipeline anti-empreinte (flou d'objectif, bruit de capteur,
+  // modulation couleur, ré-encodage), PUIS par la duplication — qui écrit
+  // l'identité finale (1 fichier = 1 appareil, cf. metadata-coherence).
+  const removeAiDetection = toBool(form.get("removeAiDetection"));
 
   if (directUploadIds.length === 0) {
     return Response.json({ error: t("errors.image.noImage") }, { status: 400 });
@@ -202,9 +208,10 @@ export async function POST(req: Request) {
               const rand = randHex(4);
               // runImageOp caps how many sharp pipelines run at once across ALL
               // requests → prevents a burst of image jobs from OOM-ing the box.
-              const { data, outExt } = await runImageOp(() =>
-                processImage(buf, ext, flags, { country: userCountry || undefined, iphoneMeta: useIphoneMeta })
-              );
+              const { data, outExt } = await runImageOp(async () => {
+                const src = removeAiDetection ? (await maskAiImage(buf, ext)).data : buf;
+                return processImage(src, ext, flags, { country: userCountry || undefined, iphoneMeta: useIphoneMeta });
+              });
               // ⚠️ Pas de nom de produit dans le nom de fichier : il part tel quel
               // sur le réseau social à l'upload et regroupe tous nos utilisateurs.
               // (Même correction que côté vidéo — cf. videoOutName.)
@@ -259,7 +266,11 @@ export async function POST(req: Request) {
         if (usageCheck.userId) {
           const unused = totalImages - processedOk;
           if (unused > 0) releaseUsage(usageCheck.userId, "images", unused, reservation.trialCredit).catch(console.error);
-          if (processedOk > 0) void logUsageEvent(usageCheck.userId, "images", processedOk);
+          if (processedOk > 0) void logUsageEvent(usageCheck.userId, "images", processedOk, {
+            storeKey: userId, // clé du dossier = créateur affiché
+            origin: "dashboard",
+            label: fileNames.length > 1 ? `${fileNames[0]} +${fileNames.length - 1}` : fileNames[0] ?? null,
+          });
         }
         try { controller.close(); } catch {}
       }

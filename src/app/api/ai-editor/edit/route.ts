@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
   const job = startRenderJob(sk, projectId, { ...plan, label }, {
     derivedFrom: variantId,
-    onDone: () => logAiEditorRender(user.id), // trace (gratuit — voir en-tête)
+    onDone: () => logAiEditorRender(user.id, { storeKey: sk }), // trace (gratuit — voir en-tête)
   });
   console.log(`[ai-editor/edit] export retouche lancé · user=${user.id} · variante=${variantId} · job=${job.id}`);
   return NextResponse.json({ jobId: job.id });

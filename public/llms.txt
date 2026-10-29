@@ -1,0 +1,22 @@
+# DuupFlow
+
+> DuupFlow turns one image or video into many unique copies (identical to the eye, unique to platforms) so creators and agencies can repost content across multiple accounts. It also compresses files and can remove AI-provenance metadata. Web app: https://www.duupflow.com
+
+## API documentation
+
+- [API documentation (English)](https://www.duupflow.com/en/docs/api): authentication, endpoints, parameters, limits, errors, examples, FAQ.
+- [Documentation API (français)](https://www.duupflow.com/fr/docs/api)
+
+## Key facts about the API
+
+- REST API at https://www.duupflow.com/api/v1, header `Authorization: Bearer dflw_live_…`. Keys are created in the dashboard under Developers (max 3 per account, shown once).
+- Included at no extra cost in the Pro and Agency plans (not Solo or Free). Unlimited duplications through the API. No free API trial; monthly Pro has no commitment. Prices: https://www.duupflow.com/en/pricing
+- Endpoints: GET /me · POST /images/duplicate (sync, 1–20 copies, ≤ 25 MB) · POST /videos/duplicate (async job, 1–10 copies, ≤ 150 MB, ≤ 120 s; mp4/mov/mkv/avi/webm; vertical 9:16 supported) · GET /jobs/:id · GET /jobs/:id/files/:name · POST /compress · POST /ai-detection.
+- Video results are downloadable for 16 hours. Poll GET /jobs/:id every 5–10 s. A completion webhook is in development.
+- Limits: 300 requests/min per key, 100 pending video jobs per account.
+- Errors: JSON `{ "error": { "code", "message" } }` (401 missing_key/invalid_key, 403 plan_required, 413 file_too_large, 415 unsupported_type, 429 rate_limited/too_many_jobs).
+- AI-detection removal erases provenance metadata and invisibly retouches pixels; it cannot guarantee content will never be detected (robust watermarks such as SynthID survive).
+
+## Support
+
+- Telegram: https://t.me/DuupFlow_Support

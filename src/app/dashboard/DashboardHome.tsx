@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import VariationAnnouncementModal from "./VariationAnnouncementModal";
@@ -9,59 +8,9 @@ import StarterAnnounceModal, { STARTER_SEEN_KEY } from "./StarterAnnounceModal";
 import ReplayMenu from "./onboarding/ReplayMenu";
 import GlobalDocsDrawer from "./components/GlobalDocsDrawer";
 import PromoPopup from "./PromoPopup";
+import ActivityDashboard from "./home/ActivityDashboard";
 
 const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent";
-
-function ModuleCard({ mod }: { mod: { href: string; title: string; desc: string; badge: string | null; icon: React.ReactNode; color: string; colorBg: string; colorBorder: string } }) {
-  return (
-    <Link
-      href={mod.href}
-      className="group relative rounded-2xl p-4 sm:p-5 transition-all overflow-hidden"
-      style={{
-        background: mod.colorBg.replace("0.10", "0.04"),
-        border: `1px solid ${mod.colorBorder.replace("0.22", "0.15")}`,
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = mod.colorBorder;
-        (e.currentTarget as HTMLElement).style.boxShadow = `0 0 30px ${mod.colorBg}`;
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = mod.colorBorder.replace("0.22", "0.15");
-        (e.currentTarget as HTMLElement).style.boxShadow = "none";
-      }}
-    >
-      {/* Radial glow on hover */}
-      <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-           style={{ background: `radial-gradient(400px at 30% 20%, ${mod.colorBg}, transparent 70%)` }} />
-
-      {/* Mobile: compact icon + name only (centered). Desktop: icon + name + description row. */}
-      <div className="relative flex flex-col items-center text-center gap-2 sm:flex-row sm:items-start sm:text-left sm:gap-4">
-        <div
-          className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: mod.colorBg, border: `1px solid ${mod.colorBorder}`, color: mod.color }}
-        >
-          {mod.icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-center sm:justify-start gap-2">
-            <h3 className="text-sm font-semibold text-[var(--app-text)]">{mod.title}</h3>
-            {mod.badge && (
-              <span
-                className="text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide"
-                style={{ background: "rgba(56,189,248,0.10)", color: "#38BDF8", border: "1px solid rgba(56,189,248,0.22)" }}
-              >
-                {mod.badge}
-              </span>
-            )}
-          </div>
-          {/* Description hidden on mobile — the card stays small (icon + name). */}
-          <p className="hidden sm:block text-xs text-[var(--app-text-faint)] mt-1 leading-relaxed">{mod.desc}</p>
-        </div>
-        <span className="hidden sm:block text-sm opacity-0 group-hover:opacity-100 transition shrink-0 mt-1" style={{ color: mod.color }}>→</span>
-      </div>
-    </Link>
-  );
-}
 
 /* ─── News Modal ─── */
 function NewsModal({ onClose }: { onClose: () => void }) {
@@ -261,137 +210,32 @@ export default function DashboardHome({
 
   const { t } = useTranslation();
 
-  const MODULES = [
-    {
-      href: "/dashboard/images",
-      title: t("dashboard.home.moduleImages"),
-      desc: t("dashboard.home.moduleImagesDesc"),
-      badge: null,
-      icon: (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="3" />
-          <circle cx="8.5" cy="8.5" r="1.5" />
-          <polyline points="21 15 16 10 5 21" />
-        </svg>
-      ),
-      color: "#C026D3",
-      colorBg: "rgba(192,38,211,0.10)",
-      colorBorder: "rgba(192,38,211,0.22)",
-    },
-    {
-      href: "/dashboard/videos",
-      title: t("dashboard.home.moduleVideos"),
-      desc: t("dashboard.home.moduleVideosDesc"),
-      badge: null,
-      icon: (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="2" y="5" width="14" height="14" rx="2" />
-          <path d="M16 9l5-3v12l-5-3V9z" />
-        </svg>
-      ),
-      color: "#6366F1",
-      colorBg: "rgba(99,102,241,0.10)",
-      colorBorder: "rgba(99,102,241,0.22)",
-    },
-    {
-      href: "/dashboard/compress",
-      title: t("dashboard.home.moduleCompresseur"),
-      desc: t("dashboard.home.moduleCompresseurDesc"),
-      badge: null,
-      icon: (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="4 14 10 14 10 20" />
-          <polyline points="20 10 14 10 14 4" />
-          <line x1="14" y1="10" x2="21" y2="3" />
-          <line x1="3" y1="21" x2="10" y2="14" />
-        </svg>
-      ),
-      color: "#14B8A6",
-      colorBg: "rgba(20,184,166,0.10)",
-      colorBorder: "rgba(20,184,166,0.22)",
-    },
-    {
-      href: "/dashboard/similarity",
-      title: t("dashboard.home.moduleComparateur"),
-      desc: t("dashboard.home.moduleComparateurDesc"),
-      badge: null,
-      icon: (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="11" cy="11" r="7" />
-          <path d="m21 21-4.35-4.35" />
-        </svg>
-      ),
-      color: "#10B981",
-      colorBg: "rgba(16,185,129,0.10)",
-      colorBorder: "rgba(16,185,129,0.22)",
-    },
-    {
-      href: "/dashboard/generate",
-      title: t("dashboard.home.moduleVariationIA"),
-      desc: t("dashboard.home.moduleVariationIADesc"),
-      badge: null,
-      icon: (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
-        </svg>
-      ),
-      color: "#38BDF8",
-      colorBg: "rgba(56,189,248,0.10)",
-      colorBorder: "rgba(56,189,248,0.22)",
-    },
-    {
-      href: "/dashboard/ai-detection",
-      title: t("dashboard.home.moduleDetectionIA"),
-      desc: t("dashboard.home.moduleDetectionIADesc"),
-      badge: null,
-      icon: (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        </svg>
-      ),
-      color: "#F59E0B",
-      colorBg: "rgba(245,158,11,0.10)",
-      colorBorder: "rgba(245,158,11,0.22)",
-    },
-  ];
-
   return (
     <div className="p-4 sm:p-8 w-full">
 
-      {/* Header */}
+      {/* Header — les actions sont sur la ligne du « Bonjour », à droite. */}
       <div className="mb-6 sm:mb-8">
         <p className="text-xs font-medium text-[var(--app-text-faint)] tracking-[0.14em] uppercase mb-2">
           {agencyName ?? t("dashboard.home.dashboard")}
         </p>
-        <h1 className="text-2xl sm:text-3xl font-semibold text-[var(--app-text)] tracking-tight">
-          {firstName ? (
-            <>{t("dashboard.home.bonjour")} <span className={G}>{firstName}</span></>
-          ) : (
-            <>{t("dashboard.home.tableauDeBord")}</>
-          )}
-        </h1>
-        {/* Stacks on mobile so the subtitle keeps a full line and the action
-            links wrap underneath instead of squeezing the row off-screen. */}
-        <div className="flex flex-col items-start gap-2 mt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:mt-1.5">
-          <p className="text-sm text-[var(--app-text-faint)]">
-            {t("dashboard.home.chooseModule")}
-          </p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <GlobalDocsDrawer />
-            <button
-              onClick={() => setShowNews(true)}
-              className="text-xs text-sky-400/70 hover:text-sky-400 transition flex items-center gap-1"
-            >
-              <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-[var(--app-text)] tracking-tight">
+            {firstName ? (
+              <>{t("dashboard.home.bonjour")} <span className={G}>{firstName}</span></>
+            ) : (
+              <>{t("dashboard.home.tableauDeBord")}</>
+            )}
+          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <GlobalDocsDrawer buttonClassName="dash-btn" />
+            <button type="button" onClick={() => setShowNews(true)} className="dash-btn">
+              <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-sky-500" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M13 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zM5 5h6M5 8h6M5 11h3" />
               </svg>
               {t("dashboard.home.nouveautes")}
             </button>
-            <button
-              onClick={() => setShowReplay(true)}
-              className="text-xs text-indigo-400/70 hover:text-indigo-400 transition flex items-center gap-1"
-            >
-              <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
+            <button type="button" onClick={() => setShowReplay(true)} className="dash-btn">
+              <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-indigo-500" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M2 8a6 6 0 1 1 1.8 4.3" />
                 <path d="M2 12V9h3" />
               </svg>
@@ -399,22 +243,11 @@ export default function DashboardHome({
             </button>
           </div>
         </div>
+        <p className="mt-1.5 text-sm text-[var(--app-text-faint)]">{t("dashboard.home.homeSubtitle")}</p>
       </div>
 
-      {/* Separator */}
-      <div className="mb-7" style={{ height: "1px", background: "var(--app-border)" }} />
-
-      {/* Section label */}
-      <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[var(--app-text-faint)] mb-4">
-        {t("dashboard.home.modulesDisponibles")}
-      </p>
-
-      {/* Module grid — 2 compact tiles per row on mobile, wider cards on desktop */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        {MODULES.map((mod) => (
-          <ModuleCard key={mod.href} mod={mod} />
-        ))}
-      </div>
+      {/* Activité de l'équipe : courbes, journal, temps économisé. */}
+      <ActivityDashboard />
 
       {/* Replay menu — re-open the overview or any module coach on demand. */}
       {showReplay && <ReplayMenu onClose={() => setShowReplay(false)} />}

@@ -15,6 +15,7 @@ const LOCALIZED_TOP_LEVEL = new Set([
   "blog",
   "capcut-alternative",
   "submagic-alternative",
+  "docs",
   "legal",
   "login",
   "register",
@@ -267,6 +268,6 @@ export const config = {
   // The middleware short-circuits early for public pages so the Supabase
   // round-trip only happens on auth-gated routes.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|og-image.png|robots.txt|sitemap.xml|api/|auth/|out/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|og-image.png|robots.txt|sitemap.xml|llms.txt|api/|auth/|out/).*)",
   ],
 };

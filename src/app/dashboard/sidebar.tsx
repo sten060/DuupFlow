@@ -377,15 +377,9 @@ export default function Sidebar() {
           </svg>
         ),
       },
-      {
-        href: "/dashboard/ai-detection",
-        label: t("dashboard.sidebar.detectionIA"),
-        icon: (
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
-        ),
-      },
+      // « Détection IA » n'est plus un module : c'est devenu l'option « Retirer
+      // la détection IA » de la duplication (vidéo simple/avancé + images). Le
+      // code du module reste en place (/dashboard/ai-detection redirige).
     ],
   ];
 
@@ -457,12 +451,15 @@ export default function Sidebar() {
     {/* ===== Desktop sidebar (hidden on mobile — replaced by the hamburger) ===== */}
     <aside
       className={[
+        // Barre « flottante » : décollée des bords, coins arrondis.
         "hidden md:flex shrink-0 flex-col overflow-y-auto relative z-10 transition-[width] duration-300 ease-out",
+        "md:my-3 md:ml-3 rounded-[22px]",
         collapsed ? "w-16" : "w-56",
       ].join(" ")}
       style={{
         background: "var(--app-sidebar)",
-        borderRight: "1px solid var(--app-border)",
+        border: "1px solid var(--app-border)",
+        boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
         backdropFilter: "blur(20px)",
       }}
     >

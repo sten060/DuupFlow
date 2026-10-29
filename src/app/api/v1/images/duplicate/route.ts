@@ -13,6 +13,7 @@
 //   reverse        "1"/"0" — horizontal mirror            (default off)
 //   iphone_meta    "1"/"0" — inject iPhone-realistic EXIF (default off)
 //   country        ISO code for GPS/location metadata     (optional)
+//   remove_ai_detection "1"/"0" — erase AI provenance + invisible pixel retouch before duplicating (default off)
 //
 // Output:
 //   count == 1  → the image binary (image/jpeg|png|webp)
@@ -28,6 +29,8 @@ import { authenticateApiRequest, apiError, contentLengthGuard } from "@/lib/api-
 import { processImage } from "@/lib/image-pipeline";
 import { runImageOp } from "@/lib/imageProcessingLimiter";
 import { incrementUsage } from "@/lib/usage";
+import { maskAiImage } from "@/lib/ai-detection-pipeline";
+import crypto from "crypto";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -82,6 +85,7 @@ export async function POST(req: Request) {
     country: (form.get("country") as string) || undefined,
     iphoneMeta: parseBool(form.get("iphone_meta"), false),
   };
+  const removeAiDetection = parseBool(form.get("remove_ai_detection"), false);
 
   let srcBuf: Buffer;
   try {
@@ -95,7 +99,14 @@ export async function POST(req: Request) {
   let copies: { data: Buffer; outExt: string }[];
   try {
     copies = await Promise.all(
-      Array.from({ length: count }, () => runImageOp(() => processImage(srcBuf, ext, flags, opts))),
+      Array.from({ length: count }, () =>
+        runImageOp(async () => {
+          // Même ordre que le dashboard : anti-détection IA d'abord, puis la
+          // duplication écrit l'identité finale du fichier.
+          const src = removeAiDetection ? (await maskAiImage(srcBuf, ext)).data : srcBuf;
+          return processImage(src, ext, flags, opts);
+        }),
+      ),
     );
   } catch (e: any) {
     console.error("[api/v1/images/duplicate] processing failed:", e?.message);
@@ -105,6 +116,11 @@ export async function POST(req: Request) {
   // Record usage against the account (analytics + usage_tracking). Fire-and-forget.
   incrementUsage(auth.actor.userId, "images", count).catch(() => {});
 
+  // ⚠️ Jamais le nom du produit dans un nom de fichier livré : il part tel quel
+  // sur le réseau social à l'upload (cause de bans documentée).
+  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const base = () => `IMG_${stamp}_${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+
   // Single copy → return the image directly. Multiple → return a zip.
   if (copies.length === 1) {
     const { data, outExt } = copies[0];
@@ -112,7 +128,7 @@ export async function POST(req: Request) {
     return new Response(data, {
       headers: {
         "Content-Type": ct,
-        "Content-Disposition": `attachment; filename="duupflow_copy${outExt}"`,
+        "Content-Disposition": `attachment; filename="${base()}${outExt}"`,
         "Content-Length": String(data.length),
       },
     });
@@ -120,12 +136,12 @@ export async function POST(req: Request) {
 
   const JSZip = (await import("jszip")).default;
   const zip = new JSZip();
-  copies.forEach((c, i) => zip.file(`copy_${i + 1}${c.outExt}`, c.data));
+  copies.forEach((c, i) => zip.file(`${base()}_${i + 1}${c.outExt}`, c.data));
   const zipBuf = await zip.generateAsync({ type: "nodebuffer", compression: "STORE" });
   return new Response(zipBuf, {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="duupflow_copies.zip"`,
+      "Content-Disposition": `attachment; filename="${base()}.zip"`,
       "Content-Length": String(zipBuf.length),
     },
   });

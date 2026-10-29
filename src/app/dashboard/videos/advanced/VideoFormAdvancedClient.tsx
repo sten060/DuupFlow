@@ -592,7 +592,7 @@ export default function VideoFormAdvancedClient() {
         setProgressMsg(t("dashboard.videosAdvanced.sendingToServer"));
 
         apiForm = new FormData();
-        for (const key of ["channel", "mode", "advancedRanges", "count", "country", "iphoneMeta", "watermarkConfig"]) {
+        for (const key of ["channel", "mode", "advancedRanges", "count", "country", "iphoneMeta", "watermarkConfig", "removeAiDetection"]) {
           const v = rawForm.get(key);
           if (v !== null) apiForm.append(key, v);
         }
@@ -893,9 +893,12 @@ export default function VideoFormAdvancedClient() {
             </button>
           }
         >
-          {open[g] && (
+          {/* Masqué, jamais démonté : un réglage coché (Priorité d'algorithme,
+              Retirer la détection IA, pays) doit partir même si le groupe a
+              été replié — démonté, son champ disparaissait du formulaire. */}
+          {(
             <div
-              className="mt-1 grid gap-3"
+              className={open[g] ? "mt-1 grid gap-3" : "hidden"}
               style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}
             >
               {CONTROLS.filter((c) => c.group === g).map((c) => {
@@ -1091,6 +1094,16 @@ export default function VideoFormAdvancedClient() {
                     <span className="text-[var(--app-text-muted)]">⚡ {t("dashboard.videosAdvanced.iphoneMetaLabel")}</span>
                   </label>
                   <InfoTooltip>{t("dashboard.videosAdvanced.iphoneMetaHint")}</InfoTooltip>
+
+                  {/* Ex-module « Détection IA », désormais une option de la duplication. */}
+                  <label className="inline-flex cursor-pointer select-none items-center gap-3 text-sm py-1.5">
+                    <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-[var(--app-surface-2)] transition">
+                      <input type="checkbox" name="removeAiDetection" value="1" className="sr-only peer" />
+                      <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--app-text-muted)] peer-checked:translate-x-4 peer-checked:bg-sky-400 peer-checked:shadow-[0_0_10px_rgba(56,189,248,.9)] transition" />
+                    </span>
+                    <span className="text-[var(--app-text-muted)]">🛡️ {t("vid.opt.removeAi")}</span>
+                  </label>
+                  <InfoTooltip>{t("vid.opt.removeAiHint")}</InfoTooltip>
 
                   <div className="flex-1 min-w-[200px] max-w-xs">
                     <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-1">{t("dashboard.videosAdvanced.countryLabel")}</label>

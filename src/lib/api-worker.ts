@@ -56,6 +56,7 @@ async function processJob(job: ClaimedJob): Promise<void> {
       packs: p.packs ?? "visual,motion,metadata_technical",
       country: p.country,
       iphoneMeta: p.iphoneMeta,
+      removeAiDetection: p.removeAiDetection === true,
     });
   } else {
     console.error(`[api-worker] unknown job type: ${job.type}`);

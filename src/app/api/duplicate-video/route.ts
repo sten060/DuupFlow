@@ -394,7 +394,11 @@ export async function POST(req: Request) {
           if (unused > 0) await releaseUsage(usageUserId, "videos", unused, usageSurCredit).catch(console.error);
           // Journal analytique : la quantité LIVRÉE (la réservation, elle, n'écrit
           // rien — sinon un job à moitié raté serait sur-compté dans les stats).
-          if (deliveredCount > 0) void logUsageEvent(usageUserId, "videos", deliveredCount);
+          if (deliveredCount > 0) void logUsageEvent(usageUserId, "videos", deliveredCount, {
+            storeKey: userId, // clé du dossier = créateur affiché
+            origin: "dashboard",
+            label: fileNames.length > 1 ? `${fileNames[0]} +${fileNames.length - 1}` : fileNames[0] ?? null,
+          });
         }
 
         try { controller.close(); } catch {}

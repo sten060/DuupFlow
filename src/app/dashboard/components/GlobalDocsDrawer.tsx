@@ -17,7 +17,7 @@ const TELEGRAM_SUPPORT = "https://t.me/DuupFlow_Support";
 // [Images, Vidéos] · [Compresseur, Comparateur] · [Variation IA, Détection IA] · [API].
 const GROUP_BREAKS = new Set([2, 4, 6]);
 
-export default function GlobalDocsDrawer() {
+export default function GlobalDocsDrawer({ buttonClassName }: { buttonClassName?: string } = {}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -45,7 +45,7 @@ export default function GlobalDocsDrawer() {
         onClick={() => { setMod(0); setTopic(0); setOpen(true); }}
         aria-label={t("dashboard.docs.button")}
         title={t("dashboard.docs.button")}
-        className="inline-flex items-center gap-1.5 text-xs text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition"
+        className={buttonClassName ?? "inline-flex items-center gap-1.5 text-xs text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition"}
       >
         <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-3.5 sm:w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />

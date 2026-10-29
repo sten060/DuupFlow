@@ -8,6 +8,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import { createKeyAction, deleteKeyAction } from "./actions";
 import DocsDrawer from "../components/DocsDrawer";
 import { buildApiDocs } from "../components/docs-content";
+import ApiParamsReference from "./ApiParamsReference";
 
 // Local type (structurally matches lib/api-keys ApiKeyRow) so this client file
 // never imports the service-role module — belt-and-suspenders, not a fix.
@@ -296,6 +297,7 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
                     ["POST", "/ai-detection", t("dashboard.developers.descAiDetection")],
                     ["POST", "/videos/duplicate", t("dashboard.developers.descVideos")],
                     ["GET", "/jobs/:id", t("dashboard.developers.descJobs")],
+                    ["GET", "/jobs/:id/files/:name", t("dashboard.developers.descFiles")],
                   ].map(([m, p, d]) => (
                     <tr key={p}>
                       <td className="py-1.5 pr-3 font-mono text-emerald-300/80">{m}</td>
@@ -342,9 +344,7 @@ curl -H "Authorization: Bearer dflw_live_…" \\
               </code>
             </div>
 
-            <p className="text-[11px] text-[var(--app-text-faint)]">
-              {t("dashboard.developers.paramsNote")}
-            </p>
+            <ApiParamsReference />
           </section>
         </>
       )}

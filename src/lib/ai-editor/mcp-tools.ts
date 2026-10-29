@@ -1262,7 +1262,7 @@ async function callToolScoped(userId: string, storeKey: string, name: string, ar
     const blocked = await guardVariantQuota(userId);
     if (blocked) return { content: [blocked], isError: true };
     const job = startRenderJob(storeKey, project.id, stripDisplayOpts(args ?? {}) as unknown as EditPlan, {
-      onDone: () => { void logUsageEvent(userId, "videos", 1); void logAiEditorRender(userId); }, // quota déjà réservé
+      onDone: () => { void logUsageEvent(userId, "videos", 1, { storeKey, origin: "ai_editor" }); void logAiEditorRender(userId, { storeKey }); }, // quota déjà réservé
       onFailed: () => releaseVariantQuota(userId),          // rien produit → on rend l'unité
     });
     return { content: await jobContent(await firstWait(job), wantImages(args, true)) };
@@ -1592,7 +1592,7 @@ async function callToolScoped(userId: string, storeKey: string, name: string, ar
     // sous-titres sur un montage lourd est le cas qui dépassait la patience du client).
     const job = startRenderJob(storeKey, project.id, merged, {
       derivedFrom: v.id,
-      onDone: () => { void logUsageEvent(userId, "videos", 1); void logAiEditorRender(userId); },
+      onDone: () => { void logUsageEvent(userId, "videos", 1, { storeKey, origin: "ai_editor" }); void logAiEditorRender(userId, { storeKey }); },
       onFailed: () => releaseVariantQuota(userId),
     });
     return { content: await jobContent(await firstWait(job), wantImages(args, true)) };
