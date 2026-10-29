@@ -9,7 +9,7 @@
 // Source : usage_events (une ligne par action livrée, cf. usage.ts). Périmètre :
 // le propriétaire + ses invités (un VA ne voit que sa propre activité).
 //
-// Duplications = video_duplication SAUF les rendus de l'Éditeur IA, qui
+// Duplications = image_duplication + video_duplication SAUF les rendus de l'Éditeur IA, qui
 // consomment aussi le quota vidéo :
 //   · lignes récentes : meta.origin === "ai_editor" (migration 061) ;
 //   · lignes anciennes (sans meta) : un ai_editor_render du même user écrit dans
@@ -157,7 +157,9 @@ export async function GET(req: NextRequest) {
   const pick = (e: Ev) =>
     metric === "edits"
       ? e.kind === "ai_editor_render"
-      : e.kind === "video_duplication" && !isEditorRender(e);
+      // Duplications = copies vidéo ET image (le journal montre les deux ; une
+      // courbe « vidéo seule » restait à 0 pour qui duplique surtout des images).
+      : e.kind === "image_duplication" || (e.kind === "video_duplication" && !isEditorRender(e));
   const inWs = (e: Ev) => ws === "all" || e.workspace_id === ws;
 
   const today = localDayStart(now, tz);
@@ -179,6 +181,13 @@ export async function GET(req: NextRequest) {
   }
 
   let total = 0;
+  // Activité plus ancienne que la période affichée (sur les 31 derniers jours) :
+  // le dashboard dit alors « rien sur cette période » plutôt que « pas encore
+  // d'activité », qui laissait croire que l'historique avait disparu.
+  let hasHistory = false;
+  for (const e of events) {
+    if (pick(e) && inWs(e)) hasHistory = true;
+  }
   for (const e of events) {
     if (!pick(e) || !inWs(e)) continue;
     const t = Date.parse(e.created_at);
@@ -189,5 +198,5 @@ export async function GET(req: NextRequest) {
     total += e.qty;
   }
 
-  return NextResponse.json({ metric, range, buckets, total, workspaces });
+  return NextResponse.json({ metric, range, buckets, total, hasHistory, workspaces });
 }

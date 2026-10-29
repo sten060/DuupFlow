@@ -22,7 +22,7 @@ type Range = "today" | "7d" | "30d";
 type Metric = "duplications" | "edits";
 type Workspace = { id: string; name: string; color: string };
 type Bucket = { t: string; v: number };
-type Series = { buckets: Bucket[]; total: number; workspaces: Workspace[] };
+type Series = { buckets: Bucket[]; total: number; hasHistory?: boolean; workspaces: Workspace[] };
 type LogItem = {
   id: string;
   at: string;
@@ -155,7 +155,7 @@ function monotonePath(pts: { x: number; y: number }[]) {
   return d;
 }
 
-function ActivityChart({ buckets, range, color, unit, empty, startHref }: { buckets: Bucket[]; range: Range; color: string; unit: string; empty: boolean; startHref: string }) {
+function ActivityChart({ buckets, range, color, unit, empty, startHref, hasHistory, onSee30 }: { buckets: Bucket[]; range: Range; color: string; unit: string; empty: boolean; startHref: string; hasHistory: boolean; onSee30: () => void }) {
   const { t, locale } = useTranslation();
   const boxRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
@@ -265,7 +265,18 @@ function ActivityChart({ buckets, range, color, unit, empty, startHref }: { buck
       {empty && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center pb-6">
           <div className="pointer-events-auto flex flex-col items-center gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-bg-2)] px-5 py-4 text-center shadow-sm">
-            <p className="text-sm font-medium text-[var(--app-text)]">{t("dashboard.home.emptyCta")}</p>
+            <p className="text-sm font-medium text-[var(--app-text)]">
+              {hasHistory ? t("dashboard.home.emptyPeriod") : t("dashboard.home.emptyCta")}
+            </p>
+            {hasHistory && range !== "30d" ? (
+              <button
+                type="button"
+                onClick={onSee30}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--app-border)] px-4 py-1.5 text-xs font-semibold text-[var(--app-text-muted)] transition hover:bg-[var(--app-surface-2)]"
+              >
+                {t("dashboard.home.see30")}
+              </button>
+            ) : (
             <Link
               href={startHref}
               className="inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
@@ -274,6 +285,7 @@ function ActivityChart({ buckets, range, color, unit, empty, startHref }: { buck
               {t("dashboard.home.startBtn")}
               <span aria-hidden>→</span>
             </Link>
+            )}
           </div>
         </div>
       )}
@@ -334,7 +346,7 @@ function ChartCard({
         {error ? (
           <div className="flex h-[200px] items-center justify-center text-xs text-[var(--app-text-faint)]">{t("dashboard.home.statsError")}</div>
         ) : data ? (
-          <ActivityChart buckets={data.buckets} range={range} color={color} unit={unit} empty={!loading && data.total === 0} startHref={startHref} />
+          <ActivityChart buckets={data.buckets} range={range} color={color} unit={unit} empty={!loading && data.total === 0} startHref={startHref} hasHistory={!!data.hasHistory} onSee30={() => setRange("30d")} />
         ) : (
           <div className="flex h-[200px] items-center justify-center text-xs text-[var(--app-text-faint)]">{t("dashboard.home.statsLoading")}</div>
         )}
