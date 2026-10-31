@@ -45,7 +45,8 @@ async function claimNextJob(): Promise<ClaimedJob | null> {
 
 async function processJob(job: ClaimedJob): Promise<void> {
   const p = job.params || {};
-  if (job.type === "videos.duplicate") {
+  // videos.ai_detection = même chaîne, 1 copie, sans pack (cf. /ai-detection).
+  if (job.type === "videos.duplicate" || job.type === "videos.ai_detection") {
     await runVideoDuplicateJob({
       jobId: job.id,
       jobParams: p,

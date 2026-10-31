@@ -11,7 +11,7 @@
 
 - REST API at https://www.duupflow.com/api/v1, header `Authorization: Bearer dflw_live_…`. Keys are created in the dashboard under Developers (max 3 per account, shown once).
 - Included at no extra cost in the Pro and Agency plans (not Solo or Free). Unlimited duplications through the API. No free API trial; monthly Pro has no commitment. Prices: https://www.duupflow.com/en/pricing
-- Endpoints: GET /me · POST /images/duplicate (sync, 1–20 copies, ≤ 25 MB) · POST /videos/duplicate (async job, 1–10 copies, ≤ 150 MB, ≤ 120 s; mp4/mov/mkv/avi/webm; vertical 9:16 supported) · GET /jobs/:id · GET /jobs/:id/files/:name · POST /compress · POST /ai-detection.
+- Endpoints: GET /me · POST /images/duplicate (sync, 1–20 copies, ≤ 25 MB) · POST /videos/duplicate (async job, 1–10 copies, ≤ 150 MB, ≤ 120 s; mp4/mov/mkv/avi/webm; vertical 9:16 supported) · GET /jobs/:id · GET /jobs/:id/files/:name · POST /compress (images) · POST /ai-detection (image: sync; video: async job, single output, no duplication effect).
 - Video results are downloadable for 16 hours. Poll GET /jobs/:id every 5–10 s. A completion webhook is in development.
 - Limits: 300 requests/min per key, 100 pending video jobs per account.
 - Errors: JSON `{ "error": { "code", "message" } }` (401 missing_key/invalid_key, 403 plan_required, 413 file_too_large, 415 unsupported_type, 429 rate_limited/too_many_jobs).

@@ -72,6 +72,12 @@ const CURL_AI = `curl -X POST ${BASE}/ai-detection \\
   -H "Authorization: Bearer dflw_live_YOUR_KEY" \\
   -F "file=@image.png" -o cleaned.png`;
 
+const CURL_AI_VID = `curl -X POST ${BASE}/ai-detection \\
+  -H "Authorization: Bearer dflw_live_YOUR_KEY" \\
+  -F "file=@clip.mp4"
+# → 202 { "job_id": "…", "status": "queued", "poll_url": "…" }
+# puis / then: GET /jobs/JOB_ID → result.files[0].url`;
+
 const PY_FLOW = `import time, requests
 
 API = "${BASE}"
@@ -195,7 +201,7 @@ export const SECTIONS: Record<Lang, Section[]> = {
             "**Dupliquer une image** en 1 à 20 copies uniques (métadonnées, pixels invisibles, identité d'appareil).",
             "**Dupliquer une vidéo** en 1 à 10 copies uniques, identiques à l'œil.",
             "**Compresser une image** sans jamais l'alourdir.",
-            "**Retirer la détection IA** d'une image, ou l'activer en option sur une duplication.",
+            "**Retirer la détection IA** d'une image ou d'une vidéo, ou l'activer en option sur une duplication.",
           ],
         },
         { type: "p", text: "Cas typiques : automatiser un flux de publication multi-comptes, brancher DuupFlow dans Make / n8n / Zapier (module HTTP), ou laisser un agent IA (Claude Code, scripts) lancer les duplications." },
@@ -349,10 +355,15 @@ export const SECTIONS: Record<Lang, Section[]> = {
       id: "ai-detection",
       title: "10. Retirer la détection IA",
       blocks: [
-        { type: "endpoint", method: "POST", path: "/ai-detection", summary: "Synchrone — renvoie l'image nettoyée." },
-        { type: "p", text: "Efface les métadonnées de provenance IA (C2PA, XMP…) et retouche les pixels de façon invisible (grain, micro-flou, couleurs), en gardant le format et la résolution. Image jpg, png ou webp ≤ 25 Mo. Pour les vidéos, utilise l'option `remove_ai_detection` de `/videos/duplicate`." },
+        { type: "endpoint", method: "POST", path: "/ai-detection", summary: "Image : synchrone. Vidéo : asynchrone (job)." },
+        { type: "list", items: [
+          "**Image** (jpg, png, webp ≤ 25 Mo) : efface les métadonnées de provenance IA (C2PA, XMP…) et retouche les pixels de façon invisible (grain, micro-flou, couleurs). La réponse est directement l'image nettoyée, au même format et à la même résolution.",
+          "**Vidéo** (mp4, mov, mkv, avi, webm ≤ 150 Mo et ≤ 120 s) : efface les métadonnées et ajoute un contre-filigrane invisible, **sans aucun effet de duplication** (une seule vidéo en sortie). Réponse 202 avec un `job_id`, à suivre exactement comme une duplication vidéo (section 7).",
+          "Pour retirer la détection IA **et** dupliquer en même temps, utilise plutôt l'option `remove_ai_detection` de `/videos/duplicate` ou `/images/duplicate`.",
+        ] },
         { type: "callout", tone: "warn", text: "Soyons honnêtes : aucun outil ne peut garantir qu'un contenu ne sera jamais détecté. Un filigrane robuste intégré par certains générateurs (type SynthID) est conçu pour survivre à ce genre de traitement, et les plateformes utilisent aussi leurs propres classifieurs." },
-        { type: "code", label: "Exemple", code: CURL_AI },
+        { type: "code", label: "Image", code: CURL_AI },
+        { type: "code", label: "Vidéo", code: CURL_AI_VID },
       ],
     },
     {
@@ -382,7 +393,7 @@ export const SECTIONS: Record<Lang, Section[]> = {
           ["403", "plan_required", "Le compte doit être sur Pro ou Agence, paiement à jour."],
           ["404", "job_not_found · file_not_found", "Mauvais identifiant, ou résultat expiré (16 h)."],
           ["413", "file_too_large", "Réduire le fichier sous la limite."],
-          ["415", "unsupported_type · video_not_supported", "Utiliser un format accepté (extension du fichier comprise)."],
+          ["415", "unsupported_type · video_not_supported", "Utiliser un format accepté (extension du fichier comprise). La compression vidéo n'est pas encore disponible via l'API."],
           ["429", "rate_limited · too_many_jobs", "Attendre (en-tête Retry-After) puis réessayer."],
           ["500", "processing_failed · store_failed", "Réessayer ; si ça persiste, contacter le support."],
         ] },
@@ -440,7 +451,7 @@ export const SECTIONS: Record<Lang, Section[]> = {
           "**Duplicate an image** into 1 to 20 unique copies (metadata, invisible pixel changes, device identity).",
           "**Duplicate a video** into 1 to 10 unique copies that look identical.",
           "**Compress an image** without ever making it heavier.",
-          "**Remove AI detection** from an image, or enable it as an option on a duplication.",
+          "**Remove AI detection** from an image or a video, or enable it as an option on a duplication.",
         ] },
         { type: "p", text: "Typical uses: automate a multi-account publishing flow, plug DuupFlow into Make / n8n / Zapier (HTTP module), or let an AI agent (Claude Code, scripts) run duplications." },
       ],
@@ -578,10 +589,15 @@ export const SECTIONS: Record<Lang, Section[]> = {
       id: "ai-detection",
       title: "10. Remove AI detection",
       blocks: [
-        { type: "endpoint", method: "POST", path: "/ai-detection", summary: "Synchronous — returns the cleaned image." },
-        { type: "p", text: "Erases AI provenance metadata (C2PA, XMP…) and invisibly retouches the pixels (grain, micro-blur, colours), keeping format and resolution. jpg, png or webp image ≤ 25 MB. For videos, use the `remove_ai_detection` option of `/videos/duplicate`." },
+        { type: "endpoint", method: "POST", path: "/ai-detection", summary: "Image: synchronous. Video: asynchronous (job)." },
+        { type: "list", items: [
+          "**Image** (jpg, png, webp ≤ 25 MB): erases AI provenance metadata (C2PA, XMP…) and invisibly retouches the pixels (grain, micro-blur, colours). The response is the cleaned image itself, same format and resolution.",
+          "**Video** (mp4, mov, mkv, avi, webm ≤ 150 MB and ≤ 120 s): erases metadata and adds an invisible counter-watermark, **with no duplication effect** (a single output video). 202 response with a `job_id`, tracked exactly like a video duplication (section 7).",
+          "To remove AI detection **and** duplicate at the same time, use the `remove_ai_detection` option of `/videos/duplicate` or `/images/duplicate` instead.",
+        ] },
         { type: "callout", tone: "warn", text: "To be honest: no tool can guarantee content will never be detected. A robust watermark embedded by some generators (e.g. SynthID) is designed to survive this kind of processing, and platforms also run their own classifiers." },
-        { type: "code", label: "Example", code: CURL_AI },
+        { type: "code", label: "Image", code: CURL_AI },
+        { type: "code", label: "Video", code: CURL_AI_VID },
       ],
     },
     {
@@ -611,7 +627,7 @@ export const SECTIONS: Record<Lang, Section[]> = {
           ["403", "plan_required", "The account must be on Pro or Agency, payment up to date."],
           ["404", "job_not_found · file_not_found", "Wrong id, or result expired (16 h)."],
           ["413", "file_too_large", "Bring the file under the limit."],
-          ["415", "unsupported_type · video_not_supported", "Use an accepted format (file extension included)."],
+          ["415", "unsupported_type · video_not_supported", "Use an accepted format (file extension included). Video compression is not available through the API yet."],
           ["429", "rate_limited · too_many_jobs", "Wait (Retry-After header) then retry."],
           ["500", "processing_failed · store_failed", "Retry; if it persists, contact support."],
         ] },

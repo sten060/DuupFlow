@@ -19,29 +19,21 @@
 //     -H "Authorization: Bearer dflw_live_…" \
 //     -F "file=@clip.mp4" -F "count=3"
 
-import path from "path";
-import fs from "fs/promises";
-import crypto from "crypto";
 import { authenticateApiRequest, apiError, contentLengthGuard } from "@/lib/api-auth";
-import { createJob, countActiveJobs } from "@/lib/api-jobs";
-import { API_SOURCES_DIR } from "@/lib/api-storage";
+import { enqueueVideoJob, VIDEO_MAX_BYTES } from "@/lib/api-video-jobs";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-const MAX_BYTES = 150 * 1024 * 1024; // 150 MB source cap (MVP)
-const MAX_PENDING_JOBS = 100; // per user — generous queue depth; the serial worker
-                              // (one ffmpeg at a time) is what actually caps load.
-const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
 const VALID_PACKS = ["visual", "motion", "metadata_technical", "pixel_magic"];
 
 export async function POST(req: Request) {
   const auth = await authenticateApiRequest(req);
   if (!auth.ok) return auth.response;
 
-  const oversize = contentLengthGuard(req, MAX_BYTES);
+  const oversize = contentLengthGuard(req, VIDEO_MAX_BYTES);
   if (oversize) return oversize;
 
   let form: FormData;
@@ -54,20 +46,6 @@ export async function POST(req: Request) {
   const file = form.get("file");
   if (!(file instanceof File)) return apiError(400, "missing_file", "No 'file' field found in the request.");
 
-  const ext = (path.extname(file.name) || "").toLowerCase();
-  if (!VIDEO_EXTS.includes(ext)) {
-    return apiError(415, "unsupported_type", `Unsupported video type '${ext || "unknown"}'. Allowed: ${VIDEO_EXTS.join(", ")}.`);
-  }
-  if (file.size > MAX_BYTES) {
-    return apiError(413, "file_too_large", `File exceeds the ${MAX_BYTES / (1024 * 1024)} MB limit.`);
-  }
-
-  // Bound queue depth per user so nobody can flood the worker.
-  const active = await countActiveJobs(auth.actor.userId);
-  if (active >= MAX_PENDING_JOBS) {
-    return apiError(429, "too_many_jobs", `You have ${active} jobs in progress. Wait for some to finish (max ${MAX_PENDING_JOBS} pending).`);
-  }
-
   const count = Math.max(1, Math.min(10, parseInt(String(form.get("count") ?? "1"), 10) || 1));
   const packsRaw = String(form.get("packs") ?? "visual,motion,metadata_technical");
   const packs = packsRaw.split(",").map((s) => s.trim()).filter((p) => VALID_PACKS.includes(p)).join(",") || "visual,motion,metadata_technical";
@@ -75,34 +53,5 @@ export async function POST(req: Request) {
   const iphoneMeta = ["1", "true", "yes", "on"].includes(String(form.get("iphone_meta") ?? "").toLowerCase());
   const removeAiDetection = ["1", "true", "yes", "on"].includes(String(form.get("remove_ai_detection") ?? "").toLowerCase());
 
-  // Persist the source on the persistent volume (not /tmp, wiped by a redeploy)
-  // so the background worker can still read it however long the job waits.
-  let srcTmpPath: string;
-  try {
-    const buf = Buffer.from(await file.arrayBuffer());
-    await fs.mkdir(API_SOURCES_DIR, { recursive: true });
-    srcTmpPath = path.join(API_SOURCES_DIR, `duup_apisrc_${Date.now()}_${crypto.randomBytes(6).toString("hex")}${ext}`);
-    await fs.writeFile(srcTmpPath, buf);
-  } catch (e: any) {
-    return apiError(500, "store_failed", "Could not stage the uploaded file.");
-  }
-
-  // Create a queued job. The API worker (started in instrumentation.ts) picks it
-  // up and processes it — reliable in both dev and prod, unlike detached
-  // post-response work. The source path travels in the job params.
-  const job = await createJob(auth.actor.userId, "videos.duplicate", {
-    count,
-    packs,
-    country,
-    iphoneMeta,
-    removeAiDetection,
-    srcName: file.name,
-    srcTmpPath,
-  });
-
-  const origin = new URL(req.url).origin;
-  return Response.json(
-    { job_id: job.id, status: job.status, poll_url: `${origin}/api/v1/jobs/${job.id}` },
-    { status: 202 },
-  );
+  return enqueueVideoJob(req, auth.actor.userId, file, "videos.duplicate", { count, packs, country, iphoneMeta, removeAiDetection });
 }
