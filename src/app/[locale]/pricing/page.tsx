@@ -284,7 +284,7 @@ function PricingCards({ yearly }: { yearly: boolean }) {
       cta: t("tarifs.commencer"),
       href: "/register?plan=solo",
       demoHref: "/demo-request?plan=solo",
-      popular: true,
+      popular: false,
       features: soloFeatures,
     },
     {
@@ -299,7 +299,7 @@ function PricingCards({ yearly }: { yearly: boolean }) {
       cta: t("tarifs.commencer"),
       href: "/register?plan=pro",
       demoHref: "/demo-request?plan=pro",
-      popular: false,
+      popular: true,
       features: proFeatures,
     },
     {

@@ -179,7 +179,6 @@ export default function UpgradePlanModal({
       cardBorder: "1px solid var(--app-border)",
       btnBg: "linear-gradient(135deg,#7C3AED,#6366F1)",
       btnShadow: "0 16px 30px -12px rgba(124,58,237,0.55), inset 0 1px 0 rgba(255,255,255,0.28)",
-      popular: true,
     },
     {
       id: "pro",
@@ -204,6 +203,7 @@ export default function UpgradePlanModal({
       cardBorder: "1.5px solid rgba(99,102,241,0.35)",
       btnBg: "linear-gradient(135deg,#4f7bff,#7c5cff)",
       btnShadow: "0 16px 30px -12px rgba(56,189,248,0.45), inset 0 1px 0 rgba(255,255,255,0.28)",
+      popular: true,
     },
     {
       id: "agency",
