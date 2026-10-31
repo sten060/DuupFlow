@@ -591,6 +591,7 @@
         "pilotedBy": "Piloté par ton Claude",
         "ready": "référence + matière prêtes",
         "refReceived": "Référence reçue",
+        "removeRef": "Supprimer la référence",
         "changeTitle": "Remplacer la vidéo de référence (ta matière est conservée)",
         "change": "Changer",
         "analyzing": "⏳ analyse…",

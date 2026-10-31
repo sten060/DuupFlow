@@ -591,6 +591,7 @@
         "pilotedBy": "Driven by your Claude",
         "ready": "reference + material ready",
         "refReceived": "Reference received",
+        "removeRef": "Remove the reference",
         "changeTitle": "Replace the reference video (your material is kept)",
         "change": "Change",
         "analyzing": "⏳ analyzing…",

@@ -158,6 +158,19 @@ export async function saveReference(
   });
 }
 
+/** Retire la référence du projet (fichier + analyse). La matière et les
+ *  variantes sont conservées : la réf est optionnelle. */
+export async function removeReference(userId: string, projectId: string): Promise<boolean> {
+  return withLock(userId, projectId, async () => {
+    const p = await getProject(userId, projectId);
+    if (!p || !p.reference) return false;
+    await fs.unlink(path.join(projectDir(userId, projectId), p.reference.storedName)).catch(() => {});
+    p.reference = null;
+    await write(userId, p);
+    return true;
+  });
+}
+
 /** Met à jour l'analyse de la référence SANS recopier le fichier (ré-analyse en
  *  place : régénère le profil avec le code courant, ex. couche compréhension). */
 export async function updateReferenceAnalysis(

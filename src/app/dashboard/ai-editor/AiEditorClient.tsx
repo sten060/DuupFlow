@@ -306,6 +306,12 @@ export default function AiEditorClient() {
     void analyzeRef({ url: u, replacePid: projectId ?? undefined });
   };
   const resetRef = () => { setRefFile(null); setRefUrl(""); setRefSource(null); setAnalysis(null); setAnalyzeErr(null); };
+  // Supprimer la référence depuis le workspace (croix au survol) : la réf est
+  // optionnelle, la matière et les variantes restent.
+  const removeRef = () => {
+    resetRef();
+    if (projectId) void fetch("/api/ai-editor/reference", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId }) });
+  };
   // La référence est OPTIONNELLE : « Passer » crée (ou réutilise) un projet vide
   // pour que l'upload de matière ait un endroit où aller, puis avance.
   const skipRef = useCallback(async () => {
@@ -908,12 +914,23 @@ export default function AiEditorClient() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="h-[60px] w-[44px] shrink-0 overflow-hidden rounded-lg" style={{ background: "linear-gradient(160deg,#2a2340,#123040)" }}>
+                <div className="group relative h-[60px] w-[44px] shrink-0 overflow-hidden rounded-lg" style={{ background: "linear-gradient(160deg,#2a2340,#123040)" }}>
                   {analysis?.keyframes?.[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={analysis.keyframes[0].dataUri} alt="ref" className="h-full w-full object-cover" />
                   ) : (
                     <div className="grid h-full w-full place-items-center text-[13px] text-white/80">▶</div>
+                  )}
+                  {refSource && !analyzing && (
+                    <button
+                      type="button"
+                      onClick={removeRef}
+                      title={t("dashboard.aiEditor.ws.removeRef")}
+                      aria-label={t("dashboard.aiEditor.ws.removeRef")}
+                      className="absolute right-1 top-1 grid h-[18px] w-[18px] place-items-center rounded-full bg-black/70 text-white opacity-0 shadow transition hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
+                    >
+                      <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M2 2l6 6M8 2l-6 6" /></svg>
+                    </button>
                   )}
                 </div>
                 <div className="min-w-0">
