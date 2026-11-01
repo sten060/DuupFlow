@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "@/components/LocaleLink";
 import { useParams } from "next/navigation";
-import { BLUE, CTA_GRAD, Label, SECTION_LEAD, SECTION_TITLE, SECTION_TITLE_STYLE } from "@/components/landing/shell";
+import { CTA_GRAD, GradText, Label, SECTION_LEAD, SECTION_TITLE, SECTION_TITLE_STYLE } from "@/components/landing/shell";
 import { showcaseUrl, useInViewOnce, useLoopInView, useReducedMotion } from "@/components/landing/videoShowcase";
-import { AiEditorMockup, CLAUDE_WORDMARK, DuplicationMockup, ModuleArt } from "@/components/landing/featureMockups";
+import { AiEditorMockup, CLAUDE_WORDMARK, DuplicationMockup } from "@/components/landing/featureMockups";
+import { AgencyBento, ModulesBento } from "@/components/landing/Bento";
 
 /* ══════════════════════════════════════════════════════════════
  * FONCTIONNALITÉS — une section par feature principale, puis les modules.
@@ -27,6 +27,8 @@ type FeatureSection = {
   icon: React.ReactNode;
   eyebrow: { fr: string; en: string };
   title: { fr: string; en: string };
+  /** Mot ou groupe de mots du titre mis en dégradé de marque. */
+  titleHi?: { fr: string; en: string };
   /** UNE phrase, pas plus */
   sub: { fr: string; en: string };
   media: Media;
@@ -60,6 +62,7 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
     mockup: (l) => <DuplicationMockup locale={l} />,
     eyebrow: { fr: "Duplication & variantes", en: "Duplication & variants" },
     title: { fr: "Reposte la même vidéo, encore et encore.", en: "Repost the same video, again and again." },
+    titleHi: { fr: "encore et encore", en: "again and again" },
     sub: {
       fr: "Chaque copie repart comme un fichier neuf, sans que l'œil voie la différence.",
       en: "Every copy goes back out as a brand-new file, with no visible difference.",
@@ -93,6 +96,7 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
     mockup: (l, r) => <AiEditorMockup locale={l} reduced={r} />,
     eyebrow: { fr: "Éditeur IA", en: "AI Editor" },
     title: { fr: "Décris ton montage, l'IA s'occupe du reste.", en: "Describe your edit, the AI does the rest." },
+    titleHi: { fr: "l'IA s'occupe du reste", en: "the AI does the rest" },
     sub: {
       fr: "Tes rushes bruts deviennent une vidéo montée en quelques minutes.",
       en: "Your raw footage becomes a finished video, in minutes.",
@@ -122,68 +126,6 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
         en: ["Let Claude do the edit", "The agent assembles it, locks the cuts to the beats and returns a video ready to post."],
       },
     ],
-  },
-];
-
-/* ─────────────────────────────────────────────────────────────
- * MODULES SECONDAIRES — repris de la barre latérale du produit.
- * Format court (carte + icône + une phrase) : ils complètent les deux
- * grandes sections ci-dessus sans leur voler la vedette.
- * ───────────────────────────────────────────────────────────── */
-type Module = {
-  key: string;
-  icon: React.ReactNode;
-  name: { fr: string; en: string };
-  desc: { fr: string; en: string };
-};
-
-const MODULE_ICON = "h-4 w-4";
-
-export const MODULES: Module[] = [
-  {
-    key: "scraper",
-    icon: <svg className={MODULE_ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>,
-    name: { fr: "Scraper", en: "Scraper" },
-    desc: {
-      fr: "Scanne ton compte, classe tes publications par performance et remonte tes meilleurs clips.",
-      en: "Scans your account, ranks your posts by performance and surfaces your best clips.",
-    },
-  },
-  {
-    key: "compressor",
-    icon: <svg className={MODULE_ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10h6V4M20 14h-6v6M10 10 3 3M14 14l7 7" /></svg>,
-    name: { fr: "Compresseur", en: "Compressor" },
-    desc: {
-      fr: "Réduit le poids de tes images et vidéos sans perte visible. Jamais plus lourd que l'original.",
-      en: "Cuts the weight of your images and videos with no visible loss. Never heavier than the original.",
-    },
-  },
-  {
-    key: "comparator",
-    icon: <svg className={MODULE_ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></svg>,
-    name: { fr: "Comparateur", en: "Comparator" },
-    desc: {
-      fr: "Mesure la similarité visuelle entre deux fichiers et te dit ce qui les distingue vraiment.",
-      en: "Measures visual similarity between two files and tells you what actually sets them apart.",
-    },
-  },
-  {
-    key: "ai-variation",
-    icon: <svg className={MODULE_ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 2.3 6.2L20.5 11l-6.2 2.3L12 19l-2.3-5.7L3.5 11l6.2-1.8Z" /></svg>,
-    name: { fr: "Variation IA", en: "AI Variation" },
-    desc: {
-      fr: "Génère de nouvelles images à partir des tiennes : même visage, même décor, même ambiance.",
-      en: "Generates new images from your own: same face, same set, same mood.",
-    },
-  },
-  {
-    key: "ai-detection",
-    icon: <svg className={MODULE_ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v5c0 4.4-3 8-7 10-4-2-7-5.6-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>,
-    name: { fr: "Détection IA", en: "AI Detection" },
-    desc: {
-      fr: "Analyse un fichier et liste les marqueurs techniques laissés par les outils de génération.",
-      en: "Analyses a file and lists the technical markers left behind by generation tools.",
-    },
   },
 ];
 
@@ -231,6 +173,13 @@ function SectionMedia({ media, mockup, locale, reduced }: { media: Media; mockup
 /* ─── Une feature = sa propre section : texte d'un côté, visuel de l'autre ───
    Le 9:16 tient dans un panneau qui l'épouse (w-fit) plutôt qu'au centre d'un
    grand vide : c'est ce qui permet de garder la section compacte. */
+/* Titre avec un groupe de mots en dégradé (la 1re occurrence de `hi`). */
+function TitleWithHi({ text, hi }: { text: string; hi?: string }) {
+  const i = hi ? text.indexOf(hi) : -1;
+  if (!hi || i < 0) return <>{text}</>;
+  return <>{text.slice(0, i)}<GradText>{hi}</GradText>{text.slice(i + hi.length)}</>;
+}
+
 function Section({ section, locale, reduced, index }: { section: FeatureSection; locale: "fr" | "en"; reduced: boolean; index: number }) {
   const flipped = index % 2 === 1;   // une section sur deux inverse texte/visuel
   const { ref, shown } = useInViewOnce<HTMLDivElement>();
@@ -245,8 +194,13 @@ function Section({ section, locale, reduced, index }: { section: FeatureSection;
     transition: "opacity .65s ease-out, transform .95s cubic-bezier(0.16,1,0.3,1)",
   });
 
+  // Pas de fond alterné : la grille « blueprint » court sous les deux sections,
+  // la rupture vient avec les modules (fond gris) puis les agences.
+  // Entre Duplication et Éditeur IA, marges réduites des deux côtés.
+  const first = index === 0;
+  const last = index === FEATURE_SECTIONS.length - 1;
   return (
-    <section className={`overflow-hidden px-6 py-20 sm:py-28 ${flipped ? "bg-[#f8f9fc]" : ""}`}>
+    <section className={`overflow-hidden px-6 ${first ? "pt-20 sm:pt-28" : "pt-10 sm:pt-14"} ${last ? "pb-20 sm:pb-28" : "pb-10 sm:pb-14"}`}>
       <div className="mx-auto max-w-6xl">
         {/* Seule la pastille est centrée sur la section */}
         <div className="text-center">
@@ -278,7 +232,7 @@ function Section({ section, locale, reduced, index }: { section: FeatureSection;
           {/* Texte — aligné à gauche, structure identique dans les deux sections */}
           <div className={`min-w-0 ${flipped ? "lg:order-1" : ""}`} style={slideFrom(flipped ? -1 : 1)}>
             <h2 className={TITLE_CLASS} style={TITLE_STYLE}>
-              {section.title[locale]}
+              <TitleWithHi text={section.title[locale]} hi={section.titleHi?.[locale]} />
             </h2>
             {/* Deux lignes maximum : la copy est calibrée pour ça. */}
             <p className={`mt-4 max-w-lg ${LEAD_CLASS}`}>
@@ -310,83 +264,18 @@ function Section({ section, locale, reduced, index }: { section: FeatureSection;
   );
 }
 
-/* ─── Modules secondaires : format court, une carte par module ─── */
-function Modules({ locale, reduced }: { locale: "fr" | "en"; reduced: boolean }) {
-  const { ref, shown } = useInViewOnce<HTMLDivElement>("0px 0px -18% 0px");
-  const on = shown || reduced;
-  return (
-    <section className="bg-[#f8f9fc] px-6 py-20 sm:py-24">
-      <div className="mx-auto max-w-6xl">
-        <div className="mx-auto max-w-2xl text-center">
-          <Label icon={<svg className={ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M4 12h16M4 18h10" /></svg>}>
-            {locale === "en" ? "The rest of the toolkit" : "Le reste de la boîte à outils"}
-          </Label>
-          <h2 className={`mt-7 ${TITLE_CLASS}`} style={TITLE_STYLE}>
-            {locale === "en" ? "Every module, included." : "Tous les modules, inclus."}
-          </h2>
-          <p className={`mx-auto mt-4 max-w-xl ${LEAD_CLASS}`}>
-            {locale === "en"
-              ? "The smaller tools you reach for around the two big ones — all in the same workspace."
-              : "Les outils du quotidien qui gravitent autour des deux gros — tous dans le même espace de travail."}
-          </p>
-        </div>
-
-        {/* Flex plutôt que grid : 5 modules, la dernière ligne se centre au lieu
-            de laisser un trou à droite. */}
-        <div ref={ref} className="mt-12 flex flex-wrap justify-center gap-3.5 lg:gap-4" style={{ perspective: "1400px" }}>
-          {MODULES.map((m, i) => (
-            <div key={m.key}
-              style={{
-                opacity: on ? 1 : 0,
-                transform: on ? "none" : "rotateY(-72deg)",
-                transformOrigin: "left center",
-                transition: `opacity .45s ease-out ${i * 0.09}s, transform .75s cubic-bezier(0.16,1,0.3,1) ${i * 0.09}s`,
-              }}
-              className="w-full rounded-[24px] bg-white/70 p-6 ring-1 ring-black/[0.06] shadow-[0_14px_36px_rgba(20,40,90,0.07)] backdrop-blur transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(20,40,90,0.12)] sm:w-[calc(50%-0.4375rem)] lg:w-[calc(33.333%-0.667rem)]">
-              {/* Cadran : une mini-interface représentative du module */}
-              <div className="relative flex h-[132px] items-center justify-center overflow-hidden rounded-[18px] ring-1 ring-black/[0.04]"
-                style={{ background: "linear-gradient(140deg,#f3f6ff 0%,#f6f2ff 100%)" }}>
-                <ModuleArt kind={m.key} locale={locale} />
-                <span className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 shadow-[0_6px_16px_rgba(20,40,90,0.10)]" style={{ color: BLUE }}>
-                  {m.icon}
-                </span>
-              </div>
-              <h3 className="mt-5 text-[17px] font-semibold tracking-[-0.01em] text-[#1a1a1a]">{m.name[locale]}</h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-[#605f5f]">{m.desc[locale]}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export default function FeatureSections() {
   const locale = useLocale();
   const reduced = useReducedMotion();
 
   return (
     <div id="features">
+      {/* Duplication → Éditeur IA → modules → agences */}
       {FEATURE_SECTIONS.map((s, i) => (
         <Section key={s.key} section={s} locale={locale} reduced={reduced} index={i} />
       ))}
-      <Modules locale={locale} reduced={reduced} />
-
-      {/* CTA — voir les tarifs / voir la FAQ */}
-      <div className="px-6 pb-20 sm:pb-24">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href="/pricing"
-            className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-medium text-white shadow-[0_12px_34px_rgba(90,90,240,0.4)] transition hover:opacity-90"
-            style={{ background: CTA_GRAD }}>
-            {locale === "en" ? "See pricing" : "Voir les tarifs"}
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-          </Link>
-          <Link href="/#faq"
-            className="inline-flex items-center rounded-full border border-black/10 bg-white px-7 py-3.5 text-[15px] font-medium text-[#1a1a1a] shadow-[0_10px_30px_rgba(20,40,90,0.06)] transition hover:bg-neutral-50">
-            {locale === "en" ? "See the FAQ" : "Voir la FAQ"}
-          </Link>
-        </div>
-      </div>
+      <ModulesBento locale={locale} />
+      <AgencyBento locale={locale} />
     </div>
   );
 }

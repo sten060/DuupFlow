@@ -3,10 +3,8 @@
 import Link from "@/components/LocaleLink";
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import { BLUE, CTA_GRAD, Label, NavPill, Footer, SmoothScroll, Brand, FlipInner, SECTION_LEAD, SECTION_TITLE, SECTION_TITLE_STYLE } from "@/components/landing/shell";
-import BeforeAfter from "@/components/landing/BeforeAfter";
+import { CTA_GRAD, GradText, Label, NavPill, Footer, SmoothScroll, Brand, FlipInner, SECTION_LEAD, SECTION_TITLE, SECTION_TITLE_STYLE } from "@/components/landing/shell";
 import FeatureSections from "@/components/landing/FeatureSections";
-import OutputGallery from "@/components/landing/OutputGallery";
 
 /* ══════════════════════════════════════════════════════════════
  * LANDING — refonte façon template "Lunera" (thème clair, Geist).
@@ -111,7 +109,7 @@ function Hero() {
               className="duup-flip inline-flex items-center gap-2.5 rounded-full px-8 py-3.5 text-[15px] font-medium text-white shadow-[0_12px_34px_rgba(90,90,240,0.4)] transition hover:opacity-90"
               style={{ background: CTA_GRAD }}>
               <FlipInner>
-                {en ? "Get started" : "Commencer maintenant"}
+                {en ? "Get Started" : "Commencer Maintenant"}
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
               </FlipInner>
             </Link>
@@ -164,26 +162,6 @@ function DemoBlock() {
   );
 }
 
-/* ─── CTA court (entre la galerie et les témoignages) ─── */
-function GalleryCTA() {
-  const loc = useLocale();
-  return (
-    <section className="px-6 pb-20 sm:pb-24">
-      <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 rounded-[28px] bg-white/70 px-7 py-8 text-center shadow-[0_16px_44px_rgba(90,90,240,0.10)] ring-1 ring-[#4f7bff]/15 backdrop-blur sm:flex-row sm:justify-between sm:text-left">
-        <p className="text-[17px] font-medium tracking-[-0.01em] text-[#1a1a1a] sm:text-[19px]">
-          {loc === "en" ? <>Your next video looks like these. Make it in 3 minutes.</> : <>Ta prochaine vidéo ressemble à ça. Elle te prend 3 minutes.</>}
-        </p>
-        <Link href="/register"
-          className="inline-flex shrink-0 items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-medium text-white shadow-[0_12px_34px_rgba(90,90,240,0.4)] transition hover:opacity-90"
-          style={{ background: CTA_GRAD }}>
-          {loc === "en" ? "Start free" : "Commencer gratuitement"}
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 /* ─── TÉMOIGNAGES + STATS ─── */
 const REVIEWS = {
   fr: [
@@ -196,7 +174,7 @@ const REVIEWS = {
       b: { n: "Thomas D.", r: "Growth agency", q: "On a triplé le nombre de posts sans embaucher. Le batch de 20 variantes en un clic, c'est ce qui nous manquait.", av: 2 },
     },
     {
-      f: { n: "Sacha L.", r: "Media buyer e-commerce", q: "Le volume de créatives qu'on peut sortir maintenant est incomparable. Chaque variante est traitée comme du neuf par les algos.", av: 7 },
+      f: { n: "Sacha L.", r: "Agence OFM", q: "Le volume de créatives qu'on peut sortir maintenant est incomparable. Chaque variante est traitée comme du neuf par les algos.", av: 7 },
       b: { n: "Inès B.", r: "E-commerce DNVB", q: "Nos UGC tournent sur 5 comptes en parallèle sans jamais être détectés comme du repost. Le ROAS a suivi.", av: 3 },
     },
   ],
@@ -210,7 +188,7 @@ const REVIEWS = {
       b: { n: "Thomas D.", r: "Growth agency", q: "We tripled our number of posts without hiring. The one-click batch of 20 variants is exactly what we were missing.", av: 2 },
     },
     {
-      f: { n: "Sacha L.", r: "E-commerce media buyer", q: "The volume of creatives we can ship now is unmatched. Every variant is treated as brand-new by the algorithms.", av: 7 },
+      f: { n: "Sacha L.", r: "OFM agency", q: "The volume of creatives we can ship now is unmatched. Every variant is treated as brand-new by the algorithms.", av: 7 },
       b: { n: "Inès B.", r: "E-commerce DNVB", q: "Our UGC runs on 5 accounts in parallel without ever being detected as reposts. ROAS followed.", av: 3 },
     },
   ],
@@ -267,10 +245,10 @@ function Stars() {
 }
 function ReviewFace({ n, r, q, av, back = false }: { n: string; r: string; q: string; av: number; back?: boolean }) {
   return (
-    <div className={`absolute inset-0 flex flex-col rounded-3xl bg-white p-7 ring-1 ring-black/5 [backface-visibility:hidden] ${back ? "[transform:rotateY(180deg)]" : ""}`}>
+    <div className={`review-glass absolute inset-0 flex flex-col rounded-3xl p-6 [backface-visibility:hidden] ${back ? "[transform:rotateY(180deg)]" : ""}`}>
       <Stars />
-      <p className="mt-4 flex-1 text-[15px] leading-relaxed text-[#1a1a1a]">“{q}”</p>
-      <div className="mt-6 flex items-center gap-3">
+      <p className="mt-3 flex-1 text-[15px] leading-relaxed text-[#1a1a1a]">“{q}”</p>
+      <div className="mt-4 flex items-center gap-3">
         <img src={`/testimonials/_ (${av}).jpeg`} alt="" className="h-10 w-10 rounded-full object-cover" />
         <div>
           <p className="text-sm font-semibold text-[#1a1a1a]">{n}</p>
@@ -291,9 +269,12 @@ function Testimonials() {
             {loc === "en" ? <>They already repost with <Brand />.</> : <>Ils repostent déjà avec <Brand />.</>}
           </h2>
         </div>
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
+        <div className="relative mt-12 grid gap-5 md:grid-cols-3">
+          {/* Halos derrière les cartes : donnent du relief au verre */}
+          <span aria-hidden className="pointer-events-none absolute -left-10 top-6 -z-10 h-56 w-[45%] rounded-full bg-[#4f7bff]/25 blur-[70px]" />
+          <span aria-hidden className="pointer-events-none absolute -right-10 bottom-0 -z-10 h-56 w-[45%] rounded-full bg-[#7c5cff]/25 blur-[70px]" />
           {REVIEWS[loc].map((r, i) => (
-            <div key={i} className="group h-[300px] [perspective:1400px]">
+            <div key={i} className="group h-[250px] [perspective:1400px]">
               <div className="relative h-full w-full transition-transform duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
                 <ReviewFace n={r.f.n} r={r.f.r} q={r.f.q} av={r.f.av} />
                 <ReviewFace n={r.b.n} r={r.b.r} q={r.b.q} av={r.b.av} back />
@@ -343,7 +324,7 @@ function FAQ() {
         <div className="lg:pt-4">
           <Label>FAQ</Label>
           <h2 className={`mt-7 ${SECTION_TITLE}`} style={SECTION_TITLE_STYLE}>
-            {loc === "en" ? <>The questions<br className="hidden sm:block" /> you're asking.</> : <>Les questions<br className="hidden sm:block" /> que tu te poses.</>}
+            {loc === "en" ? <>The questions<br className="hidden sm:block" /> <GradText>you're asking.</GradText></> : <>Les questions<br className="hidden sm:block" /> <GradText>que tu te poses.</GradText></>}
           </h2>
           <p className={`mt-5 max-w-sm ${SECTION_LEAD}`}>
             {loc === "en" ? "Everything you need to know before getting started." : "Tout ce qu'il faut savoir avant de te lancer."}
@@ -375,65 +356,40 @@ function FAQ() {
   );
 }
 
-/* ─── BLOG ─── */
-const POSTS = {
-  fr: [
-    { t: "Reposter la même vidéo sur plusieurs comptes : le guide", e: "Pourquoi les plateformes limitent les doublons et comment contourner ça proprement.", c: "from-sky-100 to-indigo-100" },
-    { t: "Multi-comptes : comment alimenter une grappe sans se faire flag", e: "La méthode des créateurs qui postent partout sans perdre en reach.", c: "from-violet-100 to-sky-100" },
-    { t: "1 vidéo, 20 formats : industrialiser sa production", e: "Le workflow pour transformer un seul contenu gagnant en volume.", c: "from-indigo-100 to-blue-100" },
-  ],
-  en: [
-    { t: "Reposting the same video across accounts: the guide", e: "Why platforms limit duplicates, and how to work around it cleanly.", c: "from-sky-100 to-indigo-100" },
-    { t: "Multi-account: how to feed a cluster without getting flagged", e: "The method creators use to post everywhere without losing reach.", c: "from-violet-100 to-sky-100" },
-    { t: "1 video, 20 formats: industrialize your production", e: "The workflow to turn a single winning piece into volume.", c: "from-indigo-100 to-blue-100" },
-  ],
-};
-function Blog() {
-  const loc = useLocale();
-  return (
-    <section className="px-6 py-20 sm:py-24">
-      <div className="mx-auto max-w-6xl">
-        <div className="text-center">
-          <Label>Blog</Label>
-          <h2 className={`mt-7 ${SECTION_TITLE}`} style={SECTION_TITLE_STYLE}>
-            {loc === "en" ? "Repost smarter." : "Reposter plus intelligemment."}
-          </h2>
-        </div>
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
-          {POSTS[loc].map((p, i) => (
-            <Link key={i} href="/blog" className="group block overflow-hidden rounded-3xl bg-white ring-1 ring-black/5 transition hover:shadow-[0_16px_40px_rgba(20,40,90,0.08)]">
-              <div className={`aspect-[16/10] bg-gradient-to-br ${p.c}`} />
-              <div className="p-6">
-                <h3 className="text-[17px] font-semibold leading-snug text-[#1a1a1a]">{p.t}</h3>
-                <p className="mt-2 text-[14px] leading-relaxed text-[#605f5f]">{p.e}</p>
-                <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium" style={{ color: BLUE }}>{loc === "en" ? "Read article" : "Lire l'article"} <span className="transition-transform group-hover:translate-x-0.5">→</span></span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 /* ─── CTA ─── */
 function CTA() {
   const en = useLocale() === "en";
+  /* Texte en dégradé clair : lisible sur le fond violet-bleu. */
+  const hi = (t: string) => (
+    <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg,#ffffff 0%,#dfe7ff 55%,#efe4ff 100%)" }}>{t}</span>
+  );
   return (
     <section className="px-6 pb-10">
-      <div className="mx-auto max-w-6xl overflow-hidden rounded-[36px] px-8 py-16 text-center sm:py-20"
-        style={{ background: "linear-gradient(135deg, #1a1a1a 0%, #202634 60%, #1c2b52 100%)" }}>
+      {/* Verre liquide : des nappes violet / bleu qui ondulent lentement DANS le
+          bloc (lp-liquid-*, globals.css), recouvertes d'une plaque de verre
+          (flou + reflets). Rien ne déborde : overflow-hidden + isolate. */}
+      <div className="relative isolate mx-auto max-w-6xl overflow-hidden rounded-[36px] px-8 py-16 text-center sm:py-20"
+        style={{ background: "linear-gradient(135deg,#5b78f6 0%,#7a6cf4 55%,#8f7cf7 100%)" }}>
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+          <span className="lp-liquid-a absolute -left-[10%] -top-[30%] h-[85%] w-[55%] rounded-full" style={{ background: "radial-gradient(circle at 40% 40%, #38bdf8 0%, rgba(56,189,248,0) 70%)" }} />
+          <span className="lp-liquid-b absolute -right-[12%] top-[5%] h-[90%] w-[55%] rounded-full" style={{ background: "radial-gradient(circle at 50% 50%, #a78bfa 0%, rgba(167,139,250,0) 70%)" }} />
+          <span className="lp-liquid-c absolute -bottom-[35%] left-[25%] h-[80%] w-[50%] rounded-full" style={{ background: "radial-gradient(circle at 50% 50%, #4f7bff 0%, rgba(79,123,255,0) 70%)" }} />
+          <span className="lp-liquid-d absolute left-[45%] -top-[25%] h-[60%] w-[35%] rounded-full" style={{ background: "radial-gradient(circle at 50% 50%, rgba(236,72,153,0.55) 0%, rgba(236,72,153,0) 70%)" }} />
+          {/* Plaque de verre : flou des nappes + reflets sur les bords */}
+          <span className="absolute inset-0 rounded-[36px] bg-white/[0.06] backdrop-blur-[36px]"
+            style={{ boxShadow: "inset 2px 2px 1px -1px rgba(255,255,255,0.55), inset -2px -2px 1px -1px rgba(255,255,255,0.3), inset 0 0 60px rgba(255,255,255,0.18)" }} />
+        </div>
         <h2 className={`mx-auto max-w-2xl ${SECTION_TITLE.replace("text-[#1a1a1a]", "text-white")}`} style={SECTION_TITLE_STYLE}>
-          {en ? "Give your videos a second life." : "Donne une seconde vie à tes vidéos."}
+          {en ? <>{hi("Multiply your content")} across every account.</> : <>{hi("Multiplie ton contenu")} sur tous tes comptes.</>}
         </h2>
-        <p className="mx-auto mt-4 max-w-md text-[17px] text-white/70">
-          {en ? "Start for free, no credit card. Your first variants in 3 minutes." : "Commence gratuitement, sans carte bancaire. Tes premières variantes en 3 minutes."}
+        <p className="mx-auto mt-4 max-w-md text-[17px] text-white/85">
+          {en ? "One video, dozens of unique variants ready to post. Your first copies in 3 minutes." : "Une vidéo, des dizaines de variantes uniques prêtes à poster. Tes premières copies en 3 minutes."}
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/register" className="rounded-full px-7 py-3 text-sm font-medium text-white shadow-[0_10px_30px_rgba(90,90,240,0.42)] transition hover:opacity-90" style={{ background: CTA_GRAD }}>
-            {en ? "Get started" : "Commencer maintenant"}
+          <Link href="/register" className="rounded-full bg-white px-7 py-3 text-sm font-semibold text-[#3b3fd8] shadow-[0_10px_30px_rgba(30,30,120,0.25)] transition hover:bg-white/90">
+            {en ? "Get Started" : "Commencer Maintenant"}
           </Link>
-          <Link href="/demo-request" className="rounded-full bg-white/10 px-7 py-3 text-sm font-medium text-white ring-1 ring-white/20 transition hover:bg-white/15">
+          <Link href="/demo-request" className="rounded-full bg-white/15 px-7 py-3 text-sm font-medium text-white ring-1 ring-white/35 backdrop-blur transition hover:bg-white/25">
             {en ? "Contact us" : "Nous contacter"}
           </Link>
         </div>
@@ -465,14 +421,10 @@ export default function LandingPage() {
             }} />
           <div className="relative">
             <FeatureSections />
-            <BeforeAfter />
           </div>
         </div>
-        <OutputGallery />
-        <GalleryCTA />
         <Testimonials />
         <FAQ />
-        <Blog />
         <CTA />
         <Footer />
       </div>

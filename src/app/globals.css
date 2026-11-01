@@ -993,62 +993,273 @@ body{
 @keyframes duup-b4 { 0%, 40% { opacity: 0; transform: scale(0.55); } 47% { opacity: 1; transform: scale(1.14); } 52%, 88% { opacity: 1; transform: scale(1); } 94%, 100% { opacity: 0; } }
 @keyframes duup-b5 { 0%, 53% { opacity: 0; transform: translateX(-52px) scale(0.66) rotate(-8deg); } 62%, 88% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; } }
 @keyframes duup-b6 { 0%, 74% { opacity: 0; transform: scale(0.7); } 80%, 88% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; } }
-/* ── Éditeur IA : une prise unique en 3 temps, cycle de 12 s ──
-   1) le curseur dépose la réf, qui s'installe au centre ; elle glisse à gauche
-      pendant que les fichiers bruts montent à droite ;
-   2) Claude monte ; 3) la vidéo finie + la conversation avec Claude.
-   Toutes les fenêtres sont écrites en dur (aucun gros animation-delay) : c'est
-   la seule façon d'avoir des entrées échelonnées ET une remise à zéro commune. */
-@keyframes duup-cursor {
-  0%, 1%   { opacity: 0; transform: translate(46px, 42px); }
-  3%       { opacity: 1; }
-  6%       { opacity: 1; transform: translate(0, 0); }
-  7.5%     { transform: translate(0, 0) scale(0.82); }
-  9%       { opacity: 1; transform: translate(0, 0) scale(1); }
-  12%, 100% { opacity: 0; }
+/* ── Cartes témoignages : verre liquide un peu opaque ──
+   Pas de backdrop-filter (incompatible avec le retournement 3D) : un dégradé
+   blanc translucide + grain + reflets sur les bords. */
+.review-glass {
+  background-color: rgba(255,255,255,0.62);
+  background-image:
+    linear-gradient(160deg, rgba(255,255,255,0.75) 0%, rgba(240,243,255,0.35) 55%, rgba(244,238,255,0.5) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.38 0 0 0 0 0.55 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  border: 1px solid rgba(255,255,255,0.85);
+  box-shadow:
+    0 12px 34px rgba(60,70,200,0.10),
+    inset 2px 2px 1px -1px rgba(255,255,255,0.95),
+    inset -2px -2px 1px -1px rgba(255,255,255,0.6),
+    inset 0 0 24px rgba(255,255,255,0.35);
 }
-/* La réf : posée au centre, puis rangée à gauche, un peu plus petite */
-@keyframes duup-ref {
-  0%, 3%    { opacity: 0; transform: translateX(130%) scale(1.1); }
-  8%, 18%   { opacity: 1; transform: translateX(130%) scale(1.1); }
-  25%, 46%  { opacity: 1; transform: translateX(0) scale(1); }
-  50%, 100% { opacity: 0; transform: translateX(0) scale(0.96); }
-}
-/* Les fichiers bruts, à droite, l'un après l'autre (une fenêtre par ligne) */
-@keyframes duup-f1 { 0%, 23% { opacity: 0; transform: translateY(10px); } 28%, 46% { opacity: 1; transform: none; } 50%, 100% { opacity: 0; } }
-@keyframes duup-f2 { 0%, 27% { opacity: 0; transform: translateY(10px); } 32%, 46% { opacity: 1; transform: none; } 50%, 100% { opacity: 0; } }
-@keyframes duup-f3 { 0%, 31% { opacity: 0; transform: translateY(10px); } 36%, 46% { opacity: 1; transform: none; } 50%, 100% { opacity: 0; } }
-/* Claude monte */
-@keyframes duup-work { 0%, 47% { opacity: 0; transform: scale(0.9); } 52%, 62% { opacity: 1; transform: none; } 66%, 100% { opacity: 0; transform: scale(1.04); } }
-@keyframes duup-workbar { 0%, 50% { width: 0; } 63%, 100% { width: 100%; } }
-/* Le final : vidéo + conversation */
-@keyframes duup-final { 0%, 64% { opacity: 0; transform: scale(0.94); } 69%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
-@keyframes duup-msg1  { 0%, 68% { opacity: 0; transform: translateY(8px); } 72%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
-/* Le user tape sa réponse, puis l'envoie : le texte quitte le champ… */
-@keyframes duup-typing { 0%, 76% { width: 0; opacity: 1; } 86% { width: 100%; opacity: 1; } 88%, 100% { width: 100%; opacity: 0; } }
-@keyframes duup-caretbeat { 0%, 76% { opacity: 0; } 77%, 87% { opacity: 1; } 88%, 100% { opacity: 0; } }
-/* …et réapparaît dans le fil, aligné à droite */
-@keyframes duup-msg2 { 0%, 88% { opacity: 0; transform: translateY(12px) scale(0.94); } 91%, 97% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 
-.duup-cursor, .duup-ref, .duup-f1, .duup-f2, .duup-f3,
-.duup-work, .duup-final, .duup-msg1, .duup-msg2 {
-  animation-duration: 12s;
-  animation-timing-function: cubic-bezier(0.22, 1.15, 0.3, 1);
-  animation-iteration-count: infinite;
-  opacity: 0;
+/* ── CTA final : nappes « liquides » qui ondulent dans le bloc ── */
+@keyframes lp-liquid-a-k { 0% { transform: translate(0,0) scale(1); } 50% { transform: translate(18%,12%) scale(1.15); } 100% { transform: translate(6%,-6%) scale(0.95); } }
+@keyframes lp-liquid-b-k { 0% { transform: translate(0,0) scale(1); } 50% { transform: translate(-20%,10%) scale(1.1); } 100% { transform: translate(-8%,-10%) scale(1.2); } }
+@keyframes lp-liquid-c-k { 0% { transform: translate(0,0) scale(1.05); } 50% { transform: translate(14%,-18%) scale(0.9); } 100% { transform: translate(-12%,-6%) scale(1.15); } }
+@keyframes lp-liquid-d-k { 0% { transform: translate(0,0) scale(0.9); } 50% { transform: translate(-25%,25%) scale(1.2); } 100% { transform: translate(20%,10%) scale(1); } }
+.lp-liquid-a { filter: blur(30px); animation: lp-liquid-a-k 16s ease-in-out infinite alternate; }
+.lp-liquid-b { filter: blur(30px); animation: lp-liquid-b-k 19s ease-in-out infinite alternate; }
+.lp-liquid-c { filter: blur(30px); animation: lp-liquid-c-k 22s ease-in-out infinite alternate; }
+.lp-liquid-d { filter: blur(30px); animation: lp-liquid-d-k 14s ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .lp-liquid-a, .lp-liquid-b, .lp-liquid-c, .lp-liquid-d { animation: none; } }
+
+/* ── Cartes bento de la landing (modules + agences) ──
+   Texture : grain fin sur toute la carte, trame de points + halo sur la zone
+   visuelle. Survol : la carte se soulève, la bordure prend la couleur de marque,
+   le visuel grossit à peine. */
+.bento-card, .bento-glass {
+  /* « Liquid glass » : fond quasi transparent, léger flou + distorsion du décor
+     (filtre SVG #lg-distort, défini dans Bento.tsx), reflets sur les bords.
+     Les navigateurs sans url() dans backdrop-filter gardent le flou simple. */
+  background-color: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.45);
+  -webkit-backdrop-filter: blur(5px) saturate(1.6);
+  backdrop-filter: blur(5px) saturate(1.6);
+  backdrop-filter: url(#lg-distort) blur(3px) saturate(1.6);
+  box-shadow:
+    0 10px 30px rgba(40,50,140,0.12),
+    inset 2px 2px 1px -1px rgba(255,255,255,0.85),
+    inset -2px -2px 1px -1px rgba(255,255,255,0.55),
+    inset 0 0 22px rgba(255,255,255,0.22);
+  transition: transform .35s cubic-bezier(0.22,1,0.36,1), box-shadow .35s ease, border-color .35s ease;
 }
-.duup-cursor { animation-name: duup-cursor; }
-.duup-ref    { animation-name: duup-ref; }
-.duup-f1     { animation-name: duup-f1; }
-.duup-f2     { animation-name: duup-f2; }
-.duup-f3     { animation-name: duup-f3; }
-.duup-work   { animation-name: duup-work; }
-.duup-final  { animation-name: duup-final; }
-.duup-msg1   { animation-name: duup-msg1; }
-.duup-msg2   { animation-name: duup-msg2; }
-.duup-workbar   { animation: duup-workbar 12s ease-out infinite; width: 0; }
-.duup-typing    { animation: duup-typing 12s steps(30) infinite; white-space: nowrap; overflow: hidden; width: 0; }
-.duup-caretbeat { animation: duup-caretbeat 12s steps(1) infinite; opacity: 0; }
+/* Onglet actif des modules : un peu plus de blanc, c'est du texte. */
+.bento-glass.bento-tab { background-color: rgba(255,255,255,0.30); }
+.bento-body {
+  background-color: rgba(255,255,255,0.55);
+  border-top: 1px solid rgba(255,255,255,0.9);
+  box-shadow: 0 -1px 0 rgba(79,123,255,0.14), inset 0 1px 6px rgba(255,255,255,0.5);
+}
+.bento-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,255,255,0.75);
+  box-shadow:
+    0 22px 50px rgba(60,70,200,0.18),
+    inset 2px 2px 1px -1px rgba(255,255,255,0.95),
+    inset -2px -2px 1px -1px rgba(255,255,255,0.65),
+    inset 0 0 26px rgba(255,255,255,0.30);
+}
+.bento-visual { position: relative; background: transparent; }
+.bento-visual > * { transition: transform .45s cubic-bezier(0.22,1,0.36,1); }
+.bento-card:hover .bento-visual > * { transform: scale(1.025); }
+.bento-card:hover .bento-icon { transform: rotate(-6deg) scale(1.06); }
+.bento-icon { transition: transform .35s cubic-bezier(0.22,1,0.36,1); }
+@media (prefers-reduced-motion: reduce) {
+  .bento-card, .bento-card:hover, .bento-card:hover .bento-visual > *, .bento-card:hover .bento-icon { transform: none; }
+  .duup-fade { animation: none; }
+}
+
+/* ── Aperçus animés des modules (Bento.tsx, ModuleVisual) ──
+   Chaque élément joue UNE fois (délai inline) ; le composant est remonté en boucle.
+   Les styles de base sont l'état final : sous reduced-motion, tout est déjà en place. */
+.md-a { animation-duration: .5s; animation-fill-mode: both; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes md-pop   { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: none; } }
+@keyframes md-rise  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes md-press { 0%, 100% { transform: none; } 45% { transform: scale(0.88); filter: brightness(1.1); } }
+@keyframes md-flash { 0% { opacity: 0; } 12%, 82% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes md-type  { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes md-fill  { from { width: 0; } }
+@keyframes md-out   { from { opacity: 1; } to { opacity: 0; } }
+@keyframes md-white { from { color: #605f5f; } to { color: #fff; } }
+@keyframes md-strikeout {
+  0%   { opacity: 1; background-size: 0 1.5px; }
+  45%  { opacity: 1; background-size: 100% 1.5px; }
+  78%  { opacity: 1; background-size: 100% 1.5px; }
+  100% { opacity: 0; background-size: 100% 1.5px; }
+}
+.md-type { animation-timing-function: steps(22, end); }
+.md-strike { background-image: linear-gradient(currentColor, currentColor); background-repeat: no-repeat; background-position: 0 55%; background-size: 100% 1.5px; }
+@keyframes md-spin-k { to { transform: rotate(360deg); } }
+.md-spin { animation: md-spin-k .8s linear infinite; }
+@keyframes md-dot-k { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-3px); opacity: 1; } }
+.md-dot { animation: md-dot-k 1s ease-in-out infinite; }
+/* Cartes Agences en boucle continue : halo qui passe de ligne en ligne, défilement. */
+@keyframes ag-spot-k { 0%, 36%, 100% { opacity: 0; } 8%, 26% { opacity: 1; } }
+.ag-spot { opacity: 0; animation: ag-spot-k 6s ease-in-out infinite; }
+@keyframes ag-sweep-k { 0% { transform: translateX(-110%); opacity: 0; } 6% { opacity: 1; } 30% { transform: translateX(220%); opacity: 0; } 100% { transform: translateX(220%); opacity: 0; } }
+.ag-sweep { opacity: 0; animation: ag-sweep-k 6s ease-in-out infinite; }
+/* Ticker : chaque message occupe 1/N de la période ; le suivant entre pendant
+   que le précédent sort (fondu croisé, jamais de vide). Fenêtres pour N = 3 et 5. */
+@keyframes ag-tick-k { 0% { opacity: 0; transform: translateY(6px); } 3%, 20% { opacity: 1; transform: none; } 23%, 100% { opacity: 0; transform: translateY(-6px); } }
+@keyframes ag-tick3-k { 0% { opacity: 0; transform: translateY(6px); } 3%, 33% { opacity: 1; transform: none; } 36%, 100% { opacity: 0; transform: translateY(-6px); } }
+.ag-tick { opacity: 0; animation-name: ag-tick-k; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.ag-tick[style*="--ag-n: 3"], .ag-tick[style*="--ag-n:3"] { animation-name: ag-tick3-k; }
+@keyframes ag-ping-k { 0% { transform: scale(1); opacity: .7; } 70%, 100% { transform: scale(2.4); opacity: 0; } }
+.ag-ping { animation: ag-ping-k 2.2s ease-out infinite; }
+@keyframes ag-marquee-l-k { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes ag-marquee-r-k { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+.ag-marquee-l { animation: ag-marquee-l-k 26s linear infinite; }
+.ag-marquee-r { animation: ag-marquee-r-k 30s linear infinite; }
+@keyframes ag-scroll-up-k { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+.ag-scroll-up { animation: ag-scroll-up-k 22s linear infinite; }
+@keyframes md-shimmer-k { from { transform: translateX(0); } to { transform: translateX(400%); } }
+.md-shimmer { animation: md-shimmer-k 1.3s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .md-a, .md-spin, .md-shimmer, .md-dot, .ag-spot, .ag-marquee-l, .ag-marquee-r, .ag-tick, .ag-ping, .ag-scroll-up, .ag-sweep { animation: none !important; }
+  .ag-tick:first-child { opacity: 1; }
+  /* Ce qui disparaît pendant la scène est absent de l'état final. */
+  .md-a[style*="md-out"] { opacity: 0; }
+}
+
+/* ── Duplication : 3 plans, cycle de 14 s, une seule horloge ──
+   A) dépôt + réglage + génération ; zoom avant vers B) la fiche « même image,
+   fichier neuf » ; dézoom vers C) les comptes. Les vignettes partent de la
+   source (--dx/--dy posés dans le JSX). */
+.duup-dp { animation-duration: 14s; animation-iteration-count: infinite; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes duup-dp-stage { 0% { opacity: 0; } 2.5%, 95.5% { opacity: 1; } 99%, 100% { opacity: 0; } }
+/* Plans */
+@keyframes duup-dp-sA { 0%, 46% { opacity: 1; transform: none; } 52%, 100% { opacity: 0; transform: scale(1.6); } }
+@keyframes duup-dp-sB { 0%, 48% { opacity: 0; transform: scale(0.86); } 53.5%, 72% { opacity: 1; transform: none; } 77%, 100% { opacity: 0; transform: scale(0.8); } }
+@keyframes duup-dp-sC { 0%, 74% { opacity: 0; transform: scale(1.12); } 79%, 100% { opacity: 1; transform: none; } }
+/* Plan A : dépôt (zone vide → la vidéo), curseur, réglage, clic */
+@keyframes duup-dp-drop { 0%, 6% { opacity: 1; } 8.5%, 100% { opacity: 0; } }
+@keyframes duup-dp-src { 0%, 6% { opacity: 0; transform: scale(1.08); } 8.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-cursor {
+  0%, 1%    { opacity: 0; transform: translate(calc(var(--sx, 20px) + 120px), calc(var(--sy, 60px) + 70px)); }
+  3%        { opacity: 1; }
+  6.5%      { opacity: 1; transform: translate(var(--sx, 20px), var(--sy, 60px)); }
+  7.5%      { transform: translate(var(--sx, 20px), var(--sy, 60px)) scale(0.82); }
+  9%        { opacity: 1; transform: translate(var(--sx, 20px), var(--sy, 60px)); }
+  17.5%     { opacity: 1; transform: translate(var(--gx, 120px), var(--gy, 20px)); }
+  19.5%     { transform: translate(var(--gx, 120px), var(--gy, 20px)) scale(0.82); }
+  20.5%     { opacity: 1; transform: translate(var(--gx, 120px), var(--gy, 20px)); }
+  23%, 100% { opacity: 0; transform: translate(var(--gx, 120px), var(--gy, 20px)); }
+}
+@keyframes duup-dp-count { 0%, 10% { transform: translateY(0); } 17%, 100% { transform: translateY(-108px); } }
+@keyframes duup-dp-gen { 0%, 19% { transform: none; } 20% { transform: scale(0.88); } 21.5%, 100% { transform: none; } }
+@keyframes duup-dp-done { 0%, 23% { transform: translateY(0); } 43.5%, 100% { transform: translateY(-120px); } }
+@keyframes duup-dp-c0 { 0%, 23% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.35); } 25.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-c1 { 0%, 25% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.35); } 27.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-c2 { 0%, 27% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.35); } 29.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-c3 { 0%, 29% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.35); } 31.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-c4 { 0%, 31% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.35); } 33.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-c5 { 0%, 33% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.35); } 35.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-c6 { 0%, 35% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.35); } 37.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-c7 { 0%, 37% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.35); } 39.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-c8 { 0%, 39% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.35); } 41.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-c9 { 0%, 41% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.35); } 43.5%, 100% { opacity: 1; transform: none; } }
+/* Plan B : les valeurs qui changent s'allument une à une */
+@keyframes duup-dp-r0 { 0%, 55.0% { opacity: 0; transform: scale(0.8); } 57.0%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-r1 { 0%, 57.2% { opacity: 0; transform: scale(0.8); } 59.2%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-r2 { 0%, 59.4% { opacity: 0; transform: scale(0.8); } 61.4%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-r3 { 0%, 61.6% { opacity: 0; transform: scale(0.8); } 63.6%, 100% { opacity: 1; transform: none; } }
+/* Plan C : chaque compte reçoit sa copie, puis « prête » */
+@keyframes duup-dp-a0 { 0%, 78% { opacity: 0; transform: translateX(-14px); } 80.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-k0 { 0%, 81% { opacity: 0; transform: scale(0.5); } 83%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-a1 { 0%, 80% { opacity: 0; transform: translateX(-14px); } 82.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-k1 { 0%, 83% { opacity: 0; transform: scale(0.5); } 85%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-a2 { 0%, 82% { opacity: 0; transform: translateX(-14px); } 84.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-k2 { 0%, 85% { opacity: 0; transform: scale(0.5); } 87%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-a3 { 0%, 84% { opacity: 0; transform: translateX(-14px); } 86.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-dp-k3 { 0%, 87% { opacity: 0; transform: scale(0.5); } 89%, 100% { opacity: 1; transform: none; } }
+.duup-dp-stage  { animation-name: duup-dp-stage; animation-timing-function: linear; }
+.duup-dp-sA     { animation-name: duup-dp-sA; animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+.duup-dp-sB     { animation-name: duup-dp-sB; animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); opacity: 0; }
+.duup-dp-sC     { animation-name: duup-dp-sC; animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); opacity: 0; }
+.duup-dp-drop   { animation-name: duup-dp-drop; }
+.duup-dp-src    { animation-name: duup-dp-src; opacity: 0; }
+.duup-dp-cursor { animation-name: duup-dp-cursor; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); opacity: 0; }
+.duup-dp-count  { animation-name: duup-dp-count; animation-timing-function: steps(9, end); }
+.duup-dp-gen    { animation-name: duup-dp-gen; }
+.duup-dp-done   { animation-name: duup-dp-done; animation-timing-function: steps(10, start); }
+.duup-dp-c0 { animation-name: duup-dp-c0; opacity: 0; }
+.duup-dp-c1 { animation-name: duup-dp-c1; opacity: 0; }
+.duup-dp-c2 { animation-name: duup-dp-c2; opacity: 0; }
+.duup-dp-c3 { animation-name: duup-dp-c3; opacity: 0; }
+.duup-dp-c4 { animation-name: duup-dp-c4; opacity: 0; }
+.duup-dp-c5 { animation-name: duup-dp-c5; opacity: 0; }
+.duup-dp-c6 { animation-name: duup-dp-c6; opacity: 0; }
+.duup-dp-c7 { animation-name: duup-dp-c7; opacity: 0; }
+.duup-dp-c8 { animation-name: duup-dp-c8; opacity: 0; }
+.duup-dp-c9 { animation-name: duup-dp-c9; opacity: 0; }
+.duup-dp-r0 { animation-name: duup-dp-r0; opacity: 0; }
+.duup-dp-r1 { animation-name: duup-dp-r1; opacity: 0; }
+.duup-dp-r2 { animation-name: duup-dp-r2; opacity: 0; }
+.duup-dp-r3 { animation-name: duup-dp-r3; opacity: 0; }
+.duup-dp-a0 { animation-name: duup-dp-a0; opacity: 0; }
+.duup-dp-a1 { animation-name: duup-dp-a1; opacity: 0; }
+.duup-dp-a2 { animation-name: duup-dp-a2; opacity: 0; }
+.duup-dp-a3 { animation-name: duup-dp-a3; opacity: 0; }
+.duup-dp-k0 { animation-name: duup-dp-k0; opacity: 0; }
+.duup-dp-k1 { animation-name: duup-dp-k1; opacity: 0; }
+.duup-dp-k2 { animation-name: duup-dp-k2; opacity: 0; }
+.duup-dp-k3 { animation-name: duup-dp-k3; opacity: 0; }
+
+/* ── Éditeur IA : une conversation continue avec Claude, cycle de 14 s ──
+   Une seule horloge pour tout (fenêtres en dur, aucun animation-delay) :
+   chaque message s'ouvre en hauteur et pousse le fil ; l'aperçu change d'état
+   en parallèle. Rien ne disparaît en cours de cycle : seul le décor entier
+   s'efface à la fin, puis tout repart de zéro pendant qu'il est invisible. */
+.duup-ae { animation-duration: 14s; animation-iteration-count: infinite; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes duup-ae-stage { 0% { opacity: 0; } 2.5%, 95.5% { opacity: 1; } 99%, 100% { opacity: 0; } }
+/* Messages du fil : 0 → hauteur pleine, ils restent jusqu'à la fin du cycle */
+@keyframes duup-ae-m1 { 0%, 3%  { max-height: 0; opacity: 0; transform: translateY(8px); } 7.5%, 100%  { max-height: 90px; opacity: 1; transform: none; } }
+@keyframes duup-ae-m2 { 0%, 22% { max-height: 0; opacity: 0; transform: translateY(8px); } 26%, 100%   { max-height: 90px; opacity: 1; transform: none; } }
+@keyframes duup-ae-m3 { 0%, 28% { max-height: 0; opacity: 0; transform: translateY(8px); } 32%, 100%   { max-height: 90px; opacity: 1; transform: none; } }
+@keyframes duup-ae-m4 { 0%, 54% { max-height: 0; opacity: 0; transform: translateY(8px); } 58%, 100%   { max-height: 90px; opacity: 1; transform: none; } }
+@keyframes duup-ae-m5 { 0%, 72% { max-height: 0; opacity: 0; transform: translateY(8px); } 76%, 100%   { max-height: 90px; opacity: 1; transform: none; } }
+@keyframes duup-ae-m6 { 0%, 78% { max-height: 0; opacity: 0; transform: translateY(8px); } 82%, 100%   { max-height: 90px; opacity: 1; transform: none; } }
+/* Barre de montage dans le message de Claude */
+@keyframes duup-ae-bar { 0%, 31% { width: 0; } 53%, 100% { width: 100%; } }
+/* Saisie : le texte se révèle (clip-path → jamais de retour à la ligne), puis part */
+@keyframes duup-ae-t1 { 0%, 9%  { clip-path: inset(0 100% 0 0); opacity: 1; } 19.5%, 21% { clip-path: inset(0 0 0 0); opacity: 1; } 22%, 100% { clip-path: inset(0 0 0 0); opacity: 0; } }
+@keyframes duup-ae-t2 { 0%, 61% { clip-path: inset(0 100% 0 0); opacity: 0; } 61.1% { clip-path: inset(0 100% 0 0); opacity: 1; } 68.5%, 71% { clip-path: inset(0 0 0 0); opacity: 1; } 72%, 100% { clip-path: inset(0 0 0 0); opacity: 0; } }
+@keyframes duup-ae-ph { 0%, 8.5% { opacity: 1; } 9%, 21.5% { opacity: 0; } 22.5%, 60.5% { opacity: 1; } 61%, 71.5% { opacity: 0; } 72.5%, 100% { opacity: 1; } }
+@keyframes duup-ae-send { 0%, 20.5% { transform: none; } 21.5% { transform: scale(0.78); } 23%, 70.5% { transform: none; } 71.5% { transform: scale(0.78); } 73%, 100% { transform: none; } }
+/* Aperçu : vide → montage → vidéo finie (+ badge ×3 quand les variantes tombent) */
+@keyframes duup-ae-pv0 { 0%, 28% { opacity: 1; } 31%, 100% { opacity: 0; } }
+@keyframes duup-ae-pv1 { 0%, 28% { opacity: 0; } 31%, 52% { opacity: 1; } 56%, 100% { opacity: 0; } }
+@keyframes duup-ae-pv2 { 0%, 52% { opacity: 0; transform: scale(0.96); } 56%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-ae-x3 { 0%, 81% { opacity: 0; transform: scale(0.5); } 84%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-ae-v1 { 0%, 79% { opacity: 0; transform: scale(0.6); } 82%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-ae-v2 { 0%, 80.5% { opacity: 0; transform: scale(0.6); } 83.5%, 100% { opacity: 1; transform: none; } }
+@keyframes duup-ae-v3 { 0%, 82% { opacity: 0; transform: scale(0.6); } 85%, 100% { opacity: 1; transform: none; } }
+/* Caméra : plan large → zoom sur la conversation (consigne + montage) → dézoom
+   juste après la sortie de la vidéo. Courbe douce dans les deux sens. */
+@keyframes duup-ae-cam {
+  0%, 8%    { transform: none; }
+  13%, 55%  { transform: scale(1.42); }
+  62%, 100% { transform: none; }
+}
+@keyframes duup-ae-shimmer { from { transform: translateX(0); } to { transform: translateX(400%); } }
+.duup-ae-stage { animation-name: duup-ae-stage; animation-timing-function: linear; }
+.duup-ae-cam { animation-name: duup-ae-cam; animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+.duup-ae-m1 { animation-name: duup-ae-m1; max-height: 0; opacity: 0; }
+.duup-ae-m2 { animation-name: duup-ae-m2; max-height: 0; opacity: 0; }
+.duup-ae-m3 { animation-name: duup-ae-m3; max-height: 0; opacity: 0; }
+.duup-ae-m4 { animation-name: duup-ae-m4; max-height: 0; opacity: 0; }
+.duup-ae-m5 { animation-name: duup-ae-m5; max-height: 0; opacity: 0; }
+.duup-ae-m6 { animation-name: duup-ae-m6; max-height: 0; opacity: 0; }
+.duup-ae-bar { animation-name: duup-ae-bar; animation-timing-function: ease-in-out; width: 0; }
+.duup-ae-t1 { animation-name: duup-ae-t1; animation-timing-function: steps(16, end); opacity: 0; }
+.duup-ae-t2 { animation-name: duup-ae-t2; animation-timing-function: steps(12, end); opacity: 0; }
+.duup-ae-ph { animation-name: duup-ae-ph; animation-timing-function: linear; }
+.duup-ae-send { animation-name: duup-ae-send; }
+.duup-ae-pv0 { animation-name: duup-ae-pv0; }
+.duup-ae-pv1 { animation-name: duup-ae-pv1; opacity: 0; }
+.duup-ae-pv2 { animation-name: duup-ae-pv2; opacity: 0; }
+.duup-ae-x3 { animation-name: duup-ae-x3; opacity: 0; }
+.duup-ae-v1 { animation-name: duup-ae-v1; opacity: 0; }
+.duup-ae-v2 { animation-name: duup-ae-v2; opacity: 0; }
+.duup-ae-v3 { animation-name: duup-ae-v3; opacity: 0; }
+.duup-ae-shimmer { animation: duup-ae-shimmer 1.4s linear infinite; }
 
 /* Le faisceau qui parcourt la référence pendant que l'IA la lit */
 @keyframes duup-scanline { 0%, 8% { top: -6%; opacity: 0; } 11% { opacity: 1; } 21% { top: 100%; opacity: 1; } 24%, 100% { opacity: 0; } }
@@ -1114,13 +1325,20 @@ body{
   .duup-phase, .duup-pop, .duup-fill, .duup-scan,
   .duup-b1, .duup-b2, .duup-b3, .duup-b4, .duup-b5, .duup-b6,
   .duup-scanline, .duup-halo,
-  .duup-cursor, .duup-ref, .duup-f1, .duup-f2, .duup-f3, .duup-work,
-  .duup-final, .duup-msg1, .duup-msg2, .duup-workbar, .duup-typing,
-  .duup-caretbeat { animation: none; }
-  /* Mouvement coupé : on ne garde que le résultat, la vidéo montée. */
-  .duup-cursor, .duup-ref, .duup-f1, .duup-f2, .duup-f3, .duup-work { opacity: 0; }
-  .duup-final, .duup-msg1, .duup-msg2 { opacity: 1; transform: none; }
-  .duup-typing, .duup-caretbeat { opacity: 0; }
+  .duup-dp { animation: none; }
+  /* Mouvement coupé : le plan A terminé (10 copies générées). */
+  .duup-dp-sA, .duup-dp-src, .duup-dp-c0, .duup-dp-c1, .duup-dp-c2, .duup-dp-c3, .duup-dp-c4,
+  .duup-dp-c5, .duup-dp-c6, .duup-dp-c7, .duup-dp-c8, .duup-dp-c9 { opacity: 1; transform: none; }
+  .duup-dp-drop, .duup-dp-cursor, .duup-dp-sB, .duup-dp-sC { opacity: 0; }
+  .duup-dp-count { transform: translateY(-108px); }
+  .duup-dp-done { transform: translateY(-120px); }
+  .duup-ae, .duup-ae-shimmer { animation: none; }
+  /* Mouvement coupé : la conversation complète et la vidéo montée. */
+  .duup-ae-stage, .duup-ae-ph, .duup-ae-pv2, .duup-ae-x3,
+  .duup-ae-v1, .duup-ae-v2, .duup-ae-v3 { opacity: 1; transform: none; }
+  .duup-ae-m1, .duup-ae-m2, .duup-ae-m3, .duup-ae-m4, .duup-ae-m5, .duup-ae-m6 { max-height: none; opacity: 1; transform: none; }
+  .duup-ae-bar { width: 100%; }
+  .duup-ae-t1, .duup-ae-t2, .duup-ae-pv0, .duup-ae-pv1 { opacity: 0; }
   /* Aperçu des assets : les flocons restent posés, le flash reste éteint. */
   .duup-snowfall, .duup-flashpulse { animation: none; }
   .duup-flashpulse { opacity: 0; }

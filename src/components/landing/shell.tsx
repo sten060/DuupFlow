@@ -35,6 +35,11 @@ export function Brand({ className, style }: { className?: string; style?: CSSPro
   );
 }
 
+/* Mot ou groupe de mots clé d'un titre, en dégradé de marque (un seul par titre). */
+export function GradText({ children }: { children: React.ReactNode }) {
+  return <span className="bg-clip-text text-transparent" style={{ backgroundImage: CTA_GRAD }}>{children}</span>;
+}
+
 /* ── Flip "un seul retournement" au survol ──
    À placer dans un parent portant la classe `.duup-flip`. Rend deux faces
    identiques (recto + verso pré-tourné) : au hover le parent bascule de 180°
