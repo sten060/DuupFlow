@@ -13,6 +13,7 @@ import { processVideos, VideoInputError, type PreDownloadedFile } from "@/app/da
 import { updateJob, requeueJob, MAX_JOB_ATTEMPTS } from "@/lib/api-jobs";
 import { saveJobOutput } from "@/lib/api-storage";
 import { logUsageEvent } from "@/lib/usage";
+import type { AdvancedRanges } from "@/lib/api-video-jobs";
 
 export type VideoJobOpts = {
   jobId: string;
@@ -25,10 +26,13 @@ export type VideoJobOpts = {
   country?: string;
   iphoneMeta?: boolean;
   removeAiDetection?: boolean;
+  mode?: "simple" | "advanced";
+  advancedRanges?: AdvancedRanges;
 };
 
 export async function runVideoDuplicateJob(opts: VideoJobOpts): Promise<void> {
   const { jobId, jobParams, userId, srcName, srcTmpPath, count, packs, country, iphoneMeta, removeAiDetection } = opts;
+  const mode = opts.mode === "advanced" ? "advanced" : "simple";
   const workDir = path.join(os.tmpdir(), `api_job_${jobId}`);
   // Garde la source tant que le job peut encore être réessayé.
   let keepSource = false;
@@ -41,13 +45,15 @@ export async function runVideoDuplicateJob(opts: VideoJobOpts): Promise<void> {
     await updateJob(jobId, { status: "processing", progress: 1, message: "Starting…" });
     await fs.mkdir(workDir, { recursive: true });
 
-    // Drive processVideos in "simple" mode via a synthetic FormData. The source
-    // is passed as a pre-downloaded file so no session/upload step is needed.
+    // Drive processVideos via a synthetic FormData (same fields as the dashboard
+    // page, simple or advanced). The source is passed as a pre-downloaded file
+    // so no session/upload step is needed.
     const fd = new FormData();
-    fd.append("channel", "simple");
-    fd.append("mode", "simple");
+    fd.append("channel", mode);
+    fd.append("mode", mode);
     fd.append("count", String(count));
-    fd.append("packs", packs);
+    if (mode === "advanced") fd.append("advancedRanges", JSON.stringify(opts.advancedRanges ?? {}));
+    else fd.append("packs", packs);
     fd.append("singles", "{}");
     if (country) fd.append("country", country);
     if (iphoneMeta) fd.append("iphoneMeta", "1");

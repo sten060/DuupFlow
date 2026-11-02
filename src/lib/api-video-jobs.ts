@@ -15,12 +15,33 @@ export const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".avi", ".webm"];
 
 export type VideoJobType = "videos.duplicate" | "videos.ai_detection";
 
+// Réglages du mode avancé acceptés par processVideos (cf. la page « Mode avancé »
+// et advanced_ranges du connecteur MCP). Le moteur borne lui-même les valeurs.
+export const ADVANCED_RANGE_KEYS = [
+  "flip", "reverse", "saturation", "contrast", "brightness", "gamma", "hue_rad", "vignette", "noise",
+  "lens_k", "unsharp", "speed", "zoom", "pixelshift", "rotation_deg", "fps", "dyn_crop", "prog_rotate",
+  "prog_zoom", "shake", "border_px", "vbitrate", "gop", "cut_start", "cut_end", "volume_db", "afreq_hz",
+  "abitrate_k", "pitch", "dim_w", "dim_h",
+] as const;
+
+export type AdvancedRanges = Record<string, { enabled: boolean; min?: number; max?: number }>;
+
+export type VideoJobParams = {
+  count: number;
+  packs: string;
+  country?: string;
+  iphoneMeta?: boolean;
+  removeAiDetection?: boolean;
+  mode?: "simple" | "advanced";
+  advancedRanges?: AdvancedRanges;
+};
+
 export async function enqueueVideoJob(
   req: Request,
   userId: string,
   file: File,
   type: VideoJobType,
-  params: { count: number; packs: string; country?: string; iphoneMeta?: boolean; removeAiDetection?: boolean },
+  params: VideoJobParams,
 ): Promise<Response> {
   const ext = (path.extname(file.name) || "").toLowerCase();
   if (!VIDEO_EXTS.includes(ext)) {

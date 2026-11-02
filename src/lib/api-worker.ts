@@ -58,6 +58,8 @@ async function processJob(job: ClaimedJob): Promise<void> {
       country: p.country,
       iphoneMeta: p.iphoneMeta,
       removeAiDetection: p.removeAiDetection === true,
+      mode: p.mode === "advanced" ? "advanced" : "simple",
+      advancedRanges: p.advancedRanges,
     });
   } else {
     console.error(`[api-worker] unknown job type: ${job.type}`);

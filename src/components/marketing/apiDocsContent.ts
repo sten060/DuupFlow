@@ -40,6 +40,15 @@ const CURL_VID = `curl -X POST ${BASE}/videos/duplicate \\
   -F "count=3" \\
   -F "packs=visual,motion,metadata_technical"`;
 
+const CURL_VID_ADV = `curl -X POST ${BASE}/videos/duplicate \\
+  -H "Authorization: Bearer dflw_live_YOUR_KEY" \\
+  -F "file=@clip.mp4" \\
+  -F "count=3" \\
+  -F "mode=advanced" \\
+  -F 'advanced_ranges={"saturation":{"min":0.95,"max":1.08},"zoom":{"min":1.02,"max":1.06},"rotation_deg":{"min":-1.5,"max":1.5},"speed":{"min":0.98,"max":1.03}}'`;
+
+const ADV_KEYS = "flip, reverse, saturation, contrast, brightness, gamma, hue_rad, vignette, noise, lens_k, unsharp, speed, zoom, pixelshift, rotation_deg, fps, dyn_crop, prog_rotate, prog_zoom, shake, border_px, vbitrate, gop, cut_start, cut_end, volume_db, afreq_hz, abitrate_k, pitch, dim_w, dim_h";
+
 const RES_VID = `{
   "job_id": "3f1c…",
   "status": "queued",
@@ -294,7 +303,9 @@ export const SECTIONS: Record<Lang, Section[]> = {
           rows: [
             ["file", "Vidéo mp4, mov, mkv, avi, webm — ≤ 150 Mo et ≤ 120 s", "requis"],
             ["count", "Nombre de copies, 1 à 10", "1"],
-            ["packs", "Liste séparée par des virgules : visual, motion, metadata_technical, pixel_magic", "visual,motion,metadata_technical"],
+            ["mode", "`simple` (packs) ou `advanced` (réglages précis)", "simple"],
+            ["packs", "Mode simple — liste séparée par des virgules : visual, motion, metadata_technical, pixel_magic", "visual,motion,metadata_technical"],
+            ["advanced_ranges", "Mode avancé — objet JSON de réglages (voir plus bas)", "requis en mode avancé"],
             ["country", "Code pays ISO pour les métadonnées de localisation", "—"],
             ["iphone_meta", "Métadonnées d'iPhone réalistes (sortie .mov, HEVC)", "0"],
             ["remove_ai_detection", "Contre-filigrane invisible, différent sur chaque copie", "0"],
@@ -309,6 +320,16 @@ export const SECTIONS: Record<Lang, Section[]> = {
         { type: "p", text: "La résolution et la qualité d'origine sont conservées (4K comprise), et une copie n'est jamais plus lourde que la source. Le 9:16 vertical est pris en charge." },
         { type: "code", label: "Lancer le job", code: CURL_VID },
         { type: "code", label: "Réponse (202)", code: RES_VID },
+        { type: "p", text: "**Mode avancé** — les mêmes réglages que la page « Mode avancé » du dashboard. Tu choisis chaque réglage et sa plage :" },
+        { type: "list", items: [
+          "Format : `{ \"réglage\": { \"min\": …, \"max\": … } }`, envoyé en texte JSON dans le champ `advanced_ranges`.",
+          "Chaque copie tire une valeur au hasard entre `min` et `max` : toutes les copies sont différentes.",
+          "Un réglage présent est activé (sauf `\"enabled\": false`). Un réglage absent n'est pas appliqué.",
+          "Les valeurs hors limites sont ramenées automatiquement dans la plage autorisée.",
+          `Réglages disponibles : ${ADV_KEYS}.`,
+        ] },
+        { type: "callout", tone: "info", text: "En mode avancé, `packs` est ignoré. Une clé inconnue ou un JSON invalide renvoie une erreur 400 `invalid_advanced_ranges`." },
+        { type: "code", label: "Mode avancé", code: CURL_VID_ADV },
       ],
     },
     {
@@ -529,7 +550,9 @@ export const SECTIONS: Record<Lang, Section[]> = {
         { type: "table", head: ["Field", "Value", "Default"], rows: [
           ["file", "mp4, mov, mkv, avi, webm video — ≤ 150 MB and ≤ 120 s", "required"],
           ["count", "Number of copies, 1 to 10", "1"],
-          ["packs", "Comma-separated list: visual, motion, metadata_technical, pixel_magic", "visual,motion,metadata_technical"],
+          ["mode", "`simple` (packs) or `advanced` (precise settings)", "simple"],
+          ["packs", "Simple mode — comma-separated list: visual, motion, metadata_technical, pixel_magic", "visual,motion,metadata_technical"],
+          ["advanced_ranges", "Advanced mode — JSON object of settings (see below)", "required in advanced mode"],
           ["country", "ISO country code for location metadata", "—"],
           ["iphone_meta", "Realistic iPhone metadata (.mov output, HEVC)", "0"],
           ["remove_ai_detection", "Invisible counter-watermark, different on every copy", "0"],
@@ -543,6 +566,16 @@ export const SECTIONS: Record<Lang, Section[]> = {
         { type: "p", text: "Original resolution and quality are preserved (4K included), and a copy is never heavier than the source. Vertical 9:16 is supported." },
         { type: "code", label: "Start the job", code: CURL_VID },
         { type: "code", label: "Response (202)", code: RES_VID },
+        { type: "p", text: "**Advanced mode** — the same settings as the dashboard's \"Advanced mode\" page. You pick each setting and its range:" },
+        { type: "list", items: [
+          "Format: `{ \"setting\": { \"min\": …, \"max\": … } }`, sent as JSON text in the `advanced_ranges` field.",
+          "Each copy draws a random value between `min` and `max`, so every copy is different.",
+          "A listed setting is enabled (unless `\"enabled\": false`). A missing setting is not applied.",
+          "Out-of-range values are automatically brought back into the allowed range.",
+          `Available settings: ${ADV_KEYS}.`,
+        ] },
+        { type: "callout", tone: "info", text: "In advanced mode, `packs` is ignored. An unknown key or invalid JSON returns a 400 `invalid_advanced_ranges` error." },
+        { type: "code", label: "Advanced mode", code: CURL_VID_ADV },
       ],
     },
     {

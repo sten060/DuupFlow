@@ -831,7 +831,7 @@
       "descFiles": "Download a file produced by a job (same key)",
       "paramsTitle": "Parameters (multipart/form-data)",
       "pImages": "count (1–20) · fundamentals (default 1) · semi (default 1) · visuals · reverse · iphone_meta · country · remove_ai_detection. File ≤ 25 MB: png, jpg, webp, gif, heic. Response: the image (1 copy) or a zip (several).",
-      "pVideos": "count (1–10) · packs (visual, motion, metadata_technical, pixel_magic — default: visual,motion,metadata_technical) · country · iphone_meta · remove_ai_detection. Video mp4, mov, mkv, avi or webm, ≤ 120 s and ≤ 150 MB. 202 response: job_id + poll_url.",
+      "pVideos": "count (1–10) · mode (simple | advanced) · packs, simple mode (visual, motion, metadata_technical, pixel_magic — default: visual,motion,metadata_technical) · advanced_ranges (advanced mode, JSON) · country · iphone_meta · remove_ai_detection. Video mp4, mov, mkv, avi or webm, ≤ 120 s and ≤ 150 MB. 202 response: job_id + poll_url.",
       "pCompress": "level: light, balanced (default) or strong. png, jpg or webp image ≤ 25 MB. Never heavier than the original; savings in the X-DuupFlow-Saved-Percent header.",
       "pAiDetection": "jpg, png or webp image ≤ 25 MB → the cleaned image (sync). mp4, mov, mkv, avi or webm video ≤ 150 MB and ≤ 120 s → async job (202, track via /jobs/:id), a single output video with no duplication effect. Erases AI provenance metadata and invisibly retouches the pixels. Does not remove a robust watermark (e.g. SynthID).",
       "pJobs": "status: queued → processing → completed or failed. Files can be downloaded for 16 h with the same key. If the server is momentarily busy, the job is retried automatically.",
