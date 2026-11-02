@@ -203,10 +203,9 @@ export default function WorkspaceSwitcher({ collapsed = false }: { collapsed?: b
         onClick={toggle}
         title={collapsed ? (isAdmin ? t("dashboard.workspaces.adminView") : active?.name ?? t("dashboard.workspaces.noneAssigned")) : undefined}
         className={[
-          "w-full flex items-center rounded-full transition hover:bg-[var(--app-surface)]",
+          "ws-pill w-full flex items-center rounded-full",
           collapsed ? "justify-center p-1" : "gap-2.5 py-1 pl-1 pr-3",
         ].join(" ")}
-        style={{ border: "1px solid var(--app-border)" }}
       >
         {isAdmin ? (
           <AdminAvatar size={collapsed ? 28 : 26} round />

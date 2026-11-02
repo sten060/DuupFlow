@@ -13,6 +13,17 @@ const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthl
   { path: "/blog",          changeFrequency: "weekly",  priority: 0.7 },
   { path: "/capcut-alternative", changeFrequency: "monthly", priority: 0.8 },
   { path: "/docs/api",      changeFrequency: "monthly", priority: 0.6 },
+  { path: "/docs",          changeFrequency: "monthly", priority: 0.7 },
+  { path: "/docs/duplication-video", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/docs/duplication-image", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/docs/editeur-ia", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/docs/scraper", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/docs/comparateur", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/docs/compresseur", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/docs/variation-ia", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/docs/retirer-detection-ia", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/docs/createurs-et-roles", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/docs/google-drive", changeFrequency: "monthly", priority: 0.6 },
   { path: "/login",         changeFrequency: "yearly",  priority: 0.4 },
   { path: "/register",      changeFrequency: "yearly",  priority: 0.5 },
   { path: "/legal/terms",   changeFrequency: "yearly",  priority: 0.3 },
@@ -32,6 +43,16 @@ const FR_ARTICLES: Array<{ slug: string; lastModified: string }> = [];
 // Fully bilingual articles — both FR and EN indexed (each self-canonical, linked
 // via hreflang). Articles that share one slug across locales set frSlug === enSlug.
 const BILINGUAL_ARTICLES: Array<{ frSlug: string; enSlug: string; lastModified: string }> = [
+  {
+    frSlug: "creer-un-mois-de-reels-automatique-ia",
+    enSlug: "creer-un-mois-de-reels-automatique-ia",
+    lastModified: "2026-11-02",
+  },
+  {
+    frSlug: "duupflow-pas-qu-un-simple-spoofer",
+    enSlug: "duupflow-pas-qu-un-simple-spoofer",
+    lastModified: "2026-11-02",
+  },
   {
     frSlug: "editeur-video-ia",
     enSlug: "ai-video-editor",

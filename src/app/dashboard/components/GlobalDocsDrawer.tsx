@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { Manrope } from "next/font/google";
 import { useTranslation } from "@/lib/i18n/context";
 import { buildAllDocs } from "./docs-content";
+import { buildEditorArticles } from "./help-articles";
 
 const docsFont = Manrope({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
 const TELEGRAM_SUPPORT = "https://t.me/DuupFlow_Support";
@@ -34,7 +35,13 @@ export default function GlobalDocsDrawer({ buttonClassName }: { buttonClassName?
     return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [open]);
 
-  const modules = buildAllDocs(t);
+  // L'Éditeur IA a ses articles (help-articles.tsx, aussi lus par le chatbot) :
+  // insérés juste après la duplication vidéo.
+  const modules = (() => {
+    const all = buildAllDocs(t);
+    const i = all.findIndex((m) => m.id === "videos");
+    return [...all.slice(0, i + 1), buildEditorArticles(t), ...all.slice(i + 1)];
+  })();
   const currentModule = modules[mod] ?? modules[0];
   const currentTopic = currentModule?.docs[topic] ?? currentModule?.docs[0];
 

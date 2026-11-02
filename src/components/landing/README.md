@@ -60,13 +60,31 @@ que la vague animée se prolonge sans rupture verticale.
 - Grille « blueprint » (Features→Intégrations) : lignes `rgba(99,102,241,0.07)`,
   mailles `130px`, masque radial de fondu.
 
+## Où est quoi (landing `/`)
+
+| Section | Fichier |
+| --- | --- |
+| Hero, démo, témoignages, FAQ, CTA final | `src/app/[locale]/page.tsx` |
+| Sections Duplication + Éditeur IA (texte + animation) | `FeatureSections.tsx` (données `FEATURE_SECTIONS`) |
+| Animations de ces deux sections | `featureMockups.tsx` (`DuplicationMockup`, `AiEditorMockup`) |
+| « Tous les modules, inclus » (onglets animés) + « Pour les agences » | `Bento.tsx` (`ModulesBento`, `AgencyBento`) |
+| Scènes animées des cartes Agences | `AgencyScenes.tsx` |
+| Nav, footer, tokens, `GradText`, `Label` | `shell.tsx` |
+| Lecture paresseuse des vidéos | `videoShowcase.ts` |
+
+Médias de la landing dans `public/` : `dup-demo*` (duplication), `ae-*` (Éditeur
+IA), `variation-*` (Variation IA), `creators/` (photos de profil, modèles IA),
+`mock-*` / `variant-thumb.jpg` (aperçus des modules), `google-drive.svg`.
+
 ## Animations (dans `globals.css`)
 
 `lunera-shine` (texte dégradé animé), `lunera-wave-x` (vague), `lunera-blob-*`
-(halos), `lunera-float-*` (icônes réseaux flottantes). Toutes coupées en
-`prefers-reduced-motion`.
+(halos), `lunera-float-*` (icônes réseaux flottantes). Préfixes des animations
+de section : `duup-dp-*` (duplication), `duup-ae-*` (Éditeur IA), `md-*` (aperçus
+des modules), `ag-*` (cartes Agences), `lp-liquid-*` (CTA final), `bento-*`
+(cartes en verre). Toutes coupées en `prefers-reduced-motion`.
 
 ## Layout
 
-Les pages Lunera (`/`, `/blog`, `/demo-request`) masquent le Header marketing
+Les pages Lunera (`/`, `/blog`, `/docs`, `/demo-request`) masquent le Header marketing
 global et le fond sombre via `ClientLayout` (`isLunera`).

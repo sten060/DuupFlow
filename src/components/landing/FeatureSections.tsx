@@ -5,6 +5,7 @@ import { CTA_GRAD, GradText, Label, SECTION_LEAD, SECTION_TITLE, SECTION_TITLE_S
 import { showcaseUrl, useInViewOnce, useLoopInView, useReducedMotion } from "@/components/landing/videoShowcase";
 import { AiEditorMockup, CLAUDE_WORDMARK, DuplicationMockup } from "@/components/landing/featureMockups";
 import { AgencyBento, ModulesBento } from "@/components/landing/Bento";
+import { useInView } from "@/components/landing/useInView";
 
 /* ══════════════════════════════════════════════════════════════
  * FONCTIONNALITÉS — une section par feature principale, puis les modules.
@@ -194,13 +195,15 @@ function Section({ section, locale, reduced, index }: { section: FeatureSection;
     transition: "opacity .65s ease-out, transform .95s cubic-bezier(0.16,1,0.3,1)",
   });
 
+  // Animation figée quand la section est hors écran.
+  const { ref: viewRef, inView } = useInView<HTMLElement>();
   // Pas de fond alterné : la grille « blueprint » court sous les deux sections,
   // la rupture vient avec les modules (fond gris) puis les agences.
   // Entre Duplication et Éditeur IA, marges réduites des deux côtés.
   const first = index === 0;
   const last = index === FEATURE_SECTIONS.length - 1;
   return (
-    <section className={`overflow-hidden px-6 ${first ? "pt-20 sm:pt-28" : "pt-10 sm:pt-14"} ${last ? "pb-20 sm:pb-28" : "pb-10 sm:pb-14"}`}>
+    <section ref={viewRef} className={`${inView ? "" : "anim-paused"} overflow-hidden px-6 ${first ? "pt-20 sm:pt-28" : "pt-10 sm:pt-14"} ${last ? "pb-20 sm:pb-28" : "pb-10 sm:pb-14"}`}>
       <div className="mx-auto max-w-6xl">
         {/* Seule la pastille est centrée sur la section */}
         <div className="text-center">

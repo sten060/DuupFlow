@@ -1,9 +1,9 @@
-// Chrome de la doc API publique : thème clair Lunera, nav pilule + footer (même
-// habillage que les pages SEO / blog).
+// Chrome de toute la doc publique (/docs : centre d'aide + API) : thème clair
+// Lunera, nav pilule + footer (même habillage que les pages SEO / blog).
 
 import { NavPill, Footer, SmoothScroll } from "@/components/landing/shell";
 
-export default function ApiDocsLayout({ children }: { children: React.ReactNode }) {
+export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="lunera min-h-screen bg-white text-[#1a1a1a]">
       <SmoothScroll />

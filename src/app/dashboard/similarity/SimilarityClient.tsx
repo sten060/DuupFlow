@@ -23,6 +23,9 @@ type VisualBreakdown = Awaited<ReturnType<typeof compareVisual>>;
 /* Détail de l'analyse d'image : clé technique → poids dans le volet visuel.
    Les quatre dernières sont calculées et affichées mais NE PÈSENT PAS dans le
    score (poids 0) — elles servent de contexte, pas de note. */
+// Poids AFFICHÉS = poids serveur (actions.ts) ÷ 0,85, leur somme : SSIM 0,19/0,85
+// ≈ 22 %, MSE 0,17/0,85 = 20 %… Les deux tables sont donc cohérentes — garder
+// cette relation si on change un poids côté serveur.
 const VISUAL_ALGOS: { key: string; weight: number }[] = [
   { key: "ssim", weight: 22 },
   { key: "mse", weight: 20 },

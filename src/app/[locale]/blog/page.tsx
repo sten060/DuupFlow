@@ -29,6 +29,30 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    slug: "creer-un-mois-de-reels-automatique-ia",
+    locale: "fr",
+    title: "Créer un mois de reels en automatique avec l'IA : le workflow complet",
+    titleEn: "Create a month of reels automatically with AI: the complete workflow",
+    excerpt:
+      "Des centaines de reels par mois sans monteur : l'éditeur IA monte les vidéos à partir des rushes, le duplicateur en fait des copies uniques pour chaque compte.",
+    excerptEn:
+      "Hundreds of reels a month without an editor: the AI editor cuts the videos from raw footage, the duplicator turns them into unique copies for every account.",
+    publishedAt: "2026-11-02",
+    readingMinutes: 9,
+  },
+  {
+    slug: "duupflow-pas-qu-un-simple-spoofer",
+    locale: "fr",
+    title: "DuupFlow : pas qu'un simple spoofer",
+    titleEn: "DuupFlow: more than just a spoofer",
+    excerpt:
+      "DuupFlow est un spoofer vidéo et photo couplé à un éditeur vidéo IA, pensé pour les agences : il monte tes vidéos avec Claude, puis les duplique en copies uniques prêtes à reposter.",
+    excerptEn:
+      "DuupFlow is a video and photo spoofer paired with an AI video editor, built for agencies: it edits your videos with Claude, then duplicates them into unique copies ready to repost.",
+    publishedAt: "2026-11-02",
+    readingMinutes: 7,
+  },
+  {
     slug: "editeur-video-ia",
     slugEn: "ai-video-editor",
     locale: "fr",

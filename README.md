@@ -62,11 +62,12 @@ Tout vit sous `/dashboard`. Les noms ci-dessous sont ceux du menu.
 | **Compresseur** | `/dashboard/compress` | Allège une vidéo sans perte visible. |
 | **Comparateur** | `/dashboard/similarity` | Mesure l'écart entre deux fichiers — sert à vérifier qu'une copie reste crédible. |
 | **Variation IA** | `/dashboard/generate` | Génération d'images. |
-| **Détection IA** | `/dashboard/ai-detection` | Estime si un contenu sera perçu comme généré par IA. |
+| ~~Détection IA~~ | `/dashboard/ai-detection` → redirige | Devenu l'option « Retirer la détection IA » de la duplication vidéo/image et de l'API. Le code du module (`AiDetectionClient.tsx`) est **gardé volontairement** (décision Sten). |
 | **Plan & tokens** | `/dashboard/abonnement` | Abonnement Stripe, quotas, consommation. |
 | **Développeurs** | `/dashboard/developers` | Clés d'API publique (réservé au plan Pro). |
 
-Autres espaces : `/[locale]/*` (site public, blog, tarifs, pages SEO),
+Autres espaces : `/[locale]/*` (site public, blog, tarifs, pages SEO,
+centre d'aide `/docs` et doc API `/docs/api`),
 `/admin/*` (affiliation, réservé à `ADMIN_USER_ID`), `/affiliate/*` (espace
 affilié), `/api/v1/*` (API publique documentée).
 
@@ -87,12 +88,21 @@ src/
     supabase/      3 clients : navigateur, serveur, admin (service_role)
     i18n/          traductions fr/en
   components/
-    landing/       chrome partagé du site public — LIRE SON README
-    marketing/     pages de contenu (comparatifs, features)
-    ui/            ⚠️ MORT — personne ne l'importe
+    landing/       landing + chrome partagé du site public — LIRE SON README
+    marketing/     pages de contenu (comparatifs, features, doc API, centre d'aide)
 supabase/migrations/   56 migrations SQL numérotées
 scripts/               tests de non-régression + outillage
 ```
+
+### Où modifier le site public
+
+| Quoi | Où |
+| --- | --- |
+| Landing (sections, textes, FAQ) | `src/app/[locale]/page.tsx` + `src/components/landing/` (voir son README) |
+| Centre d'aide `/docs/<slug>` | contenu : `src/components/marketing/helpCenterContent.ts` · mise en page : `HelpDocPage.tsx` |
+| Doc API publique `/docs/api` | `src/components/marketing/apiDocsContent.ts` (+ `ApiDocsPage.tsx`) |
+| Articles de blog | un dossier par article dans `src/app/[locale]/blog/<slug>/` + l'entrée `ARTICLES` de `blog/page.tsx` + `sitemap.ts` |
+| Ce que lisent les IA | `public/llms.txt` (à tenir à jour avec le centre d'aide et l'API) |
 
 ### Deux fichiers à lire avant de coder
 

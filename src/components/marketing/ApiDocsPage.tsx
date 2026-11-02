@@ -13,7 +13,7 @@ import { SECTIONS, SUMMARY, UI, type Block, type Lang } from "./apiDocsContent";
 const TELEGRAM = "https://t.me/DuupFlow_Support";
 
 /** `code` et **gras** dans les textes du contenu. */
-function Rich({ text }: { text: string }) {
+export function Rich({ text }: { text: string }) {
   const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
   return (
     <>
@@ -58,7 +58,7 @@ function CodeBlock({ code, label, copyLabel, copiedLabel }: { code: string; labe
   );
 }
 
-function BlockView({ b, lang }: { b: Block; lang: Lang }) {
+export function BlockView({ b, lang }: { b: Block; lang: Lang }) {
   const ui = UI[lang];
   switch (b.type) {
     case "p":

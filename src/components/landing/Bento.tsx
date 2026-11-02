@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useInView } from "@/components/landing/useInView";
 import { ClaudeScene, DriveScene, RolesScene, SpacesScene } from "@/components/landing/AgencyScenes";
 import { CTA_GRAD, GradText, Label, SECTION_LEAD, SECTION_TITLE, SECTION_TITLE_STYLE } from "@/components/landing/shell";
 
@@ -105,13 +106,17 @@ const AGENCY_CYCLE_MS = 7000;
 
 export function AgencyBento({ locale: l }: { locale: L }) {
   const [cycle, setCycle] = useState(0);
+  // La boucle ne tourne que si la section est à l'écran (sinon tout est figé).
+  const { ref: viewRef, inView } = useInView<HTMLElement>();
   useEffect(() => {
+    if (!inView) return;
+    setCycle((c) => c + 1); // repart du début en revenant à l'écran
     const id = window.setInterval(() => setCycle((c) => c + 1), AGENCY_CYCLE_MS);
     return () => window.clearInterval(id);
-  }, []);
+  }, [inView]);
   return (
     /* Remonte sur le fond bleuté des modules : la jonction se fait en coins arrondis. */
-    <section className="relative z-20 -mt-12 rounded-[40px] px-6 py-20 shadow-[0_-18px_50px_rgba(60,70,200,0.10)] sm:py-24" style={{ background: AGENCY_BG }}>
+    <section ref={viewRef} className={`relative z-20 -mt-12 rounded-[40px] px-6 py-20 shadow-[0_-18px_50px_rgba(60,70,200,0.10)] sm:py-24 ${inView ? "" : "anim-paused"}`} style={{ background: AGENCY_BG }}>
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <Label icon={<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6" /></svg>}>
@@ -230,6 +235,10 @@ const MOD_COPY: Record<ModKey, { fr: string; en: string }> = {
     en: "Wipes the signature AI tools leave behind (EXIF, XMP, C2PA) and replaces it with a realistic device identity.",
   },
 };
+
+/* Variation IA : une photo source, deux variations générées (même visage, même décor). */
+const VAR_SRC = "/variation-1.jpg";
+const VAR_OUT = ["/variation-2.jpg", "/variation-3.jpg"];
 
 const REELS = [
   { v: "1.2M", like: "85K", er: "4.3%", top: true, img: THUMB },
@@ -368,7 +377,7 @@ function ModuleVisual({ k, l }: { k: ModKey; l: L }) {
         <div className="w-full max-w-[440px] space-y-3">
           <div className="flex items-stretch gap-3">
             <div className="md-a shrink-0" style={A("md-pop", 0.2)}>
-              <span className="block h-[110px] w-[74px] overflow-hidden rounded-[10px] ring-2 ring-white shadow-[0_8px_22px_rgba(20,40,90,0.14)]"><img src={REF} alt="" className="h-full w-full object-cover" /></span>
+              <span className="block h-[110px] w-[74px] overflow-hidden rounded-[10px] ring-2 ring-white shadow-[0_8px_22px_rgba(20,40,90,0.14)]"><img src={VAR_SRC} alt="" className="h-full w-full object-cover" /></span>
               <span className="mt-1 block text-center text-[9.5px] font-medium text-[#8a8f99]">{T(l, "Image de référence", "Reference image")}</span>
             </div>
             <div className="flex min-w-0 flex-1 flex-col justify-center gap-2.5">
@@ -376,23 +385,23 @@ function ModuleVisual({ k, l }: { k: ModKey; l: L }) {
               <div className="flex gap-1.5">
                 {[1, 2, 3].map((n) => (
                   <span key={n} className="relative flex h-7 w-9 items-center justify-center rounded-lg bg-white text-[11.5px] font-semibold text-[#605f5f] ring-1 ring-black/[0.06]">
-                    {n === 3 && <span className="md-a absolute inset-0 rounded-lg" style={{ background: FUCHSIA_GRAD, ...A("md-pop", 0.8) }} />}
-                    <span className={`relative ${n === 3 ? "md-a" : ""}`} style={n === 3 ? A("md-white", 0.8, undefined, { color: "#fff" }) : undefined}>{n}</span>
+                    {n === 2 && <span className="md-a absolute inset-0 rounded-lg" style={{ background: FUCHSIA_GRAD, ...A("md-pop", 0.8) }} />}
+                    <span className={`relative ${n === 2 ? "md-a" : ""}`} style={n === 2 ? A("md-white", 0.8, undefined, { color: "#fff" }) : undefined}>{n}</span>
                   </span>
                 ))}
               </div>
               <div><PressBtn at={1.3} bg={FUCHSIA_GRAD}>{T(l, "Lancer", "Generate")}</PressBtn></div>
             </div>
           </div>
-          <div className="mx-auto grid max-w-[280px] grid-cols-3 gap-2">
-            {[0, 1, 2].map((i) => (
+          <div className="mx-auto grid max-w-[200px] grid-cols-2 gap-2">
+            {VAR_OUT.map((src, i) => (
               <div key={i} className="relative">
                 <span className="relative block aspect-[3/4] overflow-hidden rounded-[9px] bg-[#ece8fb]">
                   <span className="md-a absolute inset-0 overflow-hidden" style={{ opacity: 0, ...A("md-flash", 1.6, 1.8) }}>
                     <span className="md-shimmer absolute inset-y-0 -left-1/2 w-1/2" style={{ background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.7),transparent)" }} />
                   </span>
-                  <img src={REF} alt="" className="md-a absolute inset-0 h-full w-full scale-[1.3] object-cover"
-                    style={{ objectPosition: ["30% 50%", "60% 40%", "45% 70%"][i], filter: ["none", "hue-rotate(14deg) saturate(1.1)", "brightness(1.06) hue-rotate(-12deg)"][i], ...A("md-pop", 3.3 + i * 0.22) }} />
+                  <img src={src} alt="" className="md-a absolute inset-0 h-full w-full object-cover"
+                    style={{ objectPosition: "50% 30%", ...A("md-pop", 3.3 + i * 0.25) }} />
                 </span>
                 <span className="mt-1 block text-center text-[9.5px] font-medium text-[#8a8f99]">Variation {i + 1}</span>
               </div>
@@ -494,15 +503,17 @@ export function ModulesBento({ locale: l }: { locale: L }) {
   const [active, setActive] = useState<ModKey>("scraper");
   // Relance l'animation de l'aperçu en boucle ; repart de zéro à chaque onglet.
   const [cycle, setCycle] = useState(0);
+  const { ref: viewRef, inView } = useInView<HTMLElement>();
   useEffect(() => {
-    setCycle(0);
+    if (!inView) return;
+    setCycle((c) => c + 1); // repart du début (changement d'onglet ou retour à l'écran)
     const id = window.setInterval(() => setCycle((c) => c + 1), CYCLE_MS);
     return () => window.clearInterval(id);
-  }, [active]);
+  }, [active, inView]);
   return (
     /* Fond bleuté à halos, coins arrondis en haut ; le bas est recouvert par la
        section Agences (coins arrondis aussi). */
-    <section className="relative z-10 rounded-t-[40px] px-6 pb-32 pt-20 sm:pb-36 sm:pt-24" style={{ background: MODULES_BG }}>
+    <section ref={viewRef} className={`relative z-10 rounded-t-[40px] px-6 pb-32 pt-20 sm:pb-36 sm:pt-24 ${inView ? "" : "anim-paused"}`} style={{ background: MODULES_BG }}>
       <LiquidGlassDefs />
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">

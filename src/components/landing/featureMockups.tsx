@@ -44,13 +44,12 @@ function Chrome({ title, badge }: { title: string; badge?: string }) {
 const CLAUDE_MARK = "/claude-ai-logo-rounded-hd-free-png-1.webp";
 export const CLAUDE_WORDMARK = "/Claude_AI_logo.svg.webp";
 /* Dérivées optimisées des fichiers de /public (5,4 Mo → 76 Ko ; 55 Mo → 366 Ko). */
-const REF_VIDEO = "/mock-reference.jpg";
-const FILE_RUSH = "/mock-rush.jpg";
-const FILE_LOGO = "/mock-logo.png";
-const OUTPUT_VIDEO = "/mock-output.mp4";
-const OUTPUT_POSTER = "/mock-output-poster.jpg";
-/* Vignette du mockup Duplication (inchangée). */
-const THUMB = "/variant-thumb.jpg";
+/* Éditeur IA : la réf, le rush brut (vidéo générée, sans montage) et le résultat
+   « monté » = le même rush avec ses captions incrustées (360p, muet, ~180 Ko). */
+const REF_VIDEO = "/ae-ref.jpg";
+const FILE_RUSH = "/ae-raw.jpg";
+const OUTPUT_VIDEO = "/ae-output.mp4";
+const OUTPUT_POSTER = "/ae-output-poster.jpg";
 
 /* Bulle de conversation. `mine` = message du user, aligné à droite. */
 function Bubble({ mine, children, className }: { mine?: boolean; children: React.ReactNode; className?: string }) {
@@ -93,7 +92,7 @@ export function AiEditorMockup({ locale, reduced }: { locale: "fr" | "en"; reduc
   const attachments = [
     { src: REF_VIDEO, tag: fr ? "réf" : "ref" },
     { src: FILE_RUSH },
-    { src: FILE_LOGO },
+    { audio: true }, // un son, en plus de la vidéo brute
   ];
   const variants = ["duup-ae-v1", "duup-ae-v2", "duup-ae-v3"];
   const hues = ["none", "hue-rotate(28deg) saturate(1.1)", "hue-rotate(-30deg) brightness(1.05)"];
@@ -123,7 +122,17 @@ export function AiEditorMockup({ locale, reduced }: { locale: "fr" | "en"; reduc
                 <div className="flex gap-1.5 rounded-[12px] bg-[#eef2ff] p-1.5">
                   {attachments.map((a, i) => (
                     <span key={i} className="relative h-9 w-9 overflow-hidden rounded-[7px] bg-[#e3e8f2]">
-                      <img src={a.src} alt="" className="h-full w-full object-cover" />
+                      {a.audio ? (
+                        /* Fichier son : note de musique + mini forme d'onde */
+                        <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 text-white" style={{ background: CTA_GRAD }}>
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V6l11-2v12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /><circle cx="6.5" cy="18" r="2.5" /><circle cx="17.5" cy="16" r="2.5" /></svg>
+                          <span className="flex items-end gap-[1.5px]">
+                            {[4, 7, 5, 8, 3].map((h, j) => <span key={j} className="w-[2px] rounded-full bg-white/85" style={{ height: h }} />)}
+                          </span>
+                        </span>
+                      ) : (
+                        <img src={a.src} alt="" className="h-full w-full object-cover" />
+                      )}
                       {a.tag && (
                         <span className="absolute inset-x-0 bottom-0 bg-black/55 text-center text-[7.5px] font-semibold leading-[11px] text-white">{a.tag}</span>
                       )}
@@ -224,6 +233,18 @@ const PLATFORM_ICONS = {
 /* Micro-variations visibles des vignettes : même image, rendu à peine différent. */
 const copyFilter = (i: number) => `saturate(${100 + (i % 4) * 3}%) brightness(${99 + (i % 3)}%) hue-rotate(${(i % 5) - 2}deg)`;
 
+/* Vidéo de démo de la section Duplication (allégée : 360p, muette, ~260 Ko).
+   Les grandes vignettes la jouent ; les petites (copies, comptes) affichent
+   son image d'aperçu, pour ne pas décoder une dizaine de vidéos à la fois. */
+const DUP_VIDEO = "/dup-demo.mp4";
+const DUP_POSTER = "/dup-demo-poster.jpg";
+function DupVideo({ style }: { style?: React.CSSProperties }) {
+  return (
+    <video src={DUP_VIDEO} poster={DUP_POSTER} autoPlay muted loop playsInline disablePictureInPicture aria-hidden
+      className="h-full w-full object-cover" style={style} />
+  );
+}
+
 export function DuplicationMockup({ locale }: { locale: "fr" | "en" }) {
   const fr = locale === "fr";
   // Le curseur vise les VRAIES positions de la zone de dépôt et du bouton
@@ -290,7 +311,7 @@ export function DuplicationMockup({ locale }: { locale: "fr" | "en" }) {
                 {fr ? "Dépose ta vidéo" : "Drop your video"}
               </div>
               <div className="duup-dp-src duup-dp absolute inset-0 overflow-hidden rounded-[10px] ring-1 ring-black/[0.06]">
-                <img src={THUMB} alt="" className="h-full w-full object-cover" />
+                <DupVideo />
                 <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1 py-px text-[7px] font-semibold text-white">1080p</span>
               </div>
             </div>
@@ -327,7 +348,7 @@ export function DuplicationMockup({ locale }: { locale: "fr" | "en" }) {
                   className={`duup-dp-c${i} duup-dp relative aspect-[9/16] h-full max-w-full overflow-hidden rounded-[6px] bg-[#eef1f7] ring-1 ring-black/[0.06]`}
                   style={{ ["--dx" as string]: `${-(i % 5 + 1.6) * 110}%`, ["--dy" as string]: `${i < 5 ? 25 : -80}%` } as React.CSSProperties}
                 >
-                  <img src={THUMB} alt="" className="h-full w-full object-cover" style={{ filter: copyFilter(i) }} />
+                  <img src={DUP_POSTER} alt="" className="h-full w-full object-cover" style={{ filter: copyFilter(i) }} />
                   <span className="absolute right-0.5 top-0.5 flex h-2.5 w-2.5 items-center justify-center rounded-full text-white shadow" style={{ background: CTA_GRAD }}>
                     <svg className="h-1.5 w-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="5"><path d="M20 6 9 17l-5-5" /></svg>
                   </span>
@@ -349,7 +370,7 @@ export function DuplicationMockup({ locale }: { locale: "fr" | "en" }) {
             {[fr ? "Original" : "Original", fr ? "Copie n°4" : "Copy #4"].map((label, i) => (
               <div key={label} className="flex h-full flex-col">
                 <div className="relative aspect-[9/16] h-[calc(100%-16px)] overflow-hidden rounded-[9px] ring-1 ring-black/[0.06]">
-                  <img src={THUMB} alt="" className="h-full w-full object-cover" style={i ? { filter: copyFilter(3) } : undefined} />
+                  <DupVideo style={i ? { filter: copyFilter(3) } : undefined} />
                 </div>
                 <p className={`mt-1 text-center text-[8.5px] font-semibold ${i ? "" : "text-[#8a8a8a]"}`} style={i ? { color: BLUE } : undefined}>{label}</p>
               </div>
@@ -376,7 +397,7 @@ export function DuplicationMockup({ locale }: { locale: "fr" | "en" }) {
           {accounts.map((a, i) => (
             <div key={a.h} className={`duup-dp-a${i} duup-dp ${i === 3 ? "hidden sm:flex" : "flex"} items-center gap-2 rounded-[10px] bg-[#f7f8fb] px-2 py-1 ring-1 ring-black/[0.04] sm:py-1.5`}>
               <span className="h-[26px] w-[15px] shrink-0 overflow-hidden rounded-[4px]">
-                <img src={THUMB} alt="" className="h-full w-full object-cover" style={{ filter: copyFilter(i + 1) }} />
+                <img src={DUP_POSTER} alt="" className="h-full w-full object-cover" style={{ filter: copyFilter(i + 1) }} />
               </span>
               <img src={PLATFORM_ICONS[a.icon]} alt="" className="h-4 w-4 shrink-0 object-contain" />
               <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-[#1a1a1a]">{a.h}</span>

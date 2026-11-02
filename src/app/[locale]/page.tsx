@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { CTA_GRAD, GradText, Label, NavPill, Footer, SmoothScroll, Brand, FlipInner, SECTION_LEAD, SECTION_TITLE, SECTION_TITLE_STYLE } from "@/components/landing/shell";
 import FeatureSections from "@/components/landing/FeatureSections";
+import { useInView } from "@/components/landing/useInView";
 
 /* ══════════════════════════════════════════════════════════════
  * LANDING — refonte façon template "Lunera" (thème clair, Geist).
@@ -29,13 +30,45 @@ const FLOAT_SOCIALS = [
   { key: "th", pos: "right-[25%] top-[19%]", anim: "lunera-float-c", delay: "2.6s", src: "/threads%20copie.png", alt: "Threads" },
 ];
 function FloatingSocials() {
+  /* Effet « anti-aimant » : quand la souris approche, chaque pastille s'écarte
+     un peu (22 px max) puis revient en douceur. La couche externe garde son
+     flottement (lunera-float-*), la couche interne porte la répulsion. */
+  const refs = useRef<(HTMLDivElement | null)[]>([]);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const RADIUS = 150, MAX = 22;
+    let raf = 0, mx = -9999, my = -9999;
+    const apply = () => {
+      raf = 0;
+      refs.current.forEach((el) => {
+        if (!el) return;
+        const r = el.parentElement!.getBoundingClientRect();
+        const dx = r.left + r.width / 2 - mx, dy = r.top + r.height / 2 - my;
+        const d = Math.hypot(dx, dy);
+        if (d < RADIUS && d > 0) {
+          const f = (1 - d / RADIUS) * MAX;
+          el.style.transform = `translate(${(dx / d) * f}px, ${(dy / d) * f}px)`;
+        } else {
+          el.style.transform = "translate(0, 0)";
+        }
+      });
+    };
+    const onMove = (e: PointerEvent) => { mx = e.clientX; my = e.clientY; if (!raf) raf = requestAnimationFrame(apply); };
+    const onLeave = () => { mx = my = -9999; if (!raf) raf = requestAnimationFrame(apply); };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    document.addEventListener("pointerleave", onLeave);
+    return () => { window.removeEventListener("pointermove", onMove); document.removeEventListener("pointerleave", onLeave); cancelAnimationFrame(raf); };
+  }, []);
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 z-[5] hidden lg:block">
-      {FLOAT_SOCIALS.map((s) => (
-        <div key={s.key}
-          className={`absolute ${s.pos} ${s.anim} flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-[0_16px_40px_rgba(20,40,90,0.14)] ring-1 ring-black/[0.05]`}
-          style={{ animationDelay: s.delay }}>
-          <img src={s.src} alt={s.alt} className="h-10 w-10 object-contain" />
+      {FLOAT_SOCIALS.map((s, i) => (
+        <div key={s.key} className={`absolute ${s.pos} ${s.anim}`} style={{ animationDelay: s.delay }}>
+          <div
+            ref={(el) => { refs.current[i] = el; }}
+            className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-[0_16px_40px_rgba(20,40,90,0.14)] ring-1 ring-black/[0.05] transition-transform duration-500 ease-out"
+          >
+            <img src={s.src} alt={s.alt} className="h-10 w-10 object-contain" />
+          </div>
         </div>
       ))}
     </div>
@@ -93,13 +126,13 @@ function Hero() {
             <span>{en ? <>500 creators &amp; agencies repost with <Brand /></> : <>500 créateurs et agences repost avec <Brand /></>}</span>
           </FlipInner>
         </span>
-        <h1 className="mx-auto tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(42px, 5.9vw, 70px)", lineHeight: 1.14, fontWeight: 500 }}>
-          {en ? <>Turn one video into<br /><span className="lunera-highlight font-semibold">dozens of variants</span> to repost</> : <>Transforme 1 vidéo en<br /><span className="lunera-highlight font-semibold">plusieurs variantes</span> à reposter</>}
+        <h1 className="mx-auto tracking-[-0.03em] text-[#1a1a1a]" style={{ fontSize: "clamp(46px, 6.4vw, 78px)", lineHeight: 1.12, fontWeight: 500 }}>
+          {en ? <>Multiply your content<br /><span className="lunera-highlight font-semibold">by 100</span> effortlessly</> : <>Multiplie ton contenu<br /><span className="lunera-highlight font-semibold">par 100</span> sans effort</>}
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-[#3a3f4b] sm:text-[19px]">
           {en
-            ? "Generate dozens of unique variants from a single video, ready to repost across all your accounts."
-            : "Génère des dizaines de variantes uniques d'une seule vidéo, prêtes à reposter sur tous tes comptes."}
+            ? "Duplicate your content, let AI create variants, and feed all your accounts in minutes."
+            : "Duplique ton contenu, laisse l’IA créer des variantes, et alimente tous tes comptes en quelques minutes."}
         </p>
 
         {/* Boutons (remplacent le téléphone et les mockups) */}
@@ -271,8 +304,8 @@ function Testimonials() {
         </div>
         <div className="relative mt-12 grid gap-5 md:grid-cols-3">
           {/* Halos derrière les cartes : donnent du relief au verre */}
-          <span aria-hidden className="pointer-events-none absolute -left-10 top-6 -z-10 h-56 w-[45%] rounded-full bg-[#4f7bff]/25 blur-[70px]" />
-          <span aria-hidden className="pointer-events-none absolute -right-10 bottom-0 -z-10 h-56 w-[45%] rounded-full bg-[#7c5cff]/25 blur-[70px]" />
+          <span aria-hidden className="pointer-events-none absolute left-0 top-6 -z-10 h-56 w-[45%] rounded-full bg-[#4f7bff]/25 blur-[70px] sm:-left-10" />
+          <span aria-hidden className="pointer-events-none absolute right-0 bottom-0 -z-10 h-56 w-[45%] rounded-full bg-[#7c5cff]/25 blur-[70px] sm:-right-10" />
           {REVIEWS[loc].map((r, i) => (
             <div key={i} className="group h-[250px] [perspective:1400px]">
               <div className="relative h-full w-full transition-transform duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
@@ -297,22 +330,22 @@ function Testimonials() {
 /* ─── FAQ ─── */
 const FAQS = {
   fr: [
-    { q: "DuupFlow va me servir à quoi ?", a: "DuupFlow te sert à republier tes meilleurs contenus partout sans être pénalisé. Tu transformes une seule vidéo en dizaines de variantes uniques, prêtes à poster sur plusieurs comptes et plusieurs plateformes — et tu peux même les monter automatiquement avec l'éditeur IA." },
-    { q: "Quels sont les avantages d'utiliser DuupFlow ?", a: "Tu fais du volume de contenu sans effort supplémentaire : à partir d'un seul fichier, tu génères autant de variantes uniques que tu veux, chacune ré-encodée en profondeur. Tu alimentes plusieurs comptes, tu testes plus de formats et tu multiplies tes chances de percer — le tout en quelques secondes." },
-    { q: "Concrètement, qu'est-ce qui est modifié dans mes vidéos ?", a: "Les métadonnées (appareil, date, encodeur, géolocalisation), une signature visuelle via des micro-variations sous le seuil de perception, et une empreinte binaire unique. Le fichier est ensuite entièrement ré-encodé. Ton montage, ton audio et ton cadrage restent identiques à l'original." },
-    { q: "Est-ce que la qualité baisse ?", a: "Non. La résolution et le bitrate d'origine sont conservés : une 1080p reste 1080p, une 4K reste 4K. Aucune perte visible à l'écran." },
-    { q: "Combien de variantes puis-je générer ?", a: "Autant que ton plan le permet : jusqu'à 100 vidéos par mois avec le plan Starter, 300 avec Solo, et un nombre illimité avec Pro. Chaque variante ressort unique, prête à alimenter plusieurs comptes." },
-    { q: "Ça marche sur quelles plateformes ?", a: "Toutes. DuupFlow prépare les fichiers, tu postes où tu veux : TikTok, Instagram, YouTube, X, Reddit, Threads…" },
-    { q: "L'éditeur IA, c'est quoi ?", a: "Un agent de montage piloté par conversation : tu uploades tes rushes, tu donnes une vidéo de référence et tu décris le montage voulu. L'IA (Claude) assemble la vidéo à ta place, puis en génère autant de variantes différentes que tu veux. Inclus dans les plans Solo et Pro." },
+    { q: "DuupFlow va me servir à quoi ?", a: "DuupFlow te sert à republier tes meilleurs contenus partout sans être pénalisé. Tu transformes une seule vidéo en dizaines de variantes uniques, prêtes à poster sur plusieurs comptes et plusieurs plateformes — et tu peux même les monter automatiquement avec l'éditeur IA." },
+    { q: "Quels sont les avantages d'utiliser DuupFlow ?", a: "Tu fais du volume de contenu sans effort supplémentaire : à partir d'un seul fichier, tu génères autant de variantes uniques que tu veux, chacune ré-encodée en profondeur. Tu alimentes plusieurs comptes, tu testes plus de formats et tu multiplies tes chances de percer — le tout en quelques secondes." },
+    { q: "Concrètement, qu'est-ce qui est modifié dans mes vidéos ?", a: "Les métadonnées (appareil, date, encodeur, géolocalisation), une signature visuelle via des micro-variations sous le seuil de perception, et une empreinte binaire unique. Le fichier est ensuite entièrement ré-encodé. Ton montage, ton audio et ton cadrage restent identiques à l'original." },
+    { q: "Est-ce que la qualité baisse ?", a: "Non. La résolution et le bitrate d'origine sont conservés : une 1080p reste 1080p, une 4K reste 4K. Aucune perte visible à l'écran." },
+    { q: "Combien de variantes puis-je générer ?", a: "Autant que ton plan le permet : jusqu'à 300 vidéos par mois avec Solo, et un nombre illimité avec Pro et Agence. Chaque variante ressort unique, prête à alimenter plusieurs comptes." },
+    { q: "Ça marche sur quelles plateformes ?", a: "Toutes. DuupFlow prépare les fichiers, tu postes où tu veux : TikTok, Instagram, YouTube, X, Reddit, Threads…" },
+    { q: "L'éditeur IA, c'est quoi ?", a: "Un agent de montage piloté par conversation : tu uploades tes rushes, tu donnes une vidéo de référence et tu décris le montage voulu. L'IA (Claude) assemble la vidéo à ta place, puis en génère autant de variantes différentes que tu veux. Inclus dans les plans Solo, Pro et Agence." },
   ],
   en: [
     { q: "What is DuupFlow for?", a: "DuupFlow lets you repost your best content everywhere without getting penalized. Turn a single video into dozens of unique variants, ready to post across multiple accounts and platforms — and you can even edit them automatically with the AI editor." },
     { q: "What are the benefits of using DuupFlow?", a: "You scale your content with no extra effort: from a single file, generate as many unique variants as you want, each one re-encoded from the ground up. You feed multiple accounts, test more formats and multiply your chances of breaking through — all in a few seconds." },
     { q: "What exactly gets modified in my videos?", a: "The metadata (device, date, encoder, geolocation), a visual signature via micro-variations below the perception threshold, and a unique binary fingerprint. The file is then fully re-encoded. Your edit, audio and framing stay identical to the original." },
     { q: "Does quality drop?", a: "No. The original resolution and bitrate are kept: 1080p stays 1080p, 4K stays 4K. No visible loss on screen." },
-    { q: "How many variants can I generate?", a: "As many as your plan allows: up to 100 videos per month on Starter, 300 on Solo, and unlimited on Pro. Every variant comes out unique, ready to feed multiple accounts." },
+    { q: "How many variants can I generate?", a: "As many as your plan allows: up to 300 videos per month on Solo, and unlimited on Pro and Agency. Every variant comes out unique, ready to feed multiple accounts." },
     { q: "Which platforms does it work on?", a: "All of them. DuupFlow prepares the files, you post wherever you want: TikTok, Instagram, YouTube, X, Reddit, Threads…" },
-    { q: "What is the AI editor?", a: "A conversation-driven editing agent: you upload your footage, hand it a reference video and describe the edit you want. The AI (Claude) assembles the video for you, then generates as many different variations as you want. Included in the Solo and Pro plans." },
+    { q: "What is the AI editor?", a: "A conversation-driven editing agent: you upload your footage, hand it a reference video and describe the edit you want. The AI (Claude) assembles the video for you, then generates as many different variations as you want. Included in the Solo, Pro and Agency plans." },
   ],
 };
 function FAQ() {
@@ -359,6 +392,7 @@ function FAQ() {
 /* ─── CTA ─── */
 function CTA() {
   const en = useLocale() === "en";
+  const { ref: viewRef, inView } = useInView<HTMLDivElement>();
   /* Texte en dégradé clair : lisible sur le fond violet-bleu. */
   const hi = (t: string) => (
     <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg,#ffffff 0%,#dfe7ff 55%,#efe4ff 100%)" }}>{t}</span>
@@ -368,7 +402,7 @@ function CTA() {
       {/* Verre liquide : des nappes violet / bleu qui ondulent lentement DANS le
           bloc (lp-liquid-*, globals.css), recouvertes d'une plaque de verre
           (flou + reflets). Rien ne déborde : overflow-hidden + isolate. */}
-      <div className="relative isolate mx-auto max-w-6xl overflow-hidden rounded-[36px] px-8 py-16 text-center sm:py-20"
+      <div ref={viewRef} className={`relative isolate mx-auto max-w-6xl overflow-hidden rounded-[36px] px-8 py-16 text-center sm:py-20 ${inView ? "" : "anim-paused"}`}
         style={{ background: "linear-gradient(135deg,#5b78f6 0%,#7a6cf4 55%,#8f7cf7 100%)" }}>
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
           <span className="lp-liquid-a absolute -left-[10%] -top-[30%] h-[85%] w-[55%] rounded-full" style={{ background: "radial-gradient(circle at 40% 40%, #38bdf8 0%, rgba(56,189,248,0) 70%)" }} />

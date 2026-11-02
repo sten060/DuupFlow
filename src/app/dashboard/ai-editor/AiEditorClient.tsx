@@ -13,6 +13,7 @@ import { setEtapeEditeur } from "../onboarding/aiStepStore";
 import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
 import DriveSaveButton from "../components/DriveSaveButton";
 import ManualEditor from "./ManualEditor";
+import TutorialVideoButton from "../components/TutorialVideoButton";
 import { cleanFileName } from "@/lib/ai-editor/file-name";
 import { getCurrentWorkspaceId, wsParam } from "../components/WorkspaceSwitcher";
 
@@ -161,7 +162,7 @@ function envoyerAvecProgression(
 
 /* ============ Page ============ */
 export default function AiEditorClient() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   // Parcours : Connexion (étape 0) → Référence → Matière → workspace.
   const [step, setStep] = useState<"connect" | "ref" | "material" | "editor">("connect");
   // A-t-on VRAIMENT connecté Claude ? (≠ « passé l'étape ») — sert à ne pas afficher
@@ -314,17 +315,25 @@ export default function AiEditorClient() {
   };
   // La référence est OPTIONNELLE : « Passer » crée (ou réutilise) un projet vide
   // pour que l'upload de matière ait un endroit où aller, puis avance.
+  // Un échec ne doit jamais être silencieux : sinon le bouton « ne fait rien ».
+  const [skipErr, setSkipErr] = useState<string | null>(null);
   const skipRef = useCallback(async () => {
+    setSkipErr(null);
     try {
       if (!projectId) {
         const res = await fetch("/api/ai-editor/project", { method: "POST" });
-        const { project } = await res.json();
-        if (!project?.id) return;
+        const { project } = await res.json().catch(() => ({ project: null }));
+        if (!res.ok || !project?.id) throw new Error(`project POST ${res.status}`);
         setProjectId(project.id);
       }
       setStep("material");
-    } catch { /* réseau : on reste sur l'étape */ }
-  }, [projectId]);
+    } catch (e) {
+      console.error("[ai-editor] skipRef", e);
+      setSkipErr(locale === "fr"
+        ? "Impossible de créer le projet. Recharge la page et réessaie."
+        : "Couldn't create the project. Reload the page and try again.");
+    }
+  }, [projectId, locale]);
   const retryRef = () => {
     const pid = projectId ?? undefined;
     if (refSource?.type === "file" && refFile) void analyzeRef({ file: refFile, replacePid: pid });
@@ -553,7 +562,10 @@ export default function AiEditorClient() {
       {step !== "editor" && (
         <header className="shrink-0 px-6 pt-6">
           <div className="text-[12px] font-semibold uppercase tracking-[.14em] text-indigo-400">{t("dashboard.aiEditor.eyebrow")}</div>
-          <h1 className="mt-1.5 text-3xl font-extrabold tracking-tight text-[var(--app-text)]">{t("dashboard.aiEditor.title")}</h1>
+          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-3xl font-extrabold tracking-tight text-[var(--app-text)]">{t("dashboard.aiEditor.title")}</h1>
+            <TutorialVideoButton src="/tutorials/tuto-editeur-ia-fr.mp4" poster="/tutorials/tuto-editeur-ia-fr.jpg" title={t("dashboard.aiEditor.title")} />
+          </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <span data-tour-id="aie-connect"><StepPill n={1} label={t("dashboard.aiEditor.stepConnect")} state={stepState("connect")} onClick={() => setStep("connect")} /></span>
             <span data-tour-id="aie-ref"><StepPill n={2} label={t("dashboard.aiEditor.stepRef")} state={stepState("ref")} onClick={() => setStep("ref")} /></span>
@@ -726,6 +738,7 @@ export default function AiEditorClient() {
                 </button>
               )}
             </div>
+            {skipErr && <p className="mt-3 text-[12.5px] text-amber-400/90">{skipErr}</p>}
           </div>
 
           {/* ── Guide (droite) — prend tout l&apos;espace, plat, bords collés ── */}

@@ -133,7 +133,7 @@ export function DriveScene({ l }: { l: L }) {
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[#c9d1e2] bg-[#f8f9fc] px-2 py-4 text-center">
             <span className="text-[9.5px] text-[#8a8f99]">{T(l, "Glisse tes vidéos ici", "Drop your videos here")}</span>
             <span ref={importBtn} className="md-a inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-semibold text-[#1a1a1a] shadow-[0_3px_10px_rgba(20,40,90,0.08)] ring-1 ring-black/[0.08]" style={A("md-press", 0.9, 0.35)}>
-              <img src={DRIVE_LOGO} alt="" className="h-3.5 w-3.5" />{T(l, "Importer depuis Drive", "Import from Drive")}
+              <img src={DRIVE_LOGO} alt="" className="h-3.5 w-3.5" /><span className="whitespace-nowrap sm:hidden">{T(l, "Importer", "Import")}</span><span className="hidden whitespace-nowrap sm:inline">{T(l, "Importer depuis Drive", "Import from Drive")}</span>
             </span>
           </div>
           {/* Fichiers importés, duplication, envoi */}

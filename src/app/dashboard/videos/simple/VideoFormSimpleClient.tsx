@@ -22,6 +22,7 @@ type VideoSimpleSettings = {
 import { pushNotification } from "../../components/notificationStore";
 import InterruptedRecovery from "../InterruptedRecovery";
 import DocsDrawer from "../../components/DocsDrawer";
+import TutorialVideoButton from "../../components/TutorialVideoButton";
 import { buildVideoDocs } from "../../components/docs-content";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
@@ -870,7 +871,10 @@ export default function VideoFormSimpleClient() {
         <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosSimple.title")}</h1>
         <TrialCreditsPill />
       </div>
-      <DocsDrawer docs={buildVideoDocs(t)} />
+      <div className="flex shrink-0 items-center gap-2">
+        <TutorialVideoButton src="/tutorials/tuto-duplication-video-mode-simple-fr.mp4" poster="/tutorials/tuto-duplication-video-mode-simple-fr.jpg" title={t("dashboard.videosSimple.title")} />
+        <DocsDrawer docs={buildVideoDocs(t)} />
+      </div>
     </div>
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       {/* Réglages du créateur actif (workspaces Pro & Agence) */}

@@ -1009,6 +1009,9 @@ body{
     inset 0 0 24px rgba(255,255,255,0.35);
 }
 
+/* Hors écran : toutes les animations du bloc sont figées (useInView, landing). */
+.anim-paused, .anim-paused * { animation-play-state: paused !important; }
+
 /* ── CTA final : nappes « liquides » qui ondulent dans le bloc ── */
 @keyframes lp-liquid-a-k { 0% { transform: translate(0,0) scale(1); } 50% { transform: translate(18%,12%) scale(1.15); } 100% { transform: translate(6%,-6%) scale(0.95); } }
 @keyframes lp-liquid-b-k { 0% { transform: translate(0,0) scale(1); } 50% { transform: translate(-20%,10%) scale(1.1); } 100% { transform: translate(-8%,-10%) scale(1.2); } }
@@ -1370,8 +1373,8 @@ body{
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  border-radius: 0.6rem;
-  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--app-text-muted);
@@ -1389,3 +1392,93 @@ body{
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
 }
 .dash-btn:active { transform: translateY(1px); }
+/* Thème clair : reflet + ombre plus marqués, comme .ws-pill (pastilles du dashboard). */
+:root[data-theme="light"] .dash-btn {
+  background-image:
+    linear-gradient(180deg, color-mix(in srgb, #fff 55%, transparent), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 3px 8px rgba(20, 30, 60, 0.05), inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent);
+}
+/* Pastille texturée du dashboard : sélecteur de créateur (sidebar) et bouton
+   « Documentation » des modules (DocsDrawer). Même texture discrète que .dash-btn — dégradé haut, grain fin, ombre + reflet, enfoncement au clic. */
+.ws-pill {
+  background-color: var(--app-surface);
+  border: 1px solid color-mix(in srgb, var(--app-border) 80%, transparent);
+  background-image:
+    linear-gradient(180deg, color-mix(in srgb, #fff 5%, transparent), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+:root[data-theme="light"] .ws-pill {
+  background-image:
+    linear-gradient(180deg, color-mix(in srgb, #fff 55%, transparent), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 3px 8px rgba(20, 30, 60, 0.05), inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent);
+}
+.ws-pill:hover {
+  border-color: var(--app-border-strong);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
+}
+:root[data-theme="light"] .ws-pill:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 6px 14px rgba(20, 30, 60, 0.07), inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent);
+}
+.ws-pill:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 1px 2px rgba(0, 0, 0, 0.06); }
+
+/* Pastille « Voir la vidéo » (TutorialVideoButton) : surface texturée + un
+   néon bleu-violet qui tourne sur le bord. Le néon = un dégradé conique qui
+   tourne derrière ; ::after recouvre l'intérieur pour n'en laisser que le liseré. */
+@keyframes tuto-spin { to { transform: rotate(360deg); } }
+.tuto-pill {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  padding: 0.4rem 0.95rem 0.4rem 0.45rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--app-text);
+  box-shadow: 0 0 14px rgba(99, 102, 241, 0.22), 0 1px 2px rgba(0, 0, 0, 0.08);
+  transition: transform .15s, box-shadow .2s;
+}
+.tuto-pill::before {
+  content: "";
+  position: absolute;
+  inset: -200%;
+  z-index: -2;
+  background: conic-gradient(from 0deg, transparent 0 62%, #6366f1 74%, #38bdf8 84%, #a78bfa 90%, transparent 97%);
+  animation: tuto-spin 3.2s linear infinite;
+}
+.tuto-pill::after {
+  content: "";
+  position: absolute;
+  inset: 1.5px;
+  z-index: -1;
+  border-radius: inherit;
+  background-color: var(--app-surface);
+  background-image:
+    linear-gradient(180deg, color-mix(in srgb, #fff 6%, transparent), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+:root[data-theme="light"] .tuto-pill::after {
+  background-image:
+    linear-gradient(180deg, color-mix(in srgb, #fff 60%, transparent), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.tuto-pill:hover { box-shadow: 0 0 20px rgba(99, 102, 241, 0.38), 0 2px 6px rgba(0, 0, 0, 0.1); }
+.tuto-pill:active { transform: translateY(1px); }
+.tuto-pill__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.4rem;
+  width: 1.4rem;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #38bdf8);
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
+}
+@media (prefers-reduced-motion: reduce) { .tuto-pill::before { animation: none; } }
