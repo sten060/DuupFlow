@@ -86,6 +86,13 @@ export default function ModuleCoach() {
     return () => window.clearTimeout(id);
   }, [current]);
 
+  const skipMissing = useRef<() => void>(() => {});
+  skipMissing.current = () => {
+    if (!active) return;
+    if (step >= active.mod.steps.length - 1) finish();
+    else setStep((n) => n + 1);
+  };
+
   // Track the target rect (late mount, scroll, resize).
   useLayoutEffect(() => {
     if (!current) {
@@ -101,7 +108,12 @@ export default function ModuleCoach() {
         setRect(r);
         window.clearInterval(poll);
       }
-      if (++tries > 20) window.clearInterval(poll);
+      if (++tries > 20) {
+        window.clearInterval(poll);
+        // Ancre absente (élément réservé à un rôle, liste vide…) : on saute
+        // l'étape plutôt que d'afficher une bulle qui ne montre rien.
+        if (!r) skipMissing.current();
+      }
     }, 100);
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);

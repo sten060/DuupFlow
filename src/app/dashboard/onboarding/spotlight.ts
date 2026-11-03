@@ -35,11 +35,17 @@ const GAP = 16;
 const MARGIN = 16;
 
 /** Place the tooltip next to the target without covering it. */
-export function placeNear(rect: Rect, preference: "right" | "below"): { top: number; left: number } {
+export function placeNear(rect: Rect, preference: "right" | "below" | "left"): { top: number; left: number } {
   const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
   const vh = typeof window !== "undefined" ? window.innerHeight : 800;
   const clampTop = (t: number) => Math.max(MARGIN, Math.min(vh - CARD_H - MARGIN, t));
   const clampLeft = (l: number) => Math.max(MARGIN, Math.min(vw - CARD_W - MARGIN, l));
+
+  // Grande colonne collée au bord droit (ex. le chat de l'Éditeur IA) : la
+  // bulle se pose à sa gauche, centrée verticalement.
+  if (preference === "left" && rect.left - GAP - CARD_W >= MARGIN) {
+    return { top: clampTop(rect.top + rect.height / 2 - CARD_H / 2), left: rect.left - GAP - CARD_W };
+  }
 
   // Very tall target (e.g. the whole settings + filters block): don't try to
   // sit beside it — pin the card to the top-right corner so it never covers the
@@ -65,7 +71,7 @@ export function placeNear(rect: Rect, preference: "right" | "below"): { top: num
       ? { top: clampTop(rect.top + rect.height / 2 - CARD_H / 2), left: rect.left - GAP - CARD_W }
       : null;
 
-  const order = preference === "below" ? [below, right, above, left] : [right, below, above, left];
+  const order = preference === "below" ? [below, right, above, left] : preference === "left" ? [left, below, above, right] : [right, below, above, left];
   for (const fn of order) {
     const r = fn();
     if (r) return r;

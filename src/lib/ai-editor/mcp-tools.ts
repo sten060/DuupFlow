@@ -1647,6 +1647,29 @@ const SAVE_BRIEF_TOOL = {
   },
 };
 
+/** Consignes générales données à Claude à la connexion MCP (initialize). */
+export const MCP_INSTRUCTIONS =
+  "DuupFlow Éditeur IA. Si le compte gère plusieurs créateurs (workspaces), appelle d'abord list_creators, demande au user pour lequel il travaille, puis passe ce nom en argument creator à chaque outil (garde-le pour toute la conversation). " +
+  "Le BRIEF du créateur (style de captions, ton, langue, hooks, choses à éviter) arrive en tête de get_reference et list_material : applique-le à chaque variante sans que le user ait à le répéter. " +
+  "Quand le user donne une consigne DURABLE pour un créateur (« retiens que… », « à partir de maintenant… »), enregistre-la avec save_creator_brief pour qu'elle serve à toute l'équipe. " +
+  "Tu as aussi le DUPLICATEUR : duplicate_videos (ticket, suivi avec get_duplication) et duplicate_images, avec tous les réglages de DuupFlow ; puis send_duplicates_to_editor envoie les copies en matière pour en faire des variantes. " +
+  "Google Drive : si le user ne sait pas comment le connecter, ou si un export échoue faute de connexion, appelle drive_status et donne-lui le chemin exact qu'il renvoie (Paramètres → carte Google Drive, ou fiche du créateur). " +
+  "Tu peux AJOUTER toi-même de la matière avec add_material (fichier ou dossier Google Drive partagé avec DuupFlow, ou lien https direct), et ENVOYER les variantes finies dans le dossier Drive d'export avec export_to_drive (ticket à suivre avec get_drive_export) — puis les ranger avec ton propre connecteur Drive grâce aux driveFileId renvoyés.";
+
+/**
+ * Outils du Claude INTÉGRÉ de l'Éditeur IA, au format API Claude. Le créateur
+ * est celui affiché à l'écran : pas d'argument `creator`, pas de list_creators.
+ * Les outils de brief n'existent que quand un créateur est affiché.
+ */
+export function builtinTools(hasCreator: boolean): { name: string; description: string; input_schema: Record<string, unknown> }[] {
+  const all = [...(hasCreator ? [GET_BRIEF_TOOL, SAVE_BRIEF_TOOL] : []), ...TOOLS] as unknown as { name: string; description: string; inputSchema: { properties?: Record<string, unknown>; [k: string]: unknown } }[];
+  return all.map((tool) => {
+    const props = { ...(tool.inputSchema.properties ?? {}) };
+    delete props.creator;
+    return { name: tool.name, description: tool.description, input_schema: { ...tool.inputSchema, properties: props } };
+  });
+}
+
 /** Les outils exposés à CE user : ajoute `creator` + les outils créateurs quand il a des workspaces. */
 export async function toolsForUser(userId: string): Promise<unknown[]> {
   const { getWorkspaceContext } = await import("@/lib/workspaces");
@@ -1660,7 +1683,7 @@ export async function toolsForUser(userId: string): Promise<unknown[]> {
 }
 
 export async function callTool(userId: string, name: string, args?: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }> {
-  const { editorScopeForMcp, briefBlock, workspaceBrief, countBriefVideos } = await import("./scope");
+  const { editorScopeForMcp, workspaceBrief, countBriefVideos } = await import("./scope");
   const { creator, ...rest } = args ?? {};
 
   if (name === "list_creators") {
@@ -1681,8 +1704,21 @@ export async function callTool(userId: string, name: string, args?: Record<strin
 
   const resolved = await editorScopeForMcp(userId, creator);
   if (!resolved.ok) return { content: [{ type: "text", text: resolved.text }], isError: true };
-  const { scope } = resolved;
+  return runToolInScope(userId, resolved.scope, name, rest);
+}
 
+/**
+ * Exécute un outil pour un créateur DÉJÀ résolu. Porte commune au MCP (créateur
+ * choisi par l'argument `creator`) et au Claude intégré de l'Éditeur IA
+ * (créateur affiché à l'écran) : mêmes outils, mêmes droits, mêmes réponses.
+ */
+export async function runToolInScope(
+  userId: string,
+  scope: import("./scope").EditorScope,
+  name: string,
+  rest: Record<string, unknown>,
+): Promise<{ content: Content[]; isError?: boolean }> {
+  const { briefBlock } = await import("./scope");
   if (name === "add_material") return addMaterialTool(scope.storeKey, scope.workspace?.name ?? null, rest);
   if (name === "duplicate_videos" || name === "duplicate_images" || name === "get_duplication" || name === "send_duplicates_to_editor") {
     const out = await duplicatorTool(name, userId, scope.storeKey, rest);

@@ -21,7 +21,7 @@ export type EtapeParcours = {
   target: string[];
   titleKey: string;
   bodyKey: string;
-  placement?: "right" | "below";
+  placement?: "right" | "below" | "left";
   /** L'étape se franchit en CLIQUANT la zone surlignée (typiquement un lien de
    *  navigation) : on masque alors le bouton « Suivant », c'est le geste réel
    *  qui fait avancer. Le changement de route déclenche la suite. */
@@ -57,7 +57,7 @@ export type EtapeParcours = {
    * s'ouvre QUE quand le user y arrive vraiment, et se referme sur « J'ai
    * compris » sans en appeler un autre — le suivant attend l'étape suivante.
    */
-  moduleStep?: "connect" | "ref" | "material";
+  moduleStep?: "connect" | "ref" | "material" | "editor";
 };
 
 export type CleParcours = "dup" | "ai";
@@ -99,16 +99,26 @@ export const PARCOURS: Record<CleParcours, EtapeParcours[]> = {
     // La zone « intensité » remplace les packs comme repère : les packs sont
     // repliés par défaut, et désigner un bloc fermé n'apprend rien.
     { route: "/dashboard/videos/simple", target: ["video-presets"], titleKey: "onb.path.dup5t", bodyKey: "onb.path.dup5b", placement: "right" },
+    // Packs (les filtres) et options, juste avant de lancer.
+    { route: "/dashboard/videos/simple", target: ["video-packs"], titleKey: "onb.path.dup7t", bodyKey: "onb.path.dup7b", placement: "right" },
+    { route: "/dashboard/videos/simple", target: ["video-options"], titleKey: "onb.path.dup8t", bodyKey: "onb.path.dup8b", placement: "right" },
     { route: "/dashboard/videos/simple", target: ["video-submit"], titleKey: "onb.path.dup6t", bodyKey: "onb.path.dup6b", placement: "right", fin: true },
   ],
   ai: [
     ETAPE_PLAN,
     { route: "/dashboard", target: ["nav-ai-editor"], titleKey: "onb.path.ai1t", bodyKey: "onb.path.ai1b", placement: "right", parClic: true, hintKey: "onb.path.hintAiEditor" },
-    // ⚠️ Pas de panneau sur l'étape « connexion » : la fenêtre d'ouverture du
-    // module vient de dire à quoi sert Claude, et la page elle-même détaille
-    // les trois gestes. Un panneau de plus là-dessus, c'est la même chose dite
-    // trois fois avant d'avoir rien fait.
+    // Étape « connexion » = le choix entre Claude intégré et son propre Claude.
+    // Une bulle (pas un panneau) sur la carte Claude intégré : le plus simple,
+    // et le clic sur la carte fait avancer (la page passe à la référence).
+    // Déjà choisi auparavant → la page démarre à la référence, l'étape saute.
+    { route: "/dashboard/ai-editor", target: ["ai-builtin-card"], titleKey: "onb.path.ai2t", bodyKey: "onb.path.ai2b", placement: "below", parClic: true, hintKey: "onb.path.hintBuiltin", moduleStep: "connect" },
     { route: "/dashboard/ai-editor", target: [], titleKey: "onb.path.ai3t", bodyKey: "onb.path.ai3b", actionKey: "onb.path.ai3a", puces: 3, presentation: "panneau", moduleStep: "ref" },
-    { route: "/dashboard/ai-editor", target: [], titleKey: "onb.path.ai4t", bodyKey: "onb.path.ai4b", actionKey: "onb.path.ai4a", puces: 3, presentation: "panneau", moduleStep: "material", fin: true },
+    { route: "/dashboard/ai-editor", target: [], titleKey: "onb.path.ai4t", bodyKey: "onb.path.ai4b", actionKey: "onb.path.ai4a", puces: 3, presentation: "panneau", moduleStep: "material" },
+    // L'éditeur : une bulle sur le chat du Claude intégré. Avec son propre
+    // Claude, le chat n'existe pas → l'ancre manque, l'étape saute et le
+    // parcours se termine (il lui parle dans son Claude, la page le dit déjà).
+    { route: "/dashboard/ai-editor", target: ["ai-chat"], titleKey: "onb.path.ai5t", bodyKey: "onb.path.ai5b", placement: "left", moduleStep: "editor" },
+    // Dernier point : où arrivent les vidéos montées (vaut aussi avec son propre Claude).
+    { route: "/dashboard/ai-editor", target: ["ai-variants"], titleKey: "onb.path.ai6t", bodyKey: "onb.path.ai6b", placement: "left", fin: true },
   ],
 };

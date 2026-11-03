@@ -233,6 +233,119 @@ function ExternalBottomLink({
   );
 }
 
+/**
+ * Carte du compte (bas de la sidebar) → petit menu : Paramètres, Plan & token,
+ * Affiliation, Déconnexion. Rendu en portail : la sidebar (overflow +
+ * backdrop-filter) couperait le menu.
+ */
+function UserMenu({
+  collapsed, name, sub, email, onLogout,
+}: { collapsed: boolean; name: string; sub?: string | null; email: string | null; onLogout: () => void }) {
+  const { t } = useTranslation();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ bottom: 0, left: 0, width: 240 });
+  const ref = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  function toggle() {
+    const r = ref.current?.getBoundingClientRect();
+    if (r) setPos({ bottom: window.innerHeight - r.top + 8, left: r.left, width: Math.max(r.width, 248) });
+    setOpen((o) => !o);
+  }
+
+  const avatar = (size: string) => (
+    <div className={`${size} rounded-lg shrink-0 flex items-center justify-center text-white/85`} style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}>
+      <UserIcon />
+    </div>
+  );
+  const item = "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium text-[var(--app-text-muted)] transition hover:bg-[var(--app-surface-2)] hover:text-[var(--app-text)]";
+  const ico = "h-4 w-4 shrink-0 text-[var(--app-text-faint)]";
+
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        // Cible de l'étape « Active ton plan » du parcours guidé : Plan & token
+        // est dans ce menu (le clic sur l'entrée change de page → étape suivante).
+        data-tour-id="nav-abonnement"
+        title={collapsed ? name : undefined}
+        className={collapsed
+          ? "mt-1 flex w-full justify-center"
+          : "mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[var(--app-surface-2)]"}
+        style={collapsed ? undefined : { background: "var(--app-surface)", border: open ? "1px solid #6366F1" : "1px solid var(--app-border)" }}
+      >
+        {avatar(collapsed ? "h-8 w-8" : "h-7 w-7")}
+        {!collapsed && (
+          <>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-[var(--app-text-muted)] truncate leading-none mb-0.5">{name}</p>
+              {sub && <p className="text-[10px] text-[var(--app-text-faint)] truncate leading-none">{sub}</p>}
+            </div>
+            <svg viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 text-[var(--app-text-faint)] transition-transform ${open ? "-rotate-90" : ""}`} fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </>
+        )}
+      </button>
+
+      {open && typeof document !== "undefined" && createPortal(
+        <>
+          <div className="fixed inset-0 z-[190]" onClick={() => setOpen(false)} />
+          <div
+            role="menu"
+            className="fixed z-[200] rounded-2xl border p-2"
+            style={{
+              bottom: pos.bottom, left: pos.left, width: pos.width,
+              borderColor: "var(--app-border)",
+              background: "linear-gradient(var(--app-surface), var(--app-surface)), var(--app-bg)",
+              boxShadow: "0 18px 44px rgba(0,0,0,.18)",
+            }}
+          >
+            <div className="flex items-center gap-3 px-3 pb-3 pt-2">
+              {avatar("h-9 w-9")}
+              <div className="min-w-0">
+                <p className="truncate text-[14px] font-bold text-[var(--app-text)]">{name}</p>
+                {email && <p className="truncate text-[12px] text-[var(--app-text-faint)]">{email}</p>}
+              </div>
+            </div>
+            <div className="my-1 h-px" style={{ background: "var(--app-border)" }} />
+            <Link href="/dashboard/settings" role="menuitem" className={item}>
+              <svg viewBox="0 0 24 24" className={ico} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+              {t("dashboard.sidebar.parametres")}
+            </Link>
+            <Link href="/dashboard/abonnement" role="menuitem" className={item}>
+              <svg viewBox="0 0 24 24" className={ico} fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" /><path d="M1 10h22" /></svg>
+              {t("dashboard.sidebar.abonnement")}
+            </Link>
+            <a href="https://duupflow.firstpromoter.com/signup" target="_blank" rel="noopener noreferrer" role="menuitem" className={item}>
+              <svg viewBox="0 0 24 24" className={ico} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>
+              <span className="flex-1">{t("dashboard.sidebar.affiliation")}</span>
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-faint)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
+            </a>
+            <div className="my-1 h-px" style={{ background: "var(--app-border)" }} />
+            <button type="button" role="menuitem" onClick={() => { setOpen(false); onLogout(); }} className={`${item} !text-red-500 hover:!bg-red-500/[0.07]`}>
+              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+              {t("dashboard.sidebar.deconnexion")}
+            </button>
+          </div>
+        </>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 function UserIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -249,6 +362,7 @@ export default function Sidebar() {
   const supabase = createClient();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [hostAgency, setHostAgency] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
@@ -412,6 +526,7 @@ export default function Sidebar() {
     async function loadProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setEmail(user.email ?? null);
 
       const { data } = await supabase
         .from("profiles")
@@ -524,19 +639,6 @@ export default function Sidebar() {
           />
 
           <BottomLink
-            href="/dashboard/abonnement"
-            tourId="nav-abonnement"
-            label={t("dashboard.sidebar.abonnement")}
-            collapsed={collapsed}
-            icon={
-              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="1" y="4" width="22" height="16" rx="2" />
-                <path d="M1 10h22" />
-              </svg>
-            }
-          />
-
-          <BottomLink
             href="/dashboard/developers"
             label="API"
             collapsed={collapsed}
@@ -544,21 +646,6 @@ export default function Sidebar() {
               <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="16 18 22 12 16 6" />
                 <polyline points="8 6 2 12 8 18" />
-              </svg>
-            }
-          />
-
-          <ExternalBottomLink
-            href="https://duupflow.firstpromoter.com/signup"
-            label={t("dashboard.sidebar.affiliation")}
-            collapsed={collapsed}
-            icon={
-              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="18" cy="5" r="3" />
-                <circle cx="6" cy="12" r="3" />
-                <circle cx="18" cy="19" r="3" />
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
               </svg>
             }
           />
@@ -576,48 +663,8 @@ export default function Sidebar() {
             }
           />
 
-          {/* User card — doubles as the entry point to the settings page
-              (the Paramètres nav link was removed; the card is now the way in).
-              Full card when expanded, avatar-only when collapsed. */}
-          {collapsed ? (
-            <Link
-              href="/dashboard/settings"
-              className="flex justify-center mt-1"
-              title={t("dashboard.sidebar.parametres")}
-            >
-              <div
-                className="h-8 w-8 rounded-lg shrink-0 flex items-center justify-center text-white/85"
-                style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-              >
-                <UserIcon />
-              </div>
-            </Link>
-          ) : (
-            <Link
-              href="/dashboard/settings"
-              title={t("dashboard.sidebar.parametres")}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl mt-1 transition-colors hover:bg-[var(--app-surface-2)]"
-              style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
-            >
-              <div
-                className="h-7 w-7 rounded-lg shrink-0 flex items-center justify-center text-white/85"
-                style={{ background: "linear-gradient(135deg,#6366F1,#38BDF8)" }}
-              >
-                <UserIcon />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-[var(--app-text-muted)] truncate leading-none mb-0.5">
-                  {displayName}
-                </p>
-                {displayAgency && (
-                  <p className="text-[10px] text-[var(--app-text-faint)] truncate leading-none">{displayAgency}</p>
-                )}
-              </div>
-              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-[var(--app-text-faint)]" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </Link>
-          )}
+          {/* Carte du compte → menu (Paramètres, Plan & token, Affiliation, Déconnexion). */}
+          <UserMenu collapsed={collapsed} name={displayName} sub={displayAgency} email={email} onLogout={handleLogout} />
 
           <div className={["mt-1 flex gap-2", collapsed ? "flex-col items-center" : "items-center"].join(" ")}>
             <button

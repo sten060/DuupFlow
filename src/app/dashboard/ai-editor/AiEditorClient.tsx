@@ -14,6 +14,7 @@ import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
 import DriveSaveButton from "../components/DriveSaveButton";
 import ManualEditor from "./ManualEditor";
 import TutorialVideoButton from "../components/TutorialVideoButton";
+import BuiltinChat from "./BuiltinChat";
 import { cleanFileName } from "@/lib/ai-editor/file-name";
 import { getCurrentWorkspaceId, wsParam } from "../components/WorkspaceSwitcher";
 
@@ -168,6 +169,24 @@ export default function AiEditorClient() {
   // A-t-on VRAIMENT connecté Claude ? (≠ « passé l'étape ») — sert à ne pas afficher
   // la connexion comme validée quand le user a cliqué « plus tard ».
   const [connected, setConnected] = useState(false);
+  // Qui pilote le montage : Claude INTÉGRÉ à DuupFlow (chat dans la page) ou le
+  // propre Claude du user, branché par le connecteur MCP. Mémorisé par navigateur.
+  const [mode, setMode] = useState<"builtin" | "mcp">("mcp");
+  // Écran de choix : le user a cliqué « Mon propre Claude » → on déroule la connexion.
+  const [mcpPicked, setMcpPicked] = useState(false);
+  // Petit écran (< 1024 px) : une seule colonne à la fois, choisie par onglets
+  // (les 3 colonnes côte à côte y seraient illisibles).
+  const [narrow, setNarrow] = useState(false);
+  const [pane, setPane] = useState<"chat" | "variants" | "rail">("chat");
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const on = () => setNarrow(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  const shownPane = mode === "builtin" ? pane : pane === "chat" ? "variants" : pane;
+  const paneCls = (p: "chat" | "variants" | "rail") => (narrow && shownPane !== p ? "hidden" : "");
 
   // Référence
   const [refFile, setRefFile] = useState<File | null>(null);
@@ -461,15 +480,17 @@ export default function AiEditorClient() {
 
   // Sélection groupée. selIds = ids sélectionnés ENCORE présents (le poll peut retirer
   // des variantes). Téléchargement = archive zip serveur ; Drive = via DriveSaveButton.
+  // Taille des vignettes mémorisée PAR MODE : avec Claude intégré, le chat prend
+  // une colonne → vignettes au plus petit par défaut.
+  const tuileKey = mode === "builtin" ? "duup_ai_tuile_builtin" : "duup_ai_tuile";
   useEffect(() => {
-    try {
-      const v = parseInt(localStorage.getItem("duup_ai_tuile") || "", 10);
-      if (Number.isFinite(v)) setTuile(Math.min(420, Math.max(110, v)));
-    } catch { /* stockage indisponible → on garde la valeur par défaut */ }
-  }, []);
+    let v = NaN;
+    try { v = parseInt(localStorage.getItem(tuileKey) || "", 10); } catch { /* stockage indisponible */ }
+    setTuile(Number.isFinite(v) ? Math.min(420, Math.max(110, v)) : mode === "builtin" ? 110 : 168);
+  }, [tuileKey, mode]);
   const majTuile = (v: number) => {
     setTuile(v);
-    try { localStorage.setItem("duup_ai_tuile", String(v)); } catch { /* sans effet */ }
+    try { localStorage.setItem(tuileKey, String(v)); } catch { /* sans effet */ }
   };
 
   const selIds = variants.filter((v) => selected.has(v.id)).map((v) => v.id);
@@ -500,16 +521,33 @@ export default function AiEditorClient() {
   // déjà fait (mémorisé), on saute directement à la référence.
   useEffect(() => {
     try {
-      if (localStorage.getItem("duupflow_aieditor_connected") === "1") {
+      // Choix mémorisé, sinon : Claude intégré pour qui n'a jamais connecté son
+      // propre Claude (rien à brancher), le MCP pour ceux qui l'utilisaient déjà.
+      const saved = localStorage.getItem("duup_ai_mode");
+      if (saved === "builtin" || (!saved && localStorage.getItem("duupflow_aieditor_connected") !== "1")) setMode("builtin");
+      // Écran de choix sauté si le user a déjà choisi Claude intégré, ou déjà
+      // branché SON Claude (« J'ai connecté mon Claude »). Passer en « mon
+      // Claude » sans l'avoir branché ramène donc à l'écran de connexion.
+      if (saved === "builtin" || localStorage.getItem("duupflow_aieditor_connected") === "1") {
         setConnected(true);
         setStep((s) => (s === "connect" ? "ref" : s));
       }
     } catch { /* localStorage indispo */ }
   }, []);
+  const chooseMode = (m: "builtin" | "mcp") => {
+    try { localStorage.setItem("duup_ai_mode", m); } catch { /* noop */ }
+    setMode(m);
+  };
   const markConnected = () => {
     try { localStorage.setItem("duupflow_aieditor_connected", "1"); } catch { /* noop */ }
+    chooseMode("mcp");
     setConnected(true);
     setStep("ref");
+  };
+  const useBuiltin = () => {
+    chooseMode("builtin");
+    setConnected(true);
+    setStep("ref"); // même parcours que le MCP : référence → matière → éditeur
   };
 
   // Rafraîchit les variantes depuis le serveur (créées par le Claude du user via MCP).
@@ -518,7 +556,18 @@ export default function AiEditorClient() {
       const res = await fetch("/api/ai-editor/project");
       if (!res.ok) return;
       const { project } = await res.json();
-      if (project) { setProjectId(project.id); setVariants(project.variants ?? []); }
+      if (project) {
+        setProjectId(project.id);
+        setVariants(project.variants ?? []);
+        // Matière ajoutée côté serveur (Claude intégré, MCP, duplicateur) : on
+        // l'ajoute à la liste sans toucher aux imports encore en cours ici.
+        const server = (project.materials ?? []) as { id: string; name: string; kind: "video" | "image" | "audio"; desc?: string; analysis?: { thumb?: string | null } }[];
+        setMaterials((cur) => {
+          const known = new Set(cur.map((m) => m.serverId).filter(Boolean));
+          const fresh = server.filter((m) => !known.has(m.id));
+          return fresh.length ? [...cur, ...fresh.map((m) => ({ id: uid(), serverId: m.id, name: m.name, thumb: m.analysis?.thumb ?? null, desc: m.desc ?? "", kind: m.kind }))] : cur;
+        });
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -574,74 +623,100 @@ export default function AiEditorClient() {
         </header>
       )}
 
-      {/* ============ ÉTAPE 0 · CONNEXION À CLAUDE — split plein écran ============ */}
+      {/* ============ ÉTAPE 0 · CHOIX DU CLAUDE ============
+          Deux cartes côte à côte. Claude intégré → on passe directement à la
+          suite. Mon propre Claude → la page reste là et déroule, en dessous,
+          l'adresse du connecteur + les 3 étapes pour le brancher. */}
       {step === "connect" && (
-        <section className="mt-5 grid flex-1 border-t border-[var(--app-border)] lg:grid-cols-[minmax(360px,520px)_1fr]">
-          {/* ── Action (gauche) ── */}
-          <div
-            className="flex flex-col justify-center border-b border-[var(--app-border)] p-8 sm:p-10 lg:border-b-0 lg:border-r"
-            style={{ background: "rgba(217,119,87,0.05)" }}
-          >
-            <div className="mb-6 flex items-center gap-3">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white shadow-sm">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/claude-color.svg" alt="Claude" className="h-7 w-7" />
-              </span>
-              <div>
-                <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color: "#D97757" }}>{t("dashboard.aiEditor.connect.eyebrow")}</div>
-                <h2 className="text-2xl font-extrabold tracking-tight text-[var(--app-text)]">{t("dashboard.aiEditor.connect.heading")}</h2>
-              </div>
+        <section className="mx-3 mb-3 mt-5 flex-1 overflow-y-auto rounded-2xl border border-[var(--app-border)] px-6 py-10 sm:px-10" style={{ background: "rgba(217,119,87,0.04)" }}>
+          <div className="mx-auto max-w-5xl">
+            <h2 className="text-center text-xl font-extrabold tracking-tight text-[var(--app-text)]">{t("dashboard.aiEditor.connect.chooseTitle")}</h2>
+            <p className="mt-1.5 text-center text-[13.5px] text-[var(--app-text-muted)]">{t("dashboard.aiEditor.connect.chooseLead")}</p>
+
+            <div className="mt-8 grid gap-5 md:grid-cols-2">
+              {/* Claude intégré */}
+              <button
+                type="button"
+                onClick={useBuiltin}
+                data-tour-id="ai-builtin-card"
+                className="group flex flex-col rounded-2xl border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#D97757] hover:shadow-md"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="grid h-11 w-11 place-items-center rounded-xl bg-white shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/claude-color.svg" alt="" className="h-6 w-6" />
+                  </span>
+                  <span className="rounded-full px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-white" style={{ background: "#D97757" }}>{t("dashboard.aiEditor.connect.builtinEyebrow")}</span>
+                </div>
+                <div className="mt-4 text-[18px] font-extrabold tracking-tight text-[var(--app-text)]">{t("dashboard.aiEditor.connect.builtinHeading")}</div>
+                <p className="mt-1.5 line-clamp-2 flex-1 text-[13px] leading-snug text-[var(--app-text-muted)]">{t("dashboard.aiEditor.connect.builtinLead")}</p>
+                <span className="mt-5 inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white transition group-hover:brightness-110" style={{ background: BRAND }}>
+                  {t("dashboard.aiEditor.connect.builtinCta")}
+                </span>
+              </button>
+
+              {/* Mon propre Claude (MCP) */}
+              <button
+                type="button"
+                onClick={() => setMcpPicked(true)}
+                aria-expanded={mcpPicked}
+                className={`group flex flex-col rounded-2xl border bg-[var(--app-surface)] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${mcpPicked ? "border-indigo-500 ring-2 ring-indigo-500/40" : "border-[var(--app-border-strong)] hover:border-indigo-400"}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--app-bg-2)] text-[var(--app-text)] shadow-sm">
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0V7ZM12 16v5" /></svg>
+                  </span>
+                  <span className="rounded-full border border-[var(--app-border-strong)] px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">{t("dashboard.aiEditor.connect.ownEyebrow")}</span>
+                </div>
+                <div className="mt-4 text-[18px] font-extrabold tracking-tight text-[var(--app-text)]">{t("dashboard.aiEditor.connect.ownHeading")}</div>
+                <p className="mt-1.5 line-clamp-2 flex-1 text-[13px] leading-snug text-[var(--app-text-muted)]">{t("dashboard.aiEditor.connect.ownLead")}</p>
+                <span className={`mt-5 inline-flex items-center justify-center rounded-xl border px-4 py-2.5 text-[13.5px] font-semibold transition ${mcpPicked ? "border-indigo-500 text-indigo-500" : "border-[var(--app-border-strong)] text-[var(--app-text)] group-hover:border-indigo-400"}`}>
+                  {mcpPicked ? t("dashboard.aiEditor.connect.ownPicked") : t("dashboard.aiEditor.connect.ownCta")}
+                </span>
+              </button>
             </div>
 
-            <p className="mb-7 text-sm leading-relaxed text-[var(--app-text-muted)]">
-              <Rich text={t("dashboard.aiEditor.connect.intro")} />
-            </p>
-
-            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">{t("dashboard.aiEditor.connect.connectorLabel")}</div>
-            <div className="flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] py-2 pl-3 pr-2">
-              <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-[var(--app-text)]">{mcpUrl}</span>
-              <CopyBtn text={mcpUrl} />
-            </div>
-
-            <div className="mt-8">
-              <PrimaryBtn full onClick={markConnected}>{t("dashboard.aiEditor.connect.cta")}</PrimaryBtn>
-            </div>
-            <button onClick={() => setStep("ref")} className="mt-3 self-start text-[12px] text-[var(--app-text-faint)] underline hover:text-[var(--app-text-muted)]">
-              {t("dashboard.aiEditor.connect.later")}
-            </button>
-            <p className="mt-6 text-[12px] leading-relaxed text-[var(--app-text-faint)]">
-              {t("dashboard.aiEditor.connect.worksNote")}
-            </p>
-          </div>
-
-          {/* ── Guide 3 étapes (droite) ── */}
-          <aside className="flex flex-col justify-center gap-10 p-8 sm:p-14">
-            <div className="flex items-center gap-2.5 text-[12px] font-bold uppercase tracking-wider" style={{ color: "#D97757" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/claude-color.svg" alt="" className="h-4 w-4" />
-              {t("dashboard.aiEditor.connect.guideTitle")}
-            </div>
-
-            {[
-              { t: t("dashboard.aiEditor.connect.g1t"), d: t("dashboard.aiEditor.connect.g1d") },
-              { t: t("dashboard.aiEditor.connect.g2t"), d: t("dashboard.aiEditor.connect.g2d") },
-              { t: t("dashboard.aiEditor.connect.g3t"), d: t("dashboard.aiEditor.connect.g3d") },
-            ].map((s, i) => (
-              <div key={i} className="flex items-start gap-4">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[15px] font-bold text-white" style={{ background: "#D97757" }}>{i + 1}</span>
-                <div>
-                  <div className="text-[18px] font-bold text-[var(--app-text)]">{s.t}</div>
-                  <p className="mt-2.5 max-w-2xl text-[15px] leading-loose text-[var(--app-text-muted)]"><Rich text={s.d} /></p>
+            {/* Déroulé MCP : adresse + 3 étapes, sur la même page */}
+            {mcpPicked && (
+              <div className="mt-6 grid gap-8 rounded-2xl border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-6 shadow-sm sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+                <div className="flex flex-col">
+                  <p className="text-[13.5px] leading-relaxed text-[var(--app-text-muted)]"><Rich text={t("dashboard.aiEditor.connect.intro")} /></p>
+                  <div className="mb-1.5 mt-6 text-[11px] font-bold uppercase tracking-wider text-[var(--app-text-faint)]">{t("dashboard.aiEditor.connect.connectorLabel")}</div>
+                  <div className="flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-bg-2)] py-2 pl-3 pr-2">
+                    <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-[var(--app-text)]">{mcpUrl}</span>
+                    <CopyBtn text={mcpUrl} />
+                  </div>
+                  <div className="mt-6"><PrimaryBtn full onClick={markConnected}>{t("dashboard.aiEditor.connect.cta")}</PrimaryBtn></div>
+                  <button onClick={() => { chooseMode("mcp"); setStep("ref"); }} className="mt-3 self-start text-[12px] text-[var(--app-text-faint)] underline hover:text-[var(--app-text-muted)]">
+                    {t("dashboard.aiEditor.connect.later")}
+                  </button>
+                  <p className="mt-4 text-[12px] leading-relaxed text-[var(--app-text-faint)]">{t("dashboard.aiEditor.connect.worksNote")}</p>
+                </div>
+                <div className="flex flex-col gap-5 lg:border-l lg:border-[var(--app-border)] lg:pl-8">
+                  <div className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "#D97757" }}>{t("dashboard.aiEditor.connect.guideTitle")}</div>
+                  {[
+                    { t: t("dashboard.aiEditor.connect.g1t"), d: t("dashboard.aiEditor.connect.g1d") },
+                    { t: t("dashboard.aiEditor.connect.g2t"), d: t("dashboard.aiEditor.connect.g2d") },
+                    { t: t("dashboard.aiEditor.connect.g3t"), d: t("dashboard.aiEditor.connect.g3d") },
+                  ].map((g, i) => (
+                    <div key={i} className="flex items-start gap-3.5">
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[13px] font-bold text-white" style={{ background: "#D97757" }}>{i + 1}</span>
+                      <div>
+                        <div className="text-[14.5px] font-bold text-[var(--app-text)]">{g.t}</div>
+                        <p className="mt-1 text-[13px] leading-relaxed text-[var(--app-text-muted)]"><Rich text={g.d} /></p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </aside>
+            )}
+          </div>
         </section>
       )}
 
       {/* ============ ÉTAPE 1 · RÉFÉRENCE — split plein écran, bords collés ============ */}
       {step === "ref" && (
-        <section className="mt-5 grid flex-1 border-t border-[var(--app-border)] lg:grid-cols-[minmax(340px,480px)_1fr]">
+        <section className="mx-3 mb-3 mt-5 grid flex-1 overflow-hidden rounded-2xl border border-[var(--app-border)] lg:grid-cols-[minmax(340px,480px)_1fr]">
           {/* ── Zone upload (gauche, bord collé) ── */}
           <div
             className="flex flex-col justify-center border-b border-[var(--app-border)] p-8 sm:p-10 lg:border-b-0 lg:border-r"
@@ -775,7 +850,7 @@ export default function AiEditorClient() {
       {/* ============ ÉTAPE 2 · MATIÈRE ============ */}
       {step === "material" && (
         <section
-          className="mt-5 grid flex-1 border-t border-[var(--app-border)] lg:grid-cols-[minmax(340px,520px)_1fr]"
+          className="mx-3 mb-3 mt-5 grid flex-1 overflow-hidden rounded-2xl border border-[var(--app-border)] lg:grid-cols-[minmax(340px,520px)_1fr]"
           onDragOver={(e) => { e.preventDefault(); if (!matDragOver) setMatDragOver(true); }}
           onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setMatDragOver(false); }}
           onDrop={(e) => { e.preventDefault(); setMatDragOver(false); if (e.dataTransfer.files?.length) addMaterials(e.dataTransfer.files); }}
@@ -899,16 +974,31 @@ export default function AiEditorClient() {
 
       {/* ============ ÉTAPE 3 · WORKSPACE (génération intégrée, 0 connexion) ============ */}
       {step === "editor" && (
-        <section className="mx-3 mb-3 mt-2 grid min-h-0 flex-1 gap-0 overflow-hidden rounded-2xl border border-[var(--app-border)]" style={{ gridTemplateColumns: "252px 1fr", gridTemplateRows: "minmax(0, 1fr)" }}>
+        <>
+        {narrow && (
+          <div className="mx-3 mt-2 flex shrink-0 gap-1 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-1">
+            {(mode === "builtin" ? (["chat", "variants", "rail"] as const) : (["variants", "rail"] as const)).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPane(p)}
+                className={`flex-1 rounded-lg px-2 py-1.5 text-[12.5px] font-semibold transition ${shownPane === p ? "bg-indigo-500 text-white" : "text-[var(--app-text-muted)]"}`}
+              >
+                {p === "chat" ? "Claude" : p === "variants" ? t("dashboard.aiEditor.ws.variants") : t("dashboard.aiEditor.ws.paneMaterial")}
+              </button>
+            ))}
+          </div>
+        )}
+        <section className="mx-3 mb-3 mt-2 grid min-h-0 flex-1 gap-0 overflow-hidden rounded-2xl border border-[var(--app-border)]" style={{ gridTemplateColumns: narrow ? "minmax(0, 1fr)" : mode === "builtin" ? "252px 1fr minmax(320px, 400px)" : "252px 1fr", gridTemplateRows: "minmax(0, 1fr)" }}>
           {/* Rail contexte */}
-          <aside className="flex min-h-0 flex-col border-r border-[var(--app-border)] bg-[var(--app-surface)]">
+          <aside className={`flex min-h-0 flex-col border-r border-[var(--app-border)] bg-[var(--app-surface)] ${paneCls("rail")}`}>
             <div className="shrink-0 border-b border-[var(--app-border)] px-4 py-4">
               <div className="flex items-center gap-2.5 text-[14px] font-bold text-[var(--app-text)]">
                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white shadow-sm">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/claude-color.svg" alt="Claude" className="h-4 w-4" />
                 </span>
-                {t("dashboard.aiEditor.ws.pilotedBy")}
+                {mode === "builtin" ? t("dashboard.aiEditor.ws.pilotedByBuiltin") : t("dashboard.aiEditor.ws.pilotedBy")}
               </div>
               <div className="mt-0.5 pl-[30px] text-[11.5px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ws.ready")}</div>
             </div>
@@ -927,7 +1017,7 @@ export default function AiEditorClient() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="group relative h-[60px] w-[44px] shrink-0 overflow-hidden rounded-lg" style={{ background: "linear-gradient(160deg,#2a2340,#123040)" }}>
+                <div className={`group relative shrink-0 overflow-hidden rounded-lg ${refSource ? "h-[60px] w-[44px]" : "h-[44px] w-[34px]"}`} style={{ background: "linear-gradient(160deg,#2a2340,#123040)" }}>
                   {analysis?.keyframes?.[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={analysis.keyframes[0].dataUri} alt="ref" className="h-full w-full object-cover" />
@@ -950,7 +1040,7 @@ export default function AiEditorClient() {
                   <div className="truncate text-[13px] font-semibold text-[var(--app-text)]">{refSource?.label ?? t("dashboard.aiEditor.ws.noRefTitle")}</div>
                   {/* Images clés, coupes, transcription : des mesures internes,
                       pas une information pour le user. Seul l'état compte. */}
-                  <div className="mt-0.5 text-[11.5px] text-[var(--app-text-faint)]">{refSource ? t("dashboard.aiEditor.ref.analyzed") : t("dashboard.aiEditor.ws.noRefHint")}</div>
+                  {refSource && <div className="mt-0.5 text-[11.5px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ref.analyzed")}</div>}
                 </div>
               </div>
               {/* Tant qu'elle est là, la référence n'est PAS exploitable par Claude. */}
@@ -1017,17 +1107,30 @@ export default function AiEditorClient() {
                 <p className="py-1 text-[12px] text-[var(--app-text-faint)]">{t("dashboard.aiEditor.ws.noFiles")}</p>
               )}
             </div>
-            <div className="mx-3.5 mb-4 mt-auto shrink-0">
-              <button onClick={() => setStep("connect")} className="duup-btn inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[12.5px] font-semibold text-[var(--app-text)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/claude-color.svg" alt="" className="h-4 w-4 shrink-0" />
-                {t("dashboard.aiEditor.ws.reconnect")}
-              </button>
+            <div className="mx-3.5 mb-4 mt-auto flex shrink-0 flex-col items-start gap-2">
+              {mode === "builtin" ? (
+                <button onClick={() => { chooseMode("mcp"); setMcpPicked(true); setStep("connect"); }} className="duup-btn inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[12.5px] font-semibold text-[var(--app-text)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/claude-color.svg" alt="" className="h-4 w-4 shrink-0" />
+                  {t("dashboard.aiEditor.ws.useOwn")}
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => chooseMode("builtin")} className="duup-btn inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[12.5px] font-semibold text-[var(--app-text)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/claude-color.svg" alt="" className="h-4 w-4 shrink-0" />
+                    {t("dashboard.aiEditor.ws.useBuiltin")}
+                  </button>
+                  <button onClick={() => setStep("connect")} className="px-1 text-[12px] text-[var(--app-text-faint)] underline hover:text-[var(--app-text-muted)]">
+                    {t("dashboard.aiEditor.ws.reconnect")}
+                  </button>
+                </>
+              )}
             </div>
           </aside>
 
           {/* Workspace résultats */}
-          <div className="flex min-h-0 flex-col bg-[var(--app-bg-2)]">
+          <div data-tour-id="ai-variants" className={`flex min-h-0 flex-col bg-[var(--app-bg-2)] ${paneCls("variants")}`}>
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--app-border)] px-6 py-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-[var(--app-text)]"><span>{t("dashboard.aiEditor.ws.variants")}{variants.length > 0 && <span className="text-[var(--app-text-faint)]"> · {variants.length}</span>}</span><TrialCreditsPill /></div>
@@ -1076,7 +1179,29 @@ export default function AiEditorClient() {
             )}
 
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            {variants.length === 0 ? (
+            {variants.length === 0 && mode === "builtin" ? (
+              // Claude intégré : le chat est juste à droite — pas de « ton Claude »,
+              // pas de connexion, pas de prompt à copier.
+              <div className="rounded-2xl border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] p-10 text-center">
+                <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/claude-color.svg" alt="Claude" className="h-8 w-8" />
+                </span>
+                <div className="text-[15px] font-bold text-[var(--app-text)]">{t("dashboard.aiEditor.ws.builtinEmptyTitle")}</div>
+                <p className="mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-[var(--app-text-muted)]">
+                  <Rich text={t("dashboard.aiEditor.ws.builtinEmptyDesc")} />
+                </p>
+                <ol className="mx-auto mt-6 max-w-md space-y-2.5 text-left">
+                  {[t("dashboard.aiEditor.ws.builtinStep1"), t("dashboard.aiEditor.ws.builtinStep2"), t("dashboard.aiEditor.ws.builtinStep3")].map((s, i) => (
+                    <li key={i} className="flex items-center gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-bg-2)] px-3.5 py-2.5">
+                      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-bold text-white" style={{ background: "#D97757" }}>{i + 1}</span>
+                      <span className="text-[13px] text-[var(--app-text)]">{s}</span>
+                      {i === 1 && <span aria-hidden className="ml-auto text-[var(--app-text-faint)]">→</span>}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : variants.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] p-10 text-center">
                 <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white shadow-sm">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1228,7 +1353,14 @@ export default function AiEditorClient() {
             )}
             </div>
           </div>
+          {/* Claude intégré : la conversation, à côté des variantes qu'il crée. */}
+          {mode === "builtin" && (
+            <div className={narrow && shownPane !== "chat" ? "hidden" : "contents"}>
+              <BuiltinChat visible={!narrow || shownPane === "chat"} onActivity={() => void refreshProject()} />
+            </div>
+          )}
         </section>
+        </>
       )}
 
       {/* Éditeur manuel plein écran (retouche d'une variante) */}

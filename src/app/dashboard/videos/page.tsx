@@ -21,13 +21,13 @@ export default function VideosHub() {
         <p className="text-sm text-[var(--app-text-muted)] mt-1">{t("dashboard.videos.subtitle")}</p>
       </header>
 
-      {/* Cartes plein écran, collées, sans arrondi — couleurs conservées */}
-      <section className="grid flex-1 grid-cols-1 grid-rows-3 md:grid-cols-2 md:grid-rows-2">
+      {/* Cartes arrondies, espacées — couleurs conservées */}
+      <section className="mx-3 mb-3 grid flex-1 grid-cols-1 grid-rows-3 gap-3 md:grid-cols-2 md:grid-rows-2">
         {/* Mode Simple — indigo */}
         <Link
           href="/dashboard/videos/simple"
           data-tour-id="video-mode-simple"
-          className="group relative flex flex-col justify-center overflow-hidden p-8 sm:p-10 transition-all
+          className="group relative flex flex-col justify-center overflow-hidden rounded-2xl p-8 sm:p-10 transition-all
                      border border-indigo-500/20 hover:border-indigo-400/40"
           style={{ background: "rgba(99,102,241,0.05)" }}
         >
@@ -53,7 +53,7 @@ export default function VideosHub() {
         <Link
           href="/dashboard/videos/advanced"
           data-tour-id="video-mode-advanced"
-          className="group relative flex flex-col justify-center overflow-hidden p-8 sm:p-10 transition-all
+          className="group relative flex flex-col justify-center overflow-hidden rounded-2xl p-8 sm:p-10 transition-all
                      border border-sky-500/20 hover:border-sky-400/40"
           style={{ background: "rgba(56,189,248,0.05)" }}
         >
@@ -85,7 +85,7 @@ export default function VideosHub() {
         <Link
           href="/dashboard/videos/ai"
           data-tour-id="video-mode-ai"
-          className="group md:col-span-2 relative flex flex-col justify-center overflow-hidden p-8 sm:p-10 transition-all
+          className="group md:col-span-2 relative flex flex-col justify-center overflow-hidden rounded-2xl p-8 sm:p-10 transition-all
                      border border-fuchsia-500/20 hover:border-fuchsia-400/40"
           style={{ background: "rgba(217,70,239,0.05)" }}
         >
@@ -115,7 +115,7 @@ export default function VideosHub() {
         <div
           data-tour-id="video-mode-ai"
           aria-disabled
-          className="md:col-span-2 relative flex flex-col justify-center overflow-hidden p-8 sm:p-10 border border-fuchsia-500/15 cursor-default select-none"
+          className="md:col-span-2 relative flex flex-col justify-center overflow-hidden rounded-2xl p-8 sm:p-10 border border-fuchsia-500/15 cursor-default select-none"
           style={{ background: "rgba(217,70,239,0.04)" }}
         >
           <span className="absolute right-5 top-5 inline-flex items-center gap-1 rounded-full border border-fuchsia-500/35 bg-fuchsia-500/[0.10] px-2.5 py-0.5 text-[11px] font-semibold text-fuchsia-300/90">

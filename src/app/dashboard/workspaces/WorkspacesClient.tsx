@@ -424,7 +424,7 @@ export default function WorkspacesClient({ initial }: { initial?: Payload }) {
     <div>
       <Header t={t}>
         {canManage && (
-          <div className="flex flex-wrap items-center gap-3">
+          <div data-tour-id="ws-add" className="flex flex-wrap items-center gap-3">
             <div className="rounded-xl px-4 py-2.5 min-w-[150px]" style={SURFACE}>
               <p className="text-sm font-bold text-[var(--app-text)] tabular-nums">
                 {t("dashboard.workspaces.counter", { count: data.total, max: data.limit })}
@@ -479,12 +479,13 @@ export default function WorkspacesClient({ initial }: { initial?: Payload }) {
         </div>
       ) : (
         <div className="mt-7 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
-          {data.workspaces.map((w) => {
+          {data.workspaces.map((w, wi) => {
             const assigned = vas.filter((m) => m.workspaceIds.includes(w.id));
             const isActive = w.id === data.activeId;
             return (
               <div
                 key={w.id}
+                data-tour-id={wi === 0 ? "ws-card" : undefined}
                 className="rounded-2xl p-5 flex flex-col transition-shadow"
                 style={{
                   ...SURFACE,
@@ -514,6 +515,7 @@ export default function WorkspacesClient({ initial }: { initial?: Payload }) {
                 <button
                   type="button"
                   onClick={() => openBrief(w)}
+                  data-tour-id={wi === 0 ? "ws-brief" : undefined}
                   className="mt-5 w-full text-left rounded-xl px-4 py-3.5 transition hover:brightness-[0.98]"
                   style={SUBTLE}
                 >
@@ -618,7 +620,7 @@ export default function WorkspacesClient({ initial }: { initial?: Payload }) {
 
       {/* ── Rôles de l'équipe (propriétaire uniquement) ── */}
       {isOwner && (
-        <section className="mt-12">
+        <section data-tour-id="ws-roles" className="mt-12">
           <h2 className="text-xl font-bold tracking-tight text-[var(--app-text)] mb-4">{t("dashboard.workspaces.rolesTitle")}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
             {([

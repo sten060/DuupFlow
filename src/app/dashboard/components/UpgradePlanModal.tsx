@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "@/lib/i18n/context";
 import { planRank, type PaidPlan } from "@/lib/plans";
@@ -171,6 +171,7 @@ export default function UpgradePlanModal({
         t("tarifs.soloFeature1"),
         t("tarifs.soloFeature2"),
         t("tarifs.soloFeature3"),
+        t("tarifs.tokensSolo"),
         t("tarifs.soloFeature4"),
         t("tarifs.soloFeature8"),
         t("tarifs.featDriveExport"),
@@ -186,18 +187,19 @@ export default function UpgradePlanModal({
       desc: t("tarifs.proDesc"),
       price: `${PRIX.pro[intervalle]} €`,
       color: "#818CF8",
+      // « Tout le plan Solo » + ce qui s'ajoute (pas de redite du Solo).
       features: [
+        t("tarifs.proIncludesSolo"),
         t("tarifs.proFeature1"),
         t("tarifs.proFeature2"),
         t("tarifs.proFeature3"),
-        t("tarifs.proFeature4"),
+        t("tarifs.tokensPro"),
         t("tarifs.proFeature6"),
         t("tarifs.featWorkspacesPro"),
         t("tarifs.featRoles"),
         t("tarifs.featAdminView"),
         t("tarifs.proFeature8"),
         t("tarifs.proFeature9"),
-        t("tarifs.featDriveExport"),
         t("tarifs.featExport4k"),
       ],
       cardBorder: "1.5px solid rgba(99,102,241,0.35)",
@@ -214,6 +216,7 @@ export default function UpgradePlanModal({
       // « Tout le plan Pro » + ce qui s'ajoute : pas de redite des points du Pro.
       features: [
         t("tarifs.agencyFeature1"),
+        t("tarifs.tokensAgency"),
         t("tarifs.agencyFeature2"),
         t("tarifs.featWorkspacesAgency"),
         t("tarifs.agencyOnboarding"),
@@ -566,21 +569,30 @@ export default function UpgradePlanModal({
                 </button>
 
                 <ul className="mt-6 flex-1 space-y-3">
-                  {p.id !== "agency" && (
-                  <li className="flex items-start gap-3 text-sm font-medium text-[var(--app-text)]">
-                    <img src="/claude-color.svg" alt="Claude" className="mt-0.5 h-5 w-5 shrink-0 object-contain" />
-                    {t("tarifs.featAiEditor")}
-                  </li>
+                  {(p.id === "solo" || p.id === "starter") && (
+                    <li className="flex items-start gap-3 text-sm font-medium text-[var(--app-text)]">
+                      <img src="/claude-color.svg" alt="Claude" className="mt-0.5 h-5 w-5 shrink-0 object-contain" />
+                      {t("tarifs.featAiEditor")}
+                    </li>
                   )}
                   {p.features.map((f, i) => (
-                    <li key={i} className="flex items-start gap-3 text-sm text-[var(--app-text)]">
-                      <CheckIcon color={p.color} />
-                      {f}
-                    </li>
+                    <Fragment key={i}>
+                      <li className="flex items-start gap-3 text-sm text-[var(--app-text)]">
+                        <CheckIcon color={p.color} />
+                        {f}
+                      </li>
+                      {/* Éditeur IA : en tête pour Starter/Solo, juste après « Tout le plan Solo » pour Pro. */}
+                      {i === 0 && p.id === "pro" && (
+                        <li className="flex items-start gap-3 text-sm font-medium text-[var(--app-text)]">
+                          <img src="/claude-color.svg" alt="Claude" className="mt-0.5 h-5 w-5 shrink-0 object-contain" />
+                          {t("tarifs.featAiEditor")}
+                        </li>
+                      )}
+                    </Fragment>
                   ))}
-                  {/* Points communs à tous les plans — Drive, compresseur, scraper.
-                      Pas répétés sur la carte Agence (« Tout le plan Pro »). */}
-                  {p.id !== "agency" && (
+                  {/* Drive, compresseur, scraper : Starter/Solo seulement
+                      (« Tout le plan Solo » / « Tout le plan Pro » les couvrent). */}
+                  {(p.id === "solo" || p.id === "starter") && (
                   <>
                   <li className="flex items-start gap-3 text-sm text-[var(--app-text)]">
                     <img src="/app/icons8-google-drive-96.png" alt="Google Drive" className="mt-0.5 h-5 w-5 shrink-0 object-contain" />

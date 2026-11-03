@@ -1,7 +1,7 @@
 /**
  * Token / pricing constants (pay-per-use AI variation).
  *
- * Marketing concept: 1 token = 0,40 € (= 2,5 tokens / €).
+ * 1 € = 10 000 tokens (voir TOKENS_PER_CENT).
  * Storage / API exchange: integer CENTS (€0.01) — no floats, no rounding bugs.
  *
  * ── Edit pricing here ─────────────────────────────────────────────────────
@@ -14,25 +14,20 @@
  */
 
 /**
- * 1 token = 1 centime (= 0,01 €) → **5 € = 500 tokens**.
+ * 1 € = 10 000 tokens → 1 centime = 100 tokens (décision Sten, 2026-11-03).
  *
- * Le solde est stocké en CENTIMES entiers : à 1 token = 1 centime, le token
- * devient l'unité de stockage elle-même (correspondance 1:1, zéro arrondi).
- *
- * ⚠️ Changer cette constante ne change QUE l'affichage : aucun solde existant
- * ne gagne ni ne perd de valeur (10 € restent 10 €, affichés 1000 tokens au
- * lieu de 25). Ne jamais l'utiliser pour CALCULER un montant à créditer —
- * exprimer les montants directement en centimes (cf. le bonus d'onboarding,
- * qui aurait été divisé par 40 en passant de 40 à 1).
+ * Le solde reste stocké en CENTIMES entiers (ai_balance_cents, ai_token_ledger) :
+ * le token n'est QU'UNE unité d'affichage. Changer cette constante ne change
+ * que l'affichage — aucun solde ne gagne ni ne perd de valeur (10 € restent
+ * 10 €, affichés 100 000 tokens). Ne jamais l'utiliser pour CALCULER un
+ * montant à créditer : exprimer les montants directement en centimes.
  */
-export const CENTS_PER_TOKEN = 1;
+export const TOKENS_PER_CENT = 100;
 
 /**
  * Coût EN CENTIMES d'une génération (Variation IA), par plan.
- * Stocké en centimes → s'adapte automatiquement au barème des tokens : à
- * 1 token = 1 centime, ces valeurs SONT le nombre de tokens affiché.
- * (Prix réel inchangé par le passage de 40 c à 1 c le token — seul l'affichage
- * change : 110 tokens au lieu de 2,75, pour le même 1,10 €.)
+ * Stocké en centimes → s'adapte automatiquement au barème des tokens
+ * (110 c = 11 000 tokens affichés).
  */
 export const IMAGE_COST_CENTS = {
   free:    110, // 1,10 € = 110 tokens — sans abonnement
@@ -55,8 +50,7 @@ export const IMAGE_COST_CENTS = {
  *     réel côté TikTok : chaque vidéo déclenche son propre run Apify (~0,5 c et
  *     surtout ~3 min de traitement). D'où l'écart de tarif entre les deux.
  *
- * Montants en CENTIMES — et comme 1 token = 1 centime, ces nombres SONT les
- * tokens affichés à l'utilisateur.
+ * Montants en CENTIMES — affichés en tokens via formatTokens (× 100).
  */
 // Tarif UNIQUE, identique pour tous les plans : une seule grille à maintenir et
 // un prix que l'utilisateur peut retenir. (Contrairement à IMAGE_COST_CENTS, qui
@@ -144,12 +138,12 @@ export type TopupPack = {
 };
 
 export const TOPUP_PACKS: TopupPack[] = [
-  // 1 token = 1 centime → creditCents EST le nombre de tokens crédités.
-  // 10 € → 1000 tokens, sans bonus
+  // creditCents = centimes crédités (× 100 = tokens affichés).
+  // 10 € → 100 000 tokens, sans bonus
   { id: "starter",  priceCents: 1000,  creditCents: 1000,  label: "Starter" },
-  // 40 € payés → 4400 tokens (4000 + 400 offerts)
+  // 40 € payés → 440 000 tokens (400 000 + 40 000 offerts)
   { id: "standard", priceCents: 4000,  creditCents: 4400,  label: "Standard", highlight: true },
-  // 100 € payés → 11200 tokens (10000 + 1200 offerts)
+  // 100 € payés → 1 120 000 tokens (1 000 000 + 120 000 offerts)
   { id: "power",    priceCents: 10000, creditCents: 11200, label: "Power" },
 ];
 
@@ -160,13 +154,13 @@ export function packBonusCents(pack: TopupPack): number {
 // ── Display helpers ───────────────────────────────────────────────────────
 
 export function centsToTokens(cents: number): number {
-  return cents / CENTS_PER_TOKEN;
+  return Math.round(cents * TOKENS_PER_CENT);
 }
 
-// 1 token = 1 centime → les tokens sont des ENTIERS. Afficher "500.00 tokens"
-// n'aurait aucun sens, d'où 0 décimale par défaut.
-export function formatTokens(cents: number, digits = 0): string {
-  return centsToTokens(cents).toFixed(digits);
+/** Nombre de tokens lisible : « 79 300 » (espaces fines entre milliers). */
+export function formatTokens(cents: number, _digits = 0): string {
+  const n = centsToTokens(cents);
+  return (n < 0 ? "-" : "") + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f");
 }
 
 /** Format a cent amount as a French-style EUR string ("12,50 €"). */

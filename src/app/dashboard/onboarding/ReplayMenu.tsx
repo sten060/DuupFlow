@@ -8,13 +8,25 @@
  * to it and forces its coach back open (see OnboardingProvider).
  */
 
+import { useRouter } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/context";
 import { ONBOARDING_MODULES } from "./modules";
 import { useOnboarding } from "./OnboardingProvider";
+import { PARCOURS } from "./parcours";
 
 export default function ReplayMenu({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
-  const { replayOverview, replayModule } = useOnboarding();
+  const { replayOverview, replayModule, lancerParcours } = useOnboarding();
+  const router = useRouter();
+
+  // L'Éditeur IA n'a pas de coach : on rejoue son parcours guidé, à partir de
+  // la première étape DANS le module (choix du Claude → référence → matière → chat).
+  const replayEditor = () => {
+    const depuis = PARCOURS.ai.findIndex((e) => e.route === "/dashboard/ai-editor");
+    lancerParcours("ai", Math.max(0, depuis));
+    router.push("/dashboard/ai-editor");
+    onClose();
+  };
 
   return (
     <div
@@ -108,6 +120,25 @@ export default function ReplayMenu({ onClose }: { onClose: () => void }) {
                 </div>
               </button>
             ))}
+            <button
+              onClick={replayEditor}
+              className="group rounded-xl p-4 text-left transition-all"
+              style={{ background: "rgba(139,92,246,0.05)", border: "1px solid rgba(139,92,246,0.18)" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.30)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.18)"; }}
+            >
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0 bg-white" style={{ border: "1px solid rgba(139,92,246,0.30)" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/claude-color.svg" alt="" className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-[var(--app-text)]">{t("onb.replayAiEditor")}</h3>
+                  <p className="text-xs text-[var(--app-text-faint)] mt-1 leading-relaxed">{t("onb.replayAiEditorDesc")}</p>
+                </div>
+                <span className="text-sm opacity-0 group-hover:opacity-100 transition shrink-0 mt-1" style={{ color: "#8B5CF6" }}>→</span>
+              </div>
+            </button>
           </div>
         </div>
       </div>

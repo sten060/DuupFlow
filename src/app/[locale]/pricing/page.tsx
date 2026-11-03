@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/components/LocaleLink";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Fragment } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import { NavPill, Footer, SmoothScroll } from "@/components/landing/shell";
 
@@ -242,30 +242,34 @@ function PricingCards({ yearly }: { yearly: boolean }) {
     t("tarifs.soloFeature1"),
     t("tarifs.soloFeature2"),
     t("tarifs.soloFeature3"),
+    t("tarifs.tokensSolo"),
     t("tarifs.soloFeature4"),
     t("tarifs.soloFeature8"),
     t("tarifs.featDriveExport"),
     t("tarifs.featExport4k"),
   ];
 
+  // Pro = « Tout le plan Solo » + ce qui s'ajoute : Variation IA, Drive,
+  // compresseur et scraper sont dans le Solo, pas répétés ici.
   const proFeatures = [
+    t("tarifs.proIncludesSolo"),
     t("tarifs.proFeature1"),
     t("tarifs.proFeature2"),
     t("tarifs.proFeature3"),
-    t("tarifs.proFeature4"),
+    t("tarifs.tokensPro"),
     t("tarifs.proFeature6"),
     t("tarifs.featWorkspacesPro"),
     t("tarifs.featRoles"),
     t("tarifs.featAdminView"),
     t("tarifs.proFeature8"),
     t("tarifs.proFeature9"),
-    t("tarifs.featDriveExport"),
     t("tarifs.featExport4k"),
   ];
 
   // Agence = « Tout le plan Pro » + ce qui s'ajoute : pas de redite des points du Pro.
   const agencyFeatures = [
     t("tarifs.agencyFeature1"),
+    t("tarifs.tokensAgency"),
     t("tarifs.agencyFeature2"),
     t("tarifs.featWorkspacesAgency"),
     t("tarifs.agencyOnboarding"),
@@ -378,15 +382,20 @@ function PricingCards({ yearly }: { yearly: boolean }) {
 
             {/* Features */}
             <ul className="space-y-3.5 flex-1 mt-7">
-              {p.id !== "agency" && <AiEditorFeature />}
+              {p.id === "solo" && <AiEditorFeature />}
               {p.features.map((f, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-[#1a1a1a]">
-                  <CheckIcon color={p.color} />
-                  {f}
-                </li>
+                <Fragment key={i}>
+                  <li className="flex items-start gap-3 text-sm text-[#1a1a1a]">
+                    <CheckIcon color={p.color} />
+                    {f}
+                  </li>
+                  {/* Pro : « Tout le plan Solo » tout en haut, puis l'éditeur IA. */}
+                  {i === 0 && p.id === "pro" && <AiEditorFeature />}
+                </Fragment>
               ))}
-              {/* Déjà inclus dans « Tout le plan Pro » : pas répété sur la carte Agence. */}
-              {p.id !== "agency" && <UniversalFeatures color={p.color} />}
+              {/* Drive, compresseur, scraper : sur la carte Solo seulement
+                  (« Tout le plan Solo » / « Tout le plan Pro » les couvrent). */}
+              {p.id === "solo" && <UniversalFeatures color={p.color} />}
             </ul>
 
             {/* Secondary — personalized demo */}

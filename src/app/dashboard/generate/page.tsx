@@ -203,10 +203,11 @@ export default function AiLabPage() {
           {/* Balance pill */}
           {balanceCents !== null && (
             <div
-              className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/[0.06] px-3 py-1.5 text-xs font-medium text-emerald-200/85"
+              data-tour-id="gen-balance"
+              className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 [[data-theme=dark]_&]:text-emerald-300"
               title={`Solde : ${formatEur(balanceCents)} · ${imagesAffordable(balanceCents, plan)} image(s) possible(s)`}
             >
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-emerald-400/40 text-[10px] font-bold text-emerald-300">
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
                 €
               </span>
               {formatTokens(balanceCents)} tokens

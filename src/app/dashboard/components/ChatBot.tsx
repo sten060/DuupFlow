@@ -218,7 +218,7 @@ export default function ChatBot() {
       <button
         onClick={() => setOpen(!open)}
         aria-label={t("chatbot.header")}
-        className="group fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full text-white flex items-center justify-center overflow-hidden transition-transform duration-150 hover:scale-105 active:scale-95"
+        className="duup-floating group fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full text-white flex items-center justify-center overflow-hidden transition-transform duration-150 hover:scale-105 active:scale-95"
         style={{
           background: "linear-gradient(180deg,#7b7cf5 0%,#6366f1 50%,#5048d9 100%)",
           boxShadow:
@@ -241,7 +241,7 @@ export default function ChatBot() {
 
       {/* bottom-36 : la cloche de notifications occupe bottom-20. */}
       {open && (
-        <div className={`fixed bottom-36 right-5 z-50 ${panneau} rounded-2xl bg-[var(--app-surface)] border border-[var(--app-border)] flex flex-col overflow-hidden shadow-2xl`}>
+        <div className={`duup-floating fixed bottom-36 right-5 z-50 ${panneau} rounded-2xl bg-[var(--app-surface)] border border-[var(--app-border)] flex flex-col overflow-hidden shadow-2xl`}>
           {/* ── Barre du haut : accueil, onglets, réduire ── */}
           <div className="flex items-center gap-2 border-b border-[var(--app-border)] px-2.5 py-2">
             <button

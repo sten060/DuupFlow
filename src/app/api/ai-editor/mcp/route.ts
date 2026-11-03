@@ -11,7 +11,7 @@
 // user la réf analysée (keyframes EN IMAGES → il les VOIT) + la matière.
 
 import { authenticateApiRequest } from "@/lib/api-auth";
-import { toolsForUser, callTool, promptsForUser, getPromptForUser } from "@/lib/ai-editor/mcp-tools";
+import { toolsForUser, callTool, promptsForUser, getPromptForUser, MCP_INSTRUCTIONS } from "@/lib/ai-editor/mcp-tools";
 import { bearerFrom, oauthUserId, wwwAuthenticate } from "@/lib/ai-editor/oauth";
 
 export const dynamic = "force-dynamic";
@@ -87,13 +87,7 @@ export async function POST(req: Request) {
         // prompts : un prompt « Travailler pour <créateur> » par créateur accessible.
         capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } },
         serverInfo: SERVER_INFO,
-        instructions:
-          "DuupFlow Éditeur IA. Si le compte gère plusieurs créateurs (workspaces), appelle d'abord list_creators, demande au user pour lequel il travaille, puis passe ce nom en argument creator à chaque outil (garde-le pour toute la conversation). " +
-          "Le BRIEF du créateur (style de captions, ton, langue, hooks, choses à éviter) arrive en tête de get_reference et list_material : applique-le à chaque variante sans que le user ait à le répéter. " +
-          "Quand le user donne une consigne DURABLE pour un créateur (« retiens que… », « à partir de maintenant… »), enregistre-la avec save_creator_brief pour qu'elle serve à toute l'équipe. " +
-          "Tu as aussi le DUPLICATEUR : duplicate_videos (ticket, suivi avec get_duplication) et duplicate_images, avec tous les réglages de DuupFlow ; puis send_duplicates_to_editor envoie les copies en matière pour en faire des variantes. " +
-          "Google Drive : si le user ne sait pas comment le connecter, ou si un export échoue faute de connexion, appelle drive_status et donne-lui le chemin exact qu'il renvoie (Paramètres → carte Google Drive, ou fiche du créateur). " +
-          "Tu peux AJOUTER toi-même de la matière avec add_material (fichier ou dossier Google Drive partagé avec DuupFlow, ou lien https direct), et ENVOYER les variantes finies dans le dossier Drive d'export avec export_to_drive (ticket à suivre avec get_drive_export) — puis les ranger avec ton propre connecteur Drive grâce aux driveFileId renvoyés.",
+        instructions: MCP_INSTRUCTIONS,
       });
     }
     case "notifications/initialized":

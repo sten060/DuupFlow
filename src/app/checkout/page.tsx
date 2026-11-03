@@ -130,16 +130,18 @@ function CheckoutContent() {
     t("tarifs.soloFeature1"),
     t("tarifs.soloFeature2"),
     t("tarifs.soloFeature3"),
+    t("tarifs.tokensSolo"),
     t("tarifs.soloFeature4"),
     t("tarifs.soloFeature6"),
     t("tarifs.soloFeature7"),
   ];
 
   const PRO_FEATURES = [
+    t("tarifs.proIncludesSolo"),
     t("tarifs.proFeature1"),
     t("tarifs.proFeature2"),
     t("tarifs.proFeature3"),
-    t("tarifs.proFeature4"),
+    t("tarifs.tokensPro"),
     t("tarifs.proFeature6"),
     t("tarifs.proFeature7"),
     t("tarifs.featWorkspacesPro"),
@@ -149,6 +151,7 @@ function CheckoutContent() {
 
   const AGENCY_FEATURES = [
     t("tarifs.agencyFeature1"),
+    t("tarifs.tokensAgency"),
     t("tarifs.agencyFeature2"),
     t("tarifs.featWorkspacesAgency"),
     t("tarifs.agencyOnboarding"),

@@ -123,7 +123,7 @@ export async function acknowledgeVariationAnnouncement(): Promise<{
 
   // Resolve effective plan (legacy users with has_paid + null plan = pro).
   const effectivePlan = profile.plan ?? (profile.has_paid ? "pro" : "free");
-  // ⚠️ Montant exprimé en CENTIMES, pas en tokens × CENTS_PER_TOKEN.
+  // ⚠️ Montant exprimé en CENTIMES, jamais calculé depuis la valeur du token.
   // L'ancien calcul dépendait de la valeur du token : le jour où 1 token est
   // passé de 40 c à 1 c, le bonus aurait été divisé par 40 sans que personne
   // ne le voie. La valeur réelle offerte est ici figée (1,20 € / 2 €).

@@ -116,6 +116,7 @@ export const ONBOARDING_MODULES: OnboardingModule[] = [
       { target: ["gen-dropzone"],    titleKey: "onb.coach.generate.s1t", bodyKey: "onb.coach.generate.s1b", placement: "below" },
       { target: ["gen-mode-toggle"], titleKey: "onb.coach.generate.s2t", bodyKey: "onb.coach.generate.s2b", placement: "below" },
       { target: ["gen-submit"],      titleKey: "onb.coach.generate.s3t", bodyKey: "onb.coach.generate.s3b", placement: "below" },
+      { target: ["gen-balance"],     titleKey: "onb.coach.generate.s4t", bodyKey: "onb.coach.generate.s4b", placement: "below" },
     ],
   },
 ];
@@ -125,6 +126,38 @@ export const ONBOARDING_MODULES: OnboardingModule[] = [
  * appear in the overview card / replay menu, but still get a first-open coach).
  */
 const EXTRA_COACHES: OnboardingModule[] = [
+  {
+    // Créateurs (espaces) : courte explication au 1er passage. Les étapes dont
+    // l'élément n'existe pas pour ce rôle (VA : pas d'ajout, pas d'équipe) sautent.
+    key: "workspaces",
+    route: "/dashboard/workspaces",
+    i18n: "workspaces",
+    accent: "#6366F1",
+    accentBg: "rgba(99,102,241,0.10)",
+    accentBorder: "rgba(99,102,241,0.30)",
+    icon: IconVideos,
+    steps: [
+      { target: ["ws-add"],   titleKey: "onb.coach.workspaces.s1t", bodyKey: "onb.coach.workspaces.s1b", placement: "below" },
+      { target: ["ws-card"],  titleKey: "onb.coach.workspaces.s2t", bodyKey: "onb.coach.workspaces.s2b", placement: "right" },
+      { target: ["ws-brief"], titleKey: "onb.coach.workspaces.s3t", bodyKey: "onb.coach.workspaces.s3b", placement: "right" },
+      { target: ["ws-roles"], titleKey: "onb.coach.workspaces.s4t", bodyKey: "onb.coach.workspaces.s4b", placement: "below" },
+    ],
+  },
+  {
+    // Scraper (« Importer depuis un compte ») : courte explication au 1er passage.
+    key: "import",
+    route: "/dashboard/import",
+    i18n: "import",
+    accent: "#8B5CF6",
+    accentBg: "rgba(139,92,246,0.10)",
+    accentBorder: "rgba(139,92,246,0.30)",
+    icon: IconVideos,
+    steps: [
+      { target: ["scrape-url"],     titleKey: "onb.coach.import.s1t", bodyKey: "onb.coach.import.s1b", placement: "below" },
+      { target: ["scrape-filters"], titleKey: "onb.coach.import.s2t", bodyKey: "onb.coach.import.s2b", placement: "below" },
+      { target: ["scrape-price"],   titleKey: "onb.coach.import.s3t", bodyKey: "onb.coach.import.s3b", placement: "below" },
+    ],
+  },
   {
     key: "videos-simple",
     route: "/dashboard/videos/simple",

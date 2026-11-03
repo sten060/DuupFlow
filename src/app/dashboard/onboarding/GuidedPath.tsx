@@ -26,11 +26,12 @@
  * permet de survivre aux navigations.
  */
 
-import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/context";
 import { useOnboarding } from "./OnboardingProvider";
 import { PARCOURS, type EtapeParcours } from "./parcours";
+import { moduleForPath } from "./modules";
 import { CARD_W, getRect, placeNear, type Rect } from "./spotlight";
 import { introSnapshot, subscribeIntro } from "./introStore";
 import { etapeEditeurSnapshot, subscribeEtapeEditeur } from "./aiStepStore";
@@ -41,7 +42,7 @@ const CLE_LUS = "duup_parcours_lus";
 export default function GuidedPath() {
   const { t } = useTranslation();
   const pathname = usePathname();
-  const { parcours, etape, allerEtape, quitterParcours } = useOnboarding();
+  const { parcours, etape, allerEtape, quitterParcours, markSeen, isSeen } = useOnboarding();
   // L'intro du module explique où on est ; le guide attend qu'elle soit lue.
   const intro = useSyncExternalStore(subscribeIntro, introSnapshot, () => false);
   // Éditeur IA : c'est le module qui dit où en est le user, pas un bouton.
@@ -109,11 +110,30 @@ export default function GuidedPath() {
   /* Panneaux de l'Éditeur IA : on saute à celui qui correspond à l'étape où le
      user se trouve VRAIMENT. Il connecte son Claude, il passe à la référence,
      et c'est ce passage-là qui ouvre le panneau suivant. */
+  // Seulement quand l'étape du module CHANGE : une étape peut en suivre une
+  // autre sur le même écran (chat → zone des variantes) sans être ramenée
+  // en arrière à la première.
+  const etapeEditeurVue = useRef<string | null>(null);
   useEffect(() => {
     if (!parcours || !etapeEditeur) return;
+    // Saut si l'étape du module vient de CHANGER, ou si l'étape courante en
+    // attend une autre que celle affichée (parcours relancé en cours de route).
+    const attendAutre = !!courante?.moduleStep && courante.moduleStep !== etapeEditeur;
+    if (etapeEditeurVue.current === etapeEditeur && !attendAutre) return;
+    etapeEditeurVue.current = etapeEditeur;
     const i = etapes.findIndex((e) => e.moduleStep === etapeEditeur);
     if (i > -1 && i !== etape) allerEtape(i);
-  }, [parcours, etapeEditeur, etapes, etape, allerEtape]);
+  }, [parcours, etapeEditeur, etapes, etape, allerEtape, courante]);
+  useEffect(() => { if (!parcours) etapeEditeurVue.current = null; }, [parcours]);
+
+  // Une page traversée par le parcours a déjà été expliquée : son coach de
+  // module ne doit pas se rejouer juste après (« Dépose ta vidéo » une 2e fois).
+  useEffect(() => {
+    if (!courante) return;
+    const mod = moduleForPath(courante.route);
+    if (mod && !isSeen(mod.key)) markSeen(mod.key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courante?.route, markSeen]);
 
   const visible = !!courante && pathname === courante.route && !(courante.siPlanFree && planPaye !== false);
 

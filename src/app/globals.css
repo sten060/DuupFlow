@@ -1482,3 +1482,39 @@ body{
   box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
 }
 @media (prefers-reduced-motion: reduce) { .tuto-pill::before { animation: none; } }
+
+/* ===== Claude intégré (Éditeur IA) — le chat reprend l'interface de claude.ai :
+   fond crème, bulle user gris chaud, réponses en serif, accent terracotta. ===== */
+.claude-chat {
+  --cc-bg: #262624;
+  --cc-user: #141413;
+  --cc-text: #faf9f5;
+  --cc-muted: #c2c0b6;
+  --cc-faint: #9a9890;
+  --cc-input: #30302e;
+  --cc-border: rgba(222, 220, 209, 0.15);
+  --cc-hover: rgba(222, 220, 209, 0.07);
+  --cc-accent: #c6613f;
+  background: var(--cc-bg);
+  color: var(--cc-text);
+}
+:root[data-theme="light"] .claude-chat {
+  --cc-bg: #faf9f5;
+  --cc-user: #f0eee6;
+  --cc-text: #141413;
+  --cc-muted: #3d3d3a;
+  --cc-faint: #73726c;
+  --cc-input: #ffffff;
+  --cc-border: rgba(31, 30, 29, 0.15);
+  --cc-hover: rgba(31, 30, 29, 0.05);
+}
+.claude-chat .cc-serif {
+  font-family: "Tiempos Text", "Iowan Old Style", "Source Serif Pro", Georgia, Cambria, ui-serif, serif;
+}
+@keyframes cc-spin { to { transform: rotate(360deg); } }
+.claude-chat .cc-spark-busy { animation: cc-spin 2.4s linear infinite; }
+
+/* Bulle d'aide + cloche (coin bas-droit) masquées tant que le chat du Claude
+   intégré est à l'écran : elles couvraient sa zone de saisie. BuiltinChat pose
+   la classe au montage et la retire en partant. */
+html.duup-hide-floating .duup-floating { display: none !important; }

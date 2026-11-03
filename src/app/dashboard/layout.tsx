@@ -232,9 +232,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <PlanGateProvider plan={gatePlan} isGuest={gateIsGuest} overdue={overdue != null}>
     {/* Applique le thème (clair/sombre) avant le paint pour éviter le flash.
         Défaut = clair (nouveaux inscrits). */}
-    <script dangerouslySetInnerHTML={{ __html: "try{document.documentElement.setAttribute('data-theme',localStorage.getItem('duupflow_theme')||'light')}catch(e){}" }} />
+    <script dangerouslySetInnerHTML={{ __html: "try{document.documentElement.setAttribute('data-theme',localStorage.getItem('duupflow_theme')||'light')}catch(e){}try{document.documentElement.setAttribute('translate','no');document.documentElement.classList.add('notranslate')}catch(e){}" }} />
+    {/* translate="no" : la traduction auto de Chrome (déclenchée par
+        <html lang="en"> sur une page en français) réécrit les textes du DOM
+        dans le dos de React → « removeChild… n'est pas un enfant » et écran
+        d'erreur dès qu'un bloc change (parcours guidé, chat…). L'app est déjà
+        en FR/EN : on ne la laisse pas traduire. */}
     <div
-      className="app-shell flex h-screen overflow-hidden"
+      translate="no"
+      className="app-shell notranslate flex h-screen overflow-hidden"
       style={{ background: "var(--app-bg)", color: "var(--app-text)" }}
     >
       {/* Sidebar — owns its own collapse state, brand & width animation */}

@@ -274,7 +274,7 @@ export default function TokensPanel() {
                               minute: "2-digit",
                             })}
                           </td>
-                          <td className="py-2 pr-4 text-[var(--app-text-muted)]">{row.reason}</td>
+                          <td className="py-2 pr-4 text-[var(--app-text-muted)]">{row.reason === "ai_editor_chat" ? t("dashboard.tokens.reasonAiEditorChat") : row.reason}</td>
                           <td className={`py-2 pr-4 text-right font-medium ${positive ? "text-emerald-300" : "text-red-300"}`}>
                             {positive ? "+" : ""}
                             {formatTokens(row.delta_cents)}

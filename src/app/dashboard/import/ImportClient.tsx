@@ -21,12 +21,14 @@ import type {
   ScoredVideo,
 } from "@/lib/account/types";
 import { usePlanGate } from "../components/PlanGate";
+import { useTranslation } from "@/lib/i18n/context";
 
+// label = clé i18n (dashboard.importer.win*)
 const WINDOWS = [
-  { days: 7, label: "7 jours" },
-  { days: 30, label: "30 jours" },
-  { days: 90, label: "90 jours" },
-  { days: 365, label: "1 an" },
+  { days: 7, label: "win7" },
+  { days: 30, label: "win30" },
+  { days: 90, label: "win90" },
+  { days: 365, label: "win365" },
 ];
 
 // Combien de vidéos l'utilisateur veut récupérer. Choix OBLIGATOIRE : il définit
@@ -54,6 +56,7 @@ async function postJSON<T>(url: string, body: unknown): Promise<T> {
 }
 
 export default function ImportClient() {
+  const { t } = useTranslation();
   const [url, setUrl] = useState("");
   const [windowDays, setWindowDays] = useState(30);
   const [topCount, setTopCount] = useState(2);
@@ -107,7 +110,7 @@ export default function ImportClient() {
           if (pollRef.current) clearInterval(pollRef.current);
           clearScrape();
           setScan(null);
-          setScanErr("Le scan précédent n'est plus disponible (session expirée). Relance-le.");
+          setScanErr(t("dashboard.importer.expired"));
           return;
         }
         const s = (await res.json()) as AccountScanSnapshot;
@@ -115,7 +118,7 @@ export default function ImportClient() {
         if (s.status === "ready" || s.status === "error") {
           if (pollRef.current) clearInterval(pollRef.current);
           void refreshBalance(); // un scan raté/vide se rembourse → le solde bouge
-          if (s.status === "error") setScanErr(s.error || "Scan échoué");
+          if (s.status === "error") setScanErr(s.error || t("dashboard.importer.scanFailed"));
           if (s.status === "ready") {
             // Pré-sélection automatique des N meilleures : l'user a déjà dit ce
             // qu'il voulait, il n'a plus qu'à choisir la destination.
@@ -201,7 +204,7 @@ export default function ImportClient() {
       void refreshBalance();    // le scan vient d'être débité
       startPolling(snap.jobId); // suit le job jusqu'à ready/error
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Scan impossible";
+      const msg = e instanceof Error ? e.message : t("dashboard.importer.scanImpossible");
       // 402 → solde insuffisant : on oriente vers la recharge plutôt que de
       // laisser un message d'erreur brut.
       setScanErr(
@@ -259,7 +262,7 @@ export default function ImportClient() {
     }
 
     const ok = cur.results.filter((r) => r.ok && r.uploadedId);
-    if (ok.length === 0) throw new Error("Aucune vidéo n'a pu être récupérée");
+    if (ok.length === 0) throw new Error(t("dashboard.importer.noneFetched"));
     return ok.map((r) => ({
       url: `/api/studio/media/${r.uploadedId}`,
       name: r.name || "video.mp4",
@@ -276,14 +279,14 @@ export default function ImportClient() {
       setAction({
         phase: "downloading",
         target: "duplication",
-        message: "Téléchargement de tes vidéos… ne quitte pas la page, tu seras redirigé juste après.",
+        message: t("dashboard.importer.dlStay"),
       });
       try {
         const files = await downloadSelected();
         setAction({
           phase: "sending",
           target: "duplication",
-          message: "Vidéos prêtes — redirection vers la duplication…",
+          message: t("dashboard.importer.readyRedirect"),
         });
         putHandoff(files);
         router.push(`/dashboard/videos/${mode}`);
@@ -291,11 +294,11 @@ export default function ImportClient() {
         setAction({
           phase: "error",
           target: "duplication",
-          message: e instanceof Error ? e.message : "Transfert impossible",
+          message: e instanceof Error ? e.message : t("dashboard.importer.transferFailed"),
         });
       }
     },
-    [downloadSelected, router]
+    [downloadSelected, router, t]
   );
 
   // ── Destination 2 : Google Drive ────────────────────────────────────────────
@@ -305,16 +308,16 @@ export default function ImportClient() {
     setAction({
       phase: "downloading",
       target: "drive",
-      message: "Téléchargement de tes vidéos…",
+      message: t("dashboard.importer.downloading"),
     });
     try {
       const files = await downloadSelected();
-      setAction({ phase: "sending", target: "drive", message: "Envoi vers Google Drive…" });
+      setAction({ phase: "sending", target: "drive", message: t("dashboard.importer.sendingDrive") });
       const res = await saveToDrive(files, (done, total) =>
         setAction({
           phase: "sending",
           target: "drive",
-          message: `Envoi vers Google Drive… ${done}/${total}`,
+          message: `${t("dashboard.importer.sendingDrive")} ${done}/${total}`,
         })
       );
       // Dossier non choisi → l'utilisateur a annulé le sélecteur Drive.
@@ -327,90 +330,91 @@ export default function ImportClient() {
         target: "drive",
         message:
           res.failed > 0
-            ? `${res.ok} envoyée(s), ${res.failed} en échec vers « ${res.folderName} »`
-            : `✓ ${res.ok} vidéo(s) envoyée(s) dans « ${res.folderName} » sur ton Drive`,
+            ? t("dashboard.importer.drivePartial", { ok: String(res.ok), failed: String(res.failed), folder: res.folderName ?? "" })
+            : t("dashboard.importer.driveDone", { ok: String(res.ok), folder: res.folderName ?? "" }),
       });
     } catch (e) {
       setAction({
         phase: "error",
         target: "drive",
-        message: e instanceof Error ? e.message : "Envoi vers Drive impossible",
+        message: e instanceof Error ? e.message : t("dashboard.importer.driveFailed"),
       });
     }
-  }, [downloadSelected, saveToDrive]);
+  }, [downloadSelected, saveToDrive, t]);
 
   return (
     <div className="relative max-w-6xl mx-auto space-y-6">
       {/* En-tête + solde de tokens */}
       <header className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-[var(--app-text)]">Importer depuis un compte</h1>
+          <h1 className="text-2xl font-semibold text-[var(--app-text)]">{t("dashboard.importer.title")}</h1>
           <p className="text-[15px] leading-relaxed text-[var(--app-text-muted)]">
-            Colle le lien de ton compte Instagram ou TikTok. On repère tes vidéos qui
-            performent le mieux — tu choisis lesquelles récupérer.
+            {t("dashboard.importer.lead")}
           </p>
         </div>
         <a
           href="/dashboard/abonnement"
-          title="Voir mon solde et recharger"
+          title={t("dashboard.importer.balanceTitle")}
           className="shrink-0 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-2)] px-4 py-2.5 text-right transition"
         >
           <div className="text-lg font-semibold text-[var(--app-text)] leading-none">
             {balanceCents === null ? "—" : formatTokens(balanceCents)}
           </div>
-          <div className="text-[11px] uppercase tracking-wide text-[var(--app-text-faint)] mt-1">tokens</div>
+          <div className="text-[11px] uppercase tracking-wide text-[var(--app-text-faint)] mt-1">{t("dashboard.importer.tokens")}</div>
         </a>
       </header>
 
       {/* Barre de saisie */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch">
         <input
+          data-tour-id="scrape-url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && startScan()}
           placeholder="https://instagram.com/toncompte  ·  https://tiktok.com/@toncompte  ·  @pseudo"
           className="flex-1 rounded-xl bg-[var(--app-surface)] border border-[var(--app-border)] px-4 py-3 text-[var(--app-text)] placeholder-[var(--app-text-faint)] outline-none focus:border-violet-400/60"
         />
+        <div data-tour-id="scrape-filters" className="flex gap-3">
         <select
           value={topCount}
           onChange={(e) => setTopCount(Number(e.target.value))}
-          title="Combien de vidéos récupérer"
+          title={t("dashboard.importer.countTitle")}
           className="rounded-xl bg-[var(--app-surface)] border border-[var(--app-border)] px-3 py-3 text-[var(--app-text)] outline-none focus:border-violet-400/60"
         >
           {COUNTS.map((n) => (
             <option key={n} value={n} className="bg-[var(--app-surface)]">
-              {n === 1 ? "la meilleure" : `les ${n} meilleures`}
+              {n === 1 ? t("dashboard.importer.best1") : t("dashboard.importer.bestN", { n: String(n) })}
             </option>
           ))}
         </select>
         <select
           value={windowDays}
           onChange={(e) => setWindowDays(Number(e.target.value))}
-          title="Sur quelle période chercher"
+          title={t("dashboard.importer.windowTitle")}
           className="rounded-xl bg-[var(--app-surface)] border border-[var(--app-border)] px-3 py-3 text-[var(--app-text)] outline-none focus:border-violet-400/60"
         >
           {WINDOWS.map((w) => (
             <option key={w.days} value={w.days} className="bg-[var(--app-surface)]">
-              sur {w.label}
+              {t("dashboard.importer.over", { w: t(`dashboard.importer.${w.label}`) })}
             </option>
           ))}
         </select>
+        </div>
         <button
           onClick={startScan}
           disabled={!url.trim() || scanning}
           className="rounded-xl px-6 py-3 font-medium bg-violet-500 text-white hover:bg-violet-400 disabled:opacity-40 disabled:cursor-not-allowed transition"
         >
-          {scanning ? "Analyse…" : "Analyser"}
+          {scanning ? t("dashboard.importer.analyzing") : t("dashboard.importer.analyze")}
         </button>
       </div>
 
       {/* Prix annoncé avant le clic — un seul débit, téléchargement inclus. */}
       {!scanning && (
-        <p className="-mt-3 text-sm text-[var(--app-text-muted)]">
-          Ce scan coûtera{" "}
-          <span className="text-[var(--app-text)] font-medium">{formatTokens(priceCents)} tokens</span>{" "}
-          — téléchargement des {topCount} vidéo{topCount > 1 ? "s" : ""} inclus. Rien n'est
-          débité si le compte est inaccessible.
+        <p data-tour-id="scrape-price" className="-mt-3 text-sm text-[var(--app-text-muted)]">
+          {t("dashboard.importer.costBefore")}{" "}
+          <span className="text-[var(--app-text)] font-medium">{formatTokens(priceCents)} {t("dashboard.importer.tokens")}</span>{" "}
+          {t("dashboard.importer.costAfter", { n: String(topCount) })}
         </p>
       )}
 
@@ -418,8 +422,7 @@ export default function ImportClient() {
       {expiresInMin !== null && ready && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm">
           <span className="text-[var(--app-text-muted)]">
-            Scrape précédent de <span className="text-[var(--app-text)]">@{scan?.target.handle}</span> restauré —
-            expire dans {expiresInMin} min.
+            {t("dashboard.importer.restored", { handle: scan?.target.handle ?? "", min: String(expiresInMin) })}
           </span>
           <button
             onClick={() => {
@@ -431,7 +434,7 @@ export default function ImportClient() {
             }}
             className="ml-auto text-xs rounded-lg px-3 py-1.5 bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)]"
           >
-            Effacer
+            {t("dashboard.importer.clear")}
           </button>
         </div>
       )}
@@ -445,11 +448,10 @@ export default function ImportClient() {
             return (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-4 space-y-3">
                 <div className="text-sm text-red-100">
-                  <span className="font-medium">Le scan a échoué.</span> Un souci technique nous a
-                  empêchés de récupérer les vidéos. Aucun token ne t'a été débité.
+                  <span className="font-medium">{t("dashboard.importer.platformTitle")}</span> {t("dashboard.importer.platformBody")}
                 </div>
                 <div className="text-[13px] text-[var(--app-text-muted)]">
-                  Contacte le support, on règle ça rapidement.
+                  {t("dashboard.importer.contactLead")}
                 </div>
                 <a
                   href="https://t.me/DuupFlow_Support"
@@ -461,7 +463,7 @@ export default function ImportClient() {
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
                     <path d="M21.94 4.66a1.2 1.2 0 0 0-1.63-1.06L2.9 10.3c-1.1.43-1.09 2 .02 2.4l4.37 1.53 1.7 5.16c.2.63 1 .82 1.48.35l2.4-2.36 4.5 3.3c.6.45 1.47.12 1.63-.63l3-15.4-.06.01Z" />
                   </svg>
-                  Contacter le support
+                  {t("dashboard.importer.contact")}
                 </a>
               </div>
             );
@@ -470,7 +472,7 @@ export default function ImportClient() {
           // "Aucun reel sur la période" = BÉNIN, actionnable (élargir la fenêtre)
           // → ambre. Autres erreurs user (privé, restreint…) → rouge. Solde
           // remboursé dans les deux cas.
-          const benign = /aucun reel|élargis la fenêtre/i.test(scanErr);
+          const benign = /aucun reel|élargis la fenêtre|no reel|widen the window/i.test(scanErr);
           return (
             <div
               className={`rounded-xl border px-4 py-3 text-sm ${
@@ -481,7 +483,7 @@ export default function ImportClient() {
             >
               {benign && <span className="mr-1">ℹ️</span>}
               {scanErr}
-              {benign && <span className="block text-amber-200/60 text-xs mt-1">Aucun token débité.</span>}
+              {benign && <span className="block text-amber-200/60 text-xs mt-1">{t("dashboard.importer.noCharge")}</span>}
             </div>
           );
         })()
@@ -491,7 +493,7 @@ export default function ImportClient() {
       {scanning && (
         <div className="flex items-center gap-3 text-[var(--app-text-muted)] text-sm">
           <span className="h-4 w-4 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
-          Scrape du compte @{scan?.target.handle} en cours… (30 s à 2 min)
+          {t("dashboard.importer.scanning", { handle: scan?.target.handle ?? "" })}
         </div>
       )}
 
@@ -507,20 +509,20 @@ export default function ImportClient() {
           )}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-[var(--app-text-muted)]">
-              <span className="text-[var(--app-text)] font-medium">{scan.topCount}</span> meilleure
-              {scan.topCount > 1 ? "s" : ""} vidéo{scan.topCount > 1 ? "s" : ""} sur {scan.windowDays} j
-              <span className="text-[var(--app-text-faint)]"> · {scan.videos.length} analysées au total</span>
+              <span className="text-[var(--app-text)] font-medium">{scan.topCount}</span>{" "}
+              {t("dashboard.importer.resultsBest", { days: String(scan.windowDays) })}
+              <span className="text-[var(--app-text-faint)]"> · {t("dashboard.importer.analyzedTotal", { n: String(scan.videos.length) })}</span>
             </p>
             <div className="flex items-center gap-2">
               <button onClick={resetToTop} className="text-xs rounded-lg px-3 py-1.5 bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)]">
-                Rétablir le top {scan.topCount}
+                {t("dashboard.importer.resetTop", { n: String(scan.topCount) })}
               </button>
               {scan.videos.length > scan.topCount && (
                 <button
                   onClick={() => setShowAll((s) => !s)}
                   className="text-xs rounded-lg px-3 py-1.5 bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)]"
                 >
-                  {showAll ? "Voir moins" : `Voir les ${scan.videos.length} vidéos`}
+                  {showAll ? t("dashboard.importer.showLess") : t("dashboard.importer.showAll", { n: String(scan.videos.length) })}
                 </button>
               )}
             </div>
@@ -534,13 +536,12 @@ export default function ImportClient() {
 
           {showAll && (
             <p className="text-xs text-[var(--app-text-faint)]">
-              Tu peux échanger une vidéo contre une autre, mais pas en sélectionner plus de{" "}
-              {scan.topCount} (le nombre choisi au départ).
+              {t("dashboard.importer.swapHint", { n: String(scan.topCount) })}
             </p>
           )}
 
           {scan.videos.length === 0 && (
-            <p className="text-[var(--app-text-muted)] text-sm">Aucune vidéo trouvée sur cette période.</p>
+            <p className="text-[var(--app-text-muted)] text-sm">{t("dashboard.importer.noneFound")}</p>
           )}
         </section>
       )}
@@ -549,8 +550,7 @@ export default function ImportClient() {
       {ready && selected.size > 0 && (
         <div className="sticky bottom-4 z-10 flex items-center justify-between gap-4 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] backdrop-blur px-5 py-4 shadow-xl">
           <span className="text-sm text-[var(--app-text-muted)]">
-            {selected.size}/{scan.topCount} vidéo{scan.topCount > 1 ? "s" : ""} prête
-            {selected.size > 1 ? "s" : ""} — choisis la destination
+            {selected.size}/{scan.topCount} {t("dashboard.importer.readyPick")}
           </span>
           <div className="flex items-center gap-3">
             <button
@@ -558,7 +558,7 @@ export default function ImportClient() {
               disabled={busy}
               className="rounded-xl px-5 py-2.5 font-medium bg-violet-500 text-white hover:bg-violet-400 disabled:opacity-40 transition"
             >
-              Envoyer vers duplication
+              {t("dashboard.importer.toDuplication")}
             </button>
             {driveReady && (
               <button
@@ -568,7 +568,7 @@ export default function ImportClient() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/app/icons8-google-drive-96.png" alt="" className="h-4 w-4" />
-                Envoyer vers Drive
+                {t("dashboard.importer.toDrive")}
               </button>
             )}
           </div>
@@ -600,7 +600,7 @@ export default function ImportClient() {
               onClick={() => setAction(null)}
               className="ml-auto text-xs opacity-70 hover:opacity-100"
             >
-              Fermer
+              {t("dashboard.importer.close")}
             </button>
           )}
         </div>
@@ -616,7 +616,7 @@ export default function ImportClient() {
       {download && download.done && (
         <section className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 space-y-2">
           <h2 className="text-[var(--app-text)] font-medium">
-            Téléchargement terminé — {download.results.filter((r) => r.ok).length}/{download.total} réussi(s)
+            {t("dashboard.importer.dlDone", { ok: String(download.results.filter((r) => r.ok).length), total: String(download.total) })}
           </h2>
           <ul className="text-sm divide-y divide-[var(--app-border)]">
             {download.results.map((r) => (
@@ -630,7 +630,7 @@ export default function ImportClient() {
                     download={r.name}
                     className="text-xs rounded-lg px-3 py-1.5 bg-violet-500/20 border border-violet-400/30 text-violet-200 hover:bg-violet-500/30"
                   >
-                    Télécharger le fichier
+                    {t("dashboard.importer.downloadFile")}
                   </a>
                 )}
               </li>
@@ -662,11 +662,10 @@ export default function ImportClient() {
                 ♻️ Duplication
               </span>
               <h3 className="text-[22px] leading-tight font-semibold tracking-tight text-[var(--app-text)]">
-                Comment veux-tu dupliquer&nbsp;?
+                {t("dashboard.importer.howDup")}
               </h3>
               <p className="text-[13px] text-[var(--app-text-muted)] mt-2 leading-relaxed">
-                Tes <span className="text-[var(--app-text-muted)] font-medium">{selected.size} vidéo{selected.size > 1 ? "s" : ""}</span> seront
-                téléchargées puis déposées seules dans le module — tu es redirigé juste après.
+                {t("dashboard.importer.dupLead", { n: String(selected.size) })}
               </p>
             </div>
 
@@ -674,14 +673,14 @@ export default function ImportClient() {
             <div className="px-7 pb-6 pt-1 space-y-3">
               {[
                 {
-                  mode: "simple" as const, icon: "⚡", title: "Vidéo simple",
-                  sub: "Duplication rapide en quelques clics",
-                  tags: ["Packs prêts à l'emploi", "Recommandé"],
+                  mode: "simple" as const, icon: "⚡", title: t("dashboard.importer.simpleTitle"),
+                  sub: t("dashboard.importer.simpleSub"),
+                  tags: [t("dashboard.importer.simpleTag1"), t("dashboard.importer.simpleTag2")],
                 },
                 {
-                  mode: "advanced" as const, icon: "🎛️", title: "Vidéo avancé",
-                  sub: "Contrôle total, réglage par réglage",
-                  tags: ["Curseurs manuels", "Expert"],
+                  mode: "advanced" as const, icon: "🎛️", title: t("dashboard.importer.advTitle"),
+                  sub: t("dashboard.importer.advSub"),
+                  tags: [t("dashboard.importer.advTag1"), t("dashboard.importer.advTag2")],
                 },
               ].map((o) => (
                 <button
@@ -716,7 +715,7 @@ export default function ImportClient() {
                 onClick={() => setAskDuplicate(false)}
                 className="w-full text-center text-[13px] text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] pt-1.5 transition"
               >
-                Annuler
+                {t("dashboard.importer.cancel")}
               </button>
             </div>
           </div>
@@ -728,6 +727,7 @@ export default function ImportClient() {
 
 // ── Carte vidéo ────────────────────────────────────────────────────────────────
 function VideoCard({ v, selected, onToggle }: { v: ScoredVideo; selected: boolean; onToggle: () => void }) {
+  const { t } = useTranslation();
   const [imgOk, setImgOk] = useState(true);
   return (
     <button
@@ -747,7 +747,7 @@ function VideoCard({ v, selected, onToggle }: { v: ScoredVideo; selected: boolea
             onError={() => setImgOk(false)}
           />
         ) : (
-          <div className="h-full w-full grid place-items-center text-[var(--app-text-faint)] text-xs">aperçu indispo</div>
+          <div className="h-full w-full grid place-items-center text-[var(--app-text-faint)] text-xs">{t("dashboard.importer.noPreview")}</div>
         )}
         {/* Badge rang + score */}
         <div className="absolute top-2 left-2 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white">
@@ -765,10 +765,10 @@ function VideoCard({ v, selected, onToggle }: { v: ScoredVideo; selected: boolea
       </div>
       <div className="p-2.5 space-y-1 bg-[var(--app-surface)]">
         <div className="flex items-center gap-3 text-[13px] text-[var(--app-text-muted)]">
-          <span title="vues">▶ {fmtCount(v.views)}</span>
+          <span title={t("dashboard.importer.views")}>▶ {fmtCount(v.views)}</span>
           <span title="likes">♥ {fmtCount(v.likes)}</span>
           {v.engagementRate !== null && (
-            <span className="ml-auto text-[var(--app-text-muted)]" title="taux d'engagement">
+            <span className="ml-auto text-[var(--app-text-muted)]" title={t("dashboard.importer.engagement")}>
               {(v.engagementRate * 100).toFixed(1)}%
             </span>
           )}
