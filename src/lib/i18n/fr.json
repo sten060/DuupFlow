@@ -1910,6 +1910,22 @@
       "drivePartial": "{ok} envoyée(s), {failed} en échec vers « {folder} »",
       "driveDone": "✓ {ok} vidéo(s) envoyée(s) dans « {folder} » sur ton Drive",
       "driveFailed": "Envoi vers Drive impossible"
+    },
+    "claudeBuiltin": {
+      "badge": "Nouveau",
+      "title": "Claude est maintenant intégré à DuupFlow",
+      "lead": "Plus besoin de connecter ton propre Claude : dans l'Éditeur IA, tu lui parles directement et il monte tes vidéos pour toi.",
+      "demoUser": "Fais-moi 3 variantes de ma réf avec un hook plus punchy",
+      "demoClaude": "C'est parti ! Je monte 3 variantes à partir de ta matière.",
+      "demoVariant": "Variante {n}",
+      "p1t": "Zéro configuration",
+      "p1d": "Rien à installer ni à connecter : choisis « Claude intégré » et c'est prêt.",
+      "p2t": "Tu décris, il monte",
+      "p2d": "Dis-lui ce que tu veux comme montage, les variantes apparaissent à côté du chat.",
+      "p3t": "Tokens offerts chaque mois",
+      "p3d": "Les plans Solo, Pro et Agence incluent des tokens Claude tous les mois. Recharge possible à tout moment.",
+      "cta": "Essayer maintenant",
+      "later": "Plus tard"
     }
   },
   "onb": {

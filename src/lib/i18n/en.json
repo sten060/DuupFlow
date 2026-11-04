@@ -1901,6 +1901,22 @@
       "drivePartial": "{ok} sent, {failed} failed to “{folder}”",
       "driveDone": "✓ {ok} video(s) sent to “{folder}” on your Drive",
       "driveFailed": "Sending to Drive failed"
+    },
+    "claudeBuiltin": {
+      "badge": "New",
+      "title": "Claude is now built into DuupFlow",
+      "lead": "No need to connect your own Claude anymore: in the AI Editor, you talk to it directly and it edits your videos for you.",
+      "demoUser": "Make me 3 variants of my reference with a punchier hook",
+      "demoClaude": "On it! Editing 3 variants from your footage.",
+      "demoVariant": "Variant {n}",
+      "p1t": "Zero setup",
+      "p1d": "Nothing to install or connect: pick “Built-in Claude” and you're ready.",
+      "p2t": "You describe, it edits",
+      "p2d": "Tell it the edit you want, the variants show up right next to the chat.",
+      "p3t": "Free tokens every month",
+      "p3d": "Solo, Pro and Agency plans include Claude tokens every month. Top up anytime.",
+      "cta": "Try it now",
+      "later": "Later"
     }
   },
   "onb": {

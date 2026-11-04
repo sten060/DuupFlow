@@ -26,6 +26,8 @@ const ONBOARDING_AREAS = [
   "similarity",
   "generate",
   "ai-detection",
+  // Annonce « Claude intégré » (ClaudeBuiltinAnnounceModal) — vue une fois.
+  "announce-claude-builtin",
 ] as const;
 
 /**

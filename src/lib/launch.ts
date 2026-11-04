@@ -18,3 +18,18 @@ export function compteNouveau(createdAt: string | null | undefined): boolean {
   const t = new Date(createdAt).getTime();
   return Number.isFinite(t) && t >= new Date(NOUVEAU_PARCOURS_DEPUIS).getTime();
 }
+
+// Mise en ligne de « Claude intégré » dans l'Éditeur IA. L'annonce n'est
+// montrée qu'aux comptes créés AVANT : les inscrits d'après le découvrent dans
+// l'onboarding. ⚠️ Recaler sur l'heure réelle du déploiement.
+/** Clé dans profiles.onboarding_progress : annonce déjà vue. */
+export const ANNONCE_CLAUDE_INTEGRE = "announce-claude-builtin";
+
+export const CLAUDE_INTEGRE_DEPUIS = "2026-11-04T06:06:00Z";
+
+/** Compte existant au moment du lancement de Claude intégré ? */
+export function compteAvantClaudeIntegre(createdAt: string | null | undefined): boolean {
+  if (!createdAt) return false;
+  const t = new Date(createdAt).getTime();
+  return Number.isFinite(t) && t < new Date(CLAUDE_INTEGRE_DEPUIS).getTime();
+}

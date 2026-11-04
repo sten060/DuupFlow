@@ -12,7 +12,8 @@ import ClaritySessionTags, {
 } from "./ClaritySessionTags";
 import { getServerLocale } from "@/lib/i18n/server";
 import { OnboardingProvider } from "./onboarding/OnboardingProvider";
-import { compteNouveau } from "@/lib/launch";
+import { compteNouveau, compteAvantClaudeIntegre, ANNONCE_CLAUDE_INTEGRE } from "@/lib/launch";
+import ClaudeBuiltinAnnounceModal from "./ClaudeBuiltinAnnounceModal";
 import AppOverview from "./onboarding/AppOverview";
 import ModuleCoach from "./onboarding/ModuleCoach";
 import GuidedPath from "./onboarding/GuidedPath";
@@ -54,6 +55,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // TikTok launch reminder — fires once, 12h after the pop-up was seen. Read
   // resiliently below (migration 034 may not be applied yet).
   let tiktok: { seenAt: string | null; reminderSent: boolean } | null = null;
+
+  // Annonce « Claude intégré » — comptes d'avant le lancement, une seule fois.
+  let annonceClaude = false;
 
   // Paywall gate — a paid-plan signup that hasn't paid yet must finish Stripe
   // checkout before entering the app. Holds the plan to resume, else null.
@@ -116,6 +120,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
           .select("onboarding_progress, created_at")
           .eq("id", user.id)
           .single();
+        const onbProgress = (onb?.onboarding_progress as Record<string, boolean> | null) ?? {};
+        annonceClaude =
+          compteAvantClaudeIntegre((onb as { created_at?: string } | null)?.created_at) &&
+          onbProgress[ANNONCE_CLAUDE_INTEGRE] !== true;
         onboarding = {
           // ⚠️ Réservé aux comptes créés APRÈS la mise en service du nouveau
           // parcours. Les abonnés d'avant ont déjà découvert le produit à leur
@@ -260,8 +268,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <TrialCreditsWatcher userId={clarityTags?.userId ?? null} />
       {tiktok && <TikTokReminder seenAt={tiktok.seenAt} reminderSent={tiktok.reminderSent} />}
 
-      {/* Annonce « Claude × DuupFlow » (Éditeur IA) — une fois par user, à la
-          connexion. Jamais par-dessus un modal BLOQUANT (overdue / churn). */}
+      {/* Annonce « Claude intégré » (Éditeur IA) — une fois par compte, à la
+          connexion. Jamais par-dessus un modal BLOQUANT (overdue / churn), ni
+          par-dessus la carte d'accueil de l'onboarding si elle est encore due. */}
+      {annonceClaude && !cancellationPending && !overdue &&
+        !(onboarding?.enabled && onboarding.progress.overview !== true && onboarding.progress.grandfathered !== true) && (
+          <ClaudeBuiltinAnnounceModal />
+        )}
 
       {/* One-shot popup after a subscription cancellation → Free. Takes
           priority over the overdue modal (churn clears overdue, but guard

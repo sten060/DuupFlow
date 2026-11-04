@@ -177,7 +177,7 @@ function DemoBlock() {
               de la vidéo, donc aucune saute visuelle au démarrage. */}
           <video
             key={isFr ? "fr" : "en"}
-            poster={isFr ? "/demo-duupflow-fr-poster.jpg" : "/demo-us-poster.jpg"}
+            poster={isFr ? "/demo-duupflow-fr-v2-poster.jpg" : "/demo-us-poster.jpg"}
             className="absolute inset-0 h-full w-full object-cover"
             controls
             playsInline
@@ -186,8 +186,8 @@ function DemoBlock() {
             muted
             loop
           >
-            <source media="(max-width: 767px)" src={isFr ? "/demo-duupflow-fr-720.mp4" : "/demo-us-720.mp4"} type="video/mp4" />
-            <source src={isFr ? "/demo-duupflow-fr-1080.mp4" : "/demo-us-1080.mp4"} type="video/mp4" />
+            <source media="(max-width: 767px)" src={isFr ? "/demo-duupflow-fr-v2-720.mp4" : "/demo-us-720.mp4"} type="video/mp4" />
+            <source src={isFr ? "/demo-duupflow-fr-v2-1080.mp4" : "/demo-us-1080.mp4"} type="video/mp4" />
           </video>
         </div>
       </div>
