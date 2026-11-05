@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     siteName: "DuupFlow",
     images: [
       {
-        url: "/og-image.png?v=2",
+        url: "/og-image-fr.png?v=3",
         width: 1200,
         height: 630,
         alt: "DuupFlow",
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     title: "DuupFlow — Multiplie ton contenu par 100 sans effort",
     description:
       "Duplique ton contenu, laisse l’IA créer des variantes, et alimente tous tes comptes en quelques minutes.",
-    images: ["/og-image.png?v=2"],
+    images: ["/og-image-fr.png?v=3"],
   },
 };
 
