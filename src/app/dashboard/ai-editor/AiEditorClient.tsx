@@ -860,7 +860,17 @@ export default function AiEditorClient() {
             className="flex flex-col border-b border-[var(--app-border)] p-8 sm:p-10 lg:border-b-0 lg:border-r"
             style={{ background: "rgba(99,102,241,0.045)" }}
           >
-          <p className="text-[17px] font-bold text-[var(--app-text)]">{t("dashboard.aiEditor.material.introLead")}</p>
+          {/* « Ouvrir l'éditeur » aussi en haut : dès 3-4 fichiers, le bouton du
+              bas passait sous la ligne de flottaison et il fallait scroller
+              pour continuer. Celui du bas reste, en fin de liste. */}
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-[17px] font-bold text-[var(--app-text)]">{t("dashboard.aiEditor.material.introLead")}</p>
+            {materials.length > 0 && (
+              <div className="shrink-0">
+                <PrimaryBtn onClick={goEditor}>{t("dashboard.aiEditor.material.open")}</PrimaryBtn>
+              </div>
+            )}
+          </div>
           <p className="mt-2 max-w-[46ch] text-[13.5px] leading-relaxed text-[var(--app-text-muted)]">{t("dashboard.aiEditor.material.introSub")}</p>
           <p className="mb-7 mt-1.5 max-w-[46ch] text-[13px] leading-relaxed text-[var(--app-text-faint)]">{t("dashboard.aiEditor.material.introHint")}</p>
 
