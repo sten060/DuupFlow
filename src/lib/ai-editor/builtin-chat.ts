@@ -183,13 +183,27 @@ export function displayLines(messages: Anthropic.Beta.BetaMessageParam[]): ChatL
 
 /* ── Tours en cours (un seul à la fois par projet) ────────────────────────── */
 
-const g = globalThis as unknown as { __duupChatRunning?: Map<string, number> };
-const running = (g.__duupChatRunning ??= new Map<string, number>());
+// Chaque tour en cours garde un AbortController : le bouton « Arrêter » de
+// l'écran (POST /api/ai-editor/chat/stop) le déclenche, ce qui coupe l'appel à
+// Claude en plein milieu et fait sortir la boucle d'outils.
+type Run = { at: number; abort: AbortController };
+const g = globalThis as unknown as { __duupChatRuns?: Map<string, Run> };
+const running = (g.__duupChatRuns ??= new Map<string, Run>());
 const runKey = (storeKey: string, projectId: string) => `${storeKey}/${projectId}`;
 export function isRunning(storeKey: string, projectId: string) { return running.has(runKey(storeKey, projectId)); }
-export function markRunning(storeKey: string, projectId: string, on: boolean) {
-  if (on) running.set(runKey(storeKey, projectId), Date.now());
-  else running.delete(runKey(storeKey, projectId));
+/** Prend (on) ou rend (off) le verrou du tour. Renvoie le signal d'arrêt du tour. */
+export function markRunning(storeKey: string, projectId: string, on: boolean): AbortSignal | null {
+  if (!on) { running.delete(runKey(storeKey, projectId)); return null; }
+  const run = { at: Date.now(), abort: new AbortController() };
+  running.set(runKey(storeKey, projectId), run);
+  return run.abort.signal;
+}
+/** Demande l'arrêt du tour en cours. false s'il n'y en a pas. */
+export function stopRun(storeKey: string, projectId: string): boolean {
+  const run = running.get(runKey(storeKey, projectId));
+  if (!run) return false;
+  run.abort.abort();
+  return true;
 }
 
 /* ── Coût ─────────────────────────────────────────────────────────────────── */

@@ -9,6 +9,7 @@
 //   POST   → { message, images? } : un tour de conversation, renvoyé en direct (SSE)
 //            (images = ids reçus de /api/ai-editor/chat/attachments)
 //   DELETE → nouvelle conversation
+//   (POST /api/ai-editor/chat/stop → arrête le tour en cours)
 //
 // Le tour continue côté serveur même si l'onglet se ferme : la conversation
 // est enregistrée à chaque étape, et l'écran la relit (GET, running: true).
@@ -18,6 +19,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { briefBlock, type EditorScope } from "@/lib/ai-editor/scope";
 import { getLatestProject, createProject } from "@/lib/ai-editor/store";
 import { builtinTools, runToolInScope, type Content } from "@/lib/ai-editor/mcp-tools";
+import { getRenderJob, cancelRenderJob } from "@/lib/ai-editor/render-jobs";
 import { chatContext as context } from "@/lib/ai-editor/chat-context";
 import {
   CHAT_MODEL, readChat, writeChat, clearChat, displayLines, isRunning, markRunning,
@@ -115,7 +117,7 @@ export async function POST(req: NextRequest) {
   // sur le même créateur) ne peuvent pas lancer deux tours sur la même
   // conversation. Relâché sur chaque sortie anticipée.
   if (isRunning(storeKey, project.id)) return NextResponse.json({ error: "Claude est encore en train de répondre.", code: "BUSY" }, { status: 409 });
-  markRunning(storeKey, project.id, true);
+  const stopSignal = markRunning(storeKey, project.id, true)!;
   const release = (res: NextResponse) => { markRunning(storeKey, project.id, false); return res; };
 
   let messages: Anthropic.Beta.BetaMessageParam[];
@@ -160,6 +162,11 @@ export async function POST(req: NextRequest) {
       const client = new Anthropic();
       const meta = { projectId: project.id, storeKey, userId: user.id };
       const biller = turnBiller(ownerId, plan, meta);
+      // Rendus lancés pendant CE tour : annulés si le user arrête Claude
+      // (sinon les variantes qu'il ne veut plus continueraient à se fabriquer).
+      const renders = new Set<string>();
+      let partial = ""; // texte de l'appel en cours, gardé si le user l'arrête
+      let live: { readonly currentMessage: Anthropic.Beta.BetaMessage | undefined } | null = null;
       const billRound = async () => {
         const cents = usageCents(usage) - billedCents;
         if (cents <= 0) return;
@@ -175,6 +182,7 @@ export async function POST(req: NextRequest) {
       };
       try {
         for (let round = 0; round < MAX_ROUNDS; round++) {
+          if (stopSignal.aborted) break;
           // Solde vérifié AVANT chaque appel, pas seulement au début du message :
           // « fais-m'en 10 » avec 500 tokens s'arrête quand il n'y a plus rien.
           if (round > 0) {
@@ -184,6 +192,7 @@ export async function POST(req: NextRequest) {
               break;
             }
           }
+          partial = "";
           const s = client.beta.messages.stream({
             model: CHAT_MODEL,
             max_tokens: 32000,
@@ -194,8 +203,9 @@ export async function POST(req: NextRequest) {
             system,
             tools,
             messages,
-          } as unknown as Anthropic.Beta.Messages.MessageCreateParamsStreaming);
-          s.on("text", (delta) => send({ type: "text", text: delta }));
+          } as unknown as Anthropic.Beta.Messages.MessageCreateParamsStreaming, { signal: stopSignal });
+          live = s;
+          s.on("text", (delta) => { partial += delta; send({ type: "text", text: delta }); });
           const msg = await s.finalMessage();
           addUsage(usage, msg.model, msg.usage);
           await billRound();
@@ -213,6 +223,12 @@ export async function POST(req: NextRequest) {
 
           const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
           for (const u of uses) {
+            // Arrêt demandé entre deux outils : les suivants ne partent pas, mais
+            // chaque tool_use doit quand même recevoir sa réponse (règle de l'API).
+            if (stopSignal.aborted) {
+              results.push({ type: "tool_result", tool_use_id: u.id, content: "Arrêté par le user avant d'avoir été exécuté.", is_error: true });
+              continue;
+            }
             send({ type: "action", tool: u.name });
             let out: { content: Content[]; isError?: boolean };
             try {
@@ -221,6 +237,9 @@ export async function POST(req: NextRequest) {
               console.error(`[ai-editor/chat] outil ${u.name} en échec :`, e);
               out = { content: [{ type: "text", text: `Erreur interne de l'outil ${u.name}.` }], isError: true };
             }
+            if (u.name === "create_variant" || u.name === "update_variant") {
+              for (const c of out.content) if (c.type === "text") for (const id of c.text.match(/\brj_[a-z0-9]+/g) ?? []) renders.add(id);
+            }
             results.push({ type: "tool_result", tool_use_id: u.id, content: toToolResultContent(out.content), ...(out.isError ? { is_error: true } : {}) });
           }
           messages.push({ role: "user", content: results });
@@ -228,10 +247,30 @@ export async function POST(req: NextRequest) {
           send({ type: "round" }); // l'écran rafraîchit variantes et matière
         }
       } catch (e) {
+        if (stopSignal.aborted) {
+          // Coupé en pleine réponse : on facture ce que Claude a déjà produit
+          // (entrée connue dès le début du flux, sortie estimée sur le texte reçu)
+          // et on garde ce texte dans la conversation.
+          const snap = live?.currentMessage;
+          if (snap) addUsage(usage, snap.model, { ...snap.usage, output_tokens: Math.max(snap.usage.output_tokens ?? 0, Math.ceil(partial.length / 3)) });
+          if (partial.trim()) {
+            messages.push({ role: "assistant", content: [{ type: "text", text: partial }] });
+            await writeChat(storeKey, project.id, messages, contextTokens).catch(() => {});
+          }
+        } else {
         console.error("[ai-editor/chat] tour en échec :", e);
         const busy = e instanceof Anthropic.RateLimitError;
         send({ type: "error", code: busy ? "RATE_LIMIT" : "ERROR", error: busy ? "Claude est très demandé en ce moment, réessaie dans une minute." : "Claude n'a pas pu répondre. Réessaie." });
+        }
       } finally {
+        if (stopSignal.aborted) {
+          let cancelled = 0;
+          for (const id of renders) {
+            const job = getRenderJob(id);
+            if (job && job.userId === storeKey && cancelRenderJob(job) === "cancelled") cancelled++;
+          }
+          send({ type: "stopped", cancelled });
+        }
         await billRound(); // filet : rien ne reste impayé si une exception a coupé la boucle
         await biller.flush().catch((e) => console.error("[ai-editor/chat] facturation :", e));
         markRunning(storeKey, project.id, false);

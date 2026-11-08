@@ -149,6 +149,8 @@ export default function BuiltinChat({ onActivity, visible = true }: { onActivity
   const [error, setError] = useState<{ text: string; tokens?: boolean; plan?: boolean } | null>(null);
   const [allowance, setAllowance] = useState<Allowance | null>(null);
   const [long, setLong] = useState(false); // conversation longue → suggérer d'en ouvrir une nouvelle
+  const [stopping, setStopping] = useState(false); // « Arrêter » cliqué, le serveur boucle le tour
+  const [stopped, setStopped] = useState<{ cancelled: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Erreurs du serveur : un code → texte traduit ; sinon le message reçu.
   const errText = (d: { code?: string; error?: string }) => {
@@ -186,7 +188,7 @@ export default function BuiltinChat({ onActivity, visible = true }: { onActivity
         running = await load();
         activity.current();
       }
-      if (!stop) setBusy(false);
+      if (!stop) { setBusy(false); setStopping(false); }
     })();
     return () => { stop = true; };
   }, [load]);
@@ -277,6 +279,7 @@ export default function BuiltinChat({ onActivity, visible = true }: { onActivity
     setDraft("");
     setAttachments([]);
     setError(null);
+    setStopped(null);
     setBusy(true);
     setLines((l) => [...(l ?? []), { role: "user", text, images: ready.length ? ready.map((a) => a.preview) : undefined }]);
     let pending = "";
@@ -311,12 +314,13 @@ export default function BuiltinChat({ onActivity, visible = true }: { onActivity
           const raw = buf.slice(0, i);
           buf = buf.slice(i + 2);
           if (!raw.startsWith("data: ")) continue;
-          const e = JSON.parse(raw.slice(6)) as { type: string; text?: string; tool?: string; error?: string; code?: string; long?: boolean; allowance?: Allowance | null };
+          const e = JSON.parse(raw.slice(6)) as { type: string; text?: string; tool?: string; error?: string; code?: string; long?: boolean; cancelled?: number; allowance?: Allowance | null };
           if (e.type === "text" && e.text) { pending += e.text; setLive(pending); }
           else if (e.type === "action" && e.tool) { commit(); setLines((l) => [...(l ?? []), { role: "action", tool: e.tool! }]); }
           else if (e.type === "round") activity.current();
           else if (e.type === "error") setError({ text: errText(e), tokens: e.code === "TOKENS" || e.code === "TOKENS_MIDWAY" });
           else if (e.type === "context") setLong(!!e.long);
+          else if (e.type === "stopped") setStopped({ cancelled: e.cancelled ?? 0 });
           else if ((e.type === "done" || e.type === "allowance") && e.allowance) setAllowance(e.allowance);
         }
       }
@@ -327,8 +331,19 @@ export default function BuiltinChat({ onActivity, visible = true }: { onActivity
     } finally {
       setLive("");
       setBusy(false);
+      setStopping(false);
       activity.current();
     }
+  }
+
+  // Arrête Claude en plein travail : sa réponse est coupée, les étapes
+  // suivantes ne partent pas et les variantes lancées pendant ce tour sont
+  // annulées. Le flux (ou la relecture) se termine tout seul ensuite.
+  async function stop() {
+    if (!busy || stopping) return;
+    setStopping(true);
+    const r = await fetch("/api/ai-editor/chat/stop", { method: "POST" }).catch(() => null);
+    if (!r?.ok) setStopping(false);
   }
 
   async function reset() {
@@ -434,7 +449,13 @@ export default function BuiltinChat({ onActivity, visible = true }: { onActivity
             {live && <div className="cc-serif text-[15px] leading-[1.65] text-[var(--cc-text)]"><Formatted text={live} /></div>}
             {busy && !live && !lastIsActions && (
               <div className="flex items-center gap-2 text-[12.5px] text-[var(--cc-faint)]" aria-live="polite">
-                <Spark busy size={18} />{t("dashboard.aiEditor.chat.thinking")}
+                <Spark busy size={18} />{t(stopping ? "dashboard.aiEditor.chat.stopping" : "dashboard.aiEditor.chat.thinking")}
+              </div>
+            )}
+            {stopped && !busy && (
+              <div className="flex items-center gap-2 text-[12.5px] text-[var(--cc-faint)]" aria-live="polite">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                {stopped.cancelled > 0 ? t("dashboard.aiEditor.chat.stoppedRenders", { n: stopped.cancelled }) : t("dashboard.aiEditor.chat.stopped")}
               </div>
             )}
             {!busy && groups.length > 0 && groups[groups.length - 1].kind === "assistant" && <Spark size={22} />}
@@ -530,6 +551,17 @@ export default function BuiltinChat({ onActivity, visible = true }: { onActivity
                 <svg viewBox="0 0 24 24" className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
               </button>
             )}
+            {busy ? (
+            <button
+              onClick={() => void stop()}
+              disabled={stopping}
+              title={t("dashboard.aiEditor.chat.stop")}
+              aria-label={t("dashboard.aiEditor.chat.stop")}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--cc-text)] text-[var(--cc-input)] transition hover:opacity-85 disabled:opacity-40"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5" /></svg>
+            </button>
+            ) : (
             <button
               onClick={() => void send()}
               disabled={busy || uploading || (!draft.trim() && !attachments.some((a) => a.id))}
@@ -539,6 +571,7 @@ export default function BuiltinChat({ onActivity, visible = true }: { onActivity
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
             </button>
+            )}
             </span>
           </div>
         </div>

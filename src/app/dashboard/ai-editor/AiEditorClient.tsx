@@ -716,10 +716,10 @@ export default function AiEditorClient() {
 
       {/* ============ ÉTAPE 1 · RÉFÉRENCE — split plein écran, bords collés ============ */}
       {step === "ref" && (
-        <section className="mx-3 mb-3 mt-5 grid flex-1 overflow-hidden rounded-2xl border border-[var(--app-border)] lg:grid-cols-[minmax(340px,480px)_1fr]">
+        <section className="mx-3 mb-3 mt-5 grid min-h-0 flex-1 overflow-y-auto rounded-2xl border border-[var(--app-border)] lg:grid-cols-[minmax(340px,480px)_1fr] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
           {/* ── Zone upload (gauche, bord collé) ── */}
           <div
-            className="flex flex-col justify-center border-b border-[var(--app-border)] p-8 sm:p-10 lg:border-b-0 lg:border-r"
+            className="flex flex-col border-b border-[var(--app-border)] p-8 [justify-content:safe_center] sm:p-10 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:border-r"
             style={{ background: "rgba(99,102,241,0.045)" }}
           >
             <p className="mb-9 text-sm leading-relaxed text-[var(--app-text-muted)]">
@@ -817,7 +817,7 @@ export default function AiEditorClient() {
           </div>
 
           {/* ── Guide (droite) — prend tout l&apos;espace, plat, bords collés ── */}
-          <aside className="flex flex-col justify-center gap-11 p-8 sm:p-14">
+          <aside className="flex flex-col gap-11 p-8 [justify-content:safe_center] sm:p-14 lg:min-h-0 lg:overflow-y-auto">
             <div className="text-[12px] font-bold uppercase tracking-wider text-indigo-400">{t("dashboard.aiEditor.ref.guideHeading")}</div>
 
             <div className="flex items-start gap-4">
@@ -850,14 +850,18 @@ export default function AiEditorClient() {
       {/* ============ ÉTAPE 2 · MATIÈRE ============ */}
       {step === "material" && (
         <section
-          className="mx-3 mb-3 mt-5 grid flex-1 overflow-hidden rounded-2xl border border-[var(--app-border)] lg:grid-cols-[minmax(340px,520px)_1fr]"
+          /* Hauteur fixe (flex-1) + overflow-hidden coupait la liste des
+             fichiers sans scroll possible. Grand écran : chaque colonne défile
+             seule (grid-rows minmax(0,1fr) borne la ligne à la hauteur dispo).
+             Mobile (une colonne) : c'est la section entière qui défile. */
+          className="mx-3 mb-3 mt-5 grid min-h-0 flex-1 overflow-y-auto rounded-2xl border border-[var(--app-border)] lg:grid-cols-[minmax(340px,520px)_1fr] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden"
           onDragOver={(e) => { e.preventDefault(); if (!matDragOver) setMatDragOver(true); }}
           onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setMatDragOver(false); }}
           onDrop={(e) => { e.preventDefault(); setMatDragOver(false); if (e.dataTransfer.files?.length) addMaterials(e.dataTransfer.files); }}
         >
           {/* ── Zone upload (gauche, bord collé) ── */}
           <div
-            className="flex flex-col border-b border-[var(--app-border)] p-8 sm:p-10 lg:border-b-0 lg:border-r"
+            className="flex flex-col border-b border-[var(--app-border)] p-8 sm:p-10 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:border-r"
             style={{ background: "rgba(99,102,241,0.045)" }}
           >
           {/* « Ouvrir l'éditeur » aussi en haut : dès 3-4 fichiers, le bouton du
@@ -944,7 +948,7 @@ export default function AiEditorClient() {
           {/* justify-center centrait le guide verticalement : son titre tombait
               bien plus bas que « Ajoute tes fichiers ». On aligne les deux
               colonnes par le haut, avec le même retrait. */}
-          <aside className="flex flex-col justify-start gap-10 p-8 sm:p-10 sm:pr-14">
+          <aside className="flex flex-col justify-start gap-10 p-8 sm:p-10 sm:pr-14 lg:min-h-0 lg:overflow-y-auto">
             <div className="mt-1 text-[12px] font-bold uppercase tracking-wider text-indigo-400">{t("dashboard.aiEditor.material.guideHeading")}</div>
 
             <div className="flex items-start gap-4">
