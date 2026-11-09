@@ -501,7 +501,8 @@
       "parametres": "Paramètres",
       "deconnexion": "Déconnexion",
       "expandMenu": "Déplier le menu",
-      "collapseMenu": "Réduire le menu"
+      "collapseMenu": "Réduire le menu",
+      "amelioration": "Amélioration"
     },
     "aiEditor": {
       "comingSoon": {
@@ -1930,6 +1931,22 @@
       "p3d": "Les plans Solo, Pro et Agence incluent des tokens Claude tous les mois. Recharge possible à tout moment.",
       "cta": "Essayer maintenant",
       "later": "Plus tard"
+    },
+    "featureRequest": {
+      "close": "Fermer",
+      "title": "Qu'est-ce qui te manque sur DuupFlow ?",
+      "lead": "Une fonctionnalité, une amélioration, un truc qui t'agace : dis-nous tout. On lit chaque idée, et les plus demandées passent en priorité.",
+      "placeholder": "Ex. : « J'aimerais pouvoir programmer la publication de mes variantes directement sur TikTok »",
+      "ex1": "Publier directement sur mes réseaux",
+      "ex2": "Plus de styles de sous-titres",
+      "ex3": "Une appli mobile",
+      "hint": "Sois aussi précis que tu veux 🙏",
+      "send": "Envoyer mon idée",
+      "sending": "Envoi…",
+      "error": "L'envoi n'a pas marché. Réessaie dans un instant.",
+      "sentTitle": "Merci, c'est bien reçu !",
+      "sentLead": "Ton idée est arrivée directement chez l'équipe. Si on la construit, tu le verras dans les nouveautés.",
+      "another": "Proposer une autre idée"
     }
   },
   "onb": {

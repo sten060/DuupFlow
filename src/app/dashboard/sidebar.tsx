@@ -3,13 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
 import { bindNotificationsUser } from "./components/notificationStore";
 import ThemeToggle from "./components/ThemeToggle";
 import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
+import FeatureRequestModal from "./components/FeatureRequestModal";
 
 const COLLAPSE_KEY = "duupflow_sidebar_collapsed";
 
@@ -190,6 +191,38 @@ function BottomLink({
   );
 }
 
+// Variante bouton de BottomLink : ouvre une fenêtre au lieu d'une page.
+function BottomButton({
+  label, icon, collapsed, onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  collapsed: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={collapsed ? label : undefined}
+      className={[
+        "flex items-center rounded-lg text-sm text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] hover:bg-[var(--app-surface)] transition-all w-full mb-1",
+        collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+      ].join(" ")}
+    >
+      <span className="shrink-0">{icon}</span>
+      {!collapsed && <span className="flex-1 text-left">{label}</span>}
+    </button>
+  );
+}
+
+const IdeaIcon = (
+  <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 18h6" /><path d="M10 22h4" />
+    <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+  </svg>
+);
+
 // Variante externe de BottomLink : ouvre une URL http(s) dans un nouvel onglet
 // (ex. portail affilié FirstPromoter, hébergé hors de l'app).
 function ExternalBottomLink({
@@ -365,6 +398,8 @@ export default function Sidebar() {
   const [email, setEmail] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [ideaOpen, setIdeaOpen] = useState(false);
+  const closeIdea = useCallback(() => setIdeaOpen(false), []);
   const pathname = usePathname();
   const { t } = useTranslation();
 
@@ -650,6 +685,8 @@ export default function Sidebar() {
             }
           />
 
+          <BottomButton label={t("dashboard.sidebar.amelioration")} collapsed={collapsed} icon={IdeaIcon} onClick={() => setIdeaOpen(true)} />
+
           <BottomLink
             href="/dashboard/support"
             label={t("dashboard.sidebar.support")}
@@ -777,6 +814,7 @@ export default function Sidebar() {
           collapsed={false}
           icon={<svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>}
         />
+        <BottomButton label={t("dashboard.sidebar.amelioration")} collapsed={false} icon={IdeaIcon} onClick={() => { setMobileOpen(false); setIdeaOpen(true); }} />
         <BottomLink
           href="/dashboard/support"
           label={t("dashboard.sidebar.support")}
@@ -811,6 +849,8 @@ export default function Sidebar() {
         </div>
       </div>
     </aside>
+
+    <FeatureRequestModal open={ideaOpen} onClose={closeIdea} />
     </>
   );
 }

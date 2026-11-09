@@ -501,7 +501,8 @@
       "parametres": "Settings",
       "deconnexion": "Log Out",
       "expandMenu": "Expand menu",
-      "collapseMenu": "Collapse menu"
+      "collapseMenu": "Collapse menu",
+      "amelioration": "Suggest a feature"
     },
     "aiEditor": {
       "comingSoon": {
@@ -1921,6 +1922,22 @@
       "p3d": "Solo, Pro and Agency plans include Claude tokens every month. Top up anytime.",
       "cta": "Try it now",
       "later": "Later"
+    },
+    "featureRequest": {
+      "close": "Close",
+      "title": "What's missing on DuupFlow?",
+      "lead": "A feature, an improvement, something that bugs you: tell us everything. We read every idea, and the most requested ones get prioritized.",
+      "placeholder": "E.g. \"I'd love to schedule my variants straight to TikTok\"",
+      "ex1": "Post directly to my socials",
+      "ex2": "More caption styles",
+      "ex3": "A mobile app",
+      "hint": "Be as specific as you like 🙏",
+      "send": "Send my idea",
+      "sending": "Sending…",
+      "error": "Sending failed. Try again in a moment.",
+      "sentTitle": "Thanks, we got it!",
+      "sentLead": "Your idea went straight to the team. If we build it, you'll see it in the updates.",
+      "another": "Suggest another idea"
     }
   },
   "onb": {
