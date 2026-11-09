@@ -1947,6 +1947,22 @@
       "sentTitle": "Merci, c'est bien reçu !",
       "sentLead": "Ton idée est arrivée directement chez l'équipe. Si on la construit, tu le verras dans les nouveautés.",
       "another": "Proposer une autre idée"
+    },
+    "featureAnnounce": {
+      "badge": "Nouveau",
+      "title": "Ton avis construit DuupFlow",
+      "lead": "Une fonctionnalité qui te manque ? Un truc à améliorer ? Il y a maintenant une case « Amélioration » dans la barre de gauche pour nous le dire.",
+      "p1t": "Écris ton idée",
+      "p1d": "En quelques mots, ce que tu aimerais voir de nouveau sur l'outil.",
+      "p2t": "On lit tout",
+      "p2d": "Chaque idée arrive directement chez l'équipe, aucune n'est laissée de côté.",
+      "p3t": "Les plus demandées passent en priorité",
+      "p3d": "Ce qui revient souvent est construit en premier.",
+      "cta": "J'ai compris !",
+      "spotTitle": "C'est ici 👈",
+      "spotBody": "Clique sur « Amélioration » dès qu'une idée te vient. Chaque idée est lue par l'équipe, aucune n'est laissée de côté.",
+      "spotTry": "Proposer une idée",
+      "spotOk": "OK"
     }
   },
   "onb": {

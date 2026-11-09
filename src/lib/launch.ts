@@ -33,3 +33,17 @@ export function compteAvantClaudeIntegre(createdAt: string | null | undefined): 
   const t = new Date(createdAt).getTime();
   return Number.isFinite(t) && t < new Date(CLAUDE_INTEGRE_DEPUIS).getTime();
 }
+
+// Case « Amélioration » de la sidebar (idées des users) : annoncée une fois aux
+// comptes créés AVANT sa mise en ligne.
+/** Clé dans profiles.onboarding_progress : annonce déjà vue. */
+export const ANNONCE_AMELIORATION = "announce-feature-requests";
+
+export const AMELIORATION_DEPUIS = "2026-11-09T05:30:00Z";
+
+/** Compte existant au moment du lancement de la case « Amélioration » ? */
+export function compteAvantAmelioration(createdAt: string | null | undefined): boolean {
+  if (!createdAt) return false;
+  const t = new Date(createdAt).getTime();
+  return Number.isFinite(t) && t < new Date(AMELIORATION_DEPUIS).getTime();
+}

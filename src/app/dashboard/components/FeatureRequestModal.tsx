@@ -11,6 +11,9 @@ import { useTranslation } from "@/lib/i18n/context";
 
 const MAX_CHARS = 3000;
 
+/** Événement window qui ouvre cette fenêtre depuis n'importe où (ex. l'annonce). */
+export const OPEN_IDEA_EVENT = "duup:open-feature-request";
+
 export default function FeatureRequestModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const pathname = usePathname();

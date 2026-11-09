@@ -10,7 +10,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import { bindNotificationsUser } from "./components/notificationStore";
 import ThemeToggle from "./components/ThemeToggle";
 import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
-import FeatureRequestModal from "./components/FeatureRequestModal";
+import FeatureRequestModal, { OPEN_IDEA_EVENT } from "./components/FeatureRequestModal";
 
 const COLLAPSE_KEY = "duupflow_sidebar_collapsed";
 
@@ -193,9 +193,10 @@ function BottomLink({
 
 // Variante bouton de BottomLink : ouvre une fenêtre au lieu d'une page.
 function BottomButton({
-  label, icon, collapsed, onClick,
+  label, icon, collapsed, onClick, tourId,
 }: {
   label: string;
+  tourId?: string;
   icon: React.ReactNode;
   collapsed: boolean;
   onClick: () => void;
@@ -204,6 +205,7 @@ function BottomButton({
     <button
       type="button"
       onClick={onClick}
+      data-tour-id={tourId}
       title={collapsed ? label : undefined}
       className={[
         "flex items-center rounded-lg text-sm text-[var(--app-text-faint)] hover:text-[var(--app-text-muted)] hover:bg-[var(--app-surface)] transition-all w-full mb-1",
@@ -400,6 +402,12 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [ideaOpen, setIdeaOpen] = useState(false);
   const closeIdea = useCallback(() => setIdeaOpen(false), []);
+  // L'annonce (FeatureRequestAnnounce) peut ouvrir la fenêtre d'idées.
+  useEffect(() => {
+    const open = () => setIdeaOpen(true);
+    window.addEventListener(OPEN_IDEA_EVENT, open);
+    return () => window.removeEventListener(OPEN_IDEA_EVENT, open);
+  }, []);
   const pathname = usePathname();
   const { t } = useTranslation();
 
@@ -685,7 +693,7 @@ export default function Sidebar() {
             }
           />
 
-          <BottomButton label={t("dashboard.sidebar.amelioration")} collapsed={collapsed} icon={IdeaIcon} onClick={() => setIdeaOpen(true)} />
+          <BottomButton tourId="sidebar-amelioration" label={t("dashboard.sidebar.amelioration")} collapsed={collapsed} icon={IdeaIcon} onClick={() => setIdeaOpen(true)} />
 
           <BottomLink
             href="/dashboard/support"

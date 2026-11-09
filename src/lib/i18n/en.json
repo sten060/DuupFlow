@@ -1938,6 +1938,22 @@
       "sentTitle": "Thanks, we got it!",
       "sentLead": "Your idea went straight to the team. If we build it, you'll see it in the updates.",
       "another": "Suggest another idea"
+    },
+    "featureAnnounce": {
+      "badge": "New",
+      "title": "Your feedback builds DuupFlow",
+      "lead": "A feature you're missing? Something to improve? There's now a \"Suggest a feature\" entry in the left sidebar to tell us.",
+      "p1t": "Write your idea",
+      "p1d": "In a few words, what you'd like to see next in the tool.",
+      "p2t": "We read everything",
+      "p2d": "Every idea goes straight to the team, none is left aside.",
+      "p3t": "Top requests come first",
+      "p3d": "What comes up often gets built first.",
+      "cta": "Got it!",
+      "spotTitle": "It's right here 👈",
+      "spotBody": "Click \"Suggest a feature\" whenever an idea comes up. The team reads every one, none is left aside.",
+      "spotTry": "Suggest an idea",
+      "spotOk": "OK"
     }
   },
   "onb": {

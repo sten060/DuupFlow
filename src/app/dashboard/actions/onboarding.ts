@@ -28,6 +28,8 @@ const ONBOARDING_AREAS = [
   "ai-detection",
   // Annonce « Claude intégré » (ClaudeBuiltinAnnounceModal) — vue une fois.
   "announce-claude-builtin",
+  // Annonce de la case « Amélioration » (FeatureRequestAnnounce) — vue une fois.
+  "announce-feature-requests",
 ] as const;
 
 /**
