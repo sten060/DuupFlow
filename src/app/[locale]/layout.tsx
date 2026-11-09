@@ -33,11 +33,11 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
       description: EN_DESC,
       url: "https://www.duupflow.com/en",
       siteName: "DuupFlow",
-      images: [{ url: "/og-image.png?v=2", width: 1200, height: 630, alt: "DuupFlow" }],
+      images: [{ url: "/og-image-fr.png?v=3", width: 1200, height: 630, alt: "DuupFlow" }],
       locale: "en_US",
       type: "website",
     },
-    twitter: { card: "summary_large_image", title: EN_TITLE, description: EN_DESC, images: ["/og-image.png?v=2"] },
+    twitter: { card: "summary_large_image", title: EN_TITLE, description: EN_DESC, images: ["/og-image-fr.png?v=3"] },
   };
 }
 
