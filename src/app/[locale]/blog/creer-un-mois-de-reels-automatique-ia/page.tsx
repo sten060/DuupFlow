@@ -5,14 +5,16 @@
 // "code" block for the Drive tree and the Claude prompt.
 
 import type { Metadata } from "next";
+import { publicPath } from "@/lib/i18n/routes";
 import Link from "@/components/LocaleLink";
 import ArticleTOC, { type TocSection } from "../_components/ArticleTOC";
 
 const SLUG = "creer-un-mois-de-reels-automatique-ia";
 const PUBLISHED_AT = "2026-11-02";
 const AUTHOR = "@Sten";
-const CANONICAL_FR = `/fr/blog/${SLUG}`;
-const CANONICAL_EN = `/en/blog/${SLUG}`;
+// Adresse EN traduite (routes.ts) : /blog/<slug-en> ; FR : /fr/blog/<slug-fr>.
+const CANONICAL_FR = publicPath("fr", `/blog/${SLUG}`);
+const CANONICAL_EN = publicPath("en", `/blog/${SLUG}`);
 const READING = { fr: 9, en: 9 } as const;
 
 const SECTIONS = {
@@ -68,7 +70,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     description: m.description,
     alternates: {
       canonical: isFr ? CANONICAL_FR : CANONICAL_EN,
-      languages: { "fr-FR": CANONICAL_FR, "en": CANONICAL_EN, "x-default": CANONICAL_EN },
+      languages: { "en-US": CANONICAL_EN, "fr-FR": CANONICAL_FR, "x-default": CANONICAL_EN },
     },
     openGraph: {
       title: m.title,
@@ -326,7 +328,7 @@ const BODY: Record<"fr" | "en", Block[]> = {
       "<strong>Letting the AI edit overly complex formats.</strong> Automatic editing shines on simple formats; for the rest, edit by hand and automate what comes after.",
       "<strong>Ignoring platform signals.</strong> If an account loses reach, slow down its posting rhythm before carrying on.",
     ] },
-    { t: "p", html: `To pick your plan, everything is on the <a href="/en/pricing" ${LINK}>pricing page</a>.` },
+    { t: "p", html: `To pick your plan, everything is on the <a href="/pricing" ${LINK}>pricing page</a>.` },
     { t: "cta", href: "/pricing", html: "See DuupFlow plans" },
   ],
 };

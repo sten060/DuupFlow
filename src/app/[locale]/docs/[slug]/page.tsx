@@ -1,7 +1,8 @@
-// Centre d'aide public — une page par fonctionnalité (/fr/docs/<slug>, /en/docs/<slug>).
-// Même slug dans les deux langues. Contenu : helpCenterContent.ts.
+// Centre d'aide public — une page par fonctionnalité (/fr/docs/<slug-fr>, /docs/<slug-en>).
+// Slug interne = slug FR ; l'adresse anglaise traduite vient de routes.ts. Contenu : helpCenterContent.ts.
 
 import type { Metadata } from "next";
+import { absoluteUrl, alternatesFor } from "@/lib/i18n/routes";
 import { notFound } from "next/navigation";
 import { HelpDocPage } from "@/components/marketing/HelpDocPage";
 import { HELP_DOCS } from "@/components/marketing/helpCenterContent";
@@ -22,11 +23,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return {
     title,
     description: doc.summary[lang],
-    alternates: {
-      canonical: `/${lang}/docs/${slug}`,
-      languages: { "fr-FR": `/fr/docs/${slug}`, "en-US": `/en/docs/${slug}`, "x-default": `/en/docs/${slug}` },
-    },
-    openGraph: { title, description: doc.summary[lang], url: `https://www.duupflow.com/${lang}/docs/${slug}`, type: "article" },
+    alternates: alternatesFor(lang, `/docs/${slug}`),
+    openGraph: { title, description: doc.summary[lang], url: absoluteUrl(lang, `/docs/${slug}`), type: "article" },
   };
 }
 

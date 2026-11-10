@@ -4,19 +4,19 @@
 
 ## Help center (one page per feature)
 
-Each page explains what the feature does, how to use it step by step, its limits/formats and which plans include it. Same URL in English (/en/docs/...) and French (/fr/docs/...).
+Each page explains what the feature does, how to use it step by step, its limits/formats and which plans include it. English at the root (/docs/...), French under /fr (/fr/docs/...).
 
-- [Help center index](https://www.duupflow.com/en/docs)
-- [Video duplication](https://www.duupflow.com/en/docs/duplication-video): Simple (packs, Light/Balanced/Strong) and Advanced modes; MP4/MOV/MKV/AVI/WEBM, max 120 s and 5 GB per video, 40 videos per batch; quota = videos × copies.
-- [Image duplication](https://www.duupflow.com/en/docs/duplication-image): JPG/PNG/WEBP/HEIC, 50 images per batch.
-- [AI Editor](https://www.duupflow.com/en/docs/editeur-ia): edit from raw footage with your own Claude via an MCP connector (works on Claude's free plan); reference + material (300 MB, video 2 min, audio 4 min); each variant = 1 video of quota.
-- [Instagram & TikTok scraper](https://www.duupflow.com/en/docs/scraper): ranks an account's videos by performance; paid in tokens (refunded if the scan fails).
-- [Comparator](https://www.duupflow.com/en/docs/comparateur): similarity score (60% image, 40% technical); below 45% = distinct files.
-- [Compressor](https://www.duupflow.com/en/docs/compresseur): up to 30 files / 10 GB per batch, Light/Balanced/Strong, never heavier than the original.
-- [AI Variation](https://www.duupflow.com/en/docs/variation-ia): 1–3 new images from one photo (same face, setting, lighting); 90 tokens/image on Solo, 70 on Pro/Agency.
-- [Remove AI detection](https://www.duupflow.com/en/docs/retirer-detection-ia): an option in video/image duplication and the API.
-- [Creator workspaces & team roles](https://www.duupflow.com/en/docs/createurs-et-roles): Pro 2 workspaces / 3 members, Agency 15 / 10; roles Owner, Manager, VA (VA only sees assigned creators).
-- [Google Drive](https://www.duupflow.com/en/docs/google-drive): import with the picker, export to any folder or to the creator's "Creator — DuupFlow" folder.
+- [Help center index](https://www.duupflow.com/docs)
+- [Video duplication](https://www.duupflow.com/docs/video-duplication): Simple (packs, Light/Balanced/Strong) and Advanced modes; MP4/MOV/MKV/AVI/WEBM, max 120 s and 5 GB per video, 40 videos per batch; quota = videos × copies.
+- [Image duplication](https://www.duupflow.com/docs/image-duplication): JPG/PNG/WEBP/HEIC, 50 images per batch.
+- [AI Editor](https://www.duupflow.com/docs/ai-editor): edit from raw footage with your own Claude via an MCP connector (works on Claude's free plan); reference + material (300 MB, video 2 min, audio 4 min); each variant = 1 video of quota.
+- [Instagram & TikTok scraper](https://www.duupflow.com/docs/scraper): ranks an account's videos by performance; paid in tokens (refunded if the scan fails).
+- [Comparator](https://www.duupflow.com/docs/comparator): similarity score (60% image, 40% technical); below 45% = distinct files.
+- [Compressor](https://www.duupflow.com/docs/compressor): up to 30 files / 10 GB per batch, Light/Balanced/Strong, never heavier than the original.
+- [AI Variation](https://www.duupflow.com/docs/ai-variation): 1–3 new images from one photo (same face, setting, lighting); 90 tokens/image on Solo, 70 on Pro/Agency.
+- [Remove AI detection](https://www.duupflow.com/docs/remove-ai-detection): an option in video/image duplication and the API.
+- [Creator workspaces & team roles](https://www.duupflow.com/docs/creators-and-roles): Pro 2 workspaces / 3 members, Agency 15 / 10; roles Owner, Manager, VA (VA only sees assigned creators).
+- [Google Drive](https://www.duupflow.com/docs/google-drive): import with the picker, export to any folder or to the creator's "Creator — DuupFlow" folder.
 
 ## Plans (monthly price · yearly price per month)
 
@@ -27,13 +27,13 @@ Each page explains what the feature does, how to use it step by step, its limits
 
 ## API documentation
 
-- [API documentation (English)](https://www.duupflow.com/en/docs/api): authentication, endpoints, parameters, limits, errors, examples, FAQ.
+- [API documentation (English)](https://www.duupflow.com/docs/api): authentication, endpoints, parameters, limits, errors, examples, FAQ.
 - [Documentation API (français)](https://www.duupflow.com/fr/docs/api)
 
 ## Key facts about the API
 
 - REST API at https://www.duupflow.com/api/v1, header `Authorization: Bearer dflw_live_…`. Keys are created in the dashboard under Developers (max 3 per account, shown once).
-- Included at no extra cost in the Pro and Agency plans (not Solo or Free). Unlimited duplications through the API. No free API trial; monthly Pro has no commitment. Prices: https://www.duupflow.com/en/pricing
+- Included at no extra cost in the Pro and Agency plans (not Solo or Free). Unlimited duplications through the API. No free API trial; monthly Pro has no commitment. Prices: https://www.duupflow.com/pricing
 - Endpoints: GET /me · POST /images/duplicate (sync, 1–20 copies, ≤ 25 MB) · POST /videos/duplicate (async job, 1–10 copies, ≤ 150 MB, ≤ 120 s; mp4/mov/mkv/avi/webm; vertical 9:16 supported) · GET /jobs/:id · GET /jobs/:id/files/:name · POST /compress (images) · POST /ai-detection (image: sync; video: async job, single output, no duplication effect).
 - Video results are downloadable for 16 hours. Poll GET /jobs/:id every 5–10 s. A completion webhook is in development.
 - Limits: 300 requests/min per key, 100 pending video jobs per account.

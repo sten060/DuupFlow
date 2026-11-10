@@ -1,4 +1,4 @@
-// Documentation PUBLIQUE de l'API — /fr/docs/api et /en/docs/api.
+// Documentation PUBLIQUE de l'API — /fr/docs/api et /docs/api.
 // Pensée pour les développeurs ET les assistants IA qui répondent aux questions
 // des prospects (cf. aussi /llms.txt).
 
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     description: META[lang].description,
     alternates: {
       canonical: CANONICAL[lang],
-      languages: { "fr-FR": CANONICAL.fr, "en-US": CANONICAL.en, "x-default": CANONICAL.en },
+      languages: { "en-US": CANONICAL.en, "fr-FR": CANONICAL.fr, "x-default": CANONICAL.en },
     },
     openGraph: {
       title: META[lang].title,

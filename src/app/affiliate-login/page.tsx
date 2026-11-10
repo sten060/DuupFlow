@@ -147,9 +147,9 @@ export default function AffiliateLoginPage() {
 
       {/* Footer */}
       <div className="flex gap-4 text-xs text-white/25">
-        <Link href="/legal" className="hover:text-white/45 transition">Mentions légales</Link>
+        <Link href="/fr/legal" className="hover:text-white/45 transition">Mentions légales</Link>
         <span>·</span>
-        <Link href="/legal/privacy" className="hover:text-white/45 transition">Confidentialité</Link>
+        <Link href="/fr/legal/privacy" className="hover:text-white/45 transition">Confidentialité</Link>
       </div>
     </div>
   );

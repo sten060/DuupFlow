@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
+import { publicPath } from "@/lib/i18n/routes";
 import { flushAcquisition } from "@/lib/acquisition";
 import { getFpTid } from "@/lib/firstpromoter";
 import AuthBrandPanel from "@/components/AuthBrandPanel";
@@ -164,7 +165,7 @@ function OnboardingForm() {
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/login"); return; }
+      if (!user) { router.push(publicPath(locale, "/login")); return; }
       // Pré-remplir depuis le profil existant (reprise après annulation /
       // reconnexion) pour que « Retour » réaffiche les infos déjà saisies.
       if (!isGuest) {
@@ -326,7 +327,7 @@ function OnboardingForm() {
     setError("");
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push("/login"); return; }
+    if (!user) { router.push(publicPath(locale, "/login")); return; }
 
     if (isGuest) {
       const res = await fetch("/api/onboarding/guest", {
@@ -375,7 +376,7 @@ function OnboardingForm() {
       // Invités et comptes gratuits : petite page de bienvenue → dashboard.
       sessionStorage.setItem("welcome_first_name", firstName.trim());
       if (isGuest) sessionStorage.setItem("welcome_is_guest", "1");
-      router.push("/onboarding/welcome");
+      router.push(publicPath(locale, "/onboarding/welcome"));
     } else {
       // Comptes payants : l'étape "code promo" EST le moment du paiement.
       // On lance Stripe directement depuis cette page (chargement affiché),
@@ -618,7 +619,7 @@ function OnboardingForm() {
                   setError("");
                   // Retour en chaîne : étape précédente ; depuis la 1re étape,
                   // on remonte à la page Tarifs (payant) ou à l'accueil (gratuit).
-                  if (step === 0) router.push(paidSignup ? `/${locale}/pricing#plans` : `/${locale}`);
+                  if (step === 0) router.push(paidSignup ? `${publicPath(locale, "/pricing")}#plans` : publicPath(locale, "/"));
                   else setStep((s) => s - 1);
                 }}
                 disabled={loading}

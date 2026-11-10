@@ -1,5 +1,5 @@
 // Top-level route for the permanent "CapCut alternative" SEO page.
-// One slug for both locales (/fr/capcut-alternative, /en/capcut-alternative);
+// One slug for both locales (/fr/capcut-alternative, /capcut-alternative);
 // each locale is self-canonical and cross-linked via hreflang.
 
 import type { Metadata } from "next";
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     description: META[lang].description,
     alternates: {
       canonical: CANONICAL[lang],
-      languages: { "fr-FR": CANONICAL.fr, "en-US": CANONICAL.en, "x-default": CANONICAL.en },
+      languages: { "en-US": CANONICAL.en, "fr-FR": CANONICAL.fr, "x-default": CANONICAL.en },
     },
     openGraph: {
       title: META[lang].title,

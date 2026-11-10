@@ -9,6 +9,7 @@
 // migrate to MDX or a CMS, this stays as the seed list during cutover.
 
 import type { Metadata } from "next";
+import { asLocale, pageMetadata } from "@/lib/i18n/seo";
 import Link from "@/components/LocaleLink";
 import { notFound } from "next/navigation";
 import { Label, BLUE } from "@/components/landing/shell";
@@ -122,14 +123,16 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const isFr = locale === "fr";
-  return {
-    title: isFr ? "Blog DuupFlow" : "DuupFlow Blog",
-    description: isFr
-      ? "Analyses et conseils sur la diffusion de contenu sur Instagram, TikTok et les plateformes sociales."
-      : "Insights on content distribution across Instagram, TikTok and other social platforms.",
-    alternates: { canonical: `/${locale}/blog` },
-  };
+  return pageMetadata(asLocale(locale), "/blog", {
+    en: {
+      title: "DuupFlow Blog",
+      description: "Insights on content distribution across Instagram, TikTok and other social platforms.",
+    },
+    fr: {
+      title: "Blog DuupFlow",
+      description: "Analyses et conseils sur la diffusion de contenu sur Instagram, TikTok et les plateformes sociales.",
+    },
+  });
 }
 
 export default async function BlogIndex({

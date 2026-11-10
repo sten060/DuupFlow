@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: META.en.description,
     alternates: {
       canonical: CANONICAL.en,
-      languages: { "fr-FR": CANONICAL.fr, "en-US": CANONICAL.en, "x-default": CANONICAL.fr },
+      languages: { "en-US": CANONICAL.en, "fr-FR": CANONICAL.fr, "x-default": CANONICAL.en },
     },
     openGraph: {
       title: META.en.title,

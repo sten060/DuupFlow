@@ -5,14 +5,16 @@
 // other blog articles (blocks + FAQ + sticky TOC).
 
 import type { Metadata } from "next";
+import { publicPath } from "@/lib/i18n/routes";
 import Link from "@/components/LocaleLink";
 import ArticleTOC, { type TocSection } from "../_components/ArticleTOC";
 
 const SLUG = "duupflow-pas-qu-un-simple-spoofer";
 const PUBLISHED_AT = "2026-11-02";
 const AUTHOR = "@Sten";
-const CANONICAL_FR = `/fr/blog/${SLUG}`;
-const CANONICAL_EN = `/en/blog/${SLUG}`;
+// Adresse EN traduite (routes.ts) : /blog/<slug-en> ; FR : /fr/blog/<slug-fr>.
+const CANONICAL_FR = publicPath("fr", `/blog/${SLUG}`);
+const CANONICAL_EN = publicPath("en", `/blog/${SLUG}`);
 const READING = { fr: 7, en: 7 } as const;
 
 const SECTIONS = {
@@ -60,7 +62,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     description: m.description,
     alternates: {
       canonical: isFr ? CANONICAL_FR : CANONICAL_EN,
-      languages: { "fr-FR": CANONICAL_FR, "en": CANONICAL_EN, "x-default": CANONICAL_EN },
+      languages: { "en-US": CANONICAL_EN, "fr-FR": CANONICAL_FR, "x-default": CANONICAL_EN },
     },
     openGraph: {
       title: m.title,
@@ -259,7 +261,7 @@ const BODY: Record<"fr" | "en", Block[]> = {
         ["Agency", "€249", "€176", "Multi-creator agencies", "Everything in Pro, 10 members, 15 creator workspaces, onboarding call"],
       ],
     },
-    { t: "p", html: `Full details are on the <a href="/en/pricing" ${LINK}>pricing page</a>.` },
+    { t: "p", html: `Full details are on the <a href="/pricing" ${LINK}>pricing page</a>.` },
 
     { t: "h2", id: "limites", html: "What DuupFlow doesn't do" },
     { t: "ul", items: [

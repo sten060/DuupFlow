@@ -2,44 +2,98 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/context";
+import { isPublicPath, publicPath, stripLocale } from "@/lib/i18n/routes";
 
 /**
- * Bilingual toggle.
+ * Sélecteur de langue EN / FR.
  *
- * On the public/auth surface (pathname starts with /fr or /en) we rewrite
- * the URL to navigate to the same page in the other locale. The cookie is
- * also written via setLocale() so the middleware respects the override on
- * subsequent visits.
+ * Sur les pages publiques (anglais à la racine, français sous /fr), on navigue
+ * vers la même page dans l'autre langue — slugs traduits compris (routes.ts).
+ * Le choix est mémorisé (cookie duupflow_lang via setLocale) : le middleware ne
+ * redirige alors plus jamais l'accueil vers l'autre langue.
  *
- * On /dashboard/* there is no /fr|/en prefix → we only flip the locale
- * state (storage-driven LanguageProvider), no navigation.
+ * Sur /dashboard/* (pas d'adresse localisée) → on bascule juste la langue.
+ *
+ * variant : "light" (nav claire), "onBlue" (footer bleu), "dark" (anciennes pages sombres).
  */
-export default function LanguageSwitch() {
+type Variant = "light" | "onBlue" | "dark";
+
+const STYLES: Record<Variant, { wrap: string; active: string; idle: string }> = {
+  light: {
+    wrap: "ring-1 ring-black/10 bg-white",
+    active: "bg-[#1a1a1a] text-white",
+    idle: "text-[#605f5f] hover:text-[#1a1a1a]",
+  },
+  onBlue: {
+    wrap: "ring-1 ring-white/25 bg-white/10",
+    active: "bg-white text-[#1a53ec]",
+    idle: "text-white/75 hover:text-white",
+  },
+  dark: {
+    wrap: "ring-1 ring-white/15 bg-white/[0.05]",
+    active: "bg-white/90 text-[#0B0F1A]",
+    idle: "text-white/60 hover:text-white",
+  },
+};
+
+export default function LanguageSwitch({
+  variant = "dark",
+  className = "",
+  compactOnMobile = false,
+}: {
+  variant?: Variant;
+  className?: string;
+  /** Sous 640 px : un seul bouton (l'autre langue) pour tenir dans la nav. */
+  compactOnMobile?: boolean;
+}) {
   const { locale, setLocale } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
+  const s = STYLES[variant];
 
-  function handleToggle() {
-    const next = locale === "en" ? "fr" : "en";
+  function choose(next: "en" | "fr") {
+    if (next === locale) return;
     setLocale(next);
-
-    // If we're on a /fr/* or /en/* URL, swap the prefix and navigate.
-    const match = pathname.match(/^\/(fr|en)(\/.*)?$/);
-    if (match) {
-      const rest = match[2] ?? "";
-      router.push(`/${next}${rest}`);
+    if (isPublicPath(stripLocale(pathname))) {
+      router.push(publicPath(next, pathname) + window.location.search + window.location.hash);
     }
   }
 
+  const other = locale === "en" ? "fr" : "en";
+
   return (
-    <button
-      onClick={handleToggle}
-      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-white/15 bg-white/[0.05] hover:bg-white/[0.10] text-xs font-medium text-white/70 hover:text-white transition select-none"
-      aria-label="Switch language"
+    <>
+    {compactOnMobile && (
+      <button
+        type="button"
+        onClick={() => choose(other)}
+        lang={other}
+        title={other === "en" ? "English" : "Français"}
+        aria-label={other === "en" ? "Switch to English" : "Passer en français"}
+        className={`inline-flex sm:hidden items-center rounded-full px-2.5 py-1.5 text-xs font-semibold select-none ${s.wrap} ${s.idle} ${className}`}
+      >
+        {other.toUpperCase()}
+      </button>
+    )}
+    <div
+      role="group"
+      aria-label={locale === "fr" ? "Langue" : "Language"}
+      className={`${compactOnMobile ? "hidden sm:inline-flex" : "inline-flex"} items-center gap-0.5 rounded-full p-0.5 text-xs font-semibold select-none ${s.wrap} ${className}`}
     >
-      <span style={{ opacity: locale === "en" ? 1 : 0.4 }}>EN</span>
-      <span className="text-white/25">|</span>
-      <span style={{ opacity: locale === "fr" ? 1 : 0.4 }}>FR</span>
-    </button>
+      {(["en", "fr"] as const).map((l) => (
+        <button
+          key={l}
+          type="button"
+          onClick={() => choose(l)}
+          aria-pressed={locale === l}
+          lang={l}
+          title={l === "en" ? "English" : "Français"}
+          className={`rounded-full px-2.5 py-1 transition ${locale === l ? s.active : s.idle}`}
+        >
+          {l.toUpperCase()}
+        </button>
+      ))}
+    </div>
+    </>
   );
 }

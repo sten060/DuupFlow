@@ -1,5 +1,5 @@
 // Top-level route for the permanent "Submagic alternative" SEO page.
-// English only (no hreflang): the /fr route redirects to the canonical /en URL.
+// English only (no hreflang): /fr/submagic-alternative redirects (301, middleware) to /submagic-alternative.
 
 import type { Metadata } from "next";
 import { redirect, notFound } from "next/navigation";

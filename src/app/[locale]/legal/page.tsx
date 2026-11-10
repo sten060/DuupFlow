@@ -2,6 +2,7 @@
 
 import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
+import LanguageSwitch from "@/components/LanguageSwitch";
 
 export default function LegalPage() {
   const { t } = useTranslation();
@@ -10,11 +11,12 @@ export default function LegalPage() {
     <div className="min-h-screen bg-[#0B0F1A] text-white">
       {/* Header */}
       <header className="border-b border-white/[0.08] px-6 py-4">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link href="/" className="text-xl font-extrabold tracking-tight">
             <span style={{ color: "#818CF8" }}>Duup</span>
             <span className="text-white/55">Flow</span>
           </Link>
+          <LanguageSwitch variant="dark" />
         </div>
       </header>
 

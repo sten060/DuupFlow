@@ -1,3 +1,4 @@
+import { publicPath } from "@/lib/i18n/routes";
 import { NextResponse } from "next/server";
 import { getStripe, getPlanPriceId, planPriceEnvName, type BillingInterval } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
@@ -141,7 +142,7 @@ export async function POST(request: Request) {
     success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     // Sortie du paywall sans payer → retour à l'étape "code promo / payer" de
     // l'onboarding (stylée comme les autres), sans relancer Stripe automatiquement.
-    cancel_url: `${baseUrl}/${locale}/onboarding?paywall=cancelled&plan=${plan}${billing === "yearly" ? "&billing=yearly" : ""}`,
+    cancel_url: `${baseUrl}${publicPath(locale, "/onboarding")}?paywall=cancelled&plan=${plan}${billing === "yearly" ? "&billing=yearly" : ""}`,
     subscription_data: {
       // No free trial — checkout charges immediately for the chosen plan.
       metadata: {

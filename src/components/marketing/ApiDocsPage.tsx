@@ -174,7 +174,7 @@ export default function ApiDocsPage({ lang }: { lang: Lang }) {
         <p className={`mt-4 max-w-[720px] ${SECTION_LEAD}`}>{ui.lead}</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
-            href={`/${lang}/pricing`}
+            href="/pricing"
             className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(79,123,255,0.30)] transition hover:opacity-95"
             style={{ background: CTA_GRAD }}
           >

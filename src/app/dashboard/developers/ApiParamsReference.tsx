@@ -9,9 +9,10 @@
 
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n/context";
+import { publicPath } from "@/lib/i18n/routes";
 
 export default function ApiParamsReference() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const rows: [string, string][] = [
     ["POST /images/duplicate", t("dashboard.developers.pImages")],
     ["POST /videos/duplicate", t("dashboard.developers.pVideos")],
@@ -32,7 +33,7 @@ export default function ApiParamsReference() {
       </ul>
       <p className="text-[11px] text-[var(--app-text-faint)]">{t("dashboard.developers.pBools")}</p>
       <p className="text-[11px] text-[var(--app-text-faint)]">{t("dashboard.developers.pErrors")}</p>
-      <Link href="/docs/api" target="_blank" className="inline-flex text-[11px] font-semibold text-indigo-500 hover:underline">
+      <Link href={publicPath(locale, "/docs/api")} target="_blank" className="inline-flex text-[11px] font-semibold text-indigo-500 hover:underline">
         {t("dashboard.developers.publicDocs")} →
       </Link>
     </div>

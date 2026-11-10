@@ -7,6 +7,7 @@ import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
 import AuthBrandPanel from "@/components/AuthBrandPanel";
 import { Brand } from "@/components/landing/shell";
+import LanguageSwitch from "@/components/LanguageSwitch";
 import { isPaidPlan } from "@/lib/plans";
 
 function GoogleIcon() {
@@ -102,10 +103,13 @@ export default function RegisterPage() {
       {/* ── LEFT — Form ── */}
       <div className="flex-1 flex flex-col justify-between px-8 py-10 max-w-xl">
         {/* Logo — mark + wordmark */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <Image src="/logo-mark.png" alt="DuupFlow" width={64} height={64} priority className="h-8 w-8 object-contain" />
-          <Brand className="text-xl font-bold tracking-tight text-[#1a1a1a]" />
-        </Link>
+        <div className="flex items-center justify-between gap-4">
+          <Link href="/" className="flex items-center gap-2.5">
+            <Image src="/logo-mark.png" alt="DuupFlow" width={64} height={64} priority className="h-8 w-8 object-contain" />
+            <Brand className="text-xl font-bold tracking-tight text-[#1a1a1a]" />
+          </Link>
+          <LanguageSwitch variant="light" />
+        </div>
 
         {/* Form area */}
         <div className="w-full max-w-sm mx-auto">

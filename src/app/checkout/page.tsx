@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Suspense } from "react";
 import { useTranslation } from "@/lib/i18n/context";
+import { publicPath } from "@/lib/i18n/routes";
 import { getFpTid } from "@/lib/firstpromoter";
 
 // Plans en vente. Starter (19 €) n'est plus proposé : un vieux lien
@@ -222,7 +223,7 @@ function CheckoutContent() {
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push(publicPath(locale, "/login"));
   }
 
   async function handleCheckout() {

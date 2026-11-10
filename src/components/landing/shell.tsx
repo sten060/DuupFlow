@@ -9,8 +9,9 @@
 import Link from "@/components/LocaleLink";
 import { useState, useEffect, type CSSProperties } from "react";
 import { useParams } from "next/navigation";
+import LanguageSwitch from "@/components/LanguageSwitch";
 
-/* Locale courante ("fr" par défaut, "en" sur /en). */
+/* Locale courante ("en" à la racine, "fr" sous /fr). */
 function useLocale(): "fr" | "en" {
   const params = useParams();
   const l = Array.isArray(params?.locale) ? params?.locale[0] : params?.locale;
@@ -82,6 +83,7 @@ export function NavPill() {
           <Link href="/demo-request" className="hover:opacity-60 transition">Contact</Link>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+          <LanguageSwitch variant="light" compactOnMobile />
           <Link href="/login" aria-label={en ? "Log in" : "Se connecter"}
             className="hidden h-10 w-10 items-center justify-center rounded-full text-[#1a1a1a] ring-1 ring-black/10 transition hover:bg-black/5 sm:flex">
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
@@ -242,7 +244,10 @@ export function Footer() {
             </div>
           </div>
         </div>
-        <p className="mt-16 text-xs text-white/60">© {year} <Brand />. {en ? "All rights reserved." : "Tous droits réservés."}</p>
+        <div className="mt-16 flex flex-wrap items-center justify-between gap-4">
+          <p className="text-xs text-white/60">© {year} <Brand />. {en ? "All rights reserved." : "Tous droits réservés."}</p>
+          <LanguageSwitch variant="onBlue" />
+        </div>
       </div>
       <div aria-hidden className="pointer-events-none mt-3 select-none overflow-hidden sm:-mt-10" style={{ height: "clamp(42px, 13.5vw, 200px)" }}>
         <div className="mx-auto flex max-w-[1500px] items-center justify-center px-4">

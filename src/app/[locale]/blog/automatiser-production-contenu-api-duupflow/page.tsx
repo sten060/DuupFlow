@@ -6,6 +6,7 @@
 // DuupFlow API, with a copy-paste Claude Code prompt.
 
 import type { Metadata } from "next";
+import { publicPath } from "@/lib/i18n/routes";
 import Link from "@/components/LocaleLink";
 import ArticleTOC, { type TocSection } from "../_components/ArticleTOC";
 import YouTubeLazy from "../_components/YouTubeLazy";
@@ -13,8 +14,9 @@ import CopyBlock from "../_components/CopyBlock";
 
 const SLUG = "automatiser-production-contenu-api-duupflow";
 const PUBLISHED_AT = "2026-07-04";
-const CANONICAL_FR = `/fr/blog/${SLUG}`;
-const CANONICAL_EN = `/en/blog/${SLUG}`;
+// Adresse EN traduite (routes.ts) : /blog/<slug-en> ; FR : /fr/blog/<slug-fr>.
+const CANONICAL_FR = publicPath("fr", `/blog/${SLUG}`);
+const CANONICAL_EN = publicPath("en", `/blog/${SLUG}`);
 
 // ⬇️ REMPLACE par l'ID de ta vidéo YouTube (la partie après "watch?v=" ou
 //    "youtu.be/"). Ex : pour https://youtu.be/OEj9wxKF_TA → "OEj9wxKF_TA".
@@ -67,7 +69,7 @@ export async function generateMetadata({
     description: m.description,
     alternates: {
       canonical: isFr ? CANONICAL_FR : CANONICAL_EN,
-      languages: { "fr-FR": CANONICAL_FR, "en": CANONICAL_EN, "x-default": CANONICAL_EN },
+      languages: { "en-US": CANONICAL_EN, "fr-FR": CANONICAL_FR, "x-default": CANONICAL_EN },
     },
     openGraph: {
       title: m.title,

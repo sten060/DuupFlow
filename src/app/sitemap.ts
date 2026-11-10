@@ -1,15 +1,17 @@
 import { MetadataRoute } from "next";
-
-const BASE_URL = "https://www.duupflow.com";
+import { absoluteUrl } from "@/lib/i18n/routes";
 const LOCALES = ["fr", "en"] as const;
 
 // Localised public pages. The middleware also handles legacy URLs
 // (/fonctionnalites, /tarifs, etc.) via 301s — those are kept out of the
-// sitemap so crawlers only see the canonical /<locale>/<slug> versions.
+// sitemap so crawlers only see the canonical addresses (English at the root,
+// French under /fr — see src/lib/i18n/routes.ts).
 const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly" | "yearly"; priority: number }> = [
   { path: "",               changeFrequency: "weekly",  priority: 1.0 }, // home
   { path: "/pricing",       changeFrequency: "monthly", priority: 0.8 },
   { path: "/partners",      changeFrequency: "monthly", priority: 0.5 },
+  { path: "/demo-request",  changeFrequency: "yearly",  priority: 0.4 },
+  { path: "/legal",         changeFrequency: "yearly",  priority: 0.2 },
   { path: "/blog",          changeFrequency: "weekly",  priority: 0.7 },
   { path: "/capcut-alternative", changeFrequency: "monthly", priority: 0.8 },
   { path: "/docs/api",      changeFrequency: "monthly", priority: 0.6 },
@@ -31,7 +33,7 @@ const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthl
 ];
 
 // EN-only top-level pages (no FR version, no hreflang). The /fr route 301s to
-// /en, so only the canonical /en URL is listed here.
+// the root English URL, so only that one is listed here.
 const EN_ONLY_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly" | "yearly"; priority: number }> = [
   { path: "/submagic-alternative", changeFrequency: "monthly", priority: 0.8 },
 ];
@@ -41,8 +43,14 @@ const EN_ONLY_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly"
 const FR_ARTICLES: Array<{ slug: string; lastModified: string }> = [];
 
 // Fully bilingual articles — both FR and EN indexed (each self-canonical, linked
-// via hreflang). Articles that share one slug across locales set frSlug === enSlug.
+// via hreflang). Slugs are the folder names; absoluteUrl() swaps in the
+// translated English address (routes.ts).
 const BILINGUAL_ARTICLES: Array<{ frSlug: string; enSlug: string; lastModified: string }> = [
+  {
+    frSlug: "reposter-meme-video-plusieurs-comptes-tiktok-instagram",
+    enSlug: "reposter-meme-video-plusieurs-comptes-tiktok-instagram",
+    lastModified: "2026-08-01",
+  },
   {
     frSlug: "creer-un-mois-de-reels-automatique-ia",
     enSlug: "creer-un-mois-de-reels-automatique-ia",
@@ -78,9 +86,11 @@ const BILINGUAL_ARTICLES: Array<{ frSlug: string; enSlug: string; lastModified: 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
 
+  // Adresses publiques uniquement : anglais à la racine, français sous /fr,
+  // slugs traduits via routes.ts. Aucune adresse /en/… (redirigées en 301).
   const localizedEntries: MetadataRoute.Sitemap = LOCALES.flatMap((locale) =>
     LOCALIZED_PATHS.map(({ path, changeFrequency, priority }) => ({
-      url: `${BASE_URL}/${locale}${path}`,
+      url: absoluteUrl(locale, path || "/"),
       lastModified: now,
       changeFrequency,
       priority,
@@ -88,14 +98,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
   );
 
   const enOnlyEntries: MetadataRoute.Sitemap = EN_ONLY_PATHS.map(({ path, changeFrequency, priority }) => ({
-    url: `${BASE_URL}/en${path}`,
+    url: absoluteUrl("en", path),
     lastModified: now,
     changeFrequency,
     priority,
   }));
 
   const articleEntries: MetadataRoute.Sitemap = FR_ARTICLES.map((a) => ({
-    url: `${BASE_URL}/fr/blog/${a.slug}`,
+    url: absoluteUrl("fr", `/blog/${a.slug}`),
     lastModified: new Date(a.lastModified),
     changeFrequency: "monthly",
     priority: 0.6,
@@ -103,13 +113,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const bilingualEntries: MetadataRoute.Sitemap = BILINGUAL_ARTICLES.flatMap((a) => [
     {
-      url: `${BASE_URL}/fr/blog/${a.frSlug}`,
+      url: absoluteUrl("fr", `/blog/${a.frSlug}`),
       lastModified: new Date(a.lastModified),
       changeFrequency: "monthly" as const,
       priority: 0.6,
     },
     {
-      url: `${BASE_URL}/en/blog/${a.enSlug}`,
+      url: absoluteUrl("en", `/blog/${a.enSlug}`),
       lastModified: new Date(a.lastModified),
       changeFrequency: "monthly" as const,
       priority: 0.6,

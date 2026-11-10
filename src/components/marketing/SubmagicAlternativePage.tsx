@@ -1,8 +1,8 @@
 // src/components/marketing/SubmagicAlternativePage.tsx
 //
 // Permanent SEO landing page: "Submagic Alternative". English only (no hreflang)
-// — the /fr route redirects to /en (see the route wrapper). Lives at a top-level
-// route (/en/submagic-alternative), NOT under /blog/. Chrome (NavPill + Footer +
+// — /fr/submagic-alternative redirects to /submagic-alternative (see the route wrapper). Lives at a top-level
+// route (/submagic-alternative), NOT under /blog/. Chrome (NavPill + Footer +
 // light "lunera" theme) comes from the sibling layout.tsx.
 //
 // Structured for machine extraction: single H1, strict H2/H3 hierarchy, a
@@ -17,7 +17,7 @@
 import Link from "@/components/LocaleLink";
 
 export const SLUG = "submagic-alternative";
-export const CANONICAL = `/en/${SLUG}`;
+export const CANONICAL = `/${SLUG}`;
 
 export const META = {
   title: "Submagic Alternative: Full AI Editing, Not Just Captions | DuupFlow",
@@ -283,7 +283,7 @@ export default function SubmagicAlternativePage() {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "DuupFlow", item: `${base}/en` },
+      { "@type": "ListItem", position: 1, name: "DuupFlow", item: base },
       { "@type": "ListItem", position: 2, name: "Submagic alternative", item: `${base}${CANONICAL}` },
     ],
   };

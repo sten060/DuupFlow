@@ -1,6 +1,7 @@
 // Locale-aware layout for the public + auth surface.
 //
-// Anything under /fr/* and /en/* is wrapped in a LanguageProvider seeded
+// Public pages (English at the root, served internally from /en/* by the
+// middleware; French under /fr/*) are wrapped in a LanguageProvider seeded
 // from the URL segment so server-rendered HTML matches the URL locale
 // (no flash, correct <html lang>, SEO-friendly).
 //
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     openGraph: {
       title: EN_TITLE,
       description: EN_DESC,
-      url: "https://www.duupflow.com/en",
+      url: "https://www.duupflow.com",
       siteName: "DuupFlow",
       images: [{ url: "/og-image-fr.png?v=3", width: 1200, height: 630, alt: "DuupFlow" }],
       locale: "en_US",

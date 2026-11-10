@@ -1,7 +1,7 @@
 // src/components/marketing/CapcutAlternativePage.tsx
 //
 // Permanent, fully bilingual SEO landing page: "CapCut Alternative".
-// Lives at a top-level route (/fr/capcut-alternative, /en/capcut-alternative),
+// Lives at a top-level route (/fr/capcut-alternative, /capcut-alternative),
 // NOT under /blog/. Both locales share ONE slug and are self-canonical, linked
 // via hreflang (see CANONICAL). The surrounding chrome (NavPill + Footer + the
 // light "lunera" theme) comes from the sibling layout.tsx — this component
@@ -23,7 +23,7 @@ export const SLUG = "capcut-alternative";
 
 export const CANONICAL: Record<Lang, string> = {
   fr: `/fr/${SLUG}`,
-  en: `/en/${SLUG}`,
+  en: `/${SLUG}`,
 };
 
 export const META: Record<Lang, { title: string; description: string }> = {
@@ -585,7 +585,7 @@ export default function CapcutAlternativePage({ lang }: { lang: Lang }) {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "DuupFlow", item: `${base}/${lang}` },
+      { "@type": "ListItem", position: 1, name: "DuupFlow", item: lang === "fr" ? `${base}/fr` : base },
       { "@type": "ListItem", position: 2, name: c.crumb, item: `${base}${CANONICAL[lang]}` },
     ],
   };

@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "@/components/LocaleLink";
 import { useTranslation } from "@/lib/i18n/context";
 import { Brand } from "@/components/landing/shell";
+import LanguageSwitch from "@/components/LanguageSwitch";
 
 function GoogleIcon() {
   return (
@@ -66,6 +67,7 @@ export default function LoginPage() {
 
   return (
     <div className="lunera min-h-screen flex flex-col items-center justify-between px-4 py-10 bg-white text-[#1a1a1a]">
+      <LanguageSwitch variant="light" className="fixed right-4 top-4 z-50" />
       {/* Texture claire + halo indigo */}
       <div
         className="pointer-events-none fixed inset-0 -z-10"

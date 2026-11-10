@@ -1,26 +1,23 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  BOT_UA,
+  EN_ONLY,
+  LANG_COOKIE,
+  enInternalPath,
+  isNonCanonicalEnPath,
+  isNonCanonicalFrPath,
+  isPublicPath,
+  publicPath,
+  stripLocale,
+  topLevelSegment,
+  type Locale,
+} from "@/lib/i18n/routes";
 
 // ────────────────────────────────────────────────────────────────────────
-// i18n routing
+// i18n routing — anglais à la racine, français sous /fr.
+// Adresses FR/EN et slugs traduits : src/lib/i18n/routes.ts.
 // ────────────────────────────────────────────────────────────────────────
-const LOCALES = ["fr", "en"] as const;
-type Locale = (typeof LOCALES)[number];
-
-/** Top-level public/auth paths that must be wrapped in a locale prefix. */
-const LOCALIZED_TOP_LEVEL = new Set([
-  "",            // homepage "/"
-  "pricing",
-  "partners",
-  "blog",
-  "capcut-alternative",
-  "submagic-alternative",
-  "docs",
-  "legal",
-  "login",
-  "register",
-  "onboarding",
-]);
 
 /** Legacy URLs → forced locale + new slug. Used for SEO-stable 301 redirects. */
 const LEGACY_REDIRECTS: Record<string, { locale: Locale; slug: string }> = {
@@ -36,85 +33,102 @@ const LEGACY_REDIRECTS: Record<string, { locale: Locale; slug: string }> = {
  *  avec ou sans préfixe de locale (/features, /fr/demo, /en/benefits…). */
 const RETIRED_PAGES = new Set(["features", "how-it-works", "demo", "benefits"]);
 
-const LANG_COOKIE = "duupflow_lang";
+/** Langue préférée du navigateur = première langue de la liste Accept-Language. */
+function browserPrefersFrench(req: NextRequest): boolean {
+  const accept = req.headers.get("accept-language") ?? "";
+  const first = accept.split(",")[0]?.trim().toLowerCase() ?? "";
+  return first === "fr" || first.startsWith("fr-") || first.startsWith("fr;");
+}
 
+/** Langue pour les redirections d'auth (choix mémorisé, sinon navigateur). */
 function pickLocale(req: NextRequest): Locale {
-  // 1) Explicit user override via cookie (only written by the LanguageSwitch
-  //    toggle, never auto-set — so its presence reflects a real user choice)
   const cookieLocale = req.cookies.get(LANG_COOKIE)?.value;
   if (cookieLocale === "fr" || cookieLocale === "en") return cookieLocale;
-
-  // 2) Country header — works on Vercel and Cloudflare-proxied setups.
-  //    Default rule per product owner: only France gets FR auto, all else EN.
-  const country =
-    req.headers.get("x-vercel-ip-country") ??
-    req.headers.get("cf-ipcountry") ??
-    req.headers.get("x-country-code") ??
-    "";
-  if (country.toUpperCase() === "FR") return "fr";
-
-  // 3) Fallback — Accept-Language. Railway-edge (current host) doesn't expose
-  //    a country header, so we use the browser's preferred-language list. Any
-  //    "fr" or "fr-*" tag (in any quality position) → FR.
-  const accept = req.headers.get("accept-language") ?? "";
-  if (/(^|,|\s)fr(-[A-Z]{2})?\b/i.test(accept)) return "fr";
-
-  return "en";
+  return browserPrefersFrench(req) ? "fr" : "en";
 }
 
-function topLevelSegment(pathname: string): string {
-  if (pathname === "/" || pathname === "") return "";
-  const trimmed = pathname.startsWith("/") ? pathname.slice(1) : pathname;
-  const slash = trimmed.indexOf("/");
-  return slash === -1 ? trimmed : trimmed.slice(0, slash);
+/** Même adresse, autre chemin, query conservée (utm_*, fpr, ref, via, gclid…).
+ *  Next normalise ensuite le Location (un espace « %20 » devient « + ») :
+ *  même valeur pour URLSearchParams, donc pour l'attribution affiliés / UTM. */
+function withPath(request: NextRequest, pathname: string): URL {
+  const raw = new URL(request.url);
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = "";
+  return new URL(`${url.toString()}${raw.search}`);
 }
 
-/** Strip /fr or /en prefix; "/fr/login" → "/login", "/dashboard" → "/dashboard". */
-function stripLocale(p: string): string {
-  const m = p.match(/^\/(fr|en)(\/.*)?$/);
-  return m ? (m[2] ?? "/") : p;
+/** Redirection 301 qui conserve la query intacte. */
+function permanent(request: NextRequest, pathname: string): NextResponse {
+  return NextResponse.redirect(withPath(request, pathname), 301);
 }
 
-function localePrefix(p: string): string {
-  const m = p.match(/^\/(fr|en)(?:\/.*)?$/);
-  return m ? `/${m[1]}` : "";
-}
+type I18nResult =
+  | { kind: "redirect"; response: NextResponse }
+  | { kind: "rewrite"; url: URL }
+  | null;
 
-function handleI18nRouting(request: NextRequest): NextResponse | null {
-  const { pathname, search } = request.nextUrl;
+function handleI18nRouting(request: NextRequest): I18nResult {
+  const { pathname } = request.nextUrl;
 
   // 1) Hardcoded legacy URL redirects (preserve SEO intent for old paths)
   if (LEGACY_REDIRECTS[pathname]) {
     const { locale, slug } = LEGACY_REDIRECTS[pathname];
-    const url = request.nextUrl.clone();
-    url.pathname = `/${locale}${slug}`;
-    return NextResponse.redirect(url, 301);
+    return { kind: "redirect", response: permanent(request, publicPath(locale, slug || "/")) };
   }
+
+  const first = topLevelSegment(pathname);
+  const bare = stripLocale(pathname);
 
   // 2) Anciennes pages marketing supprimées → accueil (couvre /demo et /fr/demo)
-  const retiredSegment = topLevelSegment(stripLocale(pathname));
-  if (RETIRED_PAGES.has(retiredSegment)) {
-    const locale = (localePrefix(pathname).slice(1) as Locale) || pickLocale(request);
-    const url = request.nextUrl.clone();
-    url.pathname = `/${locale}`;
-    url.search = "";
-    return NextResponse.redirect(url, 301);
+  if (RETIRED_PAGES.has(topLevelSegment(bare))) {
+    const locale: Locale = first === "fr" ? "fr" : "en";
+    const res = permanent(request, publicPath(locale, "/"));
+    return { kind: "redirect", response: res };
   }
 
-  // 3) Already locale-prefixed → let it through
-  const first = topLevelSegment(pathname);
-  if (first === "fr" || first === "en") return null;
-
-  // 4) Top-level path that should be localized → redirect to picked locale
-  if (LOCALIZED_TOP_LEVEL.has(first)) {
-    const locale = pickLocale(request);
-    const url = request.nextUrl.clone();
-    url.pathname = pathname === "/" ? `/${locale}` : `/${locale}${pathname}`;
-    url.search = search;
-    return NextResponse.redirect(url);
+  // 3) Anciennes adresses /en/… → même page à la racine, slug anglais (301, 1 seul saut)
+  if (first === "en") {
+    return { kind: "redirect", response: permanent(request, publicPath("en", bare)) };
   }
 
-  return null;
+  // 4) /fr/… : passe tel quel, sauf slug anglais tapé sous /fr → slug français
+  if (first === "fr") {
+    if (isNonCanonicalFrPath(bare)) {
+      const target = EN_ONLY.has(bare) ? publicPath("en", bare) : publicPath("fr", bare);
+      return { kind: "redirect", response: permanent(request, target) };
+    }
+    return null;
+  }
+
+  // 5) Racine = anglais
+  if (!isPublicPath(pathname)) return null;
+
+  // 5a) Ancien slug FR à la racine (ex. /docs/editeur-ia) → slug anglais
+  if (isNonCanonicalEnPath(pathname)) {
+    return { kind: "redirect", response: permanent(request, publicPath("en", pathname)) };
+  }
+
+  // 5b) Accueil seulement : visiteur francophone (ou qui a choisi FR) → /fr.
+  //     Jamais pour les robots, jamais si le visiteur a choisi l'anglais.
+  if (pathname === "/") {
+    const choice = request.cookies.get(LANG_COOKIE)?.value;
+    const isBot = BOT_UA.test(request.headers.get("user-agent") ?? "");
+    const goFrench = !isBot && (choice === "fr" || (choice !== "en" && browserPrefersFrench(request)));
+    if (goFrench) {
+      const url = withPath(request, "/fr");
+      // Temporaire (307) : dépend du visiteur, ne doit pas être retenue par les moteurs.
+      const res = NextResponse.redirect(url, 307);
+      res.headers.set("Vary", "Accept-Language, Cookie");
+      res.headers.set("Cache-Control", "private, no-store");
+      return { kind: "redirect", response: res };
+    }
+  }
+
+  // 5c) Sert la version anglaise sans changer l'adresse visible
+  const url = request.nextUrl.clone();
+  url.pathname = enInternalPath(pathname);
+  return { kind: "rewrite", url };
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -124,15 +138,19 @@ const AUTH_GATED_PREFIXES = ["/dashboard", "/admin", "/affiliate", "/affiliate-l
 
 function needsAuthCheck(pathname: string): boolean {
   if (AUTH_GATED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
-  // /{locale}/login also needs the "redirect if already authed" check
+  // /login and /fr/login also need the "redirect if already authed" check
   const normalized = stripLocale(pathname);
   return normalized === "/login";
 }
 
 export async function middleware(request: NextRequest) {
   // ── i18n first — if a redirect is returned we short-circuit
-  const i18nRedirect = handleI18nRouting(request);
-  if (i18nRedirect) return i18nRedirect;
+  const i18n = handleI18nRouting(request);
+  if (i18n?.kind === "redirect") return i18n.response;
+  // Pages anglaises à la racine : servies depuis /en/… sans changer l'adresse.
+  const rewriteUrl = i18n?.kind === "rewrite" ? i18n.url : null;
+  const passThrough = () =>
+    rewriteUrl ? NextResponse.rewrite(rewriteUrl, { request }) : NextResponse.next({ request });
 
   const { pathname } = request.nextUrl;
 
@@ -146,7 +164,7 @@ export async function middleware(request: NextRequest) {
     .some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
 
   if (!hasAuthCookie && !needsAuthCheck(pathname)) {
-    return NextResponse.next({ request });
+    return passThrough();
   }
 
   // ── Rafraîchissement de session — pattern @supabase/ssr canonique. ──
@@ -155,7 +173,7 @@ export async function middleware(request: NextRequest) {
   // requête authentifiée : sinon le refresh token tourne sans être persisté et
   // l'utilisateur est déconnecté au hasard. NE RIEN mettre entre
   // createServerClient et getUser().
-  let supabaseResponse = NextResponse.next({ request });
+  let supabaseResponse = passThrough();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -169,7 +187,7 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = passThrough();
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -183,7 +201,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const normalized = stripLocale(pathname);
-  const prefix = localePrefix(pathname);
+  const pageLocale: Locale = topLevelSegment(pathname) === "fr" ? "fr" : "en";
 
   // Tout redirect doit emporter les cookies de session rafraîchis, sinon le
   // navigateur et le serveur se désynchronisent et la session est invalidée
@@ -203,11 +221,11 @@ export async function middleware(request: NextRequest) {
     return redirectWithSession(url);
   }
 
-  // Redirige vers /{locale}/login si non authentifié sur les routes protégées
+  // Redirige vers la page de connexion (/login ou /fr/login) si non authentifié sur les routes protégées
   if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin"))) {
     const url = request.nextUrl.clone();
     const locale = pickLocale(request);
-    url.pathname = `/${locale}/login`;
+    url.pathname = publicPath(locale, "/login");
     return redirectWithSession(url);
   }
 
@@ -225,7 +243,7 @@ export async function middleware(request: NextRequest) {
     return redirectWithSession(url);
   }
 
-  // Redirige si déjà connecté et tente d'accéder à /{locale}/login
+  // Redirige si déjà connecté et tente d'accéder à /login ou /fr/login
   if (user && normalized === "/login") {
     const { data: profile } = await supabase
       .from("profiles")
@@ -234,7 +252,7 @@ export async function middleware(request: NextRequest) {
       .single();
     if (!profile) {
       const url = request.nextUrl.clone();
-      url.pathname = `${prefix}/login`;
+      url.pathname = publicPath(pageLocale, "/login");
       url.searchParams.set("error", "compte_affilie");
       return redirectWithSession(url);
     }
@@ -254,7 +272,7 @@ export async function middleware(request: NextRequest) {
     if (!profile) {
       const locale = pickLocale(request);
       const url = request.nextUrl.clone();
-      url.pathname = `/${locale}/login`;
+      url.pathname = publicPath(locale, "/login");
       url.searchParams.set("error", "compte_affilie");
       return redirectWithSession(url);
     }

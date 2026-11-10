@@ -1,7 +1,8 @@
-// Centre d'aide public — index (/fr/docs, /en/docs). Une carte par fonctionnalité.
+// Centre d'aide public — index (/fr/docs, /docs). Une carte par fonctionnalité.
 // Pensé pour les utilisateurs ET les assistants IA (cf. /llms.txt).
 
 import type { Metadata } from "next";
+import { absoluteUrl, alternatesFor } from "@/lib/i18n/routes";
 import { notFound } from "next/navigation";
 import { HelpIndexPage } from "@/components/marketing/HelpDocPage";
 import { HELP_UI } from "@/components/marketing/helpCenterContent";
@@ -16,11 +17,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return {
     title: ui.metaTitle,
     description: ui.lead,
-    alternates: {
-      canonical: `/${lang}/docs`,
-      languages: { "fr-FR": "/fr/docs", "en-US": "/en/docs", "x-default": "/en/docs" },
-    },
-    openGraph: { title: ui.metaTitle, description: ui.lead, url: `https://www.duupflow.com/${lang}/docs`, type: "website" },
+    alternates: alternatesFor(lang, "/docs"),
+    openGraph: { title: ui.metaTitle, description: ui.lead, url: absoluteUrl(lang, "/docs"), type: "website" },
   };
 }
 

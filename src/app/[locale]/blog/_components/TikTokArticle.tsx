@@ -3,6 +3,7 @@
 // `lang`. Mirrors the Instagram article's layout exactly (12-col grid, sticky
 // ArticleTOC, FAQ, JSON-LD) for perfect visual consistency.
 
+import { publicPath } from "@/lib/i18n/routes";
 import NextLink from "next/link";
 import Link from "@/components/LocaleLink";
 import ArticleTOC, { type TocSection } from "./ArticleTOC";
@@ -17,7 +18,7 @@ export const READING_MIN = 8;
 
 export const CANONICAL: Record<Lang, string> = {
   fr: `/fr/blog/${SLUG_FR}`,
-  en: `/en/blog/${SLUG_EN}`,
+  en: `/blog/${SLUG_EN}`,
 };
 
 export const META: Record<Lang, { title: string; description: string }> = {
@@ -297,7 +298,7 @@ export default function TikTokArticle({ lang }: { lang: Lang }) {
   const sections = SECTIONS[lang];
   const faq = FAQ[lang];
   const [articleLd, faqLd, videoLd] = jsonLd(lang);
-  const ctaHref = `/${lang}?utm_source=blog&utm_medium=organic&utm_campaign=tiktok_ineligible`;
+  const ctaHref = `${publicPath(lang, "/")}?utm_source=blog&utm_medium=organic&utm_campaign=tiktok_ineligible`;
   const dateLabel = new Date(PUBLISHED_AT).toLocaleDateString(lang === "fr" ? "fr-FR" : "en-US", {
     day: "numeric",
     month: "long",

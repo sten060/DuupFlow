@@ -1,7 +1,7 @@
 // src/components/marketing/AiEditorFeaturePage.tsx
 //
 // Permanent, fully bilingual BLOG article for the DuupFlow AI Editor.
-// It lives in the blog (/fr/blog/editeur-video-ia, /en/blog/ai-video-editor),
+// It lives in the blog (/fr/blog/editeur-video-ia, /blog/ai-video-editor),
 // so the surrounding chrome (nav + footer + light "lunera" theme) comes from
 // blog/layout.tsx — this component renders the article body only.
 //
@@ -39,7 +39,7 @@ const PRICE_PRO = "99€";
 
 export const CANONICAL: Record<Lang, string> = {
   fr: `/fr/blog/${SLUG_FR}`,
-  en: `/en/blog/${SLUG_EN}`,
+  en: `/blog/${SLUG_EN}`,
 };
 
 export const META: Record<Lang, { title: string; description: string; h1: string }> = {

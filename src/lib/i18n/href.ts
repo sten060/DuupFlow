@@ -2,12 +2,18 @@
 
 import type { Locale } from "./context";
 
+import { publicPath } from "./routes";
+
 /**
- * Build a locale-prefixed href for a public/auth page.
+ * Build the public href of a page in the given locale.
+ * English lives at the root, French under /fr; translated slugs come from
+ * routes.ts.
  *
- *   localizedHref("fr", "/features")  → "/fr/features"
- *   localizedHref("en", "/")          → "/en"
- *   localizedHref("fr", "/#faq")      → "/fr#faq"
+ *   localizedHref("fr", "/pricing")         → "/fr/pricing"
+ *   localizedHref("en", "/pricing")         → "/pricing"
+ *   localizedHref("en", "/docs/editeur-ia") → "/docs/ai-editor"
+ *   localizedHref("en", "/#faq")            → "/#faq"
+ *   localizedHref("fr", "/#faq")            → "/fr#faq"
  *
  * External URLs and dashboard/admin/affiliate paths are returned unchanged.
  * Hash-only fragments ("#features") are returned unchanged.
@@ -33,18 +39,13 @@ export function localizedHref(locale: Locale, path: string): string {
     return path;
   }
 
-  // Already locale-prefixed? Replace the prefix to match current locale.
-  const match = path.match(/^\/(fr|en)(\/.*|$)/);
-  if (match) return `/${locale}${match[2] ?? ""}`;
-
-  // Root "/" → "/{locale}"
-  if (path === "/") return `/${locale}`;
-
-  // Anchor on root (e.g. "/#faq") → "/{locale}#faq"
-  if (path.startsWith("/#")) return `/${locale}${path.slice(1)}`;
-
-  // Normal public path → prepend locale
-  return `/${locale}${path}`;
+  // Split off ?query and #hash, localize the pathname only
+  const m = path.match(/^([^?#]*)(.*)$/);
+  const pathname = m?.[1] || "/";
+  const suffix = m?.[2] ?? "";
+  const localized = publicPath(locale, pathname);
+  // "/#faq" en anglais reste "/#faq" ; en français "/fr#faq"
+  return `${localized}${suffix}`;
 }
 
 /**

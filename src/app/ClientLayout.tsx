@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
 import Header from "@/components/Header";
 import { LanguageProvider, type Locale } from "@/lib/i18n/context";
+import { isPublicPath, stripLocale } from "@/lib/i18n/routes";
 import { captureAcquisition, trackClickIfUTM } from "@/lib/acquisition";
 import { track, startAutocapture, surfaceFor } from "@/lib/web-tracking";
 
@@ -66,21 +67,17 @@ function WebTracker() {
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   // Normalize a locale-prefixed pathname so the existing flags keep working.
-  // "/fr/login" → "/login", "/en" → "/", "/dashboard/x" → "/dashboard/x"
-  const stripLocale = (p: string): string => {
-    const m = p.match(/^\/(fr|en)(\/.*)?$/);
-    return m ? (m[2] ?? "/") : p;
-  };
+  // "/fr/login" → "/login", "/pricing" → "/pricing", "/dashboard/x" → "/dashboard/x"
   const normalized = stripLocale(pathname);
 
   // The marketing Header is rendered here in ClientLayout — OUTSIDE the
   // [locale] route segment — so it must take its language from the URL.
-  // Without this it falls back to the storage-driven provider and can show
-  // FR nav labels on an /en page (and vice-versa). Non-locale routes
-  // (/dashboard, /checkout, …) yield `undefined` → storage-driven mode,
-  // which is what the dashboard's manual language toggle relies on.
-  const localeMatch = pathname.match(/^\/(fr|en)(\/.*)?$/);
-  const urlLocale: Locale | undefined = localeMatch ? (localeMatch[1] as Locale) : undefined;
+  // /fr/* → FR ; public pages at the root (/, /pricing, /blog…) → EN.
+  // Non-public routes (/dashboard, /checkout, …) yield `undefined` →
+  // storage-driven mode, which the dashboard's manual language toggle relies on.
+  const first = pathname.split("/")[1];
+  const urlLocale: Locale | undefined =
+    first === "fr" ? "fr" : first === "en" || isPublicPath(pathname) ? "en" : undefined;
 
   const isDashboard = normalized.startsWith("/dashboard");
   const isAuthPage = normalized.startsWith("/login") || normalized.startsWith("/register");

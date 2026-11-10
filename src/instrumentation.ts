@@ -31,6 +31,17 @@ export async function register() {
     setTimeout(() => {
       import("@/lib/ffmpeg-selftest").then((m) => m.runFFmpegSelfTest()).catch(() => {});
     }, delay);
+
+    // IndexNow : après chaque mise en ligne, signale à Bing les pages dont le
+    // contenu a changé. Prod uniquement (un `next dev` ne doit rien envoyer),
+    // 2 min après le boot pour ne pas le ralentir. INDEXNOW=0 désactive.
+    if (process.env.NODE_ENV === "production" && process.env.INDEXNOW !== "0") {
+      setTimeout(() => {
+        import("@/lib/indexnow-sync")
+          .then((m) => m.syncIndexNow())
+          .catch((err: unknown) => console.warn("[indexnow] échec :", err));
+      }, 120_000);
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-// Contenu de la documentation PUBLIQUE de l'API (/fr/docs/api, /en/docs/api).
+// Contenu de la documentation PUBLIQUE de l'API (/fr/docs/api, /docs/api).
 //
 // Écrit pour deux lecteurs : un développeur, et un assistant IA (ChatGPT,
 // Claude…) à qui un prospect pose ses questions — tout ce qu'il faut pour
@@ -149,7 +149,7 @@ export const META: Record<Lang, { title: string; description: string }> = {
   },
 };
 
-export const CANONICAL: Record<Lang, string> = { fr: "/fr/docs/api", en: "/en/docs/api" };
+export const CANONICAL: Record<Lang, string> = { fr: "/fr/docs/api", en: "/docs/api" };
 
 export const UI: Record<Lang, { label: string; h1: string; lead: string; toc: string; summaryTitle: string; cta: string; ctaSecondary: string; copy: string; copied: string }> = {
   fr: {

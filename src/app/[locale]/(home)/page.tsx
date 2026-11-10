@@ -13,7 +13,7 @@ import { useInView } from "@/components/landing/useInView";
  * Nav / Footer / SmoothScroll / Label / tokens → @/components/landing/shell
  * ══════════════════════════════════════════════════════════════ */
 
-/* Locale courante ("fr" par défaut, "en" sur /en) — pour le contenu bilingue. */
+/* Locale courante ("en" à la racine, "fr" sous /fr) — pour le contenu bilingue. */
 function useLocale(): "fr" | "en" {
   const params = useParams();
   const l = Array.isArray(params?.locale) ? params?.locale[0] : params?.locale;

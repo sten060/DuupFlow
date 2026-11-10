@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
+import { publicPath } from "@/lib/i18n/routes";
 import { bindNotificationsUser } from "./components/notificationStore";
 import ThemeToggle from "./components/ThemeToggle";
 import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
@@ -409,7 +410,7 @@ export default function Sidebar() {
     return () => window.removeEventListener(OPEN_IDEA_EVENT, open);
   }, []);
   const pathname = usePathname();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
   // Close the mobile drawer whenever the route changes (a nav link was tapped).
   useEffect(() => { setMobileOpen(false); }, [pathname]);
@@ -597,7 +598,7 @@ export default function Sidebar() {
     // the next account that signs in on this browser.
     bindNotificationsUser(null);
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push(publicPath(locale, "/login"));
     router.refresh();
   }
 
