@@ -3,6 +3,7 @@
 // des prospects (cf. aussi /llms.txt).
 
 import type { Metadata } from "next";
+import { ogImageFor } from "@/lib/i18n/seo";
 import { notFound } from "next/navigation";
 import ApiDocsPage from "@/components/marketing/ApiDocsPage";
 import { CANONICAL, META, type Lang } from "@/components/marketing/apiDocsContent";
@@ -26,6 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
       description: META[lang].description,
       url: `https://www.duupflow.com${CANONICAL[lang]}`,
       type: "website",
+      images: [ogImageFor(lang)],
       locale: lang === "fr" ? "fr_FR" : "en_US",
     },
   };

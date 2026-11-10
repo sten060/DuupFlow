@@ -286,6 +286,6 @@ export const config = {
   // The middleware short-circuits early for public pages so the Supabase
   // round-trip only happens on auth-gated routes.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|og-image.png|og-image-fr.png|robots.txt|sitemap.xml|llms.txt|api/|auth/|out/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|og-image.png|og-image-fr.png|og-image-en.png|robots.txt|sitemap.xml|llms.txt|api/|auth/|out/).*)",
   ],
 };

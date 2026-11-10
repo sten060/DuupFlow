@@ -1,4 +1,5 @@
 import "@/app/globals.css";
+import RootShell, { appMetadata } from "@/app/RootShell";
 import Sidebar from "./sidebar";
 import GlobalVideoProgress from "./videos/GlobalVideoProgress";
 import ChatBot from "./components/ChatBot";
@@ -29,6 +30,7 @@ import { PlanGateProvider } from "./components/PlanGate";
 import { isPaidPlan } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
+export const metadata = appMetadata;
 export const revalidate = 0;
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -237,7 +239,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect(`/${loc}/onboarding?paywall=cancelled&plan=${gateToCheckout}`);
   }
 
+  // Layout racine de l'app (voir src/app/RootShell.tsx).
   return (
+    <RootShell lang="en">
     <OnboardingProvider
       enabled={onboarding?.enabled ?? false}
       initialProgress={onboarding?.progress ?? { grandfathered: true }}
@@ -320,5 +324,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     </div>
     </PlanGateProvider>
     </OnboardingProvider>
+    </RootShell>
   );
 }

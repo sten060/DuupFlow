@@ -1,10 +1,18 @@
-// app/layout.tsx
+// Coque HTML commune (<html>, <body>, scripts de suivi, ClientLayout).
+//
+// Le site a DEUX layouts racine, pour que <html lang> soit juste dès le HTML
+// serveur sans rendre les pages dynamiques :
+//   • src/app/[locale]/layout.tsx  → pages publiques, lang = "en" ou "fr"
+//   • dashboard / checkout / admin / affiliate / affiliate-login / dev-login
+//     → leur propre layout.tsx, lang = "en" (l'app bascule ensuite côté client)
+// Passer de l'un à l'autre recharge la page entière (comportement Next normal).
 import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import ClientLayout from "./ClientLayout";
 
-export const metadata: Metadata = {
+/** Metadata par défaut de l'application (hors pages publiques localisées). */
+export const appMetadata: Metadata = {
   metadataBase: new URL("https://www.duupflow.com"),
   title: "DuupFlow — Multiplie ton contenu par 100 sans effort",
   description:
@@ -39,13 +47,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default function RootShell({
   children,
+  lang,
 }: {
   children: React.ReactNode;
+  lang: "en" | "fr";
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={lang} suppressHydrationWarning>
       <body className="text-white antialiased">
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-G81RNL4BGW"

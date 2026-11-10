@@ -2,6 +2,7 @@
 // English only (no hreflang): /fr/submagic-alternative redirects (301, middleware) to /submagic-alternative.
 
 import type { Metadata } from "next";
+import { ogImageFor } from "@/lib/i18n/seo";
 import { redirect, notFound } from "next/navigation";
 import SubmagicAlternativePage, { CANONICAL, META } from "@/components/marketing/SubmagicAlternativePage";
 
@@ -16,6 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
       description: META.description,
       url: `https://www.duupflow.com${CANONICAL}`,
       type: "website",
+      images: [ogImageFor("en")],
       locale: "en_US",
     },
   };

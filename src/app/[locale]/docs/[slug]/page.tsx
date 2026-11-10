@@ -2,6 +2,7 @@
 // Slug interne = slug FR ; l'adresse anglaise traduite vient de routes.ts. Contenu : helpCenterContent.ts.
 
 import type { Metadata } from "next";
+import { ogImageFor } from "@/lib/i18n/seo";
 import { absoluteUrl, alternatesFor } from "@/lib/i18n/routes";
 import { notFound } from "next/navigation";
 import { HelpDocPage } from "@/components/marketing/HelpDocPage";
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     title,
     description: doc.summary[lang],
     alternates: alternatesFor(lang, `/docs/${slug}`),
-    openGraph: { title, description: doc.summary[lang], url: absoluteUrl(lang, `/docs/${slug}`), type: "article" },
+    openGraph: { title, description: doc.summary[lang], url: absoluteUrl(lang, `/docs/${slug}`), type: "article", images: [ogImageFor(lang)] },
   };
 }
 

@@ -2,6 +2,7 @@
 // Canonical: /fr/editeur-video-ia — if reached under /en, redirect to the EN slug.
 
 import type { Metadata } from "next";
+import { ogImageFor } from "@/lib/i18n/seo";
 import { redirect } from "next/navigation";
 import AiEditorFeaturePage, { CANONICAL, META } from "@/components/marketing/AiEditorFeaturePage";
 
@@ -18,6 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
       description: META.fr.description,
       url: `https://www.duupflow.com${CANONICAL.fr}`,
       type: "website",
+      images: [ogImageFor("fr")],
       locale: "fr_FR",
     },
   };

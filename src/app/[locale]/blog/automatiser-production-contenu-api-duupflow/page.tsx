@@ -6,6 +6,7 @@
 // DuupFlow API, with a copy-paste Claude Code prompt.
 
 import type { Metadata } from "next";
+import { ogImageFor } from "@/lib/i18n/seo";
 import { publicPath } from "@/lib/i18n/routes";
 import Link from "@/components/LocaleLink";
 import ArticleTOC, { type TocSection } from "../_components/ArticleTOC";
@@ -76,6 +77,7 @@ export async function generateMetadata({
       description: m.description,
       url: `https://www.duupflow.com${isFr ? CANONICAL_FR : CANONICAL_EN}`,
       type: "article",
+      images: [ogImageFor(isFr ? "fr" : "en")],
       locale: isFr ? "fr_FR" : "en_US",
       publishedTime: PUBLISHED_AT,
     },

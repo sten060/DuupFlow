@@ -1,16 +1,17 @@
-// Locale-aware layout for the public + auth surface.
+// Layout RACINE des pages publiques + auth (voir src/app/RootShell.tsx).
 //
-// Public pages (English at the root, served internally from /en/* by the
-// middleware; French under /fr/*) are wrapped in a LanguageProvider seeded
-// from the URL segment so server-rendered HTML matches the URL locale
-// (no flash, correct <html lang>, SEO-friendly).
+// Anglais à la racine (servi en interne depuis /en/* par le middleware),
+// français sous /fr/*. Le segment [locale] donne <html lang> dès le HTML
+// serveur, et seed le LanguageProvider (pas de flash, SEO correct).
 //
-// /dashboard/*, /admin/*, /affiliate/*, /checkout/*, /api/* stay outside
-// this segment — they keep the dashboard's storage-driven LanguageProvider
-// (the outer one in ClientLayout) which respects the user's manual toggle.
+// /dashboard/*, /admin/*, /affiliate/*, /checkout/* ont leur propre layout
+// racine (lang="en") et le LanguageProvider storage-driven de ClientLayout.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import RootShell, { appMetadata } from "@/app/RootShell";
 import { LanguageProvider, type Locale } from "@/lib/i18n/context";
+import { ogImageFor } from "@/lib/i18n/seo";
+import { SITE_URL } from "@/lib/i18n/routes";
 
 const SUPPORTED_LOCALES: readonly Locale[] = ["fr", "en"] as const;
 
@@ -18,27 +19,39 @@ export function generateStaticParams() {
   return SUPPORTED_LOCALES.map((locale) => ({ locale }));
 }
 
-// Titre / description de la LP en anglais. Le FR vient du layout racine ; les
-// pages qui définissent leurs propres metadata (blog, docs, pricing…) gagnent.
-const EN_TITLE = "DuupFlow — Multiply your content by 100 effortlessly";
-const EN_DESC = "Duplicate your content, let AI create variants, and feed all your accounts in minutes.";
+// Valeurs par défaut (les pages qui définissent leurs propres metadata gagnent).
+const COPY = {
+  en: {
+    title: "DuupFlow — Multiply your content by 100 effortlessly",
+    description: "Duplicate your content, let AI create variants, and feed all your accounts in minutes.",
+  },
+  fr: {
+    title: "DuupFlow — Multiplie ton contenu par 100 sans effort",
+    description: "Duplique ton contenu, laisse l’IA créer des variantes, et alimente tous tes comptes en quelques minutes.",
+  },
+} as const;
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
-  if (locale !== "en") return {};
+  const lang: Locale = locale === "fr" ? "fr" : "en";
+  const { title, description } = COPY[lang];
+  const image = ogImageFor(lang);
   return {
-    title: EN_TITLE,
-    description: EN_DESC,
+    metadataBase: appMetadata.metadataBase,
+    title,
+    description,
     openGraph: {
-      title: EN_TITLE,
-      description: EN_DESC,
-      url: "https://www.duupflow.com",
+      title,
+      description,
+      url: lang === "fr" ? `${SITE_URL}/fr` : SITE_URL,
       siteName: "DuupFlow",
-      images: [{ url: "/og-image-fr.png?v=3", width: 1200, height: 630, alt: "DuupFlow" }],
-      locale: "en_US",
+      images: [image],
+      locale: lang === "fr" ? "fr_FR" : "en_US",
       type: "website",
     },
-    twitter: { card: "summary_large_image", title: EN_TITLE, description: EN_DESC, images: ["/og-image-fr.png?v=3"] },
+    // Sans titre ni description : X/Twitter reprend alors og:title / og:description
+    // de chaque page, au lieu du titre de l'accueil.
+    twitter: { card: "summary_large_image", images: [image.url] },
   };
 }
 
@@ -54,8 +67,10 @@ export default async function LocaleLayout({
     notFound();
   }
   return (
-    <LanguageProvider initialLocale={locale as Locale}>
-      {children}
-    </LanguageProvider>
+    <RootShell lang={locale as Locale}>
+      <LanguageProvider initialLocale={locale as Locale}>
+        {children}
+      </LanguageProvider>
+    </RootShell>
   );
 }
