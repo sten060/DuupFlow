@@ -79,14 +79,15 @@ export default function AuthBrandPanel() {
       {/* Social proof */}
       <div className="relative z-10 flex items-center gap-3">
         <div className="flex -space-x-2">
-          {["#6366F1", "#8B5CF6", "#EC4899", "#38BDF8"].map((c, i) => (
-            <div
-              key={i}
-              className="h-8 w-8 rounded-full border-2 border-[#5f6bff] flex items-center justify-center text-xs font-bold text-white"
-              style={{ background: c }}
-            >
-              {["A", "M", "S", "L"][i]}
-            </div>
+          {/* Vignettes recadrées sur le visage, tirées des photos des avis de la landing. */}
+          {[1, 2, 3, 4].map((n) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={n}
+              src={`/avatars/user-${n}.jpg`}
+              alt=""
+              className="h-8 w-8 rounded-full border-2 border-[#5f6bff] object-cover"
+            />
           ))}
         </div>
         <p className="text-xs text-white/45">

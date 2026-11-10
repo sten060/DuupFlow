@@ -2209,6 +2209,7 @@
     "sourceFriend": "A friend told me",
     "sourceAlready": "I already knew DuupFlow",
     "sourceGoogle": "Google search",
+    "sourceAi": "Through AI (ChatGPT…)",
     "sourceOther": "Other",
     "finish": "Finish ->"
   },

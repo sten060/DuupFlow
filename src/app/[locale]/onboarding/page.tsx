@@ -28,7 +28,7 @@ type Platform =
 
 type Source =
   | "youtube" | "telegram" | "friend" | "already_knew"
-  | "tiktok"  | "instagram" | "google" | "other";
+  | "tiktok"  | "instagram" | "google" | "ai" | "other";
 
 const PLATFORMS: { id: Platform; key: string }[] = [
   { id: "instagram", key: "onboarding.platformInstagram" },
@@ -44,14 +44,92 @@ const PLATFORMS: { id: Platform; key: string }[] = [
 
 const SOURCES: { id: Source; key: string }[] = [
   { id: "youtube",      key: "onboarding.sourceYoutube" },
-  { id: "tiktok",       key: "onboarding.sourceTiktok" },
   { id: "instagram",    key: "onboarding.sourceInstagram" },
   { id: "telegram",     key: "onboarding.sourceTelegram" },
   { id: "friend",       key: "onboarding.sourceFriend" },
   { id: "google",       key: "onboarding.sourceGoogle" },
+  { id: "ai",           key: "onboarding.sourceAi" },
   { id: "already_knew", key: "onboarding.sourceAlready" },
   { id: "other",        key: "onboarding.sourceOther" },
 ];
+
+// Icône de chaque réponse « Comment as-tu connu DuupFlow ? » — logos de marque
+// en couleur, pictos simples pour les réponses génériques.
+function SourceIcon({ id }: { id: Source }) {
+  const box = "h-[18px] w-[18px] shrink-0";
+  const line = { fill: "none", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  switch (id) {
+    case "youtube":
+      return (
+        <svg viewBox="0 0 24 24" className={box}>
+          <rect x="1.5" y="5" width="21" height="14" rx="4" fill="#FF0000" />
+          <path d="M10 9.2v5.6l4.8-2.8z" fill="#fff" />
+        </svg>
+      );
+    case "instagram":
+      return (
+        <svg viewBox="0 0 24 24" className={box}>
+          <defs>
+            <linearGradient id="ob-ig" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0" stopColor="#FEDA75" />
+              <stop offset=".35" stopColor="#FA7E1E" />
+              <stop offset=".65" stopColor="#D62976" />
+              <stop offset="1" stopColor="#4F5BD5" />
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#ob-ig)" />
+          <circle cx="12" cy="12" r="4.2" fill="none" stroke="#fff" strokeWidth="1.9" />
+          <circle cx="17.3" cy="6.7" r="1.2" fill="#fff" />
+        </svg>
+      );
+    case "telegram":
+      return (
+        <svg viewBox="0 0 24 24" className={box}>
+          <circle cx="12" cy="12" r="11" fill="#29A9EB" />
+          <path d="M6.3 11.7l9.9-3.9c.5-.2.9.1.8.7l-1.7 7.9c-.1.5-.5.7-.9.4l-2.6-1.9-1.3 1.2c-.1.1-.3.2-.5.2l.2-2.7 4.8-4.4c.2-.2 0-.3-.3-.1l-6 3.8-2.5-.8c-.5-.2-.5-.5.1-.7z" fill="#fff" />
+        </svg>
+      );
+    case "google":
+      return (
+        <svg viewBox="0 0 48 48" className={box}>
+          <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+          <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+          <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+        </svg>
+      );
+    case "friend":
+      return (
+        <svg viewBox="0 0 24 24" className={box} stroke="#10B981" {...line}>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    case "ai":
+      return (
+        <svg viewBox="0 0 24 24" className={box} fill="#8B5CF6">
+          <path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z" />
+          <path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" />
+        </svg>
+      );
+    case "already_knew":
+      return (
+        <svg viewBox="0 0 24 24" className={box} stroke="#EC4899" {...line}>
+          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+        </svg>
+      );
+    default:
+      return (
+        <svg viewBox="0 0 24 24" className={box} fill="#94A3B8">
+          <circle cx="5" cy="12" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="19" cy="12" r="2" />
+        </svg>
+      );
+  }
+}
 
 function OnboardingForm() {
   const router = useRouter();
@@ -466,7 +544,10 @@ function OnboardingForm() {
                       boxShadow: active ? "0 0 0 3px rgba(99,102,241,0.10)" : "none",
                     }}
                   >
-                    <span>{t(s.key)}</span>
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <SourceIcon id={s.id} />
+                      <span className="truncate">{t(s.key)}</span>
+                    </span>
                     <span
                       className="h-4 w-4 rounded-full flex items-center justify-center transition shrink-0"
                       style={{

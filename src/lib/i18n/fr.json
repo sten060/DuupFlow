@@ -2218,6 +2218,7 @@
     "sourceFriend": "Via une connaissance",
     "sourceAlready": "Je connaissais déjà",
     "sourceGoogle": "Recherche Google",
+    "sourceAi": "Via une IA (ChatGPT…)",
     "sourceOther": "Autre",
     "finish": "Terminer"
   },
