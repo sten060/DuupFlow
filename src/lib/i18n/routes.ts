@@ -23,6 +23,7 @@ export const PUBLIC_TOP_LEVEL = new Set([
   "blog",
   "capcut-alternative",
   "submagic-alternative",
+  "metaghost-alternative",
   "docs",
   "legal",
   "login",
@@ -47,6 +48,7 @@ const SLUG_PAIRS: SlugPair[] = [
     ["instagram-contenus-non-originaux", "instagram-unoriginal-content-rule"],
     ["automatiser-production-contenu-api-duupflow", "automate-content-production-duupflow-api"],
     ["reposter-meme-video-plusieurs-comptes-tiktok-instagram", "repost-same-video-multiple-tiktok-instagram-accounts"],
+    ["agence-onlyfans-reels-instagram-plusieurs-comptes", "onlyfans-agency-instagram-reels-multiple-accounts"],
   ] as const).map(([fr, en]) => ({ fr: `/blog/${fr}`, en: `/blog/${en}`, enInternal: `/blog/${fr}` })),
   // Blog — articles qui ont déjà un dossier par langue.
   { fr: "/blog/editeur-video-ia", en: "/blog/ai-video-editor", enInternal: "/blog/ai-video-editor" },

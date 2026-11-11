@@ -14,6 +14,7 @@ const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthl
   { path: "/legal",         changeFrequency: "yearly",  priority: 0.2 },
   { path: "/blog",          changeFrequency: "weekly",  priority: 0.7 },
   { path: "/capcut-alternative", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/metaghost-alternative", changeFrequency: "monthly", priority: 0.8 },
   { path: "/docs/api",      changeFrequency: "monthly", priority: 0.6 },
   { path: "/docs",          changeFrequency: "monthly", priority: 0.7 },
   { path: "/docs/duplication-video", changeFrequency: "monthly", priority: 0.6 },
@@ -46,6 +47,11 @@ const FR_ARTICLES: Array<{ slug: string; lastModified: string }> = [];
 // via hreflang). Slugs are the folder names; absoluteUrl() swaps in the
 // translated English address (routes.ts).
 const BILINGUAL_ARTICLES: Array<{ frSlug: string; enSlug: string; lastModified: string }> = [
+  {
+    frSlug: "agence-onlyfans-reels-instagram-plusieurs-comptes",
+    enSlug: "agence-onlyfans-reels-instagram-plusieurs-comptes",
+    lastModified: "2026-11-11",
+  },
   {
     frSlug: "reposter-meme-video-plusieurs-comptes-tiktok-instagram",
     enSlug: "reposter-meme-video-plusieurs-comptes-tiktok-instagram",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n/context";
 
 export type TocSection = { id: string; label: string };
 
@@ -18,6 +19,7 @@ export type TocSection = { id: string; label: string };
  */
 export default function ArticleTOC({ sections }: { sections: TocSection[] }) {
   const [activeId, setActiveId] = useState<string>(sections[0]?.id ?? "");
+  const fr = useLocale() === "fr";
 
   useEffect(() => {
     if (sections.length === 0) return;
@@ -55,9 +57,9 @@ export default function ArticleTOC({ sections }: { sections: TocSection[] }) {
   }
 
   return (
-    <nav aria-label="Sommaire de l'article" className="text-sm">
+    <nav aria-label={fr ? "Sommaire de l'article" : "Table of contents"} className="text-sm">
       <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-[#8a8a8a] mb-4">
-        Sommaire
+        {fr ? "Sommaire" : "Contents"}
       </p>
       <ol className="space-y-1">
         {sections.map((s, i) => {

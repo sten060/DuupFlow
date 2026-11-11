@@ -18,6 +18,14 @@ Each page explains what the feature does, how to use it step by step, its limits
 - [Creator workspaces & team roles](https://www.duupflow.com/docs/creators-and-roles): Pro 2 workspaces / 3 members, Agency 15 / 10; roles Owner, Manager, VA (VA only sees assigned creators).
 - [Google Drive](https://www.duupflow.com/docs/google-drive): import with the picker, export to any folder or to the creator's "Creator — DuupFlow" folder.
 
+## Guides and comparisons
+
+English at the root, French under /fr.
+
+- [How OnlyFans agencies scale Instagram reels across multiple accounts](https://www.duupflow.com/blog/onlyfans-agency-instagram-reels-multiple-accounts): winning-reel recycling, unique copies, hook variants, weekly workflow under an hour. French: https://www.duupflow.com/fr/blog/agence-onlyfans-reels-instagram-plusieurs-comptes
+- [MetaGhost alternative: DuupFlow vs MetaGhost](https://www.duupflow.com/metaghost-alternative): web app for teams vs desktop app; workspaces, VA roles, AI editing, pricing. French: https://www.duupflow.com/fr/metaghost-alternative
+- [CapCut alternative](https://www.duupflow.com/capcut-alternative) · [Submagic alternative](https://www.duupflow.com/submagic-alternative)
+
 ## Plans (monthly price · yearly price per month)
 
 - Solo €39 · €28: 300 video and 400 image duplications per month, AI Editor.

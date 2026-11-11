@@ -30,6 +30,19 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    slug: "agence-onlyfans-reels-instagram-plusieurs-comptes",
+    slugEn: "onlyfans-agency-instagram-reels-multiple-accounts",
+    locale: "fr",
+    title: "Comment les agences OnlyFans font grandir leurs reels Instagram sur plusieurs comptes",
+    titleEn: "How OnlyFans Agencies Scale Instagram Reels Across Multiple Accounts",
+    excerpt:
+      "Le système de contenu des agences OFM pour publier des reels sur de nombreux comptes Instagram : recyclage des reels gagnants, copies uniques, variantes de hooks et un workflow hebdo qui prend moins d'une heure.",
+    excerptEn:
+      "The content system OFM agencies use to post reels on many Instagram accounts: winning-reel recycling, unique copies, hook variants and a weekly workflow that takes under an hour.",
+    publishedAt: "2026-11-11",
+    readingMinutes: 6,
+  },
+  {
     slug: "creer-un-mois-de-reels-automatique-ia",
     locale: "fr",
     title: "Créer un mois de reels en automatique avec l'IA : le workflow complet",
