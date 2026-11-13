@@ -5,7 +5,7 @@ import { absoluteUrl, alternatesFor, type Locale } from "./routes";
 
 // Image d'aperçu (réseaux sociaux, messageries, IA) : capture de l'accueil
 // dans la langue de la page. Changer ?v= force les plateformes à la recharger.
-const OG_IMAGES = { en: "/og-image-en.png?v=1", fr: "/og-image-fr.png?v=3" } as const;
+const OG_IMAGES = { en: "/og-image-en.jpg", fr: "/og-image-fr.jpg" } as const;
 
 export function ogImageFor(locale: Locale) {
   return { url: OG_IMAGES[locale], width: 1200, height: 630, alt: "DuupFlow" };

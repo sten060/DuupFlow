@@ -29,7 +29,7 @@ export const appMetadata: Metadata = {
     siteName: "DuupFlow",
     images: [
       {
-        url: "/og-image-fr.png?v=3",
+        url: "/og-image-fr.jpg",
         width: 1200,
         height: 630,
         alt: "DuupFlow",
@@ -43,7 +43,7 @@ export const appMetadata: Metadata = {
     title: "DuupFlow — Multiplie ton contenu par 100 sans effort",
     description:
       "Duplique ton contenu, laisse l’IA créer des variantes, et alimente tous tes comptes en quelques minutes.",
-    images: ["/og-image-fr.png?v=3"],
+    images: ["/og-image-fr.jpg"],
   },
 };
 
