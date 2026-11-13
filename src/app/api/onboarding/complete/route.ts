@@ -134,7 +134,8 @@ export async function POST(req: NextRequest) {
 
   // Liste Brevo « free » : uniquement à la création du compte (un abonné qui
   // repasse par l'onboarding ne doit pas être rebasculé en séquence free).
-  if (user.email && !existingProfile) {
+  // Les comptes offerts (partenaires, tests) ne reçoivent aucun mail marketing.
+  if (user.email && !existingProfile && !isComp) {
     const email = user.email;
     const name = firstName.trim();
     moveToFreeUser(email, name).catch(console.error);
