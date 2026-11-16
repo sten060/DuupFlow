@@ -50,7 +50,7 @@ const WHY = {
   reasons: [
     {
       h: "Every export burns a credit — including re-exports",
-      p: "Plans are capped by video count, not minutes. Starter gives you 15 videos, Pro 40, Business 100. Re-export the same clip with a different caption style or a different aspect ratio and it counts again. If you iterate, you run out well before the end of the month.",
+      p: "Submagic's plans are capped by video count, not minutes. Submagic Starter gives you 15 videos, Submagic Pro 40, Submagic Business 100. Re-export the same clip with a different caption style or a different aspect ratio and it counts again. If you iterate, you run out well before the end of the month.",
     },
     {
       h: "It's caption-first, not edit-first",
@@ -152,7 +152,7 @@ const FAQ = {
   items: [
     {
       q: "How much does Submagic cost?",
-      a: "Starter is $19/month ($12 billed annually) for 15 videos, Pro is $39/month ($23 annually) for 40 videos, Business + API is $69/month ($41 annually) for 100 videos. There's also a free plan limited to 3 watermarked videos per month.",
+      a: `Submagic's own plans: Submagic Starter is $19/month ($12 billed annually) for 15 videos, Submagic Pro is $39/month ($23 annually) for 40 videos, Submagic Business + API is $69/month ($41 annually) for 100 videos, plus a free plan limited to 3 watermarked videos per month. These are Submagic's prices, not DuupFlow's: DuupFlow plans are Solo ${PRICE_SOLO}/month, Pro ${PRICE_PRO}/month and Agency ${PRICE_AGENCY}/month.`,
     },
     {
       q: "Is Submagic free?",

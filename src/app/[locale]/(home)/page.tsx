@@ -5,7 +5,9 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { CTA_GRAD, GradText, Label, NavPill, Footer, SmoothScroll, Brand, FlipInner, SECTION_LEAD, SECTION_TITLE, SECTION_TITLE_STYLE } from "@/components/landing/shell";
 import FeatureSections from "@/components/landing/FeatureSections";
-import { useInView } from "@/components/landing/useInView";
+import PartnersSection from "@/components/landing/PartnersSection";
+import AskAI from "@/components/landing/AskAI";
+import { MODULES_BG } from "@/components/landing/Bento";
 
 /* ══════════════════════════════════════════════════════════════
  * LANDING — refonte façon template "Lunera" (thème clair, Geist).
@@ -392,40 +394,21 @@ function FAQ() {
 /* ─── CTA ─── */
 function CTA() {
   const en = useLocale() === "en";
-  const { ref: viewRef, inView } = useInView<HTMLDivElement>();
-  /* Texte en dégradé clair : lisible sur le fond violet-bleu. */
-  const hi = (t: string) => (
-    <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg,#ffffff 0%,#dfe7ff 55%,#efe4ff 100%)" }}>{t}</span>
-  );
   return (
     <section className="px-6 pb-10">
-      {/* Verre liquide : des nappes violet / bleu qui ondulent lentement DANS le
-          bloc (lp-liquid-*, globals.css), recouvertes d'une plaque de verre
-          (flou + reflets). Rien ne déborde : overflow-hidden + isolate. */}
-      <div ref={viewRef} className={`relative isolate mx-auto max-w-6xl overflow-hidden rounded-[36px] px-8 py-16 text-center sm:py-20 ${inView ? "" : "anim-paused"}`}
-        style={{ background: "linear-gradient(135deg,#5b78f6 0%,#7a6cf4 55%,#8f7cf7 100%)" }}>
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-          <span className="lp-liquid-a absolute -left-[10%] -top-[30%] h-[85%] w-[55%] rounded-full" style={{ background: "radial-gradient(circle at 40% 40%, #38bdf8 0%, rgba(56,189,248,0) 70%)" }} />
-          <span className="lp-liquid-b absolute -right-[12%] top-[5%] h-[90%] w-[55%] rounded-full" style={{ background: "radial-gradient(circle at 50% 50%, #a78bfa 0%, rgba(167,139,250,0) 70%)" }} />
-          <span className="lp-liquid-c absolute -bottom-[35%] left-[25%] h-[80%] w-[50%] rounded-full" style={{ background: "radial-gradient(circle at 50% 50%, #4f7bff 0%, rgba(79,123,255,0) 70%)" }} />
-          <span className="lp-liquid-d absolute left-[45%] -top-[25%] h-[60%] w-[35%] rounded-full" style={{ background: "radial-gradient(circle at 50% 50%, rgba(236,72,153,0.55) 0%, rgba(236,72,153,0) 70%)" }} />
-          {/* Plaque de verre : flou des nappes + reflets sur les bords */}
-          <span className="absolute inset-0 rounded-[36px] bg-white/[0.06] backdrop-blur-[36px]"
-            style={{ boxShadow: "inset 2px 2px 1px -1px rgba(255,255,255,0.55), inset -2px -2px 1px -1px rgba(255,255,255,0.3), inset 0 0 60px rgba(255,255,255,0.18)" }} />
-        </div>
-        <h2 className={`mx-auto max-w-2xl ${SECTION_TITLE.replace("text-[#1a1a1a]", "text-white")}`} style={SECTION_TITLE_STYLE}>
-          {en ? <>{hi("Multiply your content")} across every account.</> : <>{hi("Multiplie ton contenu")} sur tous tes comptes.</>}
+      {/* Même fond bleuté à halos que la section des modules ; reflets de verre sur les bords. */}
+      <div className="mx-auto max-w-6xl overflow-hidden rounded-[36px] px-8 py-16 text-center sm:py-20"
+        style={{ background: MODULES_BG, boxShadow: "inset 2px 2px 1px -1px rgba(255,255,255,0.8), inset -2px -2px 1px -1px rgba(255,255,255,0.5)" }}>
+        <h2 className={`mx-auto max-w-2xl ${SECTION_TITLE}`} style={SECTION_TITLE_STYLE}>
+          {en ? <>Still not sure DuupFlow is <GradText>right for you</GradText>?</> : <>Pas encore sûr que DuupFlow soit <GradText>fait pour toi</GradText> ?</>}
         </h2>
-        <p className="mx-auto mt-4 max-w-md text-[17px] text-white/85">
-          {en ? "One video, dozens of unique variants ready to post. Your first copies in 3 minutes." : "Une vidéo, des dizaines de variantes uniques prêtes à poster. Tes premières copies en 3 minutes."}
+        <p className={`mx-auto mt-4 max-w-xl ${SECTION_LEAD}`}>
+          {en
+            ? "Let ChatGPT, Claude or Perplexity think it through for you. Click a button and see what your favorite AI says about DuupFlow."
+            : "Laisse ChatGPT, Claude ou Perplexity réfléchir à ta place. Clique sur un bouton et découvre ce que ton IA préférée pense de DuupFlow."}
         </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/register" className="rounded-full bg-white px-7 py-3 text-sm font-semibold text-[#3b3fd8] shadow-[0_10px_30px_rgba(30,30,120,0.25)] transition hover:bg-white/90">
-            {en ? "Get Started" : "Commencer Maintenant"}
-          </Link>
-          <Link href="/demo-request" className="rounded-full bg-white/15 px-7 py-3 text-sm font-medium text-white ring-1 ring-white/35 backdrop-blur transition hover:bg-white/25">
-            {en ? "Contact us" : "Nous contacter"}
-          </Link>
+        <div className="mx-auto mt-8 max-w-xs sm:max-w-none">
+          <AskAI locale={en ? "en" : "fr"} />
         </div>
       </div>
     </section>
@@ -435,6 +418,7 @@ function CTA() {
 
 /* ─── PAGE ─── */
 export default function LandingPage() {
+  const locale = useLocale();
   return (
     <div className="lunera min-h-screen text-[#1a1a1a]" style={{ background: "linear-gradient(to right, #b8d0ff 0%, #c6bcf5 100%)" }}>
       <SmoothScroll />
@@ -457,6 +441,7 @@ export default function LandingPage() {
             <FeatureSections />
           </div>
         </div>
+        <PartnersSection locale={locale} />
         <Testimonials />
         <FAQ />
         <CTA />

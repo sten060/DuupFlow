@@ -8,6 +8,8 @@ import Link from "@/components/LocaleLink";
 import { useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import { NavPill, Footer, SmoothScroll, Label, BLUE, CTA_GRAD, Brand } from "@/components/landing/shell";
+import { PartnerCard } from "@/components/landing/PartnersSection";
+import { PARTNERS } from "@/components/landing/partners";
 
 const INPUT =
   "w-full rounded-xl border border-black/10 bg-[#f6f7f9] px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#9aa2b2] outline-none transition focus:border-[#4f7bff]/50 focus:ring-2 focus:ring-[#4f7bff]/15";
@@ -144,6 +146,20 @@ export default function PartenairePage() {
                 </form>
               )}
             </div>
+          </div>
+
+          {/* Partenaires officiels — mêmes cartes que sur la landing */}
+          <div className="mt-20 text-center">
+            <h2 className="text-[24px] font-semibold tracking-[-0.02em] text-[#1a1a1a]">
+              {en ? "Official partners" : "Partenaires officiels"}
+            </h2>
+          </div>
+          <div className="mt-8 flex flex-wrap justify-center gap-5">
+            {PARTNERS.map((p) => (
+              <div key={p.key} className="w-full md:w-[calc((100%-2.5rem)/3)]">
+                <PartnerCard partner={p} locale={en ? "en" : "fr"} />
+              </div>
+            ))}
           </div>
         </div>
       </section>

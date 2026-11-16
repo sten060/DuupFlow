@@ -37,7 +37,7 @@ const ICON = "h-[18px] w-[18px]";
 
 /* Fonds de section : une base bleutée + deux halos (bleu, violet) pour que
    l'effet verre des cartes ait quelque chose à flouter. */
-const MODULES_BG =
+export const MODULES_BG =
   "radial-gradient(40% 38% at 10% 22%, rgba(79,123,255,0.55), transparent 70%)," +
   "radial-gradient(38% 40% at 90% 30%, rgba(124,92,255,0.50), transparent 70%)," +
   "radial-gradient(36% 34% at 70% 85%, rgba(56,189,248,0.40), transparent 70%)," +

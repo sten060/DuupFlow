@@ -10,6 +10,7 @@ const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthl
   { path: "",               changeFrequency: "weekly",  priority: 1.0 }, // home
   { path: "/pricing",       changeFrequency: "monthly", priority: 0.8 },
   { path: "/partners",      changeFrequency: "monthly", priority: 0.5 },
+  { path: "/partners/dropp", changeFrequency: "monthly", priority: 0.6 },
   { path: "/demo-request",  changeFrequency: "yearly",  priority: 0.4 },
   { path: "/legal",         changeFrequency: "yearly",  priority: 0.2 },
   { path: "/blog",          changeFrequency: "weekly",  priority: 0.7 },
