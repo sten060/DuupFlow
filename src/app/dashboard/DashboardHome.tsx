@@ -6,7 +6,6 @@ import VariationAnnouncementModal from "./VariationAnnouncementModal";
 import TikTokAnnouncementModal, { TIKTOK_DEST, TIKTOK_SEEN_KEY } from "./TikTokAnnouncementModal";
 import StarterAnnounceModal, { STARTER_SEEN_KEY } from "./StarterAnnounceModal";
 import ReplayMenu from "./onboarding/ReplayMenu";
-import GlobalDocsDrawer from "./components/GlobalDocsDrawer";
 import PromoPopup from "./PromoPopup";
 import ActivityDashboard from "./home/ActivityDashboard";
 
@@ -14,43 +13,58 @@ const G = "bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transpa
 
 /* ─── News Modal ─── */
 function NewsModal({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
+  // Textes FR/EN : l'ancienne version était en dur, en français sans accents.
+  // La mise à jour « Textes & Duplication IA » passe en tête et réutilise les
+  // textes de son pop-up d'annonce (dashboard.updateNov.*).
+  const fr = locale === "fr";
+  const L = (a: string, b: string) => (fr ? a : b);
   const NEWS_SECTIONS = [
     {
-      title: t("dashboard.home.moduleVideos"),
+      title: t("dashboard.updateNov.badge"),
       color: "#6366F1",
       items: [
-        { name: "Priorite d'algorithme", desc: "Simule un iPhone reel (metadonnees Apple, .mov)", detail: "" },
-        { name: "Pixel magique", desc: "Bruit imperceptible pour hash unique", detail: "" },
-        { name: "Metadonnees technique", desc: "Bitrate, GOP, FPS, profil H.264 aleatoires", detail: "" },
-        { name: "Localisation pays", desc: "Injecte le pays dans les metadonnees", detail: "" },
-        { name: "Qualite originale preservee", desc: "Plus de cap 1920px, 4K reste 4K", detail: "" },
+        ...(process.env.NEXT_PUBLIC_AI_AUTO_BETA === "1" ? [{ name: t("dashboard.updateNov.f1t"), desc: t("dashboard.updateNov.f1d"), detail: "" }] : []),
+        { name: t("dashboard.updateNov.f2t"), desc: t("dashboard.updateNov.f2d"), detail: "" },
+        { name: t("dashboard.updateNov.f3t"), desc: t("dashboard.updateNov.f3d"), detail: "" },
+        { name: t("dashboard.updateNov.f4t"), desc: t("dashboard.updateNov.f4d"), detail: "" },
+      ],
+    },
+    {
+      title: t("dashboard.home.moduleVideos"),
+      color: "#0EA5E9",
+      items: [
+        { name: L("Priorité d'algorithme", "Algorithm priority"), desc: L("Simule un vrai iPhone (métadonnées Apple, .mov)", "Simulates a real iPhone (Apple metadata, .mov)"), detail: "" },
+        { name: L("Pixel magique", "Magic pixel"), desc: L("Bruit imperceptible pour une empreinte unique", "Invisible noise for a unique fingerprint"), detail: "" },
+        { name: L("Métadonnées technique", "Technical metadata"), desc: L("Débit, GOP, FPS et profil H.264 aléatoires", "Random bitrate, GOP, FPS and H.264 profile"), detail: "" },
+        { name: L("Localisation pays", "Country location"), desc: L("Le pays inscrit dans les métadonnées", "The country written into the metadata"), detail: "" },
+        { name: L("Qualité d'origine préservée", "Original quality kept"), desc: L("Plus de limite à 1920 px : la 4K reste en 4K", "No more 1920 px cap: 4K stays 4K"), detail: "" },
       ],
     },
     {
       title: t("dashboard.home.moduleImages"),
       color: "#C026D3",
       items: [
-        { name: "Priorite d'algorithme", desc: "EXIF Apple authentiques (appareil, GPS, focale)", detail: "" },
-        { name: "Localisation pays", desc: "Pays injecte dans l'EXIF", detail: "" },
+        { name: L("Priorité d'algorithme", "Algorithm priority"), desc: L("EXIF Apple authentiques (appareil, GPS, focale)", "Authentic Apple EXIF (device, GPS, focal length)"), detail: "" },
+        { name: L("Localisation pays", "Country location"), desc: L("Le pays inscrit dans l'EXIF", "The country written into the EXIF"), detail: "" },
       ],
     },
     {
       title: t("dashboard.home.moduleComparateur"),
       color: "#10B981",
       items: [
-        { name: "Analyse ffprobe", desc: "Compare les metadonnees exactes de deux fichiers", detail: "" },
-        { name: "Score de similarite", desc: "Pourcentage de ressemblance", detail: "" },
-        { name: "Drag & drop", desc: "Glisse tes fichiers directement", detail: "" },
+        { name: L("Analyse des métadonnées", "Metadata analysis"), desc: L("Compare les métadonnées exactes de deux fichiers", "Compares the exact metadata of two files"), detail: "" },
+        { name: L("Score de similarité", "Similarity score"), desc: L("Le pourcentage de ressemblance", "How alike the two files are, in percent"), detail: "" },
+        { name: L("Glisser-déposer", "Drag & drop"), desc: L("Glisse tes fichiers directement", "Drop your files straight in"), detail: "" },
       ],
     },
     {
       title: t("dashboard.sidebar.support"),
       color: "#F59E0B",
       items: [
-        { name: "Chatbot intelligent", desc: "Assistance instantanee avec FAQ complete", detail: "" },
-        { name: "Page Support", desc: "Telegram + Email en un clic", detail: "" },
+        { name: L("Chatbot", "Chatbot"), desc: L("Toute l'aide en un clic, avec recherche", "All the help in one click, with search"), detail: "" },
+        { name: L("Page Aide", "Help page"), desc: L("La doc de chaque module, les problèmes fréquents, Telegram et email", "Every module's guide, common problems, Telegram and email"), detail: "" },
       ],
     },
   ];
@@ -227,7 +241,13 @@ export default function DashboardHome({
             )}
           </h1>
           <div className="flex flex-wrap items-center gap-2">
-            <GlobalDocsDrawer buttonClassName="dash-btn" />
+            <a href="/dashboard/support" className="dash-btn">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              </svg>
+              {t("dashboard.docs.button")}
+            </a>
             <button type="button" onClick={() => setShowNews(true)} className="dash-btn">
               <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-sky-500" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M13 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zM5 5h6M5 8h6M5 11h3" />

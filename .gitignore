@@ -66,3 +66,4 @@ vidéos-test/
 # Dossiers Google Fonts bruts (source de scripts/install-fonts.mjs).
 # Seul public/fonts/ est déployé — voir src/lib/ai-editor/font-catalog.ts
 /fonts/
+.ai-dup-e2e/

@@ -26,10 +26,17 @@ const ONBOARDING_AREAS = [
   "similarity",
   "generate",
   "ai-detection",
+  // Visites de sous-pages (EXTRA_COACHES) : sans leur clé ici, « vue » ne
+  // s'enregistrait pas et la visite pouvait revenir.
+  "videos-ai",
+  "workspaces",
+  "import",
   // Annonce « Claude intégré » (ClaudeBuiltinAnnounceModal) — vue une fois.
   "announce-claude-builtin",
   // Annonce de la case « Amélioration » (FeatureRequestAnnounce) — vue une fois.
   "announce-feature-requests",
+  // Annonce de la mise à jour « Textes & Duplication IA » (UpdateAnnounceModal).
+  "announce-update-textes",
 ] as const;
 
 /**

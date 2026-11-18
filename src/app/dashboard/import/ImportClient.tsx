@@ -23,6 +23,7 @@ import type {
 import { usePlanGate } from "../components/PlanGate";
 import { useTranslation } from "@/lib/i18n/context";
 
+import { ModuleHelp } from "../components/ModuleHelp";
 // label = clé i18n (dashboard.importer.win*)
 const WINDOWS = [
   { days: 7, label: "win7" },
@@ -209,7 +210,7 @@ export default function ImportClient() {
       // laisser un message d'erreur brut.
       setScanErr(
         /insuffisant/i.test(msg)
-          ? `${msg} — il te faut ${formatTokens(priceCents)} tokens pour ce scan. Recharge depuis Plan & token.`
+          ? t("dashboard.importer.needTokens", { tokens: formatTokens(priceCents) })
           : msg,
       );
     }
@@ -352,6 +353,8 @@ export default function ImportClient() {
             {t("dashboard.importer.lead")}
           </p>
         </div>
+        <div className="flex shrink-0 items-start gap-2">
+          <ModuleHelp slug="scraper" />
         <a
           href="/dashboard/abonnement"
           title={t("dashboard.importer.balanceTitle")}
@@ -362,6 +365,7 @@ export default function ImportClient() {
           </div>
           <div className="text-[11px] uppercase tracking-wide text-[var(--app-text-faint)] mt-1">{t("dashboard.importer.tokens")}</div>
         </a>
+        </div>
       </header>
 
       {/* Barre de saisie */}

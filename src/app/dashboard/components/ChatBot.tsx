@@ -2,7 +2,7 @@
 
 import { isValidElement, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "@/lib/i18n/context";
-import { buildAllDocs } from "./docs-content";
+import { buildSharedHelpModules } from "./help-modules";
 import { buildHelpArticles, buildEditorArticles } from "./help-articles";
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -17,7 +17,7 @@ import { buildHelpArticles, buildEditorArticles } from "./help-articles";
  *   · Accueil  — deux portes d'entrée : nous écrire, ou lire la doc.
  *   · Message  — les canaux de contact (un agent IA prendra cette place).
  *   · Articles — LA DOCUMENTATION DÉJÀ ÉCRITE du produit, réutilisée telle
- *                quelle (buildAllDocs). Une seule source à maintenir : ce qui
+ *                quelle (centre d'aide partagé, help-modules.tsx). Une seule source à maintenir : ce qui
  *                est mis à jour dans la doc l'est ici aussi, automatiquement.
  * ══════════════════════════════════════════════════════════════════════════ */
 
@@ -136,7 +136,7 @@ const SectionLabel = ({ icon, children }: { icon?: React.ReactNode; children: Re
 /* ─────────────────────────────── le widget ──────────────────────────────── */
 
 export default function ChatBot() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
   const [ouvert, setOuvert] = useState<Ouvert>(null);
@@ -146,7 +146,7 @@ export default function ChatBot() {
   // contenu : ce qui est corrigé dans la doc apparaît ici sans rien recoder.
   // Les articles de dépannage passent devant : ce sont les questions qu'on
   // reçoit en support, pas la doc d'un module.
-  const modules = useMemo(() => [buildHelpArticles(t), buildEditorArticles(t), ...buildAllDocs(t)], [t]);
+  const modules = useMemo(() => [buildHelpArticles(t), buildEditorArticles(t), ...buildSharedHelpModules(locale === "fr" ? "fr" : "en")], [t, locale]);
 
   // Trois articles mis en avant sur l'accueil — les questions les plus posées.
   const raccourcis = useMemo(() => {
@@ -159,7 +159,7 @@ export default function ChatBot() {
     return [
       cherche("help", /./),
       cherche("help-editor", /marche|works/i),
-      cherche("videos", /conseil|tips/i),
+      cherche("duplication-video", /simple/i),
     ].filter(Boolean) as { module: number; doc: number; title: string }[];
   }, [modules]);
 
@@ -174,7 +174,7 @@ export default function ChatBot() {
           cat: m.label,
           titreN: norm(d.title),
           catN: norm(m.label),
-          corpsN: norm(texteDe(d.body)),
+          corpsN: norm(d.text ?? texteDe(d.body)),
         })),
       ),
     [modules],

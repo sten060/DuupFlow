@@ -340,7 +340,11 @@ async function measureInk(sharp: typeof import("sharp"), text: string, attrs: st
 /** Rasterise une caption stylée : police/poids/interlettrage/interligne/casse,
  *  contour OU boîte, ombre portée, position libre. Emojis couleur (Fluent 3D).
  *  Exportée pour les tests visuels (scripts locaux) — pas d'usage externe en prod. */
-export async function captionPng(c: EditCaption, W: number, H: number, outPath: string, emojiStyle: EmojiStyle = "apple", hlWord = -1, hlColor = ""): Promise<void> {
+export async function captionPng(c: EditCaption, W: number, H: number, outPath: string, emojiStyle: EmojiStyle = "apple", hlWord = -1, hlColor = "",
+  /** Largeur de RÉFÉRENCE des tailles « px @1080 » (défaut : la toile). Une
+   *  toile plus large que la vidéo (texte qui doit pouvoir déborder du cadre
+   *  sans être rogné) garde ainsi les tailles de la vidéo. */
+  refW = W): Promise<void> {
   await ensureFonts();
   const sharp = (await import("sharp")).default;
 
@@ -359,7 +363,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   const size: CaptionSize = c.size === "s" || c.size === "l" ? c.size : "m";
   // `let` et non `const` : la taille DEMANDÉE peut être rabotée plus bas si la
   // caption ne tient pas en deux lignes (cf. AUTO-AJUSTEMENT).
-  let fsz = c.fontSize && c.fontSize > 6 ? Math.round((c.fontSize * W) / 1080) : Math.round(W * SIZE_RATIO[size]);
+  let fsz = c.fontSize && c.fontSize > 6 ? Math.round((c.fontSize * refW) / 1080) : Math.round(refW * SIZE_RATIO[size]);
   const color = hex(c.color, sticker ? "#111111" : "#ffffff"); // sticker → texte foncé contrasté par défaut
   // D1 : strokeColor "none" OU strokeWidth ≤ 0 = PAS de contour (style ombre
   // douce sans outline — courant dans les réfs). Avant, "none" échouait le parse
@@ -415,7 +419,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
       const spW = sp.weight != null ? Math.round(clamp(num(sp.weight, weight), 100, 900)) : weight;
       const spItalic = sp.italic === true;
       // L2 : taille PAR SPAN (px @1080) — emphase à deux tailles dans un même bloc.
-      const spSize = sp.fontSize != null && num(sp.fontSize, 0) > 6 ? Math.round(clamp(num(sp.fontSize, fsz), 8, 300) * W / 1080) : fsz;
+      const spSize = sp.fontSize != null && num(sp.fontSize, 0) > 6 ? Math.round(clamp(num(sp.fontSize, fsz), 8, 300) * refW / 1080) : fsz;
       // On ne pose des attrs que si le span redéfinit la police (famille/poids/
       // italique/taille) ; sinon la police globale (textAttrs) est réutilisée.
       const attrs = spFam !== textFamily || spW !== weight || spItalic || spSize !== fsz
@@ -454,7 +458,11 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   // interlettrage exacts) au lieu d'un ratio fixe 0.56em — faux pour les polices
   // larges/display, ce qui laissait les lignes déborder hors cadre. availW garde
   // une marge : le texte ne touche jamais les bords. Repli sur l'ancien estimé.
-  const availW = W * 0.90;
+  // Largeur de ligne imposée (wrapWidth, px @1080) : le plan sait mieux que le
+  // moteur où couper (ex. masquer exactement une caption d'origine).
+  const availW = c.wrapWidth != null && num(c.wrapWidth, 0) > 0
+    ? Math.min(W * 0.96, Math.round((num(c.wrapWidth, 0) * W) / 1080))
+    : W * 0.90;
   const measAttrs = `font-family="${textFamily}" font-weight="${weight}" font-size="${fsz}"${ls ? ` letter-spacing="${ls}px"` : ""}`;
   // Largeur d'une « unité visuelle » à la taille demandée. Sert de base au
   // découpage ET à l'auto-ajustement : à l'échelle k, une unité fait unitW × k.
@@ -500,6 +508,9 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   };
 
   let lines = misEnPage(1);
+  // noWrap : seuls les retours à la ligne TAPÉS coupent les lignes (le texte
+  // peut déborder du cadre : c'est voulu par l'auteur).
+  if (c.noWrap) lines = rawText.split(/\r?\n/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
 
   /* AUTO-AJUSTEMENT — la borne côté moteur, pas la bonne volonté de Claude.
      Une caption sur trois lignes ou plus est illisible en short-form ; elle
@@ -513,7 +524,7 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
          demandée est respectée à l'identique.
      Les captions à `spans` sont épargnées : leurs tailles sont posées portion
      par portion, donc explicitement voulues. */
-  if (!hasSpans && lines.length > 2) {
+  if (!hasSpans && !c.fixedSize && !c.noWrap && lines.length > 2) {
     for (const echelle of [0.95, 0.9, 0.85]) {
       const essai = misEnPage(echelle);
       if (essai.length <= 2) {
@@ -707,20 +718,46 @@ export async function captionPng(c: EditCaption, W: number, H: number, outPath: 
   if (style === "box") {
     // Padding (px @1080). Défauts = ancien rendu implicite (fsz*0.4 / fsz*0.25) → les
     // captions box existantes ne bougent pas ; sticker = padding plus large.
-    const px1080 = (v: number) => Math.round((v * W) / 1080);
+    const px1080 = (v: number) => Math.round((v * refW) / 1080);
     const padX = c.paddingX != null ? px1080(c.paddingX) : c.padding != null ? px1080(c.padding) : Math.round(fsz * (sticker ? 0.7 : 0.4));
     const padY = c.paddingY != null ? px1080(c.paddingY) : c.padding != null ? px1080(c.padding) : Math.round(fsz * (sticker ? 0.45 : 0.25));
     const extraX = padX - Math.round(fsz * 0.4), extraY = padY - Math.round(fsz * 0.25);
-    const boxW = Math.round(Math.min(W * 0.96, maxLineW + fsz * 0.8 + 2 * extraX));
+    // Taille MINIMALE imposée (masquage d'un texte d'origine) : la boîte
+    // grandit symétriquement autour du texte, jamais au-delà de 96 % du cadre.
+    const minW = c.minBoxWidth != null ? px1080(num(c.minBoxWidth, 0)) : 0;
+    const minH = c.minBoxHeight != null ? px1080(num(c.minBoxHeight, 0)) : 0;
+    const natW = Math.max(minW, maxLineW + fsz * 0.8 + 2 * extraX);
+    // noWrap : la boîte suit le texte, même au-delà du cadre (pas de plafond).
+    const boxW = Math.round(c.noWrap ? natW : Math.min(W * 0.96, natW));
     // Le bloc est toujours centré sur anchorX (l'alignement ne joue QUE sur les
     // lignes à l'intérieur) → la boîte de fond aussi.
-    const boxX = clamp(anchorX - Math.round(boxW / 2), 6, W - boxW - 6);
-    const boxY = firstBaseline - fsz - extraY;
-    const boxH = blockH + Math.round(fsz * 0.5) + 2 * extraY;
+    const boxX = c.noWrap ? anchorX - Math.round(boxW / 2) : clamp(anchorX - Math.round(boxW / 2), 6, W - boxW - 6);
+    const natH = blockH + Math.round(fsz * 0.5) + 2 * extraY;
+    const boxH = Math.max(natH, minH);
+    const boxY = firstBaseline - fsz - extraY - Math.round((boxH - natH) / 2);
     // Rayon des coins (px @1080). Défaut 16 ; sticker ≈ fsz*0.5 (très arrondi). Borné à la demi-boîte.
     const rx0 = c.borderRadius != null ? px1080(c.borderRadius) : sticker ? Math.round(fsz * 0.5) : 16;
     const rx = Math.max(0, Math.min(rx0, Math.floor(boxH / 2), Math.floor(boxW / 2)));
-    bgRect = `<rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" rx="${rx}" fill="${boxColor}" fill-opacity="${boxOpacity.toFixed(3)}"/>`;
+    if (c.boxShape === "lines" && placedLines.length) {
+      // Un fond PAR LIGNE, à la largeur de la ligne (le texte natif
+      // d'Instagram / TikTok). Les bandes se touchent : chaque frontière est
+      // à mi-chemin entre deux lignes, la première et la dernière débordent
+      // de padY. Une seule teinte, opacité appliquée au groupe (pas de
+      // surépaisseur là où deux bandes se chevauchent d'un pixel).
+      const gap = (i: number) => Math.round((placedLines[i].baseline + placedLines[i + 1].baseline) / 2 - fsz * 0.36);
+      const rects = placedLines.map((ln, i) => {
+        const x0 = (ln.runs[0]?.x ?? anchorX - ln.width / 2) - padX;
+        const w = Math.round(ln.width + 2 * padX);
+        const top = i === 0 ? ln.baseline - fsz - padY : gap(i - 1);
+        const bot = i === placedLines.length - 1 ? ln.baseline + Math.round(fsz * 0.3) + padY : gap(i) + 1;
+        const h = Math.max(1, bot - top);
+        const r = Math.max(0, Math.min(rx0, Math.floor(h / 2), Math.floor(w / 2)));
+        return `<rect x="${Math.round(x0)}" y="${Math.round(top)}" width="${w}" height="${Math.round(h)}" rx="${r}" fill="${boxColor}"/>`;
+      });
+      bgRect = `<g opacity="${boxOpacity.toFixed(3)}">${rects.join("")}</g>`;
+    } else {
+      bgRect = `<rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" rx="${rx}" fill="${boxColor}" fill-opacity="${boxOpacity.toFixed(3)}"/>`;
+    }
   }
 
   const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${defs}${glowDefs}${fillDefs.length ? `<defs>${fillDefs.join("")}</defs>` : ""}${bgRect}${glowGroup}${shadowGroup}${mainEls.join("")}</svg>`;

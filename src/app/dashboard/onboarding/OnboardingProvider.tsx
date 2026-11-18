@@ -28,7 +28,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { markOnboardingSeen, resetOnboardingAreas } from "../actions/onboarding";
-import { ONBOARDING_MODULES } from "./modules";
+import { coachByKey } from "./modules";
 import type { CleParcours } from "./parcours";
 
 type Progress = Record<string, boolean | undefined>;
@@ -157,7 +157,7 @@ export function OnboardingProvider({
 
   const replayModule = useCallback(
     (key: string) => {
-      const mod = ONBOARDING_MODULES.find((m) => m.key === key);
+      const mod = coachByKey(key);
       if (!mod) return;
       setForcedModule(key);
       router.push(mod.route);

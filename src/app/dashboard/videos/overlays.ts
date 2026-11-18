@@ -28,6 +28,9 @@ export type VideoOverlay = {
    * via colorchannelmixer (utilisé par le watermark aléatoire du mode simple).
    */
   tint?: { r: number; g: number; b: number };
+  /** Fenêtre d'affichage (expression FFmpeg, ex. `between(t,0,4)`). Absent =
+   *  toute la vidéo. Sert aux textes (caption limitée, sous-titres). */
+  enable?: string;
 };
 
 /** Échappe un chemin pour l'option `movie=` d'un filtergraph FFmpeg. */
@@ -55,7 +58,8 @@ export function buildOverlayFilterComplex(vfParts: string[], overlays: VideoOver
     // Dernière couche → [vout] ; les autres alimentent la suivante.
     const out = i === overlays.length - 1 ? "vout" : `v${i + 1}`;
     parts.push(`movie=${escapeMoviePath(ov.moviePath)},format=rgba,${cmix}${scale}[ov${i}]`);
-    parts.push(`[v${i}][ov${i}]overlay=x='${ov.x}':y='${ov.y}':format=auto[${out}]`);
+    const en = ov.enable ? `:enable='${ov.enable}'` : "";
+    parts.push(`[v${i}][ov${i}]overlay=x='${ov.x}':y='${ov.y}':format=auto${en}[${out}]`);
   });
 
   return parts.join(";");

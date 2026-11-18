@@ -116,23 +116,53 @@ export async function clearVideosAdvancedAction(): Promise<{ ok: boolean }> {
   }
 }
 
+/** Supprime des vidéos précises (grille des rendus : bouton corbeille ou
+ *  sélection). Mêmes garde-fous que « Vider » : rôle autorisé, et seulement
+ *  des noms de fichier nus du bon canal (aucun chemin). */
+export async function deleteVideoFilesAction(channel: "simple" | "advanced", names: string[]): Promise<{ ok: boolean; deleted: number }> {
+  try {
+    if (!(await canDeleteOutputs())) return { ok: false, deleted: 0 };
+    const prefix = videoPrefix(channel);
+    const wanted = new Set(
+      (Array.isArray(names) ? names : []).map((n) => String(n)).filter((n) => n === path.basename(n) && n.startsWith(prefix)).slice(0, 500),
+    );
+    if (!wanted.size) return { ok: true, deleted: 0 };
+    let deleted = 0;
+    for (const { dir, userId } of await getOutDirsForListing()) {
+      for (const n of wanted) {
+        try { await fs.unlink(path.join(dir, n)); deleted++; } catch { /* pas dans ce dossier */ }
+      }
+      try { await createAdminClient().storage.from(OUTPUT_BUCKET).remove([...wanted].map((n) => `${userId}/${n}`)); } catch { /* sans Storage */ }
+    }
+    return { ok: true, deleted };
+  } catch {
+    return { ok: false, deleted: 0 };
+  }
+}
+
 /* ------------------ Listing par canal ------------------ */
 
+/** Rendus d'un canal, du PLUS RÉCENT au plus ancien (date du fichier), tous
+ *  dossiers confondus (vue admin = plusieurs créateurs). Sans tri, readdir
+ *  rendait l'ordre alphabétique : un nouveau lot arrivait au milieu ou en bas. */
 async function listChannel(channel: "simple" | "advanced"): Promise<string[]> {
   const lists = await Promise.all((await getOutDirsForListing()).map(async ({ dir, userId }) => {
     const fsNames = filterFinals(await fs.readdir(dir).catch(() => [])).filter((n) =>
       n.startsWith(videoPrefix(channel))
     );
+    const dated = async (names: string[]) => Promise.all(names.map(async (n) => ({
+      url: `/api/out/${userId}/${encodeURIComponent(path.basename(n))}`,
+      t: (await fs.stat(path.join(dir, n)).catch(() => null))?.mtimeMs ?? 0,
+    })));
     // When a persistent volume is mounted, serve files via authenticated API route
-    if (process.env.OUT_BASE && fsNames.length > 0) {
-      return fsNames.map((n) => `/api/out/${userId}/${encodeURIComponent(n)}`);
-    }
-    const fsUrls = fsNames.map((n) => `/api/out/${userId}/${encodeURIComponent(path.basename(n))}`);
-    // Fallback: Supabase Storage (no persistent volume)
+    if (process.env.OUT_BASE && fsNames.length > 0) return dated(fsNames);
+    // Fallback: Supabase Storage (no persistent volume) — déjà rendu du plus
+    // récent au plus ancien ; on garde cet ordre.
     const storageUrls = await listFromStorage(userId, videoPrefix(channel));
-    return storageUrls.length > 0 ? storageUrls : fsUrls;
+    if (storageUrls.length > 0) return storageUrls.map((url, i) => ({ url, t: Date.now() - i }));
+    return dated(fsNames);
   }));
-  return lists.flat();
+  return lists.flat().sort((a, b) => b.t - a.t).map((x) => x.url);
 }
 
 export async function listOutVideosSimple(): Promise<string[]> {

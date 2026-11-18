@@ -24,6 +24,7 @@ import { usePlanGate } from "../components/PlanGate";
 import { useCreatorSwitch } from "../components/WorkspaceSwitcher";
 import { listOutImages } from "./actions";
 
+import { ModuleHelp } from "../components/ModuleHelp";
 const MAX_FILES = 50;
 
 // HEIC (iPhone) detection — by extension OR MIME, since some browsers
@@ -466,9 +467,12 @@ export default function ImageFormClient({ initialImages }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 data-tour-id="img-h1" className="text-3xl font-extrabold tracking-tight">{t("dashboard.images.title")}</h1>
-        <TrialCreditsPill />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 data-tour-id="img-h1" className="text-3xl font-extrabold tracking-tight">{t("dashboard.images.title")}</h1>
+          <TrialCreditsPill />
+        </div>
+        <ModuleHelp slug="duplication-image" />
       </div>
       <form ref={formRef} onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6" autoComplete="off">
         {/* Réglages du créateur actif (workspaces Pro & Agence) */}

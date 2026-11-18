@@ -14,7 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  *  Lu directement dans profiles : ne dépend pas du contexte des espaces, qui
  *  retombe sur « soi-même » en cas d'erreur (un invité aurait alors son propre
  *  volume inclus). */
-async function payerFor(userId: string, fromScope: string | null | undefined): Promise<string> {
+export async function payerFor(userId: string, fromScope: string | null | undefined): Promise<string> {
   if (fromScope && fromScope !== userId) return fromScope;
   const { data } = await createAdminClient().from("profiles").select("is_guest, host_user_id").eq("id", userId).maybeSingle();
   const p = data as { is_guest?: boolean | null; host_user_id?: string | null } | null;

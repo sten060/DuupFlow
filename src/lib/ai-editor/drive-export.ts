@@ -40,6 +40,9 @@ export type ExportedFile = {
   driveFileId?: string;
   webViewLink?: string;
   error?: string;
+  /** Fichier hors projet (copies de la Duplication IA, dans le dossier du
+   *  créateur) : chemin absolu à envoyer tel quel. Absent = variante du projet. */
+  srcPath?: string;
 };
 
 export type DriveExportJob = {
@@ -89,6 +92,8 @@ export async function startDriveExport(opts: {
   variantIds: string[];
   creator: string | null;
   workspace: { id: string; name: string } | null;
+  /** Fichiers à envoyer À LA PLACE des variantes du projet (Duplication IA). */
+  files?: { id: string; name: string; path: string }[];
 }): Promise<DriveExportJob | { error: string }> {
   // Connexion + dossier vérifiés AVANT de lancer : message clair tout de suite.
   let folderId: string;
@@ -100,6 +105,25 @@ export async function startDriveExport(opts: {
   } catch (e) {
     return { error: (e as Error).message };
   }
+  // Fichiers hors projet (copies de la Duplication IA) : rien à résoudre.
+  if (opts.files?.length) {
+    const job: DriveExportJob = {
+      id: `dx_${Math.random().toString(36).slice(2, 10)}`,
+      storeKey: opts.storeKey, ownerId: opts.ownerId, userId: opts.userId, projectId: opts.projectId,
+      creator: opts.creator, workspace: opts.workspace, folderId, folderName, status: "running",
+      files: opts.files.map((f) => ({ variantId: f.id, name: f.name, srcPath: f.path, status: "pending" })),
+      startedAt: Date.now(),
+    };
+    JOBS.set(job.id, job);
+    void runExport(job).catch((e) => {
+      job.status = "failed";
+      job.error = (e as Error)?.message ?? "Export interrompu.";
+      job.finishedAt = Date.now();
+      console.error(`[drive-export] ${job.id} échec dur`, e);
+    });
+    return job;
+  }
+
   const project = await getProject(opts.storeKey, opts.projectId);
   if (!project) return { error: "Projet introuvable." };
 
@@ -154,10 +178,15 @@ async function runExport(job: DriveExportJob): Promise<void> {
   for (const f of job.files) {
     f.status = "uploading";
     try {
-      const v = project?.variants.find((x) => x.id === f.variantId);
-      if (!v) throw new Error("Variante disparue du projet.");
-      const filePath = path.join(dir, v.storedName);
-      if (!filePath.startsWith(dir)) throw new Error("Chemin invalide.");
+      let filePath: string;
+      if (f.srcPath) {
+        filePath = f.srcPath;
+      } else {
+        const v = project?.variants.find((x) => x.id === f.variantId);
+        if (!v) throw new Error("Variante disparue du projet.");
+        filePath = path.join(dir, v.storedName);
+        if (!filePath.startsWith(dir)) throw new Error("Chemin invalide.");
+      }
       const stat = await fs.stat(filePath).catch(() => null);
       if (!stat) throw new Error("Fichier expiré (les variantes rendues sont effacées après un délai) : relance le rendu puis l'export.");
       // Jeton redemandé à chaque fichier : un long export dépasse l'heure de validité.
@@ -167,7 +196,7 @@ async function runExport(job: DriveExportJob): Promise<void> {
       const out = await uploadResumable(access.token, filePath, stat.size, {
         name: f.name,
         parents: [job.folderId],
-        mimeType: "video/mp4",
+        mimeType: /\.mov$/i.test(filePath) ? "video/quicktime" : "video/mp4",
         description: `DuupFlow${job.creator ? ` · créateur « ${job.creator} »` : ""} · variante ${f.variantId}`,
         appProperties: { duupflowVariantId: f.variantId, ...(job.creator ? { duupflowCreator: job.creator.slice(0, 100) } : {}) },
       });

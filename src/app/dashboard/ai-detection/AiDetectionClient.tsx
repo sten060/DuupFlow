@@ -6,8 +6,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import { pushNotification } from "../components/notificationStore";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import DriveImportButton from "../components/DriveImportButton";
-import DocsDrawer from "../components/DocsDrawer";
-import { buildDetectionDocs } from "../components/docs-content";
+import { ModuleHelp } from "../components/ModuleHelp";
 import { usePlanGate } from "../components/PlanGate";
 
 const MAX_FILES = 30;
@@ -284,7 +283,7 @@ export default function AiDetectionClient() {
             {t("dashboard.aiDetection.subtitle")}
           </p>
         </div>
-        <DocsDrawer docs={buildDetectionDocs(t)} />
+        <ModuleHelp slug="retirer-detection-ia" />
       </div>
 
       {/* panel */}

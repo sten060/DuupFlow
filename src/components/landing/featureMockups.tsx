@@ -245,6 +245,26 @@ function DupVideo({ style }: { style?: React.CSSProperties }) {
   );
 }
 
+/* Captions de la grille des copies : de vraies phrases en anglais (le format
+   des reels), styles sobres noir / blanc / gris, en haut ou en bas de l'image,
+   jamais sur le visage. `null` = copie sans caption (duplication pure). */
+const CAP_WHITE: React.CSSProperties = { background: "#fff", color: "#111", borderRadius: 1.5 };
+const CAP_BLACK: React.CSSProperties = { background: "#111", color: "#fff", borderRadius: 1.5 };
+const CAP_GREY: React.CSSProperties = { background: "rgba(40,40,40,.72)", color: "#fff", borderRadius: 999 };
+const CAP_TEXT: React.CSSProperties = { color: "#fff", textShadow: "0 0 2px #000, 0 0 2px #000" };
+const GRID_CAPS: ({ t: string; top: string; style: React.CSSProperties } | null)[] = [
+  null,
+  { t: "POV: you finally found it", top: "7%", style: CAP_WHITE },
+  null,
+  { t: "nobody talks about this", top: "8%", style: CAP_BLACK },
+  { t: "wait for the end", top: "84%", style: CAP_TEXT },
+  { t: "this changed everything", top: "6%", style: CAP_GREY },
+  null,
+  { t: "day 1 vs day 30", top: "7%", style: CAP_BLACK },
+  { t: "I wish I knew this sooner", top: "83%", style: CAP_WHITE },
+  null,
+];
+
 export function DuplicationMockup({ locale }: { locale: "fr" | "en" }) {
   const fr = locale === "fr";
   // Le curseur vise les VRAIES positions de la zone de dépôt et du bouton
@@ -349,6 +369,11 @@ export function DuplicationMockup({ locale }: { locale: "fr" | "en" }) {
                   style={{ ["--dx" as string]: `${-(i % 5 + 1.6) * 110}%`, ["--dy" as string]: `${i < 5 ? 25 : -80}%` } as React.CSSProperties}
                 >
                   <img src={DUP_POSTER} alt="" className="h-full w-full object-cover" style={{ filter: copyFilter(i) }} />
+                  {/* Certaines copies portent leur propre caption (vraies phrases, styles
+                      sobres) : la duplication, plus des variantes visibles. */}
+                  {GRID_CAPS[i] && (
+                    <span aria-hidden className="absolute left-1/2 w-max max-w-[88%] -translate-x-1/2 px-[3px] py-[1px] text-center text-[4.5px] font-semibold leading-[1.15] sm:text-[5px]" style={{ top: GRID_CAPS[i]!.top, ...GRID_CAPS[i]!.style }}>{GRID_CAPS[i]!.t}</span>
+                  )}
                   <span className="absolute right-0.5 top-0.5 flex h-2.5 w-2.5 items-center justify-center rounded-full text-white shadow" style={{ background: CTA_GRAD }}>
                     <svg className="h-1.5 w-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="5"><path d="M20 6 9 17l-5-5" /></svg>
                   </span>

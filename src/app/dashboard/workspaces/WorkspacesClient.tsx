@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "@/lib/i18n/context";
+import { ModuleHelp } from "../components/ModuleHelp";
 import {
   WorkspaceAvatar,
   switchCreator,
@@ -935,7 +936,10 @@ function Header({ t, children }: { t: T; children?: React.ReactNode }) {
         <h1 className="text-3xl font-bold tracking-tight text-[var(--app-text)]">{t("dashboard.workspaces.title")}</h1>
         <p className="mt-2 text-[15px] font-medium text-[var(--app-text-muted)] max-w-2xl leading-relaxed">{t("dashboard.workspaces.subtitle")}</p>
       </div>
-      {children}
+      <div className="flex flex-wrap items-center gap-2">
+        <ModuleHelp slug="createurs-et-roles" />
+        {children}
+      </div>
     </div>
   );
 }

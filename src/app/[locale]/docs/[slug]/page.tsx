@@ -6,7 +6,7 @@ import { ogImageFor } from "@/lib/i18n/seo";
 import { absoluteUrl, alternatesFor } from "@/lib/i18n/routes";
 import { notFound } from "next/navigation";
 import { HelpDocPage } from "@/components/marketing/HelpDocPage";
-import { HELP_DOCS } from "@/components/marketing/helpCenterContent";
+import { HELP_DOCS, HELP_UI } from "@/components/marketing/helpCenterContent";
 import type { Lang } from "@/components/marketing/apiDocsContent";
 
 const asLang = (l: string): Lang | null => (l === "fr" || l === "en" ? l : null);
@@ -43,8 +43,21 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         mainEntity: doc.faq[lang].map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a.replace(/\*\*|`/g, "") } })),
       }
     : null;
+  // L'article lui-même : sujet, langue, et le produit dont il parle.
+  const articleLd = {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    headline: doc.title[lang],
+    description: doc.summary[lang],
+    url: absoluteUrl(lang, `/docs/${slug}`),
+    inLanguage: lang,
+    isPartOf: { "@type": "CollectionPage", name: HELP_UI[lang].title, url: absoluteUrl(lang, "/docs") },
+    about: { "@type": "SoftwareApplication", name: "DuupFlow", url: absoluteUrl(lang, "/"), description: HELP_UI[lang].aboutShort },
+    articleSection: doc.sections[lang].map((s) => s.title),
+  };
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }} />
       {faqLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />}
       <HelpDocPage doc={doc} lang={lang} />
     </>

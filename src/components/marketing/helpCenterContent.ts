@@ -4,24 +4,55 @@
 //   src/lib/plans.ts (quotas, espaces, membres), processVideos.ts (120 s,
 //   formats), material-ingest.ts (Éditeur IA), tokens.ts (Scraper, Variation),
 //   compress-limits.ts, SimilarityClient.tsx (seuils du score).
-// Ne rien promettre que le produit ne fait pas : pas de « Claude intégré »
-// (pas en ligne), pas de maximum de copies inventé, rétention = ~1 h.
+// Ne rien promettre que le produit ne fait pas : pas de maximum de copies
+// inventé ; rétention = ~1 h (sauf Duplication IA : 5 jours, history.ts).
+// Tokens : 1 € = 10 000 tokens (tokens.ts, TOKENS_PER_CENT) — les montants du
+// code sont en centimes, à multiplier par 100 pour l'affichage.
+//
+// UNE SEULE SOURCE pour le site ET le dashboard : la page publique /docs/<slug>
+// et le panneau « ? » du dashboard (PageHelp.tsx, choisi par `app`) lisent ces
+// mêmes textes. Le panneau montre le résumé, le premier bloc d'étapes et les
+// encadrés : garde-les autonomes. Les 6 pages ajoutées en 11/2026 vivent dans
+// helpCenterExtra.ts. Visuels : bloc { type: "visual", id } (HelpVisuals.tsx),
+// seulement quand un schéma explique mieux qu'une phrase.
 //
 // Texte : **gras** et `code` sont rendus par <Rich> (ApiDocsPage.tsx).
 
 import type { Block, Lang } from "./apiDocsContent";
+import { EXTRA_DOCS } from "./helpCenterExtra";
 
 export type HelpSection = { id: string; title: string; blocks: Block[] };
+export type HelpCategory = "start" | "duplicate" | "create" | "analyze" | "connect" | "account";
 export type HelpDoc = {
   slug: string;
+  category: HelpCategory;
+  /** Pages du dashboard où le bouton « ? » ouvre cette aide (préfixes). */
+  app?: string[];
+  badge?: "beta";
+  /** Pages à proposer à la suite (slugs). */
+  related?: string[];
   title: Record<Lang, string>;
   summary: Record<Lang, string>;
   sections: Record<Lang, HelpSection[]>;
   faq: Record<Lang, { q: string; a: string }[]>;
 };
 
+export const HELP_CATEGORIES: { id: HelpCategory; emoji: string; title: Record<Lang, string>; lead: Record<Lang, string> }[] = [
+  { id: "start", emoji: "🚀", title: { fr: "Bien démarrer", en: "Getting started" }, lead: { fr: "Les bases, les plans et ta première duplication.", en: "The basics, the plans and your first duplication." } },
+  { id: "duplicate", emoji: "🔁", title: { fr: "Dupliquer", en: "Duplicate" }, lead: { fr: "Transformer un contenu en copies uniques, prêtes à poster.", en: "Turn one piece of content into unique copies, ready to post." } },
+  { id: "create", emoji: "✨", title: { fr: "Créer avec l'IA", en: "Create with AI" }, lead: { fr: "Monter des vidéos et générer des images avec l'IA.", en: "Edit videos and generate images with AI." } },
+  { id: "analyze", emoji: "🔍", title: { fr: "Analyser et optimiser", en: "Analyze and optimize" }, lead: { fr: "Trouver ce qui marche, vérifier tes copies, alléger tes fichiers.", en: "Find what works, check your copies, lighten your files." } },
+  { id: "connect", emoji: "🔌", title: { fr: "Connecter et travailler en équipe", en: "Connect and work as a team" }, lead: { fr: "Google Drive, espaces créatrices, rôles et API.", en: "Google Drive, creator workspaces, roles and API." } },
+  { id: "account", emoji: "🛟", title: { fr: "Compte et dépannage", en: "Account and troubleshooting" }, lead: { fr: "Abonnement, tokens, et quoi faire quand ça bloque.", en: "Subscription, tokens, and what to do when something's stuck." } },
+];
+
 export const HELP_UI: Record<Lang, {
   label: string; title: string; metaTitle: string; lead: string; toc: string; faq: string; more: string; read: string; apiSummary: string;
+  beta: string; related: string; search: string; noResult: string;
+  /** Définition de DuupFlow : en tête du centre d'aide, en pied de chaque page
+   *  et dans les données structurées — c'est ce que lisent les IA (LLM) pour
+   *  comprendre le produit. À garder factuel et à jour. */
+  aboutTitle: string; about: string; aboutShort: string;
 }> = {
   fr: {
     label: "Centre d'aide",
@@ -33,6 +64,13 @@ export const HELP_UI: Record<Lang, {
     more: "Autres pages du centre d'aide",
     read: "Lire",
     apiSummary: "Automatise la duplication, la compression et le masquage IA depuis tes outils (Make, n8n, code).",
+    beta: "Beta",
+    related: "À lire ensuite",
+    search: "Rechercher dans l'aide…",
+    noResult: "Aucune page ne correspond.",
+    aboutTitle: "Qu'est-ce que DuupFlow ?",
+    about: "DuupFlow est une application web pour les créateurs de contenu et les agences qui publient le même contenu sur plusieurs comptes (Instagram, TikTok, YouTube Shorts…). Son cœur : transformer une vidéo ou une image en **copies uniques**, identiques à l'œil mais vues comme des fichiers neufs par les plateformes, pour éviter d'être signalé comme « contenu non original ». Autour : la **Duplication IA** qui fabrique des copies toutes différentes, des **captions et sous-titres** automatiques, un **Éditeur IA** qui monte tes rushes avec Claude, un **Scraper** qui trouve les vidéos qui marchent sur un compte, un **Comparateur**, un **Compresseur**, la **Variation IA** d'images, et des outils d'équipe (espaces par créatrice, rôles Manager et VA, Google Drive, API).",
+    aboutShort: "DuupFlow est une application web qui transforme une vidéo ou une image en copies uniques pour publier sur plusieurs comptes Instagram et TikTok, avec des outils IA de montage, de captions et d'analyse.",
   },
   en: {
     label: "Help Center",
@@ -44,6 +82,13 @@ export const HELP_UI: Record<Lang, {
     more: "More help center pages",
     read: "Read",
     apiSummary: "Automate duplication, compression and AI masking from your own tools (Make, n8n, code).",
+    beta: "Beta",
+    related: "Read next",
+    search: "Search the help center…",
+    noResult: "No page matches.",
+    aboutTitle: "What is DuupFlow?",
+    about: "DuupFlow is a web app for content creators and agencies who post the same content on several accounts (Instagram, TikTok, YouTube Shorts…). At its core, it turns one video or image into **unique copies** that look identical but are seen as brand-new files by platforms, so they aren't flagged as “unoriginal content”. Around it: **AI duplication** that builds copies that all look different, automatic **captions and subtitles**, an **AI Editor** that edits your footage with Claude, a **Scraper** that finds an account's best videos, a **Comparator**, a **Compressor**, image **AI Variation**, and team tools (one workspace per creator, Manager and VA roles, Google Drive, API).",
+    aboutShort: "DuupFlow is a web app that turns one video or image into unique copies to post on several Instagram and TikTok accounts, with AI tools for editing, captions and analysis.",
   },
 };
 
@@ -51,10 +96,11 @@ export const HELP_UI: Record<Lang, {
 const KEEP_FR = "Les fichiers générés sont **temporaires** : télécharge-les ou envoie-les vers Google Drive rapidement, ils sont supprimés automatiquement au bout d'environ une heure.";
 const KEEP_EN = "Generated files are **temporary**: download them or send them to Google Drive quickly, they are deleted automatically after about an hour.";
 
-export const HELP_DOCS: HelpDoc[] = [
+const CORE_DOCS: HelpDoc[] = [
   /* ─────────────── Duplication vidéo ─────────────── */
   {
     slug: "duplication-video",
+    category: "duplicate", app: ["/dashboard/videos/simple", "/dashboard/videos/advanced", "/dashboard/videos"], related: ["textes-video", "duplication-ia", "comparateur"],
     title: { fr: "Duplication vidéo", en: "Video duplication" },
     summary: {
       fr: "Transforme une vidéo en plusieurs copies uniques, chacune vue comme un fichier neuf par les plateformes, sans différence visible.",
@@ -64,11 +110,12 @@ export const HELP_DOCS: HelpDoc[] = [
       fr: [
         { id: "principe", title: "Ce que ça fait", blocks: [
           { type: "p", text: "Le duplicateur prend une vidéo déjà montée et en sort autant de **copies uniques** que tu veux. Chaque copie a ses propres métadonnées, de légères variations visuelles invisibles à l'œil et une empreinte de fichier différente. Ton montage, ton audio et ta qualité restent identiques." },
-          { type: "p", text: "Deux modes : **Simple** (packs prêts à l'emploi, recommandé) et **Avancé** (chaque réglage à la main)." },
+          { type: "visual", id: "dup-fingerprint", caption: "Même image, même son : seules l'identité et l'empreinte du fichier changent d'une copie à l'autre." },
+          { type: "p", text: "Deux modes : **Simple** (packs prêts à l'emploi, recommandé) et **Avancé** (chaque réglage à la main). Pour laisser l'IA tout régler, vois la **Duplication IA en 1 clic**." },
         ] },
         { id: "simple", title: "Utiliser le mode Simple", blocks: [
           { type: "steps", items: [
-            "Ouvre **Duplication → Vidéo simple** dans le dashboard.",
+            "Ouvre **Duplication → Vidéos**, puis choisis le mode **Simple**.",
             "Dépose tes vidéos ou clique sur **Importer depuis Google Drive**.",
             "Choisis le **nombre de copies** par vidéo.",
             "Choisis une intensité : **Léger**, **Équilibré** (recommandé) ou **Fort**. Tu peux aussi activer les packs un par un.",
@@ -81,13 +128,13 @@ export const HELP_DOCS: HelpDoc[] = [
             ["Pixel magique", "Une couche de bruit invisible sur l'image"],
             ["Audio", "Micro-variations audio inaudibles"],
             ["Mouvement", "Léger mouvement de l'image (doux ou fort)"],
-            ["Mouvement poussé", "Mouvement plus marqué (doux ou fort)"],
+            ["Mouvement avancé", "Mouvement plus marqué (doux ou fort)"],
             ["Visuels", "Luminosité, teinte, contraste sous le seuil de perception"],
           ] },
           { type: "callout", tone: "info", text: "**Équilibré** = Léger + Visuels + un watermark aléatoire très discret. **Fort** active les 7 packs avec un mouvement plus marqué." },
         ] },
         { id: "avance", title: "Le mode Avancé", blocks: [
-          { type: "p", text: "Dans **Duplication → Vidéo avancé**, chaque réglage a une plage min / max (couleurs, mouvement, recadrage, vitesse, audio, encodage…) et le watermark est entièrement configurable (formes, logo, opacité, taille). Des modèles **TikTok SOFT** et **TikTok HARD** sont fournis, et tu peux enregistrer les tiens." },
+          { type: "p", text: "Dans **Duplication → Vidéos → Avancé**, chaque réglage a une plage min / max (couleurs, mouvement, recadrage, vitesse, audio, encodage…) et le watermark est entièrement configurable (formes, logo, opacité, taille). Des modèles **TikTok SOFT** et **TikTok HARD** sont fournis, et tu peux enregistrer les tiens." },
         ] },
         { id: "options", title: "Options", blocks: [
           { type: "list", items: [
@@ -95,7 +142,10 @@ export const HELP_DOCS: HelpDoc[] = [
             "**Pays** : renseigne une localisation cohérente (ville et GPS) dans les métadonnées.",
             "**Retirer la détection IA** : masque la signature laissée par les outils de génération. Voir la page dédiée.",
             "**Watermark**, **miroir**, **retournement**, **tremblement** : effets supplémentaires facultatifs.",
+            "**Captions** et **Sous-titres** (mode Simple, beta) : un texte fixe et/ou la voix écrite à l'écran, réglables à la souris dans l'aperçu. Voir la page dédiée.",
           ] },
+          { type: "callout", tone: "info", text: "**Captions et sous-titres** (beta) : sous les options du mode Simple, ajoute un texte fixe et/ou la voix écrite à l'écran (karaoké, mot par mot…). Place-les à la souris dans l'aperçu et fais-les varier sur chaque copie." },
+          { type: "callout", tone: "info", text: "**Templates** : en bas du mode Simple, enregistre tous tes réglages sous un nom (« TikTok karaoké jaune ») et réapplique-les en un clic, sur tous tes appareils. Le mode Avancé a les siens." },
         ] },
         { id: "limites", title: "Limites et formats", blocks: [
           { type: "table", head: ["", "Limite"], rows: [
@@ -112,11 +162,12 @@ export const HELP_DOCS: HelpDoc[] = [
       en: [
         { id: "principe", title: "What it does", blocks: [
           { type: "p", text: "The duplicator takes an already-edited video and outputs as many **unique copies** as you want. Each copy has its own metadata, slight visual variations invisible to the eye and a different file fingerprint. Your edit, audio and quality stay identical." },
-          { type: "p", text: "Two modes: **Simple** (ready-made packs, recommended) and **Advanced** (every setting by hand)." },
+          { type: "visual", id: "dup-fingerprint", caption: "Same picture, same sound: only the file's identity and fingerprint change from one copy to the next." },
+          { type: "p", text: "Two modes: **Simple** (ready-made packs, recommended) and **Advanced** (every setting by hand). To let the AI handle everything, see **1-click AI duplication**." },
         ] },
         { id: "simple", title: "Using Simple mode", blocks: [
           { type: "steps", items: [
-            "Open **Duplication → Simple video** in the dashboard.",
+            "Open **Duplication → Videos**, then pick **Simple** mode.",
             "Drop your videos or click **Import from Google Drive**.",
             "Pick the **number of copies** per video.",
             "Pick an intensity: **Light**, **Balanced** (recommended) or **Strong**. You can also toggle packs one by one.",
@@ -135,7 +186,7 @@ export const HELP_DOCS: HelpDoc[] = [
           { type: "callout", tone: "info", text: "**Balanced** = Light + Visuals + a very discreet random watermark. **Strong** turns on all 7 packs with stronger motion." },
         ] },
         { id: "avance", title: "Advanced mode", blocks: [
-          { type: "p", text: "In **Duplication → Advanced video**, every setting has a min / max range (colours, motion, crop, speed, audio, encoding…) and the watermark is fully configurable (shapes, logo, opacity, size). **TikTok SOFT** and **TikTok HARD** templates are included, and you can save your own." },
+          { type: "p", text: "In **Duplication → Videos → Advanced**, every setting has a min / max range (colours, motion, crop, speed, audio, encoding…) and the watermark is fully configurable (shapes, logo, opacity, size). **TikTok SOFT** and **TikTok HARD** templates are included, and you can save your own." },
         ] },
         { id: "options", title: "Options", blocks: [
           { type: "list", items: [
@@ -143,7 +194,10 @@ export const HELP_DOCS: HelpDoc[] = [
             "**Country**: sets a consistent location (city and GPS) in the metadata.",
             "**Remove AI detection**: masks the signature left by generation tools. See the dedicated page.",
             "**Watermark**, **mirror**, **flip**, **shake**: optional extra effects.",
+            "**Captions** and **Subtitles** (Simple mode, beta): a fixed text and/or the voice written on screen, adjusted with the mouse in the preview. See the dedicated page.",
           ] },
+          { type: "callout", tone: "info", text: "**Captions and subtitles** (beta): below the Simple mode options, add a fixed text and/or the voice written on screen (karaoke, word by word…). Place them with the mouse in the preview and make them vary on each copy." },
+          { type: "callout", tone: "info", text: "**Templates**: at the bottom of Simple mode, save all your settings under a name (“TikTok yellow karaoke”) and reapply them in one click, on all your devices. Advanced mode has its own." },
         ] },
         { id: "limites", title: "Limits and formats", blocks: [
           { type: "table", head: ["", "Limit"], rows: [
@@ -177,6 +231,7 @@ export const HELP_DOCS: HelpDoc[] = [
   /* ─────────────── Duplication image ─────────────── */
   {
     slug: "duplication-image",
+    category: "duplicate", app: ["/dashboard/images"], related: ["retirer-detection-ia", "comparateur"],
     title: { fr: "Duplication d'image", en: "Image duplication" },
     summary: {
       fr: "Crée plusieurs copies uniques d'une même photo, prêtes à poster sur plusieurs comptes.",
@@ -194,8 +249,8 @@ export const HELP_DOCS: HelpDoc[] = [
         ] },
         { id: "options", title: "Options", blocks: [
           { type: "list", items: [
-            "**Filtres fondamentaux** et **semi-visuels** (activés par défaut) : micro-variations invisibles.",
-            "**Filtres visuels** et **retournement** : variations plus visibles, facultatives.",
+            "**Sans modification visuelle** : **Filtres fondamentaux** (activés par défaut : taille, qualité, couleurs, profil et métadonnées du fichier) et **Reverse** (miroir horizontal, facultatif).",
+            "**Avec modification visuelle** : **Semi-visuels** (activés par défaut : micro-recadrage et léger redimensionnement, presque imperceptibles) et **Filtres visuels** (luminosité, saturation, contraste, teinte, facultatifs).",
             "**Priorité d'algorithme** : métadonnées EXIF réalistes d'iPhone.",
             "**Pays** : localisation cohérente dans les métadonnées.",
             "**Retirer la détection IA** : pour les images générées par IA.",
@@ -223,8 +278,8 @@ export const HELP_DOCS: HelpDoc[] = [
         ] },
         { id: "options", title: "Options", blocks: [
           { type: "list", items: [
-            "**Fundamental** and **semi-visual filters** (on by default): invisible micro-variations.",
-            "**Visual filters** and **flip**: more visible variations, optional.",
+            "**No visual change**: **Fundamental filters** (on by default: size, quality, colours, profile and file metadata) and **Reverse** (horizontal mirror, optional).",
+            "**With visual change**: **Semi-visual** (on by default: micro-crop and slight resize, barely noticeable) and **Visual filters** (brightness, saturation, contrast, hue, optional).",
             "**Algorithm priority**: realistic iPhone EXIF metadata.",
             "**Country**: a consistent location in the metadata.",
             "**Remove AI detection**: for AI-generated images.",
@@ -245,11 +300,11 @@ export const HELP_DOCS: HelpDoc[] = [
     faq: {
       fr: [
         { q: "Mes photos iPhone (HEIC) sont-elles acceptées ?", a: "Oui, elles sont converties automatiquement en JPEG." },
-        { q: "La copie se voit-elle à l'œil ?", a: "Non, avec les réglages par défaut. Les filtres visuels et le retournement, facultatifs, rendent la différence visible." },
+        { q: "La copie se voit-elle à l'œil ?", a: "À peine. Par défaut, seul un micro-recadrage presque imperceptible s'ajoute (Semi-visuels). Le **Reverse** (miroir) et les **Filtres visuels**, facultatifs, rendent la différence visible." },
       ],
       en: [
         { q: "Are iPhone photos (HEIC) supported?", a: "Yes, they're converted to JPEG automatically." },
-        { q: "Can you see the difference on a copy?", a: "No, with the default settings. Visual filters and flip, which are optional, make the difference visible." },
+        { q: "Can you see the difference on a copy?", a: "Barely. By default, only a near-invisible micro-crop is added (Semi-visual). **Reverse** (mirror) and **Visual filters**, which are optional, make the difference visible." },
       ],
     },
   },
@@ -257,6 +312,7 @@ export const HELP_DOCS: HelpDoc[] = [
   /* ─────────────── Éditeur IA ─────────────── */
   {
     slug: "editeur-ia",
+    category: "create", app: ["/dashboard/ai-editor"], related: ["claude-integre", "createurs-et-roles"],
     title: { fr: "Éditeur IA", en: "AI Editor" },
     summary: {
       fr: "Un agent de montage piloté par Claude : tu donnes une vidéo de référence et tes rushes, Claude monte la vidéo et la décline en variantes.",
@@ -265,7 +321,9 @@ export const HELP_DOCS: HelpDoc[] = [
     sections: {
       fr: [
         { id: "principe", title: "Comment ça marche", blocks: [
-          { type: "p", text: "L'Éditeur IA se pilote depuis **ton propre Claude** (claude.ai, Claude Desktop ou mobile, même en plan gratuit), grâce à un connecteur. Tu lui décris le montage voulu, il assemble la vidéo avec ta matière, puis il en sort des **variantes** visuellement différentes. Les vidéos apparaissent en direct dans DuupFlow." },
+          { type: "p", text: "L'Éditeur IA se pilote avec Claude, de deux façons : **Claude intégré**, directement dans la page (rien à installer, fonctionne aux tokens), ou **ton propre Claude** (claude.ai, Claude Desktop ou mobile, même en plan gratuit) grâce à un connecteur. Tu décris le montage voulu, Claude assemble la vidéo avec ta matière, puis en sort des **variantes** visuellement différentes. Les vidéos apparaissent en direct dans DuupFlow." },
+          { type: "visual", id: "editor-flow" },
+          { type: "callout", tone: "info", text: "Tu utilises Claude intégré ? Passe l'étape 1 : tout se fait dans la page. Voir **Claude intégré**." },
         ] },
         { id: "connecter", title: "1. Connecter Claude (une seule fois)", blocks: [
           { type: "steps", items: [
@@ -301,6 +359,10 @@ export const HELP_DOCS: HelpDoc[] = [
           ] },
           { type: "p", text: "Chaque variante apparaît dans DuupFlow dès qu'elle est prête. Tu la télécharges, l'envoies vers Drive, ou la fais passer dans le duplicateur." },
         ] },
+        { id: "retouche", title: "Retoucher une variante à la main", blocks: [
+          { type: "p", text: "Sur une variante, clique sur **Ouvrir l'éditeur** : tu modifies toi-même les textes, leurs couleurs et l'ordre des plans, avec un aperçu en direct, puis **Exporter la vidéo** crée une nouvelle variante." },
+          { type: "callout", tone: "info", text: "La retouche et son export sont **gratuits** : seule la variante d'origine a compté dans ton quota." },
+        ] },
         { id: "brief", title: "Le brief par créatrice", blocks: [
           { type: "p", text: "Avec les espaces créatrices (plans Pro et Agence), chaque créatrice a un **brief** (jusqu'à 4 000 caractères) : style de captions, ton, hooks qui marchent, choses à éviter. Claude le lit automatiquement au début de chaque conversation, et l'applique à chaque variante." },
         ] },
@@ -311,7 +373,9 @@ export const HELP_DOCS: HelpDoc[] = [
       ],
       en: [
         { id: "principe", title: "How it works", blocks: [
-          { type: "p", text: "The AI Editor is driven from **your own Claude** (claude.ai, Claude Desktop or mobile, even on the free plan) through a connector. You describe the edit you want, it assembles the video with your material, then outputs visually different **variants**. The videos show up live in DuupFlow." },
+          { type: "p", text: "The AI Editor is driven by Claude, in two ways: **built-in Claude**, right in the page (nothing to install, runs on tokens), or **your own Claude** (claude.ai, Claude Desktop or mobile, even on the free plan) through a connector. You describe the edit you want, Claude assembles the video with your material, then outputs visually different **variants**. The videos show up live in DuupFlow." },
+          { type: "visual", id: "editor-flow" },
+          { type: "callout", tone: "info", text: "Using built-in Claude? Skip step 1: everything happens in the page. See **Built-in Claude**." },
         ] },
         { id: "connecter", title: "1. Connect Claude (once)", blocks: [
           { type: "steps", items: [
@@ -347,6 +411,10 @@ export const HELP_DOCS: HelpDoc[] = [
           ] },
           { type: "p", text: "Each variant appears in DuupFlow as soon as it's ready. Download it, send it to Drive, or run it through the duplicator." },
         ] },
+        { id: "retouche", title: "Retouching a variant by hand", blocks: [
+          { type: "p", text: "On a variant, click **Open the editor**: change the texts, their colours and the order of the shots yourself, with a live preview, then **Export the video** creates a new variant." },
+          { type: "callout", tone: "info", text: "Retouching and exporting are **free**: only the original variant counted against your quota." },
+        ] },
         { id: "brief", title: "The creator brief", blocks: [
           { type: "p", text: "With creator workspaces (Pro and Agency plans), each creator has a **brief** (up to 4,000 characters): caption style, tone, hooks that work, things to avoid. Claude reads it automatically at the start of each conversation and applies it to every variant." },
         ] },
@@ -358,13 +426,13 @@ export const HELP_DOCS: HelpDoc[] = [
     },
     faq: {
       fr: [
-        { q: "Faut-il un abonnement Claude payant ?", a: "Non, le connecteur fonctionne aussi avec le plan gratuit de Claude." },
+        { q: "Faut-il un abonnement Claude payant ?", a: "Non. Le connecteur fonctionne avec le plan gratuit de Claude, et **Claude intégré** n'a besoin d'aucun compte Claude : il utilise tes tokens IA DuupFlow." },
         { q: "Claude ne voit pas ma matière, que faire ?", a: "Vérifie que les fichiers ont fini d'être analysés dans l'éditeur (badge « enregistré »), puis redemande à Claude de lister ta matière." },
         { q: "L'IA invente-t-elle des personnages ?", a: "Non. L'éditeur monte tes vrais rushes ; il ne génère ni avatar ni vidéo synthétique." },
         { q: "Quels formats marchent le mieux ?", a: "Les formats simples et répétables : face cam, plans de vie quotidienne, texte à l'écran, sous-titres." },
       ],
       en: [
-        { q: "Do I need a paid Claude subscription?", a: "No, the connector also works on Claude's free plan." },
+        { q: "Do I need a paid Claude subscription?", a: "No. The connector works on Claude's free plan, and **built-in Claude** needs no Claude account at all: it uses your DuupFlow AI tokens." },
         { q: "Claude can't see my material, what should I do?", a: "Check the files have finished being analysed in the editor (“saved” badge), then ask Claude to list your material again." },
         { q: "Does the AI invent characters?", a: "No. The editor cuts your real footage; it doesn't generate avatars or synthetic video." },
         { q: "Which formats work best?", a: "Simple, repeatable formats: face cam, everyday-life shots, on-screen text, subtitles." },
@@ -375,6 +443,7 @@ export const HELP_DOCS: HelpDoc[] = [
   /* ─────────────── Scraper ─────────────── */
   {
     slug: "scraper",
+    category: "analyze", app: ["/dashboard/import"], related: ["duplication-video", "abonnement-et-tokens"],
     title: { fr: "Scraper Instagram et TikTok", en: "Instagram and TikTok scraper" },
     summary: {
       fr: "Analyse un compte Instagram ou TikTok, classe ses vidéos par performance et envoie les meilleures vers la duplication ou Google Drive.",
@@ -397,12 +466,12 @@ export const HELP_DOCS: HelpDoc[] = [
         { id: "cout", title: "Coût en tokens", blocks: [
           { type: "p", text: "Le Scraper fonctionne avec des **tokens**, au même prix sur tous les plans. Le coût est affiché avant le clic, débité une seule fois (téléchargement inclus) et **remboursé si le compte est inaccessible**." },
           { type: "table", head: ["Période", "Base", "+ par vidéo"], rows: [
-            ["7 jours", "10", "Instagram 1 · TikTok 3"],
-            ["30 jours", "25", "Instagram 1 · TikTok 3"],
-            ["90 jours", "40", "Instagram 1 · TikTok 3"],
-            ["1 an", "50", "Instagram 1 · TikTok 3"],
+            ["7 jours", "1 000", "Instagram 100 · TikTok 300"],
+            ["30 jours", "2 500", "Instagram 100 · TikTok 300"],
+            ["90 jours", "4 000", "Instagram 100 · TikTok 300"],
+            ["1 an", "5 000", "Instagram 100 · TikTok 300"],
           ] },
-          { type: "p", text: "Exemple : TikTok, 30 jours, 5 meilleures vidéos = 25 + 5 × 3 = **40 tokens**. Recharges : 10 € = 1 000 tokens, 40 € = 4 400, 100 € = 11 200." },
+          { type: "p", text: "Exemple : TikTok, 30 jours, 5 meilleures vidéos = 2 500 + 5 × 300 = **4 000 tokens** (0,40 €). Recharges : 10 € = 100 000 tokens, 40 € = 440 000, 100 € = 1 120 000." },
         ] },
       ],
       en: [
@@ -421,12 +490,12 @@ export const HELP_DOCS: HelpDoc[] = [
         { id: "cout", title: "Token cost", blocks: [
           { type: "p", text: "The Scraper runs on **tokens**, at the same price on every plan. The cost is shown before you click, charged once (download included) and **refunded if the account can't be reached**." },
           { type: "table", head: ["Period", "Base", "+ per video"], rows: [
-            ["7 days", "10", "Instagram 1 · TikTok 3"],
-            ["30 days", "25", "Instagram 1 · TikTok 3"],
-            ["90 days", "40", "Instagram 1 · TikTok 3"],
-            ["1 year", "50", "Instagram 1 · TikTok 3"],
+            ["7 days", "1,000", "Instagram 100 · TikTok 300"],
+            ["30 days", "2,500", "Instagram 100 · TikTok 300"],
+            ["90 days", "4,000", "Instagram 100 · TikTok 300"],
+            ["1 year", "5,000", "Instagram 100 · TikTok 300"],
           ] },
-          { type: "p", text: "Example: TikTok, 30 days, top 5 videos = 25 + 5 × 3 = **40 tokens**. Top-ups: €10 = 1,000 tokens, €40 = 4,400, €100 = 11,200." },
+          { type: "p", text: "Example: TikTok, 30 days, top 5 videos = 2,500 + 5 × 300 = **4,000 tokens** (€0.40). Top-ups: €10 = 100,000 tokens, €40 = 440,000, €100 = 1,120,000." },
         ] },
       ],
     },
@@ -445,6 +514,7 @@ export const HELP_DOCS: HelpDoc[] = [
   /* ─────────────── Comparateur ─────────────── */
   {
     slug: "comparateur",
+    category: "analyze", app: ["/dashboard/similarity"], related: ["duplication-video"],
     title: { fr: "Comparateur", en: "Comparator" },
     summary: {
       fr: "Vérifie qu'une copie est assez différente de l'original avant de la republier, avec un score de similarité unique.",
@@ -461,6 +531,7 @@ export const HELP_DOCS: HelpDoc[] = [
         ] },
         { id: "score", title: "Lire le score", blocks: [
           { type: "p", text: "Le score combine l'**image** (60 %) et les **métadonnées techniques** (40 %). Pour une vidéo, 5 images réparties sur toute la durée sont comparées." },
+          { type: "visual", id: "similarity-scale" },
           { type: "table", head: ["Score", "Verdict", "Ce que ça veut dire"], rows: [
             ["75 % et plus", "Très similaires", "Risque d'être vu comme un doublon"],
             ["45 à 74 %", "Similarité modérée", "Différence partielle"],
@@ -479,6 +550,7 @@ export const HELP_DOCS: HelpDoc[] = [
         ] },
         { id: "score", title: "Reading the score", blocks: [
           { type: "p", text: "The score combines the **image** (60%) and the **technical metadata** (40%). For a video, 5 frames spread across its length are compared." },
+          { type: "visual", id: "similarity-scale" },
           { type: "table", head: ["Score", "Verdict", "What it means"], rows: [
             ["75% and above", "Very similar", "Likely to be seen as a duplicate"],
             ["45 to 74%", "Moderate similarity", "Partial difference"],
@@ -503,6 +575,7 @@ export const HELP_DOCS: HelpDoc[] = [
   /* ─────────────── Compresseur ─────────────── */
   {
     slug: "compresseur",
+    category: "analyze", app: ["/dashboard/compress"],
     title: { fr: "Compresseur", en: "Compressor" },
     summary: {
       fr: "Réduis le poids de tes images et vidéos sans perte visible, jusqu'à 30 fichiers à la fois.",
@@ -579,6 +652,7 @@ export const HELP_DOCS: HelpDoc[] = [
   /* ─────────────── Variation IA ─────────────── */
   {
     slug: "variation-ia",
+    category: "create", app: ["/dashboard/generate"], related: ["abonnement-et-tokens"],
     title: { fr: "Variation IA", en: "AI Variation" },
     summary: {
       fr: "Génère jusqu'à trois nouvelles images à partir d'une seule photo : même visage, même décor, même lumière, seule l'action change.",
@@ -597,8 +671,8 @@ export const HELP_DOCS: HelpDoc[] = [
         ] },
         { id: "cout", title: "Coût en tokens", blocks: [
           { type: "table", head: ["Plan", "Coût par image générée"], rows: [
-            ["Solo", "90 tokens"],
-            ["Pro et Agence", "70 tokens"],
+            ["Solo", "9 000 tokens (0,90 €)"],
+            ["Pro et Agence", "7 000 tokens (0,70 €)"],
           ] },
           { type: "p", text: "Le coût est affiché avant de lancer, avec ton solde après. Une image qui échoue est **remboursée automatiquement**. La Variation IA ne consomme pas ton quota mensuel." },
         ] },
@@ -615,8 +689,8 @@ export const HELP_DOCS: HelpDoc[] = [
         ] },
         { id: "cout", title: "Token cost", blocks: [
           { type: "table", head: ["Plan", "Cost per generated image"], rows: [
-            ["Solo", "90 tokens"],
-            ["Pro and Agency", "70 tokens"],
+            ["Solo", "9,000 tokens (€0.90)"],
+            ["Pro and Agency", "7,000 tokens (€0.70)"],
           ] },
           { type: "p", text: "The cost is shown before you generate, along with your balance afterwards. A failed image is **refunded automatically**. AI Variation doesn't use your monthly quota." },
         ] },
@@ -637,6 +711,7 @@ export const HELP_DOCS: HelpDoc[] = [
   /* ─────────────── Retirer la détection IA ─────────────── */
   {
     slug: "retirer-detection-ia",
+    category: "duplicate", app: ["/dashboard/ai-detection"], related: ["duplication-video", "duplication-image"],
     title: { fr: "Retirer la détection IA", en: "Remove AI detection" },
     summary: {
       fr: "Masque la signature laissée par les outils de génération IA dans tes images et vidéos, directement pendant la duplication.",
@@ -647,7 +722,7 @@ export const HELP_DOCS: HelpDoc[] = [
         { id: "ou", title: "Où le trouver", blocks: [
           { type: "p", text: "C'est une **option** à cocher (🛡️ Retirer la détection IA) dans :" },
           { type: "list", items: [
-            "**Duplication → Vidéo simple** et **Vidéo avancé** ;",
+            "**Duplication → Vidéos**, en mode Simple et Avancé ;",
             "**Duplication → Images** ;",
             "l'**API** (`remove_ai_detection`, ou la route dédiée `/api/v1/ai-detection`).",
           ] },
@@ -664,7 +739,7 @@ export const HELP_DOCS: HelpDoc[] = [
         { id: "ou", title: "Where to find it", blocks: [
           { type: "p", text: "It's an **option** to tick (🛡️ Remove AI detection) in:" },
           { type: "list", items: [
-            "**Duplication → Simple video** and **Advanced video**;",
+            "**Duplication → Videos**, in Simple and Advanced mode;",
             "**Duplication → Images**;",
             "the **API** (`remove_ai_detection`, or the dedicated route `/api/v1/ai-detection`).",
           ] },
@@ -693,6 +768,7 @@ export const HELP_DOCS: HelpDoc[] = [
   /* ─────────────── Créatrices et rôles ─────────────── */
   {
     slug: "createurs-et-roles",
+    category: "connect", app: ["/dashboard/workspaces"], related: ["google-drive", "editeur-ia"],
     title: { fr: "Espaces créatrices et rôles d'équipe", en: "Creator workspaces and team roles" },
     summary: {
       fr: "Un espace par créatrice avec son brief, ses réglages et son dossier Drive, et des rôles Manager / VA pour que chacun ne voie que ce qui le concerne.",
@@ -705,7 +781,7 @@ export const HELP_DOCS: HelpDoc[] = [
           { type: "list", items: [
             "son **brief** pour l'Éditeur IA (jusqu'à 4 000 caractères, plus jusqu'à 10 images et 5 vidéos de référence) ;",
             "ses **réglages de duplication** enregistrés (images, vidéo simple, vidéo avancée), appliqués automatiquement ;",
-            "son **dossier Google Drive** « Créatrice — DuupFlow ».",
+            "son **dossier Google Drive**, nommé « <nom de la créatrice> — DuupFlow ».",
           ] },
           { type: "table", head: ["Plan", "Espaces créatrices", "Membres invités"], rows: [
             ["Solo", "—", "—"],
@@ -735,7 +811,7 @@ export const HELP_DOCS: HelpDoc[] = [
           { type: "list", items: [
             "her **brief** for the AI Editor (up to 4,000 characters, plus up to 10 reference images and 5 reference videos);",
             "her saved **duplication settings** (images, simple video, advanced video), applied automatically;",
-            "her **Google Drive folder** “Creator — DuupFlow”.",
+            "her **Google Drive folder**, named “<creator name> — DuupFlow”.",
           ] },
           { type: "table", head: ["Plan", "Creator workspaces", "Invited members"], rows: [
             ["Solo", "—", "—"],
@@ -775,6 +851,7 @@ export const HELP_DOCS: HelpDoc[] = [
   /* ─────────────── Google Drive ─────────────── */
   {
     slug: "google-drive",
+    category: "connect", related: ["createurs-et-roles"],
     title: { fr: "Google Drive", en: "Google Drive" },
     summary: {
       fr: "Importe tes fichiers depuis Google Drive et renvoie tes copies directement dedans, avec un dossier par créatrice.",
@@ -790,12 +867,12 @@ export const HELP_DOCS: HelpDoc[] = [
           { type: "p", text: "Seul le propriétaire du compte connecte Drive ; les membres de l'équipe utilisent sa connexion. DuupFlow n'accède qu'aux fichiers que tu lui donnes, jamais à tout ton Drive." },
         ] },
         { id: "importer", title: "Importer depuis Drive", blocks: [
-          { type: "p", text: "Le bouton **Importer depuis Google Drive** est disponible dans la duplication vidéo et image, la Variation IA, le Comparateur et la matière de l'Éditeur IA. Les vidéos de plus de 120 secondes et les fichiers non pris en charge sont ignorés automatiquement." },
+          { type: "p", text: "Le bouton **Importer depuis Google Drive** est disponible dans la duplication vidéo et image, la Variation IA, le Comparateur, le Compresseur et la matière de l'Éditeur IA. Les vidéos de plus de 120 secondes et les fichiers non pris en charge sont ignorés automatiquement." },
         ] },
         { id: "envoyer", title: "Envoyer vers Drive", blocks: [
           { type: "list", items: [
             "Depuis le dashboard, **Envoyer vers Drive** te laisse choisir le dossier de destination.",
-            "Depuis Claude (Éditeur IA), les variantes partent dans le dossier de la créatrice « Créatrice — DuupFlow » (ou « DuupFlow variantes » sans espaces créatrices).",
+            "Depuis Claude (Éditeur IA), les variantes partent dans le dossier de la créatrice, « <nom de la créatrice> — DuupFlow » (ou « DuupFlow variantes » sans espaces créatrices).",
           ] },
         ] },
       ],
@@ -808,12 +885,12 @@ export const HELP_DOCS: HelpDoc[] = [
           { type: "p", text: "Only the account owner connects Drive; team members use that connection. DuupFlow only accesses the files you give it, never your whole Drive." },
         ] },
         { id: "importer", title: "Importing from Drive", blocks: [
-          { type: "p", text: "The **Import from Google Drive** button is available in video and image duplication, AI Variation, the Comparator and the AI Editor material. Videos over 120 seconds and unsupported files are skipped automatically." },
+          { type: "p", text: "The **Import from Google Drive** button is available in video and image duplication, AI Variation, the Comparator, the Compressor and the AI Editor material. Videos over 120 seconds and unsupported files are skipped automatically." },
         ] },
         { id: "envoyer", title: "Sending to Drive", blocks: [
           { type: "list", items: [
             "From the dashboard, **Save to Drive** lets you pick the destination folder.",
-            "From Claude (AI Editor), variants go to the creator's folder “Creator — DuupFlow” (or “DuupFlow variantes” without creator workspaces).",
+            "From Claude (AI Editor), variants go to the creator's folder, “<creator name> — DuupFlow” (or “DuupFlow variantes” without creator workspaces).",
           ] },
         ] },
       ],
@@ -830,3 +907,18 @@ export const HELP_DOCS: HelpDoc[] = [
     },
   },
 ];
+
+/** Toutes les pages, dans l'ordre des rubriques (HELP_CATEGORIES). */
+export const HELP_DOCS: HelpDoc[] = HELP_CATEGORIES.flatMap((c) =>
+  [...CORE_DOCS, ...EXTRA_DOCS].filter((d) => d.category === c.id),
+);
+
+/** Page d'aide à ouvrir depuis une page du dashboard (préfixe le plus long). */
+export function helpDocForPath(pathname: string): HelpDoc | null {
+  let best: { doc: HelpDoc; len: number } | null = null;
+  for (const d of HELP_DOCS) for (const p of d.app ?? []) {
+    const hit = p === "/dashboard" ? pathname === p : pathname === p || pathname.startsWith(p + "/");
+    if (hit && (!best || p.length > best.len)) best = { doc: d, len: p.length };
+  }
+  return best?.doc ?? null;
+}

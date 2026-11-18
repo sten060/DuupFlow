@@ -181,12 +181,12 @@ const COPY: Record<"fr" | "en", Record<LockedModule, Copy>> = {
     },
     ai_auto: {
       emoji: "✨",
-      name: "IA automatique",
-      action: "laisser l'IA créer tes variantes",
+      name: "Duplication IA en 1 clic",
+      action: "laisser l'IA créer tes copies",
       perks: [
-        "L'IA analyse chaque vidéo et fabrique tes duplications",
-        "Une recette d'unicité différente pour chaque copie",
-        "Tout se règle en discutant, sans rien paramétrer",
+        "L'IA analyse ta vidéo et fabrique jusqu'à 50 copies uniques",
+        "Captions, sous-titres, cadrage et identité différents sur chaque copie",
+        "Chaque copie est vérifiée : rien sur le visage, texte lisible",
       ],
     },
     ai_editor: {
@@ -323,12 +323,12 @@ const COPY: Record<"fr" | "en", Record<LockedModule, Copy>> = {
     },
     ai_auto: {
       emoji: "✨",
-      name: "Automatic AI",
-      action: "let the AI create your variants",
+      name: "1-click AI duplication",
+      action: "let the AI create your copies",
       perks: [
-        "The AI analyzes each video and builds your duplicates",
-        "A different uniqueness recipe for every copy",
-        "Everything is set by chatting — no settings to tweak",
+        "The AI analyzes your video and builds up to 50 unique copies",
+        "Different captions, subtitles, framing and identity on every copy",
+        "Every copy is checked: nothing on faces, readable text",
       ],
     },
     ai_editor: {

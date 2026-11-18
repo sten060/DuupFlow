@@ -18,12 +18,13 @@ type VideoSimpleSettings = {
   watermark?: boolean; removeAi?: boolean; shake?: boolean; motionMode?: "doux" | "fort"; motionDynamicMode?: "doux" | "fort";
   rotation?: { enabled?: boolean; min?: number; max?: number };
   dims?: { enabled?: boolean; w?: number; h?: number };
+  /** Captions et sous-titres (beta). */
+  texts?: unknown;
 };
 import { pushNotification } from "../../components/notificationStore";
 import InterruptedRecovery from "../InterruptedRecovery";
-import DocsDrawer from "../../components/DocsDrawer";
+import { ModuleHelp } from "../../components/ModuleHelp";
 import TutorialVideoButton from "../../components/TutorialVideoButton";
-import { buildVideoDocs } from "../../components/docs-content";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
 import LimitReachedModal from "@/app/dashboard/components/LimitReachedModal";
@@ -32,6 +33,9 @@ import QuotaWarningModal from "@/app/dashboard/components/QuotaWarningModal";
 import UpgradePlanModal from "@/app/dashboard/components/UpgradePlanModal";
 import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
 import { usePlanGate } from "../../components/PlanGate";
+import { CaptionsPanel, SubtitlesPanel, type PerVideoCtl } from "./TextOverlaySection";
+import SimpleTemplates from "./SimpleTemplates";
+import { DEFAULT_TEXT_OVERLAY, normalizeTextOverlay, type TextOverlayConfig } from "@/lib/text-overlay-config";
 
 function ProgressBar({ percent, label }: { percent: number; label?: string }) {
   const { t } = useTranslation();
@@ -99,6 +103,10 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
  * ligne ne se voit pas : quelqu'un qui découvre la page ne devine pas qu'il
  * peut cliquer, et croit la section vide.
  */
+function BetaBadge({ label }: { label: string }) {
+  return <span className="rounded-full border border-fuchsia-400/40 bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-fuchsia-500">{label}</span>;
+}
+
 function Section({
   title,
   hint,
@@ -106,6 +114,7 @@ function Section({
   open,
   onToggle,
   tourId,
+  badge,
   children,
 }: {
   title: string;
@@ -114,6 +123,8 @@ function Section({
   open: boolean;
   onToggle: () => void;
   tourId?: string;
+  /** Pastille à côté du titre (ex. « Beta »). */
+  badge?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
@@ -129,6 +140,7 @@ function Section({
       >
         <span className="flex min-w-0 items-baseline gap-2">
           <span className="text-sm font-semibold text-[var(--app-text)]">{title}</span>
+          {badge}
           {count > 0 && (
             <span className="rounded-full bg-indigo-500/15 px-1.5 py-0.5 text-[11px] font-bold text-indigo-300">{count}</span>
           )}
@@ -146,8 +158,10 @@ function Section({
         </span>
       </button>
       {/* Masqué en CSS et non démonté : un <select> démonté perdrait sa valeur,
-          et le formulaire posterait un réglage vide. */}
-      <div className={open ? "mt-4" : "hidden"}>{children}</div>
+          et le formulaire posterait un réglage vide. Ouverte, la section a son
+          propre encadré : sans lui, les sections dépliées se lisaient comme un
+          seul long bloc (retour Sten, 17/11). */}
+      <div className={open ? "mb-2 mt-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]" : "hidden"}>{children}</div>
     </div>
   );
 }
@@ -403,6 +417,58 @@ export default function VideoFormSimpleClient() {
   const [simpleWm, setSimpleWm] = useState(false); // watermark aléatoire par copie
   const [removeAi, setRemoveAi] = useState(false); // ex-module « Détection IA »
   const [optionsOuvertes, setOptionsOuvertes] = useState(false);
+  // Bloc « Textes » (beta) : replié par défaut ; les fichiers déposés
+  // alimentent son aperçu en direct.
+  const [captionsOuvertes, setCaptionsOuvertes] = useState(false);
+  const [sousTitresOuverts, setSousTitresOuverts] = useState(false);
+  const [dzFiles, setDzFiles] = useState<File[]>([]);
+  // Captions + sous-titres (beta) : un seul réglage, partagé par les deux blocs
+  // et l'aperçu (copie affichée), enregistré avec « Mes réglages ».
+  const [texts, setTexts] = useState<TextOverlayConfig>(DEFAULT_TEXT_OVERLAY);
+  const [previewCopy, setPreviewCopy] = useState(0);
+  const textsActive = (texts.caption.enabled && !!texts.caption.text.trim()) || texts.subtitles.enabled;
+
+  // Réglages VIDÉO PAR VIDÉO : une vidéo « validée » garde SES réglages de
+  // textes ; les autres prennent les réglages affichés au lancement.
+  // Clé = nom + taille + date du fichier (stable tant qu'il reste déposé).
+  const videoKey = (f: File) => `${f.name}|${f.size}|${f.lastModified}`;
+  const videos = useMemo(() => dzFiles.filter((f) => f.type.startsWith("video") || /\.(mp4|mov|m4v|webm)$/i.test(f.name)), [dzFiles]);
+  const [perVideo, setPerVideo] = useState<Record<string, TextOverlayConfig>>({});
+  const [videoIdx, setVideoIdx] = useState(0);
+  const [previewDur, setPreviewDur] = useState<number | null>(null);
+  const pv: PerVideoCtl = {
+    duration: previewDur,
+    setDuration: setPreviewDur,
+    videos,
+    index: Math.min(videoIdx, Math.max(0, videos.length - 1)),
+    setIndex: setVideoIdx,
+    validated: videos.map((f) => perVideo[videoKey(f)] ?? null),
+    validate: (kind) => {
+      const i = Math.min(videoIdx, Math.max(0, videos.length - 1));
+      const f = videos[i];
+      if (!f) return;
+      const cfg: TextOverlayConfig = kind === "noCaption" ? { ...texts, caption: { ...texts.caption, enabled: false } }
+        : kind === "noSubtitles" ? { ...texts, subtitles: { ...texts.subtitles, enabled: false } }
+        : texts;
+      const next = { ...perVideo, [videoKey(f)]: cfg };
+      setPerVideo(next);
+      // Vidéo suivante non validée (en repartant du début si besoin).
+      for (let k = 1; k <= videos.length; k++) {
+        const j = (i + k) % videos.length;
+        if (!next[videoKey(videos[j])]) { setVideoIdx(j); return; }
+      }
+    },
+    load: (i) => {
+      const cfg = videos[i] ? perVideo[videoKey(videos[i])] : null;
+      if (cfg) { setTexts(cfg); setPreviewCopy(0); }
+      setVideoIdx(i);
+    },
+    unvalidate: (i) => {
+      if (!videos[i]) return;
+      setPerVideo((m) => { const n = { ...m }; delete n[videoKey(videos[i])]; return n; });
+    },
+    sameForAll: () => setPerVideo({}),
+  };
   const [packsOuverts, setPacksOuverts] = useState(false);
 
   const [rotEnabled, setRotEnabled] = useState(false);
@@ -468,13 +534,23 @@ export default function VideoFormSimpleClient() {
       if (typeof s.dims.w === "number") setDimW(s.dims.w);
       if (typeof s.dims.h === "number") setDimH(s.dims.h);
     }
+    if (s.texts && typeof s.texts === "object") {
+      const tx = normalizeTextOverlay(s.texts);
+      setTexts(tx);
+      setPreviewCopy(0);
+      // Un bloc actif dans les réglages appliqués s'ouvre : on voit ce qui part.
+      if (tx.caption.enabled) setCaptionsOuvertes(true);
+      if (tx.subtitles.enabled) setSousTitresOuverts(true);
+    }
   }
 
   /** Les réglages actuels, intensité comprise — ce qu'on enregistre pour un créateur. */
   function snapshotVideoSimpleSettings(): VideoSimpleSettings {
     let count = 1;
+    // `typeof` d'abord : appelé aussi pendant le rendu serveur (état
+    // d'ouverture gardé pour « Reset »), où HTMLInputElement n'existe pas.
     const el = formRef.current?.elements.namedItem("count");
-    if (el instanceof HTMLInputElement) count = Math.max(1, Number(el.value) || 1);
+    if (typeof HTMLInputElement !== "undefined" && el instanceof HTMLInputElement) count = Math.max(1, Number(el.value) || 1);
     return {
       count,
       packs: packsSelected,
@@ -484,6 +560,7 @@ export default function VideoFormSimpleClient() {
       shake, motionMode, motionDynamicMode,
       rotation: { enabled: rotEnabled, min: rotMin, max: rotMax },
       dims: { enabled: dimEnabled, w: dimW, h: dimH },
+      texts,
     };
   }
 
@@ -621,7 +698,7 @@ export default function VideoFormSimpleClient() {
         setProgressMsg(t("dashboard.videosSimple.sendingToServer"));
 
         apiForm = new FormData();
-        for (const key of ["channel", "mode", "singles", "count", "packs", "country", "iphoneMeta", "simpleWatermark", "removeAiDetection"]) {
+        for (const key of ["channel", "mode", "singles", "count", "packs", "country", "iphoneMeta", "simpleWatermark", "removeAiDetection", "textOverlay", "textOverlayPerFile"]) {
           const v = rawForm.get(key);
           if (v !== null) apiForm.append(key, v);
         }
@@ -864,6 +941,11 @@ export default function VideoFormSimpleClient() {
   const shownProgress = processing ? progress : resumedJob ? resumedJob.progress : null;
   const shownMsg = processing ? progressMsg : resumedJob ? resumedJob.msg : "";
 
+  // État d'ouverture du formulaire, gardé une fois : c'est ce que
+  // « Reset » (bloc Templates) remet en place.
+  const initialSettings = useRef<VideoSimpleSettings | null>(null);
+  if (!initialSettings.current) initialSettings.current = snapshotVideoSimpleSettings();
+
   return (
     <>
     <div className="flex items-center justify-between gap-3">
@@ -872,13 +954,17 @@ export default function VideoFormSimpleClient() {
         <TrialCreditsPill />
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <TutorialVideoButton src="/tutorials/tuto-duplication-video-mode-simple-fr.mp4" poster="/tutorials/tuto-duplication-video-mode-simple-fr.jpg" title={t("dashboard.videosSimple.title")} />
-        <DocsDrawer docs={buildVideoDocs(t)} />
+        <TutorialVideoButton src="/tutorials/tuto-duplication-video-mode-simple-v2-fr.mp4" poster="/tutorials/tuto-duplication-video-mode-simple-v2-fr.jpg" title={t("dashboard.videosSimple.title")} />
+        <ModuleHelp slug="duplication-video" />
       </div>
     </div>
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       {/* Réglages du créateur actif (workspaces Pro & Agence) */}
       <WorkspacePresetBar<VideoSimpleSettings> module="videoSimple" apply={applyVideoSimpleSettings} snapshot={snapshotVideoSimpleSettings} />
+      <input type="hidden" name="textOverlay" value={textsActive ? JSON.stringify(texts) : ""} />
+      {/* Aligné sur l'ordre des fichiers envoyés : réglages propres à chaque
+          vidéo validée, null = réglages ci-dessus. */}
+      <input type="hidden" name="textOverlayPerFile" value={Object.keys(perVideo).length ? JSON.stringify(dzFiles.map((f) => perVideo[videoKey(f)] ?? null)) : ""} />
       <input type="hidden" name="channel" value="simple" />
       <input type="hidden" name="mode" value="simple" />
       <input type="hidden" name="singles" value={singlesJSON} />
@@ -892,7 +978,7 @@ export default function VideoFormSimpleClient() {
       {/* Dropzone — seul élément avec bordure */}
       <div data-tour-id="video-dropzone" className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3">
         <DriveImportButton accept="video" maxVideoSec={120} onFiles={(fs) => dzAddRef.current?.(fs)} />
-        <Dropzone name="files" accept="video/*" multiple maxFiles={40} addFilesRef={dzAddRef} />
+        <Dropzone name="files" accept="video/*" multiple maxFiles={40} addFilesRef={dzAddRef} onFilesChange={setDzFiles} />
         <div data-tour-id="video-copies" className="max-w-xs">
           <label className="block text-sm font-medium text-[var(--app-text-muted)] mb-1.5">{t("dashboard.videosSimple.copiesLabel")}</label>
           <input type="number" name="count" min={1} defaultValue={1} className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-text)]" />
@@ -1108,6 +1194,40 @@ export default function VideoFormSimpleClient() {
           </div>
         </div>
       </Section>
+
+      {/* Captions et Sous-titres (BETA) — deux blocs, chacun ses réglages et
+          son « Varier sur chaque copie », un aperçu commun. Repliés par défaut. */}
+      <Section
+        title={t("textOverlay.captionsTitle")}
+        hint={t("textOverlay.captionsHint")}
+        count={texts.caption.enabled && texts.caption.text.trim() ? 1 : 0}
+        open={captionsOuvertes}
+        onToggle={() => setCaptionsOuvertes((v) => !v)}
+        tourId="simple-captions"
+        badge={<BetaBadge label={t("textOverlay.beta")} />}
+      >
+        <CaptionsPanel value={texts} onChange={setTexts} files={dzFiles} copy={previewCopy} onCopy={setPreviewCopy} pv={pv} />
+      </Section>
+      <Section
+        title={t("textOverlay.subtitlesTitle")}
+        hint={t("textOverlay.subtitlesHint")}
+        count={texts.subtitles.enabled ? 1 : 0}
+        open={sousTitresOuverts}
+        onToggle={() => setSousTitresOuverts((v) => !v)}
+        tourId="simple-subtitles"
+        badge={<BetaBadge label={t("textOverlay.beta")} />}
+      >
+        <SubtitlesPanel value={texts} onChange={setTexts} files={dzFiles} copy={previewCopy} onCopy={setPreviewCopy} pv={pv} />
+      </Section>
+
+      {/* Templates — même design et même logique que le duplicateur Avancé :
+          le formulaire complet (packs, intensités, options, captions,
+          sous-titres) enregistré dans le compte, rechargé en un clic. */}
+      <SimpleTemplates<VideoSimpleSettings>
+        apply={applyVideoSimpleSettings}
+        snapshot={snapshotVideoSimpleSettings}
+        onReset={() => { if (initialSettings.current) applyVideoSimpleSettings(initialSettings.current); setCaptionsOuvertes(false); setSousTitresOuverts(false); }}
+      />
 
       {/* Barre d'action COLLANTE. Le formulaire fait deux à trois écrans une
           fois les packs dépliés : le bouton restait en bas, hors de vue, et il

@@ -16,6 +16,8 @@ import {
   resolveWatermarkOverlay,
   type PreparedWatermark,
 } from "@/app/dashboard/videos/watermark";
+import { textOverlaysForCopy, transcribeWords, createTextOverlayCache } from "@/app/dashboard/videos/text-overlay";
+import { parseTextOverlay } from "@/lib/text-overlay-config";
 import {
   buildOverlayFilterComplex,
   type VideoOverlay,
@@ -1334,6 +1336,11 @@ export async function processVideos(
   // edge exceeds this is downscaled to it (aspect kept, even dims); anything
   // already ≤ cap is untouched (720p stays 720p).
   const maxShortEdge = Math.max(0, Number(formData.get("maxShortEdge") || 0));
+  // Plafond de débit IMPOSÉ (kbps), plus bas que celui du fichier reçu. Sert
+  // quand l'entrée est un rendu intermédiaire (Duplication IA, mode
+  // Variations) : son débit n'a rien à voir avec celui de la vidéo d'origine,
+  // et c'est l'ORIGINALE que la copie ne doit jamais dépasser. 0 = aucun.
+  const maxBitrateKbps = Math.max(0, Number(formData.get("maxBitrateKbps") || 0));
   const uploadedFiles = (formData.getAll("files") as unknown as File[]).filter(Boolean);
   // Use pre-downloaded files when provided (bypasses Vercel body limit)
   const files: Array<File | PreDownloadedFile> = preDownloadedFiles ?? uploadedFiles;
@@ -1369,6 +1376,23 @@ export async function processVideos(
   const aiPrep: PreparedWatermark | null =
     formData.get("removeAiDetection") === "1" ? await prepareCounterWatermark(dir) : null;
 
+  // Textes (BETA, mode simple) : caption et/ou sous-titres, style éventuellement
+  // différent par copie (text-overlay.ts). Les PNG vont dans un dossier
+  // temporaire du lancement ; la transcription est faite UNE fois par vidéo.
+  const textCfg = mode === "simple" ? parseTextOverlay(formData.get("textOverlay")) : null;
+  // Réglages PAR VIDÉO (validés un à un dans le formulaire) : tableau aligné
+  // sur l'ordre d'envoi. null = la vidéo prend le réglage commun ; un objet =
+  // ses propres réglages (éventuellement sans aucun texte).
+  let textPerFile: unknown[] = [];
+  if (mode === "simple") {
+    try { const v = JSON.parse(String(formData.get("textOverlayPerFile") || "[]")); if (Array.isArray(v)) textPerFile = v.slice(0, 100); } catch { /* ignoré */ }
+  }
+  const textCfgFor = (srcIndex: number) =>
+    textPerFile[srcIndex] != null ? parseTextOverlay(textPerFile[srcIndex]) : textCfg;
+  const textDir = textCfg || textPerFile.some((x) => x != null) ? await fs.mkdtemp(path.join(os.tmpdir(), "duup_txt_")) : null;
+  const wordsBySource = new Map<string, Promise<{ startSec: number; endSec: number; text: string }[]>>();
+  const textCache = createTextOverlayCache();
+
   let totalCopies = files.length * count; // may be reduced after duration check
   let doneCopies = 0;
   const outputPaths: string[] = [];
@@ -1383,18 +1407,19 @@ export async function processVideos(
   await onProgress?.(1, "FFmpeg prêt — démarrage de l'encodage…");
 
   // ── Prepare all input temp-files (parallel for direct uploads) ─────────────
-  type FileEntry = { fileName: string; tmpIn: string; ownsTmpIn: boolean };
+  // srcIndex : position du fichier dans l'envoi (réglages de textes PAR vidéo).
+  type FileEntry = { fileName: string; tmpIn: string; ownsTmpIn: boolean; srcIndex: number };
   const fileEntries = await Promise.all(
     files.map(async (f, idx): Promise<FileEntry> => {
       const fileName = "tmpPath" in f ? f.name : (f as File).name;
       const origExt = extOf(fileName) || ".mp4";
       if ("tmpPath" in f) {
-        return { fileName, tmpIn: f.tmpPath, ownsTmpIn: false };
+        return { fileName, tmpIn: f.tmpPath, ownsTmpIn: false, srcIndex: idx };
       }
       await onProgress?.(2, `Écriture fichier ${idx + 1}/${files.length}…`);
       const tmpIn = path.join(dir, `__in__${Date.now()}_${idx}${origExt}`);
       await fs.writeFile(tmpIn, Buffer.from(await (f as File).arrayBuffer()));
-      return { fileName, tmpIn, ownsTmpIn: true };
+      return { fileName, tmpIn, ownsTmpIn: true, srcIndex: idx };
     })
   );
 
@@ -1440,7 +1465,8 @@ export async function processVideos(
     const color = parseColorInfo(probe.stderr, entry.tmpIn);
     // Source bitrate (kbps) = real file size ÷ duration. This is what we cap the
     // encode to, so a copy is never heavier than the original (0 = unknown → no cap).
-    const srcKbps = dur > 0 && sizeBytes > 0 ? Math.round((sizeBytes * 8) / dur / 1000) : 0;
+    const measuredKbps = dur > 0 && sizeBytes > 0 ? Math.round((sizeBytes * 8) / dur / 1000) : 0;
+    const srcKbps = maxBitrateKbps > 0 ? (measuredKbps > 0 ? Math.min(measuredKbps, maxBitrateKbps) : maxBitrateKbps) : measuredKbps;
     if (dur <= 0) {
       const readable = await canFFmpegReadFile(entry.tmpIn, ffmpegBin);
       if (readable === "ok") {
@@ -1492,10 +1518,10 @@ export async function processVideos(
 
   // ── Flatten all (file × copy) into one pool so every copy of every file
   // runs concurrently — total time ≈ slowest single copy, not SUM. ───────────
-  type Task = { fileName: string; tmpIn: string; fileIndex: number; copyIndex: number; color: ColorInfo; duration: number; bitrateKbps: number };
-  const allTasks: Task[] = validEntries.flatMap(({ fileName, tmpIn, color, duration, bitrateKbps }, idx) =>
+  type Task = { fileName: string; tmpIn: string; fileIndex: number; copyIndex: number; color: ColorInfo; duration: number; bitrateKbps: number; srcIndex: number };
+  const allTasks: Task[] = validEntries.flatMap(({ fileName, tmpIn, color, duration, bitrateKbps, srcIndex }, idx) =>
     Array.from({ length: count }, (_, i) => ({
-      fileName, tmpIn, fileIndex: idx + 1, copyIndex: i + 1, color, duration, bitrateKbps,
+      fileName, tmpIn, fileIndex: idx + 1, copyIndex: i + 1, color, duration, bitrateKbps, srcIndex,
     }))
   );
 
@@ -1511,7 +1537,7 @@ export async function processVideos(
   const threadsPerTask = Math.max(1, Math.min(4, Math.floor(VCPU / GLOBAL_MAX_ENCODES)));
   console.log(`[processVideos] ncpus=${ncpus} GLOBAL_MAX=${GLOBAL_MAX_ENCODES} CONCURRENCY=${CONCURRENCY} threadsPerTask=${threadsPerTask} tasks=${allTasks.length}`);
 
-  const taskErrors = await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex, color, duration: videoDuration, bitrateKbps }) => {
+  const taskErrors = await withConcurrency(allTasks, CONCURRENCY, async ({ fileName, tmpIn, fileIndex, copyIndex, color, duration: videoDuration, bitrateKbps, srcIndex }) => {
     const startPct = Math.min(99, Math.round((doneCopies / totalCopies) * 100));
     await onProgress?.(startPct, `Encodage ${doneCopies + 1}/${totalCopies}…`);
 
@@ -1572,6 +1598,20 @@ export async function processVideos(
       if (aiOverlay) overlays.push(aiOverlay);
       if (snowOverlay) overlays.push(snowOverlay);
       if (wmOverlay) overlays.push(wmOverlay);
+      // Textes tout en haut de la pile : ils doivent rester lisibles.
+      const fileTextCfg = textDir ? textCfgFor(srcIndex) : null;
+      if (fileTextCfg && textDir) {
+        let words: { startSec: number; endSec: number; text: string }[] = [];
+        if (fileTextCfg.subtitles.enabled) {
+          if (!wordsBySource.has(tmpIn)) wordsBySource.set(tmpIn, transcribeWords(tmpIn));
+          words = await wordsBySource.get(tmpIn)!;
+        }
+        overlays.push(...await textOverlaysForCopy({
+          config: fileTextCfg, copyIndex: copyIndex - 1, W: work.width, H: work.height,
+          durationSec: videoDuration, words, dir: textDir, tag: copyTag,
+          sourceKey: tmpIn, cache: textCache,
+        }));
+      }
       const packs = String(formData.get("packs") || "")
         .split(",")
         .map((s) => s.trim())
@@ -2144,6 +2184,7 @@ export async function processVideos(
   if (assetsPrep) {
     for (const f of assetsPrep.tempFiles) await fs.unlink(f).catch(() => {});
   }
+  if (textDir) await fs.rm(textDir, { recursive: true, force: true }).catch(() => {});
 
   // ── Clean up temp input files ─────────────────────────────────────────────
   for (const { tmpIn, ownsTmpIn } of fileEntries) {

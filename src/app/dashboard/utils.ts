@@ -2,6 +2,7 @@ import os from "os";
 import path from "path";
 import fs from "fs/promises";
 import { createClient } from "@/lib/supabase/server";
+import { keptAiDupCopies, HISTORY_MAX_AGE_MS } from "@/lib/ai-dup/history";
 
 // OUT_BASE must be set via env var.
 // On Vercel the filesystem is read-only except /tmp, so we default to /tmp/duupflow.
@@ -143,6 +144,8 @@ export async function cleanupOldFiles(maxAgeMs = 1 * 60 * 60 * 1000): Promise<nu
           const dir = path.join(OUT_BASE, e.name);
           let files: import("fs").Dirent[];
           try { files = await fs.readdir(dir, { withFileTypes: true }); } catch { return; }
+          // Copies de la Duplication IA : gardées 5 jours (promesse de l'historique).
+          const aiDupKeep = await keptAiDupCopies(dir);
           await Promise.all(
             files
               .filter((f) => f.isFile() && !f.name.startsWith("__in__") && !f.name.endsWith(".part"))
@@ -150,7 +153,8 @@ export async function cleanupOldFiles(maxAgeMs = 1 * 60 * 60 * 1000): Promise<nu
                 const fp = path.join(dir, f.name);
                 try {
                   const stat = await fs.stat(fp);
-                  const keepMs = f.name.startsWith("CMP_") ? Math.max(maxAgeMs, COMPRESS_OUTPUT_MIN_MS) : maxAgeMs;
+                  const keepMs = aiDupKeep.has(f.name) ? Math.max(maxAgeMs, HISTORY_MAX_AGE_MS)
+                    : f.name.startsWith("CMP_") ? Math.max(maxAgeMs, COMPRESS_OUTPUT_MIN_MS) : maxAgeMs;
                   if (now - stat.mtimeMs > keepMs) { await fs.unlink(fp); deleted++; }
                 } catch {}
               })

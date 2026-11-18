@@ -160,6 +160,12 @@ export type EditCaption = {
   padding?: number;      // px (@1080) : marge intérieure du fond (X et Y)
   paddingX?: number;     // px (@1080) : marge intérieure horizontale (prioritaire sur padding)
   paddingY?: number;     // px (@1080) : marge intérieure verticale (prioritaire sur padding)
+  minBoxWidth?: number;  // px (@1080) : largeur MINIMALE du fond (box), centrée sur le texte — ex. masquer exactement un texte d'origine
+  minBoxHeight?: number; // px (@1080) : hauteur MINIMALE du fond (box), centrée sur le texte
+  wrapWidth?: number;    // px (@1080) : largeur de ligne IMPOSÉE (au lieu de 90 % du cadre) — fixe où le texte passe à la ligne
+  noWrap?: boolean;      // true = JAMAIS de retour à la ligne automatique : seuls les retours (\n) du texte coupent les lignes, même si le texte déborde du cadre
+  fixedSize?: boolean;   // true = jamais d'auto-ajustement (réduction de taille pour tenir en 2 lignes) : taille et lignes voulues telles quelles
+  boxShape?: "block" | "lines"; // box : un seul bloc (défaut) ou un fond PAR LIGNE qui épouse chaque ligne (texte natif Instagram/TikTok)
   size?: CaptionSize;
   fontSize?: number;     // px (à W=1080), prioritaire sur size
   color?: string;

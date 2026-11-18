@@ -18,6 +18,7 @@ import BuiltinChat from "./BuiltinChat";
 import { cleanFileName } from "@/lib/ai-editor/file-name";
 import { getCurrentWorkspaceId, wsParam } from "../components/WorkspaceSwitcher";
 
+import { ModuleHelp } from "../components/ModuleHelp";
 const BRAND = "linear-gradient(135deg,#6366F1,#38BDF8)";
 
 // Rend une chaîne i18n contenant des segments **gras** en <b> (le t() ne renvoie
@@ -613,7 +614,10 @@ export default function AiEditorClient() {
           <div className="text-[12px] font-semibold uppercase tracking-[.14em] text-indigo-400">{t("dashboard.aiEditor.eyebrow")}</div>
           <div className="mt-1.5 flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-3xl font-extrabold tracking-tight text-[var(--app-text)]">{t("dashboard.aiEditor.title")}</h1>
-            <TutorialVideoButton src="/tutorials/tuto-editeur-ia-fr.mp4" poster="/tutorials/tuto-editeur-ia-fr.jpg" title={t("dashboard.aiEditor.title")} />
+            <div className="flex items-center gap-2">
+              <TutorialVideoButton src="/tutorials/tuto-editeur-ia-fr.mp4" poster="/tutorials/tuto-editeur-ia-fr.jpg" title={t("dashboard.aiEditor.title")} />
+              <ModuleHelp slug="editeur-ia" />
+            </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <span data-tour-id="aie-connect"><StepPill n={1} label={t("dashboard.aiEditor.stepConnect")} state={stepState("connect")} onClick={() => setStep("connect")} /></span>

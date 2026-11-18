@@ -6,6 +6,7 @@ import { formatTokens, formatEur, imageCostCents, imagesAffordable } from "@/lib
 import DriveImportButton from "../components/DriveImportButton";
 import { usePlanGate } from "../components/PlanGate";
 
+import { ModuleHelp } from "../components/ModuleHelp";
 type Mode = "variation" | "prompt";
 
 // ── Persistent results across reloads ──────────────────────────────────────
@@ -200,6 +201,7 @@ export default function AiLabPage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <ModuleHelp slug="variation-ia" />
           {/* Balance pill */}
           {balanceCents !== null && (
             <div

@@ -23,6 +23,10 @@ import { fetchBalanceCents, recordTransaction } from "@/lib/tokens-server";
 
 export const CHAT_MODEL = "claude-sonnet-5-5";
 export const LEDGER_REASON = "ai_editor_chat";
+/** Motifs de débit qui puisent dans le MÊME volume inclus du mois : le Claude
+ *  intégré de l'Éditeur IA et la Duplication IA en 1 clic partagent une seule
+ *  enveloppe de tokens offerts (décision Sten, 2026-11-16). */
+export const INCLUDED_REASONS = [LEDGER_REASON, "ai_dup"] as const;
 /** Solde minimum (centimes) pour lancer un message une fois le volume inclus épuisé. */
 export const MIN_BALANCE_CENTS = 10;
 
@@ -273,7 +277,7 @@ async function includedUsedThisMonth(ownerId: string): Promise<number> {
       .from("ai_token_ledger")
       .select("metadata")
       .eq("user_id", ownerId)
-      .eq("reason", LEDGER_REASON)
+      .in("reason", [...INCLUDED_REASONS])
       .gte("created_at", monthStartIso())
       .order("created_at", { ascending: true })
       .range(from, from + PAGE - 1);
@@ -283,9 +287,33 @@ async function includedUsedThisMonth(ownerId: string): Promise<number> {
   }
 }
 
-export type Allowance = { includedCents: number; includedLeftCents: number; balanceCents: number; canSend: boolean };
+export type Allowance = { includedCents: number; includedLeftCents: number; balanceCents: number; canSend: boolean; unlimited?: boolean };
+
+/* ── Tokens IA ILLIMITÉS (comptes de l'équipe) ────────────────────────────────
+ * Même principe que COMP_PRO_EMAILS : la variable d'environnement
+ * UNLIMITED_TOKEN_EMAILS (emails séparés par des virgules) donne un volume
+ * offert sans fin à ces comptes (Claude intégré + Duplication IA). Le solde
+ * payé n'est jamais touché ; la consommation reste journalisée (suivi des
+ * coûts). Pour retirer l'accès : enlever l'email de la variable. */
+const UNLIMITED_CENTS = 1_000_000_000;
+const unlimitedCache = new Map<string, { v: boolean; at: number }>();
+
+export async function hasUnlimitedTokens(ownerId: string): Promise<boolean> {
+  const list = (process.env.UNLIMITED_TOKEN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  if (!list.length || !ownerId) return false;
+  const hit = unlimitedCache.get(ownerId);
+  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.v;
+  const { data } = await createAdminClient().auth.admin.getUserById(ownerId).catch(() => ({ data: null }));
+  const v = list.includes((data?.user?.email ?? "").toLowerCase());
+  unlimitedCache.set(ownerId, { v, at: Date.now() });
+  return v;
+}
 
 export async function allowanceFor(ownerId: string, plan: string | null): Promise<Allowance> {
+  if (await hasUnlimitedTokens(ownerId)) {
+    const balance = await fetchBalanceCents(ownerId).catch(() => 0);
+    return { includedCents: UNLIMITED_CENTS, includedLeftCents: UNLIMITED_CENTS, balanceCents: balance, canSend: true, unlimited: true };
+  }
   const included = includedCentsForPlan(plan);
   const [used, balance] = await Promise.all([includedUsedThisMonth(ownerId), fetchBalanceCents(ownerId).catch(() => 0)]);
   const left = Math.max(0, included - used);
@@ -303,7 +331,13 @@ export async function allowanceFor(ownerId: string, plan: string | null): Promis
  * Si le solde ne couvre pas tout (dernier appel après épuisement), on prend ce
  * qu'il y a : l'appel est fait, c'est le suivant qui sera bloqué.
  */
-export function turnBiller(ownerId: string, plan: string | null, meta: Record<string, unknown>) {
+export function turnBiller(
+  ownerId: string, plan: string | null, meta: Record<string, unknown>,
+  /** Motif du journal (doit figurer dans INCLUDED_REASONS) et modèle facturé. */
+  opts: { reason?: (typeof INCLUDED_REASONS)[number]; model?: string } = {},
+) {
+  const reason = opts.reason ?? LEDGER_REASON;
+  const model = opts.model ?? CHAT_MODEL;
   let pendingIncluded = 0;
   let pendingUsage = emptyUsage();
   const sumUsage = (a: TurnUsage, b: TurnUsage): TurnUsage => ({ input: a.input + b.input, output: a.output + b.output, cacheRead: a.cacheRead + b.cacheRead, cacheWrite: a.cacheWrite + b.cacheWrite, usd: a.usd + b.usd });
@@ -311,12 +345,12 @@ export function turnBiller(ownerId: string, plan: string | null, meta: Record<st
   async function write(fromBalance: number) {
     if (pendingIncluded <= 0 && fromBalance <= 0) return;
     let charged = fromBalance;
-    const metadata = { ...meta, model: CHAT_MODEL, includedCents: pendingIncluded, costCents: pendingIncluded + fromBalance, usage: { ...pendingUsage, usd: Math.round(pendingUsage.usd * 10000) / 10000 } };
-    let r = await recordTransaction({ userId: ownerId, deltaCents: -charged, reason: LEDGER_REASON, metadata: { ...metadata, chargedCents: charged } });
+    const metadata = { ...meta, model, includedCents: pendingIncluded, costCents: pendingIncluded + fromBalance, usage: { ...pendingUsage, usd: Math.round(pendingUsage.usd * 10000) / 10000 } };
+    let r = await recordTransaction({ userId: ownerId, deltaCents: -charged, reason, metadata: { ...metadata, chargedCents: charged } });
     if (!r.ok && charged > 0) {
       // Solde bougé entre-temps : on retente avec ce qu'il reste vraiment.
       charged = Math.max(0, Math.min(charged, r.balanceCents));
-      r = await recordTransaction({ userId: ownerId, deltaCents: -charged, reason: LEDGER_REASON, metadata: { ...metadata, chargedCents: charged } });
+      r = await recordTransaction({ userId: ownerId, deltaCents: -charged, reason, metadata: { ...metadata, chargedCents: charged } });
     }
     if (!r.ok) console.error("[ai-editor/chat] facturation échouée :", r.error);
     pendingIncluded = 0;
@@ -327,6 +361,7 @@ export function turnBiller(ownerId: string, plan: string | null, meta: Record<st
     /** Ce qui reste, part incluse en attente déduite. */
     async allowance(): Promise<Allowance> {
       const a = await allowanceFor(ownerId, plan);
+      if (a.unlimited) return a;
       const left = Math.max(0, a.includedLeftCents - pendingIncluded);
       return { ...a, includedLeftCents: left, canSend: left > 0 || a.balanceCents >= MIN_BALANCE_CENTS };
     },

@@ -10,7 +10,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/context";
-import { ONBOARDING_MODULES } from "./modules";
+import { REPLAYABLE_COACHES } from "./modules";
 import { useOnboarding } from "./OnboardingProvider";
 import { PARCOURS } from "./parcours";
 
@@ -93,7 +93,7 @@ export default function ReplayMenu({ onClose }: { onClose: () => void }) {
 
           {/* Per-module */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {ONBOARDING_MODULES.map((m) => (
+            {REPLAYABLE_COACHES.map((m) => (
               <button
                 key={m.key}
                 onClick={() => {

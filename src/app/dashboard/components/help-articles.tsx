@@ -3,7 +3,7 @@
 // ══════════════════════════════════════════════════════════════════════════
 // ARTICLES D'AIDE — réservés au widget de chat.
 //
-// La documentation des modules (docs-content.tsx) explique COMMENT une
+// La documentation des modules (centre d'aide partagé) explique COMMENT une
 // fonctionnalité marche : elle est ouverte depuis le module concerné, à côté
 // du formulaire. Ces articles-ci répondent à autre chose — « ça n'a pas marché
 // comme prévu, pourquoi ? ». Ils n'ont pas leur place dans la doc d'un module
@@ -13,7 +13,7 @@
 // traitement particulier.
 // ══════════════════════════════════════════════════════════════════════════
 
-import type { DocModule } from "./docs-content";
+import type { DocModule } from "./help-modules";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 

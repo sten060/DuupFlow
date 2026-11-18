@@ -47,3 +47,19 @@ export function compteAvantAmelioration(createdAt: string | null | undefined): b
   const t = new Date(createdAt).getTime();
   return Number.isFinite(t) && t < new Date(AMELIORATION_DEPUIS).getTime();
 }
+
+// Mise à jour « Textes & Duplication IA » (captions, sous-titres, réglages par
+// vidéo, templates, grille des rendus, Duplication IA beta) : annoncée une fois
+// (UpdateAnnounceModal) aux comptes créés AVANT sa mise en ligne.
+// ⚠️ Recaler sur l'heure réelle du déploiement.
+/** Clé dans profiles.onboarding_progress : annonce déjà vue. */
+export const ANNONCE_MAJ_TEXTES = "announce-update-textes";
+
+export const MAJ_TEXTES_DEPUIS = "2026-11-18T06:00:00Z";
+
+/** Compte existant au moment de la mise à jour « Textes & Duplication IA » ? */
+export function compteAvantMajTextes(createdAt: string | null | undefined): boolean {
+  if (!createdAt) return false;
+  const t = new Date(createdAt).getTime();
+  return Number.isFinite(t) && t < new Date(MAJ_TEXTES_DEPUIS).getTime();
+}

@@ -1,22 +1,28 @@
 # DuupFlow
 
-> DuupFlow turns one image or video into many unique copies (identical to the eye, unique to platforms) so creators and agencies can repost content across multiple accounts. It also edits videos from raw footage with Claude (AI Editor), finds an account's best videos (Scraper), compresses files, generates image variations and can remove AI-provenance metadata. Built for creators and multi-creator agencies. Web app: https://www.duupflow.com
+> DuupFlow turns one image or video into many unique copies (identical to the eye, unique to platforms) so creators and agencies can repost content across multiple accounts without being flagged as unoriginal. It can also let AI build copies that each look different (rewritten caption, subtitles, framing), add captions and automatic subtitles to copies, edit videos from raw footage with Claude (AI Editor, via your own Claude or built-in Claude), find an account's best videos (Scraper), compare and compress files, generate image variations and remove AI-provenance metadata. Built for creators and multi-creator agencies (creator workspaces, Manager/VA roles, Google Drive, API). Web app: https://www.duupflow.com
 
 ## Help center (one page per feature)
 
 Each page explains what the feature does, how to use it step by step, its limits/formats and which plans include it. English at the root (/docs/...), French under /fr (/fr/docs/...).
 
 - [Help center index](https://www.duupflow.com/docs)
+- [Getting started](https://www.duupflow.com/docs/getting-started): which module for what, first duplication, plans (Free explores only; Solo/Pro/Agency).
 - [Video duplication](https://www.duupflow.com/docs/video-duplication): Simple (packs, Light/Balanced/Strong) and Advanced modes; MP4/MOV/MKV/AVI/WEBM, max 120 s and 5 GB per video, 40 videos per batch; quota = videos × copies.
+- [1-click AI duplication](https://www.duupflow.com/docs/ai-duplication) (beta): one video, 1–50 copies; Invisible (no visible change, no AI tokens) or Variations (rewritten caption, subtitles, framing); 1 video of quota per copy; copies kept 5 days.
+- [Captions and subtitles](https://www.duupflow.com/docs/captions-and-subtitles) (beta, Simple video mode): fixed caption placed with the mouse and a display window; auto subtitles in 4 styles (karaoke, word by word, TikTok banner, classic); vary per copy; per-video settings.
 - [Image duplication](https://www.duupflow.com/docs/image-duplication): JPG/PNG/WEBP/HEIC, 50 images per batch.
 - [AI Editor](https://www.duupflow.com/docs/ai-editor): edit from raw footage with your own Claude via an MCP connector (works on Claude's free plan); reference + material (300 MB, video 2 min, audio 4 min); each variant = 1 video of quota.
+- [Built-in Claude](https://www.duupflow.com/docs/built-in-claude): Claude inside the AI Editor, no connector; runs on AI tokens (30k/80k/200k included per month on Solo/Pro/Agency).
 - [Instagram & TikTok scraper](https://www.duupflow.com/docs/scraper): ranks an account's videos by performance; paid in tokens (refunded if the scan fails).
 - [Comparator](https://www.duupflow.com/docs/comparator): similarity score (60% image, 40% technical); below 45% = distinct files.
 - [Compressor](https://www.duupflow.com/docs/compressor): up to 30 files / 10 GB per batch, Light/Balanced/Strong, never heavier than the original.
-- [AI Variation](https://www.duupflow.com/docs/ai-variation): 1–3 new images from one photo (same face, setting, lighting); 90 tokens/image on Solo, 70 on Pro/Agency.
+- [AI Variation](https://www.duupflow.com/docs/ai-variation): 1–3 new images from one photo (same face, setting, lighting); 9,000 tokens/image on Solo, 7,000 on Pro/Agency (€1 = 10,000 tokens).
 - [Remove AI detection](https://www.duupflow.com/docs/remove-ai-detection): an option in video/image duplication and the API.
 - [Creator workspaces & team roles](https://www.duupflow.com/docs/creators-and-roles): Pro 2 workspaces / 3 members, Agency 15 / 10; roles Owner, Manager, VA (VA only sees assigned creators).
-- [Google Drive](https://www.duupflow.com/docs/google-drive): import with the picker, export to any folder or to the creator's "Creator — DuupFlow" folder.
+- [Google Drive](https://www.duupflow.com/docs/google-drive): import with the picker, export to any folder or to the creator's "<creator name> — DuupFlow" folder.
+- [Subscription, quotas and tokens](https://www.duupflow.com/docs/subscription-and-tokens): quota = copies produced; €1 = 10,000 tokens; top-ups €10/€40/€100.
+- [Troubleshooting](https://www.duupflow.com/docs/troubleshooting): skipped videos, failures, long 4K HDR renders, expired files, Drive reconnect.
 
 ## Guides and comparisons
 
@@ -31,7 +37,7 @@ English at the root, French under /fr.
 - Solo €39 · €28: 300 video and 400 image duplications per month, AI Editor.
 - Pro €99 · €70: unlimited duplications, 3 members, 2 creator workspaces, VA roles, API.
 - Agency €249 · €176: everything in Pro, 10 members, 15 creator workspaces, onboarding call.
-- Generated files are temporary (about one hour): download them or send them to Google Drive.
+- Generated files are temporary (about one hour; 5 days for AI duplication): download them or send them to Google Drive.
 
 ## API documentation
 

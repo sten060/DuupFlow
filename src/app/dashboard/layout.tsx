@@ -13,9 +13,11 @@ import ClaritySessionTags, {
 } from "./ClaritySessionTags";
 import { getServerLocale } from "@/lib/i18n/server";
 import { OnboardingProvider } from "./onboarding/OnboardingProvider";
-import { compteNouveau, compteAvantClaudeIntegre, ANNONCE_CLAUDE_INTEGRE, compteAvantAmelioration, ANNONCE_AMELIORATION } from "@/lib/launch";
+import { compteNouveau, compteAvantClaudeIntegre, ANNONCE_CLAUDE_INTEGRE, compteAvantAmelioration, compteAvantMajTextes, ANNONCE_MAJ_TEXTES, ANNONCE_AMELIORATION } from "@/lib/launch";
 import ClaudeBuiltinAnnounceModal from "./ClaudeBuiltinAnnounceModal";
 import FeatureRequestAnnounce from "./components/FeatureRequestAnnounce";
+import UpdateAnnounceModal from "./UpdateAnnounceModal";
+import UpdateTour from "./onboarding/UpdateTour";
 import AppOverview from "./onboarding/AppOverview";
 import ModuleCoach from "./onboarding/ModuleCoach";
 import GuidedPath from "./onboarding/GuidedPath";
@@ -62,6 +64,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Annonce « Claude intégré » — comptes d'avant le lancement, une seule fois.
   let annonceClaude = false;
   let annonceAmelioration = false;
+  let annonceMaj = false;
 
   // Paywall gate — a paid-plan signup that hasn't paid yet must finish Stripe
   // checkout before entering the app. Holds the plan to resume, else null.
@@ -131,6 +134,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         annonceAmelioration =
           compteAvantAmelioration((onb as { created_at?: string } | null)?.created_at) &&
           onbProgress[ANNONCE_AMELIORATION] !== true;
+        annonceMaj =
+          compteAvantMajTextes((onb as { created_at?: string } | null)?.created_at) &&
+          onbProgress[ANNONCE_MAJ_TEXTES] !== true;
         onboarding = {
           // ⚠️ Réservé aux comptes créés APRÈS la mise en service du nouveau
           // parcours. Les abonnés d'avant ont déjà découvert le produit à leur
@@ -280,14 +286,24 @@ export default async function DashboardLayout({ children }: { children: React.Re
       {/* Annonce « Claude intégré » (Éditeur IA) — une fois par compte, à la
           connexion. Jamais par-dessus un modal BLOQUANT (overdue / churn), ni
           par-dessus la carte d'accueil de l'onboarding si elle est encore due. */}
-      {annonceClaude && !cancellationPending && !overdue &&
+      {/* Annonce de la mise à jour « Textes & Duplication IA » — PRIORITAIRE sur
+          les autres annonces (elles passeront aux visites suivantes), mêmes
+          garde-fous. */}
+      {/* Parcours lancé par les boutons du pop-up (sessionStorage, rien en base). */}
+      <UpdateTour />
+      {annonceMaj && !cancellationPending && !overdue &&
+        !(onboarding?.enabled && onboarding.progress.overview !== true && onboarding.progress.grandfathered !== true) && (
+          <UpdateAnnounceModal />
+        )}
+
+      {annonceClaude && !annonceMaj && !cancellationPending && !overdue &&
         !(onboarding?.enabled && onboarding.progress.overview !== true && onboarding.progress.grandfathered !== true) && (
           <ClaudeBuiltinAnnounceModal />
         )}
 
       {/* Annonce de la case « Amélioration » — même règles, et jamais en même
           temps que celle de Claude intégré (elle passera à la visite suivante). */}
-      {annonceAmelioration && !annonceClaude && !cancellationPending && !overdue &&
+      {annonceAmelioration && !annonceClaude && !annonceMaj && !cancellationPending && !overdue &&
         !(onboarding?.enabled && onboarding.progress.overview !== true && onboarding.progress.grandfathered !== true) && (
           <FeatureRequestAnnounce />
         )}

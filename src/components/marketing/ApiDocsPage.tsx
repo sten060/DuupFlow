@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Label, CTA_GRAD, SECTION_LEAD } from "@/components/landing/shell";
 import { SECTIONS, SUMMARY, UI, type Block, type Lang } from "./apiDocsContent";
+import { HelpVisual } from "./HelpVisuals";
 
 const TELEGRAM = "https://t.me/DuupFlow_Support";
 
@@ -127,6 +128,8 @@ export function BlockView({ b, lang }: { b: Block; lang: Lang }) {
           <Rich text={b.text} />
         </div>
       );
+    case "visual":
+      return <HelpVisual id={b.id} caption={b.caption} lang={lang} />;
     case "endpoint":
       return (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[#f6f7f9] px-4 py-3 ring-1 ring-black/[0.06]">

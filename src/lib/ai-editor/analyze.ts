@@ -61,10 +61,16 @@ async function probe(videoPath: string): Promise<{ durationSec: number; width: n
   const res = videoLine.match(/,\s*(\d{2,5})x(\d{2,5})/);
   const fpsM = videoLine.match(/(\d+(?:\.\d+)?)\s*fps/);
   const hasAudio = /Stream #.*Audio:/.test(stderr);
+  // Dimensions AFFICHÉES, pas codées : un iPhone tenu verticalement enregistre
+  // du 3840×2160 + une matrice de rotation de ±90°. Sans l'échange, une vidéo
+  // verticale était annoncée 16:9 (format, zone sûre et cadrage faussés).
+  const rot = stderr.match(/rotation of (-?\d+(?:\.\d+)?) degrees/i);
+  const quarter = rot ? Math.abs(Math.round(parseFloat(rot[1]))) % 180 === 90 : false;
+  const w = res ? +res[1] : 0, h = res ? +res[2] : 0;
   return {
     durationSec,
-    width: res ? +res[1] : 0,
-    height: res ? +res[2] : 0,
+    width: quarter ? h : w,
+    height: quarter ? w : h,
     fps: fpsM ? Math.round(parseFloat(fpsM[1]) * 100) / 100 : 0,
     hasAudio,
   };

@@ -25,12 +25,8 @@ import { reserveUsage, releaseUsage, logUsageEvent } from "@/lib/usage";
 import { isUserOnFreePlan } from "@/lib/plan-gate";
 import { maxVideoHeightForPlan } from "@/lib/plans";
 
-const OUT_BASE = process.env.OUT_BASE
-  ?? (process.env.VERCEL ? path.join(os.tmpdir(), "duupflow") : path.join(process.cwd(), "public", "out"));
-
-export function creatorOutDir(storeKey: string): string {
-  return path.join(OUT_BASE, storeKey);
-}
+import { creatorOutDir } from "@/lib/creator-out-dir";
+export { creatorOutDir };
 
 const VIDEO_EXTS = [".mp4", ".mov", ".m4v", ".mkv", ".avi", ".webm"];
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif"];

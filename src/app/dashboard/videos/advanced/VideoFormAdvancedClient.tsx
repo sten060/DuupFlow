@@ -12,9 +12,8 @@ import { setJob, addCompletedFile, removeJob, subscribe, snapshot } from "../job
 import { saveActiveJob, removeActiveJob } from "../videoJobResume";
 import { pushNotification } from "../../components/notificationStore";
 import InterruptedRecovery from "../InterruptedRecovery";
-import DocsDrawer from "../../components/DocsDrawer";
+import { ModuleHelp } from "../../components/ModuleHelp";
 import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
-import { buildVideoDocs } from "../../components/docs-content";
 import { useTranslation } from "@/lib/i18n/context";
 import { probeVideoFile } from "@/lib/video/probe";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
@@ -850,7 +849,7 @@ export default function VideoFormAdvancedClient() {
         <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.videosAdvanced.title")}</h1>
         <TrialCreditsPill />
       </div>
-      <DocsDrawer docs={buildVideoDocs(t, { advanced: true })} />
+      <ModuleHelp slug="duplication-video" />
     </div>
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Réglages du créateur actif (workspaces Pro & Agence) */}

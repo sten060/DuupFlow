@@ -843,3 +843,162 @@ export async function analyzeReferenceWithGemini(videoPath: string, cutStrips: C
     return failWith(`analyse échouée : ${msg.slice(0, 160)}`);
   }
 }
+
+/* ── DUPLICATION IA : où sont les textes, les visages, quelle langue ? ───────
+   Regard DÉDIÉ au module « Duplication IA en 1 clic » (src/lib/ai-dup) : on n'a
+   besoin ni du style fin ni des points de coupe, mais de savoir OÙ on n'a PAS
+   le droit de poser du texte (visages, captions déjà incrustées) et dans quelle
+   langue écrire. Boîtes au format natif Gemini (box_2d = [ymin, xmin, ymax,
+   xmax] normalisé 0-1000) : c'est le format sur lequel il est le plus précis. */
+export type DupInspectText = {
+  kind: "caption" | "subtitles";
+  text: string;
+  box: { x: number; y: number; w: number; h: number }; // % du cadre
+  startSec: number;
+  endSec: number;
+  color: string;
+  background: string;
+  hasStroke: boolean;
+};
+export type DupInspectFace = { box: { x: number; y: number; w: number; h: number }; startSec: number; endSec: number };
+export type DupInspectGraphic = { box: { x: number; y: number; w: number; h: number }; startSec: number; endSec: number; what: string };
+export type DupInspection = { language: string; hasVoice: boolean; texts: DupInspectText[]; faces: DupInspectFace[]; graphics: DupInspectGraphic[] };
+
+const BOX_SCHEMA = { type: "ARRAY", items: { type: "INTEGER" } };
+const DUP_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    language: { type: "STRING" },
+    hasVoice: { type: "BOOLEAN" },
+    texts: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          kind: { type: "STRING", enum: ["caption", "subtitles"] },
+          text: { type: "STRING" },
+          box_2d: BOX_SCHEMA,
+          startSec: { type: "NUMBER" }, endSec: { type: "NUMBER" },
+          color: { type: "STRING" }, background: { type: "STRING" },
+          hasStroke: { type: "BOOLEAN" },
+        },
+        required: ["kind", "text", "box_2d", "startSec", "endSec"],
+      },
+    },
+    faces: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: { box_2d: BOX_SCHEMA, startSec: { type: "NUMBER" }, endSec: { type: "NUMBER" } },
+        required: ["box_2d", "startSec", "endSec"],
+      },
+    },
+    graphics: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: { box_2d: BOX_SCHEMA, startSec: { type: "NUMBER" }, endSec: { type: "NUMBER" }, what: { type: "STRING" } },
+        required: ["box_2d", "startSec", "endSec", "what"],
+      },
+    },
+  },
+  required: ["language", "hasVoice", "texts", "faces", "graphics"],
+};
+
+const DUP_PROMPT = `Tu inspectes une vidéo courte (Reel/TikTok) AVANT qu'on y ajoute du texte. Le but : savoir où il est INTERDIT d'écrire. Réponds UNIQUEMENT en JSON conforme au schéma. Boîtes au format box_2d = [ymin, xmin, ymax, xmax], normalisées de 0 à 1000 sur le cadre ENTIER.
+
+1) texts : les textes INCRUSTÉS PAR MONTAGE (ajoutés en post-production), pas le texte présent dans la scène (panneaux, vêtements, écrans filmés, emballages).
+   · kind "caption" : texte de titre / hook / commentaire, souvent fixe plusieurs secondes.
+   · kind "subtitles" : texte qui retranscrit la voix et change au rythme de la parole.
+   Pour les sous-titres, donne UNE seule entrée qui couvre toute la zone où ils apparaissent, de leur première à leur dernière apparition. Pour une caption qui bouge ou change de place, une entrée par position.
+   text = le texte lu (le premier bloc pour les sous-titres). color/background = hex ("none" si pas de fond). hasStroke = contour autour des lettres.
+   Aucun texte de montage → liste vide.
+
+2) faces : chaque visage HUMAIN visible et net (pas les visages minuscules à l'arrière-plan). Une entrée par période où le visage reste à peu près au même endroit ; la boîte englobe le visage ENTIER (front→menton) sur toute la période, mouvements compris.
+
+3) graphics : les ÉLÉMENTS GRAPHIQUES AJOUTÉS AU MONTAGE (pas des objets filmés) : logos, icônes, stickers, emojis, images incrustées, flèches, cadres, barres de progression. Une entrée par élément ou groupe d'éléments voisins, avec la période où il est visible ; what = 2-4 mots (« logo Claude », « emoji 🔥 »). Aucun → liste vide.
+
+4) language : code ISO 639-1 de la langue parlée (ou, sans voix, de la langue des textes incrustés). "" si aucune.
+5) hasVoice : true seulement si une personne PARLE (voix off ou face caméra). Musique avec paroles chantées = false.`;
+
+const box2dToPct = (b: unknown): { x: number; y: number; w: number; h: number } | null => {
+  if (!Array.isArray(b) || b.length !== 4) return null;
+  const [ymin, xmin, ymax, xmax] = b.map((v) => Math.max(0, Math.min(1000, Number(v))));
+  if (![ymin, xmin, ymax, xmax].every(Number.isFinite) || ymax <= ymin || xmax <= xmin) return null;
+  const r = (v: number) => Math.round(v * 10) / 100; // 0-1000 → % à 0,1 près
+  return { x: r(xmin), y: r(ymin), w: r(xmax - xmin), h: r(ymax - ymin) };
+};
+
+/** Inspecte une vidéo pour la duplication IA. Best-effort : null si pas de clé
+ *  ou échec (la cause est dans geminiLastError()). Passer un fichier déjà léger
+ *  (proxyForViewing) : un 4K HDR coûte du transport pour rien. */
+export async function inspectForDuplication(videoPath: string): Promise<DupInspection | null> {
+  const key = geminiKey();
+  if (!key) return failWith("pas de clé Gemini (GEMINI_API_KEY)");
+  try {
+    const up = await uploadToGemini(key, await fs.readFile(videoPath), mimeFor(videoPath));
+    if (!up) return null;
+    const body = {
+      contents: [{ role: "user", parts: [{ fileData: { mimeType: up.mime, fileUri: up.uri } }, { text: DUP_PROMPT }] }],
+      generationConfig: { responseMimeType: "application/json", responseSchema: DUP_SCHEMA, temperature: 0.1, maxOutputTokens: 8192 },
+    };
+    const model = process.env.AI_EDITOR_GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
+    let res: Record<string, unknown> | null = null;
+    let last = "";
+    // Même cascade que describeMaterial : transitoire → on réessaie le même
+    // modèle ; définitif ou réponse illisible → modèle suivant.
+    for (const m of [...new Set([model, ...(await listCandidateModels(key))])].slice(0, 6)) {
+      let r: Response | null = null;
+      for (let attempt = 0; attempt < GEN_ATTEMPTS; attempt++) {
+        try {
+          r = await gfetch(`${API}/v1beta/models/${m}:generateContent?key=${key}`, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+          }, 150_000);
+        } catch (e) {
+          last = `${m}→${(e as Error)?.name === "TimeoutError" ? "timeout" : "réseau"}`;
+          if (attempt < GEN_ATTEMPTS - 1) { await sleep(backoffMs(attempt)); continue; }
+          r = null; break;
+        }
+        if (r.ok || !isTransient(r.status)) break;
+        last = `${m}→${r.status}`;
+        if (attempt < GEN_ATTEMPTS - 1) await sleep(backoffMs(attempt));
+      }
+      if (!r) continue;
+      if (!r.ok) { last = `${m}→${r.status}`; continue; }
+      const j = await r.json().catch(() => null) as GenJson | null;
+      const raw = candidateText(j);
+      if (!raw) { last = `${m}→vide`; continue; }
+      const p = parseModelJson(raw);
+      if (!p.ok) { last = `${m}→${p.why}`; continue; }
+      res = p.value as Record<string, unknown>;
+      break;
+    }
+    if (!res) return failWith(`inspection duplication : aucun modèle exploitable (${last || "cause inconnue"})`);
+
+    const num = (v: unknown) => (Number.isFinite(Number(v)) ? Math.round(Number(v) * 100) / 100 : 0);
+    const hex = (v: unknown) => (typeof v === "string" && /^#?[0-9a-f]{6}$/i.test(v) ? (v.startsWith("#") ? v : `#${v}`) : "none");
+    const texts: DupInspectText[] = (Array.isArray(res.texts) ? res.texts : []).slice(0, 20).flatMap((t: Record<string, unknown>) => {
+      const box = box2dToPct(t.box_2d);
+      if (!box) return [];
+      return [{
+        kind: t.kind === "subtitles" ? "subtitles" as const : "caption" as const,
+        text: String(t.text ?? "").slice(0, 300),
+        box, startSec: num(t.startSec), endSec: num(t.endSec),
+        color: hex(t.color), background: hex(t.background), hasStroke: !!t.hasStroke,
+      }];
+    });
+    const faces: DupInspectFace[] = (Array.isArray(res.faces) ? res.faces : []).slice(0, 20).flatMap((f: Record<string, unknown>) => {
+      const box = box2dToPct(f.box_2d);
+      return box ? [{ box, startSec: num(f.startSec), endSec: num(f.endSec) }] : [];
+    });
+    const graphics: DupInspectGraphic[] = (Array.isArray(res.graphics) ? res.graphics : []).slice(0, 20).flatMap((g: Record<string, unknown>) => {
+      const box = box2dToPct(g.box_2d);
+      return box ? [{ box, startSec: num(g.startSec), endSec: num(g.endSec), what: String(g.what ?? "").slice(0, 60) }] : [];
+    });
+    const language = typeof res.language === "string" && /^[a-z]{2}$/i.test(res.language.trim()) ? res.language.trim().toLowerCase() : "";
+    console.log(`[ai-editor/gemini] inspection duplication : ${texts.length} texte(s), ${faces.length} visage(s), ${graphics.length} graphique(s), langue « ${language || "?"} »`);
+    return { language, hasVoice: !!res.hasVoice, texts, faces, graphics };
+  } catch (e) {
+    return failWith(`inspection duplication échouée : ${((e as Error)?.message ?? "erreur inconnue").slice(0, 140)}`);
+  }
+}

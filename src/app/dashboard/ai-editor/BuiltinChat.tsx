@@ -57,13 +57,13 @@ function speechCtor(): (new () => Recognition) | null {
   const w = window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
-type Allowance = { includedCents: number; includedLeftCents: number; balanceCents: number; canSend: boolean };
+type Allowance = { includedCents: number; includedLeftCents: number; balanceCents: number; canSend: boolean; unlimited?: boolean };
 
 /** Pastille « tokens dispo » (volume inclus + solde) — descend en direct à
  *  chaque appel à Claude : le serveur débite et renvoie le solde après chaque
  *  aller-retour, le chiffre défile jusqu'à la nouvelle valeur. */
 function TokenPill({ allowance, label }: { allowance: Allowance; label: string }) {
-  const target = allowance.includedLeftCents + allowance.balanceCents;
+  const target = allowance.unlimited ? 0 : allowance.includedLeftCents + allowance.balanceCents;
   const [shown, setShown] = useState(target);
   const [flash, setFlash] = useState(false);
   const from = useRef(target);
@@ -92,7 +92,7 @@ function TokenPill({ allowance, label }: { allowance: Allowance; label: string }
       <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
       </svg>
-      {formatTokens(Math.max(0, Math.round(shown)))}
+      {allowance.unlimited ? "∞" : formatTokens(Math.max(0, Math.round(shown)))}
     </span>
   );
 }
@@ -534,7 +534,7 @@ export default function BuiltinChat({ onActivity, visible = true }: { onActivity
               {allowance && (
                 <TokenPill
                   allowance={allowance}
-                  label={t("dashboard.aiEditor.chat.tokensTitle", { included: formatTokens(allowance.includedLeftCents), balance: formatTokens(allowance.balanceCents) })}
+                  label={allowance.unlimited ? t("dashboard.videos.aiTokensUnlimited") : t("dashboard.aiEditor.chat.tokensTitle", { included: formatTokens(allowance.includedLeftCents), balance: formatTokens(allowance.balanceCents) })}
                 />
               )}
             </span>

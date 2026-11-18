@@ -6,8 +6,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "@/lib/i18n/context";
 import { createKeyAction, deleteKeyAction } from "./actions";
-import DocsDrawer from "../components/DocsDrawer";
-import { buildApiDocs } from "../components/docs-content";
+import { ExternalDocLink } from "../components/ModuleHelp";
 import ApiParamsReference from "./ApiParamsReference";
 
 // Local type (structurally matches lib/api-keys ApiKeyRow) so this client file
@@ -95,7 +94,7 @@ export default function DevelopersClient({ isPro, initialKeys }: { isPro: boolea
             {t("dashboard.developers.subtitle")}
           </p>
         </div>
-        <DocsDrawer docs={buildApiDocs(t)} />
+        <ExternalDocLink path="/docs/api" />
       </header>
 
       <div className="h-px bg-[var(--app-border)]" />

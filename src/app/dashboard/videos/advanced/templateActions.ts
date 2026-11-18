@@ -17,7 +17,9 @@ export async function getTemplates(): Promise<Template[]> {
     .eq("user_id", user.id)
     .order("created_at", { ascending: true });
 
-  return (data ?? []) as Template[];
+  // Les templates de la duplication SIMPLE partagent la table (nom
+  // « simple::… », simple/templateActions.ts) : on ne les montre pas ici.
+  return ((data ?? []) as Template[]).filter((t) => !t.name.startsWith("simple::"));
 }
 
 /** Save (upsert) a template. */

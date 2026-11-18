@@ -102,6 +102,9 @@ export const PARCOURS: Record<CleParcours, EtapeParcours[]> = {
     // Packs (les filtres) et options, juste avant de lancer.
     { route: "/dashboard/videos/simple", target: ["video-packs"], titleKey: "onb.path.dup7t", bodyKey: "onb.path.dup7b", placement: "right" },
     { route: "/dashboard/videos/simple", target: ["video-options"], titleKey: "onb.path.dup8t", bodyKey: "onb.path.dup8b", placement: "right" },
+    // Textes (beta) : captions + sous-titres d'un coup, puis les templates.
+    { route: "/dashboard/videos/simple", target: ["simple-captions", "simple-subtitles"], titleKey: "onb.path.dup9t", bodyKey: "onb.path.dup9b", placement: "below" },
+    { route: "/dashboard/videos/simple", target: ["simple-templates"], titleKey: "onb.path.dup10t", bodyKey: "onb.path.dup10b", placement: "below" },
     { route: "/dashboard/videos/simple", target: ["video-submit"], titleKey: "onb.path.dup6t", bodyKey: "onb.path.dup6b", placement: "right", fin: true },
   ],
   ai: [

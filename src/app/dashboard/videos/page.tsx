@@ -77,7 +77,7 @@ export default function VideosHub() {
           </div>
         </Link>
 
-        {/* IA automatique — pleine largeur, fuchsia. FERMÉE tant que le flag
+        {/* Duplication IA en 1 clic — pleine largeur, fuchsia. FERMÉE tant que le flag
             NEXT_PUBLIC_AI_AUTO_BETA n'est pas posé (feature en chantier) : la
             carte s'affiche « Bientôt disponible » et n'est pas cliquable ; la
             page /dashboard/videos/ai porte le même verrou pour l'URL directe. */}
@@ -113,7 +113,7 @@ export default function VideosHub() {
         </Link>
         ) : (
         <div
-          data-tour-id="video-mode-ai"
+          data-tour-id="video-mode-ai-soon"
           aria-disabled
           className="md:col-span-2 relative flex flex-col justify-center overflow-hidden rounded-2xl p-8 sm:p-10 border border-fuchsia-500/15 cursor-default select-none"
           style={{ background: "rgba(217,70,239,0.04)" }}

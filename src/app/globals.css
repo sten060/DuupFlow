@@ -286,6 +286,23 @@
 :root[data-theme="light"] .app-shell [class*="text-purple-4"] {
   color: #a21caf !important;   /* fuchsia-700 */
 }
+/* Même problème pour les messages d'alerte / succès / erreur : ambre, vert et
+   rose clairs (100-400) sont pensés pour le fond sombre et disparaissent sur
+   blanc (vu sur la Duplication IA : « plus de tokens » illisible). */
+:root[data-theme="light"] .app-shell [class*="text-amber-1"],
+:root[data-theme="light"] .app-shell [class*="text-amber-2"],
+:root[data-theme="light"] .app-shell [class*="text-amber-3"],
+:root[data-theme="light"] .app-shell [class*="text-amber-4"] {
+  color: #92400e !important;   /* amber-800 */
+}
+:root[data-theme="light"] .app-shell [class*="text-emerald-3"],
+:root[data-theme="light"] .app-shell [class*="text-emerald-4"] {
+  color: #047857 !important;   /* emerald-700 */
+}
+:root[data-theme="light"] .app-shell [class*="text-rose-3"],
+:root[data-theme="light"] .app-shell [class*="text-rose-4"] {
+  color: #be123c !important;   /* rose-700 */
+}
 
 html, body { height:100%; }
 
@@ -1400,7 +1417,7 @@ body{
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 3px 8px rgba(20, 30, 60, 0.05), inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent);
 }
 /* Pastille texturée du dashboard : sélecteur de créateur (sidebar) et bouton
-   « Documentation » des modules (DocsDrawer). Même texture discrète que .dash-btn — dégradé haut, grain fin, ombre + reflet, enfoncement au clic. */
+   « Documentation » des modules (ModuleHelp). Même texture discrète que .dash-btn — dégradé haut, grain fin, ombre + reflet, enfoncement au clic. */
 .ws-pill {
   background-color: var(--app-surface);
   border: 1px solid color-mix(in srgb, var(--app-border) 80%, transparent);

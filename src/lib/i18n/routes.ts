@@ -63,6 +63,12 @@ const SLUG_PAIRS: SlugPair[] = [
     ["createurs-et-roles", "creators-and-roles"],
     ["duplication-video", "video-duplication"],
     ["duplication-image", "image-duplication"],
+    ["premiers-pas", "getting-started"],
+    ["duplication-ia", "ai-duplication"],
+    ["textes-video", "captions-and-subtitles"],
+    ["claude-integre", "built-in-claude"],
+    ["abonnement-et-tokens", "subscription-and-tokens"],
+    ["depannage", "troubleshooting"],
   ] as const).map(([fr, en]) => ({ fr: `/docs/${fr}`, en: `/docs/${en}`, enInternal: `/docs/${fr}` })),
 ];
 

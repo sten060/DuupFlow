@@ -89,6 +89,9 @@ export const ONBOARDING_MODULES: OnboardingModule[] = [
     icon: IconVideos,
     steps: [
       { target: ["video-mode-simple", "video-mode-advanced"], titleKey: "onb.coach.videos.s1t", bodyKey: "onb.coach.videos.s1b", placement: "below" },
+      // Carte Duplication IA : seulement quand la beta est ouverte (sinon la
+      // carte « Bientôt » n'a pas ce repère → étape sautée).
+      { target: ["video-mode-ai"], titleKey: "onb.coach.videos.s2t", bodyKey: "onb.coach.videos.s2b", placement: "below" },
     ],
   },
   {
@@ -170,7 +173,32 @@ const EXTRA_COACHES: OnboardingModule[] = [
       { target: ["video-dropzone"],              titleKey: "onb.coach.videosSimple.s1t", bodyKey: "onb.coach.videosSimple.s1b", placement: "right" },
       { target: ["video-copies"],                titleKey: "onb.coach.videosSimple.s2t", bodyKey: "onb.coach.videosSimple.s2b", placement: "right" },
       { target: ["video-packs", "video-options"], titleKey: "onb.coach.videosSimple.s3t", bodyKey: "onb.coach.videosSimple.s3b", placement: "right" },
+      // Textes (beta) : captions et sous-titres, puis les templates.
+      { target: ["simple-captions"],             titleKey: "onb.coach.videosSimple.s5t", bodyKey: "onb.coach.videosSimple.s5b", placement: "below" },
+      { target: ["simple-subtitles"],            titleKey: "onb.coach.videosSimple.s6t", bodyKey: "onb.coach.videosSimple.s6b", placement: "below" },
+      { target: ["simple-templates"],            titleKey: "onb.coach.videosSimple.s7t", bodyKey: "onb.coach.videosSimple.s7b", placement: "below" },
       { target: ["video-submit"],                titleKey: "onb.coach.videosSimple.s4t", bodyKey: "onb.coach.videosSimple.s4b", placement: "right" },
+    ],
+  },
+  {
+    // Duplication IA en 1 clic (beta). Les étapes absentes sautent : la case
+    // « Réécrire » et les indications n'existent qu'en mode Variations,
+    // l'historique qu'après un premier lancement.
+    key: "videos-ai",
+    route: "/dashboard/videos/ai",
+    i18n: "videosAi",
+    accent: "#C026D3",
+    accentBg: "rgba(192,38,211,0.10)",
+    accentBorder: "rgba(192,38,211,0.30)",
+    icon: IconGenerate,
+    steps: [
+      { target: ["aidup-demo"],        titleKey: "onb.coach.videosAi.s1t", bodyKey: "onb.coach.videosAi.s1b", placement: "below" },
+      { target: ["aidup-drop"],        titleKey: "onb.coach.videosAi.s2t", bodyKey: "onb.coach.videosAi.s2b", placement: "below" },
+      { target: ["aidup-mode"],        titleKey: "onb.coach.videosAi.s3t", bodyKey: "onb.coach.videosAi.s3b", placement: "below" },
+      { target: ["aidup-rewrite"],     titleKey: "onb.coach.videosAi.s4t", bodyKey: "onb.coach.videosAi.s4b", placement: "below" },
+      { target: ["aidup-indications"], titleKey: "onb.coach.videosAi.s5t", bodyKey: "onb.coach.videosAi.s5b", placement: "below" },
+      { target: ["aidup-submit"],      titleKey: "onb.coach.videosAi.s6t", bodyKey: "onb.coach.videosAi.s6b", placement: "right" },
+      { target: ["aidup-history"],     titleKey: "onb.coach.videosAi.s7t", bodyKey: "onb.coach.videosAi.s7b", placement: "below" },
     ],
   },
   {
@@ -196,3 +224,18 @@ const ALL_COACHES: OnboardingModule[] = [...ONBOARDING_MODULES, ...EXTRA_COACHES
 export function moduleForPath(pathname: string): OnboardingModule | null {
   return ALL_COACHES.find((m) => m.route === pathname) ?? null;
 }
+
+/** Visite d'une page, par sa clé (modules principaux et sous-pages). */
+export function coachByKey(key: string): OnboardingModule | null {
+  return ALL_COACHES.find((m) => m.key === key) ?? null;
+}
+
+/**
+ * Visites proposées dans « Revoir la visite » : les modules principaux, puis
+ * le mode Simple (captions, sous-titres, templates) et la Duplication IA —
+ * celle-ci seulement quand la beta est ouverte.
+ */
+export const REPLAYABLE_COACHES: OnboardingModule[] = [
+  ...ONBOARDING_MODULES,
+  ...EXTRA_COACHES.filter((m) => m.key === "videos-simple" || (m.key === "videos-ai" && process.env.NEXT_PUBLIC_AI_AUTO_BETA === "1")),
+];

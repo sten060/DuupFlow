@@ -9,8 +9,7 @@ import { COMPRESS_MAX_FILES, COMPRESS_MAX_TOTAL_BYTES, formatBytes } from "@/lib
 import ClearCompressedButton from "./ClearCompressedButton";
 import DriveImportButton from "../components/DriveImportButton";
 import DriveSaveButton from "../components/DriveSaveButton";
-import DocsDrawer from "../components/DocsDrawer";
-import { buildCompressDocs } from "../components/docs-content";
+import { ModuleHelp } from "../components/ModuleHelp";
 import { usePlanGate } from "../components/PlanGate";
 import { useCreatorSwitch } from "../components/WorkspaceSwitcher";
 
@@ -613,7 +612,7 @@ export default function CompressClient({ initialFiles }: { initialFiles: Compres
           <h1 className="text-3xl font-extrabold tracking-tight">{t("compress.title")}</h1>
           <p className="text-sm text-[var(--app-text-muted)] mt-1">{t("compress.subtitle")}</p>
         </div>
-        <DocsDrawer docs={buildCompressDocs(t)} />
+        <ModuleHelp slug="compresseur" />
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-6">

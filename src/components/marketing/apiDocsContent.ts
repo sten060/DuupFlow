@@ -18,7 +18,9 @@ export type Block =
   | { type: "code"; label?: string; code: string }
   | { type: "table"; head: string[]; rows: string[][] }
   | { type: "callout"; tone: "info" | "warn"; text: string }
-  | { type: "endpoint"; method: "GET" | "POST"; path: string; summary: string };
+  | { type: "endpoint"; method: "GET" | "POST"; path: string; summary: string }
+  /** Schéma illustratif (HelpVisuals.tsx) — centre d'aide seulement. */
+  | { type: "visual"; id: string; caption?: string };
 
 export type Section = { id: string; title: string; blocks: Block[] };
 

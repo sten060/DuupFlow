@@ -6,6 +6,7 @@ import { showcaseUrl, useInViewOnce, useLoopInView, useReducedMotion } from "@/c
 import { AiEditorMockup, CLAUDE_WORDMARK, DuplicationMockup } from "@/components/landing/featureMockups";
 import { AgencyBento, ModulesBento } from "@/components/landing/Bento";
 import { useInView } from "@/components/landing/useInView";
+import VariantStack from "@/components/landing/VariantStack";
 
 /* ══════════════════════════════════════════════════════════════
  * FONCTIONNALITÉS — une section par feature principale, puis les modules.
@@ -65,29 +66,29 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
     title: { fr: "Reposte la même vidéo, encore et encore.", en: "Repost the same video, again and again." },
     titleHi: { fr: "encore et encore", en: "again and again" },
     sub: {
-      fr: "Chaque copie repart comme un fichier neuf, sans que l'œil voie la différence.",
-      en: "Every copy goes back out as a brand-new file, with no visible difference.",
+      fr: "Chaque copie repart comme un fichier neuf. Et si tu veux, avec sa propre caption, ses sous-titres et son cadrage.",
+      en: "Every copy goes back out as a brand-new file. And if you want, with its own caption, subtitles and framing.",
     },
     media: {
       src: "",
       poster: "",
       alt: {
-        fr: "Capture de la duplication : un fichier importé, le nombre de copies choisi, les variantes générées une à une.",
-        en: "Duplication screen record: one file imported, a copy count set, variants generated one by one.",
+        fr: "Démo de la duplication : une vidéo importée, le nombre de copies choisi, des copies générées une à une, certaines avec leur propre caption.",
+        en: "Duplication demo: one video imported, a copy count set, copies generated one by one, some with their own caption.",
       },
     },
     lines: [
       {
-        fr: ["Une vidéo, dix publications", "Ton meilleur contenu repart sur tous tes comptes, et revient dans quelques semaines."],
-        en: ["One video, ten posts", "Your best content goes out on every account, then comes back a few weeks later."],
+        fr: ["Une vidéo, dix publications", "Ton meilleur contenu repart sur tous tes comptes : chaque copie a sa propre identité d'appareil, son empreinte et ses métadonnées."],
+        en: ["One video, ten posts", "Your best content goes out on every account: each copy has its own device identity, fingerprint and metadata."],
       },
       {
-        fr: ["Retouche imperceptible", "Luminosité, teinte, cadrage : les écarts restent sous le seuil de l'œil. Ton montage ne bouge pas."],
-        en: ["Imperceptible retouch", "Brightness, hue, framing: the shifts stay below the eye's threshold. Your edit doesn't move."],
+        fr: ["Qualité d'origine", "Les retouches restent sous le seuil de l'œil. Une 4K reste une 4K, jamais plus lourde que le fichier de départ."],
+        en: ["Original quality", "Retouches stay below the eye's threshold. 4K stays 4K, never heavier than the file you started from."],
       },
       {
-        fr: ["Qualité d'origine", "Une 1080p reste une 1080p, une 4K reste une 4K — et jamais plus lourd que le fichier de départ."],
-        en: ["Original quality", "1080p stays 1080p, 4K stays 4K — and never heavier than the file you started from."],
+        fr: ["Et maintenant, des variantes visibles", "Captions, sous-titres viraux, ou la Duplication IA qui réécrit le texte : chaque copie peut aussi ressembler à un autre post."],
+        en: ["And now, visible variants", "Captions, viral subtitles, or AI duplication that rewrites the text: each copy can also look like a different post."],
       },
     ],
   },
@@ -273,10 +274,11 @@ export default function FeatureSections() {
 
   return (
     <div id="features">
-      {/* Duplication → Éditeur IA → modules → agences */}
+      {/* Duplication → Éditeur IA → ce que DuupFlow fait (onglets) → modules → agences */}
       {FEATURE_SECTIONS.map((s, i) => (
         <Section key={s.key} section={s} locale={locale} reduced={reduced} index={i} />
       ))}
+      <VariantStack />
       <ModulesBento locale={locale} />
       <AgencyBento locale={locale} />
     </div>

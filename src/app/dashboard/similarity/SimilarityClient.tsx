@@ -13,8 +13,7 @@ import {
 } from "./technicalScore";
 import { useTranslation } from "@/lib/i18n/context";
 import DriveImportButton from "../components/DriveImportButton";
-import DocsDrawer from "../components/DocsDrawer";
-import { buildComparatorDocs } from "../components/docs-content";
+import { ModuleHelp } from "../components/ModuleHelp";
 import { usePlanGate } from "../components/PlanGate";
 
 type ProbeResult = Record<string, any> | null;
@@ -210,7 +209,7 @@ export default function SimilarityClient() {
           <h1 className="text-3xl font-extrabold tracking-tight">{t("dashboard.similarity.title")}</h1>
           <p className="text-sm text-[var(--app-text-muted)]">{t("dashboard.similarity.subtitle")}</p>
         </div>
-        <DocsDrawer docs={buildComparatorDocs(t)} />
+        <ModuleHelp slug="comparateur" />
       </div>
       <div className="h-px bg-[var(--app-surface-2)]" />
       {/* File inputs */}
