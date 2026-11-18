@@ -55,7 +55,7 @@ export function compteAvantAmelioration(createdAt: string | null | undefined): b
 /** Clé dans profiles.onboarding_progress : annonce déjà vue. */
 export const ANNONCE_MAJ_TEXTES = "announce-update-textes";
 
-export const MAJ_TEXTES_DEPUIS = "2026-11-18T06:00:00Z";
+export const MAJ_TEXTES_DEPUIS = "2026-11-18T12:47:00Z";
 
 /** Compte existant au moment de la mise à jour « Textes & Duplication IA » ? */
 export function compteAvantMajTextes(createdAt: string | null | undefined): boolean {
