@@ -237,10 +237,16 @@ const STATS = [
 /* Compteur qui s'anime de 0 à la valeur quand il entre à l'écran (easeOutExpo). */
 function AnimatedStat({ value, suffix = "", decimals = 0, label, locale = "fr" }: { value: number; suffix?: string; decimals?: number; label: string; locale?: "fr" | "en" }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [display, setDisplay] = useState(0);
+  // Valeur RÉELLE au premier rendu (serveur) : le HTML lu sans JavaScript
+  // (Google, IA) affiche « 500+ », pas « 0+ ». Côté navigateur, si le compteur
+  // n'est pas encore à l'écran, on le remet à 0 pour jouer l'animation.
+  const [display, setDisplay] = useState(value);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top < window.innerHeight && r.bottom > 0) return; // déjà visible : on garde la valeur
+    setDisplay(0);
     let raf = 0, started = false;
     const io = new IntersectionObserver(([entry]) => {
       if (!entry.isIntersecting || started) return;

@@ -13,9 +13,12 @@ import { useState } from "react";
 export default function YouTubeLazy({
   videoId,
   title,
+  alt = "",
 }: {
   videoId: string;
   title: string;
+  /** Texte alternatif de la miniature (SEO / accessibilité). */
+  alt?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -42,7 +45,7 @@ export default function YouTubeLazy({
         >
           <img
             src={`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`}
-            alt=""
+            alt={alt}
             loading="lazy"
             onError={(e) => {
               // Not every video has a maxres thumbnail → fall back to hqdefault.

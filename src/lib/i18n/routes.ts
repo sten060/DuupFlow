@@ -24,6 +24,7 @@ export const PUBLIC_TOP_LEVEL = new Set([
   "capcut-alternative",
   "submagic-alternative",
   "metaghost-alternative",
+  "reeep-alternative",
   "docs",
   "legal",
   "login",
@@ -73,7 +74,7 @@ const SLUG_PAIRS: SlugPair[] = [
 ];
 
 /** Pages qui n'existent qu'en anglais (la version /fr redirige vers l'anglais). */
-export const EN_ONLY = new Set(["/submagic-alternative"]);
+export const EN_ONLY = new Set<string>([]);
 
 function findPair(path: string): SlugPair | undefined {
   return SLUG_PAIRS.find((p) => p.fr === path || p.en === path || p.enInternal === path);

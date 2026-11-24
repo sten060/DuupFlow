@@ -4,9 +4,10 @@
 
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import TikTokArticle, { CANONICAL, META, PUBLISHED_AT } from "../_components/TikTokArticle";
+import TikTokArticle, { CANONICAL, META, PUBLISHED_AT, UPDATED_AT } from "../_components/TikTokArticle";
 
-const OG_IMG = "https://www.duupflow.com/SEO-page/tiktok-ineligibility-notice.png";
+// Image d'aperçu en français (la capture de la notice TikTok est en anglais).
+const OG_IMG = "https://www.duupflow.com/og-image-fr.jpg";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -23,6 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "article",
       locale: "fr_FR",
       publishedTime: PUBLISHED_AT,
+      modifiedTime: UPDATED_AT,
       images: [OG_IMG],
     },
     twitter: {

@@ -107,14 +107,14 @@ const ARTICLES: Article[] = [
     slug: "tiktok-ineligible-recommandations",
     slugEn: "tiktok-ineligible-for-recommendation",
     locale: "fr",
-    title: "Pourquoi ton TikTok est « inéligible aux recommandations » — et comment vraiment régler le problème",
-    titleEn: "Why your TikTok is “ineligible for recommendation” — and how to actually fix it",
+    title: "TikTok « inéligible aux recommandations » : ce que ça veut dire et comment régler le problème",
+    titleEn: "TikTok “Ineligible for Recommendation”: What It Means and How to Fix It",
     excerpt:
-      "Tes vues TikTok ont chuté et tu es flag pour « contenu non original, de mauvaise qualité ou QR » ? Ce que ça veut vraiment dire, pourquoi faire appel ne suffit pas, et ce qui remet ton contenu dans le feed.",
+      "Ce que veut dire « inéligible aux recommandations » sur TikTok, les 3 raisons, combien de temps ça dure, et la solution étape par étape, y compris pour reposter sans te refaire flag.",
     excerptEn:
-      "Your TikTok views collapsed and you were flagged for “unoriginal, low-quality, or QR content”? What it really means, why appealing isn't enough, and what puts your content back in the feed.",
+      "What “ineligible for recommendation” means on TikTok, the 3 reasons it happens, how long it lasts, and a step-by-step fix, including how to repost without getting flagged again.",
     publishedAt: "2026-06-21",
-    readingMinutes: 8,
+    readingMinutes: 7,
   },
   {
     slug: "instagram-contenus-non-originaux",

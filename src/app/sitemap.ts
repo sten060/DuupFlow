@@ -6,7 +6,7 @@ const LOCALES = ["fr", "en"] as const;
 // (/fonctionnalites, /tarifs, etc.) via 301s — those are kept out of the
 // sitemap so crawlers only see the canonical addresses (English at the root,
 // French under /fr — see src/lib/i18n/routes.ts).
-const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly" | "yearly"; priority: number }> = [
+const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly" | "yearly"; priority: number; lastModified?: string }> = [
   { path: "",               changeFrequency: "weekly",  priority: 1.0 }, // home
   { path: "/pricing",       changeFrequency: "monthly", priority: 0.8 },
   { path: "/partners",      changeFrequency: "monthly", priority: 0.5 },
@@ -16,6 +16,8 @@ const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthl
   { path: "/blog",          changeFrequency: "weekly",  priority: 0.7 },
   { path: "/capcut-alternative", changeFrequency: "monthly", priority: 0.8 },
   { path: "/metaghost-alternative", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/reeep-alternative", changeFrequency: "monthly", priority: 0.8, lastModified: "2026-11-24" },
+  { path: "/submagic-alternative", changeFrequency: "monthly", priority: 0.8, lastModified: "2026-11-24" },
   { path: "/docs/api",      changeFrequency: "monthly", priority: 0.6 },
   { path: "/docs",          changeFrequency: "monthly", priority: 0.7 },
   { path: "/docs/duplication-video", changeFrequency: "monthly", priority: 0.6 },
@@ -41,10 +43,9 @@ const LOCALIZED_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthl
 ];
 
 // EN-only top-level pages (no FR version, no hreflang). The /fr route 301s to
-// the root English URL, so only that one is listed here.
-const EN_ONLY_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly" | "yearly"; priority: number }> = [
-  { path: "/submagic-alternative", changeFrequency: "monthly", priority: 0.8 },
-];
+// the root English URL, so only that one is listed here. (Vide : Submagic a
+// maintenant sa version française.)
+const EN_ONLY_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly" | "yearly"; priority: number }> = [];
 
 // FR-only articles. EN URL serves a stub linking to FR, so we only list FR
 // in the sitemap to keep the canonical signal clean.
@@ -82,7 +83,7 @@ const BILINGUAL_ARTICLES: Array<{ frSlug: string; enSlug: string; lastModified: 
   {
     frSlug: "tiktok-ineligible-recommandations",
     enSlug: "tiktok-ineligible-for-recommendation",
-    lastModified: "2026-06-21",
+    lastModified: "2026-11-24",
   },
   {
     frSlug: "instagram-contenus-non-originaux",
@@ -102,9 +103,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // Adresses publiques uniquement : anglais à la racine, français sous /fr,
   // slugs traduits via routes.ts. Aucune adresse /en/… (redirigées en 301).
   const localizedEntries: MetadataRoute.Sitemap = LOCALES.flatMap((locale) =>
-    LOCALIZED_PATHS.map(({ path, changeFrequency, priority }) => ({
+    LOCALIZED_PATHS.map(({ path, changeFrequency, priority, lastModified }) => ({
       url: absoluteUrl(locale, path || "/"),
-      lastModified: now,
+      lastModified: lastModified ? new Date(lastModified) : now,
       changeFrequency,
       priority,
     })),

@@ -7,6 +7,7 @@ import { AiEditorMockup, CLAUDE_WORDMARK, DuplicationMockup } from "@/components
 import { AgencyBento, ModulesBento } from "@/components/landing/Bento";
 import { useInView } from "@/components/landing/useInView";
 import VariantStack from "@/components/landing/VariantStack";
+import VariationsSection from "@/components/landing/VariationsSection";
 
 /* ══════════════════════════════════════════════════════════════
  * FONCTIONNALITÉS — une section par feature principale, puis les modules.
@@ -275,8 +276,12 @@ export default function FeatureSections() {
   return (
     <div id="features">
       {/* Duplication → Éditeur IA → ce que DuupFlow fait (onglets) → modules → agences */}
+      {/* « Duplicate, then vary » s'insère juste après la section Duplication. */}
       {FEATURE_SECTIONS.map((s, i) => (
-        <Section key={s.key} section={s} locale={locale} reduced={reduced} index={i} />
+        <div key={s.key}>
+          <Section section={s} locale={locale} reduced={reduced} index={i} />
+          {s.key === "duplication" && <VariationsSection locale={locale} />}
+        </div>
       ))}
       <VariantStack />
       <ModulesBento locale={locale} />

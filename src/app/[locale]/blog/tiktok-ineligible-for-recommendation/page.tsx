@@ -4,7 +4,7 @@
 
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import TikTokArticle, { CANONICAL, META, PUBLISHED_AT } from "../_components/TikTokArticle";
+import TikTokArticle, { CANONICAL, META, PUBLISHED_AT, UPDATED_AT } from "../_components/TikTokArticle";
 
 const OG_IMG = "https://www.duupflow.com/SEO-page/tiktok-ineligibility-notice.png";
 
@@ -23,6 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "article",
       locale: "en_US",
       publishedTime: PUBLISHED_AT,
+      modifiedTime: UPDATED_AT,
       images: [OG_IMG],
     },
     twitter: {

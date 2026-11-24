@@ -253,7 +253,7 @@ const C: Record<Lang, Copy> = {
       links: [
         { href: "/blog/agence-onlyfans-reels-instagram-plusieurs-comptes", text: "Comment les agences OFM font grandir leurs reels" },
         { href: "/capcut-alternative", text: "Alternative à CapCut" },
-        { href: "/submagic-alternative", text: "Alternative à Submagic (en anglais)" },
+        { href: "/submagic-alternative", text: "Alternative à Submagic" },
         { href: "/pricing", text: "Tarifs" },
       ],
     },
