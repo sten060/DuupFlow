@@ -33,6 +33,7 @@ import QuotaWarningModal from "@/app/dashboard/components/QuotaWarningModal";
 import UpgradePlanModal from "@/app/dashboard/components/UpgradePlanModal";
 import TrialCreditsPill from "@/app/dashboard/components/TrialCreditsPill";
 import { usePlanGate } from "../../components/PlanGate";
+import { hasProFeatures } from "@/lib/plans";
 import { CaptionsPanel, SubtitlesPanel, type PerVideoCtl } from "./TextOverlaySection";
 import SimpleTemplates from "./SimpleTemplates";
 import { DEFAULT_TEXT_OVERLAY, normalizeTextOverlay, type TextOverlayConfig } from "@/lib/text-overlay-config";
@@ -105,6 +106,31 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
  */
 function BetaBadge({ label }: { label: string }) {
   return <span className="rounded-full border border-fuchsia-400/40 bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-fuchsia-500">{label}</span>;
+}
+
+function ProBadge({ label }: { label: string }) {
+  return <span className="rounded-full border border-indigo-400/40 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-500">{label}</span>;
+}
+
+/** Captions & sous-titres réservés aux plans Pro et Agence : à la place du panneau. */
+function TextsProLock({ onPlans }: { onPlans: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col items-start gap-3 rounded-2xl border border-indigo-400/25 bg-indigo-500/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-500">
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 1 1 8 0v4" /></svg>
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-[var(--app-text)]">{t("textOverlay.proLockTitle")}</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-[var(--app-text-muted)]">{t("textOverlay.proLockBody")}</p>
+        </div>
+      </div>
+      <button type="button" onClick={onPlans} className="shrink-0 rounded-xl px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110" style={{ background: "linear-gradient(180deg,#6366F1,#4F46E5)" }}>
+        {t("textOverlay.proLockCta")}
+      </button>
+    </div>
+  );
 }
 
 function Section({
@@ -426,7 +452,10 @@ export default function VideoFormSimpleClient() {
   // et l'aperçu (copie affichée), enregistré avec « Mes réglages ».
   const [texts, setTexts] = useState<TextOverlayConfig>(DEFAULT_TEXT_OVERLAY);
   const [previewCopy, setPreviewCopy] = useState(0);
-  const textsActive = (texts.caption.enabled && !!texts.caption.text.trim()) || texts.subtitles.enabled;
+  // Captions & sous-titres : plans Pro et Agence seulement (le serveur revérifie).
+  const { guard: planGuard, plan: gatePlan, openPlans } = usePlanGate();
+  const canTexts = hasProFeatures(gatePlan);
+  const textsActive = canTexts && ((texts.caption.enabled && !!texts.caption.text.trim()) || texts.subtitles.enabled);
 
   // Réglages VIDÉO PAR VIDÉO : une vidéo « validée » garde SES réglages de
   // textes ; les autres prennent les réglages affichés au lancement.
@@ -570,7 +599,6 @@ export default function VideoFormSimpleClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { guard: planGuard } = usePlanGate();
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     // Plan gratuit : fenêtre « ce module nécessite un plan » (src/lib/free-plan.ts).
@@ -964,7 +992,7 @@ export default function VideoFormSimpleClient() {
       <input type="hidden" name="textOverlay" value={textsActive ? JSON.stringify(texts) : ""} />
       {/* Aligné sur l'ordre des fichiers envoyés : réglages propres à chaque
           vidéo validée, null = réglages ci-dessus. */}
-      <input type="hidden" name="textOverlayPerFile" value={Object.keys(perVideo).length ? JSON.stringify(dzFiles.map((f) => perVideo[videoKey(f)] ?? null)) : ""} />
+      <input type="hidden" name="textOverlayPerFile" value={canTexts && Object.keys(perVideo).length ? JSON.stringify(dzFiles.map((f) => perVideo[videoKey(f)] ?? null)) : ""} />
       <input type="hidden" name="channel" value="simple" />
       <input type="hidden" name="mode" value="simple" />
       <input type="hidden" name="singles" value={singlesJSON} />
@@ -1200,24 +1228,28 @@ export default function VideoFormSimpleClient() {
       <Section
         title={t("textOverlay.captionsTitle")}
         hint={t("textOverlay.captionsHint")}
-        count={texts.caption.enabled && texts.caption.text.trim() ? 1 : 0}
+        count={canTexts && texts.caption.enabled && texts.caption.text.trim() ? 1 : 0}
         open={captionsOuvertes}
         onToggle={() => setCaptionsOuvertes((v) => !v)}
         tourId="simple-captions"
-        badge={<BetaBadge label={t("textOverlay.beta")} />}
+        badge={<span className="inline-flex gap-1.5">{!canTexts && <ProBadge label={t("textOverlay.proBadge")} />}<BetaBadge label={t("textOverlay.beta")} /></span>}
       >
-        <CaptionsPanel value={texts} onChange={setTexts} files={dzFiles} copy={previewCopy} onCopy={setPreviewCopy} pv={pv} />
+        {canTexts
+          ? <CaptionsPanel value={texts} onChange={setTexts} files={dzFiles} copy={previewCopy} onCopy={setPreviewCopy} pv={pv} />
+          : <TextsProLock onPlans={openPlans} />}
       </Section>
       <Section
         title={t("textOverlay.subtitlesTitle")}
         hint={t("textOverlay.subtitlesHint")}
-        count={texts.subtitles.enabled ? 1 : 0}
+        count={canTexts && texts.subtitles.enabled ? 1 : 0}
         open={sousTitresOuverts}
         onToggle={() => setSousTitresOuverts((v) => !v)}
         tourId="simple-subtitles"
-        badge={<BetaBadge label={t("textOverlay.beta")} />}
+        badge={<span className="inline-flex gap-1.5">{!canTexts && <ProBadge label={t("textOverlay.proBadge")} />}<BetaBadge label={t("textOverlay.beta")} /></span>}
       >
-        <SubtitlesPanel value={texts} onChange={setTexts} files={dzFiles} copy={previewCopy} onCopy={setPreviewCopy} pv={pv} />
+        {canTexts
+          ? <SubtitlesPanel value={texts} onChange={setTexts} files={dzFiles} copy={previewCopy} onCopy={setPreviewCopy} pv={pv} />
+          : <TextsProLock onPlans={openPlans} />}
       </Section>
 
       {/* Templates — même design et même logique que le duplicateur Avancé :

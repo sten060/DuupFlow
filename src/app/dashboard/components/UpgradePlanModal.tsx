@@ -193,6 +193,7 @@ export default function UpgradePlanModal({
         t("tarifs.proFeature1"),
         t("tarifs.proFeature2"),
         t("tarifs.proFeature3"),
+        t("tarifs.featTexts"),
         t("tarifs.tokensPro"),
         t("tarifs.proFeature6"),
         t("tarifs.featWorkspacesPro"),

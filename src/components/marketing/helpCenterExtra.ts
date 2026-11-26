@@ -229,13 +229,14 @@ export const EXTRA_DOCS: HelpDoc[] = [
     related: ["duplication-video", "duplication-ia"],
     title: { fr: "Captions et sous-titres", en: "Captions and subtitles" },
     summary: {
-      fr: "Ajoute une caption et/ou des sous-titres sur tes copies, place-les à la souris, et fais-les varier d'une copie à l'autre.",
-      en: "Add a caption and/or subtitles to your copies, place them with the mouse, and make them vary from one copy to the next.",
+      fr: "Ajoute une caption et/ou des sous-titres sur tes copies, place-les à la souris, et fais-les varier d'une copie à l'autre. Plans Pro et Agence.",
+      en: "Add a caption and/or subtitles to your copies, place them with the mouse, and make them vary from one copy to the next. Pro and Agency plans.",
     },
     sections: {
       fr: [
         { id: "ou", title: "Où les trouver", blocks: [
           { type: "p", text: "Dans **Duplication → Vidéos → Simple**, sous les options : deux blocs, **Captions** (un texte fixe que tu écris) et **Sous-titres** (ce qui est dit dans la vidéo, écrit automatiquement). Tu peux utiliser l'un, l'autre ou les deux. L'aperçu à droite montre le résultat sur ta vidéo." },
+          { type: "callout", tone: "info", text: "Les captions et sous-titres sont disponibles avec les plans **Pro** et **Agence**. Sur les autres plans, les deux blocs restent visibles mais verrouillés." },
         ] },
         { id: "caption", title: "La caption", blocks: [
           { type: "steps", items: [
@@ -275,6 +276,7 @@ export const EXTRA_DOCS: HelpDoc[] = [
       en: [
         { id: "ou", title: "Where to find them", blocks: [
           { type: "p", text: "In **Duplication → Videos → Simple**, below the options: two blocks, **Captions** (a fixed text you write) and **Subtitles** (what's said in the video, written automatically). Use one, the other or both. The preview on the right shows the result on your video." },
+          { type: "callout", tone: "info", text: "Captions and subtitles are available on the **Pro** and **Agency** plans. On other plans, both blocks stay visible but locked." },
         ] },
         { id: "caption", title: "The caption", blocks: [
           { type: "steps", items: [

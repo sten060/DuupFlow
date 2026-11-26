@@ -8,7 +8,7 @@ import { processVideos, VideoInputError } from "@/app/dashboard/videos/processVi
 import { getOutDirForCurrentUser, cleanupOldFiles } from "@/app/dashboard/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkUsage, reserveUsage, releaseUsage, logUsageEvent } from "@/lib/usage";
-import { maxVideoHeightForPlan } from "@/lib/plans";
+import { hasProFeatures, maxVideoHeightForPlan } from "@/lib/plans";
 import { jobRegistry, type JobEntry } from "./jobRegistry";
 
 const INPUT_BUCKET = "video-uploads";
@@ -119,6 +119,12 @@ export async function POST(req: Request) {
   if (usageCheck.userId) {
     const locked = await requirePaidPlan(usageCheck.userId, "video_duplication");
     if (locked) return locked;
+  }
+  // Captions & sous-titres (mode Simple) : réservés aux plans Pro et Agence.
+  // L'interface les verrouille déjà ; ici on refuse AVANT de réserver le quota
+  // une demande qui les contiendrait quand même (ancien onglet, requête forgée).
+  if (usageCheck.userId && !hasProFeatures(usageCheck.plan) && demandeTextes(formData)) {
+    return NextResponse.json({ error: t("errors.video.textsProOnly"), code: "VID-TEXT-PRO" }, { status: 403 });
   }
   if (!usageCheck.allowed || !usageCheck.userId) {
     return NextResponse.json(
@@ -407,4 +413,13 @@ export async function POST(req: Request) {
   });
 
   return new Response(stream, { headers: SSE_HEADERS });
+}
+
+/** La demande contient-elle des captions / sous-titres (commun ou par vidéo) ? */
+function demandeTextes(formData: FormData): boolean {
+  if (String(formData.get("textOverlay") || "").trim()) return true;
+  try {
+    const v = JSON.parse(String(formData.get("textOverlayPerFile") || "[]"));
+    return Array.isArray(v) && v.some((x) => x != null);
+  } catch { return false; }
 }

@@ -271,7 +271,8 @@
     "proIncludesSolo": "Everything in Solo",
     "tokensSolo": "30,000 free AI tokens / month (AI Editor + AI Duplication)",
     "tokensPro": "80,000 free AI tokens / month (AI Editor + AI Duplication)",
-    "tokensAgency": "200,000 free AI tokens / month (AI Editor + AI Duplication)"
+    "tokensAgency": "200,000 free AI tokens / month (AI Editor + AI Duplication)",
+    "featTexts": "Captions and subtitles on your copies"
   },
   "login": {
     "title": "Welcome Back",
@@ -2042,7 +2043,7 @@
       "f1t": "1-click AI duplication",
       "f1d": "The AI watches your video and builds up to 50 copies that all look different: rewritten caption, subtitles, framing.",
       "f2t": "Captions and subtitles",
-      "f2d": "In Simple mode: place your text with the mouse, pick a karaoke or word-by-word style, and make it vary on every copy.",
+      "f2d": "In Simple mode: place your text with the mouse, pick a karaoke or word-by-word style, and make it vary on every copy. Pro and Agency plans.",
       "f3t": "Per-video settings and templates",
       "f3d": "Each video keeps its own texts. Save your whole setup and reapply it in one click, on all your devices.",
       "f4t": "Grid of renders and built-in help",
@@ -3023,7 +3024,8 @@
       "vid004": "An error occurred during processing. Please contact support.",
       "vid005": "Error while saving the file.",
       "vid003": "Error while loading the source file.",
-      "unexpected": "An unexpected error occurred."
+      "unexpected": "An unexpected error occurred.",
+      "textsProOnly": "Captions and subtitles are available on the Pro and Agency plans."
     },
     "image": {
       "invalidForm": "Invalid form",
@@ -3372,6 +3374,10 @@
     "dragHint": "Move the caption and subtitles with your mouse in the preview (they snap to the center). Pull the corner dot to resize the caption.",
     "sizeReset": "Reset to default size",
     "resizeTitle": "Drag to resize",
-    "moveTitle": "Drag to move the caption"
+    "moveTitle": "Drag to move the caption",
+    "proLockTitle": "Available on the Pro and Agency plans",
+    "proLockBody": "Captions and subtitles are part of the Pro and Agency plans. Upgrade to add them to your copies.",
+    "proLockCta": "See plans",
+    "proBadge": "Pro"
   }
 }

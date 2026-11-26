@@ -271,7 +271,8 @@
     "proIncludesSolo": "Tout le plan Solo",
     "tokensSolo": "30 000 tokens IA offerts / mois (Éditeur IA + Duplication IA)",
     "tokensPro": "80 000 tokens IA offerts / mois (Éditeur IA + Duplication IA)",
-    "tokensAgency": "200 000 tokens IA offerts / mois (Éditeur IA + Duplication IA)"
+    "tokensAgency": "200 000 tokens IA offerts / mois (Éditeur IA + Duplication IA)",
+    "featTexts": "Captions et sous-titres sur tes copies"
   },
   "login": {
     "title": "Bon retour",
@@ -2051,7 +2052,7 @@
       "f1t": "Duplication IA en 1 clic",
       "f1d": "L'IA regarde ta vidéo et fabrique jusqu'à 50 copies toutes différentes : caption réécrite, sous-titres, cadrage.",
       "f2t": "Captions et sous-titres",
-      "f2d": "En mode Simple : place ton texte à la souris, choisis un style karaoké ou mot par mot, et fais-le varier sur chaque copie.",
+      "f2d": "En mode Simple : place ton texte à la souris, choisis un style karaoké ou mot par mot, et fais-le varier sur chaque copie. Plans Pro et Agence.",
       "f3t": "Réglages par vidéo et templates",
       "f3d": "Chaque vidéo garde ses propres textes. Enregistre tout ton réglage et réapplique-le en un clic, sur tous tes appareils.",
       "f4t": "Rendus en grille et aide intégrée",
@@ -3023,7 +3024,8 @@
       "vid004": "Une erreur est survenue pendant le traitement. Contactez le support.",
       "vid005": "Erreur lors de la sauvegarde du fichier.",
       "vid003": "Erreur lors du chargement du fichier source.",
-      "unexpected": "Une erreur inattendue est survenue."
+      "unexpected": "Une erreur inattendue est survenue.",
+      "textsProOnly": "Les captions et sous-titres sont disponibles avec les plans Pro et Agence."
     },
     "image": {
       "invalidForm": "Formulaire invalide",
@@ -3372,6 +3374,10 @@
     "dragHint": "Déplace la caption et les sous-titres à la souris dans l'aperçu (ils s'aimantent au centre). Tire la pastille du coin pour agrandir la caption.",
     "sizeReset": "Remettre la taille par défaut",
     "resizeTitle": "Tirer pour agrandir ou réduire",
-    "moveTitle": "Glisser pour déplacer la caption"
+    "moveTitle": "Glisser pour déplacer la caption",
+    "proLockTitle": "Disponible avec les plans Pro et Agence",
+    "proLockBody": "Les captions et sous-titres font partie des plans Pro et Agence. Passe au plan supérieur pour les ajouter à tes copies.",
+    "proLockCta": "Voir les plans",
+    "proBadge": "Pro"
   }
 }
